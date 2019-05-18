@@ -46,18 +46,18 @@ class TradeFund():
 
         holdSum = self.sqldb.select(gl_all_info_table, fields = [column_cost_hold, column_portion_hold], conds = "%s = '%s'" % (column_code, self.fund_code))[0]
         if holdSum[0]:
-            self.cost_hold = Decimal(holdSum[0])
+            self.cost_hold = Decimal(str(holdSum[0]))
         else:
-            self.cost_hold = Decimal(0)
+            self.cost_hold = Decimal("0")
         if holdSum[1]:
             self.portion_hold = Decimal(holdSum[1]).quantize(Decimal('0.0000'))
             #print("portion_hold", self.portion_hold)
         else:
-            self.portion_hold = Decimal(0)
+            self.portion_hold = Decimal("0")
 
         if not self.sqldb.isExistTableColumn(gl_all_info_table, column_averagae_price):
             self.sqldb.addColumn(gl_all_info_table, column_averagae_price, "double(16,4) DEFAULT NULL")
-            if self.portion_hold > Decimal(0):
+            if self.portion_hold > Decimal("0"):
                 self.sqldb.update(gl_all_info_table, {column_averagae_price : str(self.cost_hold/self.portion_hold)}, {column_code : self.fund_code})
 
     def getToady(self):
@@ -81,7 +81,7 @@ class TradeFund():
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.buy_table, attrs, constraint)
 
-        portion = Decimal(cost) / Decimal(net_value[0][0])
+        portion = Decimal(cost) / Decimal(str(net_value[0][0]))
         self.sqldb.insert(self.buy_table, {column_date:buyDate, column_cost:str(cost), column_portion : str(portion)})
 
         self.cost_hold += Decimal(cost)
@@ -90,7 +90,7 @@ class TradeFund():
         self.sqldb.update(gl_all_info_table, {column_cost_hold : str(self.cost_hold), column_portion_hold : str(self.portion_hold), column_averagae_price:str(self.cost_hold/self.portion_hold)}, {column_code: self.fund_code})
 
     def sell(self, portion, date = ""):
-        if portion <= Decimal(0):
+        if portion <= Decimal("0"):
             return
 
         sellDate = date
@@ -117,33 +117,33 @@ class TradeFund():
         price = self.cost_hold / self.portion_hold
         cost_sold = Decimal(portion) * price
         remain_cost = self.cost_hold - cost_sold
-        money = Decimal(portion) * Decimal(net_value[0][0])
+        money = Decimal(portion) * Decimal(str(net_value[0][0]))
         earned = money - cost_sold
         #print(
         #    "sold:", money.quantize(Decimal('0.0000')),
         #    "earned:", earned.quantize(Decimal('0.0000')))
         self.updateSellData(portion, money, cost_sold, earned, sellDate, remain_cost, remain_portion)
 
-    def updateSellData(self, portion, money, cost = Decimal(0), earned = Decimal(0), sellDay = "", remain_cost = Decimal(0), remain_portion = Decimal(0)):
-        if portion <= Decimal(0):
+    def updateSellData(self, portion, money, cost = Decimal("0"), earned = Decimal("0"), sellDay = "", remain_cost = Decimal("0"), remain_portion = Decimal("0")):
+        if portion <= Decimal("0"):
             return
 
-        if money <= Decimal(0):
+        if money <= Decimal("0"):
             self.sell(portion, sellDay)
             return
 
         if sellDay == "":
             sellDay = self.getToady()
-        if cost <= Decimal(0):
+        if cost <= Decimal("0"):
             cost = portion * self.cost_hold / self.portion_hold
-        if earned <= Decimal(0):
+        if earned <= Decimal("0"):
             earned = money - cost
         return_percent = earned / cost
         self.sqldb.insert(self.sell_table, {column_date:sellDay, column_portion : str(portion), column_money_sold:str(money),column_cost_sold:str(cost), column_earned : str(earned),column_return_percentage : str(return_percent)})
 
-        if remain_cost <= Decimal(0):
+        if remain_cost <= Decimal("0"):
             remain_cost = self.cost_hold - cost
-        if remain_portion <= Decimal(0):
+        if remain_portion <= Decimal("0"):
             remain_portion = self.portion_hold - portion
 
         self.cost_hold = remain_cost
@@ -158,13 +158,13 @@ class TradeFund():
         fdate = max(fdate, self.getToady())
         #print(bdate, fdate)
         sum_re = self.sqldb.select(self.buy_table, "sum(%s)" % column_portion, ["%s >= '%s'" % (column_date, bdate), "%s < '%s'" % (column_date, fdate)])
-        portion_remain = Decimal(0)
+        portion_remain = Decimal("0")
         if sum_re and sum_re[0][0]:
-            portion_remain = Decimal(sum_re[0][0]).quantize(Decimal("0.0000"))
+            portion_remain = Decimal(str(sum_re[0][0])).quantize(Decimal("0.0000"))
         #print(sum_re[0][0], portion_remain)
 
         if portion_remain >= self.portion_hold :
-            return Decimal(0)
+            return Decimal("0")
         else :
             return self.portion_hold - portion_remain
 
