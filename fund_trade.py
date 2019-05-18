@@ -37,7 +37,7 @@ class TradeFund():
             self.sell_table = fund_db_tables[2]
 
         if not self.sqldb.isExistTableColumn(gl_all_info_table, column_cost_hold):
-            self.sqldb.addColumn(gl_all_info_table, column_cost_hold, "double(12,2) DEFAULT NULL")
+            self.sqldb.addColumn(gl_all_info_table, column_cost_hold, "double(16,2) DEFAULT NULL")
             self.sqldb.update(gl_all_info_table, {column_cost_hold : "0"}, {column_code : self.fund_code})
 
         if not self.sqldb.isExistTableColumn(gl_all_info_table, column_portion_hold):
@@ -77,11 +77,12 @@ class TradeFund():
             return
 
         if not self.sqldb.isExistTable(self.buy_table) :
-            attrs = {column_date:'varchar(20) DEFAULT NULL',column_cost:'double(8,4) DEFAULT NULL',column_portion:'double(8,4) DEFAULT NULL'}
+            attrs = {column_date:'varchar(20) DEFAULT NULL',column_cost:'double(16,4) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.buy_table, attrs, constraint)
 
         portion = Decimal(cost) / Decimal(str(net_value[0][0]))
+        #print(cost, buyDate, cost, portion)
         self.sqldb.insert(self.buy_table, {column_date:buyDate, column_cost:str(cost), column_portion : str(portion)})
 
         self.cost_hold += Decimal(cost)
@@ -170,9 +171,9 @@ class TradeFund():
 
     def reset_trade_data(self):
         if self.sqldb.isExistTable(self.buy_table):
-            self.sqldb.deleteTable(self.buy_table)
+            self.sqldb.dropTable(self.buy_table)
         if self.sqldb.isExistTable(self.sell_table):
-            self.sqldb.deleteTable(self.sell_table)
+            self.sqldb.dropTable(self.sell_table)
         self.sqldb.update(gl_all_info_table, {column_cost_hold : str(0), column_portion_hold : str(0), column_averagae_price:str(0)}, {column_code : self.fund_code})
 
     def print_summery(self):

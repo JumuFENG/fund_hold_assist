@@ -107,7 +107,7 @@ class FundHistoryDataDownloader():
 
     def addFundData(self):
         if not self.sqldb.isExistTable(self.fund_db_table):
-            attrs = {column_date:'varchar(20) DEFAULT NULL',column_net_value:'double(8,4) DEFAULT NULL','growth_rate':'double(8,4) DEFAULT NULL'}
+            attrs = {column_date:'varchar(20) DEFAULT NULL',column_net_value:'double(16,4) DEFAULT NULL','growth_rate':'double(8,4) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.fund_db_table, attrs, constraint)
         keys = [column_date, column_net_value, column_growth_rate]
