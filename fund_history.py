@@ -116,3 +116,8 @@ class FundHistoryDataDownloader():
         self.sqldb.insertMany(self.fund_db_table, keys, self.allRecords)
         for x in self.allRecords[-5:] : print(x)
         self.allRecords = []
+
+    def reload_all_history(self):
+        if self.sqldb.isExistTable(self.fund_db_table):
+            self.sqldb.dropTable(self.fund_db_table)
+        self.fundHistoryTillToday()
