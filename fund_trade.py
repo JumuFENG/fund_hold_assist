@@ -149,7 +149,10 @@ class TradeFund():
 
         self.cost_hold = remain_cost
         self.portion_hold = remain_portion
-        self.sqldb.update(gl_all_info_table, {column_cost_hold : str(self.cost_hold), column_portion_hold : str(self.portion_hold)}, {column_code: self.fund_code})
+        price = Decimal("0")
+        if self.portion_hold != Decimal("0"):
+            price = self.cost_hold / self.portion_hold
+        self.sqldb.update(gl_all_info_table, {column_cost_hold : str(self.cost_hold), column_portion_hold : str(self.portion_hold), column_averagae_price : str(price.quantize(Decimal("0.000000")))}, {column_code: self.fund_code})
 
     def portions_available_to_sell(self, reDays, finalDate=""):
         fdate = finalDate
@@ -187,5 +190,9 @@ class TradeFund():
         else:
             print("no sell data")
 
+        sell_data = self.sqldb.select(self.sell_table, ["%s" % column_cost_sold, "%s" % column_date], order = " ORDER BY %s DESC" % column_cost_sold)
+        if sell_data:
+            print(sell_data)
+
         summery = self.sqldb.select(gl_all_info_table, [column_cost_hold, column_portion_hold, column_averagae_price], "%s = '%s'" % (column_code, self.fund_code))
-        print(summery)
+        print("remain:  ",summery)

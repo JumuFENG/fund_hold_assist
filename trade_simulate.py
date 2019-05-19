@@ -37,7 +37,7 @@ if __name__ == "__main__":
     #fh = FundHistoryDataDownloader("000217", dbname = testdb, dbpws = db_pwd)
     #fh.reload_all_history()
     sim = SimulatorHost("000217", dbname = testdb)
-    sDate = "2019-04-01"
+    sDate = "2018-10-18"
     eDate = "2019-05-16"
     sim.sim(sDate, eDate, simulator_base()) 
     sim.sim(sDate, eDate, simulator_decrease())

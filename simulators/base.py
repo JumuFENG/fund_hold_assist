@@ -8,9 +8,10 @@ class simulator_base(object):
     """
     the basic simulator
     """
-    def __init__ (self, least_return = Decimal("0.01")):
+    def __init__ (self, expect_return = Decimal("0.01")):
         self.cost_prepared = 1000
-        self.least_return = least_return
+        self.expect_return = expect_return
+        self.least_return = Decimal("0.0015")
 
     def setup(self, sim_host, trade):
         self.sim_host = sim_host
@@ -22,8 +23,12 @@ class simulator_base(object):
         self.buy()
         for x in range(sIdx + 1, eIdx):
             self.curDate = self.sim_host.allDays[x]
-            if self.should_sell():
+            if self.should_sell(self.expect_return):
                 self.sell()
+                continue
+
+            if self.hold_too_long():
+                self.sell(30)
                 continue
             
             self.cost_prepared += 1000
@@ -55,11 +60,17 @@ class simulator_base(object):
         self.trade.buy(self.cost_prepared, self.curDate)
         self.cost_prepared = 0
 
-    def should_sell(self):
+    def should_sell(self, return_rate):
         netval = self.get_current_netval()
         aver = self.get_average_price()
-        return self.is_start_decreasing() and (netval - aver) / aver >= self.least_return
+        if aver == Decimal("0"):
+            return False
+        return self.is_start_decreasing() and (netval - aver) / aver >= return_rate
 
-    def sell(self):
-        portion_to_sell = self.trade.portions_available_to_sell(7, self.curDate)
+    def hold_too_long(self):
+        portions_before_30_days = self.trade.portions_available_to_sell(30, self.curDate)
+        return portions_before_30_days > Decimal("0") and self.should_sell(self.least_return)
+
+    def sell(self, reDays = 7):
+        portion_to_sell = self.trade.portions_available_to_sell(reDays, self.curDate)
         self.trade.sell(portion_to_sell, self.curDate)
