@@ -9,7 +9,7 @@ from commons import *
 from decimal import *
 from simulators import *
 
-class TradeSimulate():
+class SimulatorHost():
     """
     to simulate trading.
     """
@@ -26,7 +26,8 @@ class TradeSimulate():
 
         sIdx = self.allDays.index(sDate)
         eIdx = self.allDays.index(eDate)
-        simulator.simulate(self, trade, sIdx, eIdx)
+        simulator.setup(self, trade)
+        simulator.simulate(sIdx, eIdx)
 
         trade.print_summery()
         trade.reset_trade_data()
@@ -35,9 +36,9 @@ if __name__ == "__main__":
     testdb = "testdb"
     #fh = FundHistoryDataDownloader("000217", dbname = testdb, dbpws = db_pwd)
     #fh.reload_all_history()
-    sim = TradeSimulate("000217", dbname = testdb)
-    sDate = "2018-01-16"
-    eDate = "2018-08-13"
-    #sim.sim(sDate, eDate, simulator_base()) 
-    #sim.sim(sDate, eDate, simulator_decrease())
+    sim = SimulatorHost("000217", dbname = testdb)
+    sDate = "2019-04-01"
+    eDate = "2019-05-16"
+    sim.sim(sDate, eDate, simulator_base()) 
+    sim.sim(sDate, eDate, simulator_decrease())
     sim.sim(sDate, eDate, simulator_anti_lose())

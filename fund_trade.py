@@ -177,5 +177,15 @@ class TradeFund():
         self.sqldb.update(gl_all_info_table, {column_cost_hold : str(0), column_portion_hold : str(0), column_averagae_price:str(0)}, {column_code : self.fund_code})
 
     def print_summery(self):
+        sell_data = self.sqldb.select(self.sell_table, ["sum(%s)" % column_money_sold, "sum(%s)" % column_cost_sold])
+        if sell_data:
+            money = Decimal(str(sell_data[0][0]))
+            cost = Decimal(str(sell_data[0][1]))
+            earned = money - cost
+            return_percent = (earned / cost).quantize(Decimal("0.0000"))
+            print("sold:", money, "cost:", cost, "earned:", earned, "return_rate:", return_percent)
+        else:
+            print("no sell data")
+
         summery = self.sqldb.select(gl_all_info_table, [column_cost_hold, column_portion_hold, column_averagae_price], "%s = '%s'" % (column_code, self.fund_code))
         print(summery)
