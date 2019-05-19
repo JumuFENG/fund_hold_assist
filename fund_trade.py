@@ -18,23 +18,24 @@ class TradeFund():
             tableColNames.append(column_buy_table)
         else:
             self.sqldb.addColumn(gl_all_info_table, column_buy_table, "varchar(20) DEFAULT NULL")
-            self.buy_table = self.fund_code + "_buy"
-            self.sqldb.update(gl_all_info_table, {column_buy_table : self.buy_table}, {column_code : self.fund_code})
+            self.initBuytable()
 
         if self.sqldb.isExistTableColumn(gl_all_info_table, column_sell_table):
             tableColNames.append(column_sell_table)
         else:
             self.sqldb.addColumn(gl_all_info_table, column_sell_table, "varchar(20) DEFAULT NULL")
-            self.sell_table = self.fund_code + "_sell"
-            self.sqldb.update(gl_all_info_table, {column_sell_table : self.sell_table}, {column_code : self.fund_code})
-        
+            self.initSelltable()
 
         fund_db_tables = self.sqldb.select(gl_all_info_table, fields = tableColNames, conds = "%s = '%s'" % (column_code, self.fund_code))[0]
         self.fund_history_table = fund_db_tables[0]
         if len(fund_db_tables) > 1:
             self.buy_table = fund_db_tables[1]
+            if not self.buy_table:
+                self.initBuytable()
         if len(fund_db_tables) > 2:
             self.sell_table = fund_db_tables[2]
+            if not self.sell_table:
+                self.initSelltable()
 
         if not self.sqldb.isExistTableColumn(gl_all_info_table, column_cost_hold):
             self.sqldb.addColumn(gl_all_info_table, column_cost_hold, "double(16,2) DEFAULT NULL")
@@ -62,7 +63,15 @@ class TradeFund():
 
     def getToady(self):
         return datetime.now().strftime("%Y-%m-%d")
-        
+
+    def initBuytable(self):
+        self.buy_table = self.fund_code + "_buy"
+        self.sqldb.update(gl_all_info_table, {column_buy_table : self.buy_table}, {column_code : self.fund_code})
+
+    def initSelltable(self):
+        self.sell_table = self.fund_code + "_sell"
+        self.sqldb.update(gl_all_info_table, {column_sell_table : self.sell_table}, {column_code : self.fund_code})
+
     def buy(self, cost, date = ""):
         if cost <= 0:
             return
