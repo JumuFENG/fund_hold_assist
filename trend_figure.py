@@ -52,7 +52,11 @@ class FundDataDrawer():
         self.dbname = dbname
         self.pwd = pwd
         self.sqldb = SqlHelper(password = self.pwd, database = self.dbname)
-    
+        self.info_text = ""
+        self.info_posx = ""
+        self.info_posy = 0
+        self.moving_on_figure = False
+
     def getHistoryData(self, fund_code, sDate = ""):
         his_db_table = self.sqldb.select(gl_all_info_table, column_table_history, "%s='%s'" % (column_code, fund_code))
         if not his_db_table:
@@ -65,11 +69,13 @@ class FundDataDrawer():
         dataRead = self.sqldb.select(his_db_table, [column_date, column_net_value], "%s >= '%s'" % (column_date, sDate))
         self.dates = [d[0] for d in dataRead]
         self.values = [Decimal(str(d[1] * 270)).quantize(Decimal('0.0000')) for d in dataRead]
+        self.info_text = ""
 
     def draw_graph(self, x, y):
         plt.gca().get_figure().suptitle(self.fund_code)
-        xlocator = mpl.ticker.MultipleLocator(20)
+        xlocator = mpl.ticker.MultipleLocator(10)
         plt.gca().xaxis.set_major_locator(xlocator)
+        plt.gca().text(self.info_posx, self.info_posy, self.info_text)
 
         plt.xlabel(column_date)
         plt.ylabel(column_net_value)
@@ -88,7 +94,7 @@ class FundDataDrawer():
         #fig.autofmt_xdate(rotation = -45)
 
         self.draw_graph(self.dates[0:150], self.values[0:150])
-        ani = animation.FuncAnimation(plt.gca().get_figure(), self.update, self.gen_data, interval=300)
+        ani = animation.FuncAnimation(plt.gca().get_figure(), self.update, self.gen_data, interval=300, repeat=False)
         plt.show()
 
     def gen_data(self):
@@ -116,7 +122,57 @@ class FundDataDrawer():
             self.draw_graph(x, y)
         return self.line,
 
+    def gen_data_onclick(self):
+        if not self.moving_on_figure:
+            yield None,None
+            return
+        yield self.dates, self.values
+
+    def update_onclick(self, data):
+        x,y = data
+        if x and y:
+            plt.gca().clear()
+            self.draw_graph(x, y)
+            self.moving_on_figure = False
+        return self.line,
+
+    def on_motion(self, event):
+        if not event.xdata:
+            self.info_text = ""
+            return
+        xIdx = int(round(event.xdata))
+        if xIdx < 0 or xIdx >= len(self.dates):
+            self.info_text = ""
+            return
+
+        self.info_text = "%s\n%s" % (self.dates[xIdx], str(self.values[xIdx]))
+        self.info_posy = self.values[xIdx]
+        if len(self.dates) > xIdx + 1:
+            xIdx += 1
+        self.info_posx = self.dates[xIdx]
+        self.moving_on_figure = True
+
+    def enter_figure(self, event):
+        self.cidmotion = plt.gca().get_figure().canvas.mpl_connect('motion_notify_event', self.on_motion)
+
+    def leave_figure(self, event):
+        self.info_text = ""
+        plt.gca().get_figure().canvas.mpl_disconnect(self.cidmotion)
+
+    def show_recents(self, fund_code, sDate):
+        self.fund_code = fund_code
+        self.getHistoryData(fund_code, sDate)
+        self.draw_graph(self.dates, self.values)
+        plt.gca().get_figure().canvas.mpl_connect('figure_enter_event', self.enter_figure)
+        plt.gca().get_figure().canvas.mpl_connect('figure_leave_event', self.leave_figure)
+        #plt.gca().get_figure().canvas.mpl_connect('axes_enter_event', self.enter_figure)
+        #plt.gca().get_figure().canvas.mpl_connect('axes_leave_event', self.leave_figure)
+        ani = animation.FuncAnimation(plt.gca().get_figure(), self.update_onclick, self.gen_data_onclick, interval=100)
+        plt.show()
+
+
 if __name__ == "__main__":
     testdb = "testdb"
     drawer = FundDataDrawer(testdb)
-    drawer.show_history_graph("000217", "2016-03-01")
+    #drawer.show_history_graph("000217", "2016-03-01")
+    drawer.show_recents("000217", "2019-04-15")
