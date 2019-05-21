@@ -12,29 +12,23 @@ class FundHistoryDataDownloader():
     """
     get all the history data a fund, or update the data.
     """
-    def __init__(self, fund_code, dbname, dbpws):
+    def __init__(self, fund_code, sqldb):
         self.fund_code = fund_code
+        self.sqldb = sqldb
         self.base_url = f10DataApiUrl
-        self.dbpws = dbpws
-        self.dbname = dbname
         self.fund_name = ""
         self.fund_db_table = ""
 
-        self.connectToSql()
         self.getBasicInfo()
-
-    def connectToSql(self):
-        self.sqldb = SqlHelper(password = self.dbpws, database = self.dbname)
         
     def getBasicInfo(self):
-        #self.sqldb.dropTable(gl_all_info_table)
         if self.sqldb.isExistTable(gl_all_info_table):
             basicInfo = self.sqldb.select(gl_all_info_table, fields=[column_name, column_table_history], conds = "%s = '%s'" % (column_code, self.fund_code))
             if basicInfo :
                 if basicInfo[0]:
                     self.fund_name = basicInfo[0][0]
                     self.fund_db_table = basicInfo[0][1]
-                    print("basic info of", self.fund_name, "exists, no need to save")
+                    #print("basic info of", self.fund_name, "exists, no need to save")
                     return
         self.fund_name = "name_" + self.fund_code
         self.fund_db_table = "f_his_" + self.fund_code

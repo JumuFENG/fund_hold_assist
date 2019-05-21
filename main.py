@@ -21,7 +21,7 @@ class DailyUpdater():
             self.download_all_fund_history(c)
 
     def download_all_fund_history(self, fundcodes):
-        fh = FundHistoryDataDownloader(fundcodes, dbname = self.dbname, dbpws = db_pwd)
+        fh = FundHistoryDataDownloader(fundcodes, self.sqldb)
         fh.fundHistoryTillToday()
 
 if __name__ == '__main__':

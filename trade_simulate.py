@@ -3,7 +3,6 @@
 
 from _pwd import db_pwd
 from datetime import datetime, timedelta
-from fund_history import FundHistoryDataDownloader
 from fund_trade import TradeFund
 from commons import *
 from decimal import *
@@ -34,8 +33,6 @@ class SimulatorHost():
 
 if __name__ == "__main__":
     testdb = "testdb"
-    #fh = FundHistoryDataDownloader("000217", dbname = testdb, dbpws = db_pwd)
-    #fh.reload_all_history()
     sim = SimulatorHost("000217", dbname = testdb)
     sDate = "2018-10-18"
     eDate = "2019-05-16"
