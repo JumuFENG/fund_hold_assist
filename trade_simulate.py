@@ -33,9 +33,11 @@ class SimulatorHost():
 
 if __name__ == "__main__":
     testdb = "testdb"
-    sim = SimulatorHost("000217", dbname = testdb)
-    sDate = "2018-10-18"
-    eDate = "2019-05-16"
-    sim.sim(sDate, eDate, simulator_base()) 
-    sim.sim(sDate, eDate, simulator_decrease())
-    sim.sim(sDate, eDate, simulator_anti_lose())
+    #sim = SimulatorHost("000217", dbname = testdb)
+    #sDate = "2018-10-18"
+    #eDate = "2019-05-16"
+    #sim.sim(sDate, eDate, simulator_base()) 
+    #sim.sim(sDate, eDate, simulator_decrease())
+    #sim.sim(sDate, eDate, simulator_anti_lose())
+    trade = TradeFund("000217", testdb, db_pwd)
+    trade.sell_by_day(["2018-10-23","2018-10-24","2018-10-25"], "2019-05-15")

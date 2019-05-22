@@ -102,24 +102,43 @@ class TradeFund():
         self.portion_hold += portion.quantize(Decimal('0.0000'))
         self.sqldb.update(gl_all_info_table, {column_cost_hold : str(self.cost_hold), column_portion_hold : str(self.portion_hold), column_averagae_price:str(self.cost_hold/self.portion_hold)}, {column_code: self.fund_code})
 
-    def sell(self, portion, date = ""):
+    def sell_by_day(self, buy_dates, date = ""):
+        if date == "":
+            date = self.getToady()
+
+        tosell = ()
+        for d in buy_dates:
+            detail = self.sqldb.select(self.buy_table, [column_date, column_cost, column_portion], "%s = '%s'" % (column_date, d))
+            if detail:
+                tosell += detail
+        self.sell(tosell, date)
+
+    def sell(self, details_tosell, date = ""):
+        if date == "":
+            date = self.getToady()
+
+        net_value = self.sqldb.select(self.fund_history_table, fields = [column_net_value], conds = "%s = '%s'" % (column_date, date))
+        if not net_value:
+            print("date wrong, net_value is null in:", date)
+            return
+
+        cost_sold = Decimal(0)
+        portion = Decimal(0)
+        dates_for_sell = []
+        for (d,c,p) in details_tosell:
+            cost_sold += Decimal(str(c))
+            portion += Decimal(str(p))
+            dates_for_sell.append(d)
+
         if portion <= Decimal("0"):
             return
 
-        sellDate = date
-        if date == "":
-            sellDate = self.getToady()
-
-        net_value = self.sqldb.select(self.fund_history_table, fields = [column_net_value], conds = "%s = '%s'" % (column_date, sellDate))
-        if not net_value:
-            print("date wrong, net_value is null in:", sellDate)
-            return
-
-        #print(portion)
-        #portion = portion.quantize(Decimal("0"), ROUND_DOWN)
         if self.portion_hold < portion :
             print("no enough portion to sell. total:", self.portion_hold, portion)
             return
+
+        for d in dates_for_sell:
+            self.sqldb.update(self.buy_table, {column_soldout:str(1)}, {column_date:d})
 
         if not self.sqldb.isExistTable(self.sell_table) :
             attrs = {column_date:'varchar(20) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL', column_money_sold:'double(16,4) DEFAULT NULL', column_cost_sold:'double(16,4) DEFAULT NULL', column_earned:'double(16,4) DEFAULT NULL', column_return_percentage:'double(8,6) DEFAULT NULL'}
@@ -127,15 +146,10 @@ class TradeFund():
             self.sqldb.creatTable(self.sell_table, attrs, constraint)
 
         remain_portion = self.portion_hold - portion
-        price = self.cost_hold / self.portion_hold
-        cost_sold = Decimal(portion) * price
         remain_cost = self.cost_hold - cost_sold
         money = Decimal(portion) * Decimal(str(net_value[0][0]))
         earned = money - cost_sold
-        #print(
-        #    "sold:", money.quantize(Decimal('0.0000')),
-        #    "earned:", earned.quantize(Decimal('0.0000')))
-        self.updateSellData(portion, money, cost_sold, earned, sellDate, remain_cost, remain_portion)
+        self.updateSellData(portion, money, cost_sold, earned, date, remain_cost, remain_portion)
 
     def updateSellData(self, portion, money, cost = Decimal("0"), earned = Decimal("0"), sellDay = "", remain_cost = Decimal("0"), remain_portion = Decimal("0")):
         if portion <= Decimal("0"):
