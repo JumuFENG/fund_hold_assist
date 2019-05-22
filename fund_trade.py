@@ -86,13 +86,16 @@ class TradeFund():
             return
 
         if not self.sqldb.isExistTable(self.buy_table) :
-            attrs = {column_date:'varchar(20) DEFAULT NULL',column_cost:'double(16,4) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL'}
+            attrs = {column_date:'varchar(20) DEFAULT NULL',column_cost:'double(16,4) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL',column_soldout:'tinyint(1) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.buy_table, attrs, constraint)
 
+        if not self.sqldb.isExistTableColumn(self.buy_table, column_soldout):
+            self.sqldb.addColumn(self.buy_table, column_soldout, 'tinyint(1) DEFAULT 0')
+
         portion = Decimal(cost) / Decimal(str(net_value[0][0]))
         #print(cost, buyDate, cost, portion)
-        self.sqldb.insert(self.buy_table, {column_date:buyDate, column_cost:str(cost), column_portion : str(portion)})
+        self.sqldb.insert(self.buy_table, {column_date:buyDate, column_cost:str(cost), column_portion : str(portion), column_soldout:str(0)})
 
         self.cost_hold += Decimal(cost)
         #print("self.portion_hold", self.portion_hold)
