@@ -58,14 +58,19 @@ class FundDataDrawer():
         self.moving_on_figure = False
 
     def getHistoryData(self, fund_code, sDate = ""):
-        his_db_table = self.sqldb.select(gl_all_info_table, column_table_history, "%s='%s'" % (column_code, fund_code))
+        his_db_table = self.sqldb.select(gl_all_info_table, [column_table_history, column_averagae_price], "%s='%s'" % (column_code, fund_code))
         if not his_db_table:
             print("can not find history db table")
             return
+        average = his_db_table[0][1]
         his_db_table = his_db_table[0][0]
+        self.average = 0
+        if average:
+            self.average = 270 * Decimal(str(average))
         if not his_db_table:
             print("history db table name is None")
             return
+
         dataRead = self.sqldb.select(his_db_table, [column_date, column_net_value], "%s >= '%s'" % (column_date, sDate))
         self.dates = [d[0] for d in dataRead]
         self.values = [Decimal(str(d[1] * 270)).quantize(Decimal('0.0000')) for d in dataRead]
@@ -82,6 +87,18 @@ class FundDataDrawer():
         plt.minorticks_on()
         plt.grid(True, axis = 'y', linestyle='--', alpha=0.8)
         self.line, = plt.gca().plot(x, y, 'r-', label = self.fund_code)
+        cursY = 0
+        if self.info_posx:
+            plt.axvline(x=self.info_posx, ls = '-.', lw = 0.5, color='g', alpha = 0.8)
+            cursY = self.values[self.dates.index(self.info_posx)]
+            plt.axhline(y = cursY, ls = '-.', lw = 0.5, color='g', alpha = 0.8)
+        if not self.average == 0:
+            plt.axhline(y=self.average, ls = '-', lw = 0.75, color = 'r', alpha = 0.5)
+            plt.gca().text(self.dates[0], self.average, str(self.average))
+        if not self.average == 0 and not cursY == 0:
+            plt.gca().text(self.info_posx, (Decimal(cursY) + self.average)/Decimal(2), str((((Decimal(cursY) - self.average)/self.average) * 100).quantize(Decimal("0.0000"))) + "%")
+        plt.scatter(self.dates[0:5],self.values[0:5], c='w', edgecolors='r')
+        plt.scatter(self.dates[-5:],self.values[-5:], c='k')
         plt.legend()
 
     def show_history_graph(self, fund_code, sDate):
@@ -175,4 +192,4 @@ if __name__ == "__main__":
     testdb = "testdb"
     drawer = FundDataDrawer(testdb)
     #drawer.show_history_graph("000217", "2016-03-01")
-    drawer.show_recents("000217", "2019-04-15")
+    drawer.show_recents("000217", "2019-04-01")
