@@ -58,12 +58,11 @@ class FundDataDrawer():
         self.moving_on_figure = False
 
     def getHistoryData(self, fund_code, sDate = ""):
-        his_db_table = self.sqldb.select(gl_all_info_table, [column_table_history, column_averagae_price], "%s='%s'" % (column_code, fund_code))
-        if not his_db_table:
+        fund_overviews = self.sqldb.select(gl_all_info_table, [column_table_history, column_buy_table, column_sell_table, column_averagae_price], "%s='%s'" % (column_code, fund_code))
+        if not fund_overviews:
             print("can not find history db table")
             return
-        average = his_db_table[0][1]
-        his_db_table = his_db_table[0][0]
+        (his_db_table, buytable, selltable, average) = fund_overviews[0]
         self.average = 0
         if average:
             self.average = 270 * Decimal(str(average))
@@ -75,6 +74,13 @@ class FundDataDrawer():
         self.dates = [d[0] for d in dataRead]
         self.values = [Decimal(str(d[1] * 270)).quantize(Decimal('0.0000')) for d in dataRead]
         self.info_text = ""
+
+        dates_buy = self.sqldb.select(buytable, [column_date, column_soldout], ["%s >= '%s'" % (column_date, sDate)])
+        self.dates_buy = [d[0] for d in dates_buy if d[1] == 0]
+        self.dates_buy_sold = [d[0] for d in dates_buy if d[1] == 1]
+        dates_sell = self.sqldb.select(selltable, [column_date], "%s >= '%s'" % (column_date, sDate))
+        self.dates_sell = [d[0] for d in dates_sell]
+        print(self.dates[0], self.dates_buy_sold[0])
 
     def draw_graph(self, x, y):
         plt.gca().get_figure().suptitle(self.fund_code)
@@ -102,8 +108,12 @@ class FundDataDrawer():
             plt.gca().text(self.info_posx, (Decimal(cursY) + self.average)/2, str((((Decimal(cursY) - self.average) * 100/self.average)).quantize(Decimal("0.0000"))) + "%")
             if not self.values[-1] == cursY:
                 plt.gca().text(self.info_posx, (Decimal(cursY) + self.values[-1])/2, str(((self.values[-1] - Decimal(cursY)) * 100/Decimal(cursY)).quantize(Decimal("0.0000"))) + "%")
-        plt.scatter(self.dates[0:5],self.values[0:5], c='w', edgecolors='r')
-        plt.scatter(self.dates[-5:],self.values[-5:], c='k')
+        if self.dates_buy:
+            plt.scatter(self.dates_buy, [self.values[self.dates.index(d)] for d in self.dates_buy], c = 'r')
+        if self.dates_buy_sold:
+            plt.scatter(self.dates_buy_sold, [self.values[self.dates.index(d)] for d in self.dates_buy_sold], c = 'w', edgecolors = 'r')
+        if self.dates_sell:
+            plt.scatter(self.dates_sell, [self.values[self.dates.index(d)] for d in self.dates_sell], c = 'k')
         plt.legend()
 
     def show_history_graph(self, fund_code, sDate):
