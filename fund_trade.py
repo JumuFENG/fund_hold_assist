@@ -198,6 +198,15 @@ class TradeFund():
         else :
             return self.portion_hold - portion_remain
 
+    def buy_dates_available_to_sell(self, reDays, finalDate=""):
+        fdate = finalDate
+        if finalDate == "":
+            fdate = self.getToady()
+        bdate = (datetime.strptime(fdate, "%Y-%m-%d") + timedelta(days=-reDays)).strftime("%Y-%m-%d")
+        fdate = max(fdate, self.getToady())
+        buy_dates = self.sqldb.select(self.buy_table, column_date, ["%s >= '%s'" % (column_date, bdate), "%s < '%s'" % (column_date, fdate)])
+        return [d[0] for d in buy_dates]
+
     def reset_trade_data(self):
         if self.sqldb.isExistTable(self.buy_table):
             self.sqldb.dropTable(self.buy_table)

@@ -68,9 +68,9 @@ class simulator_base(object):
         return self.is_start_decreasing() and (netval - aver) / aver >= return_rate
 
     def hold_too_long(self):
-        portions_before_30_days = self.trade.portions_available_to_sell(30, self.curDate)
-        return portions_before_30_days > Decimal("0") and self.should_sell(self.least_return)
+        buy_dates_before_30_days = self.trade.buy_dates_available_to_sell(30, self.curDate)
+        return len(buy_dates_before_30_days) > 0 and self.should_sell(self.least_return)
 
     def sell(self, reDays = 7):
-        portion_to_sell = self.trade.portions_available_to_sell(reDays, self.curDate)
-        self.trade.sell(portion_to_sell, self.curDate)
+        buy_dates = self.trade.buy_dates_available_to_sell(reDays, self.curDate)
+        self.trade.sell_by_day(buy_dates, self.curDate)
