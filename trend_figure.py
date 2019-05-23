@@ -206,7 +206,8 @@ class FundDataDrawer():
 
 
 if __name__ == "__main__":
+    #testdb = "fund_center"
     testdb = "testdb"
     drawer = FundDataDrawer(testdb)
     #drawer.show_history_graph("000217", "2016-03-01")
-    drawer.show_recents("000217", "2018-12-25")
+    drawer.show_recents("000217", "2018-12-15")

@@ -32,6 +32,7 @@ class SimulatorHost():
         trade.reset_trade_data()
 
 if __name__ == "__main__":
+    #testdb = "fund_center"
     testdb = "testdb"
     #sim = SimulatorHost("000217", dbname = testdb)
     #sDate = "2018-10-18"
@@ -40,4 +41,7 @@ if __name__ == "__main__":
     #sim.sim(sDate, eDate, simulator_decrease())
     #sim.sim(sDate, eDate, simulator_anti_lose())
     trade = TradeFund("000217", testdb, db_pwd)
-    trade.sell_by_day(["2018-10-23","2018-10-24","2018-10-25"], "2019-05-15")
+    trade.buy(100,"2019-05-20")
+    trade.buy(100,"2019-05-21")
+    trade.buy(100,"2019-05-22")
+    #trade.sell_by_day(["2019-04-02","2019-04-22"], "2019-05-15")#,
