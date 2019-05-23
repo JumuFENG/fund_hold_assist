@@ -53,9 +53,11 @@ class FundDataDrawer():
         self.pwd = pwd
         self.sqldb = SqlHelper(password = self.pwd, database = self.dbname)
         self.info_text = ""
-        self.info_posx = ""
-        self.info_posy = 0
+        self.cursXidx = 0
         self.moving_on_figure = False
+        self.dates_buy = None
+        self.dates_buy_sold = None
+        self.dates_sell = None
 
     def getHistoryData(self, fund_code, sDate = ""):
         fund_overviews = self.sqldb.select(gl_all_info_table, [column_table_history, column_buy_table, column_sell_table, column_averagae_price], "%s='%s'" % (column_code, fund_code))
@@ -76,17 +78,20 @@ class FundDataDrawer():
         self.info_text = ""
 
         dates_buy = self.sqldb.select(buytable, [column_date, column_soldout], ["%s >= '%s'" % (column_date, sDate)])
-        self.dates_buy = [d[0] for d in dates_buy if d[1] == 0]
-        self.dates_buy_sold = [d[0] for d in dates_buy if d[1] == 1]
+        if dates_buy:
+            self.dates_buy = [d[0] for d in dates_buy if d[1] == 0]
+            self.dates_buy_sold = [d[0] for d in dates_buy if d[1] == 1]
         dates_sell = self.sqldb.select(selltable, [column_date], "%s >= '%s'" % (column_date, sDate))
-        self.dates_sell = [d[0] for d in dates_sell]
-        print(self.dates[0], self.dates_buy_sold[0])
+        if dates_sell:
+            self.dates_sell = [d[0] for d in dates_sell]
+        #print(self.dates[0], self.dates_buy_sold[0])
 
     def draw_graph(self, x, y):
         plt.gca().get_figure().suptitle(self.fund_code)
         xlocator = mpl.ticker.MultipleLocator(10)
         plt.gca().xaxis.set_major_locator(xlocator)
-        plt.gca().text(self.info_posx, self.info_posy, self.info_text)
+        info_posx = self.dates[self.cursXidx]
+        plt.gca().text(info_posx, self.values[self.cursXidx], self.info_text)
 
         plt.xlabel(column_date)
         plt.ylabel(column_net_value)
@@ -94,9 +99,9 @@ class FundDataDrawer():
         plt.grid(True, axis = 'y', linestyle='--', alpha=0.8)
         self.line, = plt.gca().plot(x, y, 'r-', label = self.fund_code)
         cursY = 0
-        if self.info_posx:
-            plt.axvline(x=self.info_posx, ls = '-.', lw = 0.5, color='b', alpha = 0.8)
-            cursY = self.values[self.dates.index(self.info_posx)]
+        if info_posx:
+            plt.axvline(x=info_posx, ls = '-.', lw = 0.5, color='b', alpha = 0.8)
+            cursY = self.values[self.cursXidx]
             plt.axhline(y = cursY, ls = '-.', lw = 0.5, color='b', alpha = 0.8)
         if not self.average == 0:
             plt.axhline(y=self.average, ls = '-', lw = 0.75, color = 'r', alpha = 0.5)
@@ -105,9 +110,9 @@ class FundDataDrawer():
             plt.axvline(x=self.dates[-1], ls = '-.', lw = 0.5, color='r', alpha = 0.8)
             plt.gca().text(self.dates[-1], (self.average + self.values[-1])/2, str(((self.values[-1] - self.average) * 100/self.average).quantize(Decimal("0.0000"))) + "%")
         if not self.average == 0 and not cursY == 0:
-            plt.gca().text(self.info_posx, (Decimal(cursY) + self.average)/2, str((((Decimal(cursY) - self.average) * 100/self.average)).quantize(Decimal("0.0000"))) + "%")
+            plt.gca().text(info_posx, (Decimal(cursY) + self.average)/2, str((((Decimal(cursY) - self.average) * 100/self.average)).quantize(Decimal("0.0000"))) + "%")
             if not self.values[-1] == cursY:
-                plt.gca().text(self.info_posx, (Decimal(cursY) + self.values[-1])/2, str(((self.values[-1] - Decimal(cursY)) * 100/Decimal(cursY)).quantize(Decimal("0.0000"))) + "%")
+                plt.gca().text(info_posx, (Decimal(cursY) + self.values[-1])/2, str(((self.values[-1] - Decimal(cursY)) * 100/Decimal(cursY)).quantize(Decimal("0.0000"))) + "%")
         if self.dates_buy:
             plt.scatter(self.dates_buy, [self.values[self.dates.index(d)] for d in self.dates_buy], c = 'r')
         if self.dates_buy_sold:
@@ -178,10 +183,7 @@ class FundDataDrawer():
             return
 
         self.info_text = "%s\n%s" % (self.dates[xIdx], str(self.values[xIdx]))
-        self.info_posy = self.values[xIdx]
-        if len(self.dates) > xIdx + 1:
-            xIdx += 1
-        self.info_posx = self.dates[xIdx]
+        self.cursXidx = xIdx
         self.moving_on_figure = True
 
     def enter_figure(self, event):
@@ -207,4 +209,4 @@ if __name__ == "__main__":
     testdb = "testdb"
     drawer = FundDataDrawer(testdb)
     #drawer.show_history_graph("000217", "2016-03-01")
-    drawer.show_recents("000217", "2018-10-01")
+    drawer.show_recents("000217", "2018-12-25")
