@@ -89,14 +89,17 @@ class FundDataDrawer():
         self.line, = plt.gca().plot(x, y, 'r-', label = self.fund_code)
         cursY = 0
         if self.info_posx:
-            plt.axvline(x=self.info_posx, ls = '-.', lw = 0.5, color='g', alpha = 0.8)
+            plt.axvline(x=self.info_posx, ls = '-.', lw = 0.5, color='b', alpha = 0.8)
             cursY = self.values[self.dates.index(self.info_posx)]
-            plt.axhline(y = cursY, ls = '-.', lw = 0.5, color='g', alpha = 0.8)
+            plt.axhline(y = cursY, ls = '-.', lw = 0.5, color='b', alpha = 0.8)
         if not self.average == 0:
             plt.axhline(y=self.average, ls = '-', lw = 0.75, color = 'r', alpha = 0.5)
             plt.gca().text(self.dates[0], self.average, str(self.average))
+            plt.axhline(y=self.values[-1], ls = '-', lw = 0.75, color = 'r', alpha = 0.5)
         if not self.average == 0 and not cursY == 0:
-            plt.gca().text(self.info_posx, (Decimal(cursY) + self.average)/Decimal(2), str((((Decimal(cursY) - self.average)/self.average) * 100).quantize(Decimal("0.0000"))) + "%")
+            plt.gca().text(self.info_posx, (Decimal(cursY) + self.average)/Decimal(2), str((((Decimal(cursY) - self.average)* 100/self.average)).quantize(Decimal("0.0000"))) + "%")
+            if not self.values[-1] == cursY:
+                plt.gca().text(self.info_posx, (Decimal(cursY) + self.values[-1])/Decimal(2), str(((self.values[-1] - Decimal(cursY)) * 100/Decimal(cursY)).quantize(Decimal("0.0000"))) + "%")
         plt.scatter(self.dates[0:5],self.values[0:5], c='w', edgecolors='r')
         plt.scatter(self.dates[-5:],self.values[-5:], c='k')
         plt.legend()
