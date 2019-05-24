@@ -31,6 +31,16 @@ class SimulatorHost():
         trade.print_summery()
         trade.reset_trade_data()
 
+def continuely_buy(dbname, fund_code, sDate, eDate, cost_per_day):
+    trade = TradeFund(fund_code, dbname, db_pwd)
+    dateBegin = datetime.strptime(sDate, "%Y-%m-%d")
+    dateEnd = datetime.strptime(eDate, "%Y-%m-%d")
+    while True:
+        trade.buy(cost_per_day, dateBegin.strftime("%Y-%m-%d"))
+        dateBegin += timedelta(days=1)
+        if dateBegin > dateEnd:
+            break
+
 if __name__ == "__main__":
     #testdb = "fund_center"
     testdb = "testdb"
@@ -40,8 +50,7 @@ if __name__ == "__main__":
     #sim.sim(sDate, eDate, simulator_base()) 
     #sim.sim(sDate, eDate, simulator_decrease())
     #sim.sim(sDate, eDate, simulator_anti_lose())
-    trade = TradeFund("000217", testdb, db_pwd)
-    trade.buy(100,"2019-05-20")
-    trade.buy(100,"2019-05-21")
-    trade.buy(100,"2019-05-22")
+    trade = TradeFund("110003", testdb, db_pwd)
+    trade.buy(10,"2019-05-23")
     #trade.sell_by_day(["2019-04-02","2019-04-22"], "2019-05-15")#,
+    #continuely_buy(testdb, "110003", "2019-04-03", "2019-05-20", 10)
