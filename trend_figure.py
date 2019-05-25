@@ -60,34 +60,40 @@ class FundDataDrawer():
         self.dates_sell = None
 
     def getHistoryData(self, fund_code, sDate = ""):
-        fund_overviews = self.sqldb.select(gl_all_info_table, [column_table_history, column_buy_table, column_sell_table, column_averagae_price], "%s='%s'" % (column_code, fund_code))
+        fund_overviews = self.sqldb.select(gl_all_info_table, [column_table_history, column_name, column_buy_table, column_sell_table, column_averagae_price], "%s='%s'" % (column_code, fund_code))
         if not fund_overviews:
             print("can not find history db table")
             return
-        (his_db_table, buytable, selltable, average) = fund_overviews[0]
-        self.average = 0
-        if average:
-            self.average = 270 * Decimal(str(average))
+        ((his_db_table, name, buytable, selltable, average),) = fund_overviews
+        self.average = 0 if not average else self.ppg * Decimal(str(average))
+        self.name = "" if not name else name
+
         if not his_db_table:
             print("history db table name is None")
             return
 
+        if not self.sqldb.isExistTable(his_db_table):
+            print("history db table not exists.")
+            return
+
         dataRead = self.sqldb.select(his_db_table, [column_date, column_net_value], "%s >= '%s'" % (column_date, sDate))
-        self.dates = [d[0] for d in dataRead]
-        self.values = [Decimal(str(d[1] * 270)).quantize(Decimal('0.0000')) for d in dataRead]
+        self.dates = [d for (d,v) in dataRead]
+        self.values = [Decimal(str(v * self.ppg)).quantize(Decimal('0.0000')) for (d,v) in dataRead]
         self.info_text = ""
 
-        dates_buy = self.sqldb.select(buytable, [column_date, column_soldout], ["%s >= '%s'" % (column_date, sDate)])
-        if dates_buy:
-            self.dates_buy = [d[0] for d in dates_buy if d[1] == 0]
-            self.dates_buy_sold = [d[0] for d in dates_buy if d[1] == 1]
-        dates_sell = self.sqldb.select(selltable, [column_date], "%s >= '%s'" % (column_date, sDate))
-        if dates_sell:
-            self.dates_sell = [d[0] for d in dates_sell]
+        if self.sqldb.isExistTable(buytable):
+            dates_buy = self.sqldb.select(buytable, [column_date], ["%s >= '%s'" % (column_date, sDate), "%s = 0" % column_soldout])
+            self.dates_buy = [d for (d,) in dates_buy]
+            dates_buy_sold = self.sqldb.select(buytable, [column_date], ["%s >= '%s'" % (column_date, sDate), "%s = 1" % column_soldout])
+            self.dates_buy_sold = [d for (d,) in dates_buy_sold]
+
+        if self.sqldb.isExistTable(selltable):
+            dates_sell = self.sqldb.select(selltable, [column_date], "%s >= '%s'" % (column_date, sDate))
+            self.dates_sell = [d for (d,) in dates_sell]
         #print(self.dates[0], self.dates_buy_sold[0])
 
     def draw_graph(self, x, y):
-        plt.gca().get_figure().suptitle(self.fund_code)
+        plt.gca().get_figure().suptitle(self.name)
         xlocator = mpl.ticker.MultipleLocator(10)
         plt.gca().xaxis.set_major_locator(xlocator)
         info_posx = self.dates[self.cursXidx]
@@ -120,19 +126,6 @@ class FundDataDrawer():
         if self.dates_sell:
             plt.scatter(self.dates_sell, [self.values[self.dates.index(d)] for d in self.dates_sell], c = 'k')
         plt.legend()
-
-    def show_history_graph(self, fund_code, sDate):
-        self.fund_code = fund_code
-        self.getHistoryData(fund_code, sDate)
-        self.offset = 0
-
-        #for label in plt.gca().xaxis.get_ticklabels():   
-        #    label.set_rotation(45)
-        #fig.autofmt_xdate(rotation = -45)
-
-        self.draw_graph(self.dates[0:150], self.values[0:150])
-        ani = animation.FuncAnimation(plt.gca().get_figure(), self.update, self.gen_data, interval=300, repeat=False)
-        plt.show()
 
     def gen_data(self):
         if self.offset < 0:
@@ -193,9 +186,11 @@ class FundDataDrawer():
         self.info_text = ""
         plt.gca().get_figure().canvas.mpl_disconnect(self.cidmotion)
 
-    def show_recents(self, fund_code, sDate):
+    def show_history_graph(self, fund_code, sDate):
         self.fund_code = fund_code
+        self.ppg = 1 if not ppgram.__contains__(self.fund_code) else ppgram[self.fund_code]
         self.getHistoryData(fund_code, sDate)
+        mpl.rcParams['font.sans-serif'] = ['SimHei'] #指定默认字体 SimHei为黑体
         self.draw_graph(self.dates, self.values)
         plt.gca().get_figure().canvas.mpl_connect('figure_enter_event', self.enter_figure)
         plt.gca().get_figure().canvas.mpl_connect('figure_leave_event', self.leave_figure)
@@ -206,8 +201,8 @@ class FundDataDrawer():
 
 
 if __name__ == "__main__":
-    #testdb = "fund_center"
-    testdb = "testdb"
+    testdb = "fund_center"
+    #testdb = "testdb"
     drawer = FundDataDrawer(testdb)
-    #drawer.show_history_graph("000217", "2016-03-01")
-    drawer.show_recents("000217", "2018-12-15")
+    #drawer.show_history_graph("110003", "2019-04-01")
+    drawer.show_history_graph("000217", "2019-04-01")

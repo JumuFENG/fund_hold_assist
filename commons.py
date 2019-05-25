@@ -38,3 +38,5 @@ column_ma20 = "ma20"
 column_v_ma5 = "v_ma5"
 column_v_ma10 = "v_ma10"
 column_v_ma20 = "v_ma20"
+
+ppgram = {"000217":270,"002611":285,"002963":285}
