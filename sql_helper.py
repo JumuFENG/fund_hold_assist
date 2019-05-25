@@ -265,12 +265,12 @@ class SqlHelper():
             Return:
                 存在返回True，不存在返回False
         """
-        result = self.select("information_schema.tables","count(*)",["table_name = '%s'" % tablename, "table_schema = '%s'" % self.database])
-        return result and result[0][0] != 0
+        ((result,),) = self.select("information_schema.tables","count(*)",["table_name = '%s'" % tablename, "table_schema = '%s'" % self.database])
+        return result and result != 0
 
     def isExistTableColumn(self, tablename, column_name):
-        result = self.select("information_schema.columns","count(*)",["table_name = '%s'" % tablename, "column_name = '%s'" % column_name, "table_schema = '%s'" % self.database])
-        return result and result[0][0] != 0
+        ((result,),) = self.select("information_schema.columns","count(*)",["table_name = '%s'" % tablename, "column_name = '%s'" % column_name, "table_schema = '%s'" % self.database])
+        return result and result != 0
 
     def addColumn(self, tablename, col, tp):
         sql = "alter table %s add %s %s" % (tablename, col, tp)

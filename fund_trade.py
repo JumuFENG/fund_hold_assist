@@ -80,7 +80,7 @@ class TradeFund():
         if date == "":
             buyDate = self.getToady()
 
-        net_value = self.sqldb.select(self.fund_history_table, fields = [column_net_value], conds = "%s = '%s'" % (column_date, buyDate))
+        ((net_value,),) = self.sqldb.select(self.fund_history_table, fields = [column_net_value], conds = "%s = '%s'" % (column_date, buyDate))
         if not net_value:
             print("date wrong, net_value is null in:", buyDate)
             return
@@ -93,7 +93,7 @@ class TradeFund():
         if not self.sqldb.isExistTableColumn(self.buy_table, column_soldout):
             self.sqldb.addColumn(self.buy_table, column_soldout, 'tinyint(1) DEFAULT 0')
 
-        portion = Decimal(cost) / Decimal(str(net_value[0][0]))
+        portion = Decimal(cost) / Decimal(str(net_value))
         #print(cost, buyDate, cost, portion)
         self.sqldb.insert(self.buy_table, {column_date:buyDate, column_cost:str(cost), column_portion : str(portion), column_soldout:str(0)})
 
@@ -117,7 +117,7 @@ class TradeFund():
         if date == "":
             date = self.getToady()
 
-        net_value = self.sqldb.select(self.fund_history_table, fields = [column_net_value], conds = "%s = '%s'" % (column_date, date))
+        ((net_value,),) = self.sqldb.select(self.fund_history_table, fields = [column_net_value], conds = "%s = '%s'" % (column_date, date))
         if not net_value:
             print("date wrong, net_value is null in:", date)
             return
@@ -147,7 +147,7 @@ class TradeFund():
 
         remain_portion = self.portion_hold - portion
         remain_cost = self.cost_hold - cost_sold
-        money = Decimal(portion) * Decimal(str(net_value[0][0]))
+        money = Decimal(portion) * Decimal(str(net_value))
         earned = money - cost_sold
         self.updateSellData(portion, money, cost_sold, earned, date, remain_cost, remain_portion)
 
@@ -185,13 +185,12 @@ class TradeFund():
         if finalDate == "":
             fdate = self.getToady()
         bdate = (datetime.strptime(fdate, "%Y-%m-%d") + timedelta(days=-reDays)).strftime("%Y-%m-%d")
-        fdate = max(fdate, self.getToady())
         #print(bdate, fdate)
-        sum_re = self.sqldb.select(self.buy_table, "sum(%s)" % column_portion, ["%s >= '%s'" % (column_date, bdate), "%s < '%s'" % (column_date, fdate)])
+        ((sum_re,),) = self.sqldb.select(self.buy_table, "sum(%s)" % column_portion, ["%s >= '%s'" % (column_date, bdate), "%s < '%s'" % (column_date, fdate)])
         portion_remain = Decimal("0")
-        if sum_re and sum_re[0][0]:
-            portion_remain = Decimal(str(sum_re[0][0])).quantize(Decimal("0.0000"))
-        #print(sum_re[0][0], portion_remain)
+        if sum_re:
+            portion_remain = Decimal(str(sum_re)).quantize(Decimal("0.0000"))
+        #print(sum_re, portion_remain)
 
         if portion_remain >= self.portion_hold :
             return Decimal("0")
@@ -199,12 +198,14 @@ class TradeFund():
             return self.portion_hold - portion_remain
 
     def buy_dates_available_to_sell(self, reDays, finalDate=""):
+        if not self.sqldb.isExistTable(self.buy_table):
+            return []
+
         fdate = finalDate
         if finalDate == "":
             fdate = self.getToady()
         bdate = (datetime.strptime(fdate, "%Y-%m-%d") + timedelta(days=-reDays)).strftime("%Y-%m-%d")
-        fdate = max(fdate, self.getToady())
-        buy_dates = self.sqldb.select(self.buy_table, column_date, ["%s >= '%s'" % (column_date, bdate), "%s < '%s'" % (column_date, fdate)])
+        buy_dates = self.sqldb.select(self.buy_table, column_date, ["%s < '%s'" % (column_date, bdate), "%s = 0" % column_soldout])
         return [d[0] for d in buy_dates]
 
     def reset_trade_data(self):
@@ -215,10 +216,8 @@ class TradeFund():
         self.sqldb.update(gl_all_info_table, {column_cost_hold : str(0), column_portion_hold : str(0), column_averagae_price:str(0)}, {column_code : self.fund_code})
 
     def print_summery(self):
-        sell_data = self.sqldb.select(self.sell_table, ["sum(%s)" % column_money_sold, "sum(%s)" % column_cost_sold])
-        if sell_data:
-            money = Decimal(str(sell_data[0][0]))
-            cost = Decimal(str(sell_data[0][1]))
+        ((money,cost),) = self.sqldb.select(self.sell_table, ["sum(%s)" % column_money_sold, "sum(%s)" % column_cost_sold])
+        if money and cost:
             earned = money - cost
             return_percent = (earned / cost).quantize(Decimal("0.0000"))
             print("sold:", money, "cost:", cost, "earned:", earned, "return_rate:", return_percent)

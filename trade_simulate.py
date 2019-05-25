@@ -44,13 +44,13 @@ def continuely_buy(dbname, fund_code, sDate, eDate, cost_per_day):
 if __name__ == "__main__":
     #testdb = "fund_center"
     testdb = "testdb"
-    #sim = SimulatorHost("000217", dbname = testdb)
-    #sDate = "2018-10-18"
-    #eDate = "2019-05-16"
-    #sim.sim(sDate, eDate, simulator_base()) 
-    #sim.sim(sDate, eDate, simulator_decrease())
-    #sim.sim(sDate, eDate, simulator_anti_lose())
-    trade = TradeFund("110003", testdb, db_pwd)
-    trade.buy(10,"2019-05-23")
-    #trade.sell_by_day(["2019-04-02","2019-04-22"], "2019-05-15")#,
-    #continuely_buy(testdb, "110003", "2019-04-03", "2019-05-20", 10)
+    sim = SimulatorHost("000217", dbname = testdb)
+    sDate = "2019-02-13"
+    eDate = "2019-05-16"
+    sim.sim(sDate, eDate, simulator_base()) 
+    sim.sim(sDate, eDate, simulator_decrease())
+    sim.sim(sDate, eDate, simulator_anti_lose())
+    #trade = TradeFund("000217", testdb, db_pwd)
+    #trade.buy(10,"2019-05-23")
+    #continuely_buy(testdb, "000217", "2019-04-03", "2019-05-20", 1000)
+    #trade.sell_by_day(["2019-04-04","2019-04-08","2019-04-09"], "2019-05-15")#,

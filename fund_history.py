@@ -23,13 +23,10 @@ class FundHistoryDataDownloader():
         
     def getBasicInfo(self):
         if self.sqldb.isExistTable(gl_all_info_table):
-            basicInfo = self.sqldb.select(gl_all_info_table, fields=[column_name, column_table_history], conds = "%s = '%s'" % (column_code, self.fund_code))
-            if basicInfo :
-                if basicInfo[0]:
-                    self.fund_name = basicInfo[0][0]
-                    self.fund_db_table = basicInfo[0][1]
-                    #print("basic info of", self.fund_name, "exists, no need to save")
-                    return
+            ((self.fund_name, self.fund_db_table),) = self.sqldb.select(gl_all_info_table, fields=[column_name, column_table_history], conds = "%s = '%s'" % (column_code, self.fund_code))
+            if self.fund_name and self.fund_db_table :
+                #print("basic info of", self.fund_name, "exists, no need to save")
+                return
         self.fund_name = "name_" + self.fund_code
         self.fund_db_table = "f_his_" + self.fund_code
         self.saveBasicInfo()
