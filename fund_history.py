@@ -84,12 +84,12 @@ class FundHistoryDataDownloader():
         sDate = ""
         eDate = ""
         if self.sqldb.isExistTable(self.fund_db_table):
-            maxDate = self.sqldb.select(self.fund_db_table, "max(%s)" % column_date)  #order="ORDER BY date DESC" ASC
+            ((maxDate,),) = self.sqldb.select(self.fund_db_table, "max(%s)" % column_date)  #order="ORDER BY date DESC" ASC
             if maxDate:
-                sDate = (datetime.strptime(maxDate[0][0], "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+                sDate = (datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
                 eDate = datetime.now().strftime("%Y-%m-%d")
                 if sDate > eDate:
-                    print("Already updated to %s" % maxDate[0][0])
+                    print("Already updated to %s" % maxDate)
                     return
                 if datetime.strptime(eDate, "%Y-%m-%d") - datetime.strptime(sDate, "%Y-%m-%d") <= timedelta(days = 1) and datetime.strptime(sDate, "%Y-%m-%d").weekday() >= 5:
                     print("it is weekend, no data to update.")
