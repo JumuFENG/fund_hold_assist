@@ -10,6 +10,7 @@ column_sell_table = "sell_table"
 column_cost_hold = "cost_hold"
 column_portion_hold = "portion_hold"
 column_averagae_price = "aver_price"
+column_invest_budget = "invest_budget"
 
 column_date = "date"
 column_net_value = "net_value"
@@ -38,5 +39,8 @@ column_ma20 = "ma20"
 column_v_ma5 = "v_ma5"
 column_v_ma10 = "v_ma10"
 column_v_ma20 = "v_ma20"
+
+column_budget = "budget"
+column_consumed = "consumed"
 
 ppgram = {"000217":270,"002611":285,"002963":285}
