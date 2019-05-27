@@ -72,7 +72,7 @@ class TradeFund():
         self.sell_table = self.fund_code + "_sell"
         self.sqldb.update(gl_all_info_table, {column_sell_table : self.sell_table}, {column_code : self.fund_code})
 
-    def buy(self, cost, date = ""):
+    def buy(self, cost, date = "", budget_dates = None):
         if cost <= 0:
             return
 
@@ -101,6 +101,15 @@ class TradeFund():
         #print("self.portion_hold", self.portion_hold)
         self.portion_hold += portion.quantize(Decimal('0.0000'))
         self.sqldb.update(gl_all_info_table, {column_cost_hold : str(self.cost_hold), column_portion_hold : str(self.portion_hold), column_averagae_price:str(self.cost_hold/self.portion_hold)}, {column_code: self.fund_code})
+        if not budget_dates:
+            return
+        ((budget_table,),) = self.sqldb.select(gl_all_info_table, [column_budget_table], "%s = '%s'" % (column_code, self.fund_code))
+        if budget_table and self.sqldb.isExistTable(budget_table):
+            if isinstance(budget_dates, str):
+                self.sqldb.update(budget_table, {column_consumed:'1'},{column_date:budget_dates})
+            elif isinstance(budget_dates, list):
+                for d in budget_dates:
+                    self.sqldb.update(budget_table, {column_consumed:'1'},{column_date:d})
 
     def sell_by_day(self, buy_dates, date = ""):
         if date == "":

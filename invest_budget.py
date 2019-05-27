@@ -11,7 +11,7 @@ import pandas as pd
 class InvestBudget():
     """to help do the invest budget"""
     def __init__(self):
-        self.dbname = "fund_center"#"testdb"
+        self.dbname = "fund_center"#"testdb"#
         self.sqldb = SqlHelper(password = db_pwd, database = self.dbname)
 
     def add_budget(self, fund_code, budget, date = ""):
@@ -46,6 +46,13 @@ class InvestBudget():
             return
 
         self.sqldb.insert(budget_table, {column_date:date, column_net_value:str(netvalue), column_budget: str(budget)})
+        self.delete_cosumed(budget_table)
+
+    def delete_cosumed(self, budget_table):
+        if not self.sqldb.isExistTable(budget_table):
+            return
+
+        self.sqldb.delete(budget_table, {column_consumed:'1'})
 
     def get_budgets(self):
         if not self.sqldb.isExistTable(gl_all_info_table):
@@ -80,9 +87,9 @@ class InvestBudget():
 
 if __name__ == '__main__':
     ib = InvestBudget()
-    #ib.add_budget("000217",100,"2019-05-27")
+    ib.add_budget("000217",100,"2019-05-27")
     #ib.add_budget("161724",100,"2019-05-27")
     #ib.add_budget("260108",100,"2019-05-27")
     #ib.add_budget("110003",10, "2019-05-27")
     #ib.add_budget("005633",100,"2019-05-27")
-    ib.get_budgets()
+    #ib.get_budgets()
