@@ -55,35 +55,34 @@ class InvestBudget():
         fund_invest_details = self.sqldb.select(gl_all_info_table, [column_name, column_code, column_cost_hold, column_averagae_price,  column_budget_table])
 
         for (n, c, h, a, bt) in fund_invest_details:
-            #ppg = 1 if not ppgram.__contains__(c) else ppgram[c]
+            ppg = 1 if not ppgram.__contains__(c) else ppgram[c]
             if bt and self.sqldb.isExistTable(bt):
                 budget = self.sqldb.select(bt, [column_date, column_net_value, column_budget], "%s = 0" % column_consumed)
                 sum_b = 0
+                index = []
+                values = []
                 for (d,v,b) in budget:
                     sum_b += int(b)
-                self.show_budgets_summary(n,h,Decimal(str(a)), budget, sum_b)
+                    index.append(d)
+                    values.append([Decimal(str(v)) * ppg, b])
+                self.show_budgets_summary(n,h,Decimal(str(a)) * ppg, index, values, sum_b)
             else:
-                self.show_budgets_summary(n,h,Decimal(str(a)))
+                self.show_budgets_summary(n,h,Decimal(str(a)) * ppg)
 
-    def show_budgets_summary(self, name, hold, aver_price, budget_detail = None, budget_sum = 0):
+    def show_budgets_summary(self, name, hold, aver_price, index = None, budget = None, budget_sum = 0):
         print(name)
-        if budget_detail and not budget_sum == 0:
+        if budget and index and not budget_sum == 0:
             print("all",hold,":", aver_price,"budgets:", budget_sum)
-            index = []
-            values = []
-            for (d,v,b) in budget_detail:
-                index.append(d)
-                values.append([v,b])
-            print(pd.DataFrame(data=values, columns=["net","budget"], index=index))
+            print(pd.DataFrame(data=budget, columns=["net","budget"], index=index))
         else:
             print("all",hold,":", aver_price)
         print()
 
 if __name__ == '__main__':
     ib = InvestBudget()
-    #ib.add_budget("000217",100,"2019-05-24")
-    #ib.add_budget("161724",100,"2019-05-24")
-    #ib.add_budget("260108",100,"2019-05-24")
-    #ib.add_budget("110003",10,"2019-05-24")
-    #ib.add_budget("005633",100,"2019-05-24")
+    #ib.add_budget("000217",100,"2019-05-27")
+    #ib.add_budget("161724",100,"2019-05-27")
+    #ib.add_budget("260108",100,"2019-05-27")
+    #ib.add_budget("110003",10, "2019-05-27")
+    #ib.add_budget("005633",100,"2019-05-27")
     ib.get_budgets()
