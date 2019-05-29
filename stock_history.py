@@ -1,13 +1,11 @@
 # Python 3
 # -*- coding:utf-8 -*-
 
-from commons import *
-from _pwd import db_pwd
+from utils import *
 import requests
 from datetime import datetime, timedelta
 from decimal import Decimal
 from bs4 import BeautifulSoup 
-from sql_helper import SqlHelper
 import tushare as ts
 from pandas import  *
 

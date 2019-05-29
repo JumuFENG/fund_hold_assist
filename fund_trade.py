@@ -1,10 +1,9 @@
 # Python 3
 # -*- coding:utf-8 -*-
 
-from commons import *
+from utils import *
 from decimal import *
 from datetime import datetime, timedelta
-from sql_helper import SqlHelper
 
 class TradeFund():
     """

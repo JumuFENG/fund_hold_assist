@@ -9,11 +9,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.animation as animation
-from fund_history import FundHistoryDataDownloader
-from sql_helper import SqlHelper
-from _pwd import db_pwd
 import numpy as np
-from commons import *
+from utils import *
 
 def filterBiggerThan(aList, num1, num2):
     biggerThan = [x["Inc2Day"] for x in aList if x["Inc2Day"] > num1 or x["Inc2Day"] < num2 ]

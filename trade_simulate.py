@@ -1,10 +1,9 @@
 # Python 3
 # -*- coding:utf-8 -*-
 
-from _pwd import db_pwd
+from utils import *
 from datetime import datetime, timedelta
 from fund_trade import TradeFund
-from commons import *
 from decimal import *
 from simulators import *
 
@@ -42,15 +41,12 @@ def continuely_buy(dbname, fund_code, sDate, eDate, cost_per_day):
             break
 
 if __name__ == "__main__":
-    #testdb = "fund_center"
-    testdb = "testdb"
-    sim = SimulatorHost("000217", dbname = testdb)
-    sDate = "2019-02-13"
-    eDate = "2019-05-16"
-    sim.sim(sDate, eDate, simulator_base()) 
-    sim.sim(sDate, eDate, simulator_decrease())
-    sim.sim(sDate, eDate, simulator_anti_lose())
-    #trade = TradeFund("000217", testdb, db_pwd)
-    #trade.buy(10,"2019-05-23")
+    testdb = "fund_center"
+    #testdb = "testdb"
+    #sim = SimulatorHost("000217", dbname = testdb)
+    #sDate = "2019-02-13"
+    #eDate = "2019-05-16"
+    #sim.sim(sDate, eDate, simulator_base()) 
+    #sim.sim(sDate, eDate, simulator_decrease())
+    #sim.sim(sDate, eDate, simulator_anti_lose())
     #continuely_buy(testdb, "000217", "2019-04-03", "2019-05-20", 1000)
-    #trade.sell_by_day(["2019-04-04","2019-04-08","2019-04-09"], "2019-05-15")#,
