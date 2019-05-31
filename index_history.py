@@ -14,12 +14,27 @@ class Index_history():
     """
     get index history data
     """
-    def __init__(self, sqldb, code):
+    def __init__(self, sqldb):
         self.sqldb = sqldb
+
+    def setIndexCode(self, code):
         self.code = code
-        self.name = "name_" + self.code
+        if self.sqldb.isExistTable(gl_index_info_table):
+            ((self.name, self.index_db_table, self.index_full_his_db),) = self.sqldb.select(gl_index_info_table, fields = [column_name,column_table_history, column_table_full_history], conds = "%s = '%s'" % (column_code, self.code))
+            if self.name and self.index_db_table and self.index_full_his_db:
+                return
+
+        if not self.sqldb.isExistTable(gl_index_info_table):
+            attrs = {column_name:'varchar(64) DEFAULT NULL', column_code:'varchar(10) DEFAULT NULL',
+            column_table_history:'varchar(20) DEFAULT NULL', column_table_full_history:'varchar(20) DEFAULT NULL'}
+            constraint = 'PRIMARY KEY(`id`)'
+            self.sqldb.creatTable(gl_index_info_table, attrs, constraint)
+
+        self.name = index_code_name[self.code]
         self.index_db_table = "i_his_" + self.code
         self.index_full_his_db = "i_ful_his_" + self.code
+        params = {column_name:self.name, column_code:self.code, column_table_history:self.index_db_table,column_table_full_history:self.index_full_his_db}
+        self.sqldb.insert(gl_index_info_table, params)
 
     def getRequest(self, url, params=None, proxies=None):
         rsp = requests.get(url, params=params, proxies=proxies)
@@ -48,7 +63,8 @@ class Index_history():
         values.reverse()
         self.sqldb.insertMany(self.index_db_table, headers, values)
 
-    def indexHistoryTillToday(self):
+    def indexHistoryTillToday(self, code):
+        self.setIndexCode(code)
         sDate = ""
         eDate = ""
         if self.sqldb.isExistTable(self.index_db_table):
@@ -64,10 +80,11 @@ class Index_history():
                     return
         
         df = None
+        tscode = "sh" + self.code
         if sDate == "" or eDate == "":
-            df = ts.get_hist_data(self.code)
+            df = ts.get_hist_data(tscode)
         else:
-            df = ts.get_hist_data(self.code, start=sDate, end=eDate)
+            df = ts.get_hist_data(tscode, start=sDate, end=eDate)
 
         self.saveTSHistoryData(df)
 
@@ -91,16 +108,27 @@ class Index_history():
         values.reverse()
 
     def getHistoryFromSohu(self, code):
-        
-        #if self.sqldb.isExistTable(gl_index_info_table):
-        #    ((self.fund_name, self.index_full_his_db),) = self.sqldb.select(gl_index_info_table, fields=[column_name, column_table_history], conds = "%s = '%s'" % (column_code, self.fund_code))
-        #    if self.fund_name and self.index_full_his_db :
-        #        return
+        self.setIndexCode(code)
+        if not self.sqldb.isExistTable(self.index_full_his_db):
+            print("full history db table not set for", self.code, self.name)
+            return
+
         sDate = ""
         eDate = ""
-        eDate = datetime.now().strftime("%Y%m%d")
-        sDate = "20190525"
-        params = {'code': code, 'start': sDate, 'end': eDate}
+        if self.sqldb.isExistTable(self.index_full_his_db):
+            ((maxDate,),) = self.sqldb.select(self.index_full_his_db, "max(%s)" % column_date)
+            if maxDate:
+                sDate = (datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
+                eDate = datetime.now().strftime("%Y%m%d")
+                if sDate >= eDate:
+                    print("Already updated to %s" % maxDate)
+                    return
+                if datetime.strptime(eDate, "%Y%m%d") - datetime.strptime(sDate, "%Y%m%d") <= timedelta(days = 1) and datetime.strptime(sDate, "%Y%m%d").weekday() >= 5:
+                    print("it is weekend, no data to update.")
+                    return
+                    
+        sohu_code = "zs_" + self.code
+        params = {'code': sohu_code, 'start': sDate, 'end': eDate}
         response = self.getRequest(sohuApiUrl, params)
         jresp = json.loads(response)[0]["hq"]
         jresp.reverse()
@@ -111,7 +139,7 @@ class Index_history():
 
 if __name__ == "__main__":
     sqldb = SqlHelper(password = db_pwd, database = "testdb")
-    ih = Index_history(sqldb, 'sh')
+    ih = Index_history(sqldb)
     #ih.csv163ToSql("000001.csv")
-    #ih.indexHistoryTillToday()
-    ih.getHistoryFromSohu("zs_000001")
+    #ih.indexHistoryTillToday("000001")
+    ih.getHistoryFromSohu("000001")
