@@ -1,5 +1,6 @@
 f10DataApiUrl = "http://fund.eastmoney.com/f10/F10DataApi.aspx"
 sohuApiUrl = "http://q.stock.sohu.com/hisHq"
+apiUrl_163 = "http://quotes.money.163.com/service/chddata.html"
 gl_all_info_table = "funds_info"
 gl_index_info_table = "index_info"
 

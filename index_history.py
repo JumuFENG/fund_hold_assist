@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 import tushare as ts
 from pandas import *
 import json
+import os
 
 class Index_history():
     """
@@ -40,6 +41,12 @@ class Index_history():
         rsp = requests.get(url, params=params, proxies=proxies)
         rsp.raise_for_status()
         return rsp.text
+
+    def downloadFile(self, url, fname, params = None, proxies = None):
+        rsp = requests.get(url,params=params, proxies=proxies,stream = True)
+        rsp.raise_for_status()
+        with open(fname,'wb') as f:
+            f.write(rsp.content)
 
     def saveTSHistoryData(self, df):
 
@@ -106,12 +113,13 @@ class Index_history():
             values.append([str(v) for v in x]) 
 
         values.reverse()
+        self.saveIndexHistoryData(values)
 
-    def getHistoryFromSohu(self, code):
+    def getStartEnd(self, code):
         self.setIndexCode(code)
         if not self.sqldb.isExistTable(self.index_full_his_db):
             print("full history db table not set for", self.code, self.name)
-            return
+            return ("19901219", datetime.now().strftime("%Y%m%d"))
 
         sDate = ""
         eDate = ""
@@ -126,7 +134,14 @@ class Index_history():
                 if datetime.strptime(eDate, "%Y%m%d") - datetime.strptime(sDate, "%Y%m%d") <= timedelta(days = 1) and datetime.strptime(sDate, "%Y%m%d").weekday() >= 5:
                     print("it is weekend, no data to update.")
                     return
-                    
+        return (sDate, eDate)
+
+    def getHistoryFromSohu(self, code):
+        se = self.getStartEnd(code)
+        if not se:
+            return
+
+        (sDate,eDate) = se
         sohu_code = "zs_" + self.code
         params = {'code': sohu_code, 'start': sDate, 'end': eDate}
         response = self.getRequest(sohuApiUrl, params)
@@ -137,9 +152,22 @@ class Index_history():
             values.append([d,c,h,l,o,pr,p.strip('%'),v,a])
         self.saveIndexHistoryData(values)
 
+    def getHistoryFrom163(self, code):
+        se = self.getStartEnd(code)
+        if not se:
+            return
+
+        (sDate,eDate) = se
+        params = {'code':"0" + code,'start':sDate, 'end':eDate,'fields':'TCLOSE;HIGH;LOW;TOPEN;LCLOSE;CHG;PCHG;VOTURNOVER;VATURNOVER'}
+        fname = code + '.csv'
+        self.downloadFile(apiUrl_163, fname, params)
+        self.csv163ToSql(fname)
+        os.remove(fname)
+
+
 if __name__ == "__main__":
-    sqldb = SqlHelper(password = db_pwd, database = "testdb")
+    sqldb = SqlHelper(password = db_pwd, database = "fund_center")
     ih = Index_history(sqldb)
-    #ih.csv163ToSql("000001.csv")
-    #ih.indexHistoryTillToday("000001")
-    ih.getHistoryFromSohu("000001")
+    ih.indexHistoryTillToday("000001")
+    #ih.getHistoryFromSohu("000001")
+    ih.getHistoryFrom163("000001")
