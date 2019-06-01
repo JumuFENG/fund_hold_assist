@@ -21,9 +21,11 @@ class Index_history():
     def setIndexCode(self, code):
         self.code = code
         if self.sqldb.isExistTable(gl_index_info_table):
-            ((self.name, self.index_db_table, self.index_full_his_db),) = self.sqldb.select(gl_index_info_table, fields = [column_name,column_table_history, column_table_full_history], conds = "%s = '%s'" % (column_code, self.code))
-            if self.name and self.index_db_table and self.index_full_his_db:
-                return
+            index_info = self.sqldb.select(gl_index_info_table, fields = [column_name,column_table_history, column_table_full_history], conds = "%s = '%s'" % (column_code, self.code))
+            if index_info:
+                ((self.name, self.index_db_table, self.index_full_his_db),) = index_info
+                if self.name and self.index_db_table and self.index_full_his_db:
+                    return
 
         if not self.sqldb.isExistTable(gl_index_info_table):
             attrs = {column_name:'varchar(64) DEFAULT NULL', column_code:'varchar(10) DEFAULT NULL',
@@ -87,7 +89,7 @@ class Index_history():
                     return
         
         df = None
-        tscode = "sh" + self.code
+        tscode = "sh" + self.code if self.code[0] == '0' else "sz" + self.code
         if sDate == "" or eDate == "":
             df = ts.get_hist_data(tscode)
         else:
@@ -119,7 +121,7 @@ class Index_history():
         self.setIndexCode(code)
         if not self.sqldb.isExistTable(self.index_full_his_db):
             print("full history db table not set for", self.code, self.name)
-            return ("19901219", datetime.now().strftime("%Y%m%d"))
+            return ("", "")
 
         sDate = ""
         eDate = ""
@@ -143,7 +145,10 @@ class Index_history():
 
         (sDate,eDate) = se
         sohu_code = "zs_" + self.code
-        params = {'code': sohu_code, 'start': sDate, 'end': eDate}
+        params = {'code':sohu_code}
+        if not sDate == "":
+            params['start'] = sDate
+            params['end'] = eDate
         response = self.getRequest(sohuApiUrl, params)
         jresp = json.loads(response)[0]["hq"]
         jresp.reverse()
@@ -158,7 +163,12 @@ class Index_history():
             return
 
         (sDate,eDate) = se
-        params = {'code':"0" + code,'start':sDate, 'end':eDate,'fields':'TCLOSE;HIGH;LOW;TOPEN;LCLOSE;CHG;PCHG;VOTURNOVER;VATURNOVER'}
+        code_163 = "0" + self.code if self.code[0] == '0' else "1" + self.code
+        params = {'code':code_163}
+        if not sDate == "":
+            params['start'] = sDate
+            params['end'] = eDate
+        params['fields'] = 'TCLOSE;HIGH;LOW;TOPEN;LCLOSE;CHG;PCHG;VOTURNOVER;VATURNOVER'
         fname = code + '.csv'
         self.downloadFile(apiUrl_163, fname, params)
         self.csv163ToSql(fname)
