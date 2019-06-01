@@ -1,12 +1,16 @@
 f10DataApiUrl = "http://fund.eastmoney.com/f10/F10DataApi.aspx"
 sohuApiUrl = "http://q.stock.sohu.com/hisHq"
 apiUrl_163 = "http://quotes.money.163.com/service/chddata.html"
+apiUrl_dyhjw = "http://www.dyhjw.com/market/getinfoBycode"
+
 gl_all_info_table = "funds_info"
 gl_index_info_table = "index_info"
+gl_gold_info_table = "gold_info"
 
 column_name = "name"
 column_code = "code"
 column_table_history = "history_db_table"
+column_table_history_goldk = "history_goldk_table"
 column_table_full_history = "fullhistory_db_table"
 column_buy_table = "buy_table"
 column_sell_table = "sell_table"
@@ -59,3 +63,20 @@ index_code_name = {"000001":"上证指数","000002":"Ａ股指数","000003":"Ｂ
 "399007":"深证300","399008":"中小300","399101":"中小板综","399102":"创业板综","399106":"深证综指",
 "399107":"深证Ａ指","399108":"深证Ｂ指","399300":"沪深300","399352":"深企综指","399369":"CBN-兴全",
 "399481":"企债指数","399606":"创业板R" }
+
+gold_code_instid = {"AU9999": "Au99.99", "AU9995":"Au99.95",
+"":"Au100g",
+"":"Pt99.95",
+"":"Ag(T+D)",
+"":"Au(T+D)",
+"":"mAu(T+D)",
+"":"Au(T+N1)",
+"":"Au(T+N2)",
+"":"Ag99.99",
+"":"Ag99.9",
+"":"iAu99.99",
+"":"Au99.5",
+"":"iAu100g",
+"":"iAu99.5",
+"":"Au50g",
+"":"PGC30g"}
