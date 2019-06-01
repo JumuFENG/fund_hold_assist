@@ -2,10 +2,9 @@
 # -*- coding:utf-8 -*-
 
 from utils import *
+from history import *
 from datetime import datetime, timedelta
-from fund_history import FundHistoryDataDownloader
 from fund_trade import TradeFund
-from index_history import Index_history
 
 class DailyUpdater():
     """for daily update"""
@@ -43,8 +42,8 @@ class DailyUpdater():
 if __name__ == '__main__':
     du = DailyUpdater()
     #du.download_all_fund_history("161724")
-    #du.update_all()
-    du.download_all_index_history("399300")
+    du.update_all()
+    #du.download_all_index_history("399300")
     #du.buy("000217", 100, "2019-05-30")
     #du.buy("260108", 100, "2019-05-30")
     #du.buy("161724", 200, "2019-05-31", "2019-05-24")
