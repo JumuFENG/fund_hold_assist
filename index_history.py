@@ -79,7 +79,7 @@ class Index_history():
             if maxDate:
                 sDate = (datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
                 eDate = datetime.now().strftime("%Y-%m-%d")
-                if sDate >= eDate:
+                if sDate > eDate:
                     print("Already updated to %s" % maxDate)
                     return
                 if datetime.strptime(eDate, "%Y-%m-%d") - datetime.strptime(sDate, "%Y-%m-%d") <= timedelta(days = 1) and datetime.strptime(sDate, "%Y-%m-%d").weekday() >= 5:
@@ -128,7 +128,7 @@ class Index_history():
             if maxDate:
                 sDate = (datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
                 eDate = datetime.now().strftime("%Y%m%d")
-                if sDate >= eDate:
+                if sDate > eDate:
                     print("Already updated to %s" % maxDate)
                     return
                 if datetime.strptime(eDate, "%Y%m%d") - datetime.strptime(sDate, "%Y%m%d") <= timedelta(days = 1) and datetime.strptime(sDate, "%Y%m%d").weekday() >= 5:
@@ -164,10 +164,3 @@ class Index_history():
         self.csv163ToSql(fname)
         os.remove(fname)
 
-
-if __name__ == "__main__":
-    sqldb = SqlHelper(password = db_pwd, database = "fund_center")
-    ih = Index_history(sqldb)
-    ih.indexHistoryTillToday("000001")
-    #ih.getHistoryFromSohu("000001")
-    ih.getHistoryFrom163("000001")
