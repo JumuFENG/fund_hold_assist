@@ -32,49 +32,17 @@ class Gold_history():
         rsp = requests.get(url, params=params, headers=headers)
         return rsp.text
 
-    def createGoldInfoTable(self, code):
-        self.code = code
-        if self.sqldb.isExistTable(gl_gold_info_table):
-            gold_info = self.sqldb.select(gl_gold_info_table, fields = [column_name], conds = "%s = '%s'" % (column_code, self.code))
-            if gold_info:
-                ((self.name,),) = gold_info
-                return
-
-        if not self.sqldb.isExistTable(gl_gold_info_table):
-            attrs = {column_name:'varchar(64) DEFAULT NULL', column_code:'varchar(10) DEFAULT NULL'}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(gl_gold_info_table, attrs, constraint)
-
-        self.name = gold_code_instid[self.code]
-        params = {column_name:self.name, column_code:self.code}
-        self.sqldb.insert(gl_gold_info_table, params)
-
-    def getGoldInfoColumn(self, col, defval):
-        if not self.sqldb.isExistTable(gl_gold_info_table):
-            print("gold info table not exists!")
-            return
-        if not self.sqldb.isExistTableColumn(gl_gold_info_table, col):
-            self.sqldb.addColumn(gl_gold_info_table, col, 'varchar(64) DEFAULT NULL')
-        gold_info = self.sqldb.select(gl_gold_info_table, fields=[col], conds = "%s = '%s'" % (column_code, self.code))
-
-        colval = None
-        if gold_info:
-            ((colval,),) = gold_info
-        if not colval:
-            colval = defval
-            self.sqldb.update(gl_gold_info_table, {col:colval}, {column_code:"%s" % self.code})
-
-        return colval
-
     def setGoldCode(self, code):
-        self.createGoldInfoTable(code)
+        self.code = code
+        tbl_mgr = TableManager(self.sqldb, gl_gold_info_table, self.code)
 
-        self.gold_history_table = self.getGoldInfoColumn(column_table_history, "g_his_" + self.code)
+        self.name = tbl_mgr.GetTableColumnInfo(column_name, gold_code_instid[self.code])
+        self.gold_history_table = tbl_mgr.GetTableColumnInfo(column_table_history, "g_his_" + self.code)
         self.gold_history_table_30 = self.gold_history_table + "_30"
-        self.gold_rt_history_table = self.getGoldInfoColumn(column_table_history_realtime, "g_rt_his_" + self.code)
-        self.goldk_history_table = self.getGoldInfoColumn(column_table_history_goldk, "g_k_his_" + self.code)
-        self.goldkweek_history_table = self.getGoldInfoColumn(column_table_history_goldkweek, "g_kweek_his_" + self.code)
-        self.goldkmonth_history_table = self.getGoldInfoColumn(column_table_history_goldkmonth, "g_kmonth_his_" + self.code)
+        self.gold_rt_history_table = tbl_mgr.GetTableColumnInfo(column_table_history_realtime, "g_rt_his_" + self.code)
+        self.goldk_history_table = tbl_mgr.GetTableColumnInfo(column_table_history_goldk, "g_k_his_" + self.code)
+        self.goldkweek_history_table = tbl_mgr.GetTableColumnInfo(column_table_history_goldkweek, "g_kweek_his_" + self.code)
+        self.goldkmonth_history_table = tbl_mgr.GetTableColumnInfo(column_table_history_goldkmonth, "g_kmonth_his_" + self.code)
         
     def getDataRowsNeedUpdate(self, code, table, rowsPerDay):
         if not self.sqldb.isExistTable(table):
@@ -169,7 +137,7 @@ class Gold_history():
 
         self.sqldb.insertMany(self.goldk_history_table, headers, values)
 
-    def saveJijinbaoHistory(self, datas, table):
+    def saveJijinhaoHistory(self, datas, table):
         headers = [column_date, column_close, column_high, column_low, column_open, column_volume]
         if not self.sqldb.isExistTable(table):
             attrs = {}
@@ -192,7 +160,7 @@ class Gold_history():
 
         self.sqldb.insertMany(table, headers, values)
 
-    def getJijinbaoHistory(self, code):
+    def getJijinhaoHistory(self, code):
         self.setGoldCode(code)
         if self.sqldb.isExistTable(self.goldk_history_table):
             maxDate = self.sqldb.select(self.goldk_history_table, "max(%s)" % column_date)
@@ -218,7 +186,7 @@ class Gold_history():
         self.saveJijinbaoHistory(jresp['data'][2][0:-1], self.goldkweek_history_table)
         self.saveJijinbaoHistory(jresp['data'][1][0:-1], self.goldkmonth_history_table)
 
-    def saveJijinbaoRtHistory(self, values):
+    def saveJijinhaoRtHistory(self, values):
         headers = [column_date, column_price, column_averagae_price, column_volume]
         if not self.sqldb.isExistTable(self.gold_rt_history_table):
             attrs = {}
@@ -229,7 +197,7 @@ class Gold_history():
 
         self.sqldb.insertMany(self.gold_rt_history_table, headers, values)
 
-    def getJijinbaoRtHistory(self, code):
+    def getJijinhaoRtHistory(self, code):
         self.setGoldCode(code)
         maxDate = None
         if self.sqldb.isExistTable(self.gold_rt_history_table):
@@ -250,4 +218,4 @@ class Gold_history():
                     date = datetime.fromtimestamp(d['date']/1000).strftime("%Y-%m-%d %H:%M")
                     if date > maxDate:
                         values.append([date, d['price'], d['avg_price'], d['volume']])
-        self.saveJijinbaoRtHistory(values)
+        self.saveJijinhaoRtHistory(values)
