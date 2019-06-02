@@ -2,6 +2,8 @@ f10DataApiUrl = "http://fund.eastmoney.com/f10/F10DataApi.aspx"
 sohuApiUrl = "http://q.stock.sohu.com/hisHq"
 apiUrl_163 = "http://quotes.money.163.com/service/chddata.html"
 apiUrl_dyhjw = "http://www.dyhjw.com/market/getinfoBycode"
+apiUrl_jijinhao_kdata = "https://api.jijinhao.com/sQuoteCenter/kDataList.htm"
+apiUrl_jijinhao_fourDays = "https://api.jijinhao.com/sQuoteCenter/fourDaysMin.htm"
 
 gl_all_info_table = "funds_info"
 gl_index_info_table = "index_info"
@@ -10,7 +12,10 @@ gl_gold_info_table = "gold_info"
 column_name = "name"
 column_code = "code"
 column_table_history = "history_db_table"
+column_table_history_realtime = "history_rt_table"
 column_table_history_goldk = "history_goldk_table"
+column_table_history_goldkweek = "history_goldkweek_table"
+column_table_history_goldkmonth = "history_goldkmonth_table"
 column_table_full_history = "fullhistory_db_table"
 column_buy_table = "buy_table"
 column_sell_table = "sell_table"
@@ -38,6 +43,7 @@ column_close = "close"
 column_low = "low"
 column_volume = "volume"
 column_amount = "amount"
+column_price = "price"
 column_price_change = "price_change"
 column_p_change = "p_change"
 column_ma5 = "ma5"
@@ -80,3 +86,5 @@ gold_code_instid = {"AU9999": "Au99.99", "AU9995":"Au99.95",
 "":"iAu99.5",
 "":"Au50g",
 "":"PGC30g"}
+
+gold_code_jjb = {"AU9999":"JO_71"}
