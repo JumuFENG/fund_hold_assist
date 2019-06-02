@@ -19,16 +19,13 @@ class InvestBudget():
         if not self.sqldb.isExistTable(gl_fund_info_table):
             print("can not find fund info DB.")
             return
-        if not self.sqldb.isExistTableColumn(gl_fund_info_table, column_budget_table):
-            self.sqldb.addColumn(gl_fund_info_table, column_budget_table, "varchar(64) DEFAULT NULL")
-        ((his_db_table, budget_table),) = self.sqldb.select(gl_fund_info_table, [column_table_history, column_budget_table], "%s = '%s'" % (column_code, self.fund_code))
+        ((his_db_table,),) = self.sqldb.select(gl_fund_info_table, [column_table_history], "%s = '%s'" % (column_code, self.fund_code))
         if not his_db_table:
             print("can not get history table.")
             return
 
-        if not budget_table:
-            budget_table = self.fund_code + "_inv_budget"
-            self.sqldb.update(gl_fund_info_table, {column_budget_table:budget_table}, {column_code:self.fund_code})
+        tbl_mgr = TableManager(self.sqldb, gl_fund_info_table, self.fund_code)
+        budget_table = tbl_mgr.GetTableColumnInfo(column_budget_table, self.fund_code + "_inv_budget")
 
         if not self.sqldb.isExistTable(budget_table):
             attrs = {column_date:'varchar(20) DEFAULT NULL',column_net_value:'varchar(20) DEFAULT NULL',column_budget:'varchar(10) DEFAULT NULL', column_consumed:'tinyint(1) DEFAULT 0'}
@@ -85,9 +82,9 @@ class InvestBudget():
 
 if __name__ == '__main__':
     ib = InvestBudget()
-    ib.add_budget("000217",100,"2019-05-31")
+    #ib.add_budget("000217",100,"2019-05-31")
     #ib.add_budget("161724",100,"2019-05-28")
-    ib.add_budget("260108",100,"2019-05-31")
-    ib.add_budget("110003",10, "2019-05-31")
-    ib.add_budget("005633",100,"2019-05-31")
+    #ib.add_budget("260108",100,"2019-05-31")
+    #ib.add_budget("110003",10, "2019-05-31")
+    #ib.add_budget("005633",100,"2019-05-31")
     ib.get_budgets()

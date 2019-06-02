@@ -12,53 +12,16 @@ class TradeFund():
     def __init__(self, fund_code, dbname, dbpws):
         self.fund_code = fund_code
         self.sqldb = SqlHelper(password = dbpws, database = dbname)
-        tableColNames = [column_table_history]
-        if self.sqldb.isExistTableColumn(gl_fund_info_table, column_buy_table):
-            tableColNames.append(column_buy_table)
-        else:
-            self.sqldb.addColumn(gl_fund_info_table, column_buy_table, "varchar(20) DEFAULT NULL")
-            self.initBuytable()
 
-        if self.sqldb.isExistTableColumn(gl_fund_info_table, column_sell_table):
-            tableColNames.append(column_sell_table)
-        else:
-            self.sqldb.addColumn(gl_fund_info_table, column_sell_table, "varchar(20) DEFAULT NULL")
-            self.initSelltable()
-
-        fund_db_tables = self.sqldb.select(gl_fund_info_table, fields = tableColNames, conds = "%s = '%s'" % (column_code, self.fund_code))[0]
-        self.fund_history_table = fund_db_tables[0]
-        if len(fund_db_tables) > 1:
-            self.buy_table = fund_db_tables[1]
-            if not self.buy_table:
-                self.initBuytable()
-        if len(fund_db_tables) > 2:
-            self.sell_table = fund_db_tables[2]
-            if not self.sell_table:
-                self.initSelltable()
-
-        if not self.sqldb.isExistTableColumn(gl_fund_info_table, column_cost_hold):
-            self.sqldb.addColumn(gl_fund_info_table, column_cost_hold, "double(16,2) DEFAULT NULL")
-            self.sqldb.update(gl_fund_info_table, {column_cost_hold : "0"}, {column_code : self.fund_code})
-
-        if not self.sqldb.isExistTableColumn(gl_fund_info_table, column_portion_hold):
-            self.sqldb.addColumn(gl_fund_info_table, column_portion_hold, "double(16,4) DEFAULT NULL")
-            self.sqldb.update(gl_fund_info_table, {column_portion_hold : "0"}, {column_code : self.fund_code})
-
-        holdSum = self.sqldb.select(gl_fund_info_table, fields = [column_cost_hold, column_portion_hold], conds = "%s = '%s'" % (column_code, self.fund_code))[0]
-        if holdSum[0]:
-            self.cost_hold = Decimal(str(holdSum[0]))
-        else:
-            self.cost_hold = Decimal("0")
-        if holdSum[1]:
-            self.portion_hold = Decimal(holdSum[1]).quantize(Decimal('0.0000'))
-            #print("portion_hold", self.portion_hold)
-        else:
-            self.portion_hold = Decimal("0")
-
-        if not self.sqldb.isExistTableColumn(gl_fund_info_table, column_averagae_price):
-            self.sqldb.addColumn(gl_fund_info_table, column_averagae_price, "double(16,4) DEFAULT NULL")
-            if self.portion_hold > Decimal("0"):
-                self.sqldb.update(gl_fund_info_table, {column_averagae_price : str(self.cost_hold/self.portion_hold)}, {column_code : self.fund_code})
+        tbl_mgr = TableManager(self.sqldb, gl_fund_info_table, self.fund_code)
+        self.fund_history_table = tbl_mgr.GetTableColumnInfo(column_table_history, None)
+        self.buy_table = tbl_mgr.GetTableColumnInfo(column_buy_table, self.fund_code + "_buy")
+        self.sell_table = tbl_mgr.GetTableColumnInfo(column_sell_table, self.fund_code + "_sell")
+        cost_hold = tbl_mgr.GetTableColumnInfo(column_cost_hold, "0", "double(16,2) DEFAULT NULL")
+        self.cost_hold = Decimal(str(cost_hold))
+        portion_hold = tbl_mgr.GetTableColumnInfo(column_portion_hold, "0", "double(16,4) DEFAULT NULL")
+        self.portion_hold = Decimal(str(portion_hold))
+        tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
 
     def getToady(self):
         return datetime.now().strftime("%Y-%m-%d")
