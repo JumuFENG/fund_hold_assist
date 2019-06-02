@@ -39,7 +39,7 @@ class simulator_base(object):
         return Decimal(str(netval))
 
     def get_average_price(self):
-        ((aver,),) = self.sim_host.sqldb.select(gl_all_info_table, column_averagae_price,
+        ((aver,),) = self.sim_host.sqldb.select(gl_fund_info_table, column_averagae_price,
         "%s = '%s'" % (column_code, self.sim_host.fund_code))
         return Decimal(str(aver))
 

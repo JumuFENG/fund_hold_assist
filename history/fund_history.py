@@ -11,32 +11,17 @@ class FundHistoryDataDownloader():
     """
     get all the history data a fund, or update the data.
     """
-    def __init__(self, fund_code, sqldb):
-        self.fund_code = fund_code
+    def __init__(self, sqldb):
         self.sqldb = sqldb
         self.base_url = f10DataApiUrl
-        self.fund_name = ""
-        self.fund_db_table = ""
-
-        self.getBasicInfo()
         
-    def getBasicInfo(self):
-        if self.sqldb.isExistTable(gl_all_info_table):
-            ((self.fund_name, self.fund_db_table),) = self.sqldb.select(gl_all_info_table, fields=[column_name, column_table_history], conds = "%s = '%s'" % (column_code, self.fund_code))
-            if self.fund_name and self.fund_db_table :
-                #print("basic info of", self.fund_name, "exists, no need to save")
-                return
-        self.fund_name = "name_" + self.fund_code
-        self.fund_db_table = "f_his_" + self.fund_code
-        self.saveBasicInfo()
+    def setFundCode(self, code):
+        self.code = code
+        tbl_mgr = TableManager(self.sqldb, gl_gold_info_table, self.code)
 
-    def saveBasicInfo(self):
-        if not self.sqldb.isExistTable(gl_all_info_table):
-            attrs = {column_name:'varchar(200) DEFAULT NULL',column_code:'varchar(10) DEFAULT NULL',column_table_history:'varchar(64) DEFAULT NULL'}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(gl_all_info_table, attrs, constraint)
-        params = {column_name : self.fund_name, column_code : self.fund_code, column_table_history : self.fund_db_table}
-        self.sqldb.insert(gl_all_info_table, params)
+        self.name = tbl_mgr.GetTableColumnInfo(column_name, "name_" + self.code)
+        self.fund_db_table = tbl_mgr.GetTableColumnInfo(column_table_history, "f_his_" + self.code)
+
 
     def getRequest(self, url, params=None, proxies=None):
         rsp = requests.get(url, params=params, proxies=proxies)
@@ -62,7 +47,7 @@ class FundHistoryDataDownloader():
         self.allRecords = []
 
         while True:
-            params = {'type': 'lsjz', 'code': self.fund_code, 'page': curpage, 'per': 49, 'sdate': start, 'edate': end}
+            params = {'type': 'lsjz', 'code': self.code, 'page': curpage, 'per': 49, 'sdate': start, 'edate': end}
             response = self.getRequest(self.base_url, params)
             content = str(response[13:-2])
             content_split = content.split(',')
@@ -76,7 +61,8 @@ class FundHistoryDataDownloader():
                 break
             curpage += 1
 
-    def fundHistoryTillToday(self):
+    def fundHistoryTillToday(self, code):
+        self.setFundCode(code)
         sDate = ""
         eDate = ""
         if self.sqldb.isExistTable(self.fund_db_table):

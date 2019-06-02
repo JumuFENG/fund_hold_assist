@@ -57,7 +57,7 @@ class FundDataDrawer():
         self.dates_sell = None
 
     def getHistoryData(self, fund_code, sDate = ""):
-        fund_overviews = self.sqldb.select(gl_all_info_table, [column_table_history, column_name, column_buy_table, column_sell_table, column_averagae_price], "%s='%s'" % (column_code, fund_code))
+        fund_overviews = self.sqldb.select(gl_fund_info_table, [column_table_history, column_name, column_buy_table, column_sell_table, column_averagae_price], "%s='%s'" % (column_code, fund_code))
         if not fund_overviews:
             print("can not find history db table")
             return
@@ -202,4 +202,4 @@ if __name__ == "__main__":
     #testdb = "testdb"
     drawer = FundDataDrawer(testdb)
     #drawer.show_history_graph("110003", "2019-04-01")
-    drawer.show_history_graph("000217", "2019-04-01")
+    drawer.show_history_graph("260108", "2019-04-20")

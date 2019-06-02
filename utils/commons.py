@@ -5,7 +5,7 @@ apiUrl_dyhjw = "http://www.dyhjw.com/market/getinfoBycode"
 apiUrl_jijinhao_kdata = "https://api.jijinhao.com/sQuoteCenter/kDataList.htm"
 apiUrl_jijinhao_fourDays = "https://api.jijinhao.com/sQuoteCenter/fourDaysMin.htm"
 
-gl_all_info_table = "funds_info"
+gl_fund_info_table = "funds_info"
 gl_index_info_table = "index_info"
 gl_gold_info_table = "gold_info"
 

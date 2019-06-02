@@ -16,19 +16,19 @@ class InvestBudget():
         self.fund_code = fund_code
         self.budget = budget
         
-        if not self.sqldb.isExistTable(gl_all_info_table):
+        if not self.sqldb.isExistTable(gl_fund_info_table):
             print("can not find fund info DB.")
             return
-        if not self.sqldb.isExistTableColumn(gl_all_info_table, column_budget_table):
-            self.sqldb.addColumn(gl_all_info_table, column_budget_table, "varchar(64) DEFAULT NULL")
-        ((his_db_table, budget_table),) = self.sqldb.select(gl_all_info_table, [column_table_history, column_budget_table], "%s = '%s'" % (column_code, self.fund_code))
+        if not self.sqldb.isExistTableColumn(gl_fund_info_table, column_budget_table):
+            self.sqldb.addColumn(gl_fund_info_table, column_budget_table, "varchar(64) DEFAULT NULL")
+        ((his_db_table, budget_table),) = self.sqldb.select(gl_fund_info_table, [column_table_history, column_budget_table], "%s = '%s'" % (column_code, self.fund_code))
         if not his_db_table:
             print("can not get history table.")
             return
 
         if not budget_table:
             budget_table = self.fund_code + "_inv_budget"
-            self.sqldb.update(gl_all_info_table, {column_budget_table:budget_table}, {column_code:self.fund_code})
+            self.sqldb.update(gl_fund_info_table, {column_budget_table:budget_table}, {column_code:self.fund_code})
 
         if not self.sqldb.isExistTable(budget_table):
             attrs = {column_date:'varchar(20) DEFAULT NULL',column_net_value:'varchar(20) DEFAULT NULL',column_budget:'varchar(10) DEFAULT NULL', column_consumed:'tinyint(1) DEFAULT 0'}
@@ -53,11 +53,11 @@ class InvestBudget():
         self.sqldb.delete(budget_table, {column_consumed:'1'})
 
     def get_budgets(self):
-        if not self.sqldb.isExistTable(gl_all_info_table):
+        if not self.sqldb.isExistTable(gl_fund_info_table):
             print("can not find fund info DB.")
             return
 
-        fund_invest_details = self.sqldb.select(gl_all_info_table, [column_name, column_code, column_cost_hold, column_averagae_price,  column_budget_table])
+        fund_invest_details = self.sqldb.select(gl_fund_info_table, [column_name, column_code, column_cost_hold, column_averagae_price,  column_budget_table])
 
         for (n, c, h, a, bt) in fund_invest_details:
             ppg = 1 if not ppgram.__contains__(c) else ppgram[c]
@@ -85,9 +85,9 @@ class InvestBudget():
 
 if __name__ == '__main__':
     ib = InvestBudget()
-    #ib.add_budget("000217",100,"2019-05-27")
+    ib.add_budget("000217",100,"2019-05-31")
     #ib.add_budget("161724",100,"2019-05-28")
-    #ib.add_budget("260108",100,"2019-05-28")
-    #ib.add_budget("110003",10, "2019-05-29")
-    #ib.add_budget("005633",100,"2019-05-29")
+    ib.add_budget("260108",100,"2019-05-31")
+    ib.add_budget("110003",10, "2019-05-31")
+    ib.add_budget("005633",100,"2019-05-31")
     ib.get_budgets()

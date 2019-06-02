@@ -20,24 +20,11 @@ class Index_history():
 
     def setIndexCode(self, code):
         self.code = code
-        if self.sqldb.isExistTable(gl_index_info_table):
-            index_info = self.sqldb.select(gl_index_info_table, fields = [column_name,column_table_history, column_table_full_history], conds = "%s = '%s'" % (column_code, self.code))
-            if index_info:
-                ((self.name, self.index_db_table, self.index_full_his_db),) = index_info
-                if self.name and self.index_db_table and self.index_full_his_db:
-                    return
+        tbl_mgr = TableManager(self.sqldb, gl_index_info_table, self.code)
 
-        if not self.sqldb.isExistTable(gl_index_info_table):
-            attrs = {column_name:'varchar(64) DEFAULT NULL', column_code:'varchar(10) DEFAULT NULL',
-            column_table_history:'varchar(20) DEFAULT NULL', column_table_full_history:'varchar(20) DEFAULT NULL'}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(gl_index_info_table, attrs, constraint)
-
-        self.name = index_code_name[self.code]
-        self.index_db_table = "i_his_" + self.code
-        self.index_full_his_db = "i_ful_his_" + self.code
-        params = {column_name:self.name, column_code:self.code, column_table_history:self.index_db_table,column_table_full_history:self.index_full_his_db}
-        self.sqldb.insert(gl_index_info_table, params)
+        self.name = tbl_mgr.GetTableColumnInfo(column_name, index_code_name[self.code])
+        self.index_db_table = tbl_mgr.GetTableColumnInfo(column_table_history, "i_his_" + self.code)
+        self.index_full_his_db = tbl_mgr.GetTableColumnInfo(column_table_full_history, "i_ful_his_" + self.code)
 
     def getRequest(self, url, params=None, proxies=None):
         rsp = requests.get(url, params=params, proxies=proxies)

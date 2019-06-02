@@ -13,7 +13,7 @@ class DailyUpdater():
         self.sqldb = SqlHelper(password = db_pwd, database = self.dbname)
 
     def update_all(self):
-        fundcodes = self.sqldb.select(gl_all_info_table, fields=[column_code])
+        fundcodes = self.sqldb.select(gl_fund_info_table, fields=[column_code])
         for (c,) in fundcodes:
             self.download_all_fund_history(c)
 
@@ -22,12 +22,12 @@ class DailyUpdater():
             self.download_all_index_history(c)
 
         goldcodes = self.sqldb.select(gl_gold_info_table, fields=[column_code])
-        for c in goldcodes:
+        for (c,) in goldcodes:
             self.download_all_gold_history(c)
 
     def download_all_fund_history(self, code):
-        fh = FundHistoryDataDownloader(code, self.sqldb)
-        fh.fundHistoryTillToday()
+        fh = FundHistoryDataDownloader(self.sqldb)
+        fh.fundHistoryTillToday(code)
 
     def download_all_index_history(self, code):
         ih = Index_history(self.sqldb)
@@ -60,3 +60,6 @@ if __name__ == '__main__':
     #du.buy("110003", 30,  "2019-05-30", ["2019-05-28","2019-05-29"])
     #du.buy("005633", 300, "2019-05-30", ["2019-05-28","2019-05-27"])
     #du.sell("000217", ["2019-04-04","2019-04-08","2019-04-09"], "2019-05-15")
+    #sqldb = SqlHelper(password = db_pwd, database = "testdb")
+    #gh = Gold_history(sqldb)
+    #gh.getJijinhaoRtHistory("AU9999")
