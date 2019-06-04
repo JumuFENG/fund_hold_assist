@@ -17,7 +17,7 @@ class FundHistoryDataDownloader():
         
     def setFundCode(self, code):
         self.code = code
-        tbl_mgr = TableManager(self.sqldb, gl_gold_info_table, self.code)
+        tbl_mgr = TableManager(self.sqldb, gl_fund_info_table, self.code)
 
         self.name = tbl_mgr.GetTableColumnInfo(column_name, "name_" + self.code)
         self.fund_db_table = tbl_mgr.GetTableColumnInfo(column_table_history, "f_his_" + self.code)

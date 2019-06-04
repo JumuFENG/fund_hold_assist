@@ -15,6 +15,8 @@ class TableManager():
             attrs = {column_code:'varchar(20) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.tablename, attrs, constraint)
+        
+        if not self.sqldb.select(self.tablename, [column_code], "%s = '%s'" %(column_code, self.code)):
             params = {column_code:self.code}
             self.sqldb.insert(self.tablename, params)
         

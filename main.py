@@ -4,6 +4,7 @@
 from utils import *
 from history import *
 from datetime import datetime, timedelta
+import time
 from fund_trade import TradeFund
 
 class DailyUpdater():
@@ -50,16 +51,19 @@ class DailyUpdater():
 
 if __name__ == '__main__':
     du = DailyUpdater()
-    du.update_all()
-    #du.download_all_fund_history("161724")
+    #du.update_all()
+    #du.download_all_fund_history("001632")
     #du.download_all_index_history("399300")
     #du.download_all_gold_history("AU9999")
-    #du.buy("000217", 100, "2019-05-30")
-    #du.buy("260108", 100, "2019-05-30")
-    #du.buy("161724", 200, "2019-05-31", "2019-05-24")
-    #du.buy("110003", 30,  "2019-05-30", ["2019-05-28","2019-05-29"])
-    #du.buy("005633", 300, "2019-05-30", ["2019-05-28","2019-05-27"])
+    du.buy("000217", 1000, "2019-06-04")
+    du.buy("260108", 100,  "2019-06-04")
+    du.buy("001632", 1000, "2019-06-04")
+    du.buy("161724", 100,  "2019-06-04")
+    du.buy("110003", 30,   "2019-06-04", ["2019-05-31"])
+    du.buy("005633", 200,  "2019-06-04", ["2019-05-24"])
     #du.sell("000217", ["2019-04-04","2019-04-08","2019-04-09"], "2019-05-15")
     #sqldb = SqlHelper(password = db_pwd, database = "testdb")
     #gh = Gold_history(sqldb)
     #gh.getJijinhaoRtHistory("AU9999")
+    #gh.getJijinhaoTodayMin("AU9999")
+    #gh.getJijinhaoRealtime("AU9999")

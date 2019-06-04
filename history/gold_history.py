@@ -219,3 +219,29 @@ class Gold_history():
                     if date > maxDate:
                         values.append([date, d['price'], d['avg_price'], d['volume']])
         self.saveJijinhaoRtHistory(values)
+
+    def getJijinhaoRealtime(self, code):
+        self.setGoldCode(code)
+        curTime = datetime.now()
+        stamp = time.mktime(curTime.timetuple()) * 1000 + curTime.microsecond
+        params = {'code':gold_code_jjb[self.code]}#, '_':str(int(stamp))
+        response = self.getJijinHaoRequest(apiUrl_jijinhao_realtime, params)
+        rsp = response[len("var hq_str = "):].split(',')
+        print(rsp)
+
+    def getJijinhaoTodayMin(self, code):
+        self.setGoldCode(code)
+
+        params = {'code':gold_code_jjb[self.code]}
+        response = self.getJijinHaoRequest(apiUrl_jijinhao_today, params)        
+        rsp = response[len("var hq_str_ml = "):]
+        jresp = json.loads(rsp)
+        values = []
+        maxDate = ""
+        for d in jresp['data']:
+            if not d['volume'] == 0:
+                date = datetime.fromtimestamp(d['date']/1000).strftime("%Y-%m-%d %H:%M")
+                if date > maxDate and not d['price'] == -1:
+                    values.append([date, d['price'], d['avg_price'], d['volume']])
+        self.gold_rt_history_table = "g_rt_day_min_au9999"
+        self.saveJijinhaoRtHistory(values)
