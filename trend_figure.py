@@ -73,7 +73,14 @@ class FundDataDrawer():
             print("history db table not exists.")
             return
 
-        dataRead = self.sqldb.select(his_db_table, [column_date, column_net_value], "%s >= '%s'" % (column_date, sDate))
+        if sDate == "" and self.sqldb.isExistTable(buytable):
+            dates_buy = self.sqldb.select(buytable, "min(%s)" % column_date, "%s = 0" % column_soldout)
+            if dates_buy:
+                ((sDate,),) = dates_buy
+                if not sDate:
+                    sDate = ""
+
+        dataRead = self.sqldb.select(his_db_table, [column_date, column_net_value], "%s >= '%s'" % (column_date, sDate), order = " ORDER BY %s ASC" % column_date)
         self.dates = [d for (d,v) in dataRead]
         self.values = [Decimal(str(v * self.ppg)).quantize(Decimal('0.0000')) for (d,v) in dataRead]
         self.info_text = ""
@@ -183,7 +190,7 @@ class FundDataDrawer():
         self.info_text = ""
         plt.gca().get_figure().canvas.mpl_disconnect(self.cidmotion)
 
-    def show_history_graph(self, fund_code, sDate):
+    def show_history_graph(self, fund_code, sDate = ""):
         self.fund_code = fund_code
         self.ppg = 1 if not ppgram.__contains__(self.fund_code) else ppgram[self.fund_code]
         self.getHistoryData(fund_code, sDate)
@@ -201,5 +208,9 @@ if __name__ == "__main__":
     testdb = "fund_center"
     #testdb = "testdb"
     drawer = FundDataDrawer(testdb)
-    #drawer.show_history_graph("110003", "2019-04-01")
-    drawer.show_history_graph("260108", "2019-04-20")
+    drawer.show_history_graph("000217")
+    #drawer.show_history_graph("160639")
+    #drawer.show_history_graph("161724")
+    #drawer.show_history_graph("005633")
+    #drawer.show_history_graph("110003")
+    #drawer.show_history_graph("260108")
