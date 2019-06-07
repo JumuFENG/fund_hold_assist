@@ -35,6 +35,13 @@ class InvestBudget():
         if not date:
             date = datetime.now().strftime("%Y-%m-%d")
 
+        bu_rec = self.sqldb.select(budget_table, conds = "%s = '%s'" % (column_date, date))
+        if bu_rec:
+            ((bu_rec),) = bu_rec
+            if bu_rec:
+                print("already add budget", bu_rec)
+                return
+
         ((netvalue,),) = self.sqldb.select(his_db_table, column_net_value, "%s = '%s'" % (column_date, date))
         if not netvalue:
             print("no value on %s" % date)
@@ -82,9 +89,9 @@ class InvestBudget():
 
 if __name__ == '__main__':
     ib = InvestBudget()
-    #ib.add_budget("000217",100,"2019-05-31")
-    #ib.add_budget("161724",100,"2019-05-28")
-    #ib.add_budget("260108",100,"2019-05-31")
-    #ib.add_budget("110003",10, "2019-05-31")
-    #ib.add_budget("005633",100,"2019-05-31")
+    ib.add_budget("000217",100,"2019-06-05")
+    #ib.add_budget("161724",100,"2019-06-05")
+    #ib.add_budget("260108",100,"2019-06-05")
+    #ib.add_budget("110003",10, "2019-06-05")
+    #ib.add_budget("005633",100,"2019-06-05")
     ib.get_budgets()

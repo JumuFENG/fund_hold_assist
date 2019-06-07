@@ -52,6 +52,13 @@ class TradeFund():
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.buy_table, attrs, constraint)
 
+        buy_rec = self.sqldb.select(self.buy_table, conds = "%s = '%s'" % (column_date, buyDate)):
+        if buy_rec:
+            ((buy_rec),) = buy_rec
+            if buy_rec:
+                print("find buy record:", buy_rec, "ignore.")
+                return
+
         if not self.sqldb.isExistTableColumn(self.buy_table, column_soldout):
             self.sqldb.addColumn(self.buy_table, column_soldout, 'tinyint(1) DEFAULT 0')
 
