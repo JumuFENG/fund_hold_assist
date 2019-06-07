@@ -37,3 +37,30 @@ class TableManager():
             self.sqldb.update(self.tablename, {col:col_val}, {column_code:"%s" % self.code})
 
         return col_val
+
+class TableCopy():
+    """
+    to copy a table from on schema to another
+    """
+    def CopyTo(self, fromDb, toDb, tablename):
+        if not fromDb.isExistTable(tablename):
+            print("no table named", tablename)
+            return
+        if toDb.isExistTable(tablename):
+            print(tablename, "already exists.")
+            return
+        result = fromDb.select("information_schema.columns","column_name",["table_name = '%s'" % tablename, "table_schema = '%s'" % fromDb.database])
+        headers = []
+        for (col,) in result:
+            if not col == 'id':
+                if col == 'date':
+                    headers.insert(0, col)
+                else:
+                    headers.append(col)
+        attrs = {}
+        for x in headers:
+            attrs[x] = 'varchar(20) DEFAULT NULL'
+        constraint = 'PRIMARY KEY(`id`)'
+        toDb.creatTable(tablename, attrs, constraint)
+        values = fromDb.select(tablename, headers, order=" ORDER BY id ASC")
+        toDb.insertMany(tablename, headers, values)

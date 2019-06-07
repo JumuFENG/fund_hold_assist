@@ -45,13 +45,18 @@ class DailyUpdater():
         trade = TradeFund(fundcode, self.dbname, db_pwd)
         trade.buy(cost, buyDate, budgetDates)
 
+    def undo_buy(self, fundcode, date, removeall = False):
+        trade = TradeFund(fundcode, self.dbname, db_pwd)
+        trade.undo_buy(date, removeall)
+        trade.update_average_price()
+
     def sell(self, fundcode, buyDates, sellDate):
         trade = TradeFund(fundcode, self.dbname, db_pwd)
         trade.sell_by_day(buyDates, sellDate)
 
 if __name__ == '__main__':
-    #du = DailyUpdater()
-    #du.update_all()
+    du = DailyUpdater()
+    du.update_all()
     #du.download_all_fund_history("001632")
     #du.download_all_index_history("399300")
     #du.download_all_gold_history("AU9999")
@@ -62,4 +67,3 @@ if __name__ == '__main__':
     #du.buy("005633", 200,  "2019-06-06", ["2019-06-05"])
     #du.buy("001632", 1000, "2019-06-06")
     #du.sell("000217", ["2019-04-04","2019-04-08","2019-04-09"], "2019-05-15")
-    

@@ -52,7 +52,7 @@ class TradeFund():
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.buy_table, attrs, constraint)
 
-        buy_rec = self.sqldb.select(self.buy_table, conds = "%s = '%s'" % (column_date, buyDate)):
+        buy_rec = self.sqldb.select(self.buy_table, conds = "%s = '%s'" % (column_date, buyDate))
         if buy_rec:
             ((buy_rec),) = buy_rec
             if buy_rec:
@@ -70,6 +70,7 @@ class TradeFund():
         #print("self.portion_hold", self.portion_hold)
         self.portion_hold += portion.quantize(Decimal('0.0000'))
         self.sqldb.update(gl_fund_info_table, {column_cost_hold : str(self.cost_hold), column_portion_hold : str(self.portion_hold), column_averagae_price:str(self.cost_hold/self.portion_hold)}, {column_code: self.fund_code})
+        self.update_average_price()
         if not budget_dates:
             return
         ((budget_table,),) = self.sqldb.select(gl_fund_info_table, [column_budget_table], "%s = '%s'" % (column_code, self.fund_code))
@@ -79,6 +80,29 @@ class TradeFund():
             elif isinstance(budget_dates, list):
                 for d in budget_dates:
                     self.sqldb.update(budget_table, {column_consumed:'1'},{column_date:d})
+
+    def undo_buy(self, date, removeall = False):
+        if not date or date == "":
+            print("no date to undo.")
+            return
+
+        buy_rec = self.sqldb.select(self.buy_table, conds = "%s = '%s'" % (column_date, date))
+        if not removeall and len(buy_rec) == 1:
+            return
+
+        cost = 0
+        portion = 0
+        for x in range(0, len(buy_rec) if removeall else len(buy_rec) - 1):
+            (idx, d,c,p,u) = buy_rec[x]
+            cost += c
+            portion += p
+            self.sqldb.delete(self.buy_table, {"id":str(idx)})
+
+    def update_average_price(self):
+        buy_rec =self.sqldb.select(self.buy_table, ["sum(%s)" % column_cost, "sum(%s)" % column_portion], "%s = 0" % column_soldout)
+        if buy_rec:
+            ((cost,portion),) = buy_rec
+            self.sqldb.update(gl_fund_info_table, {column_averagae_price:str((Decimal(str(cost))/Decimal(str(portion))).quantize(Decimal("0.0000")))}, {column_code: self.fund_code})
 
     def sell_by_day(self, buy_dates, date = ""):
         if date == "":
