@@ -38,8 +38,8 @@ class DailyUpdater():
 
     def download_all_gold_history(self, code):
         gh = Gold_history(self.sqldb)
-        gh.goldHistoryTillToday(code)
-        gh.goldKHistoryTillToday(code)
+        gh.getJijinhaoHistory(code)
+        gh.getJijinhaoRtHistory(code)
 
     def buy(self, fundcode, cost, buyDate, budgetDates = None):
         trade = TradeFund(fundcode, self.dbname, db_pwd)
@@ -50,20 +50,16 @@ class DailyUpdater():
         trade.sell_by_day(buyDates, sellDate)
 
 if __name__ == '__main__':
-    du = DailyUpdater()
+    #du = DailyUpdater()
     #du.update_all()
     #du.download_all_fund_history("001632")
     #du.download_all_index_history("399300")
     #du.download_all_gold_history("AU9999")
-    du.buy("000217", 1000, "2019-06-04")
-    du.buy("260108", 100,  "2019-06-04")
-    du.buy("001632", 1000, "2019-06-04")
-    du.buy("161724", 100,  "2019-06-04")
-    du.buy("110003", 30,   "2019-06-04", ["2019-05-31"])
-    du.buy("005633", 200,  "2019-06-04", ["2019-05-24"])
+    #du.buy("000217", 1000, "2019-06-06")
+    #du.buy("260108", 300,  "2019-06-06", ["2019-05-27", "2019-06-05"])
+    #du.buy("161724", 200,  "2019-06-06", "2019-06-05")
+    #du.buy("110003", 30,   "2019-06-06", ["2019-05-27", "2019-06-05"])
+    #du.buy("005633", 200,  "2019-06-06", ["2019-06-05"])
+    #du.buy("001632", 1000, "2019-06-06")
     #du.sell("000217", ["2019-04-04","2019-04-08","2019-04-09"], "2019-05-15")
-    #sqldb = SqlHelper(password = db_pwd, database = "testdb")
-    #gh = Gold_history(sqldb)
-    #gh.getJijinhaoRtHistory("AU9999")
-    #gh.getJijinhaoTodayMin("AU9999")
-    #gh.getJijinhaoRealtime("AU9999")
+    

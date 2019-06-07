@@ -182,9 +182,9 @@ class Gold_history():
         response = self.getJijinHaoRequest(apiUrl_jijinhao_kdata, params)
         rsp = response[len("var  KLC_KL = "):]
         jresp = json.loads(rsp)
-        self.saveJijinbaoHistory(jresp['data'][0][0:-1], self.goldk_history_table)
-        self.saveJijinbaoHistory(jresp['data'][2][0:-1], self.goldkweek_history_table)
-        self.saveJijinbaoHistory(jresp['data'][1][0:-1], self.goldkmonth_history_table)
+        self.saveJijinhaoHistory(jresp['data'][0][0:-1], self.goldk_history_table)
+        self.saveJijinhaoHistory(jresp['data'][2][0:-1], self.goldkweek_history_table)
+        self.saveJijinhaoHistory(jresp['data'][1][0:-1], self.goldkmonth_history_table)
 
     def saveJijinhaoRtHistory(self, values):
         headers = [column_date, column_price, column_averagae_price, column_volume]
@@ -219,6 +219,7 @@ class Gold_history():
                     if date > maxDate:
                         values.append([date, d['price'], d['avg_price'], d['volume']])
         self.saveJijinhaoRtHistory(values)
+        self.pickupDayPrice()
 
     def getJijinhaoRealtime(self, code):
         self.setGoldCode(code)
@@ -245,3 +246,58 @@ class Gold_history():
                     values.append([date, d['price'], d['avg_price'], d['volume']])
         self.gold_rt_history_table = "g_rt_day_min_au9999"
         self.saveJijinhaoRtHistory(values)
+
+    def pickupDayPrice(self):
+        if not self.sqldb.isExistTable(self.gold_rt_history_table):
+            print("real time gold history %s is not exists." % self.gold_rt_history_table)
+            return
+
+        headers = [column_date, column_close, column_price]
+        if not self.sqldb.isExistTable(self.gold_history_table):
+            attrs = {}
+            for c in headers:
+                attrs[c] = 'varchar(20) DEFAULT NULL'
+            constraint = 'PRIMARY KEY(`id`)'
+            self.sqldb.creatTable(self.gold_history_table, attrs, constraint)
+        if not self.sqldb.isExistTableColumn(self.gold_history_table, column_close):
+            self.sqldb.addColumn(self.gold_history_table, column_close, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(self.gold_history_table, column_price):
+            self.sqldb.addColumn(self.gold_history_table, column_price, 'varchar(20) DEFAULT NULL')
+
+        maxDate = self.sqldb.select(self.gold_history_table, "max(%s)" % column_date)
+        if maxDate:
+            ((maxDate,),) = maxDate
+        if not maxDate:
+            maxDate = ""
+
+        goldk_data = self.sqldb.select(self.goldk_history_table, [column_date, column_close], "%s > '%s'" % (column_date, maxDate))
+        if goldk_data:
+            self.sqldb.insertMany(self.gold_history_table, [column_date, column_close], goldk_data)
+
+        minTime = self.sqldb.select(self.gold_rt_history_table, "min(%s)" % column_date)
+        if minTime:
+            ((minTime,),) = minTime
+        if not minTime:
+            minTime = ""
+        else:
+            minTime = datetime.strptime(minTime, "%Y-%m-%d %H:%M").strftime("%Y-%m-%d")
+
+        maxDate = self.sqldb.select(self.gold_history_table, "max(%s)" % column_date, "%s != NULL" % column_price)
+        if maxDate:
+            ((maxDate,),) = maxDate
+        if not maxDate:
+            maxDate = ""
+        maxDate = max(maxDate, minTime)
+
+        datesToUpdate = self.sqldb.select(self.gold_history_table, column_date, "%s > '%s'" % (column_date, maxDate))
+        for (maxDate,) in datesToUpdate:
+            nightTime = (datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(hours=20)).strftime("%Y-%m-%d %H:%M")
+            closeTime = self.sqldb.select(self.gold_rt_history_table, "max(%s)" % column_date, ["%s > '%s'" % (column_date, maxDate), "%s < '%s'" % (column_date, nightTime)])
+            if closeTime:
+                ((closeTime,),) = closeTime
+            dayprice = self.sqldb.select(self.gold_rt_history_table, [column_date, column_price], "%s = '%s'" % (column_date, closeTime))
+            if dayprice:
+                ((daytime, price),) = dayprice
+                if daytime and price:
+                    daytime = datetime.strptime(daytime, "%Y-%m-%d %H:%M").strftime("%Y-%m-%d")
+                    self.sqldb.update(self.gold_history_table, {column_price:str(price)}, {column_date:daytime})
