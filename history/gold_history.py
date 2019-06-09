@@ -282,7 +282,7 @@ class Gold_history():
         else:
             minTime = datetime.strptime(minTime, "%Y-%m-%d %H:%M").strftime("%Y-%m-%d")
 
-        maxDate = self.sqldb.select(self.gold_history_table, "max(%s)" % column_date, "%s != NULL" % column_price)
+        maxDate = self.sqldb.select(self.gold_history_table, "max(%s)" % column_date, "%s is not NULL" % column_price)
         if maxDate:
             ((maxDate,),) = maxDate
         if not maxDate:
