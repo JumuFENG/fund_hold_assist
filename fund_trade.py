@@ -104,6 +104,36 @@ class TradeFund():
             ((cost,portion),) = buy_rec
             self.sqldb.update(gl_fund_info_table, {column_averagae_price:str((Decimal(str(cost))/Decimal(str(portion))).quantize(Decimal("0.0000")))}, {column_code: self.fund_code})
 
+    def manually_fix_buy_table(self, date, cost):
+        if not date or date == "":
+            print("no date to fix.")
+            return
+
+        buy_rec = self.sqldb.select(self.buy_table, conds = "%s = '%s'" % (column_date, date))
+        if not buy_rec:
+            print("no buy record found, use TradeFund.buy() directly.")
+            return
+        net_value = self.sqldb.select(self.fund_history_table, fields = [column_net_value], conds = "%s = '%s'" % (column_date, date))
+        if not net_value:
+            print("date wrong, net_value is null in:", date)
+            return
+        (net_value,), = net_value
+        if not net_value:
+            print("net_value wrong, net_value is null in:", date)
+            return
+
+        portion = Decimal(cost)/Decimal(str(net_value)).quantize(Decimal("0.0000"))
+        self.sqldb.update(self.buy_table, {column_cost:str(cost), column_portion:str(portion)}, {column_date:date})
+        
+        buy_rec =self.sqldb.select(self.buy_table, ["sum(%s)" % column_cost, "sum(%s)" % column_portion], "%s = 0" % column_soldout)
+        if buy_rec:
+            ((cost,portion),) = buy_rec
+            if not cost or not portion:
+                return
+            average = (Decimal(str(cost))/Decimal(str(portion))).quantize(Decimal("0.0000")) if not portion == 0 else 0
+            self.sqldb.update(gl_fund_info_table, {column_cost_hold:str(cost), column_portion_hold:str(portion), column_averagae_price:str(average)}, {column_code: self.fund_code})
+
+
     def sell_by_day(self, buy_dates, date = ""):
         if date == "":
             date = self.getToady()

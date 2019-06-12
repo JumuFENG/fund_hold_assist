@@ -50,20 +50,26 @@ class DailyUpdater():
         trade.undo_buy(date, removeall)
         trade.update_average_price()
 
+    def manually_fix_buy(self, fundcode, date, cost):
+        trade = TradeFund(fundcode, self.dbname, db_pwd)
+        trade.manually_fix_buy_table(date, cost)
+
     def sell(self, fundcode, buyDates, sellDate):
         trade = TradeFund(fundcode, self.dbname, db_pwd)
         trade.sell_by_day(buyDates, sellDate)
 
 if __name__ == '__main__':
     du = DailyUpdater()
-    du.update_all()
-    #du.download_all_fund_history("001632")
+    #du.update_all()
+    #du.download_all_fund_history("001551")
     #du.download_all_index_history("399300")
     #du.download_all_gold_history("AU9999")
     #du.buy("000217", 1000, "2019-06-06")
-    #du.buy("260108", 300,  "2019-06-06", ["2019-05-27", "2019-06-05"])
-    #du.buy("161724", 200,  "2019-06-06", "2019-06-05")
-    #du.buy("110003", 30,   "2019-06-06", ["2019-05-27", "2019-06-05"])
-    #du.buy("005633", 200,  "2019-06-06", ["2019-06-05"])
+    #du.buy("260108", 100,  "2019-06-12")
+    #du.buy("161724", 100,  "2019-06-12")
+    #du.buy("110003", 20,   "2019-06-12", ["2019-06-11"])
+    #du.buy("005633", 450,  "2019-06-12", ["2019-06-10"])
     #du.buy("001632", 1000, "2019-06-06")
-    #du.sell("000217", ["2019-04-04","2019-04-08","2019-04-09"], "2019-05-15")
+    #du.buy("001551", 100,  "2019-06-12")
+    #du.sell("000217", ["2019-05-20","2019-05-21","2019-05-22","2019-05-27","2019-05-28","2019-05-29","2019-05-30"], "2019-06-10")
+    du.manually_fix_buy("000217", "2019-05-30", 100)
