@@ -87,19 +87,22 @@ class InvestBudget():
             self.show_budgets_summary(n,h,a)
 
     def show_budgets_summary(self, name, hold, aver_price, index = None, budget = None, budget_sum = 0):
-        print(name)
+        if not hold == 0:
+            print()
+            print(name)
+
         if budget and index and not budget_sum == 0:
             print("all",hold,":", aver_price,"budgets:", budget_sum)
             print(pd.DataFrame(data=budget, columns=["net","budget"], index=index))
-        else:
+        elif not hold == 0:
             print("all",hold,":", aver_price)
-        print()
+
 
 if __name__ == '__main__':
     ib = InvestBudget()
     #ib.add_budget("000217",100,"2019-06-10")
     #ib.add_budget("005633",100,"2019-06-11")
-    #ib.add_budget("161724",100,"2019-06-11")
+    #ib.add_budget("161724",100,"2019-06-13")
     #ib.add_budget("260108",100,"2019-06-11")
-    #ib.add_budget("110003",10, "2019-06-11")
+    #ib.add_budget("110003",10, "2019-06-13")
     ib.get_budgets()
