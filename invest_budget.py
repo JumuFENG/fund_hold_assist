@@ -5,12 +5,14 @@ from utils import *
 from datetime import datetime, timedelta
 from decimal import Decimal
 import pandas as pd
+import os
 
 class InvestBudget():
     """to help do the invest budget"""
     def __init__(self):
         self.dbname = "fund_center"#"testdb"#
         self.sqldb = SqlHelper(password = db_pwd, database = self.dbname)
+        self.summary_text = ""
 
     def add_budget(self, fund_code, budget, date = ""):
         self.fund_code = fund_code
@@ -79,24 +81,29 @@ class InvestBudget():
                 if sum_b == 0:
                     no_budgets.append([n,h,Decimal(str(a)) * ppg])
                 else:
-                    self.show_budgets_summary(n,h,Decimal(str(a)) * ppg, index, values, sum_b)
+                    self.collect_budgets(n,h,Decimal(str(a)) * ppg, index, values, sum_b)
             else:
                 no_budgets.append([n,h,Decimal(str(a)) * ppg])
 
         for (n,h,a) in no_budgets:
-            self.show_budgets_summary(n,h,a)
+            self.collect_budgets(n,h,a)
 
-    def show_budgets_summary(self, name, hold, aver_price, index = None, budget = None, budget_sum = 0):
+        self.save_budgets()
+
+    def collect_budgets(self, name, hold, aver_price, index = None, budget = None, budget_sum = 0):
         if not hold == 0:
-            print()
-            print(name)
+            self.summary_text += "\n" + name
 
         if budget and index and not budget_sum == 0:
-            print("all",hold,":", aver_price,"budgets:", budget_sum)
-            print(pd.DataFrame(data=budget, columns=["net","budget"], index=index))
+            self.summary_text += "\nall %d: %.4f budgets: %d\n" % (hold, aver_price, budget_sum)
+            self.summary_text += str(pd.DataFrame(data=budget, columns=["net","budget"], index=index)) + "\n"
         elif not hold == 0:
-            print("all",hold,":", aver_price)
+            self.summary_text += "\nall %d: %.4f\n" % (hold, aver_price)
 
+    def save_budgets(self):
+        f = open(gl_budget_file, 'w')
+        f.write(datetime.now().strftime("%m-%d %H:%M") + self.summary_text)
+        f.close()
 
 if __name__ == '__main__':
     ib = InvestBudget()
