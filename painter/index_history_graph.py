@@ -8,8 +8,6 @@ class IndexHistoryGraph(SingleHistoryGraph):
     """draw index history graph"""
     def __init__(self, sqldb, code, showAll = False):
         super(IndexHistoryGraph, self).__init__(sqldb, code)
-        self.sqldb = sqldb
-        self.code = code
         self.showAll = showAll
         
     def getGlobalInfoTableName(self):
@@ -20,3 +18,4 @@ class IndexHistoryGraph(SingleHistoryGraph):
 
     def getColsToRead(self):
         return [column_date, column_close]
+        

@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 
 class FundTradeHistoryGraph(FundHistoryGraph):
     """draw fund trade history graph"""
-    def __init__(self, sqldb, code):
+    def __init__(self, sqldb, code, allTrade = False):
         super(FundTradeHistoryGraph, self).__init__(sqldb, code)
         self.ppg = 1 if not ppgram.__contains__(self.code) else ppgram[self.code]
+        self.allTrade = allTrade
         self.dates_buy = None
         self.dates_buy_sold = None
         self.dates_sell = None
@@ -22,7 +23,7 @@ class FundTradeHistoryGraph(FundHistoryGraph):
 
         sDate = None
         if self.sqldb.isExistTable(buytable):
-            dates_buy = self.sqldb.select(buytable, "min(%s)" % column_date, "%s = 0" % column_soldout)
+            dates_buy = self.sqldb.select(buytable, "min(%s)" % column_date, "%s = 0" % column_soldout if not self.allTrade else "")
             if dates_buy:
                 ((sDate,),) = dates_buy
         if not sDate:

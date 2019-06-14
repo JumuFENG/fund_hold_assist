@@ -59,7 +59,7 @@ class SingleHistoryGraph(Painter):
 
     def draw_figure(self):
         plt.gca().get_figure().suptitle(self.name)
-        xlocator = mpl.ticker.MultipleLocator(len(self.dates)/10)
+        xlocator = mpl.ticker.MultipleLocator(len(self.dates)/10 if len(self.dates) > 50 else 10)
         plt.gca().xaxis.set_major_locator(xlocator)
 
         info_posx = self.dates[self.cursXidx]

@@ -11,6 +11,7 @@ import matplotlib.dates as mdates
 import matplotlib.animation as animation
 import numpy as np
 from utils import *
+from painter import *
 
 def filterBiggerThan(aList, num1, num2):
     biggerThan = [x["Inc2Day"] for x in aList if x["Inc2Day"] > num1 or x["Inc2Day"] < num2 ]
@@ -82,7 +83,9 @@ class FundDataDrawer():
 
         dataRead = self.sqldb.select(his_db_table, [column_date, column_net_value], "%s >= '%s'" % (column_date, sDate), order = " ORDER BY %s ASC" % column_date)
         self.dates = [d for (d,v) in dataRead]
-        self.values = [Decimal(str(v * self.ppg)).quantize(Decimal('0.0000')) for (d,v) in dataRead]
+        values = [Decimal(str(v * self.ppg)).quantize(Decimal('0.0000')) for (d,v) in dataRead]
+        self.values = [Decimal(v/values[0]).quantize(Decimal('0.0000')) for v in values]
+        self.average = (self.average/values[0]).quantize(Decimal('0.0000'))
         self.info_text = ""
 
         if self.sqldb.isExistTable(buytable):
@@ -207,10 +210,19 @@ class FundDataDrawer():
 if __name__ == "__main__":
     testdb = "fund_center"
     #testdb = "testdb"
-    drawer = FundDataDrawer(testdb)
-    drawer.show_history_graph("000217")
+    #drawer = FundDataDrawer(testdb)
+    #drawer.show_history_graph("000217")
     #drawer.show_history_graph("160639")
     #drawer.show_history_graph("161724")
     #drawer.show_history_graph("005633")
     #drawer.show_history_graph("110003")
     #drawer.show_history_graph("260108")
+    sqldb = SqlHelper(password = db_pwd, database = testdb)
+    #painter = GoldHistoryGraph(sqldb, "AU9999", True)
+    #painter.show_graph()
+    #painter = FundHistoryGraph(sqldb, "000217")
+    #painter.show_graph()
+    #painter = IndexHistoryGraph(sqldb, "000001")
+    #painter.show_graph()
+    painter = FundTradeHistoryGraph(sqldb, "000217")
+    painter.show_graph()
