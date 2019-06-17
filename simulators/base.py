@@ -22,6 +22,7 @@ class simulator_base(object):
         self.cost_prepared += ((1000, self.get_current_netval()),)
 
     def prepare_cost_after_sell(self):
+        return
         if not self.sim_host.sqldb.isExistTable(self.trade.sell_table):
             return
 

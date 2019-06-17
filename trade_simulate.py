@@ -49,9 +49,11 @@ if __name__ == "__main__":
     #eDate = "2018-10-17"
     sDate = "2018-10-24"
     eDate = "2019-05-16"
-    #sim.sim(sDate, eDate, simulator_base())
+    sim.sim(sDate, eDate, simulator_base())
     #sim.sim(sDate, eDate, simulator_roll_over())
-    sim.sim(sDate, eDate, simulator_decrease())
+    #sim.sim(sDate, eDate, simulator_decrease())
     #sim.sim(sDate, eDate, simulator_anti_lose())
-    #sim.sim(sDate, eDate, simulator_moving_average())
+    sim.sim(sDate, eDate, simulator_keep_market())
+    sim.sim(sDate, eDate, simulator_moving_average())
+    sim.sim(sDate, eDate, simulator_keepmarket_movingaverage())
     #continuely_buy(testdb, "000217", "2019-04-03", "2019-05-20", 1000)
