@@ -10,12 +10,32 @@ class simulator_base(object):
     """
     def __init__ (self, expect_return = Decimal("0.015")):
         self.cost_prepared = ()
+        self.cost_backup = ()
         self.expect_return = expect_return
         self.least_return = Decimal("0.0015")
 
     def setup(self, sim_host, trade):
         self.sim_host = sim_host
         self.trade = trade
+
+    def prepare_cost(self):
+        self.cost_prepared += ((1000, self.get_current_netval()),)
+
+    def prepare_cost_after_sell(self):
+        if not self.sim_host.sqldb.isExistTable(self.trade.sell_table):
+            return
+
+        sell_info = self.sim_host.sqldb.select(self.trade.sell_table, [column_date, column_cost_sold], order = " ORDER BY %s ASC" % column_date)
+        if sell_info:
+            (sellDate, sellcost) = sell_info[-1]
+            (netval,), = self.sim_host.sqldb.select(self.trade.fund_history_table, column_net_value,
+        "%s = '%s'" % (column_date, sellDate))
+            for (c, v) in self.cost_backup:
+                sellcost += c
+            netval = Decimal(str(netval))
+            self.cost_backup = ()
+            self.cost_backup += ((sellcost / 2, (netval * Decimal("0.99")).quantize(Decimal('0.0000')),),)
+            self.cost_backup += ((sellcost / 2, (netval * Decimal("0.98")).quantize(Decimal('0.0000')),),)
 
     def simulate(self, sIdx, eIdx):
         # 每日定投
@@ -29,9 +49,10 @@ class simulator_base(object):
                 self.sell_to_survive()
                 continue
             
-            self.cost_prepared += ((1000, self.get_current_netval()),)
+            self.prepare_cost()
             if self.should_buy():
                 self.buy()
+        print(self.cost_backup)
 
     def get_current_netval(self):
         ((netval,),) = self.sim_host.sqldb.select(self.trade.fund_history_table, column_net_value,
@@ -63,8 +84,16 @@ class simulator_base(object):
                 cost += p
             else:
                 prepared_remain += ((p,v),)
+        backup_remain = ()
+        for (p,v) in self.cost_backup:
+            if v >= netval:
+                cost += p
+            else:
+                backup_remain += ((p,v),)
+
         self.trade.buy(cost, self.curDate)
         self.cost_prepared = prepared_remain
+        self.cost_backup = backup_remain
 
     def should_sell(self, return_rate):
         netval = self.get_current_netval()
@@ -80,6 +109,7 @@ class simulator_base(object):
     def sell(self, reDays = 7):
         buy_dates = self.trade.buy_dates_available_to_sell(reDays, self.curDate)
         self.trade.sell_by_day(buy_dates, self.curDate)
+        self.prepare_cost_after_sell()
 
     def sell_to_survive(self):
         still_hold = self.sim_host.sqldb.select(self.trade.buy_table,[column_date, column_cost, column_portion],["%s = 0" % column_soldout])
@@ -91,3 +121,4 @@ class simulator_base(object):
             if netval - Decimal(str(val)) >= self.expect_return * Decimal(str(val)):
                 to_sell += ((d,c,p),)
         self.trade.sell(to_sell, self.curDate)
+        self.prepare_cost_after_sell()

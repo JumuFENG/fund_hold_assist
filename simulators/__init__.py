@@ -1,3 +1,5 @@
 from simulators.base import simulator_base
 from simulators.buydecreasing import simulator_decrease
 from simulators.buylosing import simulator_anti_lose
+from simulators.movingaverage import simulator_moving_average
+from simulators.baserollover import simulator_roll_over

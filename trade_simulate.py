@@ -19,8 +19,9 @@ class SimulatorHost():
     def sim(self, sDate, eDate, simulator):
         trade = TradeFund(self.fund_code, self.dbname, self.dbpws)
         self.sqldb = trade.sqldb
-        self.allDays = self.sqldb.select(trade.fund_history_table, column_date)
-        self.allDays = [x[0] for x in self.allDays]
+        allData = self.sqldb.select(trade.fund_history_table, [column_date, column_net_value], order = " ORDER BY %s ASC" % column_date)
+        self.allDays = [x[0] for x in allData]
+        self.allValues = [x[1] for x in allData]
 
         sIdx = self.allDays.index(sDate)
         eIdx = self.allDays.index(eDate)
@@ -42,11 +43,15 @@ def continuely_buy(dbname, fund_code, sDate, eDate, cost_per_day):
 
 if __name__ == "__main__":
     testdb = "fund_center"
-    #testdb = "testdb"
-    #sim = SimulatorHost("000217", dbname = testdb)
-    #sDate = "2019-02-13"
-    #eDate = "2019-05-16"
-    #sim.sim(sDate, eDate, simulator_base()) 
-    #sim.sim(sDate, eDate, simulator_decrease())
+    testdb = "testdb"
+    sim = SimulatorHost("000217", dbname = testdb)
+    #sDate = "2016-07-20"
+    #eDate = "2018-10-17"
+    sDate = "2018-10-24"
+    eDate = "2019-05-16"
+    #sim.sim(sDate, eDate, simulator_base())
+    #sim.sim(sDate, eDate, simulator_roll_over())
+    sim.sim(sDate, eDate, simulator_decrease())
     #sim.sim(sDate, eDate, simulator_anti_lose())
+    #sim.sim(sDate, eDate, simulator_moving_average())
     #continuely_buy(testdb, "000217", "2019-04-03", "2019-05-20", 1000)
