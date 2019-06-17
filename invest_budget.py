@@ -95,10 +95,10 @@ class InvestBudget():
             self.summary_text += "\n" + name
 
         if budget and index and not budget_sum == 0:
-            self.summary_text += "\nall %d: %.4f budgets: %d\n" % (hold, aver_price, budget_sum)
+            self.summary_text += "\nall %d<%.4f> budgets: %d\n" % (hold, aver_price, budget_sum)
             self.summary_text += str(pd.DataFrame(data=budget, columns=["net","budget"], index=index)) + "\n"
         elif not hold == 0:
-            self.summary_text += "\nall %d: %.4f\n" % (hold, aver_price)
+            self.summary_text += "\nall %d<%.4f>\n" % (hold, aver_price)
 
     def save_budgets(self):
         f = open(gl_budget_file, 'w')
