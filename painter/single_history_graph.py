@@ -134,6 +134,15 @@ class SingleHistoryGraph(Painter):
     def getRoundedValues(self, values):
         pass
 
+    def getRateTickWidth(self):
+        return 1
+
+    def getRateBarWidth(self):
+        return 0.0075
+
+    def getRoundedRates(self, values):
+        return [round(r, 1) for r in values]
+
     def drawDistribute(self, vallist, barw, xOriginal, info_text, xlabel, tickWidth):
         valCounts = {}
         for v in set(vallist):
@@ -155,9 +164,11 @@ class SingleHistoryGraph(Painter):
         plt.subplot(211)
         if len(self.rates) > 0:
             rateInfo = self.getMinMaxInfo(self.rates)
-            rates = [round(r, 1) for r in self.rates]
+            rates = self.getRoundedRates(self.rates)
             lblText = str(len(self.rates)) + " day growth rate: %"
-            self.drawDistribute(rates, 0.075, 0, rateInfo, lblText, 1)
+            tickWidth = self.getRateTickWidth()
+            barWidth = self.getRateBarWidth()
+            self.drawDistribute(rates, barWidth, 0, rateInfo, lblText, tickWidth)
 
         netvalInfo = self.getMinMaxInfo(self.values)
         netvalues = self.getRoundedValues(self.values)
