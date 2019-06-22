@@ -7,6 +7,44 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from bs4 import BeautifulSoup 
 
+class AllFunds():
+    """get all funds' general info and save to db table allfund"""
+    def __init__(self, sqldb):
+        self.sqldb = sqldb
+            
+    def loadInfo(self):
+        if not self.sqldb.isExistTable(gl_all_funds_info_table):
+            attrs = {column_code:'varchar(20) DEFAULT NULL', column_name:"varchar(255) DEFAULT NULL",  column_url:"varchar(255) DEFAULT NULL"}
+            constraint = 'PRIMARY KEY(`id`)'
+            self.sqldb.creatTable(gl_all_funds_info_table, attrs, constraint)
+
+        c = ""
+        with open("allfund.html",'rb') as f:
+            c = f.read()
+        soup = BeautifulSoup(c, 'html.parser')
+        tags = soup.select('.num_right > li')
+        allfund = []
+        for tag in tags:
+            if tag.a:
+                codename = tag.a.text[1:].split('）')
+                allfund.append([codename[0],codename[1],tag.a.get('href')]) 
+        self.sqldb.insertMany(gl_all_funds_info_table, [column_code, column_name, column_url], allfund)
+
+    def readSingleData(self, col, code, defVal = None):
+        val = defVal
+        if self.sqldb.isExistTable(gl_all_funds_info_table):
+            v = self.sqldb.select(gl_all_funds_info_table, col, "%s = '%s'" % (column_code, code))
+            if v:
+                (v,), = v
+                val = v if v else val
+        return val
+
+    def get_fund_name(self, code):
+        return self.readSingleData(column_name, code, "name_" + code)
+
+    def get_fund_url(self, code):
+        return self.readSingleData(column_url, code)
+
 class FundHistoryDataDownloader():
     """
     get all the history data a fund, or update the data.
@@ -18,8 +56,9 @@ class FundHistoryDataDownloader():
     def setFundCode(self, code):
         self.code = code
         tbl_mgr = TableManager(self.sqldb, gl_fund_info_table, self.code)
+        allfund = AllFunds(self.sqldb)
 
-        self.name = tbl_mgr.GetTableColumnInfo(column_name, "name_" + self.code)
+        self.name = tbl_mgr.GetTableColumnInfo(column_name, allfund.get_fund_name(self.code))
         self.fund_db_table = tbl_mgr.GetTableColumnInfo(column_table_history, "f_his_" + self.code)
 
 

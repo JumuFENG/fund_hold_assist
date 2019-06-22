@@ -1,6 +1,7 @@
 gl_budget_file = "D:\\UserFiles\\Documents\\MiCloud\\budgets\\budgets.txt"
 
 f10DataApiUrl = "http://fund.eastmoney.com/f10/F10DataApi.aspx"
+apiUrl_AllFund = "http://fund.eastmoney.com/allfund.html"
 sohuApiUrl = "http://q.stock.sohu.com/hisHq"
 apiUrl_163 = "http://quotes.money.163.com/service/chddata.html"
 apiUrl_dyhjw = "http://www.dyhjw.com/market/getinfoBycode"
@@ -9,12 +10,14 @@ apiUrl_jijinhao_fourDays = "https://api.jijinhao.com/sQuoteCenter/fourDaysMin.ht
 apiUrl_jijinhao_today = "https://api.jijinhao.com/sQuoteCenter/todayMin.htm"
 apiUrl_jijinhao_realtime = "https://api.jijinhao.com/sQuoteCenter/realTime.htm"
 
+gl_all_funds_info_table = "all_funds"
 gl_fund_info_table = "funds_info"
 gl_index_info_table = "index_info"
 gl_gold_info_table = "gold_info"
 
 column_name = "name"
 column_code = "code"
+column_url = "url"
 column_table_history = "history_db_table"
 column_table_history_realtime = "history_rt_table"
 column_table_history_goldk = "history_goldk_table"
