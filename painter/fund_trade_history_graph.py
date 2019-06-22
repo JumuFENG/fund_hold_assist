@@ -39,7 +39,7 @@ class FundTradeHistoryGraph(FundHistoryGraph):
             self.average = self.ppg * Decimal(str(self.average))
 
         if not self.average == 0:
-            self.earn_percent = str(((self.values[-1] - self.average) * 100/self.average).quantize(Decimal("0.0000"))) + "%"
+            self.earn_percent = str(((Decimal(str(self.values[-1])) - self.average) * 100/self.average).quantize(Decimal("0.0000"))) + "%"
 
         if self.sqldb.isExistTable(buytable):
             dates_buy = self.sqldb.select(buytable, [column_date], ["%s >= '%s'" % (column_date, sDate), "%s = 0" % column_soldout])
@@ -74,3 +74,6 @@ class FundTradeHistoryGraph(FundHistoryGraph):
             plt.scatter(self.dates_buy_sold, self.values_buy_sold, c = 'w', edgecolors = 'r')
         if self.dates_sell:
             plt.scatter(self.dates_sell, self.values_sell, c = 'k')
+
+    def show_distribute(self):
+        print("call FundHistoryGraph.show_distribute")

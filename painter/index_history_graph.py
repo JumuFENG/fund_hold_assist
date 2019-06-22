@@ -17,5 +17,30 @@ class IndexHistoryGraph(SingleHistoryGraph):
         return column_table_full_history if self.showAll else column_table_history
 
     def getColsToRead(self):
-        return [column_date, column_close]
+        return [column_date, column_close, column_p_change]
         
+    def unpackDataRead(self, dataRead):
+        self.dates = []
+        self.values = []
+        self.rates = []
+
+        for x in dataRead:
+            (d,v,r) = x
+            self.dates.append(d)
+            self.values.append(float(v))
+            rate = 0 if r == "None" else float(r)
+            rate = 10 if rate > 10 else rate
+            rate = -10 if rate < -10 else rate
+            self.rates.append(rate)
+
+    def getRoundedValues(self, values):
+        return [100*round(v/100) for v in values]
+
+    def getOriginalNetVal(self):
+        return None
+
+    def getNetValTickWidth(self):
+        return 250
+
+    def getNetValBarWidth(self):
+        return 75
