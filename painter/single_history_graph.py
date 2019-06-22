@@ -63,7 +63,7 @@ class SingleHistoryGraph(Painter):
         self.postProcessData()
 
     def draw_figure(self):
-        plt.gca().get_figure().suptitle(self.name)
+        plt.suptitle(self.name, fontproperties="Microsoft YaHei")
         xlocator = mpl.ticker.MultipleLocator(len(self.dates)/10 if len(self.dates) > 50 else 10)
         plt.gca().xaxis.set_major_locator(xlocator)
 
@@ -168,4 +168,5 @@ class SingleHistoryGraph(Painter):
         barWidth = self.getNetValBarWidth()
         self.drawDistribute(netvalues, barWidth, netOriginal, netvalInfo, lblText, tickWidth)
 
+        plt.suptitle(self.name + "(" + self.code + ")", fontproperties="Microsoft YaHei")
         plt.show()

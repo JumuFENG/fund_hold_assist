@@ -57,17 +57,18 @@ class FundTradeHistoryGraph(FundHistoryGraph):
 
     def drawAdditionalLines(self):
         info_posx = self.dates[self.cursXidx]
+        latestVal = Decimal(str(self.values[-1]))
         if not self.average == 0:
             plt.axhline(y=self.average, ls = '-', lw = 0.75, color = 'r', alpha = 0.5)
             plt.gca().text(self.dates[0], self.average, str(self.average))
             plt.axhline(y=self.values[-1], ls = '-', lw = 0.75, color = 'r', alpha = 0.5)
             plt.axvline(x=self.dates[-1], ls = '-.', lw = 0.5, color='r', alpha = 0.8)
-            plt.gca().text(self.dates[-1], (self.average + self.values[-1])/2, self.earn_percent)
+            plt.gca().text(self.dates[-1], (self.average + latestVal)/2, self.earn_percent)
         cursY = self.values[self.cursXidx]
         if not self.average == 0 and not cursY == 0:
             plt.gca().text(info_posx, (Decimal(cursY) + self.average)/2, str((((Decimal(cursY) - self.average) * 100/self.average)).quantize(Decimal("0.0000"))) + "%")
             if not self.values[-1] == cursY:
-                plt.gca().text(info_posx, (Decimal(cursY) + self.values[-1])/2, str(((self.values[-1] - Decimal(cursY)) * 100/Decimal(cursY)).quantize(Decimal("0.0000"))) + "%")
+                plt.gca().text(info_posx, (Decimal(cursY) + latestVal)/2, str(((latestVal - Decimal(cursY)) * 100/Decimal(cursY)).quantize(Decimal("0.0000"))) + "%")
         if self.dates_buy:
             plt.scatter(self.dates_buy, self.values_buy, c = 'r')
         if self.dates_buy_sold:

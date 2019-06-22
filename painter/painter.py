@@ -36,7 +36,6 @@ class Painter():
         
     def show_graph(self):
         self.readHistoryData()
-        mpl.rcParams['font.sans-serif'] = ['SimHei'] #指定默认字体 SimHei为黑体
         self.draw_figure()
         plt.gca().get_figure().canvas.mpl_connect('figure_enter_event', self.enter_figure)
         plt.gca().get_figure().canvas.mpl_connect('figure_leave_event', self.leave_figure)
