@@ -7,60 +7,17 @@ import html
 from datetime import datetime, timedelta
 from decimal import Decimal
 from bs4 import BeautifulSoup 
+import re
 
 class AllFunds():
     """get all funds' general info and save to db table allfund"""
     def __init__(self, sqldb):
         self.sqldb = sqldb
-            
-    def loadInfo(self):
         if not self.sqldb.isExistTable(gl_all_funds_info_table):
             attrs = {column_code:'varchar(20) DEFAULT NULL', column_name:"varchar(255) DEFAULT NULL",  column_url:"varchar(255) DEFAULT NULL"}
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(gl_all_funds_info_table, attrs, constraint)
-
-        c = ""
-        with open("allfund.html",'rb') as f:
-            c = f.read()
-        soup = BeautifulSoup(c, 'html.parser')
-        tags = soup.select('.num_right > li')
-        allfund = []
-        for tag in tags:
-            if tag.a:
-                codename = tag.a.text[1:].split('）')
-                allfund.append([codename[0],codename[1],tag.a.get('href')]) 
-        self.sqldb.insertMany(gl_all_funds_info_table, [column_code, column_name, column_url], allfund)
-
-    def getInfoOfFund(self, code, proxies=None):
-        if not self.sqldb.isExistTable(gl_all_funds_info_table):
-            print(gl_all_funds_info_table, "not exist.")
-            return
-
-        url = self.get_fund_url(code)
-        if not url:
-            print("url of", code, "not exist.")
-            return
-
-        headers = {'Host': 'fund.eastmoney.com',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:68.0) Gecko/20100101 Firefox/68.0',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate',
-        'Connection': 'keep-alive'}
-        
-        #print(url)
-        rsp = requests.get(url, params=headers, proxies=proxies)
-        rsp.raise_for_status()
-        return rsp.content.decode('utf-8')
-
-    def updateInfoOfFund(self, code, infoDic):
-        if not self.sqldb.isExistTable(gl_all_funds_info_table):
-            print(gl_all_funds_info_table, "not exist.")
-            return
-        if not len(infoDic) == 6:
-            print("len of infoDic should be 6")
-            return
-
+            
         if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_type):
             self.sqldb.addColumn(gl_all_funds_info_table, column_type, 'varchar(20) DEFAULT NULL')
         if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_risk_level):
@@ -73,6 +30,100 @@ class AllFunds():
             self.sqldb.addColumn(gl_all_funds_info_table, column_star_level, 'varchar(20) DEFAULT NULL')
         if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_summary_url):
             self.sqldb.addColumn(gl_all_funds_info_table, column_summary_url, 'varchar(255) DEFAULT NULL')
+
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_fee):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_fee, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_rating_shzq):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_rating_shzq, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_rating_zszq):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_rating_zszq, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_rating_jazq):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_rating_jazq, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_5star_num):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_5star_num, 'varchar(10) DEFAULT NULL')
+
+    def loadInfo(self):
+        c = ""
+        with open("allfund.html",'rb') as f:
+            c = f.read()
+        soup = BeautifulSoup(c, 'html.parser')
+        tags = soup.select('.num_right > li')
+        allfund = []
+        for tag in tags:
+            if tag.a:
+                codename = tag.a.text[1:].split('）')
+                allfund.append([codename[0],codename[1],tag.a.get('href')]) 
+        self.sqldb.insertMany(gl_all_funds_info_table, [column_code, column_name, column_url], allfund)
+
+    def loadRatingInfo(self, code = None):
+        c = self.getRequest(apiUrl_fundRating)
+        soup = BeautifulSoup(c, 'html.parser')
+        fundJs = soup.select('#fundinfo > script')[0]
+        vs = fundJs.get_text()
+        results = re.search('var fundinfos = "(.*?)";', vs)
+        rows = results.group(1).split('_')
+        for row in rows:
+            ds = row.split('|')
+            dscode = ds[0]
+            if code and not dscode == code:
+                continue
+            fund_type = ds[2]
+            zszq = ds[10]
+            shzq = ds[12]
+            jazq = ds[16]
+            five_star_num = ds[7]
+            #ds[8] #unknown
+            #ds[14] #unknown
+            fee = ds[18]
+            ratingDic = {column_type:fund_type, column_fee:fee, column_rating_shzq:shzq, column_rating_zszq:zszq, column_rating_jazq:jazq,column_5star_num:five_star_num}
+            if code:
+                return ratingDic
+            else:
+                self.updateRatingOfFund(dscode, ratingDic)
+            
+    def updateRatingOfFund(self, code, ratingDic):
+        if not self.sqldb.isExistTable(gl_all_funds_info_table):
+            print(gl_all_funds_info_table, "not exist.")
+            return
+        if not len(ratingDic) == 6:
+            print("len of ratingDic should be 6")
+            return
+
+        self.sqldb.update(gl_all_funds_info_table, ratingDic, {column_code: code})
+
+    def getRequest(self, url):
+        headers = {'Host': 'fund.eastmoney.com',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:68.0) Gecko/20100101 Firefox/68.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive'}
+        
+        proxies=None
+
+        #print(url)
+        rsp = requests.get(url, params=headers, proxies=proxies)
+        rsp.raise_for_status()
+        return rsp.content.decode('utf-8')
+
+    def getInfoOfFund(self, code):
+        if not self.sqldb.isExistTable(gl_all_funds_info_table):
+            print(gl_all_funds_info_table, "not exist.")
+            return
+
+        url = self.get_fund_url(code)
+        if not url:
+            print("url of", code, "not exist.")
+            return
+        return self.getRequest(url)
+
+    def updateInfoOfFund(self, code, infoDic):
+        if not self.sqldb.isExistTable(gl_all_funds_info_table):
+            print(gl_all_funds_info_table, "not exist.")
+            return
+        if not len(infoDic) == 11:
+            print("len of infoDic should be 11, but get", len(infoDic))
+            return
 
         self.sqldb.update(gl_all_funds_info_table, infoDic, {column_code: code})
 
@@ -96,6 +147,8 @@ class AllFunds():
         fund_info_url = soup.select('.fundDetail-footer > ul > li')[1].a.get('href')
 
         infoDic = {column_type: td_fund_type, column_risk_level: td_risk_level, column_amount: td_money_amount, column_setup_date: td_setup_date, column_star_level: td_star_level, column_summary_url: fund_info_url}
+        ratingDic = self.loadRatingInfo(code)
+        infoDic = dict(infoDic, **ratingDic)
         #print(infoDic)
         self.updateInfoOfFund(code, infoDic)
 
