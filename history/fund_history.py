@@ -31,7 +31,7 @@ class AllFunds():
                 allfund.append([codename[0],codename[1],tag.a.get('href')]) 
         self.sqldb.insertMany(gl_all_funds_info_table, [column_code, column_name, column_url], allfund)
 
-    def getInfoOfFund(self, code, params=None, proxies=None):
+    def getInfoOfFund(self, code, proxies=None):
         if not self.sqldb.isExistTable(gl_all_funds_info_table):
             print(gl_all_funds_info_table, "not exist.")
             return
@@ -40,8 +40,16 @@ class AllFunds():
         if not url:
             print("url of", code, "not exist.")
             return
+
+        headers = {'Host': 'fund.eastmoney.com',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:68.0) Gecko/20100101 Firefox/68.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive'}
+        
         #print(url)
-        rsp = requests.get(url, params=params, proxies=proxies)
+        rsp = requests.get(url, params=headers, proxies=proxies)
         rsp.raise_for_status()
         return rsp.content.decode('utf-8')
 
@@ -76,9 +84,9 @@ class AllFunds():
         soup = BeautifulSoup(c, 'html.parser')
         tds = soup.select('.infoOfFund > table td')
         #print(tds[0].get_text().replace(u'\xa0', u' '))
-        td_type = tds[0].get_text().replace(u'\xa0', u'').split('：')[1].split('|')
-        td_fund_type = td_type[0]
-        td_risk_level = td_type[1]
+        td_fund_type = tds[0].a.get_text()
+        td_type = tds[0].get_text().replace(u'\xa0', u'').split('|')
+        td_risk_level = td_type[1] if len(td_type) > 1 else "N/A"
         td_money_amount = tds[1].get_text().replace(u'\xa0', u'').split('：')[1].split('（')[0]
         td_setup_date = tds[3].get_text().replace(u'\xa0', u'').split('：')[1]
         td_star_level = tds[5].get_text().replace(u'\xa0', u'').split('：')[1]
