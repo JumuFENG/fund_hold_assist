@@ -3,6 +3,7 @@
 
 from utils import *
 import requests
+import html
 from datetime import datetime, timedelta
 from decimal import Decimal
 from bs4 import BeautifulSoup 
@@ -29,6 +30,66 @@ class AllFunds():
                 codename = tag.a.text[1:].split('）')
                 allfund.append([codename[0],codename[1],tag.a.get('href')]) 
         self.sqldb.insertMany(gl_all_funds_info_table, [column_code, column_name, column_url], allfund)
+
+    def getInfoOfFund(self, code, params=None, proxies=None):
+        if not self.sqldb.isExistTable(gl_all_funds_info_table):
+            print(gl_all_funds_info_table, "not exist.")
+            return
+
+        url = self.get_fund_url(code)
+        if not url:
+            print("url of", code, "not exist.")
+            return
+        #print(url)
+        rsp = requests.get(url, params=params, proxies=proxies)
+        rsp.raise_for_status()
+        return rsp.content.decode('utf-8')
+
+    def updateInfoOfFund(self, code, infoDic):
+        if not self.sqldb.isExistTable(gl_all_funds_info_table):
+            print(gl_all_funds_info_table, "not exist.")
+            return
+        if not len(infoDic) == 6:
+            print("len of infoDic should be 6")
+            return
+
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_type):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_type, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_risk_level):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_risk_level, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_amount):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_amount, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_setup_date):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_setup_date, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_star_level):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_star_level, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_summary_url):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_summary_url, 'varchar(255) DEFAULT NULL')
+
+        self.sqldb.update(gl_all_funds_info_table, infoDic, {column_code: code})
+
+    def loadInfo(self, code):
+        c = self.getInfoOfFund(code)
+        if not c:
+            return
+
+        soup = BeautifulSoup(c, 'html.parser')
+        tds = soup.select('.infoOfFund > table td')
+        #print(tds[0].get_text().replace(u'\xa0', u' '))
+        td_type = tds[0].get_text().replace(u'\xa0', u'').split('：')[1].split('|')
+        td_fund_type = td_type[0]
+        td_risk_level = td_type[1]
+        td_money_amount = tds[1].get_text().replace(u'\xa0', u'').split('：')[1].split('（')[0]
+        td_setup_date = tds[3].get_text().replace(u'\xa0', u'').split('：')[1]
+        td_star_level = tds[5].get_text().replace(u'\xa0', u'').split('：')[1]
+        if not td_star_level:
+            td_star_level = tds[5].div.get('class')[0][-1]
+
+        fund_info_url = soup.select('.fundDetail-footer > ul > li')[1].a.get('href')
+
+        infoDic = {column_type: td_fund_type, column_risk_level: td_risk_level, column_amount: td_money_amount, column_setup_date: td_setup_date, column_star_level: td_star_level, column_summary_url: fund_info_url}
+        #print(infoDic)
+        self.updateInfoOfFund(code, infoDic)
 
     def readSingleData(self, col, code, defVal = None):
         val = defVal
