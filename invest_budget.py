@@ -82,7 +82,7 @@ class InvestBudget():
                     no_budgets.append([n,h,Decimal(str(a)) * ppg])
                 else:
                     self.collect_budgets(n,h,Decimal(str(a)) * ppg, index, values, sum_b)
-            else:
+            elif h and a:
                 no_budgets.append([n,h,Decimal(str(a)) * ppg])
 
         for (n,h,a) in no_budgets:
@@ -107,9 +107,9 @@ class InvestBudget():
 
 if __name__ == '__main__':
     ib = InvestBudget()
-    #ib.add_budget("000217",100,"2019-06-10")
-    #ib.add_budget("005633",100,"2019-06-11")
-    #ib.add_budget("161724",100,"2019-06-13")
-    #ib.add_budget("260108",100,"2019-06-11")
-    #ib.add_budget("110003",10, "2019-06-13")
+    #ib.add_budget("000217",100,"2019-06-17")
+    #ib.add_budget("005633",100,"2019-06-17")
+    ib.add_budget("161724",100,"2019-06-24")
+    ib.add_budget("260108",100,"2019-06-24")
+    ib.add_budget("110003",10, "2019-06-24")
     ib.get_budgets()
