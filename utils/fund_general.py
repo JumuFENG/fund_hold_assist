@@ -11,5 +11,5 @@ class FundGeneral():
         self.sqldb = sqldb
 
         details = self.sqldb.select(gl_fund_info_table, "*", "%s = '%s'" % (column_code, code))
-        (i, self.code, self.name, self.history_table, self.buy_table, self.sell_table, 
+        (i, self.name, self.code, self.history_table, self.buy_table, self.sell_table, 
             self.cost_hold, self.portion_hold, self.average, self.budget_table), = details
