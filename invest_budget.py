@@ -63,11 +63,13 @@ class InvestBudget():
             print("can not find fund info DB.")
             return
 
-        fund_invest_details = self.sqldb.select(gl_fund_info_table, [column_name, column_code, column_cost_hold, column_averagae_price,  column_budget_table])
+        fund_codes = self.sqldb.select(gl_fund_info_table, [column_code])
 
         no_budgets = []
-        for (n, c, h, a, bt) in fund_invest_details:
+        for (c, ) in fund_codes:
             ppg = 1 if not ppgram.__contains__(c) else ppgram[c]
+            fg = FundGeneral(self.sqldb, c)
+            bt = fg.budget_table
             if bt and self.sqldb.isExistTable(bt):
                 self.delete_cosumed(bt)
                 budget = self.sqldb.select(bt, [column_date, column_net_value, column_budget])
@@ -79,11 +81,11 @@ class InvestBudget():
                     index.append(d)
                     values.append([Decimal(str(v)) * ppg, b])
                 if sum_b == 0:
-                    no_budgets.append([n,h,Decimal(str(a)) * ppg])
+                    no_budgets.append([fg.name, fg.portion_hold, Decimal(str(fg.average)) * ppg])
                 else:
-                    self.collect_budgets(n,h,Decimal(str(a)) * ppg, index, values, sum_b)
-            elif h and a:
-                no_budgets.append([n,h,Decimal(str(a)) * ppg])
+                    self.collect_budgets(fg.name, fg.portion_hold, Decimal(str(fg.average)) * ppg, index, values, sum_b)
+            elif fg.portion_hold and fg.average:
+                no_budgets.append([fg.name, fg.portion_hold, Decimal(str(fg.average)) * ppg])
 
         for (n,h,a) in no_budgets:
             self.collect_budgets(n,h,a)
@@ -109,7 +111,7 @@ if __name__ == '__main__':
     ib = InvestBudget()
     #ib.add_budget("000217",100,"2019-06-17")
     #ib.add_budget("005633",100,"2019-06-17")
-    ib.add_budget("161724",100,"2019-06-24")
-    ib.add_budget("260108",100,"2019-06-24")
-    ib.add_budget("110003",10, "2019-06-24")
+    #ib.add_budget("161724",100,"2019-06-24")
+    #ib.add_budget("260108",100,"2019-06-24")
+    #ib.add_budget("110003",10, "2019-06-24")
     ib.get_budgets()
