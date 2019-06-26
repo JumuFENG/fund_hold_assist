@@ -30,9 +30,6 @@ class DailyUpdater():
         fh = FundHistoryDataDownloader(self.sqldb)
         fh.fundHistoryTillToday(code)
 
-        af = AllFunds(du.sqldb)
-        af.loadInfo(code)
-
     def download_all_index_history(self, code):
         ih = Index_history(self.sqldb)
         ih.indexHistoryTillToday(code)
@@ -63,20 +60,21 @@ class DailyUpdater():
 
 if __name__ == '__main__':
     du = DailyUpdater()
-    #du.update_all()
+    du.update_all()
     #du.download_all_fund_history("000342")
     #du.download_all_index_history("399300")
     #du.download_all_gold_history("AU9999")
-    #du.buy("000217", 1000, "2019-06-06")
-    #du.buy("260108", 100,  "2019-06-12")
-    #du.buy("161724", 100,  "2019-06-12")
-    #du.buy("110003", 20,   "2019-06-12", ["2019-06-11"])
-    #du.buy("005633", 450,  "2019-06-12", ["2019-06-10"])
-    #du.buy("001632", 1000, "2019-06-06")
-    #du.buy("001551", 100,  "2019-06-12")
-    #du.sell("000217", ["2019-05-20","2019-05-21","2019-05-22","2019-05-27","2019-05-28","2019-05-29","2019-05-30"], "2019-06-10")
+    du.buy("000217", 200,  "2019-06-26")
+    du.buy("260108", 100,  "2019-06-26")
+    du.buy("161724", 100,  "2019-06-26")
+    du.buy("110003", 30,   "2019-06-26", ["2019-06-21","2019-06-19"])
+    du.buy("005633", 90,   "2019-06-26")#, ["2019-06-10"]
+    du.buy("001632", 45,   "2019-06-26")
+    du.buy("001551", 45,   "2019-06-26")
+    du.buy("160639", 200,  "2019-06-26")
+    #du.sell("161724", ["2019-06-04","2019-06-06","2019-06-14","2019-06-18"], "2019-06-24")
     #du.manually_fix_buy("000217", "2019-05-30", 100)
-    af = AllFunds(du.sqldb)
-    af.loadInfo("000342")
+    #af = AllFunds(du.sqldb)
+    #af.loadMorningStarRatingInfo()
     #af.get_fund_name("000001")
     #print(af.get_fund_url("960042"))

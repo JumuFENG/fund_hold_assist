@@ -4,10 +4,13 @@
 from utils import *
 import requests
 import html
+import os
+import re
+import time
 from datetime import datetime, timedelta
 from decimal import Decimal
 from bs4 import BeautifulSoup 
-import re
+from selenium import webdriver
 
 class AllFunds():
     """get all funds' general info and save to db table allfund"""
@@ -41,6 +44,10 @@ class AllFunds():
             self.sqldb.addColumn(gl_all_funds_info_table, column_rating_jazq, 'varchar(20) DEFAULT NULL')
         if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_5star_num):
             self.sqldb.addColumn(gl_all_funds_info_table, column_5star_num, 'varchar(10) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_rating_cx3):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_rating_cx3, 'varchar(10) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_rating_cx5):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_rating_cx5, 'varchar(10) DEFAULT NULL')
 
     def loadInfo(self):
         c = ""
@@ -90,6 +97,13 @@ class AllFunds():
             return
 
         self.sqldb.update(gl_all_funds_info_table, ratingDic, {column_code: code})
+
+    def updateMsRating(self, code, lv3, lv5):
+        if not self.sqldb.isExistTable(gl_all_funds_info_table):
+            print(gl_all_funds_info_table, "not exist.")
+            return
+
+        self.sqldb.update(gl_all_funds_info_table, {column_rating_cx3:str(lv3), column_rating_cx5:str(lv5)}, {column_code: code})
 
     def getRequest(self, url):
         headers = {'Host': 'fund.eastmoney.com',
@@ -167,6 +181,58 @@ class AllFunds():
     def get_fund_url(self, code):
         return self.readSingleData(column_url, code)
 
+    def getMsRatingLevel(self, starUrl):
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'}
+        
+        proxies=None
+
+        fname = 'star.gif'
+        rsp = requests.get(starUrl, params=headers, proxies=proxies)
+        rsp.raise_for_status()
+        with open(fname,'wb') as f:
+            f.write(rsp.content)
+        gtf = GifToFrames(fname, 'star')
+        bmps = gtf.convert_to_bmps()
+        bmp = bmps[0]
+        starnum = gtf.morningstar_star_num(bmp)
+        os.remove(fname)
+        os.remove(bmp)
+
+        return starnum
+
+    def loadMorningStarRatingInfo(self, code = None):
+        driver = webdriver.PhantomJS(executable_path=gl_phantomjs_exe_path)
+        driver.get(apiUrl_MorningstarQuickrank)
+        page = 0
+        while True:
+            page_source = driver.page_source
+            while not page_source:
+                time.sleep(1)
+                page_source = driver.page_source
+
+            soup = BeautifulSoup(page_source, 'html.parser')
+            page += 1
+            trs = soup.select('#qr_grid tbody > tr')
+            for tr in trs:
+                tr_class_name = tr.get('class')[0]
+                if not tr_class_name == 'gridAlternateItem' and not tr_class_name == 'gridItem':
+                    continue
+                tds = tr.select('td')
+                code = tds[2].get_text()
+                lv3 = self.getMsRatingLevel(tds[5].select('img')[0].get('src'))
+                lv5 = self.getMsRatingLevel(tds[6].select('img')[0].get('src'))
+                self.updateMsRating(code, lv3, lv5)
+            print(page, "loaded.")
+            nextArrow = soup.select('#ctl00_cphMain_AspNetPager1 > a')[-2]
+            nextDisabled = nextArrow.get('disabled')
+            if nextDisabled and nextDisabled == 'true':
+                break
+            nextArrow = driver.find_element_by_link_text('>')
+            nextArrow.click()
+            time.sleep(1)
+        driver.quit()
+
+
 class FundHistoryDataDownloader():
     """
     get all the history data a fund, or update the data.
@@ -241,6 +307,11 @@ class FundHistoryDataDownloader():
         self.getFundHistory(sDate, eDate)
         if len(self.allRecords) > 0:
             self.addFundData()
+
+        if sDate == "" and eDate == "":
+            af = AllFunds(du.sqldb)
+            af.loadInfo(code)
+
 
     def addFundData(self):
         if not self.sqldb.isExistTable(self.fund_db_table):

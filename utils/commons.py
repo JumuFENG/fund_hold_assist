@@ -1,8 +1,10 @@
 gl_budget_file = "D:\\UserFiles\\Documents\\MiCloud\\budgets\\budgets.txt"
+gl_phantomjs_exe_path = 'D:\Python\Python37\Scripts\phantomjs.exe'
 
 f10DataApiUrl = "http://fund.eastmoney.com/f10/F10DataApi.aspx"
 apiUrl_AllFund = "http://fund.eastmoney.com/allfund.html"
 apiUrl_fundRating = "http://fund.eastmoney.com/data/fundrating.html"
+apiUrl_MorningstarQuickrank = "https://cn.morningstar.com/quickrank/default.aspx"
 sohuApiUrl = "http://q.stock.sohu.com/hisHq"
 apiUrl_163 = "http://quotes.money.163.com/service/chddata.html"
 apiUrl_dyhjw = "http://www.dyhjw.com/market/getinfoBycode"
@@ -29,6 +31,8 @@ column_rating_shzq = "上海证券"
 column_rating_zszq = "招商证券"
 column_rating_jazq = "济安金信"
 column_5star_num = "5星数"
+column_rating_cx3 = "晨星3年"
+column_rating_cx5 = "晨星5年"
 
 column_table_history = "history_db_table"
 column_table_history_realtime = "history_rt_table"
