@@ -98,7 +98,7 @@ class SingleHistoryGraph(Painter):
         self.info_text = "%s\n%s" % (self.dates[xIdx], str(self.values[xIdx]))
         self.cursXidx = xIdx
 
-    def getMinMaxInfo(self, vallist):
+    def getMinMaxInfo(self, vallist, saveAsRate = False):
         sortList = sorted(vallist)
         minVal = sortList[0]
         maxVal = sortList[-1]
@@ -119,6 +119,15 @@ class SingleHistoryGraph(Painter):
         minMaxInfo += "\n 90%: (" + str(min10Val) + ", " + str(max10Val) + ")"
         minMaxInfo += "\n 80%: (" + str(min15Val) + ", " + str(max15Val) + ")"
         minMaxInfo += "\n 60%: (" + str(min20Val) + ", " + str(max20Val) + ")"
+
+        if saveAsRate and self.sqldb.isExistTable(gl_all_funds_info_table):
+            if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_shortterm_rate):
+                self.sqldb.addColumn(gl_all_funds_info_table, column_shortterm_rate, 'varchar(10) DEFAULT NULL')
+            short_term_rate = max5Val
+            if maxVal - minVal >= 10:
+                short_term_rate = max10Val
+            short_term_rate = round(short_term_rate/100, 4)
+            self.sqldb.update(gl_all_funds_info_table, {column_shortterm_rate:str(short_term_rate)}, {column_code: self.code})
 
         return minMaxInfo
 
@@ -163,7 +172,7 @@ class SingleHistoryGraph(Painter):
 
         plt.subplot(211)
         if len(self.rates) > 0:
-            rateInfo = self.getMinMaxInfo(self.rates)
+            rateInfo = self.getMinMaxInfo(self.rates, True)
             rates = self.getRoundedRates(self.rates)
             lblText = str(len(self.rates)) + " day growth rate: %"
             tickWidth = self.getRateTickWidth()
