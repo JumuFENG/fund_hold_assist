@@ -70,7 +70,7 @@ class InvestBudget():
             return
         (portion_cannot_sell,), = self.sqldb.select(buy_table, "sum(%s)" % column_portion, "%s > '%s'" % (column_date, dateBegin))
         dcp_not_sell = self.sqldb.select(buy_table, [column_date, column_cost, column_portion], "%s = 0" % column_soldout)
-        max_value_to_sell = netvalue * 0.97
+        max_value_to_sell = netvalue * (1.0 - float(fg.short_term_rate))
         dcp_can_sell = []
         portion_can_sell = 0
         for (d,c,p) in dcp_not_sell:
@@ -140,6 +140,9 @@ class InvestBudget():
     def save_budgets(self):
         f = open(gl_budget_file, 'w')
         f.write(datetime.now().strftime("%m-%d %H:%M") + self.summary_text)
+        f.close()
+        f = open("budget.txt", 'w')
+        f.write(self.summary_text)
         f.close()
 
 if __name__ == '__main__':
