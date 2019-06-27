@@ -9,25 +9,25 @@ import os
 
 class InvestBudget():
     """to help do the invest budget"""
-    def __init__(self):
-        self.dbname = "fund_center"#"testdb"#
-        self.sqldb = SqlHelper(password = db_pwd, database = self.dbname)
+    def __init__(self, sqldb):
+        self.sqldb = sqldb
         self.summary_text = ""
 
     def add_budget(self, fund_code, budget, date = ""):
         self.fund_code = fund_code
         self.budget = budget
         
-        if not self.sqldb.isExistTable(gl_fund_info_table):
-            print("can not find fund info DB.")
-            return
-        ((his_db_table,),) = self.sqldb.select(gl_fund_info_table, [column_table_history], "%s = '%s'" % (column_code, self.fund_code))
+        fg = FundGeneral(self.sqldb, self.fund_code)
+
+        his_db_table = fg.history_table
         if not his_db_table:
             print("can not get history table.")
             return
 
-        tbl_mgr = TableManager(self.sqldb, gl_fund_info_table, self.fund_code)
-        budget_table = tbl_mgr.GetTableColumnInfo(column_budget_table, self.fund_code + "_inv_budget")
+        budget_table = fg.budget_table
+        if not budget_table:
+            tbl_mgr = TableManager(self.sqldb, gl_fund_info_table, self.fund_code)
+            budget_table = tbl_mgr.GetTableColumnInfo(column_budget_table, self.fund_code + "_inv_budget")
 
         if not self.sqldb.isExistTable(budget_table):
             attrs = {column_date:'varchar(20) DEFAULT NULL',column_net_value:'varchar(20) DEFAULT NULL',column_budget:'varchar(10) DEFAULT NULL', column_consumed:'tinyint(1) DEFAULT 0'}
@@ -40,13 +40,13 @@ class InvestBudget():
         bu_rec = self.sqldb.select(budget_table, conds = "%s = '%s'" % (column_date, date))
         if bu_rec:
             ((bu_rec),) = bu_rec
-            if bu_rec:
-                print("already add budget", bu_rec)
-                return
+        if bu_rec:
+            print("already add budget", bu_rec)
+            return
 
-        ((netvalue,),) = self.sqldb.select(his_db_table, column_net_value, "%s = '%s'" % (column_date, date))
+        netvalue = fg.netvalue_by_date(date)
         if not netvalue:
-            print("no value on %s" % date)
+            print("no value on", date)
             return
 
         self.sqldb.insert(budget_table, {column_date:date, column_net_value:str(netvalue), column_budget: str(budget)})
@@ -93,10 +93,10 @@ class InvestBudget():
         for (c, ) in fund_codes:
             ppg = 1 if not ppgram.__contains__(c) else ppgram[c]
             fg = FundGeneral(self.sqldb, c)
-            bt = fg.budget_table
-            if bt and self.sqldb.isExistTable(bt):
-                self.delete_cosumed(bt)
-                budget = self.sqldb.select(bt, [column_date, column_net_value, column_budget])
+            budget_table = fg.budget_table
+            if budget_table and self.sqldb.isExistTable(budget_table):
+                self.delete_cosumed(budget_table)
+                budget = self.sqldb.select(budget_table, [column_date, column_net_value, column_budget])
                 sum_b = 0
                 index = []
                 values = []
@@ -105,18 +105,18 @@ class InvestBudget():
                     index.append(d)
                     values.append([Decimal(str(v)) * ppg, b])
                 if sum_b == 0:
-                    no_budget_summary += self.collect_budgets(fg.name, fg.portion_hold, Decimal(str(fg.average)) * ppg)
+                    no_budget_summary += self.collect_budgets(fg.name, fg.cost_hold, Decimal(str(fg.average)) * ppg)
                     sell_prepared = self.prepare_sell_info(fg, ppg)
                     if sell_prepared:
                         no_budget_summary += sell_prepared + "\n"
                 else:
-                    self.summary_text += self.collect_budgets(fg.name, fg.portion_hold, Decimal(str(fg.average)) * ppg, index, values, sum_b)
+                    self.summary_text += self.collect_budgets(fg.name, fg.cost_hold, Decimal(str(fg.average)) * ppg, index, values, sum_b)
                     sell_prepared = self.prepare_sell_info(fg, ppg)
                     if sell_prepared:
                         self.summary_text += sell_prepared + "\n"
 
-            elif fg.portion_hold and fg.average:
-                no_budget_summary += self.collect_budgets(fg.name, fg.portion_hold, Decimal(str(fg.average)) * ppg)
+            elif fg.cost_hold and fg.average:
+                no_budget_summary += self.collect_budgets(fg.name, fg.cost_hold, Decimal(str(fg.average)) * ppg)
                 sell_prepared = self.prepare_sell_info(fg, ppg)
                 if sell_prepared:
                     no_budget_summary += sell_prepared + "\n"
@@ -146,10 +146,13 @@ class InvestBudget():
         f.close()
 
 if __name__ == '__main__':
-    ib = InvestBudget()
+    dbname = "fund_center"
+    #dbname = "testdb"
+    sqldb = SqlHelper(password = db_pwd, database = dbname)
+    ib = InvestBudget(sqldb)
     #ib.add_budget("000217",100,"2019-06-17")
     #ib.add_budget("005633",100,"2019-06-17")
-    #ib.add_budget("161724",100,"2019-06-24")
-    #ib.add_budget("260108",100,"2019-06-24")
-    #ib.add_budget("110003",10, "2019-06-24")
+    #ib.add_budget("161724",100,"2019-06-27")
+    #ib.add_budget("260108",100,"2019-06-27")
+    #ib.add_budget("110003",10, "2019-06-27")
     ib.get_budgets()
