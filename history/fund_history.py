@@ -283,7 +283,6 @@ class FundHistoryDataDownloader():
     """
     def __init__(self, sqldb):
         self.sqldb = sqldb
-        self.base_url = f10DataApiUrl
         
     def setFundCode(self, code):
         self.code = code
@@ -292,7 +291,6 @@ class FundHistoryDataDownloader():
 
         self.name = tbl_mgr.GetTableColumnInfo(column_name, allfund.get_fund_name(self.code))
         self.fund_db_table = tbl_mgr.GetTableColumnInfo(column_table_history, "f_his_" + self.code)
-
 
     def getRequest(self, url, params=None, proxies=None):
         rsp = requests.get(url, params=params, proxies=proxies)
@@ -319,7 +317,7 @@ class FundHistoryDataDownloader():
 
         while True:
             params = {'type': 'lsjz', 'code': self.code, 'page': curpage, 'per': 49, 'sdate': start, 'edate': end}
-            response = self.getRequest(self.base_url, params)
+            response = self.getRequest(f10DataApiUrl, params)
             content = str(response[13:-2])
             content_split = content.split(',')
             # obtain the info of data, curpage, pages, records
