@@ -202,36 +202,80 @@ class AllFunds():
 
     def loadMorningStarRatingInfo(self, code = None):
         driver = webdriver.PhantomJS(executable_path=gl_phantomjs_exe_path)
-        driver.get(apiUrl_MorningstarQuickrank)
-        page = 0
-        while True:
-            page_source = driver.page_source
-            while not page_source:
-                time.sleep(1)
+        try:
+            driver.get(apiUrl_MorningstarQuickrank)
+            page = 0
+            while True:
                 page_source = driver.page_source
+                soup = BeautifulSoup(page_source, 'html.parser')
+                self.parsePageSource(soup)
+                page += 1
+                print(page, "loaded.")
 
-            soup = BeautifulSoup(page_source, 'html.parser')
-            page += 1
-            trs = soup.select('#qr_grid tbody > tr')
-            for tr in trs:
-                tr_class_name = tr.get('class')[0]
-                if not tr_class_name == 'gridAlternateItem' and not tr_class_name == 'gridItem':
-                    continue
-                tds = tr.select('td')
-                code = tds[2].get_text()
-                lv3 = self.getMsRatingLevel(tds[5].select('img')[0].get('src'))
-                lv5 = self.getMsRatingLevel(tds[6].select('img')[0].get('src'))
-                self.updateMsRating(code, lv3, lv5)
-            print(page, "loaded.")
-            nextArrow = soup.select('#ctl00_cphMain_AspNetPager1 > a')[-2]
-            nextDisabled = nextArrow.get('disabled')
-            if nextDisabled and nextDisabled == 'true':
-                break
-            nextArrow = driver.find_element_by_link_text('>')
-            nextArrow.click()
-            time.sleep(1)
+                nextArrow = self.clickNextPage(driver, soup)
+                if not nextArrow:
+                    print("the '>' button not find.")
+                    break
+                nextDisabled = nextArrow.get('disabled')
+                if nextDisabled and nextDisabled == 'true':
+                    print("all done!")
+                    break
+                while not driver.page_source:
+                    time.sleep(1)
+        except:
+            driver.get(apiUrl_MorningstarQuickrank)
+            page = 0
+            lastpage = driver.find_element_by_link_text('>>')
+            lastpage.click()
+            while not driver.page_source:
+                time.sleep(1)
+
+            while True:
+                page_source = driver.page_source
+                soup = BeautifulSoup(page_source, 'html.parser')
+                self.parsePageSource(soup)
+                page += 1
+                print(page, "loaded, end to front.")
+
+                nextArrow = self.clickPrevPage(driver, soup)
+                if not nextArrow:
+                    print("the '<' button not find.")
+                    break
+                nextDisabled = nextArrow.get('disabled')
+                if nextDisabled and nextDisabled == 'true':
+                    print("all done!")
+                    break
+                while not driver.page_source:
+                    time.sleep(1)
         driver.quit()
 
+    def parsePageSource(self, soup):
+        trs = soup.select('#qr_grid tbody > tr')
+        for tr in trs:
+            tr_class_name = tr.get('class')[0]
+            if not tr_class_name == 'gridAlternateItem' and not tr_class_name == 'gridItem':
+                continue
+            tds = tr.select('td')
+            code = tds[2].get_text()
+            lv3 = self.getMsRatingLevel(tds[5].select('img')[0].get('src'))
+            lv5 = self.getMsRatingLevel(tds[6].select('img')[0].get('src'))
+            self.updateMsRating(code, lv3, lv5)
+
+    def clickNextPage(self, driver, soup):
+        arrows = soup.select('#ctl00_cphMain_AspNetPager1 > a')
+        nextArrow = driver.find_element_by_link_text('>')
+        nextArrow.click()
+        if len(arrows) < 2:
+            return
+        return arrows[-2]
+
+    def clickPrevPage(self, driver, soup):
+        arrows = soup.select('#ctl00_cphMain_AspNetPager1 > a')
+        prevArrow = driver.find_element_by_link_text('<')
+        prevArrow.click()
+        if len(arrows) < 2:
+            return
+        return arrows[1]
 
 class FundHistoryDataDownloader():
     """
