@@ -60,6 +60,7 @@ column_money_sold = "money_sold"
 column_cost_sold = "cost_sold"
 column_earned = "earned"
 column_return_percentage = "return_percent"
+column_rolled_in = "rolled_in"
 
 column_open = "open"
 column_high = "high"

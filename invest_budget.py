@@ -82,6 +82,38 @@ class InvestBudget():
             portion_cannot_sell = 0
         return "sell: min(" + str(round((fg.portion_hold - portion_cannot_sell) / ppg, 4)) + ", "+ str(round(portion_can_sell/ppg,4)) + ")\n" + str(dcp_can_sell)
 
+    def get_roll_in_info(self, fg, ppg):
+        sell_table = fg.sell_table
+        if not sell_table or not self.sqldb.isExistTable(sell_table):
+            return
+        if not self.sqldb.isExistTableColumn(sell_table, column_rolled_in):
+            sell_recs = self.sqldb.select(sell_table, [column_date, column_cost_sold], order = " ORDER BY %s ASC" % column_date)
+            if not sell_recs:
+                return
+
+            (sell_date, sell_cost) = sell_recs[-1]
+            netvalue = fg.netvalue_by_date(sell_date)
+            max_price_to_buy = netvalue * (1.0 - float(fg.short_term_rate)) * ppg
+            max_price_to_buy = round(max_price_to_buy, 4)
+            return str(max_price_to_buy) + ": " + str(sell_cost)
+
+        sell_recs = self.select(sell_table, [column_date, column_cost_sold, column_rolled_in])
+        if not sell_recs:
+            return
+
+        rollin_info = ()
+        for (d, c, r) in sell_recs:
+            if c <= r:
+                continue
+            netvalue = fg.netvalue_by_date(d)
+            max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)) * ppg, 4)
+            rollin_info += (max_price_to_buy, c - r)
+
+        rollin_summary = ""
+        for (p, c) in rollin_info:
+            rollin_summary += str(p) + ": " + str(c) + "\n"
+        return rollin_summary.strip()
+
     def get_budgets(self):
         if not self.sqldb.isExistTable(gl_fund_info_table):
             print("can not find fund info DB.")
@@ -109,17 +141,26 @@ class InvestBudget():
                     sell_prepared = self.prepare_sell_info(fg, ppg)
                     if sell_prepared:
                         no_budget_summary += sell_prepared + "\n"
+                    rollin_info = self.get_roll_in_info(fg, ppg)
+                    if rollin_info:
+                        no_budget_summary += rollin_info + "\n"
                 else:
                     self.summary_text += self.collect_budgets(fg.name, fg.cost_hold, Decimal(str(fg.average)) * ppg, index, values, sum_b)
                     sell_prepared = self.prepare_sell_info(fg, ppg)
                     if sell_prepared:
                         self.summary_text += sell_prepared + "\n"
+                    rollin_info = self.get_roll_in_info(fg, ppg)
+                    if rollin_info:
+                        no_budget_summary += rollin_info + "\n"
 
             elif fg.cost_hold and fg.average:
                 no_budget_summary += self.collect_budgets(fg.name, fg.cost_hold, Decimal(str(fg.average)) * ppg)
                 sell_prepared = self.prepare_sell_info(fg, ppg)
                 if sell_prepared:
                     no_budget_summary += sell_prepared + "\n"
+                rollin_info = self.get_roll_in_info(fg, ppg)
+                if rollin_info:
+                    no_budget_summary += rollin_info + "\n"
 
         self.summary_text += no_budget_summary
         self.save_budgets()
