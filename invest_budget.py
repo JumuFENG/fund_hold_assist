@@ -95,23 +95,25 @@ class InvestBudget():
             netvalue = fg.netvalue_by_date(sell_date)
             max_price_to_buy = netvalue * (1.0 - float(fg.short_term_rate)) * ppg
             max_price_to_buy = round(max_price_to_buy, 4)
-            return str(max_price_to_buy) + ": " + str(sell_cost)
+            return str(max_price_to_buy) + ": " + str(int(sell_cost))
 
-        sell_recs = self.select(sell_table, [column_date, column_cost_sold, column_rolled_in])
+        sell_recs = self.sqldb.select(sell_table, [column_date, column_cost_sold, column_rolled_in])
         if not sell_recs:
             return
 
         rollin_info = ()
         for (d, c, r) in sell_recs:
-            if c <= r:
+            if not r:
+                r = 0
+            if c <= float(r):
                 continue
             netvalue = fg.netvalue_by_date(d)
             max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)) * ppg, 4)
-            rollin_info += (max_price_to_buy, c - r)
+            rollin_info += (max_price_to_buy, c - r),
 
         rollin_summary = ""
         for (p, c) in rollin_info:
-            rollin_summary += str(p) + ": " + str(c) + "\n"
+            rollin_summary += str(p) + ": " + str(int(c)) + "\n"
         return rollin_summary.strip()
 
     def get_budgets(self):
@@ -151,7 +153,7 @@ class InvestBudget():
                         self.summary_text += sell_prepared + "\n"
                     rollin_info = self.get_roll_in_info(fg, ppg)
                     if rollin_info:
-                        no_budget_summary += rollin_info + "\n"
+                        self.summary_text += rollin_info + "\n"
 
             elif fg.cost_hold and fg.average:
                 no_budget_summary += self.collect_budgets(fg.name, fg.cost_hold, Decimal(str(fg.average)) * ppg)
@@ -185,6 +187,15 @@ class InvestBudget():
         f = open("budget.txt", 'w')
         f.write(self.summary_text)
         f.close()
+
+    def manually_update_rolled(self, code, cost, date):
+        fg = FundGeneral(self.sqldb, code)
+        sell_table = fg.sell_table
+        if not sell_table:
+            return
+        if not self.sqldb.isExistTableColumn(sell_table, column_rolled_in):
+            self.sqldb.addColumn(sell_table, column_rolled_in, 'varchar(20) DEFAULT NULL')
+        self.sqldb.update(sell_table, {column_rolled_in: str(cost)}, {column_date: date})
 
 if __name__ == '__main__':
     dbname = "fund_center"

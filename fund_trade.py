@@ -34,7 +34,7 @@ class TradeFund():
         self.sell_table = self.fund_code + "_sell"
         self.sqldb.update(gl_fund_info_table, {column_sell_table : self.sell_table}, {column_code : self.fund_code})
 
-    def buy(self, cost, date = "", budget_dates = None):
+    def buy(self, cost, date = "", budget_dates = None, rollin_date = None):
         if cost <= 0:
             return
 
@@ -71,15 +71,25 @@ class TradeFund():
         self.portion_hold += portion.quantize(Decimal('0.0000'))
         self.sqldb.update(gl_fund_info_table, {column_cost_hold : str(self.cost_hold), column_portion_hold : str(self.portion_hold), column_averagae_price:str(self.cost_hold/self.portion_hold)}, {column_code: self.fund_code})
         self.update_average_price()
-        if not budget_dates:
-            return
-        ((budget_table,),) = self.sqldb.select(gl_fund_info_table, [column_budget_table], "%s = '%s'" % (column_code, self.fund_code))
-        if budget_table and self.sqldb.isExistTable(budget_table):
-            if isinstance(budget_dates, str):
-                self.sqldb.update(budget_table, {column_consumed:'1'},{column_date:budget_dates})
-            elif isinstance(budget_dates, list):
-                for d in budget_dates:
-                    self.sqldb.update(budget_table, {column_consumed:'1'},{column_date:d})
+        if budget_dates:
+            ((budget_table,),) = self.sqldb.select(gl_fund_info_table, [column_budget_table], "%s = '%s'" % (column_code, self.fund_code))
+            if budget_table and self.sqldb.isExistTable(budget_table):
+                if isinstance(budget_dates, str):
+                    self.sqldb.update(budget_table, {column_consumed:'1'},{column_date:budget_dates})
+                elif isinstance(budget_dates, list):
+                    for d in budget_dates:
+                        self.sqldb.update(budget_table, {column_consumed:'1'},{column_date:d})
+        if rollin_date:
+            if not self.sqldb.isExistTableColumn(self.sell_table, column_rolled_in):
+                self.sqldb.addColumn(self.sell_table, column_rolled_in, 'varchar(20) DEFAULT NULL')
+            if isinstance(rollin_date, str):
+                rolled_in = self.sqldb.select(self.sell_table, column_rolled_in, "%s = '%s'" % (column_date, rollin_date))
+                if rolled_in:
+                    (rolled_in,), = rolled_in
+                else:
+                    rolled_in = 0
+                self.sqldb.update(self.sell_table, {column_rolled_in: str(int(rolled_in) + int(cost))}, {column_date: rollin_date})
+
 
     def undo_buy(self, date, removeall = False):
         if not date or date == "":
