@@ -16,4 +16,7 @@ class BondFundHistoryGraph(FundHistoryGraph):
         return 0.008
 
     def getRoundedRates(self, values):
-        return [r if r < 1 else 1 for r in values]
+        minRate = max(-1, min(values))
+        maxRate = min(1, max(values), 0 - minRate - minRate)
+        rates = [r if r > minRate else 0 for r in values]
+        return [r if r < maxRate else 0 for r in rates]

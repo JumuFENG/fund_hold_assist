@@ -29,9 +29,13 @@ class IndexHistoryGraph(SingleHistoryGraph):
             self.dates.append(d)
             self.values.append(float(v))
             rate = 0 if r == "None" else float(r)
-            rate = 10 if rate > 10 else rate
-            rate = -10 if rate < -10 else rate
             self.rates.append(rate)
+
+    def getRoundedRates(self, values):
+        minRate = max(-10, min(values))
+        maxRate = min(10, max(values))
+        rates = [round(r, 1) if r > minRate else minRate for r in values]
+        return [round(r, 1) if r < maxRate else maxRate for r in rates]
 
     def getRoundedValues(self, values):
         return [100*round(v/100) for v in values]

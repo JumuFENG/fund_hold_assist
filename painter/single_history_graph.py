@@ -147,7 +147,7 @@ class SingleHistoryGraph(Painter):
         return 1
 
     def getRateBarWidth(self):
-        return 0.0075
+        return 0.075
 
     def getRoundedRates(self, values):
         return [round(r, 1) for r in values]
