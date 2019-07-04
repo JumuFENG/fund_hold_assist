@@ -86,7 +86,7 @@ class TradeFund():
                 rolled_in = self.sqldb.select(self.sell_table, column_rolled_in, "%s = '%s'" % (column_date, rollin_date))
                 if rolled_in:
                     (rolled_in,), = rolled_in
-                else:
+                if not rolled_in:
                     rolled_in = 0
                 self.sqldb.update(self.sell_table, {column_rolled_in: str(int(rolled_in) + int(cost))}, {column_date: rollin_date})
 

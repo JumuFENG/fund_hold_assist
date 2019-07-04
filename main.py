@@ -41,9 +41,9 @@ class DailyUpdater():
         gh.getJijinhaoHistory(code)
         gh.getJijinhaoRtHistory(code)
 
-    def buy(self, fundcode, cost, buyDate, budgetDates = None):
+    def buy(self, fundcode, cost, buyDate, budgetDates = None, rollin_date = None):
         trade = TradeFund(fundcode, self.dbname, db_pwd)
-        trade.buy(cost, buyDate, budgetDates)
+        trade.buy(cost, buyDate, budgetDates, rollin_date)
 
     def undo_buy(self, fundcode, date, removeall = False):
         trade = TradeFund(fundcode, self.dbname, db_pwd)
@@ -64,14 +64,14 @@ if __name__ == '__main__':
     #du.download_all_fund_history("000342")
     #du.download_all_index_history("399300")
     #du.download_all_gold_history("AU9999")
-    #du.buy("000217", 200,  "2019-07-02")
-    #du.buy("260108", 100,  "2019-07-02")
-    #du.buy("161724", 200,  "2017-11-10")
-    #du.buy("110003", 30,   "2019-07-02", ["2019-06-27","2019-07-01"])
-    #du.buy("005633", 90,   "2019-07-02")#, ["2019-06-10"]
-    #du.buy("001632", 45,   "2019-07-02")
-    #du.buy("001551", 45,   "2019-07-02")
-    #du.buy("160639", 200,  "2015-07-23")
+    #du.buy("000217", 200,  "2019-07-04")
+    #du.buy("260108", 100,  "2019-07-04")
+    #du.buy("161724", 200,  "2019-07-04")
+    #du.buy("110003", 50,   "2019-07-04", ["2019-06-10","2019-05-24"])
+    #du.buy("005633", 90,   "2019-07-04")#
+    #du.buy("001632", 345,   "2019-07-04", rollin_date = "2019-07-02")
+    #du.buy("001551", 45,   "2019-07-04")
+    #du.buy("160639", 200,  "2019-07-04")
     #du.sell("000217", "2019-07-02", ['2019-06-06'])
     #du.sell("161724", "2019-07-02", ["2019-06-03","2019-06-12"])
     #du.sell("260108", "2019-07-02", [])
