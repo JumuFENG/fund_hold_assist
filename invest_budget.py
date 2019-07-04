@@ -109,7 +109,7 @@ class InvestBudget():
                 continue
             netvalue = fg.netvalue_by_date(d)
             max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)) * ppg, 4)
-            rollin_info += (max_price_to_buy, c - r),
+            rollin_info += (max_price_to_buy, c - float(r)),
 
         rollin_summary = ""
         for (p, c) in rollin_info:
@@ -202,9 +202,9 @@ if __name__ == '__main__':
     #dbname = "testdb"
     sqldb = SqlHelper(password = db_pwd, database = dbname)
     ib = InvestBudget(sqldb)
-    #ib.add_budget("000217",100,"2019-06-17")
-    #ib.add_budget("005633",100,"2019-06-17")
-    #ib.add_budget("161724",100,"2019-06-27")
-    #ib.add_budget("260108",100,"2019-06-27")
-    #ib.add_budget("110003",10, "2019-06-27")
+    #ib.add_budget("000217",100,"2019-07-01")
+    #ib.add_budget("005633",100,"2019-07-01")
+    #ib.add_budget("161724",100,"2019-07-01")
+    #ib.add_budget("260108",100,"2019-07-01")
+    #ib.add_budget("110003",10, "2019-07-01")
     ib.get_budgets()
