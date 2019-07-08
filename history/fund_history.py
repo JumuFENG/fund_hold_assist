@@ -361,7 +361,7 @@ class FundHistoryDataDownloader():
             self.addFundData()
 
         if sDate == "" and eDate == "":
-            af = AllFunds(du.sqldb)
+            af = AllFunds(self.sqldb)
             af.loadInfo(code)
 
 

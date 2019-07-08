@@ -80,6 +80,8 @@ class InvestBudget():
                     dcp_can_sell.append(d)
         if not portion_cannot_sell:
             portion_cannot_sell = 0
+        if portion_can_sell == 0:
+            return
         return "sell: min(" + str(round((fg.portion_hold - portion_cannot_sell) / ppg, 4)) + ", "+ str(round(portion_can_sell/ppg,4)) + ")\n" + str(dcp_can_sell)
 
     def get_roll_in_info(self, fg, ppg):
@@ -95,13 +97,13 @@ class InvestBudget():
             netvalue = fg.netvalue_by_date(sell_date)
             max_price_to_buy = netvalue * (1.0 - float(fg.short_term_rate)) * ppg
             max_price_to_buy = round(max_price_to_buy, 4)
-            return str(max_price_to_buy) + ": " + str(int(sell_cost))
+            return sell_date +"<"+ str(max_price_to_buy) + ">: " + str(int(sell_cost))
 
         sell_recs = self.sqldb.select(sell_table, [column_date, column_cost_sold, column_rolled_in])
         if not sell_recs:
             return
 
-        rollin_info = ()
+        rollin_summary = ""
         for (d, c, r) in sell_recs:
             if not r:
                 r = 0
@@ -109,11 +111,8 @@ class InvestBudget():
                 continue
             netvalue = fg.netvalue_by_date(d)
             max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)) * ppg, 4)
-            rollin_info += (max_price_to_buy, c - float(r)),
+            rollin_summary += d + "<" + str(max_price_to_buy) + ">: " + str(int(c - float(r))) + "\n"
 
-        rollin_summary = ""
-        for (p, c) in rollin_info:
-            rollin_summary += str(p) + ": " + str(int(c)) + "\n"
         return rollin_summary.strip()
 
     def get_budgets(self):
