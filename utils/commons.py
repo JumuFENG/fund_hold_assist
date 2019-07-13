@@ -61,6 +61,7 @@ column_cost_sold = "cost_sold"
 column_earned = "earned"
 column_return_percentage = "return_percent"
 column_rolled_in = "rolled_in"
+column_roll_in_value = "rollin_netvalue"
 
 column_open = "open"
 column_high = "high"

@@ -23,6 +23,8 @@ class TradeFund():
         self.portion_hold = Decimal(str(portion_hold))
         tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
 
+        self.fund_general = FundGeneral(self.sqldb, self.fund_code)
+
     def getToady(self):
         return datetime.now().strftime("%Y-%m-%d")
 
@@ -42,7 +44,7 @@ class TradeFund():
         if date == "":
             buyDate = self.getToady()
 
-        ((net_value,),) = self.sqldb.select(self.fund_history_table, fields = [column_net_value], conds = "%s = '%s'" % (column_date, buyDate))
+        net_value = self.fund_general.netvalue_by_date(buyDate)
         if not net_value:
             print("date wrong, net_value is null in:", buyDate)
             return
@@ -83,13 +85,16 @@ class TradeFund():
             if not self.sqldb.isExistTableColumn(self.sell_table, column_rolled_in):
                 self.sqldb.addColumn(self.sell_table, column_rolled_in, 'varchar(20) DEFAULT NULL')
             if isinstance(rollin_date, str):
-                rolled_in = self.sqldb.select(self.sell_table, column_rolled_in, "%s = '%s'" % (column_date, rollin_date))
+                rolled_in = self.sqldb.select(self.sell_table, [column_cost_sold, column_rolled_in, column_roll_in_value], "%s = '%s'" % (column_date, rollin_date))
                 if rolled_in:
-                    (rolled_in,), = rolled_in
+                    (c_s, rolled_in, r_v), = rolled_in
                 if not rolled_in:
                     rolled_in = 0
-                self.sqldb.update(self.sell_table, {column_rolled_in: str(int(rolled_in) + int(cost))}, {column_date: rollin_date})
-
+                rolled_in = int(rolled_in) + int(cost)
+                next_value_to_sell = 0
+                if int(c_s) > rolled_in:
+                    next_value_to_sell = round(float(r_v) * (1 - float(self.fund_general.short_term_rate)), 4)
+                self.sqldb.update(self.sell_table, {column_rolled_in: str(rolled_in), column_roll_in_value:str(next_value_to_sell)}, {column_date: rollin_date})
 
     def undo_buy(self, date, removeall = False):
         if not date or date == "":
@@ -159,10 +164,18 @@ class TradeFund():
         if date == "":
             date = self.getToady()
 
-        ((net_value,),) = self.sqldb.select(self.fund_history_table, fields = [column_net_value], conds = "%s = '%s'" % (column_date, date))
+        net_value = self.fund_general.netvalue_by_date(date)
         if not net_value:
             print("date wrong, net_value is null in:", date)
             return
+
+        if self.sqldb.isExistTable(self.sell_table):
+            sell_rec = self.sqldb.select(self.sell_table, conds = "%s = '%s'" % (column_date, date))
+            if sell_rec:
+                ((sell_rec),) = sell_rec
+                if sell_rec:
+                    print("find record", sell_rec, "ignore")
+                    return
 
         cost_sold = Decimal(0)
         portion = Decimal(0)
@@ -182,10 +195,15 @@ class TradeFund():
         for d in dates_for_sell:
             self.sqldb.update(self.buy_table, {column_soldout:str(1)}, {column_date:d})
 
-        if not self.sqldb.isExistTable(self.sell_table) :
+        if not self.sqldb.isExistTable(self.sell_table):
             attrs = {column_date:'varchar(20) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL', column_money_sold:'double(16,4) DEFAULT NULL', column_cost_sold:'double(16,4) DEFAULT NULL', column_earned:'double(16,4) DEFAULT NULL', column_return_percentage:'double(8,6) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.sell_table, attrs, constraint)
+
+        if not self.sqldb.isExistTableColumn(self.sell_table, column_rolled_in):
+            self.sqldb.addColumn(self.sell_table, column_rolled_in, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(self.sell_table, column_roll_in_value):
+            self.sqldb.addColumn(self.sell_table, column_roll_in_value, 'varchar(20) DEFAULT NULL')
 
         remain_portion = self.portion_hold - portion
         remain_cost = self.cost_hold - cost_sold
@@ -208,7 +226,9 @@ class TradeFund():
         if earned <= Decimal("0"):
             earned = money - cost
         return_percent = earned / cost
-        self.sqldb.insert(self.sell_table, {column_date:sellDay, column_portion : str(portion), column_money_sold:str(money),column_cost_sold:str(cost), column_earned : str(earned),column_return_percentage : str(return_percent)})
+        net_value = self.fund_general.netvalue_by_date(sellDay)
+        max_value_to_sell = round(net_value * (1.0 - float(self.fund_general.short_term_rate)), 4)
+        self.sqldb.insert(self.sell_table, {column_date:sellDay, column_portion : str(portion), column_money_sold:str(money),column_cost_sold:str(cost), column_earned : str(earned),column_return_percentage : str(return_percent), column_roll_in_value:str(max_value_to_sell)})
 
         if remain_cost <= Decimal("0"):
             remain_cost = self.cost_hold - cost

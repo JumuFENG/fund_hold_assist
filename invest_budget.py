@@ -88,7 +88,7 @@ class InvestBudget():
         sell_table = fg.sell_table
         if not sell_table or not self.sqldb.isExistTable(sell_table):
             return
-        if not self.sqldb.isExistTableColumn(sell_table, column_rolled_in):
+        if not self.sqldb.isExistTableColumn(sell_table, column_rolled_in) or not self.sqldb.isExistTableColumn(sell_table, column_roll_in_value):
             sell_recs = self.sqldb.select(sell_table, [column_date, column_cost_sold], order = " ORDER BY %s ASC" % column_date)
             if not sell_recs:
                 return
@@ -99,18 +99,22 @@ class InvestBudget():
             max_price_to_buy = round(max_price_to_buy, 4)
             return sell_date +"<"+ str(max_price_to_buy) + ">: " + str(int(sell_cost))
 
-        sell_recs = self.sqldb.select(sell_table, [column_date, column_cost_sold, column_rolled_in])
+        sell_recs = self.sqldb.select(sell_table, [column_date, column_cost_sold, column_rolled_in, column_roll_in_value])
         if not sell_recs:
             return
 
         rollin_summary = ""
-        for (d, c, r) in sell_recs:
+        for (d, c, r, v) in sell_recs:
             if not r:
                 r = 0
             if c <= float(r):
                 continue
-            netvalue = fg.netvalue_by_date(d)
-            max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)) * ppg, 4)
+            max_price_to_buy = 0
+            if not v:
+                netvalue = fg.netvalue_by_date(d)
+                max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)) * ppg, 4)
+            else:
+                max_price_to_buy = round(float(v) * ppg, 4)
             rollin_summary += d + "<" + str(max_price_to_buy) + ">: " + str(int(c - float(r))) + "\n"
 
         return rollin_summary.strip()

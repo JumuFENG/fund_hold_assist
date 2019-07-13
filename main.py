@@ -9,9 +9,9 @@ from fund_trade import TradeFund
 
 class DailyUpdater():
     """for daily update"""
-    def __init__(self):
-        self.dbname = "fund_center"
-        self.sqldb = SqlHelper(password = db_pwd, database = self.dbname)
+    def __init__(self, sqldb, dbname):
+        self.sqldb = sqldb
+        self.dbname = dbname
 
     def update_all(self):
         fundcodes = self.sqldb.select(gl_fund_info_table, fields=[column_code])
@@ -59,20 +59,24 @@ class DailyUpdater():
         trade.sell_by_day(buyDates, sellDate)
 
 if __name__ == '__main__':
-    du = DailyUpdater()
+    dbname = "fund_center"
+    #dbname = "testdb"
+    sqldb = SqlHelper(password = db_pwd, database = dbname)
+    du = DailyUpdater(sqldb, dbname)
     #du.update_all()
-    #du.download_all_fund_history("000342")
+    #du.download_all_fund_history("000217")
     #du.download_all_index_history("399300")
     #du.download_all_gold_history("AU9999")
-    #du.buy("000217", 200,  "2019-07-04")
-    #du.buy("260108", 100,  "2019-07-04")
-    #du.buy("161724", 200,  "2019-07-04")
-    #du.buy("110003", 50,   "2019-07-04", ["2019-06-10","2019-05-24"])
-    #du.buy("005633", 90,   "2019-07-04")#
-    #du.buy("001632", 345,   "2019-07-04", rollin_date = "2019-07-02")
-    #du.buy("001551", 45,   "2019-07-04")
-    #du.buy("160639", 200,  "2019-07-04")
-    #du.sell("000217", "2019-07-02", ['2019-06-06'])
+    #du.buy("000217", 200,  "2019-07-12")
+    #du.buy("260108", 45,   "2019-07-12")
+    #du.buy("110003", 45,   "2019-07-12")
+    #du.buy("005633", 45,   "2019-07-12")#
+    #du.buy("001632", 45,   "2019-07-12")
+    #du.buy("001551", 45,   "2019-07-12")
+    #du.buy("161724", 800,  "2019-07-09", rollin_date = "2019-07-02")
+    #du.buy("161725", 1000, "2019-07-09")
+    #du.buy("160639", 840,  "2019-07-09", rollin_date="2019-07-02")
+    #du.sell("000217", "2019-07-05", ['2019-06-19', '2019-06-20', '2019-06-21', '2019-07-02'])
     #du.sell("161724", "2019-07-02", ["2019-06-03","2019-06-12"])
     #du.sell("260108", "2019-07-02", [])
     #du.sell("001632", "2019-07-02", [])
@@ -80,7 +84,7 @@ if __name__ == '__main__':
     #du.sell("005633", "2019-07-02", [])
     #du.sell("110003", "2019-06-28", [])
     #du.sell("160639", "2019-07-02", ['2019-06-17', '2019-06-18', '2019-06-19'])
-    #du.manually_fix_buy("005633", "2019-07-01", 90)
+    #du.manually_fix_buy("000217", "2019-07-12", 200)
     #af = AllFunds(du.sqldb)
     #af.loadMorningStarRatingInfo()
     #af.get_fund_name("000001")

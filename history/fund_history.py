@@ -49,6 +49,9 @@ class AllFunds():
         if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_rating_cx5):
             self.sqldb.addColumn(gl_all_funds_info_table, column_rating_cx5, 'varchar(10) DEFAULT NULL')
 
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_shortterm_rate):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_shortterm_rate, 'varchar(10) DEFAULT NULL')
+
     def loadInfo(self):
         c = ""
         with open("allfund.html",'rb') as f:
