@@ -25,16 +25,31 @@ class TradeFund():
 
         self.fund_general = FundGeneral(self.sqldb, self.fund_code)
 
+        self.setupBuytable()
+        self.setupSelltable()
+
     def getToady(self):
         return datetime.now().strftime("%Y-%m-%d")
 
-    def initBuytable(self):
-        self.buy_table = self.fund_code + "_buy"
-        self.sqldb.update(gl_fund_info_table, {column_buy_table : self.buy_table}, {column_code : self.fund_code})
+    def setupBuytable(self):
+        if not self.sqldb.isExistTable(self.buy_table) :
+            attrs = {column_date:'varchar(20) DEFAULT NULL',column_cost:'double(16,4) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL',column_soldout:'tinyint(1) DEFAULT NULL'}
+            constraint = 'PRIMARY KEY(`id`)'
+            self.sqldb.creatTable(self.buy_table, attrs, constraint)
+            
+        if not self.sqldb.isExistTableColumn(self.buy_table, column_soldout):
+            self.sqldb.addColumn(self.buy_table, column_soldout, 'tinyint(1) DEFAULT 0')
 
-    def initSelltable(self):
-        self.sell_table = self.fund_code + "_sell"
-        self.sqldb.update(gl_fund_info_table, {column_sell_table : self.sell_table}, {column_code : self.fund_code})
+    def setupSelltable(self):
+        if not self.sqldb.isExistTable(self.sell_table):
+            attrs = {column_date:'varchar(20) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL', column_money_sold:'double(16,4) DEFAULT NULL', column_cost_sold:'double(16,4) DEFAULT NULL', column_earned:'double(16,4) DEFAULT NULL', column_return_percentage:'double(8,6) DEFAULT NULL'}
+            constraint = 'PRIMARY KEY(`id`)'
+            self.sqldb.creatTable(self.sell_table, attrs, constraint)
+
+        if not self.sqldb.isExistTableColumn(self.sell_table, column_rolled_in):
+            self.sqldb.addColumn(self.sell_table, column_rolled_in, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(self.sell_table, column_roll_in_value):
+            self.sqldb.addColumn(self.sell_table, column_roll_in_value, 'varchar(20) DEFAULT NULL')
 
     def buy(self, cost, date = "", budget_dates = None, rollin_date = None):
         if cost <= 0:
@@ -49,20 +64,12 @@ class TradeFund():
             print("date wrong, net_value is null in:", buyDate)
             return
 
-        if not self.sqldb.isExistTable(self.buy_table) :
-            attrs = {column_date:'varchar(20) DEFAULT NULL',column_cost:'double(16,4) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL',column_soldout:'tinyint(1) DEFAULT NULL'}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.buy_table, attrs, constraint)
-
         buy_rec = self.sqldb.select(self.buy_table, conds = "%s = '%s'" % (column_date, buyDate))
         if buy_rec:
             ((buy_rec),) = buy_rec
             if buy_rec:
                 print("find buy record:", buy_rec, "ignore.")
                 return
-
-        if not self.sqldb.isExistTableColumn(self.buy_table, column_soldout):
-            self.sqldb.addColumn(self.buy_table, column_soldout, 'tinyint(1) DEFAULT 0')
 
         portion = Decimal(cost) / Decimal(str(net_value))
         #print(cost, buyDate, cost, portion)
@@ -82,8 +89,6 @@ class TradeFund():
                     for d in budget_dates:
                         self.sqldb.update(budget_table, {column_consumed:'1'},{column_date:d})
         if rollin_date:
-            if not self.sqldb.isExistTableColumn(self.sell_table, column_rolled_in):
-                self.sqldb.addColumn(self.sell_table, column_rolled_in, 'varchar(20) DEFAULT NULL')
             if isinstance(rollin_date, str):
                 rolled_in = self.sqldb.select(self.sell_table, [column_cost_sold, column_rolled_in, column_roll_in_value], "%s = '%s'" % (column_date, rollin_date))
                 if rolled_in:
@@ -194,16 +199,6 @@ class TradeFund():
 
         for d in dates_for_sell:
             self.sqldb.update(self.buy_table, {column_soldout:str(1)}, {column_date:d})
-
-        if not self.sqldb.isExistTable(self.sell_table):
-            attrs = {column_date:'varchar(20) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL', column_money_sold:'double(16,4) DEFAULT NULL', column_cost_sold:'double(16,4) DEFAULT NULL', column_earned:'double(16,4) DEFAULT NULL', column_return_percentage:'double(8,6) DEFAULT NULL'}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.sell_table, attrs, constraint)
-
-        if not self.sqldb.isExistTableColumn(self.sell_table, column_rolled_in):
-            self.sqldb.addColumn(self.sell_table, column_rolled_in, 'varchar(20) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(self.sell_table, column_roll_in_value):
-            self.sqldb.addColumn(self.sell_table, column_roll_in_value, 'varchar(20) DEFAULT NULL')
 
         remain_portion = self.portion_hold - portion
         remain_cost = self.cost_hold - cost_sold

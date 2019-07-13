@@ -89,15 +89,8 @@ class InvestBudget():
         if not sell_table or not self.sqldb.isExistTable(sell_table):
             return
         if not self.sqldb.isExistTableColumn(sell_table, column_rolled_in) or not self.sqldb.isExistTableColumn(sell_table, column_roll_in_value):
-            sell_recs = self.sqldb.select(sell_table, [column_date, column_cost_sold], order = " ORDER BY %s ASC" % column_date)
-            if not sell_recs:
-                return
-
-            (sell_date, sell_cost) = sell_recs[-1]
-            netvalue = fg.netvalue_by_date(sell_date)
-            max_price_to_buy = netvalue * (1.0 - float(fg.short_term_rate)) * ppg
-            max_price_to_buy = round(max_price_to_buy, 4)
-            return sell_date +"<"+ str(max_price_to_buy) + ">: " + str(int(sell_cost))
+            print("table column not complete.")
+            return
 
         sell_recs = self.sqldb.select(sell_table, [column_date, column_cost_sold, column_rolled_in, column_roll_in_value])
         if not sell_recs:
@@ -196,8 +189,6 @@ class InvestBudget():
         sell_table = fg.sell_table
         if not sell_table:
             return
-        if not self.sqldb.isExistTableColumn(sell_table, column_rolled_in):
-            self.sqldb.addColumn(sell_table, column_rolled_in, 'varchar(20) DEFAULT NULL')
         self.sqldb.update(sell_table, {column_rolled_in: str(cost)}, {column_date: date})
 
 if __name__ == '__main__':
