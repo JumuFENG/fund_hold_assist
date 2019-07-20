@@ -9,10 +9,14 @@ window.onload = function() {
     FundSelectChanged();
 }
 
-function FundSelectChanged() {
+function getSelectedFundCode() {
     var fundlistObj = document.getElementById("fundlist");
     var index = fundlistObj.selectedIndex;
-    var fundcode = fundlistObj.options[index].value;
+    return fundlistObj.options[index].value;
+}
+
+function FundSelectChanged() {
+    var fundcode = getSelectedFundCode();
     showFundGeneralInfo(fundcode);
 
     var gzInput = document.getElementById("guzhi_lgz");
@@ -98,8 +102,31 @@ function GetLatestSellInfo() {
     var gz = gzInput.value.trim();
     if (gz == "") {
         alert("请输入最新净值");
+        return;
     }
+
     var sellTable = document.getElementById("tbl_sell");
-    var row = create2ColRow(">1.5%", "80.1155");
-    sellTable.appendChild(row);
+    var fundcode = getSelectedFundCode();
+    var short_term_rate = ftjson[fundcode]["short_term_rate"];
+    var buytable = ftjson[fundcode]["buy_table"];
+    var portion_can_sell = 0.0;
+    var max_value_to_sell = parseFloat(gz) * (1.0 - parseFloat(short_term_rate))
+    for (var i = 0; i < buytable.length; i++) {
+        if(parseFloat(buytable[i]["netvalue"]) < max_value_to_sell){
+            portion_can_sell += parseFloat(buytable[i]["portion"])
+        }
+    };
+
+    if (portion_can_sell > 0) {
+        var ppg = parseFloat(ftjson[fundcode]["ppg"]);
+        if (ppg != 1 && ppg != 0) {
+            portion_can_sell /= ppg;
+        };
+        if (sellTable.rows.length > 2) {
+            sellTable.deleteRow(sellTable.rows.length - 1);
+        };
+    
+        var row = create2ColRow(">"+ parseFloat(short_term_rate) * 100 +"%", portion_can_sell.toFixed(4));
+        sellTable.appendChild(row);
+    };
 }
