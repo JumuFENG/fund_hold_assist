@@ -1,0 +1,36 @@
+<html>
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta charset="utf-8">
+    <script type="text/javascript" src="fund.json"></script>
+    <script type="text/javascript" src="index.js"></script>
+    <link rel="stylesheet" type="text/css" href="fund.css">
+</head>
+<body>
+    <title>基金表</title>
+    <div align="right">
+        <button onclick="location.reload()">刷新</button>
+    </div>
+    <select id="fundlist" onchange="FundSelectChanged()">
+    </select>
+    <table>
+        <tr>
+            <th>
+                <a id="tbl_hdr_fund_info" href="" target='_blank'>最新净值: </a>
+            </th>
+            <th><input type="text" id="guzhi_lgz" name="latest_value"/></th>
+            <th><button onclick="GetLatestSellInfo()">OK</button></th>
+        </tr>
+        <tr>
+            <td>all</td>
+            <td id="fund_cost_aver"></td>
+        </tr>
+    </table>
+    <table id="tbl_budget">
+    </table>
+    <table id="tbl_rollin">
+    </table>
+    <table id="tbl_sell">
+    </table>
+</body>
+</html>
