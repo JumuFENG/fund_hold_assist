@@ -27,7 +27,7 @@ function showFundGeneralInfo(fundcode){
     fundcostaver.innerHTML = funddata["cost"] +"&lt;"+ funddata["averprice"] + "&gt;";
     loadBudgets(funddata["budget"]);
     loadRollins(funddata["rollin"]);
-    loadSellInfo();
+    loadSellInfo(funddata["morethan7day"]);
 }
 
 function create2ColRow(c1, c2){
@@ -83,13 +83,13 @@ function loadRollins(rollins) {
     };
 }
 
-function loadSellInfo() {
+function loadSellInfo(portion_mt7d) {
     var sellTable = document.getElementById("tbl_sell");
     deleteAllRows(sellTable);
     var row0 = document.createElement("tr");
     row0.appendChild(document.createTextNode("sell"));
     sellTable.appendChild(row0);
-    var row = create2ColRow(">7天", "307.1155");
+    var row = create2ColRow(">7天", portion_mt7d);
     sellTable.appendChild(row);
 }
 

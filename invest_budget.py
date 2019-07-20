@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import pandas as pd
 import os
+import json
 
 class InvestBudget():
     """to help do the invest budget"""
@@ -130,6 +131,7 @@ class InvestBudget():
                 sum_b = 0
                 index = []
                 values = []
+
                 for (d,v,b) in budget:
                     sum_b += int(b)
                     index.append(d)
@@ -191,6 +193,106 @@ class InvestBudget():
             return
         self.sqldb.update(sell_table, {column_rolled_in: str(cost)}, {column_date: date})
 
+    def get_roll_in_arr(self, fg, ppg):
+        sell_table = fg.sell_table
+        if not sell_table or not self.sqldb.isExistTable(sell_table):
+            return
+        if not self.sqldb.isExistTableColumn(sell_table, column_rolled_in) or not self.sqldb.isExistTableColumn(sell_table, column_roll_in_value):
+            print("table column not complete.")
+            return
+
+        sell_recs = self.sqldb.select(sell_table, [column_date, column_cost_sold, column_rolled_in, column_roll_in_value])
+        if not sell_recs:
+            return
+
+        values = []
+        for (d, c, r, v) in sell_recs:
+            if not r:
+                r = 0
+            if c <= float(r):
+                continue
+            max_price_to_buy = 0
+            if not v:
+                netvalue = fg.netvalue_by_date(d)
+                max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)) * ppg, 4)
+            else:
+                max_price_to_buy = round(float(v) * ppg, 4)
+            values.append({"date":d, "max_price_to_buy":max_price_to_buy, "to_rollin":str(int(c - float(r)))})
+
+        return values
+
+    def get_buy_arr(self, fg):
+        buy_table = fg.buy_table
+        if not buy_table:
+            return
+
+        dcp_not_sell = self.sqldb.select(buy_table, [column_date, column_cost, column_portion], "%s = 0" % column_soldout)
+        values = []
+        for (d,c,p) in dcp_not_sell:
+            v = fg.netvalue_by_date(d)
+            values.append({"date":d, "netvalue":v, "cost":c, "portion":p})
+        return values
+
+    def get_portions_morethan_7day(self, fg, ppg):
+        dateToday = datetime.now().strftime("%Y-%m-%d")
+        dateBegin = (datetime.strptime(dateToday, "%Y-%m-%d") + timedelta(days=-7)).strftime("%Y-%m-%d")
+        history_table = fg.history_table
+
+        buy_table = fg.buy_table
+        if not buy_table:
+            return 0
+        (portion_cannot_sell,), = self.sqldb.select(buy_table, "sum(%s)" % column_portion, "%s > '%s'" % (column_date, dateBegin))
+        if not portion_cannot_sell:
+            portion_cannot_sell = 0
+        return round((fg.portion_hold - portion_cannot_sell) / ppg, 4)
+
+    def get_budgets_json(self):
+        if not self.sqldb.isExistTable(gl_fund_info_table):
+            print("can not find fund info DB.")
+            return
+
+        fund_codes = self.sqldb.select(gl_fund_info_table, [column_code])
+
+        fund_json = {}
+
+        for (c, ) in fund_codes:
+            fund_json_obj = {}
+            ppg = 1 if not ppgram.__contains__(c) else ppgram[c]
+            fg = FundGeneral(self.sqldb, c)
+            budget_table = fg.budget_table
+            if budget_table and self.sqldb.isExistTable(budget_table):
+                self.delete_cosumed(budget_table)
+
+                budget = self.sqldb.select(budget_table, [column_date, column_net_value, column_budget])
+                values = []
+                for (d,v,b) in budget:
+                    values.append({"date":d, "max_price_to_buy":Decimal(str(v)) * ppg, "budget":b})
+                if len(values) > 0:
+                    fund_json_obj["budget"] = values
+
+            if fg.cost_hold and fg.average:
+                fund_json_obj["name"] = fg.name
+                fund_json_obj["ppg"] = ppg
+                fund_json_obj["short_term_rate"] = fg.short_term_rate
+                fund_json_obj["cost"] = fg.cost_hold
+                fund_json_obj["averprice"] = str(Decimal(str(fg.average)) * ppg)
+
+                rollin_arr = self.get_roll_in_arr(fg, ppg)
+                if rollin_arr and len(rollin_arr) > 0:
+                    fund_json_obj["rollin"] = rollin_arr
+
+                fund_json_obj["morethan7day"] = self.get_portions_morethan_7day(fg, ppg)
+                buy_arr = self.get_buy_arr(fg)
+                if buy_arr and len(buy_arr) > 0:
+                    fund_json_obj["buy_table"] = buy_arr
+
+            if fund_json_obj:
+                fund_json[c] = fund_json_obj
+
+        f = open("summary/fund.json", 'w')
+        f.write("var ftjson = " + json.dumps(fund_json) + ";")
+        f.close()
+
 if __name__ == '__main__':
     dbname = "fund_center"
     #dbname = "testdb"
@@ -201,4 +303,4 @@ if __name__ == '__main__':
     #ib.add_budget("161724",100,"2019-07-01")
     #ib.add_budget("260108",100,"2019-07-01")
     #ib.add_budget("110003",10, "2019-07-01")
-    ib.get_budgets()
+    ib.get_budgets_json()
