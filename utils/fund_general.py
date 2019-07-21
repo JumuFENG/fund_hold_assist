@@ -23,3 +23,8 @@ class FundGeneral():
         if netvalue:
             (netvalue,), = netvalue
         return netvalue
+
+    def latest_netvalue(self):
+        history_dvs = self.sqldb.select(self.history_table, [column_date, column_net_value], order = " ORDER BY %s ASC" % column_date)
+        (d, netvalue) = history_dvs[-1]
+        return netvalue

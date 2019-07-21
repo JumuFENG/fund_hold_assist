@@ -276,6 +276,7 @@ class InvestBudget():
                 fund_json_obj["short_term_rate"] = fg.short_term_rate
                 fund_json_obj["cost"] = fg.cost_hold
                 fund_json_obj["averprice"] = str(Decimal(str(fg.average)) * ppg)
+                fund_json_obj["latest_netvalue"] = fg.latest_netvalue()
 
                 rollin_arr = self.get_roll_in_arr(fg, ppg)
                 if rollin_arr and len(rollin_arr) > 0:

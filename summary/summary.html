@@ -8,11 +8,16 @@
 </head>
 <body>
     <title>基金表</title>
-    <div align="right">
+    <div>
         <button onclick="location.reload()">刷新</button>
+        <button id="btn_swith_show_all" onclick="SwitchShowAll()">Show All</button>
     </div>
+
+    <div id="funds_1_by_1">
+    <hr />
     <select id="fundlist" onchange="FundSelectChanged()">
     </select>
+    <hr />
     <table>
         <tr>
             <th>
@@ -32,5 +37,13 @@
     </table>
     <table id="tbl_sell">
     </table>
+    </div>
+
+    <div id="funds_all_in_1">
+        <table id="tbl_all_in_1">
+        </table>
+    </div>
+    <hr />
+
 </body>
 </html>
