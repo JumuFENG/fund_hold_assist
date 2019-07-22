@@ -95,6 +95,8 @@ class TradeFund():
                     (c_s, rolled_in, r_v), = rolled_in
                 if not rolled_in:
                     rolled_in = 0
+                if not r_v:
+                    r_v = self.fund_general.netvalue_by_date(rollin_date)
                 rolled_in = int(rolled_in) + int(cost)
                 next_value_to_sell = 0
                 if int(c_s) > rolled_in:
