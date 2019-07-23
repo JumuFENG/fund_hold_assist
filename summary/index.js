@@ -41,8 +41,6 @@ function FundSelectChanged() {
 
 function showFundGeneralInfo(fundcode){
     var funddata = ftjson[fundcode];
-    var fundHdr = document.getElementById("tbl_hdr_fund_info");
-    fundHdr.href = "http://fundgz.1234567.com.cn/js/" + fundcode + ".js?rt=" +  (new Date()).getTime();
     var fundcostaver = document.getElementById("fund_cost_aver");
     fundcostaver.innerHTML = funddata["cost"] +"&lt;"+ funddata["averprice"] + "&gt;";
     loadBudgets(funddata["budget"]);
