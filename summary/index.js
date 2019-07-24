@@ -166,7 +166,15 @@ function getMaxSellPortion(netvalue, short_term_rate, buytable, ppg) {
     return portion_can_sell.toFixed(4);
 }
 
+function jsonpgz(fundgz) {
+    document.getElementById("guzhi_lgz").value = fundgz.gsz;
+}
+
 function GetLatestSellInfo() {
+    var jsonp = document.getElementById("btn_ok").value;
+    console.log(jsonp);
+    eval(jsonp);
+
     var gzInput = document.getElementById("guzhi_lgz");
     var gz = gzInput.value.trim();
     if (gz == "") {

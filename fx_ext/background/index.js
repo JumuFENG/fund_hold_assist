@@ -2,7 +2,7 @@
     'use strict';
 
     function logInfo(...args) {
-        //console.log(args);
+        console.log(args);
     }
     
     function getActiveTab() {
@@ -18,8 +18,10 @@
          */
         httpRequest.onreadystatechange = function () {
             if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                logInfo("httpRequest get response OK.");
                 var json = httpRequest.responseText;//获取到json字符串，还需解析
                 getActiveTab().then((tabs) => {
+                    logInfo("browser.tabs.sendMessage.");
                     browser.tabs.sendMessage(tabs[0].id, {
                         command: "rtgz",
                         jsonp: json}

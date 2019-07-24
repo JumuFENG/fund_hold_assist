@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "Fund Update",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "author": "JumuFENG",
     "description": "__MSG_extension_description__",
     "default_locale": "en",

@@ -2,7 +2,8 @@
     'use strict';
 
     function logInfo(...args) {
-        //console.log(args);
+        alert(args);
+        console.log(args);
     }
 
     function isFirefox() {
@@ -13,15 +14,11 @@
         return navigator.platform.toLowerCase().startsWith('mac');
     }
 
-    function jsonpgz(fundgz) {
-        logInfo(fundgz);
-        document.getElementById("guzhi_lgz").value = fundgz.gsz;
-        document.getElementById("btn_ok").onclick();
-    }
 
     function onMessage(message) {
         if (message.command === "rtgz") {
-            eval(message.jsonp);
+            document.getElementById("btn_ok").value = message.jsonp;
+            document.getElementById("btn_ok").onclick();
         } else {
             logInfo("command not recognized.");
         }
@@ -37,7 +34,7 @@
         if (target.tagName != "OPTION")
             return;
 
-        logInfo("send code to background.");
+        logInfo("send code:" + target.value + " to background.");
         browser.runtime.sendMessage({"code": target.value});
     }
 
