@@ -5,8 +5,10 @@
         console.log(args);
     }
     
-    function getActiveTab() {
-        return browser.tabs.query({active: true, currentWindow: true});
+    function sendMessage(data) {
+        chrome.tabs.query({active:true, currentWindow:true}, function (tabs) {
+            chrome.tabs.sendMessage(tabs[0].id, data);
+        });
     }
 
     function getHttpRequest (code) {
@@ -20,13 +22,7 @@
             if (httpRequest.readyState == 4 && httpRequest.status == 200) {
                 logInfo("httpRequest get response OK.");
                 var json = httpRequest.responseText;//获取到json字符串，还需解析
-                getActiveTab().then((tabs) => {
-                    logInfo("browser.tabs.sendMessage.");
-                    browser.tabs.sendMessage(tabs[0].id, {
-                        command: "rtgz",
-                        jsonp: json}
-                    );
-                })
+                sendMessage({command: "rtgz", jsonp: json});
             }
         };
     }
@@ -36,5 +32,5 @@
         getHttpRequest(message.code);
     }
 
-    browser.runtime.onMessage.addListener(notify);
+    chrome.runtime.onMessage.addListener(notify);
 }());

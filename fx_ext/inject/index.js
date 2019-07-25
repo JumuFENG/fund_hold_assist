@@ -1,8 +1,10 @@
 (function () {
     'use strict';
+    
+    let CustomEventName = "SelectedFundCode";
 
     function logInfo(...args) {
-        alert(args);
+        //alert(args);
         console.log(args);
     }
 
@@ -18,25 +20,20 @@
     function onMessage(message) {
         if (message.command === "rtgz") {
             document.getElementById("btn_ok").value = message.jsonp;
-            document.getElementById("btn_ok").onclick();
+            document.getElementById("btn_ok").click();
         } else {
             logInfo("command not recognized.");
         }
     }
 
-    browser.runtime.onMessage.addListener(onMessage);
+    chrome.runtime.onMessage.addListener(onMessage);
 
-    function notifyExtension(e) {
-        var target = e.target;
-        while (target.tagName != "OPTION" && target.parentNode) {
-            target = target.parentNode;
-        }
-        if (target.tagName != "OPTION")
-            return;
+    // document.getElementById("fundlist").onchange = function (e) {
+    //     chrome.runtime.sendMessage({"code": e.target.value});
+    // }
 
-        logInfo("send code:" + target.value + " to background.");
-        browser.runtime.sendMessage({"code": target.value});
-    }
-
-    window.addEventListener("click", notifyExtension);
+    document.addEventListener(CustomEventName, e => {
+        logInfo(e.detail.code);
+        chrome.runtime.sendMessage({"code": e.detail.code});
+    })
 }());

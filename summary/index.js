@@ -1,3 +1,4 @@
+let CustomEventName = 'SelectedFundCode';
 window.onload = function() {
     var fundlistObj = document.getElementById("fundlist");
     for (var fcode in ftjson){
@@ -37,6 +38,12 @@ function FundSelectChanged() {
 
     var gzInput = document.getElementById("guzhi_lgz");
     gzInput.value = "";
+    let selectedCodeEvt = new CustomEvent(CustomEventName, {
+        detail: {
+            code: fundcode
+        }
+    });
+    document.dispatchEvent(selectedCodeEvt);
 }
 
 function showFundGeneralInfo(fundcode){
