@@ -1,5 +1,8 @@
 {
     "extension_description": {
-        "message": "update fund estimate value in time."
+        "message": "update real time fund estimate value."
+    },
+    "extension_name": {
+        "message": "Fund holding Assist"
     }
 }

@@ -1,15 +1,20 @@
 {
     "manifest_version": 2,
-    "name": "Fund Update",
+    "name": "__MSG_extension_name__",
     "version": "1.0.2",
     "author": "JumuFENG",
     "description": "__MSG_extension_description__",
-    "default_locale": "en",
+    "default_locale": "zh_CN",
     // "icons": {
     //     "16": "icons/dr_16.png",
     //     "48": "icons/dr_48.png",
     //     "128": "icons/dr_128.png"
     // },
+    "icons": {
+        "18": "icons/fhu_18.png",
+        "48": "icons/fhu_48.png",
+        "96": "icons/fhu_96.png"
+    },
     "background": {
         "page": "background/index.html"
     },
@@ -35,7 +40,7 @@
     },
     "applications": {
         "gecko": {
-            "id": "addon@fundupdate.org",
+            "id": "fundholdupdate@jumufeng.me",
             "strict_min_version": "54.0"
         }
     }

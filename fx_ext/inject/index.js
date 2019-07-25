@@ -28,10 +28,6 @@
 
     chrome.runtime.onMessage.addListener(onMessage);
 
-    // document.getElementById("fundlist").onchange = function (e) {
-    //     chrome.runtime.sendMessage({"code": e.target.value});
-    // }
-
     document.addEventListener(CustomEventName, e => {
         logInfo(e.detail.code);
         chrome.runtime.sendMessage({"code": e.detail.code});

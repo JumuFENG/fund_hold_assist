@@ -1,5 +1,8 @@
 {
     "extension_description": {
         "message": "更新基金估值。"
+    },
+    "extension_name": {
+        "message": "持基助手"
     }
 }
