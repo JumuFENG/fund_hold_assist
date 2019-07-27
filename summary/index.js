@@ -174,7 +174,32 @@ function getMaxSellPortion(netvalue, short_term_rate, buytable, ppg) {
 }
 
 function jsonpgz(fundgz) {
-    document.getElementById("guzhi_lgz").value = fundgz.gsz;
+    document.getElementById("guzhi_lgz").innerText = fundgz.gsz;
+    document.getElementById("guzhi_dwjz").innerText = fundgz.dwjz;
+    document.getElementById("guzhi_zl").innerText = fundgz.gszzl + "%";
+}
+
+function setClasses(funddata) {
+    var price = parseFloat(funddata["averprice"]);
+    var gzlbl = document.getElementById("guzhi_lgz");
+    var lgz = parseFloat(gzlbl.innerText.trim());
+    if (lgz > price) {
+        gzlbl.className = "increase";
+    } else if (lgz < price) {
+        gzlbl.className = "decrease";
+    } else {
+        gzlbl.className = "keepsame";
+    }
+
+    var gzzllbl = document.getElementById("guzhi_zl");
+    var gzzl = parseFloat(gzzllbl.innerText.trim('%'));
+    if (gzzl > 0) {
+        gzzllbl.className = "increase";
+    } else if (gzzl < 0) {
+        gzzllbl.className = "decrease";
+    } else {
+        gzzllbl.className = "keepsame";
+    }
 }
 
 function GetLatestSellInfo() {
@@ -183,7 +208,7 @@ function GetLatestSellInfo() {
     eval(jsonp);
 
     var gzInput = document.getElementById("guzhi_lgz");
-    var gz = gzInput.value.trim();
+    var gz = gzInput.innerText.trim();
     if (gz == "") {
         alert("请输入最新净值");
         return;
@@ -191,6 +216,8 @@ function GetLatestSellInfo() {
 
     var sellTable = document.getElementById("tbl_sell");
     var fundcode = getSelectedFundCode();
+    setClasses(ftjson[fundcode]);
+
     var short_term_rate = ftjson[fundcode]["short_term_rate"];
     var buytable = ftjson[fundcode]["buy_table"];
     var ppg = parseFloat(ftjson[fundcode]["ppg"]);

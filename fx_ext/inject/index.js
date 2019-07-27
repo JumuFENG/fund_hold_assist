@@ -4,8 +4,7 @@
     let CustomEventName = "SelectedFundCode";
 
     function logInfo(...args) {
-        //alert(args);
-        console.log(args);
+        //console.log(args);
     }
 
     function isFirefox() {

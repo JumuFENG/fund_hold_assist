@@ -2,7 +2,7 @@
     'use strict';
 
     function logInfo(...args) {
-        console.log(args);
+        //console.log(args);
     }
     
     function sendMessage(data) {

@@ -1,17 +1,45 @@
 body,tr,td,th,button,input,select {
     font-size: 20px;
     line-height:24px
-} 
+}
+
+body {
+    background-color: #E8EBEB;
+}
 
 hr {
     border:none;
     border-top:2px dotted #535759;
 }
 
-input {
-    max-width: 100px
-}
-
 button {
     min-width: 45px
+}
+
+div.guzhi lable {
+    color: white;
+    background-color: green;
+    padding-left: 10px;
+    padding-right: 10px;
+    border-radius: 6px;
+}
+
+div.guzhi lable.increase {
+    background-color: red;
+}
+
+div.guzhi label.keepsame {
+    background-color: grey;
+}
+
+div.jingzhi {
+    font-size: 13px;
+}
+
+div.jingzhi label#guzhi_zl{
+    color: red;
+}
+
+div.jingzhi label#guzhi_zl.decrease {
+    color: green;
 }

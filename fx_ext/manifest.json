@@ -5,15 +5,19 @@
     "author": "JumuFENG",
     "description": "__MSG_extension_description__",
     "default_locale": "zh_CN",
-    // "icons": {
-    //     "16": "icons/dr_16.png",
-    //     "48": "icons/dr_48.png",
-    //     "128": "icons/dr_128.png"
-    // },
+    "browser_action": {
+        "default_title": "Fund update",
+        "default_icon": {
+            "19": "icons/fhu_19.png",
+            "38": "icons/fhu_38.png"
+        },
+        "default_popup": "ui/popup/index.html"
+        //"browser_style": true
+    },
     "icons": {
-        "18": "icons/fhu_18.png",
+        "16": "icons/fhu_16.png",
         "48": "icons/fhu_48.png",
-        "96": "icons/fhu_96.png"
+        "128": "icons/fhu_128.png"
     },
     "background": {
         "page": "background/index.html"
@@ -41,7 +45,7 @@
     "applications": {
         "gecko": {
             "id": "fundholdupdate@jumufeng.me",
-            "strict_min_version": "54.0"
+            "strict_min_version": "57.0"
         }
     }
 }

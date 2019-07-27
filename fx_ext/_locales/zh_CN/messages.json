@@ -1,6 +1,6 @@
 {
     "extension_description": {
-        "message": "更新基金估值。"
+        "message": "获取基金净值，最新盘中估值，估值增长率等信息。"
     },
     "extension_name": {
         "message": "持基助手"

@@ -17,20 +17,20 @@
     <hr />
     <select id="fundlist" onchange="FundSelectChanged()">
     </select>
+    <button id="btn_ok" style="display:none;" onclick="GetLatestSellInfo()">OK</button>
     <hr />
-    <table>
-        <tr>
-            <th colspan="2">
-                最新净值:
-                <input type="text" id="guzhi_lgz" name="latest_value"/>
-                <button id="btn_ok" onclick="GetLatestSellInfo()">OK</button>
-            </th>
-        </tr>
-        <tr>
-            <td>all</td>
-            <td id="fund_cost_aver"></td>
-        </tr>
-    </table>
+        <div>
+            <div class="guzhi">
+                盘中估值:
+                <lable id="guzhi_lgz"/>
+            </div>
+            <div class="jingzhi"><span>单位净值: <label id="guzhi_dwjz"/></span>
+            增长率: <label id="guzhi_zl"/></div>
+        </div>
+        <div>
+            all
+            <lable id="fund_cost_aver" />
+        </div>
     <table id="tbl_budget">
     </table>
     <table id="tbl_rollin">
