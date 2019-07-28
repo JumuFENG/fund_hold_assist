@@ -157,6 +157,8 @@ class InvestBudget():
                 fund_json_obj["cost"] = fg.cost_hold
                 fund_json_obj["averprice"] = str(Decimal(str(fg.average)) * ppg)
                 fund_json_obj["latest_netvalue"] = fg.latest_netvalue()
+                fund_json_obj["last_day_earned"] = fg.last_day_earned()
+                fund_json_obj["earned_while_holding"] = round((float(fg.latest_netvalue()) - float(fg.average)) * float(fg.portion_hold), 2)
 
                 rollin_arr = self.get_roll_in_arr(fg, ppg)
                 if rollin_arr and len(rollin_arr) > 0:

@@ -1,4 +1,4 @@
-body,tr,td,th,button,input,select {
+body,button,input,select {
     font-size: 20px;
     line-height:24px
 }
@@ -16,7 +16,7 @@ button {
     min-width: 45px
 }
 
-div.guzhi lable {
+label {
     color: white;
     background-color: green;
     padding-left: 10px;
@@ -24,11 +24,15 @@ div.guzhi lable {
     border-radius: 6px;
 }
 
-div.guzhi lable.increase {
+label.decrease {
+    background-color: green;
+}
+
+label.increase {
     background-color: red;
 }
 
-div.guzhi label.keepsame {
+label.keepsame {
     background-color: grey;
 }
 
@@ -36,10 +40,28 @@ div.jingzhi {
     font-size: 13px;
 }
 
-div.jingzhi label#guzhi_zl{
-    color: red;
+div.general_root {
+    font-size: 20px;
+    line-height:24px
 }
 
-div.jingzhi label#guzhi_zl.decrease {
-    color: green;
+div.general_earned {
+    font-size: 13px;
+}
+
+div.general_earned label{
+    padding-left: 3px;
+    padding-right: 3px;
+    margin-left: 2px;
+    margin-right: 2px;
+    border-radius: 4px;
+}
+
+div.total_earned {
+    font-size: 13px;
+    padding-top: 5px;
+}
+
+div.total_earned label {
+    margin-left: 5px;
 }

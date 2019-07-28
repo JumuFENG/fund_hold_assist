@@ -249,6 +249,40 @@ function getSellRows(funddata) {
     return rows;
 }
 
+function incdec_lbl_classname(val) {
+    var lbl_class = "increase";
+    if (val < 0) {
+        lbl_class = "decrease";
+    } else if (val == 0) {
+        lbl_class = "keepsame";
+    };
+    return lbl_class;
+}
+
+function createGeneralInfoInSingleRow(funddata) {
+    var html = "<div>" + funddata["name"] + "</div>";
+                    
+    html += "<div>all: " + funddata["cost"] + "</span> &lt;" +funddata["averprice"]+ "&gt;</div>";
+
+    var earned_lbl_class = incdec_lbl_classname(funddata["last_day_earned"]);
+    html += "<div class='general_earned'><span>上日: <label class = '" + earned_lbl_class + "'>" + funddata["last_day_earned"] + "</label></span>";
+    
+    earned_lbl_class = incdec_lbl_classname(funddata["earned_while_holding"]);
+    html += "持有: <label class='" + earned_lbl_class + "'>" + funddata["earned_while_holding"] + "</label>";
+    html += "<label class='" + earned_lbl_class + "'>" + (100 * funddata["earned_while_holding"] / funddata["cost"]).toFixed(2) + "%</label></div>";
+
+    var general_root = document.createElement("div");
+    general_root.className = "general_root";
+    general_root.innerHTML = html;
+
+    var col = document.createElement("td");
+    col.appendChild(general_root)
+    col.setAttribute("colspan","2");
+    var row = document.createElement("tr");
+    row.appendChild(col);
+    return row;
+}
+
 function showAllInOnePage() {
     document.getElementById("btn_swith_show_all").innerHTML = "Show Single";
     document.getElementById("funds_all_in_1").style.display = "block";
@@ -257,13 +291,14 @@ function showAllInOnePage() {
     var allTable = document.getElementById("tbl_all_in_1");
     deleteAllRows(allTable);
 
+    var earned = 0;
+    var cost = 0;
     for (var fcode in ftjson){
         allTable.appendChild(createSplitLine());
-
         var funddata = ftjson[fcode];
-        var row = createSingleRow(funddata["name"]);
-        allTable.appendChild(row);
-        row = createSingleRow("all  " + funddata["cost"] +"<"+ funddata["averprice"] + ">");
+        earned += funddata["last_day_earned"];
+        cost += funddata["cost"];
+        var row = createGeneralInfoInSingleRow(funddata);
         allTable.appendChild(row);
 
         var rows = getBudgetRows(funddata["budget"]);
@@ -281,4 +316,15 @@ function showAllInOnePage() {
             allTable.appendChild(rows[i]);
         };
     }
+
+    if (earned != 0) {
+        var lbl_earned = document.getElementById("last_total_earned");
+        lbl_earned.textContent = earned;
+        var lbl_class = incdec_lbl_classname(earned);
+        lbl_earned.className = lbl_class;
+
+        var lbl_earn_percent = document.getElementById("last_total_percent");
+        lbl_earn_percent.textContent = (100* earned/cost).toFixed(2) + "%";
+        lbl_earn_percent.className = lbl_class;
+    };
 }
