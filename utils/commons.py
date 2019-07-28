@@ -1,4 +1,4 @@
-gl_budget_file = "D:\\UserFiles\\Documents\\MiCloud\\budgets\\budgets.txt"
+gl_summary_dir = "D:\\UserFiles\\Documents\\MiCloud\\budgets"
 gl_phantomjs_exe_path = 'D:\Python\Python37\Scripts\phantomjs.exe'
 
 f10DataApiUrl = "http://fund.eastmoney.com/f10/F10DataApi.aspx"
