@@ -20,7 +20,13 @@
                 document.getElementById('fund_name').innerText = jsonp["name"];
                 document.getElementById('fund_value').innerText = jsonp["dwjz"];
                 document.getElementById('fund_value_gsz').innerText = jsonp["gsz"];
-                document.getElementById('fund_growth').innerText = jsonp["gszzl"] + "%";
+                var tdfundgrowth = document.getElementById('fund_growth');
+                tdfundgrowth.innerText = jsonp["gszzl"] + "%";
+                if (parseFloat(jsonp["gszzl"]) < 0) {
+                    tdfundgrowth.className = "growth_decrease";
+                } else {
+                    tdfundgrowth.className = "growth_increase";
+                }
             }
         };
     }
