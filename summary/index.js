@@ -1,4 +1,8 @@
 let CustomEventName = 'SelectedFundCode';
+function logInfo(...args) {
+    //console.log(args);
+}
+
 window.onload = function() {
     var fundlistObj = document.getElementById("fundlist");
     for (var fcode in ftjson){
@@ -117,7 +121,7 @@ function loadBudgets(budgets) {
 }
 
 function creatBuyRow(date, maxprice, cost) {
-    return create2ColRow(date + "<" + maxprice + ">", cost);
+    return create2ColRow(date, cost + "<" + maxprice + ">");
 }
 
 function getRollinRows(rollins) {
@@ -204,13 +208,13 @@ function setClasses(funddata) {
 
 function GetLatestSellInfo() {
     var jsonp = document.getElementById("btn_ok").value;
-    console.log(jsonp);
+    logInfo(jsonp);
     eval(jsonp);
 
     var gzInput = document.getElementById("guzhi_lgz");
     var gz = gzInput.innerText.trim();
     if (gz == "") {
-        alert("请输入最新净值");
+        logInfo("无法读取有效的最新估值");
         return;
     }
 
@@ -319,7 +323,7 @@ function showAllInOnePage() {
 
     if (earned != 0) {
         var lbl_earned = document.getElementById("last_total_earned");
-        lbl_earned.textContent = earned;
+        lbl_earned.textContent = earned.toFixed(2);
         var lbl_class = incdec_lbl_classname(earned);
         lbl_earned.className = lbl_class;
 

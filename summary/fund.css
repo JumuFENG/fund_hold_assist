@@ -7,6 +7,10 @@ body {
     background-color: #E8EBEB;
 }
 
+table {
+    font-size: 18px;
+}
+
 hr {
     border:none;
     border-top:2px dotted #535759;
