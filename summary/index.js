@@ -1,6 +1,6 @@
 let CustomEventName = 'SelectedFundCode';
 function logInfo(...args) {
-    //console.log(args);
+    console.log(args);
 }
 
 window.onload = function() {
@@ -42,6 +42,17 @@ function FundSelectChanged() {
 
     var gzInput = document.getElementById("guzhi_lgz");
     gzInput.value = "";
+
+    var nowDate=new Date();
+    var day_of_week = nowDate.getDay();
+    if (day_of_week < 1 || day_of_week > 5) {
+        return;
+    };
+    var hour_of_day = nowDate.getHours();
+    if (hour_of_day < 9 || hour_of_day > 16) {
+        return;
+    };
+
     let selectedCodeEvt = new CustomEvent(CustomEventName, {
         detail: {
             code: fundcode
