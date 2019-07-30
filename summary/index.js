@@ -296,11 +296,13 @@ function showAllInOnePage() {
     deleteAllRows(allTable);
 
     var earned = 0;
+    var total_earned = 0;
     var cost = 0;
     for (var fcode in ftjson){
         allTable.appendChild(createSplitLine());
         var funddata = ftjson[fcode];
         earned += funddata["last_day_earned"];
+        total_earned += funddata["earned_while_holding"];
         cost += funddata["cost"];
         var row = createGeneralInfoInSingleRow(funddata);
         allTable.appendChild(row);
@@ -328,7 +330,16 @@ function showAllInOnePage() {
         lbl_earned.className = lbl_class;
 
         var lbl_earn_percent = document.getElementById("last_total_percent");
-        lbl_earn_percent.textContent = (100* earned/cost).toFixed(2) + "%";
+        lbl_earn_percent.textContent = (100 * earned/cost).toFixed(2) + "%";
         lbl_earn_percent.className = lbl_class;
+
+        var lbl_total_earned = document.getElementById("total_earned");
+        lbl_total_earned.textContent = total_earned.toFixed(2);
+        var lbl_total_class = incdec_lbl_classname(total_earned);
+        lbl_total_earned.className = lbl_total_class;
+
+        var lbl_total_percent = document.getElementById("total_percent");
+        lbl_total_percent.textContent = (100 * total_earned / cost).toFixed(2) + "%";
+        lbl_total_percent.className = lbl_total_class;
     };
 }
