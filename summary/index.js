@@ -348,6 +348,8 @@ function showAllInOnePage() {
         lbl_earn_percent.textContent = (100 * earned/cost).toFixed(2) + "%";
         lbl_earn_percent.className = lbl_class;
 
+        document.getElementById("total_cost").textContent = cost;
+        
         var lbl_total_earned = document.getElementById("total_earned");
         lbl_total_earned.textContent = total_earned.toFixed(2);
         var lbl_total_class = incdec_lbl_classname(total_earned);
