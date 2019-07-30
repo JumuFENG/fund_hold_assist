@@ -58,6 +58,10 @@ class DailyUpdater():
         trade = TradeFund(fundcode, self.dbname, db_pwd)
         trade.sell_by_day(buyDates, sellDate)
 
+    def set_pre_buy_fee(self, code, fee):
+        fg = AllFunds(self.sqldb)
+        fg.set_pre_buy_fee(code, fee)
+
 if __name__ == '__main__':
     dbname = "fund_center"
     #dbname = "testdb"
@@ -67,16 +71,16 @@ if __name__ == '__main__':
     #du.download_all_fund_history("000217")
     #du.download_all_index_history("399300")
     #du.download_all_gold_history("AU9999")
-    #du.buy("000217", 200,  "2019-07-12")
-    #du.buy("260108", 45,   "2019-07-12")
-    #du.buy("110003", 45,   "2019-07-12")
-    #du.buy("005633", 45,   "2019-07-12")#
-    #du.buy("001632", 45,   "2019-07-12")
-    #du.buy("001551", 45,   "2019-07-12")
-    #du.buy("161724", 800,  "2019-07-09", rollin_date = "2019-07-02")
-    #du.buy("161725", 1000, "2019-07-09")
-    #du.buy("160639", 840,  "2019-07-09", rollin_date="2019-07-02")
-    #du.sell("000217", "2019-07-05", ['2019-06-19', '2019-06-20', '2019-06-21', '2019-07-02'])
+    #du.buy("000217", 200,  "2019-07-29")
+    #du.buy("260108", 45,   "2019-07-29")
+    #du.buy("110003", 45,   "2019-07-29")
+    #du.buy("005633", 45,   "2019-07-29")#
+    #du.buy("001632", 45,   "2019-07-29")
+    #du.buy("001551", 45,   "2019-07-29")
+    #du.buy("161725", 200,  "2019-07-29")
+    #du.buy("161724", 800,  "2019-07-19", rollin_date = "2019-07-02")
+    #du.buy("160639", 840,  "2019-07-19", rollin_date="2019-07-02")
+    #du.sell("000217", "2019-07-18", ['2019-07-09', '2019-07-10', '2019-07-17'])
     #du.sell("161724", "2019-07-02", ["2019-06-03","2019-06-12"])
     #du.sell("260108", "2019-07-02", [])
     #du.sell("001632", "2019-07-02", [])
@@ -84,7 +88,7 @@ if __name__ == '__main__':
     #du.sell("005633", "2019-07-02", [])
     #du.sell("110003", "2019-06-28", [])
     #du.sell("160639", "2019-07-02", ['2019-06-17', '2019-06-18', '2019-06-19'])
-    #du.manually_fix_buy("000217", "2019-07-12", 200)
+    #du.manually_fix_buy("260108", "2019-06-28", 200)
     #af = AllFunds(du.sqldb)
     #af.loadMorningStarRatingInfo()
     #af.get_fund_name("000001")

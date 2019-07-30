@@ -52,6 +52,9 @@ class AllFunds():
         if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_shortterm_rate):
             self.sqldb.addColumn(gl_all_funds_info_table, column_shortterm_rate, 'varchar(10) DEFAULT NULL')
 
+    def set_pre_buy_fee(self, code, fee):
+        self.sqldb.update(gl_all_funds_info_table, {column_fee:str(fee)}, {column_code: code})
+
     def loadInfo(self):
         c = ""
         with open("allfund.html",'rb') as f:

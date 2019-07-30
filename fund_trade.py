@@ -71,7 +71,7 @@ class TradeFund():
                 print("find buy record:", buy_rec, "ignore.")
                 return
 
-        portion = Decimal(cost) / Decimal(str(net_value))
+        portion = (Decimal(cost) / Decimal(1 + self.fund_general.pre_buy_fee)) / Decimal(str(net_value))
         #print(cost, buyDate, cost, portion)
         self.sqldb.insert(self.buy_table, {column_date:buyDate, column_cost:str(cost), column_portion : str(portion), column_soldout:str(0)})
 
@@ -144,7 +144,7 @@ class TradeFund():
             print("net_value wrong, net_value is null in:", date)
             return
 
-        portion = Decimal(cost)/Decimal(str(net_value)).quantize(Decimal("0.0000"))
+        portion = ((Decimal(cost)/Decimal(1 + self.fund_general.pre_buy_fee)) / Decimal(str(net_value))).quantize(Decimal("0.0000"))
         self.sqldb.update(self.buy_table, {column_cost:str(cost), column_portion:str(portion)}, {column_date:date})
         
         buy_rec =self.sqldb.select(self.buy_table, ["sum(%s)" % column_cost, "sum(%s)" % column_portion], "%s = 0" % column_soldout)
