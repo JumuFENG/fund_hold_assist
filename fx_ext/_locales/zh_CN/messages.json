@@ -7,5 +7,20 @@
     },
     "popuptitle": {
         "message": "盘中估值"
+    },
+    "popup_fund_code": {
+        "message": "基金代码:"
+    },
+    "fund_name_name": {
+        "message": "基金名称:"
+    },
+    "fund_value_name": {
+        "message": "单位净值:"
+    },
+    "fund_esti_name": {
+        "message": "盘中估值:"
+    },
+    "fund_growth_name": {
+        "message": "估值涨幅:"
     }
 }

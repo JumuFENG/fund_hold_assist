@@ -5,6 +5,14 @@
         console.log(args);
     }
 
+    window.onload = function() {
+        document.getElementById("fund_code_name").textContent = chrome.i18n.getMessage("popup_fund_code");
+        document.getElementById("fund_name_name").textContent = chrome.i18n.getMessage("fund_name_name");
+        document.getElementById("fund_value_name").textContent = chrome.i18n.getMessage("fund_value_name");
+        document.getElementById("fund_esti_name").textContent = chrome.i18n.getMessage("fund_esti_name");
+        document.getElementById("fund_growth_name").textContent = chrome.i18n.getMessage("fund_growth_name");
+    }
+
     function getHttpRequest (code) {
         var httpRequest = new XMLHttpRequest();//第一步：建立所需的对象
         httpRequest.open('GET', 'http://fundgz.1234567.com.cn/js/' + code + '.js?rt=' +  (new Date()).getTime(), true);//第二步：打开连接 

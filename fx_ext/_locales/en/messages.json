@@ -7,5 +7,20 @@
     },
     "popuptitle": {
         "message": "Fund update"
+    },
+    "popup_fund_code": {
+        "message": "Fund code:"
+    },
+    "fund_name_name": {
+        "message": "Fund name:"
+    },
+    "fund_value_name": {
+        "message": "Fund value:"
+    },
+    "fund_esti_name": {
+        "message": "Fund estimate:"
+    },
+    "fund_growth_name": {
+        "message": "Growth rate:"
     }
 }
