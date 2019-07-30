@@ -21,22 +21,23 @@ button {
 }
 
 label {
-    color: white;
-    background-color: green;
     padding-left: 10px;
     padding-right: 10px;
     border-radius: 6px;
 }
 
 label.decrease {
+    color: white;
     background-color: green;
 }
 
 label.increase {
+    color: white;
     background-color: red;
 }
 
 label.keepsame {
+    color: white;
     background-color: grey;
 }
 

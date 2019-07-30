@@ -7,7 +7,7 @@
     <link rel="stylesheet" type="text/css" href="fund.css">
 </head>
 <body>
-    <title>基金表</title>
+    <title>持基表</title>
     <div>
         <button onclick="location.reload()">刷新</button>
         <button id="btn_swith_show_all" onclick="SwitchShowAll()">Show All</button>
@@ -19,18 +19,20 @@
     </select>
     <button id="btn_ok" style="display:none;" onclick="GetLatestSellInfo()">OK</button>
     <hr />
-        <div>
-            <div class="guzhi">
-                盘中估值:
-                <lable id="guzhi_lgz"/>
-            </div>
-            <div class="jingzhi"><span>单位净值: <label id="guzhi_dwjz"/></span>
-            增长率: <label id="guzhi_zl"/></div>
+    <div>
+        <div class="guzhi">
+            盘中估值:
+            <label id="guzhi_lgz"/>
         </div>
-        <div>
-            all
-            <lable id="fund_cost_aver" />
+        <div class="jingzhi"><span>单位净值: <label id="guzhi_dwjz"/></span>
+            增长率: <label id="guzhi_zl"/>
         </div>
+    </div>
+
+    <hr />
+    <div id="fund_cost_aver">
+    </div>
+
     <table id="tbl_budget">
     </table>
     <table id="tbl_rollin">

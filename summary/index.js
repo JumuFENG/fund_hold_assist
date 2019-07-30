@@ -53,7 +53,7 @@ function FundSelectChanged() {
 function showFundGeneralInfo(fundcode){
     var funddata = ftjson[fundcode];
     var fundcostaver = document.getElementById("fund_cost_aver");
-    fundcostaver.innerHTML = funddata["cost"] +"&lt;"+ funddata["averprice"] + "&gt;";
+    fundcostaver.innerHTML = createGeneralInnerHtmlWithoutName(funddata);
     loadBudgets(funddata["budget"]);
     loadRollins(funddata["rollin"]);
     loadSellInfo(funddata["morethan7day"]);
@@ -263,10 +263,8 @@ function incdec_lbl_classname(val) {
     return lbl_class;
 }
 
-function createGeneralInfoInSingleRow(funddata) {
-    var html = "<div>" + funddata["name"] + "</div>";
-                    
-    html += "<div>all: " + funddata["cost"] + "</span> &lt;" +funddata["averprice"]+ "&gt;</div>";
+function createGeneralInnerHtmlWithoutName(funddata) {
+    var html = "<div>all: " + funddata["cost"] + "</span> &lt;" +funddata["averprice"]+ "&gt;</div>";
 
     var earned_lbl_class = incdec_lbl_classname(funddata["last_day_earned"]);
     html += "<div class='general_earned'><span>上日: <label class = '" + earned_lbl_class + "'>" + funddata["last_day_earned"] + "</label></span>";
@@ -274,6 +272,12 @@ function createGeneralInfoInSingleRow(funddata) {
     earned_lbl_class = incdec_lbl_classname(funddata["earned_while_holding"]);
     html += "持有: <label class='" + earned_lbl_class + "'>" + funddata["earned_while_holding"] + "</label>";
     html += "<label class='" + earned_lbl_class + "'>" + (100 * funddata["earned_while_holding"] / funddata["cost"]).toFixed(2) + "%</label></div>";
+    return html;
+}
+
+function createGeneralInfoInSingleRow(funddata) {
+    var html = "<div>" + funddata["name"] + "</div>";
+    html += createGeneralInnerHtmlWithoutName(funddata);
 
     var general_root = document.createElement("div");
     general_root.className = "general_root";
