@@ -35,4 +35,10 @@
         var fundcode = document.getElementById('fund_code_value').value;
         getHttpRequest(fundcode);
     }
+
+    document.getElementById('fund_code_value').onkeydown = function(e) {
+        if (e.keyCode == 13) {
+            getHttpRequest(e.target.value);
+        };
+    };
 })();

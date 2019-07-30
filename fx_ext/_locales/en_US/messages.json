@@ -4,5 +4,8 @@
     },
     "extension_name": {
         "message": "Fund Assist"
+    },
+    "popuptitle": {
+        "message": "Fund update"
     }
 }

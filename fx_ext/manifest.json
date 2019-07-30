@@ -6,7 +6,7 @@
     "description": "__MSG_extension_description__",
     "default_locale": "zh_CN",
     "browser_action": {
-        "default_title": "Fund update",
+        "default_title": "__MSG_popuptitle__",
         "default_icon": {
             "19": "icons/fhu_19.png",
             "38": "icons/fhu_38.png"

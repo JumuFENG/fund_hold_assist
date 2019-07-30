@@ -4,5 +4,8 @@
     },
     "extension_name": {
         "message": "持基助手"
+    },
+    "popuptitle": {
+        "message": "盘中估值"
     }
 }
