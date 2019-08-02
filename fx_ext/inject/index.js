@@ -1,7 +1,8 @@
 (function () {
     'use strict';
     
-    let CustomEventName = "SelectedFundCode";
+    let CodeToFetchEvent = "FundCodeToFetch";
+    let RealtimeInfoFetchedEvent = "FundGzReturned"
 
     function logInfo(...args) {
         //console.log(args);
@@ -15,11 +16,12 @@
         return navigator.platform.toLowerCase().startsWith('mac');
     }
 
-
     function onMessage(message) {
         if (message.command === "rtgz") {
-            document.getElementById("btn_ok").value = message.jsonp;
-            document.getElementById("btn_ok").click();
+            let infoFetchedEvt = new CustomEvent(RealtimeInfoFetchedEvent, {
+                detail: message.jsonp
+            });
+            document.dispatchEvent(infoFetchedEvt);
         } else {
             logInfo("command not recognized.");
         }
@@ -27,7 +29,7 @@
 
     chrome.runtime.onMessage.addListener(onMessage);
 
-    document.addEventListener(CustomEventName, e => {
+    document.addEventListener(CodeToFetchEvent, e => {
         logInfo(e.detail.code);
         chrome.runtime.sendMessage({"code": e.detail.code});
     })

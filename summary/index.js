@@ -1,6 +1,8 @@
-let CustomEventName = 'SelectedFundCode';
+let CodeToFetchEvent = 'FundCodeToFetch';
+let RealtimeInfoFetchedEvent = "FundGzReturned";
+
 function logInfo(...args) {
-    console.log(args);
+    //console.log(args);
 }
 
 window.onload = function() {
@@ -12,7 +14,14 @@ window.onload = function() {
         fundlistObj.options.add(objOption);
     }  
     showAllInOnePage();
+    showAllFundList();
+    DrawSzzsHistory();
 }
+
+document.addEventListener(RealtimeInfoFetchedEvent, e => {
+    logInfo(e.detail);
+    eval(e.detail);
+});
 
 function SwitchShowAll() {
     if(document.getElementById("funds_all_in_1").style.display == "none"){
@@ -53,7 +62,7 @@ function FundSelectChanged() {
         return;
     };
 
-    let selectedCodeEvt = new CustomEvent(CustomEventName, {
+    let selectedCodeEvt = new CustomEvent(CodeToFetchEvent, {
         detail: {
             code: fundcode
         }
@@ -189,9 +198,9 @@ function getMaxSellPortion(netvalue, short_term_rate, buytable, ppg) {
 }
 
 function jsonpgz(fundgz) {
-    document.getElementById("guzhi_lgz").innerText = fundgz.gsz;
-    document.getElementById("guzhi_dwjz").innerText = fundgz.dwjz;
-    document.getElementById("guzhi_zl").innerText = fundgz.gszzl + "%";
+    logInfo(fundgz);
+    ftjson[fundgz.fundcode].rtgz = fundgz;
+    GetLatestSellInfo(fundgz.fundcode);
 }
 
 function setClasses(funddata) {
@@ -217,20 +226,18 @@ function setClasses(funddata) {
     }
 }
 
-function GetLatestSellInfo() {
-    var jsonp = document.getElementById("btn_ok").value;
-    logInfo(jsonp);
-    eval(jsonp);
+function GetLatestSellInfo(fundcode) {
+    var jsonp = ftjson[fundcode]["rtgz"];
 
-    var gzInput = document.getElementById("guzhi_lgz");
-    var gz = gzInput.innerText.trim();
-    if (gz == "") {
-        logInfo("无法读取有效的最新估值");
-        return;
-    }
+    document.getElementById("guzhi_lgz").innerText = jsonp.gsz;
+    document.getElementById("guzhi_dwjz").innerText = jsonp.dwjz;
+    document.getElementById("guzhi_zl").innerText = jsonp.gszzl + "%";
+
+    var gz = jsonp.gsz;
+
+    logInfo(gz);
 
     var sellTable = document.getElementById("tbl_sell");
-    var fundcode = getSelectedFundCode();
     setClasses(ftjson[fundcode]);
 
     var short_term_rate = ftjson[fundcode]["short_term_rate"];
@@ -359,4 +366,11 @@ function showAllInOnePage() {
         lbl_total_percent.textContent = (100 * total_earned / cost).toFixed(2) + "%";
         lbl_total_percent.className = lbl_total_class;
     };
+}
+
+function showAllFundList() {
+    var fund_list_tbl = document.getElementById("fund_list_table");
+    for (var fcode in ftjson){
+        fund_list_tbl.appendChild(create2ColRow(fcode, ftjson[fcode]["name"]));
+    }  
 }
