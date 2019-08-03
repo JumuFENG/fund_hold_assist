@@ -4,41 +4,15 @@
     <meta charset="utf-8">
     <script type="text/javascript" src="fund.json"></script>
     <script type="text/javascript" src="index.js"></script>
+    <script type="text/javascript" src="Chart.min.js"></script>
+    <script type="text/javascript" src="fund.chart.js"></script>
     <link rel="stylesheet" type="text/css" href="fund.css">
 </head>
 <body>
     <title>持基表</title>
     <div>
-        <button onclick="location.reload()">刷新</button>
-        <button id="btn_swith_show_all" onclick="SwitchShowAll()">Show All</button>
-    </div>
-
-    <div id="funds_1_by_1">
-    <hr />
-    <select id="fundlist" onchange="FundSelectChanged()">
-    </select>
-    <button id="btn_ok" style="display:none;" onclick="GetLatestSellInfo()">OK</button>
-    <hr />
-    <div>
-        <div class="guzhi">
-            盘中估值:
-            <label id="guzhi_lgz"/>
-        </div>
-        <div class="jingzhi"><span>单位净值: <label id="guzhi_dwjz"/></span>
-            增长率: <label id="guzhi_zl"/>
-        </div>
-    </div>
-
-    <hr />
-    <div id="fund_cost_aver">
-    </div>
-
-    <table id="tbl_budget">
-    </table>
-    <table id="tbl_rollin">
-    </table>
-    <table id="tbl_sell">
-    </table>
+        <button onclick="location.reload()">Reload</button>
+        <button id="btn_swith_show_all" onclick="ForceFetchAll()">Fetch All</button>
     </div>
 
     <div id="funds_all_in_1">
@@ -47,10 +21,12 @@
             <span>持有总成本:<label id="total_cost"></label></span>
             <span>收益:<label id="total_earned"></label></span><label id="total_percent"></label>
         </div>
-        <table id="tbl_all_in_1">
-        </table>
+        <table id="fund_list_table"></table>
     </div>
     <hr />
-
+    <div >
+        <canvas id="sz000001_canvas"></canvas>
+        <canvas id="fund_canvas"></canvas>
+    </div>
 </body>
 </html>

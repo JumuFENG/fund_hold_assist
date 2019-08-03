@@ -6,16 +6,7 @@ function logInfo(...args) {
 }
 
 window.onload = function() {
-    var fundlistObj = document.getElementById("fundlist");
-    for (var fcode in ftjson){
-        var objOption = document.createElement("OPTION");
-        objOption.value = fcode;
-        objOption.text = ftjson[fcode]["name"];
-        fundlistObj.options.add(objOption);
-    }  
-    showAllInOnePage();
     showAllFundList();
-    DrawSzzsHistory();
 }
 
 document.addEventListener(RealtimeInfoFetchedEvent, e => {
@@ -23,35 +14,22 @@ document.addEventListener(RealtimeInfoFetchedEvent, e => {
     eval(e.detail);
 });
 
-function SwitchShowAll() {
-    if(document.getElementById("funds_all_in_1").style.display == "none"){
-        showAllInOnePage();
-    }
-    else {
-        showOneByOneWithList();
+function ForceFetchAll() {
+    for (var fcode in ftjson){
+        sendFetchEventActually(fcode);
     }
 }
 
-function showOneByOneWithList() {
-    document.getElementById("btn_swith_show_all").innerHTML = "Show All";
-    document.getElementById("funds_all_in_1").style.display = "none";
-    document.getElementById("funds_1_by_1").style.display = "block";
-    FundSelectChanged();
+function sendFetchEventActually(fundcode) {
+    let selectedCodeEvt = new CustomEvent(CodeToFetchEvent, {
+        detail: {
+            code: fundcode
+        }
+    });
+    document.dispatchEvent(selectedCodeEvt);
 }
 
-function getSelectedFundCode() {
-    var fundlistObj = document.getElementById("fundlist");
-    var index = fundlistObj.selectedIndex;
-    return fundlistObj.options[index].value;
-}
-
-function FundSelectChanged() {
-    var fundcode = getSelectedFundCode();
-    showFundGeneralInfo(fundcode);
-
-    var gzInput = document.getElementById("guzhi_lgz");
-    gzInput.value = "";
-
+function sendFetchEvent(fundcode) {
     var nowDate=new Date();
     var day_of_week = nowDate.getDay();
     if (day_of_week < 1 || day_of_week > 5) {
@@ -61,22 +39,7 @@ function FundSelectChanged() {
     if (hour_of_day < 9 || hour_of_day > 16) {
         return;
     };
-
-    let selectedCodeEvt = new CustomEvent(CodeToFetchEvent, {
-        detail: {
-            code: fundcode
-        }
-    });
-    document.dispatchEvent(selectedCodeEvt);
-}
-
-function showFundGeneralInfo(fundcode){
-    var funddata = ftjson[fundcode];
-    var fundcostaver = document.getElementById("fund_cost_aver");
-    fundcostaver.innerHTML = createGeneralInnerHtmlWithoutName(funddata);
-    loadBudgets(funddata["budget"]);
-    loadRollins(funddata["rollin"]);
-    loadSellInfo(funddata["morethan7day"]);
+    sendFetchEventActually(fundcode);
 }
 
 function createSingleRow(c) {
@@ -91,7 +54,6 @@ function createSingleRow(c) {
 function createSplitLine() {
     var row = document.createElement("tr");
     var col = document.createElement("td");
-    col.setAttribute("colspan","2");
     col.appendChild(document.createElement("hr"))
     row.appendChild(col);
     return row;
@@ -130,14 +92,13 @@ function getBudgetRows(budgets) {
     return rows;
 }
 
-function loadBudgets(budgets) {
-    var budgetTable = document.getElementById("tbl_budget");
-    deleteAllRows(budgetTable);
-
+function createBudgetsTable(budgets) {
+    var budgetTable = document.createElement("table");
     var rows = getBudgetRows(budgets);
     for (var i = 0; i < rows.length; i++) {
         budgetTable.appendChild(rows[i]);
     };
+    return budgetTable;
 }
 
 function creatBuyRow(date, maxprice, cost) {
@@ -160,23 +121,13 @@ function getRollinRows(rollins) {
     return rows;
 }
 
-function loadRollins(rollins) {
-    var rollinTable = document.getElementById("tbl_rollin");
-    deleteAllRows(rollinTable);
-
+function createRollinsTable(rollins) {
+    var rollinTable = document.createElement("table");
     var rows = getRollinRows(rollins);
     for (var i = 0; i < rows.length; i++) {
         rollinTable.appendChild(rows[i]);
     };
-}
-
-function loadSellInfo(portion_mt7d) {
-    var sellTable = document.getElementById("tbl_sell");
-    deleteAllRows(sellTable);
-    var row0 = createSingleRow("sell");
-    sellTable.appendChild(row0);
-    var row = create2ColRow(">7天", portion_mt7d);
-    sellTable.appendChild(row);
+    return rollinTable;
 }
 
 function getMaxSellPortion(netvalue, short_term_rate, buytable, ppg) {
@@ -200,45 +151,15 @@ function getMaxSellPortion(netvalue, short_term_rate, buytable, ppg) {
 function jsonpgz(fundgz) {
     logInfo(fundgz);
     ftjson[fundgz.fundcode].rtgz = fundgz;
-    GetLatestSellInfo(fundgz.fundcode);
+    updateGuzhiInfo(fundgz.fundcode);
+    updateLatestSellInfo(fundcode);
 }
 
-function setClasses(funddata) {
-    var price = parseFloat(funddata["averprice"]);
-    var gzlbl = document.getElementById("guzhi_lgz");
-    var lgz = parseFloat(gzlbl.innerText.trim());
-    if (lgz > price) {
-        gzlbl.className = "increase";
-    } else if (lgz < price) {
-        gzlbl.className = "decrease";
-    } else {
-        gzlbl.className = "keepsame";
-    }
-
-    var gzzllbl = document.getElementById("guzhi_zl");
-    var gzzl = parseFloat(gzzllbl.innerText.trim('%'));
-    if (gzzl > 0) {
-        gzzllbl.className = "increase";
-    } else if (gzzl < 0) {
-        gzzllbl.className = "decrease";
-    } else {
-        gzzllbl.className = "keepsame";
-    }
-}
-
-function GetLatestSellInfo(fundcode) {
-    var jsonp = ftjson[fundcode]["rtgz"];
-
-    document.getElementById("guzhi_lgz").innerText = jsonp.gsz;
-    document.getElementById("guzhi_dwjz").innerText = jsonp.dwjz;
-    document.getElementById("guzhi_zl").innerText = jsonp.gszzl + "%";
-
+function updateLatestSellInfo(fundcode) {
+    var jsonp = ftjson[fundcode].rtgz;
     var gz = jsonp.gsz;
 
-    logInfo(gz);
-
-    var sellTable = document.getElementById("tbl_sell");
-    setClasses(ftjson[fundcode]);
+    var sellTable = document.getElementById("tbl_sell_" + fundcode);
 
     var short_term_rate = ftjson[fundcode]["short_term_rate"];
     var buytable = ftjson[fundcode]["buy_table"];
@@ -255,10 +176,12 @@ function GetLatestSellInfo(fundcode) {
     };
 }
 
-function getSellRows(funddata) {
-    var rows = [];
-    rows.push(createSingleRow("sell"));
-    rows.push(create2ColRow(">7天", funddata["morethan7day"]))
+function createSellInfoTable(fundcode) {
+    var funddata = ftjson[fundcode];
+    var sellTable = document.createElement("table");
+    sellTable.id = "tbl_sell_" + fundcode;
+    sellTable.appendChild(createSingleRow("sell"));
+    sellTable.appendChild(create2ColRow(">7天", funddata["morethan7day"]));
 
     var short_term_rate = funddata["short_term_rate"];
     var buytable = funddata["buy_table"];
@@ -266,9 +189,18 @@ function getSellRows(funddata) {
     var netvalue = parseFloat(funddata["latest_netvalue"]);
     var portion_can_sell = getMaxSellPortion(netvalue, short_term_rate, buytable, ppg);
     if (portion_can_sell > 0) {
-        rows.push(create2ColRow(">"+ (parseFloat(short_term_rate) * 100).toFixed(2) +"%", portion_can_sell))
+        sellTable.appendChild(create2ColRow(">"+ (parseFloat(short_term_rate) * 100).toFixed(2) +"%", portion_can_sell))
     };
-    return rows;
+    return sellTable;
+}
+
+function ToggleFundDetails(divDetail) {
+    if (divDetail.style.display == "none") {
+        sendFetchEvent(divDetail.id.split('_').pop());
+        divDetail.style.display = "block";
+    } else {
+        divDetail.style.display = "none";
+    }
 }
 
 function incdec_lbl_classname(val) {
@@ -279,6 +211,44 @@ function incdec_lbl_classname(val) {
         lbl_class = "keepsame";
     };
     return lbl_class;
+}
+
+function createGuzhiInfo(fundcode) {
+    var funddata = ftjson[fundcode];
+    var jsonp = funddata.rtgz;
+    var lbl_class = incdec_lbl_classname( jsonp ? jsonp.gszzl : funddata["last_day_earned"]);
+
+    var html = "<div class='guzhi'>最新估值: <label id='guzhi_lgz_" + fundcode + "'";
+    if (lbl_class) {
+        html += " class='" + lbl_class + "'";
+    };
+    html +=">"; 
+    html += jsonp ? jsonp.gsz : funddata["latest_netvalue"];
+    html += "</label>增长率: <label id='guzhi_zl_"+ fundcode + "'"
+    if (lbl_class) {
+        html += " class='" + lbl_class + "'";
+    };
+    html +=">";
+    html += jsonp ? jsonp.gszzl + "%" : "-";
+    html += "</label></div>";
+    return html;
+}
+
+function updateGuzhiInfo(fundcode) {
+    var jsonp = ftjson[fundcode].rtgz;
+    var funddata = ftjson[fundcode];
+
+    var lbl_class = incdec_lbl_classname( jsonp ? jsonp.gszzl : funddata["last_day_earned"]);
+    var lbl_guzhi_lgz = document.getElementById("guzhi_lgz_" + fundcode);
+    if (lbl_guzhi_lgz) {
+        lbl_guzhi_lgz.innerText = jsonp ? jsonp.gsz : funddata["latest_netvalue"];
+        lbl_guzhi_lgz.className = lbl_class;
+    };
+    var lbl_guzhi_zl = document.getElementById("guzhi_zl_" + fundcode);
+    if (lbl_guzhi_zl) {
+        lbl_guzhi_zl.innerText = jsonp ? jsonp.gszzl + "%" : "-";
+        lbl_guzhi_zl.className = lbl_class;
+    };
 }
 
 function createGeneralInnerHtmlWithoutName(funddata) {
@@ -293,58 +263,35 @@ function createGeneralInnerHtmlWithoutName(funddata) {
     return html;
 }
 
-function createGeneralInfoInSingleRow(funddata) {
-    var html = "<div>" + funddata["name"] + "</div>";
-    html += createGeneralInnerHtmlWithoutName(funddata);
-
+function createGeneralInfoInSingleRow(fundcode) {
+    var funddata = ftjson[fundcode];
+    var html = "<div class='fund_header' onclick='ToggleFundDetails(hold_detail_" + fundcode + ")' id='fund_header_" + fundcode + "'>" + funddata["name"];
+    html += createGuzhiInfo(fundcode);
+    html += "</div>";
     var general_root = document.createElement("div");
     general_root.className = "general_root";
     general_root.innerHTML = html;
 
+    var hold_detail = document.createElement("div");
+    hold_detail.className = "hold_detail";
+    hold_detail.id = "hold_detail_" + fundcode;
+    hold_detail.style = "display:none;";
+    hold_detail.innerHTML = createGeneralInnerHtmlWithoutName(funddata);
+
+    hold_detail.appendChild(createBudgetsTable(funddata["budget"]));
+    hold_detail.appendChild(createRollinsTable(funddata["rollin"]));
+    hold_detail.appendChild(createSellInfoTable(fundcode));
+
+    general_root.appendChild(hold_detail);
+
     var col = document.createElement("td");
     col.appendChild(general_root)
-    col.setAttribute("colspan","2");
     var row = document.createElement("tr");
     row.appendChild(col);
     return row;
 }
 
-function showAllInOnePage() {
-    document.getElementById("btn_swith_show_all").innerHTML = "Show Single";
-    document.getElementById("funds_all_in_1").style.display = "block";
-    document.getElementById("funds_1_by_1").style.display = "none";
-
-    var allTable = document.getElementById("tbl_all_in_1");
-    deleteAllRows(allTable);
-
-    var earned = 0;
-    var total_earned = 0;
-    var cost = 0;
-    for (var fcode in ftjson){
-        allTable.appendChild(createSplitLine());
-        var funddata = ftjson[fcode];
-        earned += funddata["last_day_earned"];
-        total_earned += funddata["earned_while_holding"];
-        cost += funddata["cost"];
-        var row = createGeneralInfoInSingleRow(funddata);
-        allTable.appendChild(row);
-
-        var rows = getBudgetRows(funddata["budget"]);
-        for (var i = 0; i < rows.length; i++) {
-            allTable.appendChild(rows[i]);
-        };
-
-        rows = getRollinRows(funddata["rollin"]);
-        for (var i = 0; i < rows.length; i++) {
-            allTable.appendChild(rows[i]);
-        };
-
-        rows = getSellRows(funddata);
-        for (var i = 0; i < rows.length; i++) {
-            allTable.appendChild(rows[i]);
-        };
-    }
-
+function updateTotalEarnedInfo(earned, total_earned, cost) {
     if (earned != 0) {
         var lbl_earned = document.getElementById("last_total_earned");
         lbl_earned.textContent = earned.toFixed(2);
@@ -370,7 +317,22 @@ function showAllInOnePage() {
 
 function showAllFundList() {
     var fund_list_tbl = document.getElementById("fund_list_table");
+
+    var earned = 0;
+    var total_earned = 0;
+    var cost = 0;
     for (var fcode in ftjson){
-        fund_list_tbl.appendChild(create2ColRow(fcode, ftjson[fcode]["name"]));
-    }  
+        sendFetchEvent(fcode);
+        fund_list_tbl.appendChild(createSplitLine());
+
+        var row = createGeneralInfoInSingleRow(fcode);
+        fund_list_tbl.appendChild(row);
+
+        var funddata = ftjson[fcode];
+        earned += funddata["last_day_earned"];
+        total_earned += funddata["earned_while_holding"];
+        cost += funddata["cost"];
+    }
+
+    updateTotalEarnedInfo(earned, total_earned, cost);
 }
