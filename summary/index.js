@@ -130,12 +130,14 @@ function createRollinsTable(rollins) {
     return rollinTable;
 }
 
-function getMaxSellPortion(netvalue, short_term_rate, buytable, ppg) {
+function getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg) {
     var portion_can_sell = 0.0;
-    var max_value_to_sell = parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate))
+    var max_value_to_sell = parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate));
+    var dates = [];
     for (var i = 0; i < buytable.length; i++) {
         if(parseFloat(buytable[i]["netvalue"]) < max_value_to_sell){
             portion_can_sell += parseFloat(buytable[i]["portion"])
+            dates.push(buytable[i]["date"]);
         }
     };
 
@@ -143,9 +145,14 @@ function getMaxSellPortion(netvalue, short_term_rate, buytable, ppg) {
         if (ppg != 1 && ppg != 0) {
             portion_can_sell /= ppg;
         };
+        portion_can_sell = portion_can_sell.toFixed(4);
+
+        var row1 = create2ColRow(">"+ (parseFloat(short_term_rate) * 100).toFixed(2) +"%", portion_can_sell);
+        var row2 = createSingleRow(JSON.stringify(dates));
+        return [row1, row2];
     };
 
-    return portion_can_sell.toFixed(4);
+    return [];
 }
 
 function jsonpgz(fundgz) {
@@ -164,16 +171,15 @@ function updateLatestSellInfo(fundcode) {
     var short_term_rate = ftjson[fundcode]["short_term_rate"];
     var buytable = ftjson[fundcode]["buy_table"];
     var ppg = parseFloat(ftjson[fundcode]["ppg"]);
-    var portion_can_sell = getMaxSellPortion(gz, short_term_rate, buytable, ppg);
+    var sell_rows = getMaxSellPortionDates(gz, short_term_rate, buytable, ppg);
 
-    if (portion_can_sell > 0) {
-        if (sellTable.rows.length > 2) {
-            sellTable.deleteRow(sellTable.rows.length - 1);
-        };
-    
-        var row = create2ColRow(">"+ (parseFloat(short_term_rate) * 100).toFixed(2) +"%", portion_can_sell);
-        sellTable.appendChild(row);
+    for (var i = 2; i < sellTable.length; i++) {
+        sellTable.deleteRow(i);
     };
+
+    sell_rows.forEach(function(row, i){
+        sellTable.appendChild(row);
+    });
 }
 
 function createSellInfoTable(fundcode) {
@@ -187,10 +193,11 @@ function createSellInfoTable(fundcode) {
     var buytable = funddata["buy_table"];
     var ppg = parseFloat(funddata["ppg"]);
     var netvalue = parseFloat(funddata["latest_netvalue"]);
-    var portion_can_sell = getMaxSellPortion(netvalue, short_term_rate, buytable, ppg);
-    if (portion_can_sell > 0) {
-        sellTable.appendChild(create2ColRow(">"+ (parseFloat(short_term_rate) * 100).toFixed(2) +"%", portion_can_sell))
-    };
+    var sell_rows = getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg);
+    sell_rows.forEach(function(row, i){
+        sellTable.appendChild(row);
+    });
+
     return sellTable;
 }
 
