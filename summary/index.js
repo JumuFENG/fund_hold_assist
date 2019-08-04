@@ -152,7 +152,7 @@ function jsonpgz(fundgz) {
     logInfo(fundgz);
     ftjson[fundgz.fundcode].rtgz = fundgz;
     updateGuzhiInfo(fundgz.fundcode);
-    updateLatestSellInfo(fundcode);
+    updateLatestSellInfo(fundgz.fundcode);
 }
 
 function updateLatestSellInfo(fundcode) {
@@ -216,7 +216,7 @@ function incdec_lbl_classname(val) {
 function createGuzhiInfo(fundcode) {
     var funddata = ftjson[fundcode];
     var jsonp = funddata.rtgz;
-    var lbl_class = incdec_lbl_classname( jsonp ? jsonp.gszzl : funddata["last_day_earned"]);
+    var lbl_class = incdec_lbl_classname(jsonp ? jsonp.gszzl : funddata["last_day_earned"]);
 
     var html = "<div class='guzhi'>最新估值: <label id='guzhi_lgz_" + fundcode + "'";
     if (lbl_class) {
@@ -224,12 +224,25 @@ function createGuzhiInfo(fundcode) {
     };
     html +=">"; 
     html += jsonp ? jsonp.gsz : funddata["latest_netvalue"];
-    html += "</label>增长率: <label id='guzhi_zl_"+ fundcode + "'"
+    html += "</label>增长率: <label id='guzhi_zl_" + fundcode + "'"
     if (lbl_class) {
         html += " class='" + lbl_class + "'";
     };
     html +=">";
     html += jsonp ? jsonp.gszzl + "%" : "-";
+    html += "</label></br>单位净值: <label>";
+    html += funddata["latest_netvalue"];
+    html += "</label>总计: <label id='guzhi_total_zl_" + fundcode + "'"
+    var netvalue = parseFloat(funddata["averprice"]);
+    if (funddata["ppg"] != 1) {
+        netvalue /= funddata["ppg"];
+        netvalue = netvalue.toFixed(4);
+    };
+    lbl_class = incdec_lbl_classname((jsonp ? jsonp.gsz : funddata["latest_netvalue"]) - netvalue)
+    html += " class='" + lbl_class + "' >";
+    var latest_netvalue = jsonp ? jsonp.gsz : funddata["latest_netvalue"];
+    var total_percent = ((latest_netvalue - netvalue) * 100 / netvalue).toFixed(2) + "%";
+    html += total_percent;
     html += "</label></div>";
     return html;
 }
@@ -249,10 +262,25 @@ function updateGuzhiInfo(fundcode) {
         lbl_guzhi_zl.innerText = jsonp ? jsonp.gszzl + "%" : "-";
         lbl_guzhi_zl.className = lbl_class;
     };
+
+    var lbl_guzhi_total_percent = document.getElementById("guzhi_total_zl_" + fundcode);
+    if (lbl_guzhi_total_percent) {
+        var netvalue = parseFloat(funddata["averprice"]);
+        if (funddata["ppg"] != 1) {
+            netvalue /= funddata["ppg"];
+            netvalue = netvalue.toFixed(4);
+        };
+        lbl_guzhi_total_percent.className = incdec_lbl_classname((jsonp ? jsonp.gsz : funddata["latest_netvalue"]) - netvalue);
+
+        var latest_netvalue = jsonp ? jsonp.gsz : funddata["latest_netvalue"];
+        var total_percent = ((latest_netvalue - netvalue) * 100 / netvalue).toFixed(2) + "%";
+
+        lbl_guzhi_total_percent.innerText = jtotal_percent;
+    };
 }
 
 function createGeneralInnerHtmlWithoutName(funddata) {
-    var html = "<div>all: " + funddata["cost"] + "</span> &lt;" +funddata["averprice"]+ "&gt;</div>";
+    var html = "<div>all: " + funddata["cost"] + "</span> &lt;" + funddata["averprice"]+ "&gt;</div>";
 
     var earned_lbl_class = incdec_lbl_classname(funddata["last_day_earned"]);
     html += "<div class='general_earned'><span>上日: <label class = '" + earned_lbl_class + "'>" + funddata["last_day_earned"] + "</label></span>";
