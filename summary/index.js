@@ -7,6 +7,7 @@ function logInfo(...args) {
 
 window.onload = function() {
     showAllFundList();
+    DrawSzzsHistory();
 }
 
 document.addEventListener(RealtimeInfoFetchedEvent, e => {
