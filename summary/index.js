@@ -282,7 +282,7 @@ function updateGuzhiInfo(fundcode) {
         var latest_netvalue = jsonp ? jsonp.gsz : funddata["latest_netvalue"];
         var total_percent = ((latest_netvalue - netvalue) * 100 / netvalue).toFixed(2) + "%";
 
-        lbl_guzhi_total_percent.innerText = jtotal_percent;
+        lbl_guzhi_total_percent.innerText = total_percent;
     };
 }
 
