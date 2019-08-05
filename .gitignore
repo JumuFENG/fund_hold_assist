@@ -2,3 +2,6 @@
 __pycache__/
 /_pwd.py
 /summary/fund.json
+*.zip
+*.xpi
+.vs/
