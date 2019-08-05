@@ -1,7 +1,7 @@
 #
 __pycache__/
 /_pwd.py
-/summary/fund.json
+/json/*.json
 *.zip
 *.xpi
 .vs/
