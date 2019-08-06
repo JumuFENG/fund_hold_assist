@@ -173,7 +173,7 @@ function updateLatestSellInfo(fundcode) {
     var ppg = parseFloat(ftjson[fundcode]["ppg"]);
     var sell_rows = getMaxSellPortionDates(gz, short_term_rate, buytable, ppg);
 
-    for (var i = 2; i < sellTable.length; i++) {
+    for (var i = sellTable.rows.length - 1; i >= 2; i--) {
         sellTable.deleteRow(i);
     };
 
