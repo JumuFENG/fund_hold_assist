@@ -8,7 +8,7 @@ function logInfo(...args) {
 function loadJsonData() {
     var newscript = document.createElement('script');
     newscript.setAttribute('type','text/javascript');
-    newscript.setAttribute('src','json/index_000001.json');
+    newscript.setAttribute('src','json/history_data.json');
     var head = document.getElementsByTagName('head')[0];
     head.appendChild(newscript);
     //head.insertBefore(newscript, head.firstChild);
@@ -16,8 +16,8 @@ function loadJsonData() {
 }
 
 window.onload = function() {
-    loadJsonData();
     showAllFundList();
+    DrawSzzsHistory();
 }
 
 document.addEventListener(RealtimeInfoFetchedEvent, e => {
@@ -219,7 +219,6 @@ function ToggleFundDetails(divDetail) {
     } else {
         divDetail.style.display = "none";
     }
-    DrawSzzsHistory();
 }
 
 function incdec_lbl_classname(val) {

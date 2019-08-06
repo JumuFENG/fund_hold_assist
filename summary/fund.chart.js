@@ -61,10 +61,10 @@ function drawSingleSzzsHistory(ctx, szzs_config, labels, data) {
 function DrawSzzsHistory() {
     var labels = [];
     var data = [];
-    var dataArr = index_000001
-    for (var i = 0; i < dataArr.length; i++) {
-        labels.push(dataArr[i]["date"]);
-        data.push(dataArr[i]["close"]);
+    var dataArr = all_hist_data;
+    for (var i = 1; i < dataArr.length; i++) {
+        labels.push(dataArr[i][0]);
+        data.push(dataArr[i][1]);
     };
     // var ctx = document.getElementById('sz000001_canvas').getContext('2d');
     // drawSingleSzzsHistory(ctx, szzs_config, labels, data);
@@ -72,9 +72,9 @@ function DrawSzzsHistory() {
     var labels_short = [];
     var data_short = [];
     var len = dataArr.length;
-    for (var i = 0; i < 100; i++) {
-        labels_short.push(dataArr[len - 100 + i]["date"]);
-        data_short.push(dataArr[len - 100 + i]["close"]);
+    for (var i = 1; i < 100; i++) {
+        labels_short.push(dataArr[1000 + i][0]);
+        data_short.push(dataArr[1000 + i][1]);
     };
     szzs_config_short = szzs_config;
     drawSingleSzzsHistory(ctx_short, szzs_config_short, labels_short, data_short);

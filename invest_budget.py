@@ -60,11 +60,12 @@ class InvestBudget():
         self.sqldb.delete(budget_table, {column_consumed:'1'})
 
     def save_budgets(self):
-        if(not os.path.isdir(gl_summary_dir)):
-            os.mkdir(gl_summary_dir)
         for parent, dirs, files in os.walk("summary"):
+            tar_folder = os.path.join(gl_summary_dir, parent)
+            if(not os.path.isdir(tar_folder)):
+                os.mkdir(tar_folder)
             for f in files:
-                shutil.copy(os.path.join(parent, f), os.path.join(gl_summary_dir, f))
+                shutil.copy(os.path.join(parent, f), os.path.join(tar_folder, f))
 
     def manually_update_rolled(self, code, cost, date):
         fg = FundGeneral(self.sqldb, code)
@@ -134,7 +135,7 @@ class InvestBudget():
         fund_codes = self.sqldb.select(gl_fund_info_table, [column_code])
 
         fund_json = {}
-
+        funds_holding = []
         for (c, ) in fund_codes:
             fund_json_obj = {}
             ppg = 1 if not ppgram.__contains__(c) else ppgram[c]
@@ -151,6 +152,7 @@ class InvestBudget():
                     fund_json_obj["budget"] = values
 
             if fg.cost_hold and fg.average:
+                funds_holding.append((fg.code, fg.history_table))
                 fund_json_obj["name"] = fg.name
                 fund_json_obj["ppg"] = ppg
                 fund_json_obj["short_term_rate"] = fg.short_term_rate
@@ -172,11 +174,49 @@ class InvestBudget():
             if fund_json_obj:
                 fund_json[c] = fund_json_obj
 
-        f = open("summary/fund.json", 'w')
+        f = open("summary/json/fund.json", 'w')
         f.write("var ftjson = " + json.dumps(fund_json) + ";")
         f.close()
 
+        self.transfer_all_Fund_history(funds_holding, "summary/json/history_data.json")
         self.save_budgets()
+
+    def transfer_all_Fund_history(self, fund_codes, all_data_file):
+        szzs_code = "sz000001"
+        szzs_his_tbl = "i_ful_his_000001"
+        all_hist_data = [["date", szzs_code]]
+        if not self.sqldb.isExistTable(szzs_his_tbl):
+            print(szzs_his_tbl,"not exist.")
+            return
+
+        szzs_his_data = self.sqldb.select(szzs_his_tbl, [column_date, column_close, column_p_change])
+        funds_his_data = []
+        for x in fund_codes:
+            (c, t) = x
+            all_hist_data[0].append(c)
+            funds_his_data.append(self.sqldb.select(t, [column_date, column_net_value, column_growth_rate]))
+
+        for (date, close, p_change) in szzs_his_data:
+            row = [date, round(float(close), 2), round(float(p_change), 2) if not p_change == "None" else '']
+            for fund_his in funds_his_data:
+                find_netvalue_same_date = False
+                for (fdate, netvalue, growth) in fund_his:
+                    if fdate == date:
+                        row.append(netvalue)
+                        row.append(round(float(100 * growth), 2))
+                        find_netvalue_same_date = True
+                        break
+                    if fdate < date:
+                        continue
+                    if fdate > date:
+                        break
+                if not find_netvalue_same_date:
+                    row.append('')
+                    row.append('')
+            all_hist_data.append(row)
+        f = open(all_data_file, 'w')
+        f.write("var all_hist_data = " + json.dumps(all_hist_data) + ";")
+        f.close()
 
 if __name__ == '__main__':
     dbname = "fund_center"
