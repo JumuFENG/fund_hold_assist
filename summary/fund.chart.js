@@ -72,9 +72,9 @@ function DrawSzzsHistory() {
     var labels_short = [];
     var data_short = [];
     var len = dataArr.length;
-    for (var i = 1; i < 100; i++) {
-        labels_short.push(dataArr[1000 + i][0]);
-        data_short.push(dataArr[1000 + i][1]);
+    for (var i = 1; i < 300; i++) {
+        labels_short.push(dataArr[len - 300 + i][0]);
+        data_short.push(dataArr[len - 300 + i][1]);
     };
     szzs_config_short = szzs_config;
     drawSingleSzzsHistory(ctx_short, szzs_config_short, labels_short, data_short);
