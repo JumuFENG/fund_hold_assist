@@ -1,24 +1,13 @@
-var szzs_config = {
-    type: 'line',
-    data: {
-        labels: [],
-        datasets: []
-    },
-    options:{
-        responsive: true,
-        title: {
-            display: true,
-            text: ''
-        },
-        tooltip: {
-            mode: 'index',
-            intersect: true
-        },
-        hover: {
-            mode: 'nearest',
-            intersect: true
-        },
-        scales: {
+function general_config(title) {
+    var config = {};
+    config.type = 'line';
+    config.data = {labels:[], datasets:[]};
+    var option = {};
+    option.responsive = true;
+    option.title = {display:true, text: title};
+    option.tooltip = {mode:'index', intersect: true};
+    option.hover = {mode: 'nearest', intersect: true};
+    option.scales = {
             xAxes: [{
                 display: true,
                 scaleLabel: {
@@ -32,50 +21,59 @@ var szzs_config = {
                     display: true,
                     labelString: 'Value'
                 }
-            }]
-        },
-        elements: {
-            line: {
-                tension: 0
-            }
-        }
-    }
-};
+            }]}
+    option.elements = {line:{tension:0}};
+    config.options = option;
 
-//var szzs_line;
+    return config;
+}
 
-function drawSingleSzzsHistory(ctx, szzs_config, labels, data) {
-    szzs_config.data.labels = labels;
+function drawSingleSzzsHistory(ctx, line_config, labels, dataset) {
+    line_config.data.labels = labels;
+    line_config.data.datasets.push(dataset);
+    var szzs_line = new Chart(ctx, line_config);
+}
+
+function DrawSzzsHistory(days = 100) {
+    var labels = [];
     var dataset = {
-        label: '上证指数',
+        label: '',
         backgroundColor: 'blue',
         borderColor: 'darkgrey',
         data: [],
         fill: false,
     }
-    dataset.data = data;
-    szzs_config.data.datasets.push(dataset);
-    var szzs_line = new Chart(ctx, szzs_config);
+    var dataArr = all_hist_data;
+    var len = dataArr.length;
+    var showLen = days > 0 ? days : len;
+    for (var i = 1; i < showLen; i++) {
+        labels.push(dataArr[len - showLen + i][0]);
+        dataset.data.push(dataArr[len - showLen + i][1]);
+    };
+    var ctx = document.getElementById('sz000001_canvas').getContext('2d');
+    var szzs_config = general_config("上证指数");
+    drawSingleSzzsHistory(ctx, szzs_config, labels, dataset);
 }
 
-function DrawSzzsHistory() {
+function DrawFundHistory(fundcode, days = 100) {
     var labels = [];
-    var data = [];
+    var dataset = {
+        label: '',
+        backgroundColor: 'purple',
+        borderColor: 'darkgrey',
+        data: [],
+        fill: false,
+    }
     var dataArr = all_hist_data;
-    for (var i = 1; i < dataArr.length; i++) {
-        labels.push(dataArr[i][0]);
-        data.push(dataArr[i][1]);
-    };
-    // var ctx = document.getElementById('sz000001_canvas').getContext('2d');
-    // drawSingleSzzsHistory(ctx, szzs_config, labels, data);
-    var ctx_short = document.getElementById('sz000001_canvas_short').getContext('2d');
-    var labels_short = [];
-    var data_short = [];
     var len = dataArr.length;
-    for (var i = 1; i < 300; i++) {
-        labels_short.push(dataArr[len - 300 + i][0]);
-        data_short.push(dataArr[len - 300 + i][1]);
+    var fundValIdx = dataArr[0].indexOf(fundcode) * 2 - 1;
+    var showLen = days > 0 ? days : len;
+    for (var i = 1; i < showLen; i++) {
+        labels.push(dataArr[len - showLen + i][0]);
+        dataset.data.push(dataArr[len - showLen + i][fundValIdx]);
     };
-    szzs_config_short = szzs_config;
-    drawSingleSzzsHistory(ctx_short, szzs_config_short, labels_short, data_short);
+
+    var fund_config = general_config(ftjson[fundcode]["name"]);
+    var ctx_short = document.getElementById('fund_canvas').getContext('2d');
+    drawSingleSzzsHistory(ctx_short, fund_config, labels, dataset);
 }

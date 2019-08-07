@@ -214,8 +214,13 @@ function createSellInfoTable(fundcode) {
 
 function ToggleFundDetails(divDetail) {
     if (divDetail.style.display == "none") {
-        sendFetchEvent(divDetail.id.split('_').pop());
+        var fundcode = divDetail.id.split('_').pop();
+        sendFetchEvent(fundcode);
         divDetail.style.display = "block";
+        var canvas = document.getElementById("canvas_div");
+        canvas.parentElement.removeChild(canvas);
+        divDetail.appendChild(canvas);
+        DrawFundHistory(fundcode);
     } else {
         divDetail.style.display = "none";
     }
