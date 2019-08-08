@@ -25,8 +25,15 @@
         <table id="fund_list_table"></table>
     </div>
     <hr />
-    <div id="canvas_div">
-        <canvas id="sz000001_canvas"></canvas>
+    <div id="canvas_div" style="width:98%">
+        <canvas id="sz000001_canvas"></canvas> <br />
+        <ul id="dayslist">
+            <li><strong class="first" onclick="RedrawHistoryGraphs(this.parentElement.parentElement.parentElement, this)">30</strong></li>
+            <li><a onclick="RedrawHistoryGraphs(this.parentElement.parentElement.parentElement, this)">100</a></li>
+            <li><a onclick="RedrawHistoryGraphs(this.parentElement.parentElement.parentElement, this)">300</a></li>
+            <li><a onclick="RedrawHistoryGraphs(this.parentElement.parentElement.parentElement, this)">1000</a></li>
+            <li><a onclick="RedrawHistoryGraphs(this.parentElement.parentElement.parentElement, this)">Max</a></li>
+        </ul><br />
         <canvas id="fund_canvas"></canvas>
     </div>
 </body>

@@ -70,3 +70,43 @@ div.total_earned {
 div.total_earned label {
     margin-left: 5px;
 }
+
+#dayslist, #dayslist li {
+    list-style:none; /* 将默认的列表符号去掉 */
+    padding:0; /* 将默认的内边距去掉 */
+    margin:0; /* 将默认的外边距去掉 */
+}
+
+#dayslist li { 
+    float:left; /* 往左浮动 */
+}
+
+#dayslist li a {
+    display:block; /* 将链接设为块级元素 */
+    padding:2px 10px; /* 设置内边距 */
+    /*background: lightgrey;  设置背景色 */
+    color:#555; /* 设置文字颜色 */
+    text-decoration:none; /* 去掉下划线 */
+    border-right:1px solid #bbb; /* 在左侧加上分隔线 */
+}
+
+#dayslist li .first {
+     border-left: 1px solid #bbb;
+}
+
+#dayslist li a:hover {
+    background:#555; /* 变换背景色 */
+    color:white; /* 变换文字颜色 */
+}
+
+#dayslist li a:active {
+    background:#555; /* 变换背景色 */
+    color:white; /* 变换文字颜色 */
+}
+
+#dayslist li strong {
+    display: block;
+    padding: 2px 10px;
+    background: #555;
+    color: white;
+}

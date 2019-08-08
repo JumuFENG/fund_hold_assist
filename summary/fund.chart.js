@@ -9,14 +9,14 @@ function general_config(title) {
     option.hover = {mode: 'nearest', intersect: true};
     option.scales = {
             xAxes: [{
-                display: true,
+                display: false,
                 scaleLabel: {
                     display: true,
                     labelString: 'Date'
                 }
             }],
             yAxes: [{
-                display: true,
+                display: false,
                 scaleLabel: {
                     display: true,
                     labelString: 'Value'
@@ -34,7 +34,7 @@ function drawSingleSzzsHistory(ctx, line_config, labels, dataset) {
     var szzs_line = new Chart(ctx, line_config);
 }
 
-function DrawSzzsHistory(days = 100) {
+function DrawSzzsHistory(days = 30) {
     var labels = [];
     var dataset = {
         label: '',
@@ -55,7 +55,7 @@ function DrawSzzsHistory(days = 100) {
     drawSingleSzzsHistory(ctx, szzs_config, labels, dataset);
 }
 
-function DrawFundHistory(fundcode, days = 100) {
+function DrawFundHistory(fundcode, days = 30) {
     var labels = [];
     var dataset = {
         label: '',
@@ -76,4 +76,12 @@ function DrawFundHistory(fundcode, days = 100) {
     var fund_config = general_config(ftjson[fundcode]["name"]);
     var ctx_short = document.getElementById('fund_canvas').getContext('2d');
     drawSingleSzzsHistory(ctx_short, fund_config, labels, dataset);
+}
+
+function RedrawHistoryGraphs(ele, t) {
+    var days = parseInt(t.text);
+    DrawSzzsHistory(days);
+    if (ele.parentElement.id) {
+        DrawFundHistory(ele.parentElement.id.split('_').pop(), days);
+    }
 }
