@@ -79,9 +79,17 @@ function DrawFundHistory(fundcode, days = 30) {
 }
 
 function RedrawHistoryGraphs(ele, t) {
-    var days = parseInt(t.text);
+    var days = parseInt(t.innerText);
     DrawSzzsHistory(days);
     if (ele.parentElement.id) {
         DrawFundHistory(ele.parentElement.id.split('_').pop(), days);
+    }
+    t.className = "highlight";
+    var sibling = t.parentElement.firstChild;
+    while (sibling != null) {
+        if (sibling != t) {
+            sibling.className = "";
+        };
+        sibling = sibling.nextElementSibling;
     }
 }
