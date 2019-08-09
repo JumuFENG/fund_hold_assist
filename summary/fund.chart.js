@@ -28,14 +28,32 @@ function general_config(title) {
     return config;
 }
 
+var szzs_config, fund_config;
+var szzs_line, fund_line;
+
 function drawSingleSzzsHistory(ctx, line_config, labels, dataset) {
     line_config.data.labels = labels;
     line_config.data.datasets.push(dataset);
-    var szzs_line = new Chart(ctx, line_config);
+    return new Chart(ctx, line_config);
 }
 
 function DrawSzzsHistory(days = 30) {
     var labels = [];
+    var data = [];
+    var dataArr = all_hist_data;
+    var len = dataArr.length;
+    var showLen = days > 0 ? days : len;
+    for (var i = 1; i < showLen; i++) {
+        labels.push(dataArr[len - showLen + i][0]);
+        data.push(dataArr[len - showLen + i][1]);
+    };
+    if (szzs_line) {
+        szzs_config.data.labels = labels;
+        szzs_config.data.datasets[0].data = data;
+        szzs_line.update();
+        return;
+    };
+
     var dataset = {
         label: '',
         backgroundColor: 'blue',
@@ -43,20 +61,31 @@ function DrawSzzsHistory(days = 30) {
         data: [],
         fill: false,
     }
-    var dataArr = all_hist_data;
-    var len = dataArr.length;
-    var showLen = days > 0 ? days : len;
-    for (var i = 1; i < showLen; i++) {
-        labels.push(dataArr[len - showLen + i][0]);
-        dataset.data.push(dataArr[len - showLen + i][1]);
-    };
+    dataset.data = data;
     var ctx = document.getElementById('sz000001_canvas').getContext('2d');
-    var szzs_config = general_config("上证指数");
-    drawSingleSzzsHistory(ctx, szzs_config, labels, dataset);
+    szzs_config = general_config("上证指数");
+    szzs_line = drawSingleSzzsHistory(ctx, szzs_config, labels, dataset);
 }
 
 function DrawFundHistory(fundcode, days = 30) {
     var labels = [];
+    var data = [];
+    var dataArr = all_hist_data;
+    var len = dataArr.length;
+    var showLen = days > 0 ? days : len;
+    var fundValIdx = dataArr[0].indexOf(fundcode) * 2 - 1;
+    for (var i = 1; i < showLen; i++) {
+        labels.push(dataArr[len - showLen + i][0]);
+        data.push(dataArr[len - showLen + i][fundValIdx]);
+    };
+
+    if (fund_line) {
+        fund_config.data.labels = labels;
+        fund_config.data.datasets[0].data = data;
+        fund_line.update();
+        return;
+    };
+
     var dataset = {
         label: '',
         backgroundColor: 'purple',
@@ -64,18 +93,11 @@ function DrawFundHistory(fundcode, days = 30) {
         data: [],
         fill: false,
     }
-    var dataArr = all_hist_data;
-    var len = dataArr.length;
-    var fundValIdx = dataArr[0].indexOf(fundcode) * 2 - 1;
-    var showLen = days > 0 ? days : len;
-    for (var i = 1; i < showLen; i++) {
-        labels.push(dataArr[len - showLen + i][0]);
-        dataset.data.push(dataArr[len - showLen + i][fundValIdx]);
-    };
+    dataset.data = data;
 
-    var fund_config = general_config(ftjson[fundcode]["name"]);
-    var ctx_short = document.getElementById('fund_canvas').getContext('2d');
-    drawSingleSzzsHistory(ctx_short, fund_config, labels, dataset);
+    var ctx = document.getElementById('fund_canvas').getContext('2d');
+    fund_config = general_config(ftjson[fundcode]["name"]);
+    fund_line = drawSingleSzzsHistory(ctx, fund_config, labels, dataset);
 }
 
 function RedrawHistoryGraphs(ele, t) {
