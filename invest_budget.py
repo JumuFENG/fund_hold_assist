@@ -179,7 +179,6 @@ class InvestBudget():
         f.close()
 
         self.transfer_all_Fund_history(funds_holding, "summary/json/history_data.json")
-        self.save_budgets()
 
     def transfer_all_Fund_history(self, fund_codes, all_data_file):
         szzs_code = "sz000001"
@@ -218,6 +217,13 @@ class InvestBudget():
         f.write("var all_hist_data = " + json.dumps(all_hist_data) + ";")
         f.close()
 
+    def upload_budgets_to_ftp(self):
+        ftp = FtpHelper(ftp_ip, ftp_port, ftp_usr_name, ftp_pwd)
+        ftp.connect()
+        ftp.login()
+        ftp.upload_files("summary", "_budget")
+        ftp.quit()
+
 if __name__ == '__main__':
     dbname = "fund_center"
     #dbname = "testdb"
@@ -225,7 +231,9 @@ if __name__ == '__main__':
     ib = InvestBudget(sqldb)
     #ib.add_budget("000217",100,"2019-07-01")
     #ib.add_budget("005633",100,"2019-07-01")
-    #ib.add_budget("161724",100,"2019-07-01")
+    #ib.add_budget("161725",100,"2019-07-01")
     #ib.add_budget("260108",100,"2019-07-01")
     #ib.add_budget("110003",10, "2019-07-01")
     ib.get_budgets_json()
+    #ib.save_budgets()
+    ib.upload_budgets_to_ftp()

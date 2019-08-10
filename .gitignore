@@ -1,6 +1,6 @@
 #
 __pycache__/
-/_pwd.py
+utils/_pwd.py
 summary/json/*.json
 *.zip
 *.xpi
