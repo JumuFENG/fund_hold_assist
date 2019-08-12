@@ -147,7 +147,7 @@ class InvestBudget():
                 budget = self.sqldb.select(budget_table, [column_date, column_net_value, column_budget])
                 values = []
                 for (d,v,b) in budget:
-                    values.append({"date":d, "max_price_to_buy":Decimal(str(v)) * ppg, "budget":b})
+                    values.append({"date":d, "max_price_to_buy":str(Decimal(str(v)) * ppg), "budget":b})
                 if len(values) > 0:
                     fund_json_obj["budget"] = values
 
@@ -221,7 +221,7 @@ class InvestBudget():
         ftp = FtpHelper(ftp_ip, ftp_port, ftp_usr_name, ftp_pwd)
         ftp.connect()
         ftp.login()
-        ftp.upload_files("summary", "_budget")
+        ftp.upload_dir("summary", "_budget")
         ftp.quit()
 
 if __name__ == '__main__':
@@ -231,7 +231,7 @@ if __name__ == '__main__':
     ib = InvestBudget(sqldb)
     #ib.add_budget("000217",100,"2019-07-01")
     #ib.add_budget("005633",100,"2019-07-01")
-    #ib.add_budget("161725",100,"2019-07-01")
+    #ib.add_budget("161725",200,"2019-07-12")
     #ib.add_budget("260108",100,"2019-07-01")
     #ib.add_budget("110003",10, "2019-07-01")
     ib.get_budgets_json()
