@@ -5,3 +5,4 @@ summary/json/*.json
 *.zip
 *.xpi
 .vs/
+*.pyc

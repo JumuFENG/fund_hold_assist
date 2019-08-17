@@ -1,3 +1,5 @@
+# Python 3
+# -*- coding:utf-8 -*-
 gl_summary_dir = "D:\\UserFiles\\Documents\\MiCloud\\budgets"
 gl_phantomjs_exe_path = 'D:\Python\Python37\Scripts\phantomjs.exe'
 
