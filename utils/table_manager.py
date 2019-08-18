@@ -49,17 +49,15 @@ class TableCopy():
         if toDb.isExistTable(tablename):
             print(tablename, "already exists.")
             return
-        result = fromDb.select("information_schema.columns","column_name",["table_name = '%s'" % tablename, "table_schema = '%s'" % fromDb.database])
+
+        result = fromDb.select("information_schema.columns", ["column_name","column_type"], ["table_name = '%s'" % tablename, "table_schema = '%s'" % fromDb.database], order=" ORDER BY ordinal_position ASC")
         headers = []
-        for (col,) in result:
-            if not col == 'id':
-                if col == 'date':
-                    headers.insert(0, col)
-                else:
-                    headers.append(col)
         attrs = {}
-        for x in headers:
-            attrs[x] = 'varchar(20) DEFAULT NULL'
+        for (cnm, ctp) in result:
+            if not cnm == 'id':
+                headers.append(cnm)
+                attrs[cnm] = ctp + ' DEFAULT NULL'
+
         constraint = 'PRIMARY KEY(`id`)'
         toDb.creatTable(tablename, attrs, constraint)
         values = fromDb.select(tablename, headers, order=" ORDER BY id ASC")

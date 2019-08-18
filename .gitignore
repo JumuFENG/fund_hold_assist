@@ -6,3 +6,4 @@ summary/json/*.json
 *.xpi
 .vs/
 *.pyc
+*_local.py
