@@ -14,7 +14,7 @@ class FtpHelper:
 
     # 连接到ftp服务器
     def connect(self):
-        print('is connecting to ftp server %s on %s' % (self.ftp_host, self.ftp_port))
+        print('connecting to ftp server %s on %s' % (self.ftp_host, self.ftp_port))
         self.ftp.connect(self.ftp_host, self.ftp_port)
  
     # 登陆到ftp服务器
@@ -28,7 +28,7 @@ class FtpHelper:
     def quit(self):
         try:
             self.ftp.quit()
-            print('colose ftp connection successfully')
+            print('close ftp connection successfully')
         except Exception as e:
             print('%s' % e)
 
