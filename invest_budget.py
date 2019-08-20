@@ -59,9 +59,9 @@ class InvestBudget():
 
         self.sqldb.delete(budget_table, {column_consumed:'1'})
 
-    def save_budgets(self):
+    def save_budgets(self, dest_dir):
         for parent, dirs, files in os.walk("summary"):
-            tar_folder = os.path.join(gl_summary_dir, parent)
+            tar_folder = os.path.join(dest_dir, parent)
             if(not os.path.isdir(tar_folder)):
                 os.mkdir(tar_folder)
             for f in files:
@@ -231,9 +231,9 @@ if __name__ == '__main__':
     ib = InvestBudget(sqldb)
     #ib.add_budget("000217",100,"2019-07-01")
     #ib.add_budget("005633",100,"2019-07-01")
-    #ib.add_budget("161725",200,"2019-07-12")
+    ib.add_budget("161725",200,"2019-07-20")
     #ib.add_budget("260108",100,"2019-07-01")
     #ib.add_budget("110003",10, "2019-07-01")
     ib.get_budgets_json()
-    #ib.save_budgets()
-    ib.upload_budgets_to_ftp()
+    ib.save_budgets(summary_dest_dir if summary_dest_dir else gl_summary_dir)
+    #ib.upload_budgets_to_ftp()
