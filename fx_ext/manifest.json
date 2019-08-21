@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "__MSG_extension_name__",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "author": "JumuFENG",
     "description": "__MSG_extension_description__",
     "default_locale": "zh_CN",
@@ -25,7 +25,8 @@
     "content_scripts": [
         {
             "matches": [
-                "file:///*summary.html"
+                "file:///*summary.html",
+                "http://47.100.77.253/*summary.html"
             ],
             "js": [
                 "inject/index.js"
