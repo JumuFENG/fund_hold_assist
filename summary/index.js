@@ -372,18 +372,27 @@ function showAllFundList() {
     var earned = 0;
     var total_earned = 0;
     var cost = 0;
+    var code_cost = [];
     for (var fcode in ftjson){
         sendFetchEvent(fcode);
-        fund_list_tbl.appendChild(createSplitLine());
-
-        var row = createGeneralInfoInSingleRow(fcode);
-        fund_list_tbl.appendChild(row);
 
         var funddata = ftjson[fcode];
         earned += funddata["last_day_earned"];
-        total_earned += funddata["earned_while_holding"];
+        total_earned += funddata["earned_while_holding"];	
         cost += funddata["cost"];
+	code_cost.push([fcode, funddata["cost"]]);
     }
 
     updateTotalEarnedInfo(earned, total_earned, cost);
+
+    code_cost.sort(function(f, s) {
+	return s[1] - f[1];
+    });
+
+    for (var i in code_cost) {
+	fund_list_tbl.appendChild(createSplitLine());
+
+	var row = createGeneralInfoInSingleRow(code_cost[i][0]);
+        fund_list_tbl.appendChild(row)
+    }
 }
