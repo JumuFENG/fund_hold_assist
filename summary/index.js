@@ -262,20 +262,20 @@ function createGuzhiInfo(fundcode) {
     var jsonp = funddata.rtgz;
     var lbl_class = incdec_lbl_classname(jsonp ? jsonp.gszzl : funddata["last_day_earned"]);
 
-    var html = "<div class='guzhi'>最新估值: <label id='guzhi_lgz_" + fundcode + "'";
+    var html = "<div class='guzhi'>估值: <label id='guzhi_lgz_" + fundcode + "'";
     if (lbl_class) {
         html += " class='" + lbl_class + "'";
     };
     html +=">"; 
     html += jsonp ? jsonp.gsz : funddata["latest_netvalue"];
-    html += "</label>增长率: <label id='guzhi_zl_" + fundcode + "'"
+    html += "</label>";
+    html += funddata["latest_netvalue"];
+    html += " 增长率: <label id='guzhi_zl_" + fundcode + "'"
     if (lbl_class) {
         html += " class='" + lbl_class + "'";
     };
     html +=">";
     html += jsonp ? jsonp.gszzl + "%" : "-";
-    html += "</label></br>单位净值: <label>";
-    html += funddata["latest_netvalue"];
     html += "</label>总计: <label id='guzhi_total_zl_" + fundcode + "'"
     var netvalue = parseFloat(funddata["averprice"]);
     if (funddata["ppg"] != 1) {
@@ -324,21 +324,21 @@ function updateGuzhiInfo(fundcode) {
 }
 
 function createGeneralInnerHtmlWithoutName(funddata) {
-    var html = "<div>all: " + funddata["cost"] + "</span> &lt;" + funddata["averprice"]+ "&gt;</div>";
+    var html = "<div class='general_earned'>"
+    html += "持有: " + funddata["cost"] + " &lt;" + funddata["averprice"]+ "&gt; ";
 
-    var earned_lbl_class = incdec_lbl_classname(funddata["last_day_earned"]);
-    html += "<div class='general_earned'><span>上日: <label class = '" + earned_lbl_class + "'>" + funddata["last_day_earned"] + "</label></span>";
-    
-    earned_lbl_class = incdec_lbl_classname(funddata["earned_while_holding"]);
-    html += "持有: <label class='" + earned_lbl_class + "'>" + funddata["earned_while_holding"] + "</label>";
-    html += "<label class='" + earned_lbl_class + "'>" + (100 * funddata["earned_while_holding"] / funddata["cost"]).toFixed(2) + "%</label></div>";
+    var earned_lbl_class = incdec_lbl_classname(funddata["earned_while_holding"]);
+    html += "<label class='" + earned_lbl_class + "'>" + funddata["earned_while_holding"] + "</label>";
+    html += "<label class='" + earned_lbl_class + "'>" + (100 * funddata["earned_while_holding"] / funddata["cost"]).toFixed(2) + "%</label>";
+    html += "</div>";
     return html;
 }
 
 function createGeneralInfoInSingleRow(fundcode) {
     var funddata = ftjson[fundcode];
-    var html = "<div class='fund_header' onclick='ToggleFundDetails(hold_detail_" + fundcode + ")' id='fund_header_" + fundcode + "'>" + funddata["name"];
+    var html = "<div class='fund_header' onclick='ToggleFundDetails(hold_detail_" + fundcode + ")' id='fund_header_" + fundcode + "'>" + funddata["name"] + "<label class = '" + incdec_lbl_classname(funddata["last_day_earned"]) + "'>" + funddata["last_day_earned"] + "</label>";
     html += createGuzhiInfo(fundcode);
+    html += createGeneralInnerHtmlWithoutName(funddata);
     html += "</div>";
     var general_root = document.createElement("div");
     general_root.className = "general_root";
@@ -348,7 +348,6 @@ function createGeneralInfoInSingleRow(fundcode) {
     hold_detail.className = "hold_detail";
     hold_detail.id = "hold_detail_" + fundcode;
     hold_detail.style = "display:none;";
-    hold_detail.innerHTML = createGeneralInnerHtmlWithoutName(funddata);
 
     hold_detail.appendChild(createBudgetsTable(funddata["budget"]));
     hold_detail.appendChild(createRollinsTable(funddata["rollin"]));
@@ -399,21 +398,21 @@ function showAllFundList() {
 
         var funddata = ftjson[fcode];
         earned += funddata["last_day_earned"];
-        total_earned += funddata["earned_while_holding"];	
+        total_earned += funddata["earned_while_holding"];        
         cost += funddata["cost"];
-	code_cost.push([fcode, funddata["cost"]]);
+        code_cost.push([fcode, funddata["cost"]]);
     }
 
     updateTotalEarnedInfo(earned, total_earned, cost);
 
     code_cost.sort(function(f, s) {
-	return s[1] - f[1];
+        return s[1] - f[1];
     });
 
     for (var i in code_cost) {
-	fund_list_tbl.appendChild(createSplitLine());
+        fund_list_tbl.appendChild(createSplitLine());
 
-	var row = createGeneralInfoInSingleRow(code_cost[i][0]);
+        var row = createGeneralInfoInSingleRow(code_cost[i][0]);
         fund_list_tbl.appendChild(row)
     }
 }

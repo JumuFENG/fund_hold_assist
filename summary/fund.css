@@ -21,6 +21,7 @@ button {
 }
 
 label {
+    font-size: 15px;
     padding-left: 10px;
     padding-right: 10px;
     border-radius: 6px;
@@ -41,17 +42,17 @@ label.keepsame {
     background-color: grey;
 }
 
-div.guzhi {
+div.fund_header {
+    font-size: 22px;
+    line-height:24px;
+}
+
+div.fund_header div {
     font-size: 15px;
 }
 
-div.general_root {
-    font-size: 20px;
-    line-height:24px
-}
-
-div.general_earned {
-    font-size: 13px;
+div.fund_header div.general_earned {
+    font-size: 18px;
 }
 
 div.general_earned label{
