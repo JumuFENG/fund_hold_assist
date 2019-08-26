@@ -1,5 +1,7 @@
+let ExtensionLoadedEvent = "ExtensionLoaded";
 let CodeToFetchEvent = 'FundCodeToFetch';
 let RealtimeInfoFetchedEvent = "FundGzReturned";
+let extensionLoaded = false;
 
 function logInfo(...args) {
     //console.log(args);
@@ -20,6 +22,11 @@ window.onload = function() {
     DrawSzzsHistory();
 }
 
+document.addEventListener(ExtensionLoadedEvent, e => {
+    logInfo("Extension loaded");
+    extensionLoaded = true;
+});
+
 document.addEventListener(RealtimeInfoFetchedEvent, e => {
     logInfo(e.detail);
     eval(e.detail);
@@ -32,12 +39,26 @@ function ForceFetchAll() {
 }
 
 function sendFetchEventActually(fundcode) {
-    let selectedCodeEvt = new CustomEvent(CodeToFetchEvent, {
-        detail: {
-            code: fundcode
+    if (extensionLoaded) {
+        let selectedCodeEvt = new CustomEvent(CodeToFetchEvent, {
+            detail: {
+                code: fundcode
+            }
+        });
+        document.dispatchEvent(selectedCodeEvt);
+    }
+    else {
+        var httpRequest = new XMLHttpRequest();
+        var request = encodeURIComponent('http://fundgz.1234567.com.cn/js/' + fundcode + '.js?rt=' + (new Date()).getTime());
+        httpRequest.open('GET', '../../api/get?url=' + request, true);
+        httpRequest.send();
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                eval(httpRequest.responseText);
+            }
         }
-    });
-    document.dispatchEvent(selectedCodeEvt);
+    }
 }
 
 function sendFetchEvent(fundcode) {

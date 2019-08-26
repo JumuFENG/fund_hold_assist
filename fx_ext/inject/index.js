@@ -1,6 +1,7 @@
 (function () {
     'use strict';
     
+    let ExtensionLoadedEvent = "ExtensionLoaded";
     let CodeToFetchEvent = "FundCodeToFetch";
     let RealtimeInfoFetchedEvent = "FundGzReturned"
 
@@ -33,4 +34,8 @@
         logInfo(e.detail.code);
         chrome.runtime.sendMessage({"code": e.detail.code});
     })
+
+    document.dispatchEvent(new CustomEvent(ExtensionLoadedEvent, {
+        detail: "1"
+    }));
 }());

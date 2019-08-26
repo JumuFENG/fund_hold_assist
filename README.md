@@ -18,3 +18,4 @@ pip3 install tushare
 
 create database tesddb and fund_center manually.
 
+create utils/_pwd.py and add db_pwd = "<password for root of mysql>" add summary_dest_dir = "<the destination dir for summary folder>"
