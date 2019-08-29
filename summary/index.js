@@ -180,7 +180,7 @@ function getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg) {
         portion_can_sell = portion_can_sell.toFixed(4);
 
         var row1 = create2ColRow(">"+ (parseFloat(short_term_rate) * 100).toFixed(2) +"%", portion_can_sell);
-        var row2 = createSingleRow(JSON.stringify(dates));
+        var row2 = createSingleRow(JSON.stringify(dates).replace(/,/g, ', '));
         return [row1, row2];
     };
 
