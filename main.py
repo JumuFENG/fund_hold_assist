@@ -67,8 +67,8 @@ if __name__ == '__main__':
     #dbname = "testdb"
     sqldb = SqlHelper(password = db_pwd, database = dbname)
     du = DailyUpdater(sqldb, dbname)
-    #du.update_all()
-    du.download_all_fund_history("000217")
+    du.update_all()
+    #du.download_all_fund_history("000217")
     #du.download_all_index_history("399300")
     #du.download_all_gold_history("AU9999")
     #du.buy("000217", 200,  "2019-07-29")

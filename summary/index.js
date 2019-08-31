@@ -187,6 +187,34 @@ function getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg) {
     return [];
 }
 
+function getLatestRetracement(fundcode, latest_netvalue) {
+    var averprice = parseFloat(ftjson[fundcode]["averprice"]);
+    if (averprice >= latest_netvalue) {
+        return 0;
+    };
+    if (ftjson[fundcode]["ppg"] != 1) {
+        averprice /= ftjson[fundcode]["ppg"];
+        averprice = averprice.toFixed(4);
+    };
+
+    var buytable = ftjson[fundcode]["buy_table"];
+    var fundDateIdx = 0;
+    var fundValIdx = all_hist_data[0].indexOf(fundcode) * 2 - 1;
+    var startDateArr = all_hist_data.find(function(curVal) {
+        if(curVal[fundDateIdx] == buytable[0].date) {
+            return true;
+        }
+    });
+    var maxNetvalSinceBuy = startDateArr[fundValIdx];
+    for (var i = all_hist_data.indexOf(startDateArr) + 1; i < all_hist_data.length; i++) {
+        if (maxNetvalSinceBuy < all_hist_data[i][fundValIdx]) {
+            maxNetvalSinceBuy = all_hist_data[i][fundValIdx];
+        }; 
+    };
+
+    return ((maxNetvalSinceBuy - latest_netvalue) * 100 / (maxNetvalSinceBuy - averprice)).toFixed(2);
+}
+
 function jsonpgz(fundgz) {
     logInfo(fundgz);
     ftjson[fundgz.fundcode].rtgz = fundgz;
@@ -270,13 +298,15 @@ function createGuzhiInfo(fundcode) {
     html += jsonp ? jsonp.gsz : funddata["latest_netvalue"];
     html += "</label>";
     html += funddata["latest_netvalue"];
-    html += " 增长率: <label id='guzhi_zl_" + fundcode + "'"
+    // 估值涨幅
+    html += " 涨幅: <label id='guzhi_zl_" + fundcode + "'"
     if (lbl_class) {
         html += " class='" + lbl_class + "'";
     };
     html +=">";
     html += jsonp ? jsonp.gszzl + "%" : "-";
-    html += "</label>总计: <label id='guzhi_total_zl_" + fundcode + "'"
+    // 总收益率
+    html += "</label>总: <label id='guzhi_total_zl_" + fundcode + "'";
     var netvalue = parseFloat(funddata["averprice"]);
     if (funddata["ppg"] != 1) {
         netvalue /= funddata["ppg"];
@@ -287,6 +317,11 @@ function createGuzhiInfo(fundcode) {
     var latest_netvalue = jsonp ? jsonp.gsz : funddata["latest_netvalue"];
     var total_percent = ((latest_netvalue - netvalue) * 100 / netvalue).toFixed(2) + "%";
     html += total_percent;
+    html += "</label><label id = 'retrace_" + fundcode + "' style = 'visibility:";
+    // 回撤
+    var retrace = getLatestRetracement(fundcode, latest_netvalue);
+    html += retrace > 0 ? "visible" : "hidden";
+    html += ";' >| " + retrace + "%";
     html += "</label></div>";
     return html;
 }
@@ -307,6 +342,8 @@ function updateGuzhiInfo(fundcode) {
         lbl_guzhi_zl.className = lbl_class;
     };
 
+    var latest_netvalue = jsonp ? jsonp.gsz : funddata["latest_netvalue"];
+
     var lbl_guzhi_total_percent = document.getElementById("guzhi_total_zl_" + fundcode);
     if (lbl_guzhi_total_percent) {
         var netvalue = parseFloat(funddata["averprice"]);
@@ -316,10 +353,16 @@ function updateGuzhiInfo(fundcode) {
         };
         lbl_guzhi_total_percent.className = incdec_lbl_classname((jsonp ? jsonp.gsz : funddata["latest_netvalue"]) - netvalue);
 
-        var latest_netvalue = jsonp ? jsonp.gsz : funddata["latest_netvalue"];
         var total_percent = ((latest_netvalue - netvalue) * 100 / netvalue).toFixed(2) + "%";
 
         lbl_guzhi_total_percent.innerText = total_percent;
+    };
+
+    var lbl_guzhi_retrace = document.getElementById("retrace_" + fundcode);
+    if (lbl_guzhi_retrace) {
+        var retrace = getLatestRetracement(fundcode, latest_netvalue);
+        lbl_guzhi_retrace.innerText = "| " + retrace + "%";
+        lbl_guzhi_retrace.style.visibility = retrace > 0 ? "visible" : "hidden";
     };
 }
 
