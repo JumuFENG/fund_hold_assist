@@ -201,19 +201,33 @@ function getLatestRetracement(fundcode, latest_netvalue) {
     var fundDateIdx = 0;
     var fundValIdx = all_hist_data[0].indexOf(fundcode) * 2 - 1;
     var startDateArr = all_hist_data.find(function(curVal) {
-        if(curVal[fundDateIdx] == buytable[0].date) {
-            return true;
-        }
+        return curVal[fundDateIdx] == buytable[0].date;
     });
-    var maxNetvalSinceBuy = startDateArr[fundValIdx];
-    for (var i = all_hist_data.indexOf(startDateArr) + 1; i < all_hist_data.length; i++) {
-        if (maxNetvalSinceBuy < all_hist_data[i][fundValIdx]) {
-            maxNetvalSinceBuy = all_hist_data[i][fundValIdx];
-        }; 
+
+    var maxEarnedSinceBuy = 0;
+    var total_portion = 0;
+    var total_cost = 0;
+    for (var i = all_hist_data.indexOf(startDateArr); i < all_hist_data.length; i++) {
+        var date = all_hist_data[i][fundDateIdx];
+        var value = all_hist_data[i][fundValIdx];
+        var buyrec = buytable.find(function(curVal) {
+            return curVal.date == date;
+        });
+
+        if (buyrec) {
+            total_portion += buyrec.portion;
+            total_cost += buyrec.cost;
+        };
+
+        var earned = total_portion * value - total_cost;
+        if (earned > maxEarnedSinceBuy) {
+            maxEarnedSinceBuy = earned;
+        };
     };
 
-    return ((maxNetvalSinceBuy - latest_netvalue) * 100 / (maxNetvalSinceBuy - averprice)).toFixed(2);
-}
+    var latest_earned = total_portion * latest_netvalue - total_cost;
+    return ((maxEarnedSinceBuy - latest_earned) * 100 / maxEarnedSinceBuy).toFixed(2);
+} 
 
 function jsonpgz(fundgz) {
     logInfo(fundgz);
