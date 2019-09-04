@@ -104,3 +104,28 @@ class TableCopy():
             startId = 0
         valuesMore = fromDb.select(tablename, headers, ["id > %d" % startId], order=" ORDER BY id ASC")
         toDb.insertMany(tablename, headers, valuesMore)
+
+    def getTableHeaders(self, sqldb, tablename):
+        result = sqldb.select("information_schema.columns", "column_name", ["table_name = '%s'" % tablename, "table_schema = '%s'" % sqldb.database], order=" ORDER BY ordinal_position ASC")
+        headers = []
+        for cnm, in result:
+            if not cnm == 'id':
+                headers.append(cnm)
+        return headers
+
+    def Update(self, fromDb, toDb, tablename, rowIds):
+        if not fromDb.isExistTable(tablename):
+            print("no table named", tablename)
+            return
+
+        if not toDb.isExistTable(tablename):
+            print(tablename, "not exists. call CopyTo()")
+            return
+
+        headers = self.getTableHeaders(fromDb, tablename)
+        for rowId in rowIds:
+            values, = fromDb.select(tablename, headers, "id = %d" % rowId)
+            valObj = {}
+            for i in range(len(headers)):
+                valObj[headers[i]] = str(values[i])
+            toDb.update(tablename, valObj, {'id':str(rowId)})

@@ -141,8 +141,8 @@ class AllFunds():
         if not self.sqldb.isExistTable(gl_all_funds_info_table):
             print(gl_all_funds_info_table, "not exist.")
             return
-        if not len(infoDic) == 11:
-            print("len of infoDic should be 11, but get", len(infoDic))
+        if not len(infoDic) == 11 and not len(infoDic) == 6:
+            print("len of infoDic should be 11 or 6, but get", len(infoDic))
             return
 
         self.sqldb.update(gl_all_funds_info_table, infoDic, {column_code: code})
@@ -168,7 +168,8 @@ class AllFunds():
 
         infoDic = {column_type: td_fund_type, column_risk_level: td_risk_level, column_amount: td_money_amount, column_setup_date: td_setup_date, column_star_level: td_star_level, column_summary_url: fund_info_url}
         ratingDic = self.loadRatingInfo(code)
-        infoDic = dict(infoDic, **ratingDic)
+        if ratingDic:
+            infoDic = dict(infoDic, **ratingDic)
         #print(infoDic)
         self.updateInfoOfFund(code, infoDic)
 
