@@ -85,8 +85,8 @@ class AllFunds():
             shzq = ds[12]
             jazq = ds[16]
             five_star_num = ds[7]
-            #ds[8] #unknown
-            #ds[14] #unknown
+            #ds[8] #htpj
+            #ds[14] #shzq5
             fee = ds[18]
             ratingDic = {column_type:fund_type, column_fee:fee, column_rating_shzq:shzq, column_rating_zszq:zszq, column_rating_jazq:jazq,column_5star_num:five_star_num}
             if code:

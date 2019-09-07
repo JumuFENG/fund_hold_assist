@@ -17,13 +17,15 @@ class SqlHelper():
         self.port = port
         self.con = None
         self.cur = None
+
         try:
-            self.con = pymysql.connect(host=self.host, user=self.username, passwd=self.password, port=self.port, db = self.database, charset="utf8mb4")
+            self.con = pymysql.connect(host=self.host, user=self.username, passwd=self.password, port=self.port, charset="utf8mb4")
             # 所有的查询，都在连接 con 的一个模块 cursor 上面运行的
             self.cur = self.con.cursor()
-            #sql = "CREATE DATABASE IF NOT EXISTS " + self.database
-            #self.cur.execute(sql)
-            #self.con.select_db(self.database)
+            if not self.isExistSchema(self.database):
+                sql = "CREATE DATABASE IF NOT EXISTS " + self.database
+                self.cur.execute(sql)
+            self.con.select_db(self.database)
         except:
             raise "DataBase connect error,please check the db config."
 
@@ -255,6 +257,10 @@ class SqlHelper():
         """
         sql = "DELETE FROM %s" % tablename
         self.executeCommit(sql)
+
+    def isExistSchema(self, database):
+        (result,), = self.select("information_schema.SCHEMATA", "count(*)",["schema_name = '%s'" % database]);
+        return result and result != 0
 
     def isExistTable(self, tablename):
         """判断数据表是否存在
