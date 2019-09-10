@@ -21,7 +21,14 @@ def login():
         else:
             return "login success!"
     elif request.method == 'POST':
-        if request.form['password'] == 'password' and request.form['username'] == 'admin':
+        username = request.form['username']
+        password = request.form['password']
+
+        gen_db = SqlHelper(password = db_pwd, database = "general")
+        usermodel = UserModel(gen_db)
+        user = usermodel.user_by_email(username)
+
+        if user and usermodel.check_password(user, request.form['password']):
             session['logged_in'] = True
         else:
             flash('wrong username or password')

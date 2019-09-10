@@ -1,6 +1,7 @@
 # Python 3
 # -*- coding:utf-8 -*-
 
+from user import *
 import sys
 sys.path.append("../..")
 from utils import *
