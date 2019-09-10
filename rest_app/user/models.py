@@ -1,7 +1,6 @@
 # Python 3
 # -*- coding:utf-8 -*-
 
-from user import *
 import sys
 sys.path.append("../..")
 from utils import *
@@ -31,11 +30,18 @@ class UserModel():
         self.sqldb.insert(self.tablename, {'name':name, 'password':password, 'email':email})
 
     def user_by_id(self, id):
-        (id, name, password, email), = self.sqldb.select(self.tablename, "*", ["id = '%s'" % id])
+        result = self.sqldb.select(self.tablename, "*", ["id = '%s'" % id])
+        if not result:
+            return None
+
+        (id, name, password, email), = result
         return User(id, name, email, password)
 
     def user_by_email(self, email):
-        (id, name, password, email), = self.sqldb.select(self.tablename, "*", ["email = '%s'" % email])
+        result = self.sqldb.select(self.tablename, "*", ["email = '%s'" % email])
+        if not result:
+            return None
+        (id, name, password, email), = result
         return User(id, name, email, password)
 
     def set_password(self, user, password):

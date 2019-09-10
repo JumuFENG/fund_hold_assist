@@ -1,13 +1,14 @@
 # Python 3
 # -*- coding:utf-8 -*-
 
-import sys
-sys.path.append("..")
 from flask import Flask
 from flask import Flask, flash, redirect, render_template, request, session, abort
-from utils import *
 import requests
 import urllib.parse
+import sys
+sys.path.append("..")
+from utils import *
+from rest_app.user import *
 
 app = Flask(__name__)
 app.secret_key = "any_string_make_secret_key"
@@ -53,10 +54,17 @@ def add_fund_buy_rec():
 
 @app.route('/api/v1/fund/test', methods=['GET'])
 def test_get():
-    sqldb = SqlHelper(password = db_pwd, database = "fund_center")
-    r = sqldb.select("funds_info", "*", "code=000217")
-    print(r)
-    return str(r)
+        username = 'username'
+        password = 'password'
+
+        gen_db = SqlHelper(password = db_pwd, database = "general")
+        usermodel = UserModel(gen_db)
+        user = usermodel.user_by_email(username)
+
+        if user and usermodel.check_password(user, request.form['password']):
+            print("login")
+        else:
+            print('wrong username or password')
 
 if __name__ == '__main__':
     app.run(debug=True)
