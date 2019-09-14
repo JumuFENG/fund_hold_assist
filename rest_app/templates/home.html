@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+
+{% block content %}
+    {% if session['logged_in'] %}
+        <a href="home/baby_photo/main.html">Baby photo</a> </br>
+        <a href="home/summary/summary.html">Fund</a> </br>
+    {% endif %}
+    
+    <a href="home/start.html">Start</a> </br>
+    <a href="home/puzzle/puzzle.html">拼图小游戏</a> </br>
+
+{% endblock %}
+ 

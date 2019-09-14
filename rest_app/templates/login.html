@@ -1,11 +1,6 @@
 {% extends "layout.html" %}
 
 {% block content %}
-{% if session['logged_in'] %}
-
-You're logged in already!
-
-{% else %}
 <form action="/login" method="POST">
     {% for message in get_flashed_messages() %}
         <div class="alert alert-warning">
@@ -20,8 +15,8 @@ You're logged in already!
 	<input type="submit" value="Log in">
     <div class="loginsignup">
         <span>Don't have an account? <a href="{{ url_for('signup') }}">Sign up.</a><span>
+        <a href="{{ url_for('guest') }}">Visit as guest.</a>
     </div>
 </form>
-{% endif %}
 {% endblock %}
  

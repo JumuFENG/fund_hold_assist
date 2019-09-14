@@ -13,27 +13,45 @@ app = Flask(__name__)
 app.secret_key = "any_string_make_secret_key"
 #app.config["SECRET_KEY"] = "any_string_make_secret_key"
 
+@app.route('/guest', methods=['GET'])
+def guest():
+    session['logged_in'] = False
+    session['useremail'] = None
+    session['username'] = "Guest"
+    return render_template('home.html')
+
+@app.route('/logout', methods=['GET'])
+def logout():
+    session['logged_in'] = False
+    session['useremail'] = None
+    session['username'] = "Guest"
+    return redirect(url_for('guest'))
+
 @app.route('/login', methods=['GET','POST'])
 def login():
+    gen_db = SqlHelper(password = db_pwd, database = "general")
+    usermodel = UserModel(gen_db)
     if request.method == 'GET':
-        if not session.get('logged_in'):
-            return render_template('login.html')
+        if not session['logged_in']:
+            return render_template('login.html', loginsignup = True)
         else:
-            return redirect(url_for('home'))
+            return render_template('home.html')
     elif request.method == 'POST':
         username = request.form['username']
         email = request.form['email']
         password = request.form['password']
 
-        gen_db = SqlHelper(password = db_pwd, database = "general")
-        usermodel = UserModel(gen_db)
         user = usermodel.user_by_email(email)
 
         if user and usermodel.check_password(user, request.form['password']):
             session['logged_in'] = True
+            session['useremail'] = user.email
+            session['username'] = user.name
+            return render_template('home.html')
         else:
+            #print(user.to_string(), request.form['password'], user.password)
             flash('wrong username or password')
-        return render_template('login.html') 
+            return render_template('login.html', loginsignup = True) 
 
 @app.route("/signup", methods=['GET', 'POST'])
 def signup():
@@ -50,22 +68,21 @@ def signup():
             if existing_user is None:
                 user = usermodel.add_new(username, password, email)
                 session['logged_in'] = True
-                return redirect(url_for('home'))
+                session['useremail'] = user.email
+                session['username'] = user.name
+                return render_template('home.html')
 
             flash('A user already exists with that email address.')
             return redirect(url_for('signup'))
     return render_template('/signup.html',
                            title='Create an Account.',
+                           loginsignup = True,
                            template='signup-page',
                            body="Sign up for a user account.")
 
-@app.route('/home/index.html', methods=['GET'])
-def home():
-    return "OK", 200
-
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
-    if not session.get('logged_in'):
+    if not session['logged_in']:
         return redirect(url_for('login'))
     return "login success!"
 
@@ -88,7 +105,7 @@ def add_fund_buy_rec():
 
 @app.route('/api/v1/fund/test', methods=['GET'])
 def test_get():
-    return render_template('login.html')
+    return render_template('login.html', loginsignup = True)
 
 if __name__ == '__main__':
     app.run(debug=True)

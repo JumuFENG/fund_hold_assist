@@ -10,7 +10,7 @@ class User():
         self.id = id
         self.name = name
         self.email = email
-        self.password = None
+        self.password = password
         
     def to_string(self):
         return 'id: ' + str(self.id) + ' name: ' + self.name + ' email: ' + self.email;
@@ -29,8 +29,9 @@ class UserModel():
         if result and result != 0:
             user = self.user_by_email(email)
             print( user.to_string(), "already exists!")
-            return
+            return user
         self.sqldb.insert(self.tablename, {'name':name, 'password':password, 'email':email})
+        return self.user_by_email(email)
 
     def user_by_id(self, id):
         result = self.sqldb.select(self.tablename, "*", ["id = '%s'" % id])
