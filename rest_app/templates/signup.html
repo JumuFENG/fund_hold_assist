@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+
+{% block content %}
+  <div class="formwrapper">
+    <form method=post>
+      {% for message in get_flashed_messages() %}
+        <div class="alert alert-warning">
+            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            {{ message }}
+        </div>
+      {% endfor %}
+      <h1>Sign Up</h1>
+      <input type="username" name="username" placeholder="Name">
+      <input type="email" name="email" placeholder="Email">
+      <input type="password" name="password" placeholder="Password">
+      <input type="password" name="confirm" placeholder="Confirm">
+
+      <div class="submitbutton">
+        <input id="submit" type="submit" value="Submit">
+      </div>
+    </form>
+    <div class="loginsignup">
+      <span>Already have an account? <a href="{{ url_for('login') }}">Log in.</a><span>
+    </div>
+  </div>
+{% endblock %}

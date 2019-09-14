@@ -12,6 +12,8 @@ class User():
         self.email = email
         self.password = None
         
+    def to_string(self):
+        return 'id: ' + str(self.id) + ' name: ' + self.name + ' email: ' + self.email;
 
 class UserModel():
     def __init__(self, sqldb):
@@ -25,7 +27,8 @@ class UserModel():
             self.sqldb.creatTable(self.tablename, attrs, constraint)
         (result,), = self.sqldb.select(self.tablename, 'count(*)', ["email = '%s'" % email])
         if result and result != 0:
-            print("email: %s alread exists for: " % email, self.id, self.name)
+            user = self.user_by_email(email)
+            print( user.to_string(), "already exists!")
             return
         self.sqldb.insert(self.tablename, {'name':name, 'password':password, 'email':email})
 
