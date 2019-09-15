@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+
+{% block additionalscripts %}
+  <script type="text/javascript" src="{{ url_for('static', filename='src/js/fund_summary.js') }}"></script>
+  <script type="text/javascript">
+    var ftjson = {{ fundsJson|tojson|safe }};
+    var all_hist_data = {{ hist_data_arr|tojson|safe }};
+  </script>
+{% endblock %}
+
+{% block pagestyles %}
+  <link href="{{ url_for('static', filename='src/css/fund.css') }}" rel="stylesheet" type="text/css">
+{% endblock %}
+
+{% block content %}
+    {% if session['logged_in'] %}
+        <div>
+            <button onclick="location.reload()">Reload</button>
+            <button id="btn_swith_show_all" onclick="ForceFetchAll()">Fetch All</button>
+        </div>
+        <div id="funds_all_in_1">
+            <div class="total_earned">
+                <span>上日总计:<label id="last_total_earned"></label></span><label id="last_total_percent"></label><br />
+                <span>持有总成本:<label id="total_cost"></label></span>
+                <span>收益:<label id="total_earned"></label></span><label id="total_percent"></label>
+            </div>
+            <table id="fund_list_table"></table>
+        </div>
+        <hr />
+        <div id="canvas_div" style="width:98%">
+            <canvas id="sz000001_canvas"></canvas> <br />
+            <ul id="dayslist">
+                <li class="highlight" onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">30</li>
+                <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">100</li>
+                <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">300</li>
+                <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">1000</a></li>
+                <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">Max</a></li>
+            </ul><br />
+            <canvas id="fund_canvas"></canvas>
+        </div>
+    {% else %}
+        <div class="loginsignup">
+            <span>Already have an account? <a href="{{ url_for('login') }}">Log in.</a><span>
+            <a href="{{ url_for('guest') }}">Visit as guest.</a>
+        </div>
+    {% endif %}
+    
+{% endblock %}

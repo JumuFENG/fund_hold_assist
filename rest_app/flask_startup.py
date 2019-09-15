@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 from flask import Flask, flash, redirect, render_template, request, session, abort, url_for
+import json
 import requests
 import urllib.parse
 import sys
@@ -79,6 +80,22 @@ def signup():
                            loginsignup = True,
                            template='signup-page',
                            body="Sign up for a user account.")
+
+@app.route('/fundsummary', methods=['GET'])
+def fundsummary():
+    if not session['logged_in']:
+        return redirect(url_for('login'))
+    gen_db = SqlHelper(password = db_pwd, database = "general")
+    usermodel = UserModel(gen_db)
+    user = usermodel.user_by_email(session['useremail'])
+    fundsjson = {'s':100, 't':"2019-08-11"}
+    hist_data = [[1,2,3],[1,2,3]]
+    return render_template('/fundsummary.html', 
+        title = "持基表",
+        fundsJson = fundsjson,
+        hist_data_arr = hist_data
+        )
+
 
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
