@@ -7,7 +7,7 @@
   </head>
   <body class="{{template}}">
     {% if not loginsignup %}
-      <p>
+      <div>
       {% if session['username'] %}
         Hi {{ session['username'] }}!
       {% endif %}
@@ -17,7 +17,7 @@
         <a href="{{ url_for('login') }}"> Login </a>
         <a href="{{ url_for('signup') }}"> Sign up</a>
       {% endif %}
-      </p>
+      </div>
     {% endif %}
 
     <div class="container">

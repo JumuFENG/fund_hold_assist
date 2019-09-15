@@ -1,7 +1,9 @@
 {% extends "layout.html" %}
 
 {% block additionalscripts %}
-  <script type="text/javascript" src="{{ url_for('static', filename='src/js/fund_summary.js') }}"></script>
+  <script type="text/javascript" src="https://www.chartjs.org/dist/2.8.0/Chart.min.js"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='src/js/fund.summary.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='src/js/fund.chart.js') }}"></script>
   <script type="text/javascript">
     var ftjson = {{ fundsJson|tojson|safe }};
     var all_hist_data = {{ hist_data_arr|tojson|safe }};

@@ -88,8 +88,8 @@ def fundsummary():
     gen_db = SqlHelper(password = db_pwd, database = "general")
     usermodel = UserModel(gen_db)
     user = usermodel.user_by_email(session['useremail'])
-    fundsjson = {'s':100, 't':"2019-08-11"}
-    hist_data = [[1,2,3],[1,2,3]]
+    fundsjson = user.get_holding_funds_json()
+    hist_data = user.get_holding_funds_hist_data()
     return render_template('/fundsummary.html', 
         title = "持基表",
         fundsJson = fundsjson,
