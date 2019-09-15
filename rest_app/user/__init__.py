@@ -1,1 +1,0 @@
-from rest_app.user.models import *

@@ -8,7 +8,7 @@ import urllib.parse
 import sys
 sys.path.append("..")
 from utils import *
-from rest_app.user import *
+from user import *
 
 app = Flask(__name__)
 app.secret_key = "any_string_make_secret_key"
