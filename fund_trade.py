@@ -14,7 +14,6 @@ class TradeFund():
         self.sqldb = SqlHelper(password = dbpws, database = dbname)
 
         tbl_mgr = TableManager(self.sqldb, gl_fund_info_table, self.fund_code)
-        self.fund_history_table = tbl_mgr.GetTableColumnInfo(column_table_history, None)
         self.buy_table = tbl_mgr.GetTableColumnInfo(column_buy_table, self.fund_code + "_buy")
         self.sell_table = tbl_mgr.GetTableColumnInfo(column_sell_table, self.fund_code + "_sell")
         cost_hold = tbl_mgr.GetTableColumnInfo(column_cost_hold, "0", "double(16,2) DEFAULT NULL")
@@ -24,6 +23,7 @@ class TradeFund():
         tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
 
         self.fund_general = FundGeneral(self.sqldb, self.fund_code)
+        self.fund_history_table = self.fund_general.history_table
 
         self.setupBuytable()
         self.setupSelltable()

@@ -20,7 +20,7 @@ class AllFunds():
             attrs = {column_code:'varchar(20) DEFAULT NULL', column_name:"varchar(255) DEFAULT NULL",  column_url:"varchar(255) DEFAULT NULL"}
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(gl_all_funds_info_table, attrs, constraint)
-            
+
         if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_type):
             self.sqldb.addColumn(gl_all_funds_info_table, column_type, 'varchar(20) DEFAULT NULL')
         if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_risk_level):
@@ -51,6 +51,8 @@ class AllFunds():
 
         if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_shortterm_rate):
             self.sqldb.addColumn(gl_all_funds_info_table, column_shortterm_rate, 'varchar(10) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_table_history):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_table_history, 'varchar(20) DEFAULT NULL')
 
     def set_pre_buy_fee(self, code, fee):
         self.sqldb.update(gl_all_funds_info_table, {column_fee:str(fee)}, {column_code: code})
@@ -188,6 +190,9 @@ class AllFunds():
     def get_fund_url(self, code):
         return self.readSingleData(column_url, code)
 
+    def get_fund_history_table(self, code):
+        return self.readSingleData(column_table_history, code, "f_his_" + code)
+
     def getMsRatingLevel(self, starUrl):
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'}
         
@@ -306,8 +311,8 @@ class FundHistoryDataDownloader():
         tbl_mgr = TableManager(self.sqldb, gl_fund_info_table, self.code)
         allfund = AllFunds(self.sqldb)
 
-        self.name = tbl_mgr.GetTableColumnInfo(column_name, allfund.get_fund_name(self.code))
-        self.fund_db_table = tbl_mgr.GetTableColumnInfo(column_table_history, "f_his_" + self.code)
+        self.name = allfund.get_fund_name(self.code)
+        self.fund_db_table = allfund.get_fund_history_table(self.code)
 
     def getRequest(self, url, params=None, proxies=None):
         rsp = requests.get(url, params=params, proxies=proxies)
