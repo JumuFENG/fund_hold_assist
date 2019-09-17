@@ -15,45 +15,6 @@ class InvestBudget():
     def __init__(self, sqldb):
         self.sqldb = sqldb
 
-    def add_budget(self, fund_code, budget, date = ""):
-        self.fund_code = fund_code
-        self.budget = budget
-        
-        fg = FundGeneral(self.sqldb, self.fund_code)
-
-        his_db_table = fg.history_table
-        if not his_db_table:
-            print("can not get history table.")
-            return
-
-        budget_table = fg.budget_table
-        if not budget_table:
-            tbl_mgr = TableManager(self.sqldb, gl_fund_info_table, self.fund_code)
-            budget_table = tbl_mgr.GetTableColumnInfo(column_budget_table, self.fund_code + "_inv_budget")
-
-        if not self.sqldb.isExistTable(budget_table):
-            attrs = {column_date:'varchar(20) DEFAULT NULL',column_net_value:'varchar(20) DEFAULT NULL',column_budget:'varchar(10) DEFAULT NULL', column_consumed:'tinyint(1) DEFAULT 0'}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(budget_table, attrs, constraint)
-
-        if not date:
-            date = datetime.now().strftime("%Y-%m-%d")
-
-        bu_rec = self.sqldb.select(budget_table, conds = "%s = '%s'" % (column_date, date))
-        if bu_rec:
-            ((bu_rec),) = bu_rec
-        if bu_rec:
-            print("already add budget", bu_rec)
-            return
-
-        netvalue = fg.netvalue_by_date(date)
-        if not netvalue:
-            print("no value on", date)
-            return
-
-        self.sqldb.insert(budget_table, {column_date:date, column_net_value:str(netvalue), column_budget: str(budget)})
-        self.delete_cosumed(budget_table)
-
     def save_budgets(self, dest_dir):
         for parent, dirs, files in os.walk("summary"):
             tar_folder = os.path.join(dest_dir, parent)
@@ -68,6 +29,9 @@ class InvestBudget():
         if not sell_table:
             return
         self.sqldb.update(sell_table, {column_rolled_in: str(cost)}, {column_date: date})
+
+    def add_budget(self, user, fund_code, budget, date = ""):
+        user.add_budget(fund_code, budget, date)
 
     def get_budgets_json(self, user):
         fund_json = user.get_holding_funds_json()
@@ -97,9 +61,9 @@ if __name__ == '__main__':
     #ib.add_budget("005633",100,"2019-07-01")
     #ib.add_budget("161725",200,"2019-07-20")
     #ib.add_budget("260108",100,"2019-07-01")
-    #ib.add_budget("110003",10, "2019-07-01")
     user = User(1, "test", "test@test.com")
-    ib.get_budgets_json(user)
-    ib.get_holding_funds_hist_data(user)
-    ib.save_budgets(summary_dest_dir if summary_dest_dir else gl_summary_dir)
+    ib.add_budget(user, "000217", 10, "2019-09-06")
+    #ib.get_budgets_json(user)
+    #ib.get_holding_funds_hist_data(user)
+    #ib.save_budgets(summary_dest_dir if summary_dest_dir else gl_summary_dir)
     #ib.upload_budgets_to_ftp()

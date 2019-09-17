@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 from utils import *
+from user import *
 from history import *
 from datetime import datetime, timedelta
 import time
@@ -9,12 +10,13 @@ from fund_trade import TradeFund
 
 class DailyUpdater():
     """for daily update"""
-    def __init__(self, sqldb, dbname):
+    def __init__(self, sqldb, dbname, user):
         self.sqldb = sqldb
         self.dbname = dbname
+        self.user = user
 
     def update_all(self):
-        fundcodes = self.sqldb.select(gl_fund_info_table, fields=[column_code])
+        fundcodes = self.sqldb.select(self.user.funds_info_table(), fields=[column_code])
         for (c,) in fundcodes:
             self.download_all_fund_history(c)
 
@@ -66,7 +68,10 @@ if __name__ == '__main__':
     dbname = "fund_center"
     #dbname = "testdb"
     sqldb = SqlHelper(password = db_pwd, database = dbname)
-    du = DailyUpdater(sqldb, dbname)
+    gendb = SqlHelper(password = db_pwd, database = "general")
+    usermodel = UserModel(gendb)
+    user = usermodel.user_by_id(1)
+    du = DailyUpdater(sqldb, dbname, user)
     du.update_all()
     #du.download_all_fund_history("000217")
     #du.download_all_index_history("399300")

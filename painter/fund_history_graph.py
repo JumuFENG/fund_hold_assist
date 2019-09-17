@@ -10,7 +10,7 @@ class FundHistoryGraph(SingleHistoryGraph):
         super(FundHistoryGraph, self).__init__(sqldb, code)
         
     def getGlobalInfoTableName(self):
-        return gl_fund_info_table
+        return gl_all_funds_info_table
 
     def getColsToRead(self):
         return [column_date, column_net_value, column_growth_rate]

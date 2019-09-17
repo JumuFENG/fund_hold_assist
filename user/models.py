@@ -117,8 +117,46 @@ class User():
     def to_string(self):
         return 'id: ' + str(self.id) + ' name: ' + self.name + ' email: ' + self.email;
 
+    def add_budget(self, code, budget, date = ""):
+        sqldb = self.fund_center_db()
+        uf = UserFund(sqldb, self.funds_info_table(), code)
+        fg = FundGeneral(sqldb, code)
+
+        his_db_table = fg.history_table
+        if not his_db_table:
+            print("can not get history table.")
+            return
+
+        budget_table = uf.budget_table
+        if not budget_table:
+            tbl_mgr = TableManager(sqldb, self.funds_info_table(), code)
+            budget_table = tbl_mgr.GetTableColumnInfo(column_budget_table, "u" + str(self.id) + "_" + code + "_inv_budget")
+
+        if not sqldb.isExistTable(budget_table):
+            attrs = {column_date:'varchar(20) DEFAULT NULL',column_net_value:'varchar(20) DEFAULT NULL',column_budget:'varchar(10) DEFAULT NULL', column_consumed:'tinyint(1) DEFAULT 0'}
+            constraint = 'PRIMARY KEY(`id`)'
+            sqldb.creatTable(budget_table, attrs, constraint)
+
+        if not date:
+            date = datetime.now().strftime("%Y-%m-%d")
+
+        bu_rec = sqldb.select(budget_table, conds = "%s = '%s'" % (column_date, date))
+        if bu_rec:
+            ((bu_rec),) = bu_rec
+        if bu_rec:
+            print("already add budget", bu_rec)
+            return
+
+        netvalue = fg.netvalue_by_date(date)
+        if not netvalue:
+            print("no value on", date)
+            return
+
+        sqldb.insert(budget_table, {column_date:date, column_net_value:str(netvalue), column_budget: str(budget)})
+        uf.delete_cosumed()      
+
     def get_holding_funds_json(self):
-        sqldb = SqlHelper(password = db_pwd, database = "fund_center")
+        sqldb = self.fund_center_db()
         if not sqldb.isExistTable(self.funds_info_table()):
             print("can not find fund info DB.")
             return
@@ -161,7 +199,7 @@ class User():
         return fund_json
 
     def get_holding_funds_hist_data(self):
-        sqldb = SqlHelper(password = db_pwd, database = "fund_center")
+        sqldb = self.fund_center_db()
         if not sqldb.isExistTable(self.funds_info_table()):
             print("can not find fund info DB.")
             return

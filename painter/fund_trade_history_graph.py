@@ -2,25 +2,26 @@
 # -*- coding:utf-8 -*-
 
 from utils import *
+from user import *
 from painter import FundHistoryGraph
 from decimal import Decimal
 import matplotlib.pyplot as plt
 
 class FundTradeHistoryGraph(FundHistoryGraph):
     """draw fund trade history graph"""
-    def __init__(self, sqldb, code, allTrade = False):
-        super(FundTradeHistoryGraph, self).__init__(sqldb, code)
+    def __init__(self, sqldb, userfund, allTrade = False):
+        super(FundTradeHistoryGraph, self).__init__(sqldb, userfund.code)
         self.ppg = 1 if not ppgram.__contains__(self.code) else ppgram[self.code]
+        self.userfund = userfund
         self.allTrade = allTrade
         self.dates_buy = None
         self.dates_buy_sold = None
         self.dates_sell = None
         
     def postProcessData(self):
-        fund_overviews = self.sqldb.select(gl_fund_info_table, [column_buy_table, column_sell_table, column_averagae_price], "%s='%s'" % (column_code, self.code))
-        (buytable, selltable, average), = fund_overviews
-        self.average = 0 if not average else Decimal(str(average))
+        self.average = 0 if not self.userfund.average else Decimal(str(self.userfund.average))
 
+        buytable = self.userfund.buy_table
         sDate = None
         if self.sqldb.isExistTable(buytable):
             dates_buy = self.sqldb.select(buytable, "min(%s)" % column_date, "%s = 0" % column_soldout if not self.allTrade else "")
@@ -50,6 +51,7 @@ class FundTradeHistoryGraph(FundHistoryGraph):
             self.dates_buy_sold = [d for (d,) in dates_buy_sold]
             self.values_buy_sold = [self.values[self.dates.index(d)] for d in self.dates_buy_sold]
 
+        selltable = self.userfund.sell_table
         if self.sqldb.isExistTable(selltable):
             dates_sell = self.sqldb.select(selltable, [column_date], "%s >= '%s'" % (column_date, sDate))
             self.dates_sell = [d for (d,) in dates_sell]

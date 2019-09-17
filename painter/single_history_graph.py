@@ -37,10 +37,18 @@ class SingleHistoryGraph(Painter):
 
     def readHistoryData(self):
         tablename = self.getGlobalInfoTableName()
-        historytablecolname = self.getHisTableNameToRead()
-        his_overviews = self.sqldb.select(tablename, [historytablecolname, column_name], "%s='%s'" % (column_code, self.code))
-        if his_overviews:
-            (self.history_table, self.name), = his_overviews
+        self.history_table = None
+        self.name = None
+        if tablename == gl_all_funds_info_table:
+            fg = FundGeneral(self.sqldb, self.code)
+            self.history_table = fg.history_table
+            self.name = fg.name
+        else:
+            historytablecolname = self.getHisTableNameToRead()
+            his_overviews = self.sqldb.select(tablename, [historytablecolname, column_name], "%s='%s'" % (column_code, self.code))
+            if his_overviews:
+                (self.history_table, self.name), = his_overviews
+
 
         if not self.history_table:
             print("history db table name is None")
