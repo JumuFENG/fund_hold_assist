@@ -11,13 +11,14 @@ class SimulatorHost():
     """
     to simulate trading.
     """
-    def __init__(self, fund_code, dbname, dbpws = db_pwd):
+    def __init__(self, user, fund_code, dbname, dbpws = db_pwd):
+        self.user = user
         self.fund_code = fund_code
         self.dbname = dbname
         self.dbpws = dbpws
 
     def sim(self, sDate, eDate, simulator):
-        trade = TradeFund(self.fund_code, self.dbname, self.dbpws)
+        trade = TradeFund(self.user, self.fund_code, self.dbname, self.dbpws)
         self.sqldb = trade.sqldb
         allData = self.sqldb.select(trade.fund_history_table, [column_date, column_net_value], order = " ORDER BY %s ASC" % column_date)
         self.allDays = [x[0] for x in allData]
@@ -31,8 +32,8 @@ class SimulatorHost():
         trade.print_summery()
         trade.reset_trade_data()
 
-def continuely_buy(dbname, fund_code, sDate, eDate, cost_per_day):
-    trade = TradeFund(fund_code, dbname, db_pwd)
+def continuely_buy(user, dbname, fund_code, sDate, eDate, cost_per_day):
+    trade = TradeFund(user, fund_code, dbname, db_pwd)
     dateBegin = datetime.strptime(sDate, "%Y-%m-%d")
     dateEnd = datetime.strptime(eDate, "%Y-%m-%d")
     while True:
@@ -44,7 +45,10 @@ def continuely_buy(dbname, fund_code, sDate, eDate, cost_per_day):
 if __name__ == "__main__":
     testdb = "fund_center"
     testdb = "testdb"
-    sim = SimulatorHost("000217", dbname = testdb)
+    gendb = SqlHelper(password = db_pwd, database = "general")
+    usermodel = UserModel(gendb)
+    user = usermodel.user_by_id(1)
+    sim = SimulatorHost(user, "000217", dbname = testdb)
     #sDate = "2016-07-20"
     #eDate = "2018-10-17"
     sDate = "2018-10-24"
@@ -56,4 +60,4 @@ if __name__ == "__main__":
     sim.sim(sDate, eDate, simulator_keep_market())
     sim.sim(sDate, eDate, simulator_moving_average())
     sim.sim(sDate, eDate, simulator_keepmarket_movingaverage())
-    #continuely_buy(testdb, "000217", "2019-04-03", "2019-05-20", 1000)
+    #continuely_buy(user, testdb, "000217", "2019-04-03", "2019-05-20", 1000)
