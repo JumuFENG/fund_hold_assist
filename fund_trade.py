@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 from utils import *
+from user import *
 from decimal import *
 from datetime import datetime, timedelta
 
@@ -9,20 +10,21 @@ class TradeFund():
     """
     The class to remember the trade info for some fund
     """
-    def __init__(self, fund_code, dbname, dbpws):
-        self.fund_code = fund_code
-        self.sqldb = SqlHelper(password = dbpws, database = dbname)
+    def __init__(self, user, code, dbname, dbpws):
+        self.user = user
+        self.userfund = UserFund(user.fund_center_db(), user.funds_info_table(), code)
+        self.sqldb = user.fund_center_db()
 
-        tbl_mgr = TableManager(self.sqldb, gl_fund_info_table, self.fund_code)
-        self.buy_table = tbl_mgr.GetTableColumnInfo(column_buy_table, self.fund_code + "_buy")
-        self.sell_table = tbl_mgr.GetTableColumnInfo(column_sell_table, self.fund_code + "_sell")
+        tbl_mgr = TableManager(self.sqldb, self.user.funds_info_table(), self.userfund.code)
+        self.buy_table = tbl_mgr.GetTableColumnInfo(column_buy_table, self.userfund.code + "_buy")
+        self.sell_table = tbl_mgr.GetTableColumnInfo(column_sell_table, self.userfund.code + "_sell")
         cost_hold = tbl_mgr.GetTableColumnInfo(column_cost_hold, "0", "double(16,2) DEFAULT NULL")
         self.cost_hold = Decimal(str(cost_hold))
         portion_hold = tbl_mgr.GetTableColumnInfo(column_portion_hold, "0", "double(16,4) DEFAULT NULL")
         self.portion_hold = Decimal(str(portion_hold))
         tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
 
-        self.fund_general = FundGeneral(self.sqldb, self.fund_code)
+        self.fund_general = FundGeneral(self.sqldb, self.userfund.code)
         self.fund_history_table = self.fund_general.history_table
 
         self.setupBuytable()
@@ -78,10 +80,10 @@ class TradeFund():
         self.cost_hold += Decimal(cost)
         #print("self.portion_hold", self.portion_hold)
         self.portion_hold += portion.quantize(Decimal('0.0000'))
-        self.sqldb.update(gl_fund_info_table, {column_cost_hold : str(self.cost_hold), column_portion_hold : str(self.portion_hold), column_averagae_price:str(self.cost_hold/self.portion_hold)}, {column_code: self.fund_code})
+        self.sqldb.update(self.user.funds_info_table(), {column_cost_hold : str(self.cost_hold), column_portion_hold : str(self.portion_hold), column_averagae_price:str(self.cost_hold/self.portion_hold)}, {column_code: self.userfund.code})
         self.update_average_price()
         if budget_dates:
-            ((budget_table,),) = self.sqldb.select(gl_fund_info_table, [column_budget_table], "%s = '%s'" % (column_code, self.fund_code))
+            ((budget_table,),) = self.sqldb.select(self.user.funds_info_table(), [column_budget_table], "%s = '%s'" % (column_code, self.userfund.code))
             if budget_table and self.sqldb.isExistTable(budget_table):
                 if isinstance(budget_dates, str):
                     self.sqldb.update(budget_table, {column_consumed:'1'},{column_date:budget_dates})
@@ -124,7 +126,7 @@ class TradeFund():
         buy_rec =self.sqldb.select(self.buy_table, ["sum(%s)" % column_cost, "sum(%s)" % column_portion], "%s = 0" % column_soldout)
         if buy_rec:
             ((cost,portion),) = buy_rec
-            self.sqldb.update(gl_fund_info_table, {column_averagae_price:str((Decimal(str(cost))/Decimal(str(portion))).quantize(Decimal("0.0000")))}, {column_code: self.fund_code})
+            self.sqldb.update(self.user.funds_info_table(), {column_averagae_price:str((Decimal(str(cost))/Decimal(str(portion))).quantize(Decimal("0.0000")))}, {column_code: self.userfund.code})
 
     def manually_fix_buy_table(self, date, cost):
         if not date or date == "":
@@ -153,7 +155,7 @@ class TradeFund():
             if not cost or not portion:
                 return
             average = (Decimal(str(cost))/Decimal(str(portion))).quantize(Decimal("0.0000")) if not portion == 0 else 0
-            self.sqldb.update(gl_fund_info_table, {column_cost_hold:str(cost), column_portion_hold:str(portion), column_averagae_price:str(average)}, {column_code: self.fund_code})
+            self.sqldb.update(self.user.funds_info_table(), {column_cost_hold:str(cost), column_portion_hold:str(portion), column_averagae_price:str(average)}, {column_code: self.userfund.code})
 
 
     def sell_by_day(self, buy_dates, date = ""):
@@ -237,7 +239,7 @@ class TradeFund():
         price = Decimal("0")
         if self.portion_hold != Decimal("0"):
             price = self.cost_hold / self.portion_hold
-        self.sqldb.update(gl_fund_info_table, {column_cost_hold : str(self.cost_hold), column_portion_hold : str(self.portion_hold), column_averagae_price : str(price.quantize(Decimal("0.000000")))}, {column_code: self.fund_code})
+        self.sqldb.update(self.user.funds_info_table(), {column_cost_hold : str(self.cost_hold), column_portion_hold : str(self.portion_hold), column_averagae_price : str(price.quantize(Decimal("0.000000")))}, {column_code: self.userfund.code})
 
     def portions_available_to_sell(self, reDays, finalDate=""):
         fdate = finalDate
@@ -272,7 +274,7 @@ class TradeFund():
             self.sqldb.dropTable(self.buy_table)
         if self.sqldb.isExistTable(self.sell_table):
             self.sqldb.dropTable(self.sell_table)
-        self.sqldb.update(gl_fund_info_table, {column_cost_hold : str(0), column_portion_hold : str(0), column_averagae_price:str(0)}, {column_code : self.fund_code})
+        self.sqldb.update(self.user.funds_info_table(), {column_cost_hold : str(0), column_portion_hold : str(0), column_averagae_price:str(0)}, {column_code : self.userfund.code})
 
     def print_summery(self):
         (money,cost), = self.sqldb.select(self.sell_table, ["sum(%s)" % column_money_sold, "sum(%s)" % column_cost_sold])
@@ -287,5 +289,5 @@ class TradeFund():
         if sell_data:
             print(sell_data)
 
-        summery = self.sqldb.select(gl_fund_info_table, [column_cost_hold, column_portion_hold, column_averagae_price], "%s = '%s'" % (column_code, self.fund_code))
+        summery = self.sqldb.select(self.user.funds_info_table(), [column_cost_hold, column_portion_hold, column_averagae_price], "%s = '%s'" % (column_code, self.userfund.code))
         print("remain:  ",summery)

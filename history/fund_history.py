@@ -308,9 +308,8 @@ class FundHistoryDataDownloader():
         
     def setFundCode(self, code):
         self.code = code
-        tbl_mgr = TableManager(self.sqldb, gl_fund_info_table, self.code)
+        
         allfund = AllFunds(self.sqldb)
-
         self.name = allfund.get_fund_name(self.code)
         self.fund_db_table = allfund.get_fund_history_table(self.code)
 

@@ -44,20 +44,20 @@ class DailyUpdater():
         gh.getJijinhaoRtHistory(code)
 
     def buy(self, fundcode, cost, buyDate, budgetDates = None, rollin_date = None):
-        trade = TradeFund(fundcode, self.dbname, db_pwd)
+        trade = TradeFund(self.user, fundcode, self.dbname, db_pwd)
         trade.buy(cost, buyDate, budgetDates, rollin_date)
 
     def undo_buy(self, fundcode, date, removeall = False):
-        trade = TradeFund(fundcode, self.dbname, db_pwd)
+        trade = TradeFund(self.user,fundcode, self.dbname, db_pwd)
         trade.undo_buy(date, removeall)
         trade.update_average_price()
 
     def manually_fix_buy(self, fundcode, date, cost):
-        trade = TradeFund(fundcode, self.dbname, db_pwd)
+        trade = TradeFund(self.user, fundcode, self.dbname, db_pwd)
         trade.manually_fix_buy_table(date, cost)
 
     def sell(self, fundcode, sellDate, buyDates):
-        trade = TradeFund(fundcode, self.dbname, db_pwd)
+        trade = TradeFund(self.user, fundcode, self.dbname, db_pwd)
         trade.sell_by_day(buyDates, sellDate)
 
     def set_pre_buy_fee(self, code, fee):
