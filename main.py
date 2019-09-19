@@ -17,16 +17,19 @@ class DailyUpdater():
 
     def update_all(self):
         fundcodes = self.sqldb.select(self.user.funds_info_table(), fields=[column_code])
-        for (c,) in fundcodes:
-            self.download_all_fund_history(c)
+        if fundcodes :
+            for (c,) in fundcodes:
+                self.download_all_fund_history(c)
 
         indexcodes = self.sqldb.select(gl_index_info_table, fields=[column_code])
-        for (c,) in indexcodes:
-            self.download_all_index_history(c)
+        if indexcodes:
+            for (c,) in indexcodes:
+                self.download_all_index_history(c)
 
         goldcodes = self.sqldb.select(gl_gold_info_table, fields=[column_code])
-        for (c,) in goldcodes:
-            self.download_all_gold_history(c)
+        if goldcodes:
+            for (c,) in goldcodes:
+                self.download_all_gold_history(c)
 
     def download_all_fund_history(self, code):
         fh = FundHistoryDataDownloader(self.sqldb)

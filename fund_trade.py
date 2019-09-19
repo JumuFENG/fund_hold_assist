@@ -12,17 +12,13 @@ class TradeFund():
     """
     def __init__(self, user, code, dbname, dbpws):
         self.user = user
-        self.userfund = UserFund(user.fund_center_db(), user.funds_info_table(), code)
+        self.userfund = UserFund(user, code)
         self.sqldb = user.fund_center_db()
 
-        tbl_mgr = TableManager(self.sqldb, self.user.funds_info_table(), self.userfund.code)
-        self.buy_table = tbl_mgr.GetTableColumnInfo(column_buy_table, self.userfund.code + "_buy")
-        self.sell_table = tbl_mgr.GetTableColumnInfo(column_sell_table, self.userfund.code + "_sell")
-        cost_hold = tbl_mgr.GetTableColumnInfo(column_cost_hold, "0", "double(16,2) DEFAULT NULL")
-        self.cost_hold = Decimal(str(cost_hold))
-        portion_hold = tbl_mgr.GetTableColumnInfo(column_portion_hold, "0", "double(16,4) DEFAULT NULL")
-        self.portion_hold = Decimal(str(portion_hold))
-        tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
+        self.buy_table = self.userfund.buy_table
+        self.sell_table = self.userfund.sell_table
+        self.cost_hold = Decimal(str(self.userfund.cost_hold))
+        self.portion_hold = Decimal(str(self.userfund.portion_hold))
 
         self.fund_general = FundGeneral(self.sqldb, self.userfund.code)
         self.fund_history_table = self.fund_general.history_table

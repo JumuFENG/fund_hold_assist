@@ -22,7 +22,7 @@ if __name__ == "__main__":
     gendb = SqlHelper(password = db_pwd, database = "general")
     usermodel = UserModel(gendb)
     user = usermodel.user_by_id(1)
-    uf = UserFund(sqldb, user.funds_info_table(), "000217")
+    uf = UserFund(user.funds_info_table(), "000217")
     painter = FundTradeHistoryGraph(sqldb, uf)
     painter.show_graph()
     #painter.show_distribute()
