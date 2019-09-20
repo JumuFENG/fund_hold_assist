@@ -38,7 +38,7 @@ class UserFund():
         self.cost_hold = tbl_mgr.GetTableColumnInfo(column_cost_hold, "0", "double(16,2) DEFAULT NULL")
         self.portion_hold = tbl_mgr.GetTableColumnInfo(column_portion_hold, "0", "double(16,4) DEFAULT NULL")
         self.average = tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
-        self.sqldb.update(tablename, {column_buy_table:self.buy_table, column_sell_table: self.sell_table, column_buy_table: self.budget_table, column_cost_hold: self.cost_hold, column_portion_hold: self.portion_hold, column_averagae_price: self.average}, {column_code : self.code})
+        self.sqldb.update(tablename, {column_buy_table:self.buy_table, column_sell_table: self.sell_table, column_budget_table: self.budget_table, column_cost_hold: self.cost_hold, column_portion_hold: self.portion_hold, column_averagae_price: self.average}, {column_code : self.code})
 
     def last_day_earned(self, history_table):
         history_dvs = self.sqldb.select(history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date);
