@@ -42,15 +42,15 @@ class TableCopy():
     """
     to copy a table from on schema to another
     """
-    def CopyTo(self, fromDb, toDb, tablename):
-        if not fromDb.isExistTable(tablename):
-            print("no table named", tablename)
+    def CopyTo(self, fromDb, toDb, fromtable, totable):
+        if not fromDb.isExistTable(fromtable):
+            print("no table named", fromtable)
             return
-        if toDb.isExistTable(tablename):
-            print(tablename, "already exists.")
+        if toDb.isExistTable(totable):
+            print(totable, "already exists.")
             return
 
-        result = fromDb.select("information_schema.columns", ["column_name","column_type"], ["table_name = '%s'" % tablename, "table_schema = '%s'" % fromDb.database], order=" ORDER BY ordinal_position ASC")
+        result = fromDb.select("information_schema.columns", ["column_name","column_type"], ["table_name = '%s'" % fromtable, "table_schema = '%s'" % fromDb.database], order=" ORDER BY ordinal_position ASC")
         headers = []
         attrs = {}
         for (cnm, ctp) in result:
@@ -59,34 +59,34 @@ class TableCopy():
                 attrs[cnm] = ctp + ' DEFAULT NULL'
 
         constraint = 'PRIMARY KEY(`id`)'
-        toDb.creatTable(tablename, attrs, constraint)
-        values = fromDb.select(tablename, headers, order=" ORDER BY id ASC")
-        toDb.insertMany(tablename, headers, values)
+        toDb.creatTable(totable, attrs, constraint)
+        values = fromDb.select(fromtable, headers, order=" ORDER BY id ASC")
+        toDb.insertMany(totable, headers, values)
 
-    def Update(self, fromDb, toDb, tablename):
-        if not fromDb.isExistTable(tablename):
-            print("no table named", tablename)
+    def Update(self, fromDb, toDb, fromtable, totable):
+        if not fromDb.isExistTable(fromtable):
+            print("no table named", fromtable)
             return
 
-        if not toDb.isExistTable(tablename):
-            print(tablename, "not exists. call CopyTo()")
+        if not toDb.isExistTable(totable):
+            print(totable, "not exists. call CopyTo()")
             return
 
-        result = fromDb.select("information_schema.columns", ["column_name","column_type"], ["table_name = '%s'" % tablename, "table_schema = '%s'" % fromDb.database], order=" ORDER BY ordinal_position ASC")
+        result = fromDb.select("information_schema.columns", ["column_name","column_type"], ["table_name = '%s'" % fromtable, "table_schema = '%s'" % fromDb.database], order=" ORDER BY ordinal_position ASC")
         colAdded = False
         headers = []
         for (cnm, ctp) in result:
             if not cnm == 'id':
                 headers.append(cnm)
-                if not toDb.isExistTableColumn(tablename, cnm):
-                    toDb.addColumn(tablename, cnm, ctp + ' DEFAULT NULL')
+                if not toDb.isExistTableColumn(totable, cnm):
+                    toDb.addColumn(totable, cnm, ctp + ' DEFAULT NULL')
                     colAdded = True
         colAdded = True
         if colAdded:
-            toIds = toDb.select(tablename, 'id', order=" ORDER BY id ASC")
+            toIds = toDb.select(totable, 'id', order=" ORDER BY id ASC")
             for x in toIds:
                 x, = x
-                val = fromDb.select(tablename, headers, ["id = '%s'" % x])
+                val = fromDb.select(fromtable, headers, ["id = '%s'" % x])
                 if not val:
                     continue
                 val, = val
@@ -95,15 +95,15 @@ class TableCopy():
                 valObj = {}
                 for i in range(len(headers)):
                     valObj[headers[i]] = str(val[i])
-                toDb.update(tablename, valObj, {'id':str(x)})
+                toDb.update(totable, valObj, {'id':str(x)})
 
-        startId = toDb.select(tablename, "max(id)")
+        startId = toDb.select(totable, "max(id)")
         if startId:
             (startId,), = startId
         if not startId:
             startId = 0
-        valuesMore = fromDb.select(tablename, headers, ["id > %d" % startId], order=" ORDER BY id ASC")
-        toDb.insertMany(tablename, headers, valuesMore)
+        valuesMore = fromDb.select(fromtable, headers, ["id > %d" % startId], order=" ORDER BY id ASC")
+        toDb.insertMany(totable, headers, valuesMore)
 
     def getTableHeaders(self, sqldb, tablename):
         result = sqldb.select("information_schema.columns", "column_name", ["table_name = '%s'" % tablename, "table_schema = '%s'" % sqldb.database], order=" ORDER BY ordinal_position ASC")
@@ -113,19 +113,19 @@ class TableCopy():
                 headers.append(cnm)
         return headers
 
-    def Update(self, fromDb, toDb, tablename, rowIds):
-        if not fromDb.isExistTable(tablename):
-            print("no table named", tablename)
+    def UpdateRows(self, fromDb, toDb, fromtable, totable, rowIds):
+        if not fromDb.isExistTable(fromtable):
+            print("no table named", fromtable)
             return
 
-        if not toDb.isExistTable(tablename):
-            print(tablename, "not exists. call CopyTo()")
+        if not toDb.isExistTable(totable):
+            print(totable, "not exists. call CopyTo()")
             return
 
-        headers = self.getTableHeaders(fromDb, tablename)
+        headers = self.getTableHeaders(fromDb, fromtable)
         for rowId in rowIds:
-            values, = fromDb.select(tablename, headers, "id = %d" % rowId)
+            values, = fromDb.select(fromtable, headers, "id = %d" % rowId)
             valObj = {}
             for i in range(len(headers)):
                 valObj[headers[i]] = str(values[i])
-            toDb.update(tablename, valObj, {'id':str(rowId)})
+            toDb.update(totable, valObj, {'id':str(rowId)})

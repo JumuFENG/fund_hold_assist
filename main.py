@@ -71,11 +71,10 @@ if __name__ == '__main__':
     dbname = "fund_center"
     #dbname = "testdb"
     sqldb = SqlHelper(password = db_pwd, database = dbname)
-    gendb = SqlHelper(password = db_pwd, database = "general")
-    usermodel = UserModel(gendb)
+    usermodel = UserModel(SqlHelper(password = db_pwd, database = "general"))
     user = usermodel.user_by_id(1)
     du = DailyUpdater(sqldb, dbname, user)
-    du.update_all()
+    #du.update_all()
     #du.download_all_fund_history("000217")
     #du.download_all_index_history("399300")
     #du.download_all_gold_history("AU9999")
@@ -88,7 +87,7 @@ if __name__ == '__main__':
     #du.buy("161725", 200,  "2019-07-29")
     #du.buy("161724", 800,  "2019-07-19", rollin_date = "2019-07-02")
     #du.buy("160639", 840,  "2019-07-19", rollin_date="2019-07-02")
-    #du.sell("000217", "2019-07-18", ['2019-07-09', '2019-07-10', '2019-07-17'])
+    #du.sell("000217", "2019-09-18", ['2019-07-29'])
     #du.sell("161724", "2019-07-02", ["2019-06-03","2019-06-12"])
     #du.sell("260108", "2019-07-02", [])
     #du.sell("001632", "2019-07-02", [])
