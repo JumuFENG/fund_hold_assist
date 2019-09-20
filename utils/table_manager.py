@@ -129,3 +129,16 @@ class TableCopy():
             for i in range(len(headers)):
                 valObj[headers[i]] = str(values[i])
             toDb.update(totable, valObj, {'id':str(rowId)})
+
+    def ReplaceAllValues(self, tarDb, tablename, oldVal, newVal):
+        if not tarDb.isExistTable(tablename):
+            print("no table named", tablename)
+            return
+
+        headers = self.getTableHeaders(tarDb, tablename)
+        values = tarDb.select(tablename, headers, order=" ORDER BY id ASC")
+
+        for x in values:
+            for i in range(1, len(headers)):
+                if x[i] == oldVal:
+                    tarDb.update(tablename, {headers[i]:newVal}, {'id':str(x[0])})
