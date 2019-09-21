@@ -61,6 +61,12 @@ class UserFund():
         if not self.sqldb.isExistTableColumn(self.sell_table, column_roll_in_value):
             self.sqldb.addColumn(self.sell_table, column_roll_in_value, 'varchar(20) DEFAULT NULL')
 
+    def setup_budgettable(self):
+        if not self.sqldb.isExistTable(self.budget_table):
+            attrs = {column_date:'varchar(20) DEFAULT NULL',column_net_value:'varchar(20) DEFAULT NULL',column_budget:'varchar(10) DEFAULT NULL', column_consumed:'tinyint(1) DEFAULT 0'}
+            constraint = 'PRIMARY KEY(`id`)'
+            self.sqldb.creatTable(self.budget_table, attrs, constraint)
+
     def last_day_earned(self, history_table):
         history_dvs = self.sqldb.select(history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date);
         (lastd, n, grate) = history_dvs[-1]
@@ -77,6 +83,41 @@ class UserFund():
             pre_portion -= float(last_portion)
 
         return round(latest_earned_per_portion * pre_portion, 2)
+
+    def add_budget(self, budget, date):
+        fg = FundGeneral(self.sqldb, self.code)
+        his_db_table = fg.history_table
+        if not his_db_table:
+            print("can not get history table.")
+            return
+
+        if not self.sqldb.isExistTable(self.budget_table):
+            self.setup_budgettable()
+
+        if not date:
+            date = datetime.now().strftime("%Y-%m-%d")
+
+        bu_rec = self.sqldb.select(self.budget_table, conds = "%s = '%s'" % (column_date, date))
+        if bu_rec:
+            ((bu_rec),) = bu_rec
+        if bu_rec:
+            print("already add budget", bu_rec)
+            return
+
+        netvalue = fg.netvalue_by_date(date)
+        if not netvalue:
+            print("no value on", date)
+            return
+
+        self.sqldb.insert(self.budget_table, {column_date:date, column_net_value:str(netvalue), column_budget: str(budget)})
+        self.delete_cosumed()
+
+    def consume_budget(self, dates):
+        if isinstance(dates, str):
+            self.sqldb.update(self.budget_table, {column_consumed:'1'},{column_date:dates})
+        elif isinstance(dates, list):
+            for d in dates:
+                self.sqldb.update(self.budget_table, {column_consumed:'1'},{column_date:d})
 
     def delete_cosumed(self):
         if not self.sqldb.isExistTable(self.budget_table):
@@ -157,13 +198,6 @@ class UserFund():
             average = (Decimal(str(cost))/Decimal(str(portion))).quantize(Decimal("0.0000")) if not portion == 0 else 0
             self.sqldb.update(self.funds_table, {column_cost_hold:str(cost), column_portion_hold:str(portion), column_averagae_price:str(average)}, {column_code: self.code})
 
-    def cosume_budget(self, dates):
-        if isinstance(dates, str):
-            self.sqldb.update(self.budget_table, {column_consumed:'1'},{column_date:dates})
-        elif isinstance(dates, list):
-            for d in dates:
-                self.sqldb.update(self.budget_table, {column_consumed:'1'},{column_date:d})
-
     def rollin_sold(self, cost, date):
         rolled_in = self.sqldb.select(self.sell_table, [column_cost_sold, column_rolled_in, column_roll_in_value], "%s = '%s'" % (column_date, date))
         if rolled_in:
@@ -193,7 +227,7 @@ class UserFund():
         self.insert(self.buy_table, {column_date:date, column_cost:str(cost)})
 
         if budget_dates:
-            self.cosume_budget(budget_dates)
+            self.consume_budget(budget_dates)
 
         if rollin_date and isinstance(rollin_date, str):
             self.rollin_sold(cost, rollin_date)

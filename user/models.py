@@ -29,36 +29,7 @@ class User():
     def add_budget(self, code, budget, date = ""):
         sqldb = self.fund_center_db()
         uf = UserFund(self, code)
-        fg = FundGeneral(sqldb, code)
-
-        his_db_table = fg.history_table
-        if not his_db_table:
-            print("can not get history table.")
-            return
-
-        budget_table = uf.budget_table
-        if not sqldb.isExistTable(budget_table):
-            attrs = {column_date:'varchar(20) DEFAULT NULL',column_net_value:'varchar(20) DEFAULT NULL',column_budget:'varchar(10) DEFAULT NULL', column_consumed:'tinyint(1) DEFAULT 0'}
-            constraint = 'PRIMARY KEY(`id`)'
-            sqldb.creatTable(budget_table, attrs, constraint)
-
-        if not date:
-            date = datetime.now().strftime("%Y-%m-%d")
-
-        bu_rec = sqldb.select(budget_table, conds = "%s = '%s'" % (column_date, date))
-        if bu_rec:
-            ((bu_rec),) = bu_rec
-        if bu_rec:
-            print("already add budget", bu_rec)
-            return
-
-        netvalue = fg.netvalue_by_date(date)
-        if not netvalue:
-            print("no value on", date)
-            return
-
-        sqldb.insert(budget_table, {column_date:date, column_net_value:str(netvalue), column_budget: str(budget)})
-        uf.delete_cosumed()
+        uf.add_budget(budget, date)
 
     def fix_cost_portion_hold(self, code):
         uf = UserFund(self, code)
