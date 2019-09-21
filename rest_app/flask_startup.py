@@ -81,6 +81,56 @@ def signup():
                            template='signup-page',
                            body="Sign up for a user account.")
 
+def split_combined_dates(strDates):
+    if not strDates:
+        return None
+        
+    dates = []
+    for i in range(0, int(len(strDates)/10)):
+        dates.append(strDates[i*10:i * 10 + 10])
+    return dates
+
+@app.route('/fundbuy', methods=['POST'])
+def fundbuy():
+    if not session['logged_in']:
+        return "Please login."
+
+    gen_db = SqlHelper(password = db_pwd, database = "general")
+    usermodel = UserModel(gen_db)
+    user = usermodel.user_by_email(session['useremail'])
+    if request.method == 'POST':
+        code = request.form.get("code", type=str,default=None)
+        date = request.form.get("date", type=str,default=None)
+        cost = request.form.get("cost", type=str,default=None)
+        combined_dates = request.form.get("budget_dates", type=list,default=None)
+        budget_dates = split_combined_dates(combined_dates)
+        rollin_date = request.form.get("rollin_date", type=str,default=None)
+        print("fundbuy form")
+        print(type(request.form))
+        print(code, date, cost, budget_dates, rollin_date)
+        user.buy_not_confirm(code, date, cost, budget_dates, rollin_date)
+        user.confirm_buy(code, date)
+        return "OK", 200
+
+@app.route('/fundsell', methods=['POST'])
+def fundsell():
+    if not session['logged_in']:
+        return "Please login."
+
+    gen_db = SqlHelper(password = db_pwd, database = "general")
+    usermodel = UserModel(gen_db)
+    user = usermodel.user_by_email(session['useremail'])
+    if request.method == 'POST':
+        code = request.form.get("code", type=str, default=None)
+        date = request.form.get("date", type=str, default=None)
+        combined_dates = request.form.get("buydates", type=str, default=None)
+        buydates = split_combined_dates(combined_dates)
+        print("fundsell form")
+        print(code, date, buydates)
+        user.sell_not_confirm(code, date, buydates)
+        user.confirm_sell(code, date)
+        return "OK", 200
+
 @app.route('/fundsummary', methods=['GET'])
 def fundsummary():
     if not session['logged_in']:

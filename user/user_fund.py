@@ -193,9 +193,14 @@ class UserFund():
         buy_sum =self.sqldb.select(self.buy_table, ["sum(%s)" % column_cost, "sum(%s)" % column_portion], "%s = 0" % column_soldout)
         if buy_sum:
             (cost,portion), = buy_sum
-            if not cost or not portion:
-                return
-            average = (Decimal(str(cost))/Decimal(str(portion))).quantize(Decimal("0.0000")) if not portion == 0 else 0
+            average = 0
+            if not cost:
+                cost = 0
+            if not portion:
+                portion = 0
+
+            if not portion:
+                average = (Decimal(str(cost))/Decimal(str(portion))).quantize(Decimal("0.0000")) if not portion == 0 else 0
             self.sqldb.update(self.funds_table, {column_cost_hold:str(cost), column_portion_hold:str(portion), column_averagae_price:str(average)}, {column_code: self.code})
 
     def rollin_sold(self, cost, date):

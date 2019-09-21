@@ -473,3 +473,42 @@ function showAllFundList() {
         fund_list_tbl.appendChild(row)
     }
 }
+
+function buy() {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('POST', '../../fundbuy', true);
+        var request = new FormData();
+        request.append("code", "000217");
+        request.append("date", "2019-04-02");
+        request.append("cost", 1000);
+
+        httpRequest.send(request);
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                alert(httpRequest.responseText);
+            }
+        }
+}
+
+function sell() {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('POST', '../../fundsell', true);
+        var request = new FormData();
+        request.append("code", "000217");
+        request.append("date", "2019-05-15");
+        var buydates = ["2019-04-02","2019-04-03"];
+        var strbuydates = ""
+        for (var i = 0; i < buydates.length; i++) {
+            strbuydates += buydates[i]
+        };
+        request.append("buydates", strbuydates);
+
+        httpRequest.send(request);
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                alert(httpRequest.responseText);
+            }
+        }
+}

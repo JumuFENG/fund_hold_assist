@@ -40,6 +40,8 @@
             </ul><br />
             <canvas id="fund_canvas"></canvas>
         </div>
+        <button onclick="buy()">Buy</button>
+        <button onclick="sell()">Sell</button>
     {% else %}
         <div class="loginsignup">
             <span>Already have an account? <a href="{{ url_for('login') }}">Log in.</a><span>
