@@ -269,3 +269,63 @@ class UserFund():
     def buy(self, date, cost, budget_dates = None, rollin_date = None):
         self.add_buy_rec(date, cost, budget_dates, rollin_date)
         self.confirm_buy_rec(date)
+
+    def add_sell_rec(self, date, buydates):
+        if not isinstance(buydates, list):
+            print("UserFund.add_sell_rec buytdates should be list, but get", buytdates)
+            return
+
+        if not self.sqldb.isExistTable(self.buy_table):
+            print("UserFund.add_sell_rec no buy record to sell.", self.code)
+            return
+
+        if not self.sqldb.isExistTable(self.sell_table):
+            self.setup_selltable()
+
+        sell_rec = self.sqldb.select(self.sell_table, conds = "%s = '%s'" % (column_date, date))
+        if sell_rec:
+            ((sell_rec),) = sell_rec
+            if sell_rec:
+                print("find sell record", sell_rec, "ignore")
+                return
+
+        cost_tosell = Decimal(0)
+        portion_tosell = Decimal(0)
+        for d in buydates:
+            detail = self.sqldb.select(self.buy_table, [column_cost, column_portion], "%s = '%s'" % (column_date, d))
+            if detail:
+                (c, p), = detail
+                cost_tosell += Decimal(str(c))
+                portion_tosell += Decimal(str(p))
+                self.sqldb.update(self.buy_table, {column_soldout:str(1)}, {column_date:d})
+
+        self.sqldb.insert(self.sell_table, {column_date:date, column_portion : str(portion_tosell), column_cost_sold:str(cost_tosell), column_rolled_in:str(0)})
+
+    def confirm_sell_rec(self, date):
+        sell_rec = self.sqldb.select(self.sell_table, [column_portion, column_cost_sold], conds = "%s = '%s'" % (column_date, date))
+        if not sell_rec:
+            print("UserFund.confirm_sell_rec no sell record found. add record firstly.")
+            return
+
+        (portion, cost), = sell_rec
+        if not portion or portion == 0:
+            print("UserFund.confirm_sell_rec invalid portion.")
+            return
+
+        fg = FundGeneral(self.sqldb, self.code)
+        netvalue = fg.netvalue_by_date(date)
+        if not netvalue:
+            print("UserFund.confirm_sell_rec netvalue invalid. try again later.")
+            return
+
+        money = Decimal(portion) * Decimal(str(netvalue))
+        earned = money - Decimal(cost)
+        return_percent = earned / Decimal(cost)
+        max_value_to_sell = round(netvalue * (1.0 - float(fg.short_term_rate)), 4)
+        self.sqldb.update(self.sell_table, {column_money_sold:str(money), column_earned : str(earned), column_return_percentage : str(return_percent), column_roll_in_value:str(max_value_to_sell)}, {column_date:date})
+
+        self.fix_cost_portion_hold()
+
+    def sell_by_dates(self, date, buydates):
+        self.add_sell_rec(date, buydates)
+        self.confirm_sell_rec(date)

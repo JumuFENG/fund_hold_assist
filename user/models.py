@@ -52,6 +52,18 @@ class User():
         uf = UserFund(self, code)
         uf.fix_buy_rec(date, cost)
 
+    def sell_by_dates(self, code, date, buydates):
+        uf = UserFund(self, code)
+        uf.sell_by_dates(date, buydates)
+
+    def sell_not_confirm(self, code, date, buydates):
+        uf = UserFund(self, code)
+        uf.add_sell_rec(date, buydates)
+
+    def confirm_sell(self, code, date):
+        uf = UserFund(self, code)
+        uf.confirm_sell_rec(date)
+
     def get_holding_funds_json(self):
         sqldb = self.fund_center_db()
         if not sqldb.isExistTable(self.funds_info_table()):
