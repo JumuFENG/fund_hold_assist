@@ -43,7 +43,7 @@ class UserFund():
 
     def setup_buytable(self):
         if not self.sqldb.isExistTable(self.buy_table) :
-            attrs = {column_date:'varchar(20) DEFAULT NULL',column_cost:'double(16,4) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL',column_soldout:'tinyint(1) DEFAULT NULL'}
+            attrs = {column_date:'varchar(20) DEFAULT NULL',column_cost:'double(16,4) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL',column_soldout:'tinyint(1) DEFAULT 0'}
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.buy_table, attrs, constraint)
             
@@ -224,7 +224,7 @@ class UserFund():
                 print("buy record:", buy_rec, "already exists.")
                 return
 
-        self.insert(self.buy_table, {column_date:date, column_cost:str(cost)})
+        self.sqldb.insert(self.buy_table, {column_date:date, column_cost:str(cost), column_soldout:'0'})
 
         if budget_dates:
             self.consume_budget(budget_dates)
@@ -242,7 +242,7 @@ class UserFund():
             return
 
         self.sqldb.update(self.buy_table, {column_cost:str(cost)}, {column_date:date})
-        self.confirm_buy_rec(self.date)
+        self.confirm_buy_rec(date)
 
     def confirm_buy_rec(self, date):
         buy_rec = self.sqldb.select(self.buy_table, [column_cost], conds = "%s = '%s'" % (column_date, date))
@@ -250,7 +250,7 @@ class UserFund():
             print("UserFund.confirm_buy_rec no buy record found. add record firstly.")
             return
 
-        cost, = buy_rec
+        (cost,), = buy_rec
         if not cost or cost == 0:
             print("UserFund.confirm_buy_rec invalid cost.")
             return
@@ -261,7 +261,7 @@ class UserFund():
             print("UserFund.confirm_buy_rec netvalue invalid. try again later.")
             return
 
-        portion = ((Decimal(cost)/Decimal(1 + self.fund_general.pre_buy_fee)) / Decimal(str(netvalue))).quantize(Decimal("0.0000"))
+        portion = ((Decimal(cost)/Decimal(1 + fg.pre_buy_fee)) / Decimal(str(netvalue))).quantize(Decimal("0.0000"))
 
         self.sqldb.update(self.buy_table, {column_portion:str(portion)}, {column_date:date})
         self.fix_cost_portion_hold()

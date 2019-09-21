@@ -6,6 +6,7 @@ from decimal import Decimal
 import sys
 sys.path.append("../..")
 from utils import *
+from user.user_fund import *
 
 class User():
     def __init__(self, id, name, email, password=None):
@@ -34,6 +35,22 @@ class User():
     def fix_cost_portion_hold(self, code):
         uf = UserFund(self, code)
         uf.fix_cost_portion_hold()
+
+    def buy(self, code, date, cost, budget_dates = None, rollin_date = None):
+        uf = UserFund(self, code)
+        uf.buy(date, cost, budget_dates, rollin_date)
+
+    def buy_not_confirm(self, code, date, cost, budget_dates = None, rollin_date = None):
+        uf = UserFund(self, code)
+        uf.add_buy_rec(date, cost, budget_dates, rollin_date)
+
+    def confirm_buy(self, code, date):
+        uf = UserFund(self, code)
+        uf.confirm_buy_rec(date)
+
+    def fix_buy_rec(self, code, date, cost):
+        uf = UserFund(self, code)
+        uf.fix_buy_rec(date, cost)
 
     def get_holding_funds_json(self):
         sqldb = self.fund_center_db()
