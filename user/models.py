@@ -7,122 +7,6 @@ import sys
 sys.path.append("../..")
 from utils import *
 
-class UserFund():
-    """the fund basic info for user"""
-    def __init__(self, user, code):
-        self.sqldb = user.fund_center_db()
-        self.code = code
-        if not self.sqldb.isExistTable(user.funds_info_table()):
-            attrs = {column_code:'varchar(10) DEFAULT NULL'}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(user.funds_info_table(), attrs, constraint)
-            self.sqldb.insert(user.funds_info_table(), {column_code: self.code})
-            self.init_user_fund_in_db(user.id, user.funds_info_table())
-        else:
-            details = self.sqldb.select(user.funds_info_table(), "*", "%s = '%s'" % (column_code, code))
-            if details:
-                (i, self.code, self.buy_table, self.sell_table, self.budget_table, self.cost_hold, self.portion_hold, self.average), = details
-            else:
-                self.sqldb.insert(user.funds_info_table(), {column_code: self.code})
-                self.init_user_fund_in_db(user.id, user.funds_info_table())
-
-    def init_user_fund_in_db(self, id, tablename):
-        pre_uid = "u" + str(id) + "_"
-        buy_table = pre_uid + self.code + "_buy"
-        sell_table = pre_uid + self.code + "_sell"
-        budget_table = pre_uid + self.code + "_inv_budget"
-        tbl_mgr = TableManager(self.sqldb, tablename, self.code)
-        self.buy_table = tbl_mgr.GetTableColumnInfo(column_buy_table, buy_table)
-        self.sell_table = tbl_mgr.GetTableColumnInfo(column_sell_table, sell_table)
-        self.budget_table = tbl_mgr.GetTableColumnInfo(column_budget_table, budget_table)
-        self.cost_hold = tbl_mgr.GetTableColumnInfo(column_cost_hold, "0", "double(16,2) DEFAULT NULL")
-        self.portion_hold = tbl_mgr.GetTableColumnInfo(column_portion_hold, "0", "double(16,4) DEFAULT NULL")
-        self.average = tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
-        self.sqldb.update(tablename, {column_buy_table:self.buy_table, column_sell_table: self.sell_table, column_budget_table: self.budget_table, column_cost_hold: self.cost_hold, column_portion_hold: self.portion_hold, column_averagae_price: self.average}, {column_code : self.code})
-
-    def last_day_earned(self, history_table):
-        history_dvs = self.sqldb.select(history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date);
-        (lastd, n, grate) = history_dvs[-1]
-        (d, nv, g) = history_dvs[-2]
-        latest_earned_per_portion = float(nv) * float(grate)
-
-        pre_portion = float(self.portion_hold)
-        if self.buy_table:
-            last_portion = self.sqldb.select(self.buy_table, [column_portion], "%s = '%s'" % (column_date, lastd))
-            if last_portion:
-                (last_portion,), = last_portion
-            if not last_portion:
-                last_portion = 0
-            pre_portion -= float(last_portion)
-
-        return round(latest_earned_per_portion * pre_portion, 2)
-
-    def delete_cosumed(self):
-        if not self.sqldb.isExistTable(self.budget_table):
-            return
-
-        self.sqldb.delete(self.budget_table, {column_consumed:'1'})
-
-    def get_budget_arr(self, ppg):
-        values = []
-        if self.budget_table and self.sqldb.isExistTable(self.budget_table):
-            self.delete_cosumed()
-            budget = self.sqldb.select(self.budget_table, [column_date, column_net_value, column_budget])
-            for (d,v,b) in budget:
-                values.append({"date":d, "max_price_to_buy":str(Decimal(str(v)) * ppg), "budget":b})
-        return values
-
-    def get_roll_in_arr(self, fg, ppg):
-        if not self.sell_table or not self.sqldb.isExistTable(self.sell_table):
-            return
-
-        if not self.sqldb.isExistTableColumn(self.sell_table, column_rolled_in) or not self.sqldb.isExistTableColumn(self.sell_table, column_roll_in_value):
-            print("table column not complete.")
-            return
-
-        sell_recs = self.sqldb.select(self.sell_table, [column_date, column_cost_sold, column_rolled_in, column_roll_in_value])
-        if not sell_recs:
-            return
-
-        values = []
-        for (d, c, r, v) in sell_recs:
-            if not r:
-                r = 0
-            if c <= float(r):
-                continue
-            max_price_to_buy = 0
-            if not v:
-                netvalue = fg.netvalue_by_date(d)
-                max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)) * ppg, 4)
-            else:
-                max_price_to_buy = round(float(v) * ppg, 4)
-            values.append({"date":d, "max_price_to_buy":max_price_to_buy, "to_rollin":str(int(c - float(r)))})
-
-        return values
-
-    def get_buy_arr(self, fg):
-        if not self.buy_table:
-            return
-
-        dcp_not_sell = self.sqldb.select(self.buy_table, [column_date, column_cost, column_portion], "%s = 0" % column_soldout)
-        values = []
-        for (d,c,p) in dcp_not_sell:
-            v = fg.netvalue_by_date(d)
-            values.append({"date":d, "netvalue":v, "cost":c, "portion":p})
-        return values
-
-    def get_portions_morethan_7day(self, fg, ppg):
-        dateToday = datetime.now().strftime("%Y-%m-%d")
-        dateBegin = (datetime.strptime(dateToday, "%Y-%m-%d") + timedelta(days=-7)).strftime("%Y-%m-%d")
-        history_table = fg.history_table
-
-        if not self.buy_table:
-            return 0
-        (portion_cannot_sell,), = self.sqldb.select(self.buy_table, "sum(%s)" % column_portion, "%s > '%s'" % (column_date, dateBegin))
-        if not portion_cannot_sell:
-            portion_cannot_sell = 0
-        return round((self.portion_hold - portion_cannot_sell) / ppg, 4)
-
 class User():
     def __init__(self, id, name, email, password=None):
         self.id = id
@@ -174,7 +58,11 @@ class User():
             return
 
         sqldb.insert(budget_table, {column_date:date, column_net_value:str(netvalue), column_budget: str(budget)})
-        uf.delete_cosumed()      
+        uf.delete_cosumed()
+
+    def fix_cost_portion_hold(self, code):
+        uf = UserFund(self, code)
+        uf.fix_cost_portion_hold()
 
     def get_holding_funds_json(self):
         sqldb = self.fund_center_db()
