@@ -162,7 +162,7 @@ function createRollinsTable(rollins) {
     return rollinTable;
 }
 
-function getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg) {
+function getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg, code) {
     var portion_can_sell = 0.0;
     var max_value_to_sell = parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate));
     var dates = [];
@@ -180,7 +180,13 @@ function getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg) {
         portion_can_sell = portion_can_sell.toFixed(4);
 
         var row1 = create2ColRow(">"+ (parseFloat(short_term_rate) * 100).toFixed(2) +"%", portion_can_sell);
-        var row2 = createSingleRow(JSON.stringify(dates).replace(/,/g, ', '));
+        var col = document.createElement("td");
+        col.setAttribute("colspan","2");
+        col.id = "shorterm_sell_" + code;
+        col.textContent = JSON.stringify(dates).replace(/,/g, ', ');
+        var row2 = document.createElement("tr");
+        row2.appendChild(col);
+
         return [row1, row2];
     };
 
@@ -245,7 +251,7 @@ function updateLatestSellInfo(fundcode) {
     var short_term_rate = ftjson[fundcode]["short_term_rate"];
     var buytable = ftjson[fundcode]["buy_table"];
     var ppg = parseFloat(ftjson[fundcode]["ppg"]);
-    var sell_rows = getMaxSellPortionDates(gz, short_term_rate, buytable, ppg);
+    var sell_rows = getMaxSellPortionDates(gz, short_term_rate, buytable, ppg, fundcode);
 
     for (var i = sellTable.rows.length - 1; i >= 2; i--) {
         sellTable.deleteRow(i);
@@ -267,7 +273,7 @@ function createSellInfoTable(fundcode) {
     var buytable = funddata["buy_table"];
     var ppg = parseFloat(funddata["ppg"]);
     var netvalue = parseFloat(funddata["latest_netvalue"]);
-    var sell_rows = getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg);
+    var sell_rows = getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg, fundcode);
     sell_rows.forEach(function(row, i){
         sellTable.appendChild(row);
     });
@@ -408,7 +414,9 @@ function createGeneralInfoInSingleRow(fundcode) {
 
     hold_detail.appendChild(createBudgetsTable(funddata["budget"]));
     hold_detail.appendChild(createRollinsTable(funddata["rollin"]));
+    hold_detail.appendChild(createBuyPanel(fundcode));
     hold_detail.appendChild(createSellInfoTable(fundcode));
+    hold_detail.appendChild(createSellPanel(fundcode));
 
     general_root.appendChild(hold_detail);
 
@@ -474,41 +482,104 @@ function showAllFundList() {
     }
 }
 
-function buy() {
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.open('POST', '../../fundbuy', true);
-        var request = new FormData();
-        request.append("code", "000217");
-        request.append("date", "2019-04-02");
-        request.append("cost", 1000);
-
-        httpRequest.send(request);
-
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                alert(httpRequest.responseText);
-            }
-        }
+function createBuyPanel(code) {
+    var buyDate = document.createElement("input");
+    buyDate.type = "date";
+    var dt = new Date();
+    buyDate.value = dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0')
+    buyDate.id = "buy_date_" + code;
+    var buyInput = document.createElement("input");
+    buyInput.type = "text";
+    buyInput.id = "buy_cost_" + code;
+    var buyBtn = document.createElement("button");
+    buyBtn.id = "buy_btn_" + code;
+    buyBtn.textContent = "Buy";
+    buyBtn.onclick = function(e) {
+        var code = e.target.id.split('_').pop();
+        var buyInput = document.getElementById("buy_cost_" + code);
+        var buyDate = document.getElementById("buy_date_" + code);
+        var date = buyDate.value;
+        var cost = parseFloat(buyInput.value);
+        if (Number.isNaN(cost) || cost <= 0) {
+            alert("Wrong input data.");
+            return;
+        };
+        var budget_dates = null;
+        var rollin_date = null;
+        buyFund(code, date, cost, budget_dates, rollin_date);
+    };
+    var buyDiv = document.createElement("div");
+    buyDiv.appendChild(buyDate);
+    buyDiv.appendChild(buyInput);
+    buyDiv.appendChild(buyBtn);
+    return buyDiv;
 }
 
-function sell() {
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.open('POST', '../../fundsell', true);
-        var request = new FormData();
-        request.append("code", "000217");
-        request.append("date", "2019-05-15");
-        var buydates = ["2019-04-02","2019-04-03"];
-        var strbuydates = ""
-        for (var i = 0; i < buydates.length; i++) {
-            strbuydates += buydates[i]
+function createSellPanel(code) {
+    var sellDate = document.createElement("input");
+    sellDate.type = "date";
+    var dt = new Date();
+    sellDate.value = dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0')
+    sellDate.id = "sell_date_" + code;
+
+    var sellBtn = document.createElement("button");
+    sellBtn.textContent = "Sell";
+    sellBtn.id = "sell_btn_" + code;
+    sellBtn.onclick = function(e) {
+        var code = e.target.id.split('_').pop();
+        var sellDate = document.getElementById("sell_date_" + code);
+        var date = sellDate.value;
+
+        var short_term_td = document.getElementById("shorterm_sell_" + code);
+        var strbuydates = (short_term_td.textContent).replace(/\"|, |\[|\]/g, '');
+
+        sellFund(code, date, strbuydates);
+    };
+    var sellDiv = document.createElement("div");
+    sellDiv.appendChild(sellDate);
+    sellDiv.appendChild(sellBtn);
+    return sellDiv;
+}
+
+function buyFund(code, date, cost, budget_dates, rollin_date) {
+    var httpRequest = new XMLHttpRequest();
+    httpRequest.open('POST', '../../fundbuy', true);
+    var request = new FormData();
+    request.append("code", code);
+    request.append("date", date);
+    request.append("cost", cost);
+    if (budget_dates) {
+        budgetdates = "";
+        for (var i = 0; i < budget_dates.length; i++) {
+            budgetdates += budget_dates[i]
         };
-        request.append("buydates", strbuydates);
+        request.append("budget_dates", budgetdates);
+    };
 
-        httpRequest.send(request);
+    if (rollin_date) {
+        request.append("rollin_date", rollin_date)
+    };
 
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                alert(httpRequest.responseText);
-            }
+    httpRequest.send(request);
+
+    httpRequest.onreadystatechange = function () {
+        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+            alert(httpRequest.responseText);
         }
+    }
+}
+
+function sellFund(code, date, strbuydates) {
+    var httpRequest = new XMLHttpRequest();
+    httpRequest.open('POST', '../../fundsell', true);
+    var request = new FormData();
+    request.append("code", code);
+    request.append("date", date);
+    request.append("buydates", strbuydates);
+    httpRequest.send(request);
+    httpRequest.onreadystatechange = function () {
+        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+            alert(httpRequest.responseText);
+        }
+    }
 }

@@ -42,6 +42,10 @@ function DrawSzzsHistory(days = 30) {
     var data = [];
     var dataArr = all_hist_data;
     var len = dataArr.length;
+    if (len <= 0) {
+        return;
+    };
+    
     var showLen = days > 0 ? days : len;
     for (var i = 1; i < showLen; i++) {
         labels.push(dataArr[len - showLen + i][0]);
@@ -72,6 +76,9 @@ function DrawFundHistory(fundcode, days = 30) {
     var data = [];
     var dataArr = all_hist_data;
     var len = dataArr.length;
+    if (len <= 0) {
+        return;
+    };
     var showLen = days > 0 ? days : len;
     var fundValIdx = dataArr[0].indexOf(fundcode) * 2 - 1;
     for (var i = 1; i < showLen; i++) {

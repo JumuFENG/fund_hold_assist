@@ -200,7 +200,7 @@ class UserFund():
             if not portion:
                 portion = 0
 
-            if not portion:
+            if portion:
                 average = (Decimal(str(cost))/Decimal(str(portion))).quantize(Decimal("0.0000")) if not portion == 0 else 0
             self.sqldb.update(self.funds_table, {column_cost_hold:str(cost), column_portion_hold:str(portion), column_averagae_price:str(average)}, {column_code: self.code})
 
