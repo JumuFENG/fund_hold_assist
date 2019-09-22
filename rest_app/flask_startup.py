@@ -33,7 +33,7 @@ def login():
     gen_db = SqlHelper(password = db_pwd, database = "general")
     usermodel = UserModel(gen_db)
     if request.method == 'GET':
-        if not session['logged_in']:
+        if not session.get('logged_in'):
             return render_template('login.html', loginsignup = True)
         else:
             return render_template('home.html')
@@ -135,7 +135,7 @@ def fundsell():
 def fundsummary():
     if not session['logged_in']:
         return redirect(url_for('login'))
-        
+
     gen_db = SqlHelper(password = db_pwd, database = "general")
     usermodel = UserModel(gen_db)
     user = usermodel.user_by_email(session['useremail'])
