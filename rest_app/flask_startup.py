@@ -92,7 +92,7 @@ def split_combined_dates(strDates):
 
 @app.route('/fundbuy', methods=['POST'])
 def fundbuy():
-    if not session['logged_in']:
+    if not session.get('logged_in'):
         return "Please login."
 
     gen_db = SqlHelper(password = db_pwd, database = "general")
@@ -114,7 +114,7 @@ def fundbuy():
 
 @app.route('/fundsell', methods=['POST'])
 def fundsell():
-    if not session['logged_in']:
+    if not session.get('logged_in'):
         return "Please login."
 
     gen_db = SqlHelper(password = db_pwd, database = "general")
@@ -133,7 +133,7 @@ def fundsell():
 
 @app.route('/fundsummary', methods=['GET'])
 def fundsummary():
-    if not session['logged_in']:
+    if not session.get('logged_in'):
         return redirect(url_for('login'))
 
     gen_db = SqlHelper(password = db_pwd, database = "general")
@@ -151,7 +151,7 @@ def fundsummary():
 
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
-    if not session['logged_in']:
+    if not session.get('logged_in'):
         return redirect(url_for('login'))
     return "login success!"
 
