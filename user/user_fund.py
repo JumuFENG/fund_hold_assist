@@ -6,6 +6,7 @@ from decimal import Decimal
 import sys
 sys.path.append("../..")
 from utils import *
+from history import *
 
 class UserFund():
     """the fund basic info for user"""
@@ -334,3 +335,21 @@ class UserFund():
     def sell_by_dates(self, date, buydates):
         self.add_sell_rec(date, buydates)
         self.confirm_sell_rec(date)
+
+    def confirm_buy_sell(self):
+        if self.sqldb.isExistTable(self.buy_table):
+            buy_rec = self.sqldb.select(self.buy_table, [column_date], ["%s > 0" % column_cost, "%s is NULL" %column_portion, "%s = 0" % column_soldout])
+            if buy_rec:
+                for d, in buy_rec:
+                    self.confirm_buy_rec(d)
+
+        if self.sqldb.isExistTable(self.sell_table):
+            sell_rec = self.sqldb.select(self.sell_table, [column_date], ["%s > 0" % column_cost_sold, "%s is NULL" %column_money_sold])
+            if sell_rec:
+                for d, in sell_rec:
+                    self.confirm_sell_rec(d)
+
+    def update_history(self):
+        fh = FundHistoryDataDownloader(self.sqldb)
+        fh.fundHistoryTillToday(self.code)
+        self.confirm_buy_sell()

@@ -135,9 +135,11 @@ def fundsell():
 def fundsummary():
     if not session['logged_in']:
         return redirect(url_for('login'))
+        
     gen_db = SqlHelper(password = db_pwd, database = "general")
     usermodel = UserModel(gen_db)
     user = usermodel.user_by_email(session['useremail'])
+    user.update_funds()
     fundsjson = user.get_holding_funds_json()
     hist_data = user.get_holding_funds_hist_data()
     return render_template('/fundsummary.html', 

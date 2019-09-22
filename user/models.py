@@ -64,6 +64,16 @@ class User():
         uf = UserFund(self, code)
         uf.confirm_sell_rec(date)
 
+    def update_funds(self):
+        sqldb = self.fund_center_db()
+        fundcodes = sqldb.select(self.funds_info_table(), [column_code])
+        if not fundcodes:
+            return
+
+        for c, in fundcodes:
+            uf = UserFund(self, c)
+            uf.update_history()
+
     def get_holding_funds_json(self):
         sqldb = self.fund_center_db()
         if not sqldb.isExistTable(self.funds_info_table()):
