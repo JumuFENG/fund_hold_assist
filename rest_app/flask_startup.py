@@ -38,7 +38,7 @@ def login():
         else:
             return render_template('home.html')
     elif request.method == 'POST':
-        username = request.form['username']
+        # username = request.form['username']
         email = request.form['email']
         password = request.form['password']
 

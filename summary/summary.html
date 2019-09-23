@@ -5,9 +5,9 @@
     <script type="text/javascript" src="json/fund.json"></script>
     <script type="text/javascript" src="json/history_data.json"></script>
     <script type="text/javascript" src="Chart.min.js"></script>
-    <script type="text/javascript" src="../../static/src/js/fund.summary.js"></script>
-    <script type="text/javascript" src="../../static/src/js/fund.chart.js"></script>
-    <link rel="stylesheet" type="text/css" href="../../static/src/css/fund.css">
+    <script type="text/javascript" src="../static/src/js/fund.summary.js"></script>
+    <script type="text/javascript" src="../static/src/js/fund.chart.js"></script>
+    <link rel="stylesheet" type="text/css" href="../static/src/css/fund.css">
 </head>
 <body>
     <title>持基表</title>
@@ -26,7 +26,7 @@
     </div>
     <hr />
     <div id="canvas_div" style="width:98%">
-        <canvas id="sz000001_canvas"></canvas> <br />
+<!--        <canvas id="sz000001_canvas"></canvas> <br />
         <ul id="dayslist">
             <li class="highlight" onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">30</li>
             <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">100</li>
@@ -34,7 +34,17 @@
             <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">1000</a></li>
             <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">Max</a></li>
         </ul><br />
-        <canvas id="fund_canvas"></canvas>
+        <canvas id="fund_canvas"></canvas> -->
+                <ul id="tradeoptions">
+                    <li class="highlight" id="tradeoption_buy" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">买入</li>
+                    <li id="tradeoption_sell" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">卖出</li>
+                    <li id="tradeoption_budget" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">加预算</li>
+                </ul> <br/> <hr />
+            <div id="trade_panel">
+                <input id="trade_panel_date" type="date" />
+                <input id="trade_panel_cost" type="text" />
+                <button id="trade_panel_submit" onclick="TradeSubmit(trade_panel, trade_panel_date, trade_panel_cost, tradeoptions)">确定</button>
+            </div>
     </div>
 </body>
 </html>

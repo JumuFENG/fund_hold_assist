@@ -19,7 +19,7 @@ function loadJsonData() {
 
 window.onload = function() {
     showAllFundList();
-    DrawSzzsHistory();
+    //DrawSzzsHistory();
 }
 
 document.addEventListener(ExtensionLoadedEvent, e => {
@@ -290,6 +290,12 @@ function ToggleFundDetails(divDetail) {
         canvas.parentElement.removeChild(canvas);
         divDetail.appendChild(canvas);
         DrawFundHistory(fundcode);
+
+        var tradepanel = document.getElementById("trade_panel");
+        tradepanel.setAttribute("code", fundcode);
+        var datepicker = document.getElementById("trade_panel_date");
+        var dt = new Date();
+        datepicker.value = dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
     } else {
         divDetail.style.display = "none";
     }
@@ -414,9 +420,7 @@ function createGeneralInfoInSingleRow(fundcode) {
 
     hold_detail.appendChild(createBudgetsTable(funddata["budget"]));
     hold_detail.appendChild(createRollinsTable(funddata["rollin"]));
-    hold_detail.appendChild(createBuyPanel(fundcode));
     hold_detail.appendChild(createSellInfoTable(fundcode));
-    hold_detail.appendChild(createSellPanel(fundcode));
 
     general_root.appendChild(hold_detail);
 
@@ -482,63 +486,57 @@ function showAllFundList() {
     }
 }
 
-function createBuyPanel(code) {
-    var buyDate = document.createElement("input");
-    buyDate.type = "date";
-    var dt = new Date();
-    buyDate.value = dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0')
-    buyDate.id = "buy_date_" + code;
-    var buyInput = document.createElement("input");
-    buyInput.type = "text";
-    buyInput.id = "buy_cost_" + code;
-    var buyBtn = document.createElement("button");
-    buyBtn.id = "buy_btn_" + code;
-    buyBtn.textContent = "Buy";
-    buyBtn.onclick = function(e) {
-        var code = e.target.id.split('_').pop();
-        var buyInput = document.getElementById("buy_cost_" + code);
-        var buyDate = document.getElementById("buy_date_" + code);
-        var date = buyDate.value;
-        var cost = parseFloat(buyInput.value);
-        if (Number.isNaN(cost) || cost <= 0) {
-            alert("Wrong input data.");
-            return;
+function SetTradeOption(t, cost, submit) {
+    t.className = "highlight";
+    var sibling = t.parentElement.firstChild;
+    while (sibling != null) {
+        if (sibling != t) {
+            sibling.className = "";
         };
+        sibling = sibling.nextElementSibling;
+    }
+    if (t.id == "tradeoption_sell") {
+        t.parentElement.setAttribute("trade", "sell");
+    } else if (t.id = "tradeoption_budget") {
+        t.parentElement.setAttribute("trade", "budget");
+    } else {
+        t.parentElement.setAttribute("trade", "buy");
+    }
+
+    if (t.id == "tradeoption_sell") {
+        cost.style.display = "none";
+        submit.textContent = "卖出";
+    } else {
+        cost.style.display = "inline";
+        submit.textContent = "确定";
+    }
+}
+
+function TradeSubmit(tradepanel, tradedate, tradecost, tradeoptions) {
+    var code = tradepanel.getAttribute("code");
+    if (code == null) {
+        alert("please select a fund first.");
+        return;
+    };
+
+    var date = tradedate.value;
+    var cost = parseFloat(tradecost.value);
+    if (Number.isNaN(cost) || cost <= 0) {
+        alert("Wrong input data.");
+        return;
+    }
+    var option = tradeoptions.getAttribute("trade");
+    if (option == "budget") {
+        alert("not implemented yet.");
+    } else if (option == "sell") {
+        var short_term_td = document.getElementById("shorterm_sell_" + code);
+        var strbuydates = (short_term_td.textContent).replace(/\"|, |\[|\]/g, '');
+        sellFund(code, date, strbuydates);
+    } else {
         var budget_dates = null;
         var rollin_date = null;
         buyFund(code, date, cost, budget_dates, rollin_date);
-    };
-    var buyDiv = document.createElement("div");
-    buyDiv.appendChild(buyDate);
-    buyDiv.appendChild(buyInput);
-    buyDiv.appendChild(buyBtn);
-    return buyDiv;
-}
-
-function createSellPanel(code) {
-    var sellDate = document.createElement("input");
-    sellDate.type = "date";
-    var dt = new Date();
-    sellDate.value = dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0')
-    sellDate.id = "sell_date_" + code;
-
-    var sellBtn = document.createElement("button");
-    sellBtn.textContent = "Sell";
-    sellBtn.id = "sell_btn_" + code;
-    sellBtn.onclick = function(e) {
-        var code = e.target.id.split('_').pop();
-        var sellDate = document.getElementById("sell_date_" + code);
-        var date = sellDate.value;
-
-        var short_term_td = document.getElementById("shorterm_sell_" + code);
-        var strbuydates = (short_term_td.textContent).replace(/\"|, |\[|\]/g, '');
-
-        sellFund(code, date, strbuydates);
-    };
-    var sellDiv = document.createElement("div");
-    sellDiv.appendChild(sellDate);
-    sellDiv.appendChild(sellBtn);
-    return sellDiv;
+    }
 }
 
 function buyFund(code, date, cost, budget_dates, rollin_date) {

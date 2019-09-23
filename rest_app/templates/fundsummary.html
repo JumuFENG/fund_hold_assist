@@ -39,9 +39,17 @@
                 <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">Max</a></li>
             </ul><br />
             <canvas id="fund_canvas"></canvas>
+            <ul id="tradeoptions">
+                <li class="highlight" id="tradeoption_buy" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">买入</li>
+                <li id="tradeoption_sell" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">卖出</li>
+                <li id="tradeoption_budget" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">加预算</li>
+            </ul> <br/> <hr />
+            <div id="trade_panel">
+                <input id="trade_panel_date" type="date" />
+                <input id="trade_panel_cost" type="text" />
+                <button id="trade_panel_submit" onclick="TradeSubmit(trade_panel, trade_panel_date, trade_panel_cost, tradeoptions)">确定</button>
+            </div>
         </div>
-        <button onclick="buy()">Buy</button>
-        <button onclick="sell()">Sell</button>
     {% else %}
         <div class="loginsignup">
             <span>Already have an account? <a href="{{ url_for('login') }}">Log in.</a><span>
