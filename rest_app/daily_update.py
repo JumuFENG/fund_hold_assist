@@ -14,6 +14,7 @@ class DailyUpdater():
         self.sqldb = sqldb
 
     def update_all(self):
+        print("START UPDATING....",datetime.now())
         datetoday = datetime.now()
         if datetoday.weekday() >= 5:
             print("it is weekend, no data to update.", datetoday.strftime("%Y-%m-%d"))
@@ -44,18 +45,18 @@ class DailyUpdater():
                     self.download_all_gold_history(c)
 
     def download_all_fund_history(self, code):
-        print(datetoday, "try to update fund history for:", code)
+        print("try to update fund history for:", code)
         fh = FundHistoryDataDownloader(self.sqldb)
         fh.fundHistoryTillToday(code)
 
     def download_all_gold_history(self, code):
-        print(datetoday, "try to update gold history for:", code)
+        print("try to update gold history for:", code)
         gh = Gold_history(self.sqldb)
         gh.getJijinhaoHistory(code)
         gh.getJijinhaoRtHistory(code)
 
     def download_all_index_history(self, code):
-        print(datetoday, "try to update index history for:", code)
+        print("try to update index history for:", code)
         ih = Index_history(self.sqldb)
         ih.indexHistoryTillToday(code)
         #ih.getHistoryFromSohu(code)
