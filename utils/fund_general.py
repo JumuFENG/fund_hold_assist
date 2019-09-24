@@ -14,6 +14,7 @@ class FundGeneral():
         (i, self.code, self.name, self.fund_url, ftype, risklvl, amount, setup_date, star, self.summery_url, pre_buy_fee, shzq, zszq, jajx, num5star, mstar3, mstar5, self.short_term_rate, self.history_table), = generals
         if not self.history_table:
             self.history_table = "f_his_" + self.code
+            self.sqldb.update(gl_all_funds_info_table, {column_table_history: self.history_table}, {column_code:self.code});
         self.pre_buy_fee = 0
         if pre_buy_fee:
             self.pre_buy_fee = float(pre_buy_fee.strip('%')) / 100
