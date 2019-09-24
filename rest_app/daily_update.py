@@ -30,7 +30,7 @@ class DailyUpdater():
         if fundcodes :
             for (c, h) in fundcodes:
                 if self.should_update(h):
-                    self.update_fund_history(c, h)
+                    self.download_all_fund_history(c)
 
         indexcodes = self.sqldb.select(gl_index_info_table, fields=[column_code, column_table_history])
         if indexcodes:
