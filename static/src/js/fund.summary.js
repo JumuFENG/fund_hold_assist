@@ -19,7 +19,7 @@ function loadJsonData() {
 
 window.onload = function() {
     showAllFundList();
-    //DrawSzzsHistory();
+    DrawSzzsHistory();
 }
 
 document.addEventListener(ExtensionLoadedEvent, e => {
@@ -521,10 +521,6 @@ function TradeSubmit(tradepanel, tradedate, tradecost, tradeoptions) {
 
     var date = tradedate.value;
     var cost = parseFloat(tradecost.value);
-    if (Number.isNaN(cost) || cost <= 0) {
-        alert("Wrong input data.");
-        return;
-    }
     var option = tradeoptions.getAttribute("trade");
     if (option == "budget") {
         alert("not implemented yet.");
@@ -540,6 +536,11 @@ function TradeSubmit(tradepanel, tradedate, tradecost, tradeoptions) {
 }
 
 function buyFund(code, date, cost, budget_dates, rollin_date) {
+    if (Number.isNaN(cost) || cost <= 0) {
+        alert("Wrong input data.");
+        return;
+    }
+
     var httpRequest = new XMLHttpRequest();
     httpRequest.open('POST', '../../fundbuy', true);
     var request = new FormData();
