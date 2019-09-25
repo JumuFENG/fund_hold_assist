@@ -74,7 +74,7 @@ class User():
             uf = UserFund(self, c)
             uf.update_history()
 
-    def get_holding_funds_json(self):
+    def get_holding_funds_summary(self):
         sqldb = self.fund_center_db()
         if not sqldb.isExistTable(self.funds_info_table()):
             print("can not find fund info DB.")
@@ -89,10 +89,6 @@ class User():
             fg = FundGeneral(sqldb, c)
             uf = UserFund(self, c)
 
-            budget_arr = uf.get_budget_arr(ppg)
-            if budget_arr and len(budget_arr) > 0:
-                fund_json_obj["budget"] = budget_arr
-
             if uf.cost_hold and uf.average:
                 fund_json_obj["name"] = fg.name
                 fund_json_obj["ppg"] = ppg
@@ -103,25 +99,70 @@ class User():
                 fund_json_obj["last_day_earned"] = uf.last_day_earned(fg.history_table)
                 fund_json_obj["earned_while_holding"] = round((float(fg.latest_netvalue()) - float(uf.average)) * float(uf.portion_hold), 2)
 
-                rollin_arr = uf.get_roll_in_arr(fg, ppg)
-                if rollin_arr and len(rollin_arr) > 0:
-                    fund_json_obj["rollin"] = rollin_arr
-
                 fund_json_obj["morethan7day"] = uf.get_portions_morethan_7day(fg, ppg)
-                buy_arr = uf.get_buy_arr(fg)
-                if buy_arr and len(buy_arr) > 0:
-                    fund_json_obj["buy_table"] = buy_arr
 
             if fund_json_obj:
                 fund_json[c] = fund_json_obj
 
         return fund_json
 
+    def get_holding_funds_json(self):
+        sqldb = self.fund_center_db()
+        if not sqldb.isExistTable(self.funds_info_table()):
+            print("can not find fund info DB.")
+            return
+
+        fund_json = self.get_holding_funds_summary()
+        if not isinstance(fund_json, dict):
+            return fund_json
+
+        for c in fund_json:
+            fund_json_obj = fund_json[c]
+
+            fg = FundGeneral(sqldb, c)
+            uf = UserFund(self, c)
+
+            budget_arr = uf.get_budget_arr()
+            if budget_arr and len(budget_arr) > 0:
+                fund_json_obj["budget"] = budget_arr
+
+            if uf.cost_hold and uf.average:
+                rollin_arr = uf.get_roll_in_arr(fg)
+                if rollin_arr and len(rollin_arr) > 0:
+                    fund_json_obj["rollin"] = rollin_arr
+
+                buy_arr = uf.get_buy_arr(fg)
+                if buy_arr and len(buy_arr) > 0:
+                    fund_json_obj["buy_table"] = buy_arr
+
+        return fund_json
+
+    def get_holding_funds_hist_basic(self):
+        sqldb = self.fund_center_db()
+        if not sqldb.isExistTable(self.funds_info_table()):
+            print("can not find fund info DB.")
+            return
+
+        szzs_code = "sz000001"
+        szzs_his_tbl = "i_ful_his_000001"
+        all_hist_data = [["date", szzs_code]]
+        if not sqldb.isExistTable(szzs_his_tbl):
+            print(szzs_his_tbl,"not exist.")
+            return
+
+        szzs_his_data = sqldb.select(szzs_his_tbl, [column_date, column_close, column_p_change])
+        for (date, close, p_change) in szzs_his_data:
+            row = [date, round(float(close), 2), round(float(p_change), 2) if not p_change == "None" else '']
+            all_hist_data.append(row)
+
+        return all_hist_data
+
     def get_holding_funds_hist_data(self):
         sqldb = self.fund_center_db()
         if not sqldb.isExistTable(self.funds_info_table()):
             print("can not find fund info DB.")
             return
+
 
         fund_codes = sqldb.select(self.funds_info_table(), [column_code])
 
@@ -132,21 +173,18 @@ class User():
             if uf.cost_hold and uf.average:
                 funds_holding.append((fg.code, fg.history_table))
 
-        szzs_code = "sz000001"
-        szzs_his_tbl = "i_ful_his_000001"
-        all_hist_data = [["date", szzs_code]]
-        if not sqldb.isExistTable(szzs_his_tbl):
-            print(szzs_his_tbl,"not exist.")
-            return
+        basic_his_data = self.get_holding_funds_hist_basic()
+        all_hist_data = []
+        all_hist_data.append(basic_his_data[0])
+        szzs_his_data = basic_his_data[1:]
 
-        szzs_his_data = sqldb.select(szzs_his_tbl, [column_date, column_close, column_p_change])
         funds_his_data = []
         for (c, t) in funds_holding:
             all_hist_data[0].append(c)
             funds_his_data.append(sqldb.select(t, [column_date, column_net_value, column_growth_rate]))
 
         for (date, close, p_change) in szzs_his_data:
-            row = [date, round(float(close), 2), round(float(p_change), 2) if not p_change == "None" else '']
+            row = [date, close, p_change]
             for fund_his in funds_his_data:
                 find_netvalue_same_date = False
                 for (fdate, netvalue, growth) in fund_his:

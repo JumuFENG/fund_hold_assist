@@ -126,8 +126,9 @@ class UserFund():
 
         self.sqldb.delete(self.budget_table, {column_consumed:'1'})
 
-    def get_budget_arr(self, ppg):
+    def get_budget_arr(self):
         values = []
+        ppg = 1 if not ppgram.__contains__(self.code) else ppgram[self.code]
         if self.budget_table and self.sqldb.isExistTable(self.budget_table):
             self.delete_cosumed()
             budget = self.sqldb.select(self.budget_table, [column_date, column_net_value, column_budget])
@@ -135,7 +136,7 @@ class UserFund():
                 values.append({"date":d, "max_price_to_buy":str(Decimal(str(v)) * ppg), "budget":b})
         return values
 
-    def get_roll_in_arr(self, fg, ppg):
+    def get_roll_in_arr(self, fg):
         if not self.sell_table or not self.sqldb.isExistTable(self.sell_table):
             return
 
@@ -148,6 +149,7 @@ class UserFund():
             return
 
         values = []
+        ppg = 1 if not ppgram.__contains__(self.code) else ppgram[self.code]
         for (d, c, r, v) in sell_recs:
             if not r:
                 r = 0
@@ -184,6 +186,7 @@ class UserFund():
         (portion_cannot_sell,), = self.sqldb.select(self.buy_table, "sum(%s)" % column_portion, "%s > '%s'" % (column_date, dateBegin))
         if not portion_cannot_sell:
             portion_cannot_sell = 0
+
         return round((self.portion_hold - portion_cannot_sell) / ppg, 4)
 
     def fix_cost_portion_hold(self):

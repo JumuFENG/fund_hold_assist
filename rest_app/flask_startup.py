@@ -90,7 +90,7 @@ def split_combined_dates(strDates):
         dates.append(strDates[i*10:i * 10 + 10])
     return dates
 
-@app.route('/fundbuy', methods=['POST'])
+@app.route('/fundbuy', methods=['GET', 'POST'])
 def fundbuy():
     if not session.get('logged_in'):
         return "Please login."
@@ -106,13 +106,18 @@ def fundbuy():
         budget_dates = split_combined_dates(combined_dates)
         rollin_date = request.form.get("rollin_date", type=str,default=None)
         print("fundbuy form")
-        print(type(request.form))
         print(code, date, cost, budget_dates, rollin_date)
         user.buy_not_confirm(code, date, cost, budget_dates, rollin_date)
         user.confirm_buy(code, date)
         return "OK", 200
+    else:
+        code = request.form.get("code", type=str, default=None)
+        fg = FundGeneral(user.fund_center_db(), code)
+        uf = UserFund(user, code)
+        buy_arr = uf.get_buy_arr(fg)
+        return buy_arr
 
-@app.route('/fundsell', methods=['POST'])
+@app.route('/fundsell', methods=['GET', 'POST'])
 def fundsell():
     if not session.get('logged_in'):
         return "Please login."
@@ -130,6 +135,32 @@ def fundsell():
         user.sell_not_confirm(code, date, buydates)
         user.confirm_sell(code, date)
         return "OK", 200
+    else:
+        code = request.form.get("code", type=str, default=None)
+        fg = FundGeneral(user.fund_center_db(), code)
+        uf = UserFund(user, code)
+        sell_arr = uf.get_roll_in_arr(fg)
+        return sell_arr
+
+@app.route('/fundbudget', methods=['GET', 'POST'])
+def fundbudget():
+    if not session.get('logged_in'):
+        return "Please login."
+
+    gen_db = SqlHelper(password = db_pwd, database = "general")
+    usermodel = UserModel(gen_db)
+    user = usermodel.user_by_email(session['useremail'])
+    if request.method == 'GET':
+        code = request.form.get("code", type=str, default=None)
+        uf = UserFund(user, code)
+        budget_arr = uf.get_budget_arr()
+        return budget_arr
+    else:
+        code = request.form.get("code", type=str, default=None)
+        cost = request.form.get("budget", type=str, default=None)
+        date = request.form.get("date", type=str, default=None)
+        user.add_budget(code, budget, date)
+        return "OK", 200
 
 @app.route('/fundsummary', methods=['GET'])
 def fundsummary():
@@ -139,9 +170,8 @@ def fundsummary():
     gen_db = SqlHelper(password = db_pwd, database = "general")
     usermodel = UserModel(gen_db)
     user = usermodel.user_by_email(session['useremail'])
-    user.update_funds()
-    fundsjson = user.get_holding_funds_json()
-    hist_data = user.get_holding_funds_hist_data()
+    fundsjson = user.get_holding_funds_summary()
+    hist_data = user.get_holding_funds_hist_basic()
     return render_template('/fundsummary.html', 
         title = "持基表",
         fundsJson = fundsjson,

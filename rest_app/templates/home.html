@@ -3,8 +3,7 @@
 {% block content %}
     {% if session['logged_in'] %}
         <a href="home/baby_photo/main.html">Baby photo</a> </br>
-        <a href="home/summary/summary.html">Fund</a> </br>
-        <a href="{{ url_for('fundsummary') }}">Fund Summary</a> </br>
+        <a href="{{ url_for('fundsummary') }}">基账本</a> </br>
     {% endif %}
     
     <a href="home/start.html">Start</a> </br>
