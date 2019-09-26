@@ -124,9 +124,19 @@ function getBudgetRows(budgets) {
     return rows;
 }
 
-function createBudgetsTable(budgets) {
+function updateBudgetsTable(code) {
+    var budgetTable = document.getElementById("budget_table_" + code);
+    deleteAllRows(budgetTable);
+    var rows = getBudgetRows(ftjson[code]["budget"]);
+    for (var i = 0; i < rows.length; i++) {
+        budgetTable.appendChild(rows[i]);
+    };
+}
+
+function createBudgetsTable(code) {
     var budgetTable = document.createElement("table");
-    var rows = getBudgetRows(budgets);
+    budgetTable.id = "budget_table_" + code;
+    var rows = getBudgetRows(ftjson[code]["budget"]);
     for (var i = 0; i < rows.length; i++) {
         budgetTable.appendChild(rows[i]);
     };
@@ -153,9 +163,19 @@ function getRollinRows(rollins) {
     return rows;
 }
 
-function createRollinsTable(rollins) {
+function updateRollinsTable(code) {
+    var rollinTable = document.getElementById("rollin_table_" + code);
+    deleteAllRows(rollinTable);
+    var rows = getRollinRows(ftjson[code]["sell_table"]);
+    for (var i = 0; i < rows.length; i++) {
+        rollinTable.appendChild(rows[i]);
+    };
+}
+
+function createRollinsTable(code) {
     var rollinTable = document.createElement("table");
-    var rows = getRollinRows(rollins);
+    rollinTable.id = "rollin_table_" + code;
+    var rows = getRollinRows(ftjson[code]["sell_table"]);
     for (var i = 0; i < rows.length; i++) {
         rollinTable.appendChild(rows[i]);
     };
@@ -163,6 +183,10 @@ function createRollinsTable(rollins) {
 }
 
 function getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg, code) {
+    if (buytable === undefined) {
+        return [];
+    };
+
     var portion_can_sell = 0.0;
     var max_value_to_sell = parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate));
     var dates = [];
@@ -204,6 +228,10 @@ function getLatestRetracement(fundcode, latest_netvalue) {
     };
 
     var buytable = ftjson[fundcode]["buy_table"];
+    if (buytable === undefined) {
+        return 0;
+    };
+
     var fundDateIdx = 0;
     var fundValIdx = all_hist_data[0].indexOf(fundcode) * 2 - 1;
     var startDateArr = all_hist_data.find(function(curVal) {
@@ -244,7 +272,7 @@ function jsonpgz(fundgz) {
 
 function updateLatestSellInfo(fundcode) {
     var jsonp = ftjson[fundcode].rtgz;
-    var gz = jsonp.gsz;
+    var gz = jsonp ? jsonp.gsz : ftjson[fundcode]["latest_netvalue"];
 
     var sellTable = document.getElementById("tbl_sell_" + fundcode);
 
@@ -281,15 +309,26 @@ function createSellInfoTable(fundcode) {
     return sellTable;
 }
 
-function ToggleFundDetails(divDetail) {
+function ToggleFundDetails(divDetail, fund_list_table) {
     if (divDetail.style.display == "none") {
         var fundcode = divDetail.id.split('_').pop();
         sendFetchEvent(fundcode);
         divDetail.style.display = "block";
+
+        var sibling = fund_list_table.firstChild;
+        while (sibling != null) {
+            var nextDetail = sibling.firstChild.firstChild;
+            if (nextDetail.childNodes.length != 0 && nextDetail.lastChild != divDetail) {
+                nextDetail.lastChild.style.display = "none";
+            };
+            sibling = sibling.nextElementSibling;
+        }
+
+        refreshHoldDetail(fundcode);
+
         var canvas = document.getElementById("canvas_div");
         canvas.parentElement.removeChild(canvas);
         divDetail.appendChild(canvas);
-        DrawFundHistory(fundcode);
 
         var tradepanel = document.getElementById("trade_panel");
         tradepanel.setAttribute("code", fundcode);
@@ -405,7 +444,7 @@ function createGeneralInnerHtmlWithoutName(funddata) {
 
 function createGeneralInfoInSingleRow(fundcode) {
     var funddata = ftjson[fundcode];
-    var html = "<div class='fund_header' onclick='ToggleFundDetails(hold_detail_" + fundcode + ")' id='fund_header_" + fundcode + "'>" + funddata["name"] + "<label class = '" + incdec_lbl_classname(funddata["last_day_earned"]) + "'>" + funddata["last_day_earned"] + "</label>";
+    var html = "<div class='fund_header' onclick='ToggleFundDetails(hold_detail_" + fundcode + ", fund_list_table)' id='fund_header_" + fundcode + "'>" + funddata["name"] + "<label class = '" + incdec_lbl_classname(funddata["last_day_earned"]) + "'>" + funddata["last_day_earned"] + "</label>";
     html += createGuzhiInfo(fundcode);
     html += createGeneralInnerHtmlWithoutName(funddata);
     html += "</div>";
@@ -418,8 +457,8 @@ function createGeneralInfoInSingleRow(fundcode) {
     hold_detail.id = "hold_detail_" + fundcode;
     hold_detail.style = "display:none;";
 
-    hold_detail.appendChild(createBudgetsTable(funddata["budget"]));
-    hold_detail.appendChild(createRollinsTable(funddata["rollin"]));
+    hold_detail.appendChild(createBudgetsTable(fundcode));
+    hold_detail.appendChild(createRollinsTable(fundcode));
     hold_detail.appendChild(createSellInfoTable(fundcode));
 
     general_root.appendChild(hold_detail);
@@ -429,6 +468,83 @@ function createGeneralInfoInSingleRow(fundcode) {
     var row = document.createElement("tr");
     row.appendChild(col);
     return row;
+}
+
+function httpRequestGet(path, queries = null, callback = null) {
+        var httpRequest = new XMLHttpRequest();
+        var lnk = '../../' + path;
+        if (queries != null) {
+            lnk += '?' + queries;
+        };
+        httpRequest.open('GET', lnk, true);
+        httpRequest.send();
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                callback(httpRequest)
+            }
+        }
+}
+
+function refreshBuyData(code) {
+    if (ftjson[code]["buy_table"] === undefined) {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('GET', '../../fundbuy?code=' + code, true);
+        httpRequest.send();
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                ftjson[code]["buy_table"] = JSON.parse(httpRequest.responseText);
+                refreshBuyData(code)
+            }
+        }
+        return;
+    };
+
+    updateGuzhiInfo(code);
+    updateLatestSellInfo(code);
+}
+
+function refreshBudgetData(code) {
+    if (ftjson[code]["budget"] === undefined) {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('GET', '../../fundbudget?code=' + code, true);
+        httpRequest.send();
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                ftjson[code]["budget"] = JSON.parse(httpRequest.responseText);
+                refreshBudgetData(code);
+            }
+        }
+        return;
+    };
+
+    updateBudgetsTable(code)
+}
+
+function refreshSellData(code) {
+    if (ftjson[code]["sell_table"] === undefined) {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('GET', '../../fundsell?code=' + code, true);
+        httpRequest.send();
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                ftjson[code]["sell_table"] = JSON.parse(httpRequest.responseText);
+                refreshSellData(code);
+            }
+        }
+        return;
+    };
+
+    updateRollinsTable(code);
+}
+
+function refreshHoldDetail(code) {
+    refreshBuyData(code);
+    refreshBudgetData(code);
+    refreshSellData(code);
 }
 
 function updateTotalEarnedInfo(earned, total_earned, cost) {

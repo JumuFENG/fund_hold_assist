@@ -124,12 +124,12 @@ class User():
 
             budget_arr = uf.get_budget_arr()
             if budget_arr and len(budget_arr) > 0:
-                fund_json_obj["budget"] = budget_arr
+                fund_json_obj["budget_table"] = budget_arr
 
             if uf.cost_hold and uf.average:
                 rollin_arr = uf.get_roll_in_arr(fg)
                 if rollin_arr and len(rollin_arr) > 0:
-                    fund_json_obj["rollin"] = rollin_arr
+                    fund_json_obj["sell_table"] = rollin_arr
 
                 buy_arr = uf.get_buy_arr(fg)
                 if buy_arr and len(buy_arr) > 0:
@@ -162,7 +162,6 @@ class User():
         if not sqldb.isExistTable(self.funds_info_table()):
             print("can not find fund info DB.")
             return
-
 
         fund_codes = sqldb.select(self.funds_info_table(), [column_code])
 

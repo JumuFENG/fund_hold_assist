@@ -111,11 +111,15 @@ def fundbuy():
         user.confirm_buy(code, date)
         return "OK", 200
     else:
-        code = request.form.get("code", type=str, default=None)
+        print("fundbuy GET")
+        code = request.args.get("code", type=str, default=None)
+        if code == None:
+            return "", 404
+        print(code)
         fg = FundGeneral(user.fund_center_db(), code)
         uf = UserFund(user, code)
         buy_arr = uf.get_buy_arr(fg)
-        return buy_arr
+        return json.dumps(buy_arr)
 
 @app.route('/fundsell', methods=['GET', 'POST'])
 def fundsell():
@@ -136,11 +140,15 @@ def fundsell():
         user.confirm_sell(code, date)
         return "OK", 200
     else:
-        code = request.form.get("code", type=str, default=None)
+        print("fundsell GET")
+        code = request.args.get("code", type=str, default=None)
+        if code == None:
+            return "", 404
+        print(code)
         fg = FundGeneral(user.fund_center_db(), code)
         uf = UserFund(user, code)
         sell_arr = uf.get_roll_in_arr(fg)
-        return sell_arr
+        return json.dumps(sell_arr)
 
 @app.route('/fundbudget', methods=['GET', 'POST'])
 def fundbudget():
@@ -150,17 +158,21 @@ def fundbudget():
     gen_db = SqlHelper(password = db_pwd, database = "general")
     usermodel = UserModel(gen_db)
     user = usermodel.user_by_email(session['useremail'])
-    if request.method == 'GET':
-        code = request.form.get("code", type=str, default=None)
-        uf = UserFund(user, code)
-        budget_arr = uf.get_budget_arr()
-        return budget_arr
-    else:
+    if request.method == 'POST':
         code = request.form.get("code", type=str, default=None)
         cost = request.form.get("budget", type=str, default=None)
         date = request.form.get("date", type=str, default=None)
         user.add_budget(code, budget, date)
         return "OK", 200
+    else:
+        print("fundbudget GET")
+        code = request.args.get("code", type=str, default=None)
+        if code == None:
+            return "", 404
+        print(code)
+        uf = UserFund(user, code)
+        budget_arr = uf.get_budget_arr()
+        return json.dumps(budget_arr)
 
 @app.route('/fundsummary', methods=['GET'])
 def fundsummary():
