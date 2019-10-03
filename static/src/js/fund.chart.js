@@ -4,38 +4,55 @@ class FundChart {
         this.chart = new google.visualization.LineChart(document.getElementById(chart_div));
         this.data = null;
         this.codes = [];
-        this.chatTitle = 'Fund History.';
+        this.chartTitle = null;
         google.visualization.events.addListener(this.chart, 'select', function selectHandler() {
-            this.onChartPointSelected();
+            onChartPointSelected();
         });
     }
 
     createChartOption() {
         // Set chart options
+        var colors = ['red', 'blue', 'green', 'gray', 'yellow', 'black'];
+        var series = {}
+        for (var i = 0; i < this.codes.length; i++) {
+            series[i] = {color: colors[i]};
+        }
+
         this.options = {
-            title:this.chatTitle,
-            width:800,
-            height:600,
-            pointSize: 5,
-            series: {},
+            title: this.chartTitle,
+            width: 800,
+            height: 600,
+            pointSize: 3,
+            series: series,
             hAxis: {
                 slantedText:true,
                 slantedTextAngle:-30
             }
         };
-        var series = {}
-        var pshapes = ['circle', 'triangle'];
-        for (var i = 0; i < this.codes.length; i++) {
-            series[i] = {pointShape : pshapes[i]};
-        };
-        this.options.series = series;
     }
 
     createDataTable(days = 0) {
         var len = all_hist_data.length;
         var showLen = days > 0 ? days + 1 : len;
         if (days == 0) {
-            showLen = 18;
+            var buytable = null;
+            for (var i = 0; i < this.codes.length; i++) {
+                if (ftjson[this.codes[i]] !== undefined) {
+                    buytable = ftjson[this.codes[i]]["buy_table"];
+                    break;
+                }
+            };
+
+            if (buytable) {
+                var fundDateIdx = 0;
+                var startDateArr = all_hist_data.find(function(curVal) {
+                    return curVal[fundDateIdx] == buytable[0].date;
+                });
+                showLen = all_hist_data.length - all_hist_data.indexOf(startDateArr) + 2;
+            }
+            else {
+                showLen = 11;
+            }
         };
 
         // Create the data table.
@@ -46,7 +63,7 @@ class FundChart {
             data.addColumn({type: 'string', role: 'style'})
             data.addColumn({type: 'string', role: 'tooltip'});
         };
-    
+
         var rows = [];
         for (var i = 1; i < showLen; i++) {
             var date = all_hist_data[len - showLen + i][0];
@@ -54,11 +71,42 @@ class FundChart {
             for (var j = 0; j < this.codes.length; j++) {
                 var valIdx = all_hist_data[0].indexOf(this.codes[j]) * 2 - 1;
                 var val = all_hist_data[len - showLen + i][valIdx];
+                if (val == '') {
+                    console.log(this.codes[j], date, "value not found!");
+                    val = 0;
+                };
                 r.push(val);
-                var szstyle = null;
-                r.push(szstyle);
-                var sztooltip = date + ": " + val + ": " + all_hist_data[len - showLen  + i][valIdx + 1] + "%";
-                r.push(sztooltip);
+                var ptstyle = 'point {visible: false }';
+                var pttooltip = date + ": " + val + ": " + all_hist_data[len - showLen  + i][valIdx + 1] + "%";
+                if (ftjson[this.codes[j]] !== undefined)
+                {
+                    var buytable = ftjson[this.codes[j]]["buy_table"];
+                    if (buytable) {
+                        var buyrec = buytable.find(function(curVal) {
+                            return curVal.date == date;
+                        });
+                        if (buyrec) {
+                            pttooltip += " cost:" + buyrec.cost;
+                            ptstyle = 'point {size: 2}';
+                            if (buyrec.cost > 500) {
+                                ptstyle = 'point {size: 4}'
+                            };
+                        };
+                    };
+
+                    var selltable = ftjson[this.codes[j]]["sell_table"];
+                    if (selltable) {
+                        var sellrec = selltable.find(function(curVal) {
+                            return curVal.date == date;
+                        });
+                        if (sellrec) {
+                            pttooltip += " sell:" + sellrec.cost;
+                            ptstyle = 'point {size: 3; fill-color: #535759;}';
+                        };
+                    };
+                }
+                r.push(ptstyle);
+                r.push(pttooltip);
             };
             rows.push(r);
         };
@@ -73,16 +121,9 @@ class FundChart {
 
         this.chart.draw(this.data, this.options);
     }
-
-    onChartPointSelected() {
-        var selectedItem = this.chart.getSelection()[0];
-        if (selectedItem) {
-            var topping = this.data.getValue(selectedItem.row, selectedItem.column);
-            alert(topping);
-        }
-    }
-
 };
+
+
 
 // Load the Visualization API and the piechart package.
 google.charts.load('current', {'packages':['corechart']});
@@ -96,9 +137,18 @@ function googleChartLoaded() {
     if (all_hist_data.length > 0) {
         chart = new FundChart('fund_chart_div');
         chart.codes = ["sz000001"];
+        chart.chartTitle = '上证指数';
         chart.drawChart();
     };
 };
+
+function onChartPointSelected() {
+    var selectedItem = chart.chart.getSelection()[0];
+    if (selectedItem) {
+        var topping = chart.data.getValue(selectedItem.row, selectedItem.column);
+        alert(topping);
+    }
+}
 
 function DrawFundHistory(fundcode) {
     var days = 0;
@@ -111,6 +161,7 @@ function DrawFundHistory(fundcode) {
         sibling = sibling.nextElementSibling;
     }
     chart.codes = [fundcode];
+    chart.chartTitle = ftjson[fundcode]['name'];
     chart.drawChart(days);
 }
 

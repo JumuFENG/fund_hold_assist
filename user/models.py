@@ -150,7 +150,7 @@ class User():
             print(szzs_his_tbl,"not exist.")
             return
 
-        szzs_his_data = sqldb.select(szzs_his_tbl, [column_date, column_close, column_p_change])
+        szzs_his_data = sqldb.select(szzs_his_tbl, [column_date, column_close, column_p_change], order = " ORDER BY %s ASC" % column_date)
         for (date, close, p_change) in szzs_his_data:
             row = [date, round(float(close), 2), round(float(p_change), 2) if not p_change == "None" else '']
             all_hist_data.append(row)
@@ -180,7 +180,7 @@ class User():
         funds_his_data = []
         for (c, t) in funds_holding:
             all_hist_data[0].append(c)
-            funds_his_data.append(sqldb.select(t, [column_date, column_net_value, column_growth_rate]))
+            funds_his_data.append(sqldb.select(t, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date))
 
         for (date, close, p_change) in szzs_his_data:
             row = [date, close, p_change]
