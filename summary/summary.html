@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <script type="text/javascript" src="json/fund.json"></script>
     <script type="text/javascript" src="json/history_data.json"></script>
-    <script type="text/javascript" src="Chart.min.js"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <script type="text/javascript" src="../../static/src/js/fund.summary.js"></script>
     <script type="text/javascript" src="../../static/src/js/fund.chart.js"></script>
     <link rel="stylesheet" type="text/css" href="../../static/src/css/fund.css">
@@ -25,16 +25,17 @@
         <table id="fund_list_table"></table>
     </div>
     <hr />
-    <div id="canvas_div" style="width:98%">
-<!--        <canvas id="sz000001_canvas"></canvas> <br />
+    <div id="charts_div" style="width:98%">
         <ul id="dayslist">
-            <li class="highlight" onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">30</li>
-            <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">100</li>
-            <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">300</li>
-            <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">1000</a></li>
-            <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)">Max</a></li>
-        </ul><br />
-        <canvas id="fund_canvas"></canvas> -->
+            <li class="highlight" onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="0">默认</li>
+            <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="30">30</li>
+            <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="100">100</li>
+            <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="300">300</li>
+            <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="1000">1000</a></li>
+            <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="-1">最大</a></li>
+        </ul>
+        <br />
+        <div id="fund_chart_div"></div> <br />
                 <ul id="tradeoptions">
                     <li class="highlight" id="tradeoption_buy" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">买入</li>
                     <li id="tradeoption_sell" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">卖出</li>

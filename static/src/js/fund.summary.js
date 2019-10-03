@@ -19,7 +19,6 @@ function loadJsonData() {
 
 window.onload = function() {
     showAllFundList();
-    DrawSzzsHistory();
 }
 
 document.addEventListener(ExtensionLoadedEvent, e => {
@@ -325,10 +324,11 @@ function ToggleFundDetails(divDetail, fund_list_table) {
         }
 
         refreshHoldDetail(fundcode);
+        DrawFundHistory(fundcode);
 
-        var canvas = document.getElementById("canvas_div");
-        canvas.parentElement.removeChild(canvas);
-        divDetail.appendChild(canvas);
+        var charts_div = document.getElementById("charts_div");
+        charts_div.parentElement.removeChild(charts_div);
+        divDetail.appendChild(charts_div);
 
         var tradepanel = document.getElementById("trade_panel");
         tradepanel.setAttribute("code", fundcode);
