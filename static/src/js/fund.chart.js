@@ -1,10 +1,17 @@
+class FundLine {
+    constructor(code, lineclr, name) {
+        this.code = code;
+        this.color = lineclr;
+        this.name = name;
+    }
+};
+
 class FundChart {
     constructor(chart_div) {
         // Instantiate and draw our chart, passing in some options.
         this.chart = new google.visualization.LineChart(document.getElementById(chart_div));
         this.data = null;
-        this.codes = [];
-        this.chartTitle = null;
+        this.lines = [];
         google.visualization.events.addListener(this.chart, 'select', function selectHandler() {
             onChartPointSelected();
         });
@@ -12,18 +19,19 @@ class FundChart {
 
     createChartOption() {
         // Set chart options
-        var colors = ['#B8860B', 'red', 'blue', 'green', 'gray', 'yellow', 'black'];
         var series = {}
-        for (var i = 0; i < this.codes.length; i++) {
-            if (this.codes.length == 2) {
-                series[i] = {color: colors[i], axis: this.codes[i]};
+        var lineNames = [];
+        for (var i = 0; i < this.lines.length; i++) {
+            lineNames.push(this.lines[i].name);
+            if (this.lines.length == 2) {
+                series[i] = {color: this.lines[i].color, axis: this.lines[i].code};
             } else {
-                series[i] = {color: colors[i]};
+                series[i] = {color: this.lines[i].color};
             }
         }
 
         this.options = {
-            title: this.chartTitle,
+            title: lineNames.join(' vs. '),
             width: 800,
             height: 600,
             crosshair: { trigger: 'both', opacity: 0.5},
@@ -35,10 +43,10 @@ class FundChart {
             }
         };
 
-        if (this.codes.length == 2) {
+        if (this.lines.length == 2) {
             var yAxisLabels = {};
-            for (var i = 0; i < this.codes.length; i++) {
-                yAxisLabels[this.codes[i]] = {label: this.codes[i]};
+            for (var i = 0; i < this.lines.length; i++) {
+                yAxisLabels[this.lines[i].code] = {label: this.lines[i].name};
             };
             this.options.axes = {
                 y: yAxisLabels
@@ -47,13 +55,31 @@ class FundChart {
     }
 
     createDataTable(days = 0) {
-        var len = all_hist_data.length;
-        var showLen = days > 0 ? days + 1 : len;
-        if (days == 0) {
+        var showLen = 0;
+        if (days > 0) {
+            showLen = days + 1;
+        } else if (days == -1) {
+            var valIdx = [];
+            for (var j = 0; j < this.lines.length; j++) {
+                valIdx.push(all_hist_data[0].indexOf(this.lines[j].code) * 2 - 1);
+            };
+
+            for (var i = 1; i < all_hist_data.length; i++) {
+                for (var k = 0; k < valIdx.length; k++) {
+                    if (all_hist_data[i][valIdx[k]] != '') {
+                        showLen = all_hist_data.length - i + 1;
+                        break;
+                    }; 
+                };
+                if (showLen != 0) {
+                    break;
+                };
+            };
+        } else if (days == 0) {
             var buytable = null;
-            for (var i = 0; i < this.codes.length; i++) {
-                if (ftjson[this.codes[i]] !== undefined) {
-                    buytable = ftjson[this.codes[i]]["buy_table"];
+            for (var i = 0; i < this.lines.length; i++) {
+                if (ftjson[this.lines[i].code] !== undefined) {
+                    buytable = ftjson[this.lines[i].code]["buy_table"];
                     break;
                 }
             };
@@ -68,38 +94,46 @@ class FundChart {
                     return curVal[fundDateIdx] == notselldate;
                 });
                 showLen = all_hist_data.length - all_hist_data.indexOf(startDateArr) + 2;
-            }
-            else {
+            } else {
                 showLen = 11;
             }
-        };
+        } else {
+            showLen = all_hist_data.length;
+        }
 
         // Create the data table.
         var data = new google.visualization.DataTable();
         data.addColumn('string', '日期');
-        for (var i = 0; i < this.codes.length; i++) {
-            data.addColumn('number', this.codes[i]);
+        for (var i = 0; i < this.lines.length; i++) {
+            data.addColumn('number', this.lines[i].code);
             data.addColumn({type: 'string', role: 'style'})
             data.addColumn({type: 'string', role: 'tooltip'});
         };
 
         var rows = [];
+        var len = all_hist_data.length;
         for (var i = 1; i < showLen; i++) {
             var date = all_hist_data[len - showLen + i][0];
             var r = [date];
-            for (var j = 0; j < this.codes.length; j++) {
-                var valIdx = all_hist_data[0].indexOf(this.codes[j]) * 2 - 1;
+            for (var j = 0; j < this.lines.length; j++) {
+                var valIdx = all_hist_data[0].indexOf(this.lines[j].code) * 2 - 1;
                 var val = all_hist_data[len - showLen + i][valIdx];
                 if (val == '') {
-                    console.log(this.codes[j], date, "value not found!");
-                    val = 0;
+                    console.log(this.lines[j].name, date, "value not found!");
+                    if (len - showLen + i - 1 > 0) {
+                        all_hist_data[len - showLen + i][valIdx] = all_hist_data[len - showLen + i - 1][valIdx];
+                        all_hist_data[len - showLen + i][valIdx + 1] = '0';
+                        val = all_hist_data[len - showLen + i][valIdx];
+                    } else {
+                        val = 0;
+                    }
                 };
                 r.push(val);
                 var ptstyle = 'point {visible: false }';
                 var pttooltip = date + ": " + val + ": " + all_hist_data[len - showLen  + i][valIdx + 1] + "%";
-                if (ftjson[this.codes[j]] !== undefined)
+                if (ftjson[this.lines[j].code] !== undefined)
                 {
-                    var buytable = ftjson[this.codes[j]]["buy_table"];
+                    var buytable = ftjson[this.lines[j].code]["buy_table"];
                     if (buytable) {
                         var buyrec = buytable.find(function(curVal) {
                             return curVal.date == date;
@@ -118,7 +152,7 @@ class FundChart {
                         };
                     };
 
-                    var selltable = ftjson[this.codes[j]]["sell_table"];
+                    var selltable = ftjson[this.lines[j].code]["sell_table"];
                     if (selltable) {
                         var sellrec = selltable.find(function(curVal) {
                             return curVal.date == date;
@@ -160,8 +194,8 @@ var chart = null;
 function googleChartLoaded() {
     if (all_hist_data.length > 0) {
         chart = new FundChart('fund_chart_div');
-        chart.codes = ["sz000001"];
-        chart.chartTitle = '上证指数';
+        var szline = new FundLine('sz000001', '#87CEFA', '上证指数');
+        chart.lines = [szline];
         chart.drawChart();
     };
 };
@@ -184,18 +218,13 @@ function DrawFundHistory(fundcode) {
         };
         sibling = sibling.nextElementSibling;
     }
-    chart.codes = [fundcode];
-    chart.chartTitle = ftjson[fundcode]['name'];
+    var fdline = new FundLine(fundcode, '#B8860B', ftjson[fundcode]['name']);
+    chart.lines = [fdline];
     chart.drawChart(days);
 }
 
 function RedrawHistoryGraphs(ele, t) {
     var days = t.value;
-    // var codes = ["sz000001"]
-    // if (ele.parentElement.id) {
-    //     codes.push(ele.parentElement.id.split('_').pop());
-    // }
-    // chart.codes = codes;
     chart.drawChart(days);
     t.className = "highlight";
     var sibling = t.parentElement.firstChild;
