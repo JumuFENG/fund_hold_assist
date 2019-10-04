@@ -24,6 +24,9 @@ class User():
     def funds_info_table(self):
         return "u"+ str(self.id) + "_" + gl_fund_info_table
 
+    def index_info_table(self):
+        return gl_index_info_table
+
     def to_string(self):
         return 'id: ' + str(self.id) + ' name: ' + self.name + ' email: ' + self.email;
 
@@ -137,25 +140,42 @@ class User():
 
         return fund_json
 
-    def get_holding_funds_hist_basic(self):
+    def get_index_hist_data(self, code):
+        sqldb = self.fund_center_db()
+        if not sqldb.isExistTable(self.index_info_table()):
+            print("can not find index info DB.")
+            return
+
+        index_code = "sz" + code;
+        his_tbl = sqldb.select(self.index_info_table(), column_table_full_history, "%s='%s'" %(column_code, code))
+        if not his_tbl:
+            print("No full history table for index", code)
+            return
+        (his_tbl,), = his_tbl
+            
+        if not sqldb.isExistTable(his_tbl):
+            print(his_tbl,"not exist.")
+            return
+
+        index_hist_data = ("date", index_code),
+        szzs_his_data = sqldb.select(his_tbl, [column_date, column_close, column_p_change], order = " ORDER BY %s ASC" % column_date)
+        for (date, close, p_change) in szzs_his_data:
+            index_hist_data += (date, round(float(close), 2), round(float(p_change), 2) if not p_change == "None" else ''),
+
+        return index_hist_data
+
+    def get_fund_hist_data(self, code):
         sqldb = self.fund_center_db()
         if not sqldb.isExistTable(self.funds_info_table()):
             print("can not find fund info DB.")
             return
 
-        szzs_code = "sz000001"
-        szzs_his_tbl = "i_ful_his_000001"
-        all_hist_data = [["date", szzs_code]]
-        if not sqldb.isExistTable(szzs_his_tbl):
-            print(szzs_his_tbl,"not exist.")
-            return
-
-        szzs_his_data = sqldb.select(szzs_his_tbl, [column_date, column_close, column_p_change], order = " ORDER BY %s ASC" % column_date)
-        for (date, close, p_change) in szzs_his_data:
-            row = [date, round(float(close), 2), round(float(p_change), 2) if not p_change == "None" else '']
-            all_hist_data.append(row)
-
-        return all_hist_data
+        fg = FundGeneral(sqldb, code)
+        fund_his = sqldb.select(fg.history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date)
+        fund_his_data = ('date', code),
+        for (d, v, g) in fund_his:
+            fund_his_data += (d, v, round(float(100 * g), 2)),
+        return fund_his_data
 
     def get_holding_funds_hist_data(self):
         sqldb = self.fund_center_db()
@@ -167,38 +187,59 @@ class User():
 
         funds_holding = []
         for (c, ) in fund_codes:
-            fg = FundGeneral(sqldb, c)
             uf = UserFund(self, c)
             if uf.cost_hold and uf.average:
-                funds_holding.append((fg.code, fg.history_table))
+                funds_holding.append(c)
 
-        basic_his_data = self.get_holding_funds_hist_basic()
+        all_hist_data = self.get_index_hist_data("000001")
+
+        for c in funds_holding:
+            fund_his_data = self.get_fund_hist_data(c)
+            all_hist_data = self.merge_hist_data(all_hist_data, fund_his_data)
+
+        return all_hist_data
+
+    def merge_hist_data(self, hist_data1, hist_data2):
+        if len(hist_data2) < 1:
+            return hist_data1
+        if len(hist_data1) < 1:
+            return hist_data2
+
         all_hist_data = []
-        all_hist_data.append(basic_his_data[0])
-        szzs_his_data = basic_his_data[1:]
+        basic_his_data = hist_data1
+        extend_his_data = hist_data2
+        if len(hist_data1) < len(hist_data2):
+            basic_his_data = hist_data2
+            extend_his_data = hist_data1
 
-        funds_his_data = []
-        for (c, t) in funds_holding:
-            all_hist_data[0].append(c)
-            funds_his_data.append(sqldb.select(t, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date))
+        header = basic_his_data[0]
+        for x in extend_his_data[0]:
+            if x != 'date':
+                header += x,
 
-        for (date, close, p_change) in szzs_his_data:
-            row = [date, close, p_change]
-            for fund_his in funds_his_data:
-                find_netvalue_same_date = False
-                for (fdate, netvalue, growth) in fund_his:
-                    if fdate == date:
-                        row.append(netvalue)
-                        row.append(round(float(100 * growth), 2))
-                        find_netvalue_same_date = True
-                        break
-                    if fdate < date:
-                        continue
-                    if fdate > date:
-                        break
-                if not find_netvalue_same_date:
+        all_hist_data.append(header)
+        basic_his_data = basic_his_data[1:]
+        extend_his_data = extend_his_data[1:]
+
+        for basic_data in basic_his_data:
+            row = list(basic_data)
+            date = row[0]
+            find_netvalue_same_date = False
+            for ext_data in extend_his_data:
+                fdate = ext_data[0]
+                if fdate == date:
+                    for x in ext_data[1:]:
+                        row.append(x)
+                    find_netvalue_same_date = True
+                    break
+                if fdate < date:
+                    continue
+                if fdate > date:
+                    break
+            if not find_netvalue_same_date:
+                for x in extend_his_data[1][1:]:
                     row.append('')
-                    row.append('')
+
             all_hist_data.append(row)
 
         return all_hist_data
