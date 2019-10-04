@@ -12,21 +12,36 @@ class FundChart {
 
     createChartOption() {
         // Set chart options
-        var colors = ['red', 'blue', 'green', 'gray', 'yellow', 'black'];
+        var colors = ['#B8860B', 'red', 'blue', 'green', 'gray', 'yellow', 'black'];
         var series = {}
         for (var i = 0; i < this.codes.length; i++) {
-            series[i] = {color: colors[i]};
+            if (this.codes.length == 2) {
+                series[i] = {color: colors[i], axis: this.codes[i]};
+            } else {
+                series[i] = {color: colors[i]};
+            }
         }
 
         this.options = {
             title: this.chartTitle,
             width: 800,
             height: 600,
+            crosshair: { trigger: 'both', opacity: 0.5},
             pointSize: 3,
             series: series,
             hAxis: {
                 slantedText:true,
                 slantedTextAngle:-30
+            }
+        };
+
+        if (this.codes.length == 2) {
+            var yAxisLabels = {};
+            for (var i = 0; i < this.codes.length; i++) {
+                yAxisLabels[this.codes[i]] = {label: this.codes[i]};
+            };
+            this.options.axes = {
+                y: yAxisLabels
             }
         };
     }
@@ -45,8 +60,12 @@ class FundChart {
 
             if (buytable) {
                 var fundDateIdx = 0;
+                var firstnotsell = buytable.find(function(curVal) {
+                    return curVal.sold == 0;
+                });
+                var notselldate = firstnotsell.date;
                 var startDateArr = all_hist_data.find(function(curVal) {
-                    return curVal[fundDateIdx] == buytable[0].date;
+                    return curVal[fundDateIdx] == notselldate;
                 });
                 showLen = all_hist_data.length - all_hist_data.indexOf(startDateArr) + 2;
             }
@@ -87,10 +106,15 @@ class FundChart {
                         });
                         if (buyrec) {
                             pttooltip += " cost:" + buyrec.cost;
-                            ptstyle = 'point {size: 2}';
+                            var ptsize = 3;
+                            var ptclr = '#FF4500';
                             if (buyrec.cost > 500) {
-                                ptstyle = 'point {size: 4}'
+                                ptsize = 5
                             };
+                            if (buyrec.sold == 1) {
+                                ptclr = '#FFD39B';
+                            };
+                            ptstyle = 'point {size: ' + ptsize + '; fill-color: ' + ptclr + ';}';
                         };
                     };
 
@@ -101,7 +125,7 @@ class FundChart {
                         });
                         if (sellrec) {
                             pttooltip += " sell:" + sellrec.cost;
-                            ptstyle = 'point {size: 3; fill-color: #535759;}';
+                            ptstyle = 'point {size: 4; fill-color: #8B6914;}';
                         };
                     };
                 }

@@ -144,24 +144,25 @@ class UserFund():
             print("table column not complete.")
             return
 
-        sell_recs = self.sqldb.select(self.sell_table, [column_date, column_cost_sold, column_rolled_in, column_roll_in_value])
+        sell_recs = self.sqldb.select(self.sell_table, [column_date, column_cost_sold, column_portion, column_rolled_in, column_roll_in_value])
         if not sell_recs:
             return
 
         values = []
         ppg = 1 if not ppgram.__contains__(self.code) else ppgram[self.code]
-        for (d, c, r, v) in sell_recs:
+        for (d, c, p, r, v) in sell_recs:
             if not r:
                 r = 0
-            if c <= float(r):
-                continue
             max_price_to_buy = 0
             if not v:
                 netvalue = fg.netvalue_by_date(d)
                 max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)) * ppg, 4)
             else:
                 max_price_to_buy = round(float(v) * ppg, 4)
-            values.append({"date":d, "max_price_to_buy":max_price_to_buy, "to_rollin":str(int(c - float(r)))})
+            to_rollin = 0;
+            if c > float(r):
+                to_rollin = int(c - float(r))
+            values.append({"date":d, "cost":c, "portion":p, "max_price_to_buy":max_price_to_buy, "to_rollin":str(to_rollin)})
 
         return values
 
@@ -169,11 +170,11 @@ class UserFund():
         if not self.buy_table:
             return
 
-        dcp_not_sell = self.sqldb.select(self.buy_table, [column_date, column_cost, column_portion], "%s = 0" % column_soldout)
+        dcp_not_sell = self.sqldb.select(self.buy_table, [column_date, column_cost, column_portion, column_soldout])
         values = []
-        for (d,c,p) in dcp_not_sell:
+        for (d,c,p,s) in dcp_not_sell:
             v = fg.netvalue_by_date(d)
-            values.append({"date":d, "netvalue":v, "cost":c, "portion":p})
+            values.append({"date":d, "netvalue":v, "cost":c, "portion":p, "sold":s})
         return values
 
     def get_portions_morethan_7day(self, fg, ppg):
