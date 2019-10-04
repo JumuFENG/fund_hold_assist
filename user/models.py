@@ -24,9 +24,6 @@ class User():
     def funds_info_table(self):
         return "u"+ str(self.id) + "_" + gl_fund_info_table
 
-    def index_info_table(self):
-        return gl_index_info_table
-
     def to_string(self):
         return 'id: ' + str(self.id) + ' name: ' + self.name + ' email: ' + self.email;
 
@@ -140,48 +137,14 @@ class User():
 
         return fund_json
 
-    def get_index_hist_data(self, code):
-        sqldb = self.fund_center_db()
-        if not sqldb.isExistTable(self.index_info_table()):
-            print("can not find index info DB.")
-            return
-
-        index_code = "sz" + code;
-        his_tbl = sqldb.select(self.index_info_table(), column_table_full_history, "%s='%s'" %(column_code, code))
-        if not his_tbl:
-            print("No full history table for index", code)
-            return
-        (his_tbl,), = his_tbl
-            
-        if not sqldb.isExistTable(his_tbl):
-            print(his_tbl,"not exist.")
-            return
-
-        index_hist_data = ("date", index_code),
-        szzs_his_data = sqldb.select(his_tbl, [column_date, column_close, column_p_change], order = " ORDER BY %s ASC" % column_date)
-        for (date, close, p_change) in szzs_his_data:
-            index_hist_data += (date, round(float(close), 2), round(float(p_change), 2) if not p_change == "None" else ''),
-
-        return index_hist_data
-
-    def get_fund_hist_data(self, code):
-        sqldb = self.fund_center_db()
-        if not sqldb.isExistTable(self.funds_info_table()):
-            print("can not find fund info DB.")
-            return
-
-        fg = FundGeneral(sqldb, code)
-        fund_his = sqldb.select(fg.history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date)
-        fund_his_data = ('date', code),
-        for (d, v, g) in fund_his:
-            fund_his_data += (d, v, round(float(100 * g), 2)),
-        return fund_his_data
-
     def get_holding_funds_hist_data(self):
         sqldb = self.fund_center_db()
         if not sqldb.isExistTable(self.funds_info_table()):
             print("can not find fund info DB.")
             return
+
+        ig = IndexGeneral(sqldb, "000001")
+        all_hist_data = ig.get_index_hist_data()
 
         fund_codes = sqldb.select(self.funds_info_table(), [column_code])
 
@@ -191,10 +154,9 @@ class User():
             if uf.cost_hold and uf.average:
                 funds_holding.append(c)
 
-        all_hist_data = self.get_index_hist_data("000001")
-
         for c in funds_holding:
-            fund_his_data = self.get_fund_hist_data(c)
+            fg = FundGeneral(sqldb, c)
+            fund_his_data = fg.get_fund_hist_data()
             all_hist_data = self.merge_hist_data(all_hist_data, fund_his_data)
 
         return all_hist_data

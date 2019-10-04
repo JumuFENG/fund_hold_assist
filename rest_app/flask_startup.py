@@ -183,13 +183,30 @@ def fundsummary():
     usermodel = UserModel(gen_db)
     user = usermodel.user_by_email(session['useremail'])
     fundsjson = user.get_holding_funds_summary()
-    hist_data = user.get_holding_funds_hist_basic()
+    hist_data = [[]]
     return render_template('/fundsummary.html', 
         title = "持基表",
         fundsJson = fundsjson,
         hist_data_arr = hist_data
         )
 
+@app.route('/fundhist', methods=['GET'])
+def fund_hist_data():
+    if request.method == 'GET':
+        print("fundhist GET")
+        code = request.args.get("code", type=str, default=None)
+        ftype = request.args.get("type", type=str, default="fund")
+        sqldb = SqlHelper(password = db_pwd, database = "fund_center")
+        if ftype == "fund":
+            fg = FundGeneral(sqldb, code)
+            return json.dumps(fg.get_fund_hist_data())
+        elif ftype == "index":
+            if code.startswith("sz"):
+                code = code[2:]
+            ig = IndexGeneral(sqldb, code)
+            return json.dumps(ig.get_index_hist_data())
+        else:
+            return "Error", 500
 
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
