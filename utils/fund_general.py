@@ -31,3 +31,11 @@ class FundGeneral():
         history_dvs = self.sqldb.select(self.history_table, [column_date, column_net_value], order = " ORDER BY %s ASC" % column_date)
         (d, netvalue) = history_dvs[-1]
         return netvalue
+
+    def get_fund_hist_data(self):
+        fund_his = self.sqldb.select(self.history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date)
+        fund_his_data = ('date', self.code),
+        for (d, v, g) in fund_his:
+            fund_his_data += (d, v, round(float(100 * g), 2)),
+        return fund_his_data
+        
