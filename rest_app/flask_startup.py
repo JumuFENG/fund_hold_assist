@@ -182,6 +182,7 @@ def fundsummary():
     gen_db = SqlHelper(password = db_pwd, database = "general")
     usermodel = UserModel(gen_db)
     user = usermodel.user_by_email(session['useremail'])
+    user.confirm_buy_sell()
     fundsjson = user.get_holding_funds_summary()
     hist_data = []
     return render_template('/fundsummary.html', 
