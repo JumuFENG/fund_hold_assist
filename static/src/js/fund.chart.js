@@ -204,15 +204,7 @@ function googleChartLoaded() {
     if (all_hist_data.length > 0) {
         chart.drawChart();
     } else {
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.open('GET', '../../fundhist?code=sz000001&type=index', true);
-        httpRequest.send();
-
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                updateHistData(JSON.parse(httpRequest.responseText));
-            }
-        }
+        getHistoryData('sz000001', 'index');
     }
 };
 
@@ -225,6 +217,14 @@ function onChartPointSelected() {
 }
 
 function DrawFundHistory(fundcode) {
+    var fdline = new FundLine(fundcode, '#B8860B', ftjson[fundcode]['name']);
+    chart.lines = [fdline];
+
+    if (all_hist_data[0].indexOf(fundcode) < 0) {
+        getHistoryData(fundcode, 'fund');
+        return;
+    };
+
     var days = 0;
     var sibling = document.getElementById("dayslist").firstElementChild;
     while (sibling != null) {
@@ -234,8 +234,6 @@ function DrawFundHistory(fundcode) {
         };
         sibling = sibling.nextElementSibling;
     }
-    var fdline = new FundLine(fundcode, '#B8860B', ftjson[fundcode]['name']);
-    chart.lines = [fdline];
     chart.drawChart(days);
 }
 
@@ -256,13 +254,88 @@ function RedrawHistoryGraphs(ele, t) {
     }
 }
 
+function getHistoryData(code, type) {
+    var httpRequest = new XMLHttpRequest();
+    httpRequest.open('GET', '../../fundhist?code=' + code + '&type=' + type, true);
+    httpRequest.send();
+
+    httpRequest.onreadystatechange = function () {
+        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+            updateHistData(JSON.parse(httpRequest.responseText));
+        }
+    }
+}
+
 function updateHistData(hist_data) {
+    var updatingcode = hist_data[0][1];
     if (all_hist_data.length < 1) {
         all_hist_data = hist_data;
-    };
+    } else {
+        var basic_his_data = all_hist_data;
+        var extend_his_data = hist_data;
+        if (all_hist_data.length < hist_data.length) {
+            basic_his_data = hist_data;
+            extend_his_data = all_hist_data;
+        };
+
+        all_hist_data = [];
+        var header = basic_his_data[0];
+        for (var i = 1; i < extend_his_data[0].length; i++) {
+            header.push(extend_his_data[0][i]);
+        };
+        all_hist_data.push(header);
+
+        for (var i = 1; i < basic_his_data.length; i++) {
+            var row = basic_his_data[i];
+            var date = row[0];
+            var find_same_date = false;
+            for (var j = 1; j < extend_his_data.length; j++) {
+                var ext_data = extend_his_data[j];
+                var fdate = ext_data[0];
+                if (fdate < date) {
+                    continue;
+                } else {
+                    if (fdate == date) {
+                        for (var k = 1; k < ext_data.length; k++) {
+                            row.push(ext_data[k]);
+                        };
+                        find_same_date = true;
+                    }
+                    break;
+                };
+            };
+            if (!find_same_date) {
+                for (var ii = 0; ii < extend_his_data[1].length - 1; ii++) {
+                    row.push('');
+                };
+            };
+            all_hist_data.push(row);
+        };
+    }
+
 
     if (chart)
     {
+        var chartRedraw = false;
+        for (var i = 0; i < chart.lines.length; i++) {
+            if (updatingcode = chart.lines[i].code) {
+                chartRedraw = true;
+            }
+        };
+
+        if (!chartRedraw) {
+            return;
+        };
+
+        var days = 0;
+        var sibling = document.getElementById("dayslist").firstElementChild;
+        while (sibling != null) {
+            if (sibling.className == "highlight") {
+                days = sibling.value;
+                break;
+            };
+            sibling = sibling.nextElementSibling;
+        }
         chart.drawChart(days);
     }
 }
