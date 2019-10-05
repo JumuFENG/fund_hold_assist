@@ -17,7 +17,11 @@ hr {
 }
 
 button {
-    min-width: 45px
+    min-width: 45px;
+}
+
+input {
+    max-width: 150px;
 }
 
 label {

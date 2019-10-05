@@ -32,8 +32,8 @@ class FundChart {
 
         this.options = {
             title: lineNames.join(' vs. '),
-            width: 800,
-            height: 600,
+            width: '100%',
+            height: '100%',
             crosshair: { trigger: 'both', opacity: 0.5},
             pointSize: 3,
             series: series,

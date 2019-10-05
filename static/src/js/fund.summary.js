@@ -156,8 +156,10 @@ function getRollinRows(rollins) {
     rows.push(row0);
 
     for (var i = 0; i < rollins.length; i++) {
-        var row = creatBuyRow(rollins[i]["date"], rollins[i]["max_price_to_buy"], rollins[i]["to_rollin"]);
-        rows.push(row);
+        if (rollins[i]["to_rollin"] > 0) {
+            var row = creatBuyRow(rollins[i]["date"], rollins[i]["max_price_to_buy"], rollins[i]["to_rollin"]);
+            rows.push(row);
+        }
     };
     return rows;
 }
@@ -190,9 +192,13 @@ function getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg, code) 
     var max_value_to_sell = parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate));
     var dates = [];
     for (var i = 0; i < buytable.length; i++) {
-        if(parseFloat(buytable[i]["netvalue"]) < max_value_to_sell){
-            portion_can_sell += parseFloat(buytable[i]["portion"])
-            dates.push(buytable[i]["date"]);
+        if (buytable[i].sold == 1) {
+            continue;
+        };
+
+        if(parseFloat(buytable[i].netvalue) < max_value_to_sell){
+            portion_can_sell += parseFloat(buytable[i].portion)
+            dates.push(buytable[i].date);
         }
     };
 
@@ -203,14 +209,9 @@ function getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg, code) 
         portion_can_sell = portion_can_sell.toFixed(4);
 
         var row1 = create2ColRow(">"+ (parseFloat(short_term_rate) * 100).toFixed(2) +"%", portion_can_sell);
-        var col = document.createElement("td");
-        col.setAttribute("colspan","2");
-        col.id = "shorterm_sell_" + code;
-        col.textContent = JSON.stringify(dates).replace(/,/g, ', ');
-        var row2 = document.createElement("tr");
-        row2.appendChild(col);
-
-        return [row1, row2];
+        row1.id = "shorterm_sell_" + code;
+        row1.setAttribute("dates", dates.join(''));
+        return [row1];
     };
 
     return [];
@@ -240,7 +241,7 @@ function getLatestRetracement(fundcode, latest_netvalue) {
     if (fundValIdx < 0) {
         return 0;
     };
-    
+
     var startDateArr = all_hist_data.find(function(curVal) {
         return curVal[fundDateIdx] == buytable[0].date;
     });
@@ -650,7 +651,7 @@ function TradeSubmit(tradepanel, tradedate, tradecost, tradeoptions) {
         alert("not implemented yet.");
     } else if (option == "sell") {
         var short_term_td = document.getElementById("shorterm_sell_" + code);
-        var strbuydates = (short_term_td.textContent).replace(/\"|, |\[|\]/g, '');
+        var strbuydates = short_term_td.getAttribute('dates');
         sellFund(code, date, strbuydates);
     } else {
         var budget_dates = null;
