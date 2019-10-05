@@ -183,7 +183,7 @@ def fundsummary():
     usermodel = UserModel(gen_db)
     user = usermodel.user_by_email(session['useremail'])
     fundsjson = user.get_holding_funds_summary()
-    hist_data = [[]]
+    hist_data = []
     return render_template('/fundsummary.html', 
         title = "持基表",
         fundsJson = fundsjson,

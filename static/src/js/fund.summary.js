@@ -231,8 +231,16 @@ function getLatestRetracement(fundcode, latest_netvalue) {
         return 0;
     };
 
+    if (all_hist_data.length < 1) {
+        return 0;
+    };
+
     var fundDateIdx = 0;
     var fundValIdx = all_hist_data[0].indexOf(fundcode) * 2 - 1;
+    if (fundValIdx < 0) {
+        return 0;
+    };
+    
     var startDateArr = all_hist_data.find(function(curVal) {
         return curVal[fundDateIdx] == buytable[0].date;
     });

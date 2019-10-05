@@ -55,6 +55,10 @@ class FundChart {
     }
 
     createDataTable(days = 0) {
+        if (all_hist_data.length < 1) {
+            return;
+        };
+
         var showLen = 0;
         if (days > 0) {
             showLen = days + 1;
@@ -177,7 +181,9 @@ class FundChart {
         this.createDataTable(days);
         this.createChartOption();
 
-        this.chart.draw(this.data, this.options);
+        if (this.data) {
+            this.chart.draw(this.data, this.options);
+        };
     }
 };
 
@@ -192,12 +198,22 @@ google.charts.setOnLoadCallback(googleChartLoaded);
 var chart = null;
 
 function googleChartLoaded() {
+    chart = new FundChart('fund_chart_div');
+    var szline = new FundLine('sz000001', '#87CEFA', '上证指数');
+    chart.lines = [szline];
     if (all_hist_data.length > 0) {
-        chart = new FundChart('fund_chart_div');
-        var szline = new FundLine('sz000001', '#87CEFA', '上证指数');
-        chart.lines = [szline];
         chart.drawChart();
-    };
+    } else {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('GET', '../../fundhist?code=sz000001&type=index', true);
+        httpRequest.send();
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                updateHistData(JSON.parse(httpRequest.responseText));
+            }
+        }
+    }
 };
 
 function onChartPointSelected() {
@@ -225,7 +241,11 @@ function DrawFundHistory(fundcode) {
 
 function RedrawHistoryGraphs(ele, t) {
     var days = t.value;
-    chart.drawChart(days);
+    if (chart)
+    {
+        chart.drawChart(days);
+    }
+    
     t.className = "highlight";
     var sibling = t.parentElement.firstChild;
     while (sibling != null) {
@@ -233,5 +253,16 @@ function RedrawHistoryGraphs(ele, t) {
             sibling.className = "";
         };
         sibling = sibling.nextElementSibling;
+    }
+}
+
+function updateHistData(hist_data) {
+    if (all_hist_data.length < 1) {
+        all_hist_data = hist_data;
+    };
+
+    if (chart)
+    {
+        chart.drawChart(days);
     }
 }
