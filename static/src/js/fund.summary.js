@@ -510,7 +510,8 @@ function fetchFundSummary(code) {
     httpRequest.onreadystatechange = function () {
         if (httpRequest.readyState == 4 && httpRequest.status == 200) {
             ftjson[code] = JSON.parse(httpRequest.responseText);
-            showAllFundList()
+            showAllFundList();
+            refreshHoldDetail(code);
         }
     }
 }
@@ -613,6 +614,10 @@ function updateTotalEarnedInfo(earned, total_earned, cost) {
 }
 
 function showAllFundList() {
+    var charts_div = document.getElementById("charts_div");
+    charts_div.parentElement.removeChild(charts_div);
+    document.getElementById('funds_list_container').appendChild(charts_div);
+    
     var fund_list_tbl = document.getElementById("fund_list_table");
     deleteAllRows(fund_list_table);
 
@@ -724,7 +729,6 @@ function buyFund(code, date, cost, budget_dates, rollin_date) {
     httpRequest.onreadystatechange = function () {
         if (httpRequest.readyState == 4 && httpRequest.status == 200) {
             fetchFundSummary(code);
-            refreshHoldDetail(code);
         }
     }
 }
@@ -740,7 +744,6 @@ function sellFund(code, date, strbuydates) {
     httpRequest.onreadystatechange = function () {
         if (httpRequest.readyState == 4 && httpRequest.status == 200) {
             fetchFundSummary(code);
-            refreshHoldDetail(code);
         }
     }
 }
