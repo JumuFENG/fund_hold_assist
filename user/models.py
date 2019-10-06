@@ -94,22 +94,10 @@ class User():
 
         fund_json = {}
         for (c, ) in fund_codes:
-            fund_json_obj = {}
-            ppg = 1 if not ppgram.__contains__(c) else ppgram[c]
-            fg = FundGeneral(sqldb, c)
             uf = UserFund(self, c)
-
+            fund_json_obj = None
             if uf.cost_hold and uf.average:
-                fund_json_obj["name"] = fg.name
-                fund_json_obj["ppg"] = ppg
-                fund_json_obj["short_term_rate"] = fg.short_term_rate
-                fund_json_obj["cost"] = uf.cost_hold
-                fund_json_obj["averprice"] = str(Decimal(str(uf.average)) * ppg)
-                fund_json_obj["latest_netvalue"] = fg.latest_netvalue()
-                fund_json_obj["last_day_earned"] = uf.last_day_earned(fg.history_table)
-                fund_json_obj["earned_while_holding"] = round((float(fg.latest_netvalue()) - float(uf.average)) * float(uf.portion_hold), 2)
-
-                fund_json_obj["morethan7day"] = uf.get_portions_morethan_7day(fg, ppg)
+                fund_json_obj = uf.get_fund_summary()
 
             if fund_json_obj:
                 fund_json[c] = fund_json_obj

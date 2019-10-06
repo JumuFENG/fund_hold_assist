@@ -357,3 +357,20 @@ class UserFund():
         fh = FundHistoryDataDownloader(self.sqldb)
         fh.fundHistoryTillToday(self.code)
         self.confirm_buy_sell()
+
+    def get_fund_summary(self):
+        fund_json_obj = {}
+        fg = FundGeneral(self.sqldb, self.code)
+        ppg = 1 if not ppgram.__contains__(self.code) else ppgram[self.code]
+
+        fund_json_obj["name"] = fg.name
+        fund_json_obj["ppg"] = ppg
+        fund_json_obj["short_term_rate"] = fg.short_term_rate
+        fund_json_obj["cost"] = self.cost_hold
+        fund_json_obj["averprice"] = str(Decimal(str(self.average)) * ppg)
+        fund_json_obj["latest_netvalue"] = fg.latest_netvalue()
+        fund_json_obj["last_day_earned"] = self.last_day_earned(fg.history_table)
+        fund_json_obj["earned_while_holding"] = round((float(fg.latest_netvalue()) - float(self.average)) * float(self.portion_hold), 2)
+        fund_json_obj["morethan7day"] = self.get_portions_morethan_7day(fg, ppg)
+
+        return fund_json_obj

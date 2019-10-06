@@ -44,7 +44,7 @@
                 </ul> <br/> <hr />
             <div id="trade_panel" style="display:none;">
                 <input id="trade_panel_date" type="date" />
-                <input id="trade_panel_cost" type="text" />
+                <input id="trade_panel_cost" type="text" placeholder="金额"/>
                 <button id="trade_panel_submit" onclick="TradeSubmit(trade_panel, trade_panel_date, trade_panel_cost, tradeoptions)">确定</button>
             </div>
     </div>
@@ -53,8 +53,8 @@
     <div id="fund_new_container">
     新买基金: <br />
         <input id="fund_new_date" type="date" />
-        <input id="fund_new_code" type="text" />
-        <input id="fund_new_cost" type="text" />
+        <input id="fund_new_code" type="text" placeholder="基金代码"/>
+        <input id="fund_new_cost" type="text" placeholder="金额"/>
         <button id="fund_new_submit" onclick="FundNewSubmit(fund_new_date.value, fund_new_code.value, fund_new_cost.value)">确定</button>
     </div>
 </body>
