@@ -81,7 +81,7 @@ class FundChart {
             };
         } else if (days == 0) {
             var buytable = null;
-            for (var i = 0; i < this.lines.length; i++) {
+            for (var i = 0; ftjson != null && i < this.lines.length; i++) {
                 if (ftjson[this.lines[i].code] !== undefined) {
                     buytable = ftjson[this.lines[i].code]["buy_table"];
                     break;
@@ -203,7 +203,7 @@ function googleChartLoaded() {
     chart.lines = [szline];
     if (all_hist_data.length > 0) {
         chart.drawChart();
-    } else {
+    } else if (document.getElementById('funds_list_container').style.display != 'none') {
         getHistoryData('sz000001', 'index');
     }
 };

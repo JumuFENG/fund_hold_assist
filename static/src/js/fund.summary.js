@@ -7,6 +7,11 @@ function logInfo(...args) {
     //console.log(args);
 }
 
+function getTodyDatePickerValue() {
+    var dt = new Date();
+    return dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
+}
+
 function loadJsonData() {
     var newscript = document.createElement('script');
     newscript.setAttribute('type','text/javascript');
@@ -19,6 +24,7 @@ function loadJsonData() {
 
 window.onload = function() {
     showAllFundList();
+    document.getElementById('fund_new_date').value = getTodyDatePickerValue();
 }
 
 document.addEventListener(ExtensionLoadedEvent, e => {
@@ -342,8 +348,9 @@ function ToggleFundDetails(divDetail, fund_list_table) {
         var tradepanel = document.getElementById("trade_panel");
         tradepanel.setAttribute("code", fundcode);
         var datepicker = document.getElementById("trade_panel_date");
-        var dt = new Date();
-        datepicker.value = dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
+        datepicker.value = getTodyDatePickerValue();
+        document.getElementById('tradeoptions').style.display = 'block';
+        document.getElementById('trade_panel').style.display = 'block';
     } else {
         divDetail.style.display = "none";
     }
@@ -609,6 +616,10 @@ function showAllFundList() {
         var row = createGeneralInfoInSingleRow(code_cost[i][0]);
         fund_list_tbl.appendChild(row)
     }
+
+    if (code_cost.length == 0) {
+        document.getElementById('funds_list_container').style.display = 'none';
+    };
 }
 
 function SetTradeOption(t, cost, submit) {
@@ -706,4 +717,8 @@ function sellFund(code, date, strbuydates) {
             alert(httpRequest.responseText);
         }
     }
+}
+
+function FundNewSubmit(date, code, cost) {
+    buyFund(code, date, parseFloat(cost), null, null);
 }
