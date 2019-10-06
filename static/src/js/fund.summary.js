@@ -613,11 +613,19 @@ function updateTotalEarnedInfo(earned, total_earned, cost) {
     };
 }
 
-function showAllFundList() {
+function redrawSzzsChart() {
+    ResetHistoryGraph();
+
     var charts_div = document.getElementById("charts_div");
     charts_div.parentElement.removeChild(charts_div);
-    document.getElementById('funds_list_container').appendChild(charts_div);
-    
+    document.getElementById('funds_list_container').appendChild(charts_div);    
+    document.getElementById('tradeoptions').style.display = 'none';
+    document.getElementById('trade_panel').style.display = 'none';
+}
+
+function showAllFundList() {
+    redrawSzzsChart();
+
     var fund_list_tbl = document.getElementById("fund_list_table");
     deleteAllRows(fund_list_table);
 

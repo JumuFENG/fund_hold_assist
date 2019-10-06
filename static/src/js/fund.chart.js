@@ -254,6 +254,24 @@ function RedrawHistoryGraphs(ele, t) {
     }
 }
 
+function ResetHistoryGraph() {
+    if (!chart) {
+        return;
+    }
+
+    chart.lines = [new FundLine('sz000001', '#87CEFA', '上证指数')]
+    var days = 0;
+    var sibling = document.getElementById("dayslist").firstElementChild;
+    while (sibling != null) {
+        if (sibling.className == "highlight") {
+            days = sibling.value;
+            break;
+        };
+        sibling = sibling.nextElementSibling;
+    }
+    chart.drawChart(days);
+}
+
 function getHistoryData(code, type) {
     var httpRequest = new XMLHttpRequest();
     httpRequest.open('GET', '../../fundhist?code=' + code + '&type=' + type, true);
