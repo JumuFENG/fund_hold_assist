@@ -220,7 +220,7 @@ function DrawFundHistory(fundcode) {
     var fdline = new FundLine(fundcode, '#B8860B', ftjson[fundcode]['name']);
     chart.lines = [fdline];
 
-    if (all_hist_data[0].indexOf(fundcode) < 0) {
+    if (all_hist_data.length == 0 || all_hist_data[0].indexOf(fundcode) < 0) {
         getHistoryData(fundcode, 'fund');
         return;
     };

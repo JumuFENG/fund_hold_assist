@@ -76,6 +76,9 @@ class User():
 
     def confirm_buy_sell(self):
         sqldb = self.fund_center_db()
+        if not sqldb.isExistTable(self.funds_info_table()):
+            return
+            
         fundcodes = sqldb.select(self.funds_info_table(), [column_code])
         if not fundcodes:
             return
@@ -88,7 +91,7 @@ class User():
         sqldb = self.fund_center_db()
         if not sqldb.isExistTable(self.funds_info_table()):
             print("can not find fund info DB.")
-            return
+            return {}
 
         fund_codes = sqldb.select(self.funds_info_table(), [column_code])
 
