@@ -123,7 +123,7 @@ class FundChart {
                 var valIdx = all_hist_data[0].indexOf(this.lines[j].code) * 2 - 1;
                 var val = all_hist_data[len - showLen + i][valIdx];
                 if (val == '') {
-                    console.log(this.lines[j].name, date, "value not found!");
+                    utils.logInfo(this.lines[j].name, date, "value not found!");
                     if (len - showLen + i - 1 > 0) {
                         all_hist_data[len - showLen + i][valIdx] = all_hist_data[len - showLen + i - 1][valIdx];
                         all_hist_data[len - showLen + i][valIdx + 1] = '0';
@@ -225,15 +225,7 @@ function DrawFundHistory(fundcode) {
         return;
     };
 
-    var days = 0;
-    var sibling = document.getElementById("dayslist").firstElementChild;
-    while (sibling != null) {
-        if (sibling.className == "highlight") {
-            days = sibling.value;
-            break;
-        };
-        sibling = sibling.nextElementSibling;
-    }
+    var days = utils.getHighlightedValue("dayslist");
     chart.drawChart(days);
 }
 
@@ -243,15 +235,7 @@ function RedrawHistoryGraphs(ele, t) {
     {
         chart.drawChart(days);
     }
-    
-    t.className = "highlight";
-    var sibling = t.parentElement.firstChild;
-    while (sibling != null) {
-        if (sibling != t) {
-            sibling.className = "";
-        };
-        sibling = sibling.nextElementSibling;
-    }
+    utils.toggelHighlight(t);
 }
 
 function ResetHistoryGraph() {
@@ -260,15 +244,7 @@ function ResetHistoryGraph() {
     }
 
     chart.lines = [new FundLine('sz000001', '#87CEFA', '上证指数')]
-    var days = 0;
-    var sibling = document.getElementById("dayslist").firstElementChild;
-    while (sibling != null) {
-        if (sibling.className == "highlight") {
-            days = sibling.value;
-            break;
-        };
-        sibling = sibling.nextElementSibling;
-    }
+    var days = utils.getHighlightedValue("dayslist");
     chart.drawChart(days);
 }
 
@@ -345,15 +321,7 @@ function updateHistData(hist_data) {
             return;
         };
 
-        var days = 0;
-        var sibling = document.getElementById("dayslist").firstElementChild;
-        while (sibling != null) {
-            if (sibling.className == "highlight") {
-                days = sibling.value;
-                break;
-            };
-            sibling = sibling.nextElementSibling;
-        }
+        var days = utils.getHighlightedValue("dayslist");
         chart.drawChart(days);
     }
 }

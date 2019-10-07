@@ -3,37 +3,18 @@ let CodeToFetchEvent = 'FundCodeToFetch';
 let RealtimeInfoFetchedEvent = "FundGzReturned";
 let extensionLoaded = false;
 
-function logInfo(...args) {
-    //console.log(args);
-}
-
-function getTodyDatePickerValue() {
-    var dt = new Date();
-    return dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
-}
-
-function loadJsonData() {
-    var newscript = document.createElement('script');
-    newscript.setAttribute('type','text/javascript');
-    newscript.setAttribute('src','json/history_data.json');
-    var head = document.getElementsByTagName('head')[0];
-    head.appendChild(newscript);
-    //head.insertBefore(newscript, head.firstChild);
-    //document.write("<script type='text/javascript' src='fund.json'></script>");
-}
-
 window.onload = function() {
     showAllFundList();
-    document.getElementById('fund_new_date').value = getTodyDatePickerValue();
+    document.getElementById('fund_new_date').value = utils.getTodayDate();
 }
 
 document.addEventListener(ExtensionLoadedEvent, e => {
-    logInfo("Extension loaded");
+    utils.logInfo("Extension loaded");
     extensionLoaded = true;
 });
 
 document.addEventListener(RealtimeInfoFetchedEvent, e => {
-    logInfo(e.detail);
+    utils.logInfo(e.detail);
     eval(e.detail);
 });
 
@@ -79,47 +60,13 @@ function sendFetchEvent(fundcode) {
     sendFetchEventActually(fundcode);
 }
 
-function createSingleRow(c) {
-    var row = document.createElement("tr");
-    var col = document.createElement("td");
-    col.setAttribute("colspan","2");
-    col.appendChild(document.createTextNode(c))
-    row.appendChild(col);
-    return row;
-}
-
-function createSplitLine() {
-    var row = document.createElement("tr");
-    var col = document.createElement("td");
-    col.appendChild(document.createElement("hr"))
-    row.appendChild(col);
-    return row;
-}
-
-function create2ColRow(c1, c2){
-    var row = document.createElement("tr");
-    var col1 = document.createElement("td");
-    col1.appendChild(document.createTextNode(c1));
-    var col2 = document.createElement("tr");
-    col2.appendChild(document.createTextNode(c2));
-    row.appendChild(col1);
-    row.appendChild(col2);
-    return row;
-}
-
-function deleteAllRows(tbl) {
-    for (var idx = tbl.rows.length - 1; idx >= 0; idx--) {
-        tbl.deleteRow(idx);
-    }
-}
-
 function getBudgetRows(budgets) {
     var rows = []
     if (!budgets || budgets.length < 1) {
         return rows;
     };
 
-    var row0 = createSingleRow("budget");
+    var row0 = utils.createSingleRow("budget");
     rows.push(row0);
     for (var i = 0; i < budgets.length; i++) {
         var row = creatBuyRow(budgets[i]["date"], budgets[i]["max_price_to_buy"], budgets[i]["budget"]);
@@ -131,7 +78,7 @@ function getBudgetRows(budgets) {
 
 function updateBudgetsTable(code) {
     var budgetTable = document.getElementById("budget_table_" + code);
-    deleteAllRows(budgetTable);
+    utils.deleteAllRows(budgetTable);
     var rows = getBudgetRows(ftjson[code]["budget"]);
     for (var i = 0; i < rows.length; i++) {
         budgetTable.appendChild(rows[i]);
@@ -149,7 +96,7 @@ function createBudgetsTable(code) {
 }
 
 function creatBuyRow(date, maxprice, cost) {
-    return create2ColRow(date, cost + "<" + maxprice + ">");
+    return utils.create2ColRow(date, cost + "<" + maxprice + ">");
 }
 
 function getRollinRows(rollins) {
@@ -158,7 +105,7 @@ function getRollinRows(rollins) {
         return rows;
     }
 
-    var row0 = createSingleRow("roll in");
+    var row0 = utils.createSingleRow("roll in");
     rows.push(row0);
 
     for (var i = 0; i < rollins.length; i++) {
@@ -172,7 +119,7 @@ function getRollinRows(rollins) {
 
 function updateRollinsTable(code) {
     var rollinTable = document.getElementById("rollin_table_" + code);
-    deleteAllRows(rollinTable);
+    utils.deleteAllRows(rollinTable);
     var rows = getRollinRows(ftjson[code]["sell_table"]);
     for (var i = 0; i < rows.length; i++) {
         rollinTable.appendChild(rows[i]);
@@ -214,7 +161,7 @@ function getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg, code) 
         };
         portion_can_sell = portion_can_sell.toFixed(4);
 
-        var row1 = create2ColRow(">"+ (parseFloat(short_term_rate) * 100).toFixed(2) +"%", portion_can_sell);
+        var row1 = utils.create2ColRow(">"+ (parseFloat(short_term_rate) * 100).toFixed(2) +"%", portion_can_sell);
         row1.id = "shorterm_sell_" + code;
         row1.setAttribute("dates", dates.join(''));
         return [row1];
@@ -278,7 +225,7 @@ function getLatestRetracement(fundcode, latest_netvalue) {
 } 
 
 function jsonpgz(fundgz) {
-    logInfo(fundgz);
+    utils.logInfo(fundgz);
     ftjson[fundgz.fundcode].rtgz = fundgz;
     updateGuzhiInfo(fundgz.fundcode);
     updateLatestSellInfo(fundgz.fundcode);
@@ -308,8 +255,8 @@ function createSellInfoTable(fundcode) {
     var funddata = ftjson[fundcode];
     var sellTable = document.createElement("table");
     sellTable.id = "tbl_sell_" + fundcode;
-    sellTable.appendChild(createSingleRow("sell"));
-    sellTable.appendChild(create2ColRow(">7天", funddata["morethan7day"]));
+    sellTable.appendChild(utils.createSingleRow("sell"));
+    sellTable.appendChild(utils.create2ColRow(">7天", funddata["morethan7day"]));
 
     var short_term_rate = funddata["short_term_rate"];
     var buytable = funddata["buy_table"];
@@ -348,7 +295,7 @@ function ToggleFundDetails(divDetail, fund_list_table) {
         var tradepanel = document.getElementById("trade_panel");
         tradepanel.setAttribute("code", fundcode);
         var datepicker = document.getElementById("trade_panel_date");
-        datepicker.value = getTodyDatePickerValue();
+        datepicker.value = utils.getTodayDate();
         document.getElementById('tradeoptions').style.display = 'block';
         document.getElementById('trade_panel').style.display = 'block';
     } else {
@@ -356,20 +303,10 @@ function ToggleFundDetails(divDetail, fund_list_table) {
     }
 }
 
-function incdec_lbl_classname(val) {
-    var lbl_class = "increase";
-    if (val < 0) {
-        lbl_class = "decrease";
-    } else if (val == 0) {
-        lbl_class = "keepsame";
-    };
-    return lbl_class;
-}
-
 function createGuzhiInfo(fundcode) {
     var funddata = ftjson[fundcode];
     var jsonp = funddata.rtgz;
-    var lbl_class = incdec_lbl_classname(jsonp ? jsonp.gszzl : funddata["last_day_earned"]);
+    var lbl_class = utils.incdec_lbl_classname(jsonp ? jsonp.gszzl : funddata["last_day_earned"]);
 
     var html = "<div class='guzhi'>估值: <label id='guzhi_lgz_" + fundcode + "'";
     if (lbl_class) {
@@ -393,7 +330,7 @@ function createGuzhiInfo(fundcode) {
         netvalue /= funddata["ppg"];
         netvalue = netvalue.toFixed(4);
     };
-    lbl_class = incdec_lbl_classname((jsonp ? jsonp.gsz : funddata["latest_netvalue"]) - netvalue)
+    lbl_class = utils.incdec_lbl_classname((jsonp ? jsonp.gsz : funddata["latest_netvalue"]) - netvalue)
     html += " class='" + lbl_class + "' >";
     var latest_netvalue = jsonp ? jsonp.gsz : funddata["latest_netvalue"];
     var total_percent = ((latest_netvalue - netvalue) * 100 / netvalue).toFixed(2) + "%";
@@ -411,7 +348,7 @@ function updateGuzhiInfo(fundcode) {
     var jsonp = ftjson[fundcode].rtgz;
     var funddata = ftjson[fundcode];
 
-    var lbl_class = incdec_lbl_classname( jsonp ? jsonp.gszzl : funddata["last_day_earned"]);
+    var lbl_class = utils.incdec_lbl_classname( jsonp ? jsonp.gszzl : funddata["last_day_earned"]);
     var lbl_guzhi_lgz = document.getElementById("guzhi_lgz_" + fundcode);
     if (lbl_guzhi_lgz) {
         lbl_guzhi_lgz.innerText = jsonp ? jsonp.gsz : funddata["latest_netvalue"];
@@ -432,7 +369,7 @@ function updateGuzhiInfo(fundcode) {
             netvalue /= funddata["ppg"];
             netvalue = netvalue.toFixed(4);
         };
-        lbl_guzhi_total_percent.className = incdec_lbl_classname((jsonp ? jsonp.gsz : funddata["latest_netvalue"]) - netvalue);
+        lbl_guzhi_total_percent.className = utils.incdec_lbl_classname((jsonp ? jsonp.gsz : funddata["latest_netvalue"]) - netvalue);
 
         var total_percent = ((latest_netvalue - netvalue) * 100 / netvalue).toFixed(2) + "%";
 
@@ -451,7 +388,7 @@ function createGeneralInnerHtmlWithoutName(funddata) {
     var html = "<div class='general_earned'>"
     html += "持有: " + funddata["cost"] + " &lt;" + funddata["averprice"]+ "&gt; ";
 
-    var earned_lbl_class = incdec_lbl_classname(funddata["earned_while_holding"]);
+    var earned_lbl_class = utils.incdec_lbl_classname(funddata["earned_while_holding"]);
     html += "<label class='" + earned_lbl_class + "'>" + funddata["earned_while_holding"] + "</label>";
     html += "<label class='" + earned_lbl_class + "'>" + (100 * funddata["earned_while_holding"] / funddata["cost"]).toFixed(2) + "%</label>";
     html += "</div>";
@@ -460,7 +397,7 @@ function createGeneralInnerHtmlWithoutName(funddata) {
 
 function createGeneralInfoInSingleRow(fundcode) {
     var funddata = ftjson[fundcode];
-    var html = "<div class='fund_header' onclick='ToggleFundDetails(hold_detail_" + fundcode + ", fund_list_table)' id='fund_header_" + fundcode + "'>" + funddata["name"] + "<label class = '" + incdec_lbl_classname(funddata["last_day_earned"]) + "'>" + funddata["last_day_earned"] + "</label>";
+    var html = "<div class='fund_header' onclick='ToggleFundDetails(hold_detail_" + fundcode + ", fund_list_table)' id='fund_header_" + fundcode + "'>" + funddata["name"] + "<label class = '" + utils.incdec_lbl_classname(funddata["last_day_earned"]) + "'>" + funddata["last_day_earned"] + "</label>";
     html += createGuzhiInfo(fundcode);
     html += createGeneralInnerHtmlWithoutName(funddata);
     html += "</div>";
@@ -484,22 +421,6 @@ function createGeneralInfoInSingleRow(fundcode) {
     var row = document.createElement("tr");
     row.appendChild(col);
     return row;
-}
-
-function httpRequestGet(path, queries = null, callback = null) {
-        var httpRequest = new XMLHttpRequest();
-        var lnk = '../../' + path;
-        if (queries != null) {
-            lnk += '?' + queries;
-        };
-        httpRequest.open('GET', lnk, true);
-        httpRequest.send();
-
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                callback(httpRequest)
-            }
-        }
 }
 
 function fetchFundSummary(code) {
@@ -593,7 +514,7 @@ function updateTotalEarnedInfo(earned, total_earned, cost) {
     if (earned != 0) {
         var lbl_earned = document.getElementById("last_total_earned");
         lbl_earned.textContent = earned.toFixed(2);
-        var lbl_class = incdec_lbl_classname(earned);
+        var lbl_class = utils.incdec_lbl_classname(earned);
         lbl_earned.className = lbl_class;
 
         var lbl_earn_percent = document.getElementById("last_total_percent");
@@ -604,7 +525,7 @@ function updateTotalEarnedInfo(earned, total_earned, cost) {
         
         var lbl_total_earned = document.getElementById("total_earned");
         lbl_total_earned.textContent = total_earned.toFixed(2);
-        var lbl_total_class = incdec_lbl_classname(total_earned);
+        var lbl_total_class = utils.incdec_lbl_classname(total_earned);
         lbl_total_earned.className = lbl_total_class;
 
         var lbl_total_percent = document.getElementById("total_percent");
@@ -627,7 +548,7 @@ function showAllFundList() {
     redrawSzzsChart();
 
     var fund_list_tbl = document.getElementById("fund_list_table");
-    deleteAllRows(fund_list_table);
+    utils.deleteAllRows(fund_list_table);
 
     var earned = 0;
     var total_earned = 0;
@@ -650,7 +571,7 @@ function showAllFundList() {
     });
 
     for (var i in code_cost) {
-        fund_list_tbl.appendChild(createSplitLine());
+        fund_list_tbl.appendChild(utils.createSplitLine());
 
         var row = createGeneralInfoInSingleRow(code_cost[i][0]);
         fund_list_tbl.appendChild(row)
@@ -660,14 +581,7 @@ function showAllFundList() {
 }
 
 function SetTradeOption(t, cost, submit) {
-    t.className = "highlight";
-    var sibling = t.parentElement.firstChild;
-    while (sibling != null) {
-        if (sibling != t) {
-            sibling.className = "";
-        };
-        sibling = sibling.nextElementSibling;
-    }
+    utils.toggelHighlight(t);
     if (t.id == "tradeoption_sell") {
         t.parentElement.setAttribute("trade", "sell");
     } else if (t.id = "tradeoption_budget") {
