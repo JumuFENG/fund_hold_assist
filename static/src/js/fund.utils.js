@@ -3,6 +3,15 @@ class Utils {
         //console.log(args);
     }
 
+    isEmpty(obj) {
+        for (var key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                return false;
+            };
+        };
+        return true;
+    }
+    
     getTodayDate() {
         var dt = new Date();
         return dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');

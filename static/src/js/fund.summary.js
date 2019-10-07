@@ -4,7 +4,11 @@ let RealtimeInfoFetchedEvent = "FundGzReturned";
 let extensionLoaded = false;
 
 window.onload = function() {
-    showAllFundList();
+    if (!utils.isEmpty(ftjson)) {
+        showAllFundList();
+    };
+
+    document.getElementById('funds_list_container').style.display = utils.isEmpty(ftjson) ? 'none': 'block';
     document.getElementById('fund_new_date').value = utils.getTodayDate();
 }
 
@@ -78,7 +82,10 @@ function getBudgetRows(budgets) {
 
 function updateBudgetsTable(code) {
     var budgetTable = document.getElementById("budget_table_" + code);
-    utils.deleteAllRows(budgetTable);
+    if (budgetTable.rows.length > 0) {
+        utils.deleteAllRows(budgetTable);
+    };
+    
     var rows = getBudgetRows(ftjson[code]["budget"]);
     for (var i = 0; i < rows.length; i++) {
         budgetTable.appendChild(rows[i]);
@@ -119,7 +126,10 @@ function getRollinRows(rollins) {
 
 function updateRollinsTable(code) {
     var rollinTable = document.getElementById("rollin_table_" + code);
-    utils.deleteAllRows(rollinTable);
+    if (rollinTable.rows.length > 0) {
+        utils.deleteAllRows(rollinTable);
+    };
+    
     var rows = getRollinRows(ftjson[code]["sell_table"]);
     for (var i = 0; i < rows.length; i++) {
         rollinTable.appendChild(rows[i]);
@@ -547,9 +557,6 @@ function redrawSzzsChart() {
 function showAllFundList() {
     redrawSzzsChart();
 
-    var fund_list_tbl = document.getElementById("fund_list_table");
-    utils.deleteAllRows(fund_list_table);
-
     var earned = 0;
     var total_earned = 0;
     var cost = 0;
@@ -570,14 +577,14 @@ function showAllFundList() {
         return s[1] - f[1];
     });
 
+    var fund_list_tbl = document.getElementById("fund_list_table");
+    utils.deleteAllRows(fund_list_table);
     for (var i in code_cost) {
         fund_list_tbl.appendChild(utils.createSplitLine());
 
         var row = createGeneralInfoInSingleRow(code_cost[i][0]);
         fund_list_tbl.appendChild(row)
     }
-
-    document.getElementById('funds_list_container').style.display = code_cost.length == 0 ? 'none': 'block';
 }
 
 function SetTradeOption(t, cost, submit) {

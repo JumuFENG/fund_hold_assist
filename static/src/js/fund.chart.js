@@ -203,7 +203,7 @@ function googleChartLoaded() {
     chart.lines = [szline];
     if (all_hist_data.length > 0) {
         chart.drawChart();
-    } else if (document.getElementById('funds_list_container').style.display != 'none') {
+    } else if (!utils.isEmpty(ftjson)) {
         getHistoryData('sz000001', 'index');
     }
 };
