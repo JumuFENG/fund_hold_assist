@@ -88,6 +88,10 @@ function updateBudgetsTable(code) {
 function createBudgetsTable(code) {
     var budgetTable = document.createElement("table");
     budgetTable.id = "budget_table_" + code;
+    if (ftjson[code]["budget"] == undefined) {
+        return budgetTable;
+    };
+
     fillUpBudgetData(budgetTable, ftjson[code]["budget"]);
     return budgetTable;
 }
@@ -121,6 +125,10 @@ function updateRollinsTable(code) {
 function createRollinsTable(code) {
     var rollinTable = document.createElement("table");
     rollinTable.id = "rollin_table_" + code;
+    if (ftjson[code]["sell_table"] === undefined) {
+        return rollinTable;
+    };
+
     fillUpRollinsData(rollinTable, ftjson[code]["sell_table"]);
     return rollinTable;
 }
@@ -231,13 +239,15 @@ function updateLatestSellInfo(fundcode) {
 }
 
 function createSellInfoTable(fundcode) {
-    var funddata = ftjson[fundcode];
     var sellTable = document.createElement("table");
     sellTable.id = "tbl_sell_" + fundcode;
     sellTable.appendChild(utils.createSingleRow("sell"));
 
-    fillUpSellTableData(sellTable, fundcode);
+    if (ftjson[fundcode]["buy_table"] === undefined) {
+        return sellTable;
+    };
 
+    fillUpSellTableData(sellTable, fundcode);
     return sellTable;
 }
 
@@ -588,6 +598,12 @@ function TradeSubmit(tradepanel, tradedate, tradecost, tradeoptions) {
                 break;
             }
         };
+
+        if (strbuydates == "") {
+            alert("No sell dates selected.");
+            return;
+        };
+        
         sellFund(code, date, strbuydates);
     } else {
         var budget_dates = null;
