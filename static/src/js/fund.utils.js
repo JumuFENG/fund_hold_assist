@@ -11,7 +11,7 @@ class Utils {
         };
         return true;
     }
-    
+
     getTodayDate() {
         var dt = new Date();
         return dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
@@ -47,6 +47,25 @@ class Utils {
     create2ColRow(c1, c2){
         var row = document.createElement("tr");
         var col1 = document.createElement("td");
+        col1.appendChild(document.createTextNode(c1));
+        var col2 = document.createElement("tr");
+        col2.appendChild(document.createTextNode(c2));
+        row.appendChild(col1);
+        row.appendChild(col2);
+        return row;
+    }
+
+    createRadioRow(name, value, c1, c2, checked = false) {
+        var row = document.createElement("tr");
+        var col1 = document.createElement("td");
+        var radio = document.createElement("input");
+        radio.type = "radio";
+        radio.name = name;
+        radio.value = value;
+        if (checked) {
+            radio.checked = true;
+        };
+        col1.appendChild(radio);
         col1.appendChild(document.createTextNode(c1));
         var col2 = document.createElement("tr");
         col2.appendChild(document.createTextNode(c2));
@@ -111,6 +130,52 @@ class Utils {
         }
     }
 
+    getTotalDatesPortion(buytable) {
+        var dates = "";
+        var portion = 0;
+        for (var i = 0; i < buytable.length; i++) {
+            if (buytable[i].sold == 0) {
+                dates += buytable[i].date;
+                portion += buytable[i].portion;
+            };
+        };
+        return {dates:dates, portion: portion.toFixed(4)};
+    }
+
+    getShortTermDatesPortion(buytable, netvalue, short_term_rate) {
+        var dates = "";
+        var portion = 0;
+        var max_value = (parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate))).toFixed(4);
+
+        for (var i = 0; i < buytable.length; i++) {
+            if(buytable[i].sold == 0 && buytable[i].netvalue < max_value) {
+                portion += buytable[i].portion;
+                dates += buytable[i].date;
+            }
+        };
+
+        return {dates:dates, portion:portion.toFixed(4)};
+    }
+
+    getPortionMoreThan(buytable, days) {
+        var totalPortion = 0;
+        for (var i = 0; i < buytable.length; i++) {
+            if (buytable[i].sold == 0) {
+                totalPortion += buytable[i].portion;
+            };
+        };
+
+        var date = new Date();
+        var dt = new Date(date.getFullYear(), date.getMonth(), date.getDate() - days);
+        var strDate = dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
+        var portionInDays = 0;
+        for (var i = 0; i < buytable.length; i++) {
+            if (buytable[i].date > strDate) {
+                portionInDays += buytable[i].portion;
+            }
+        };
+        return (totalPortion - portionInDays).toFixed(4);
+    }
 }
 
 var utils = new Utils();

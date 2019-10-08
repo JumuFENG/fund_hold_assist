@@ -64,20 +64,16 @@ function sendFetchEvent(fundcode) {
     sendFetchEventActually(fundcode);
 }
 
-function getBudgetRows(budgets) {
-    var rows = []
+function fillUpBudgetData(budgetTable, budgets) {
     if (!budgets || budgets.length < 1) {
-        return rows;
+        return;
     };
 
-    var row0 = utils.createSingleRow("budget");
-    rows.push(row0);
+    budgetTable.appendChild(utils.createSingleRow("budget"));
     for (var i = 0; i < budgets.length; i++) {
         var row = creatBuyRow(budgets[i]["date"], budgets[i]["max_price_to_buy"], budgets[i]["budget"]);
-        rows.push(row);
+        budgetTable.appendChild(row);
     };
-
-    return rows;
 }
 
 function updateBudgetsTable(code) {
@@ -86,19 +82,13 @@ function updateBudgetsTable(code) {
         utils.deleteAllRows(budgetTable);
     };
     
-    var rows = getBudgetRows(ftjson[code]["budget"]);
-    for (var i = 0; i < rows.length; i++) {
-        budgetTable.appendChild(rows[i]);
-    };
+    fillUpBudgetData(budgetTable, ftjson[code]["budget"]);
 }
 
 function createBudgetsTable(code) {
     var budgetTable = document.createElement("table");
     budgetTable.id = "budget_table_" + code;
-    var rows = getBudgetRows(ftjson[code]["budget"]);
-    for (var i = 0; i < rows.length; i++) {
-        budgetTable.appendChild(rows[i]);
-    };
+    fillUpBudgetData(budgetTable, ftjson[code]["budget"]);
     return budgetTable;
 }
 
@@ -106,22 +96,18 @@ function creatBuyRow(date, maxprice, cost) {
     return utils.create2ColRow(date, cost + "<" + maxprice + ">");
 }
 
-function getRollinRows(rollins) {
-    var rows = [];
+function fillUpRollinsData(rollinTable, rollins) {
     if (!rollins || rollins.length < 1) {
-        return rows;
+        return;
     }
 
-    var row0 = utils.createSingleRow("roll in");
-    rows.push(row0);
-
+    rollinTable.appendChild(utils.createSingleRow("roll in"));
     for (var i = 0; i < rollins.length; i++) {
         if (rollins[i]["to_rollin"] > 0) {
             var row = creatBuyRow(rollins[i]["date"], rollins[i]["max_price_to_buy"], rollins[i]["to_rollin"]);
-            rows.push(row);
+            rollinTable.appendChild(row);
         }
     };
-    return rows;
 }
 
 function updateRollinsTable(code) {
@@ -129,55 +115,14 @@ function updateRollinsTable(code) {
     if (rollinTable.rows.length > 0) {
         utils.deleteAllRows(rollinTable);
     };
-    
-    var rows = getRollinRows(ftjson[code]["sell_table"]);
-    for (var i = 0; i < rows.length; i++) {
-        rollinTable.appendChild(rows[i]);
-    };
+    fillUpRollinsData(rollinTable, ftjson[code]["sell_table"]);
 }
 
 function createRollinsTable(code) {
     var rollinTable = document.createElement("table");
     rollinTable.id = "rollin_table_" + code;
-    var rows = getRollinRows(ftjson[code]["sell_table"]);
-    for (var i = 0; i < rows.length; i++) {
-        rollinTable.appendChild(rows[i]);
-    };
+    fillUpRollinsData(rollinTable, ftjson[code]["sell_table"]);
     return rollinTable;
-}
-
-function getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg, code) {
-    if (buytable === undefined) {
-        return [];
-    };
-
-    var portion_can_sell = 0.0;
-    var max_value_to_sell = parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate));
-    var dates = [];
-    for (var i = 0; i < buytable.length; i++) {
-        if (buytable[i].sold == 1) {
-            continue;
-        };
-
-        if(parseFloat(buytable[i].netvalue) < max_value_to_sell){
-            portion_can_sell += parseFloat(buytable[i].portion)
-            dates.push(buytable[i].date);
-        }
-    };
-
-    if (portion_can_sell > 0) {
-        if (ppg != 1 && ppg != 0) {
-            portion_can_sell /= ppg;
-        };
-        portion_can_sell = portion_can_sell.toFixed(4);
-
-        var row1 = utils.create2ColRow(">"+ (parseFloat(short_term_rate) * 100).toFixed(2) +"%", portion_can_sell);
-        row1.id = "shorterm_sell_" + code;
-        row1.setAttribute("dates", dates.join(''));
-        return [row1];
-    };
-
-    return [];
 }
 
 function getLatestRetracement(fundcode, latest_netvalue) {
@@ -241,24 +186,48 @@ function jsonpgz(fundgz) {
     updateLatestSellInfo(fundgz.fundcode);
 }
 
-function updateLatestSellInfo(fundcode) {
-    var jsonp = ftjson[fundcode].rtgz;
-    var gz = jsonp ? jsonp.gsz : ftjson[fundcode]["latest_netvalue"];
+function fillUpSellTableData(sellTable, fundcode) {
+    var buytable = ftjson[fundcode]["buy_table"];
+    var all_dp = utils.getTotalDatesPortion(buytable);
+    var portion = all_dp.portion;
+    var ppg = parseFloat(ftjson[fundcode]["ppg"]);
+    if (ppg != 0 && ppg != 1) {
+        portion = (portion / ppg).toFixed(4);
+    };
 
-    var sellTable = document.getElementById("tbl_sell_" + fundcode);
+    sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, all_dp.dates, "全部", portion));
+    portion = utils.getPortionMoreThan(buytable, 31);
+    if (ppg != 0 && ppg != 1) {
+        portion = (portion / ppg).toFixed(4);
+    };
+    sellTable.appendChild(utils.create2ColRow(">31天", portion));
+    portion = utils.getPortionMoreThan(buytable, 7);
+    if (ppg != 0 && ppg != 1) {
+        portion = (portion / ppg).toFixed(4);
+    };
+    sellTable.appendChild(utils.create2ColRow(">7天", portion));
 
     var short_term_rate = ftjson[fundcode]["short_term_rate"];
-    var buytable = ftjson[fundcode]["buy_table"];
-    var ppg = parseFloat(ftjson[fundcode]["ppg"]);
-    var sell_rows = getMaxSellPortionDates(gz, short_term_rate, buytable, ppg, fundcode);
+    var jsonp = ftjson[fundcode].rtgz;
+    var gz = jsonp ? jsonp.gsz : ftjson[fundcode]["latest_netvalue"];
+    var short_dp = utils.getShortTermDatesPortion(buytable, gz, short_term_rate);
+    portion = short_dp.portion;
+    if (ppg != 0 && ppg != 1) {
+        portion = (portion / ppg).toFixed(4);
+    };
 
-    for (var i = sellTable.rows.length - 1; i >= 2; i--) {
+    if (portion > 0 ) {
+        sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_dp.dates, ">"+ (parseFloat(short_term_rate) * 100).toFixed(2) + "%", portion, true));
+    };
+}
+
+function updateLatestSellInfo(fundcode) {
+    var sellTable = document.getElementById("tbl_sell_" + fundcode);
+    for (var i = sellTable.rows.length - 1; i >= 1; i--) {
         sellTable.deleteRow(i);
     };
 
-    sell_rows.forEach(function(row, i){
-        sellTable.appendChild(row);
-    });
+    fillUpSellTableData(sellTable, fundcode);
 }
 
 function createSellInfoTable(fundcode) {
@@ -266,16 +235,8 @@ function createSellInfoTable(fundcode) {
     var sellTable = document.createElement("table");
     sellTable.id = "tbl_sell_" + fundcode;
     sellTable.appendChild(utils.createSingleRow("sell"));
-    sellTable.appendChild(utils.create2ColRow(">7天", funddata["morethan7day"]));
 
-    var short_term_rate = funddata["short_term_rate"];
-    var buytable = funddata["buy_table"];
-    var ppg = parseFloat(funddata["ppg"]);
-    var netvalue = parseFloat(funddata["latest_netvalue"]);
-    var sell_rows = getMaxSellPortionDates(netvalue, short_term_rate, buytable, ppg, fundcode);
-    sell_rows.forEach(function(row, i){
-        sellTable.appendChild(row);
-    });
+    fillUpSellTableData(sellTable, fundcode);
 
     return sellTable;
 }
@@ -442,7 +403,7 @@ function fetchFundSummary(code) {
         if (httpRequest.readyState == 4 && httpRequest.status == 200) {
             ftjson[code] = JSON.parse(httpRequest.responseText);
             showAllFundList();
-            refreshHoldDetail(code);
+            ToggleFundDetails(document.getElementById("hold_detail_" + code), document.getElementById("fund_list_table"));
         }
     }
 }
@@ -619,8 +580,14 @@ function TradeSubmit(tradepanel, tradedate, tradecost, tradeoptions) {
     if (option == "budget") {
         alert("not implemented yet.");
     } else if (option == "sell") {
-        var short_term_td = document.getElementById("shorterm_sell_" + code);
-        var strbuydates = short_term_td.getAttribute('dates');
+        var sellRadios = document.getElementsByName('sell_' + code);
+        var strbuydates = "";
+        for (var i = 0; i < sellRadios.length; i++) {
+            if (sellRadios[i].checked) {
+                strbuydates = sellRadios[i].value;
+                break;
+            }
+        };
         sellFund(code, date, strbuydates);
     } else {
         var budget_dates = null;
