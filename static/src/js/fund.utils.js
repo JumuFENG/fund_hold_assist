@@ -134,14 +134,14 @@ class Utils {
         if (ppg == 0 || ppg == 1) {
             return portion;
         };
-        return (portion / ppg).toFixed(4);
+        return portion / ppg;
     }
 
     convertGramToPortion(gram, ppg) {
         if (ppg == 0 || ppg == 1) {
             return gram;
         };
-        return (gram * ppg).toFixed(4);
+        return gram * ppg;
     }
 
     getTotalDatesPortion(buytable) {
@@ -153,13 +153,13 @@ class Utils {
                 portion += buytable[i].portion;
             };
         };
-        return {dates:dates, portion: portion.toFixed(4)};
+        return {dates:dates, portion: portion};
     }
 
     getShortTermDatesPortion(buytable, netvalue, short_term_rate) {
         var dates = "";
         var portion = 0;
-        var max_value = (parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate))).toFixed(4);
+        var max_value = (parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate)));
 
         for (var i = 0; i < buytable.length; i++) {
             if(buytable[i].sold == 0 && buytable[i].netvalue < max_value) {
@@ -168,7 +168,7 @@ class Utils {
             }
         };
 
-        return {dates:dates, portion:portion.toFixed(4)};
+        return {dates:dates, portion:portion};
     }
 
     getPortionMoreThan(buytable, days) {
@@ -188,13 +188,13 @@ class Utils {
                 portionInDays += buytable[i].portion;
             }
         };
-        return (totalPortion - portionInDays).toFixed(4);
+        return totalPortion - portionInDays;
     }
 
     getShortTermDatesPortionMoreThan7Day(buytable, netvalue, short_term_rate, portion_7day) {
         var buyrecs = [];
         var portion = 0;
-        var max_value = (parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate))).toFixed(4);
+        var max_value = (parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate)));
         for (var i = 0; i < buytable.length; i++) {
             if(buytable[i].sold == 0 && buytable[i].netvalue < max_value) {
                 buyrecs.push(buytable[i]);
@@ -215,7 +215,7 @@ class Utils {
             dates += buyrecs[i].date;
         };
         
-        return {dates:dates, portion:portion.toFixed(4)};
+        return {dates:dates, portion:portion};
     }
 }
 

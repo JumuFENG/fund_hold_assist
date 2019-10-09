@@ -201,10 +201,10 @@ function fillUpSellTableData(sellTable, fundcode) {
     var ppg = parseFloat(ftjson[fundcode]["ppg"]);
     portion = utils.convertPortionToGram(portion, ppg);
 
-    sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, all_dp.dates, "全部", portion));
+    sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, all_dp.dates, "全部", portion.toFixed(4)));
     portion = utils.getPortionMoreThan(buytable, 31);
     portion = utils.convertPortionToGram(portion, ppg);
-    sellTable.appendChild(utils.create2ColRow(">31天", portion));
+    sellTable.appendChild(utils.create2ColRow(">31天", portion.toFixed(4)));
     portion = utils.getPortionMoreThan(buytable, 7);
     var portion_7day = utils.convertPortionToGram(portion, ppg);
 
@@ -215,16 +215,16 @@ function fillUpSellTableData(sellTable, fundcode) {
     var short_portion = utils.convertPortionToGram(short_dp.portion, ppg);
 
     if (short_portion <= 0 || portion_7day >= short_portion) {
-        sellTable.appendChild(utils.create2ColRow(">7天", portion_7day));
+        sellTable.appendChild(utils.create2ColRow(">7天", portion_7day.toFixed(4)));
     };
 
     if (short_portion > 0 ) {
         if (portion_7day < short_portion) {
             var short_7d_dp = utils.getShortTermDatesPortionMoreThan7Day(buytable, gz, short_term_rate, utils.convertGramToPortion(portion_7day, ppg));
             var short_portion_7d = utils.convertPortionToGram(short_7d_dp.portion, ppg);
-            sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_7d_dp.dates, ">7天", short_portion_7d, true));
+            sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_7d_dp.dates, ">7天", short_portion_7d.toFixed(4), true));
         };
-        sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_dp.dates, ">"+ (parseFloat(short_term_rate) * 100).toFixed(2) + "%", short_portion, short_portion < portion_7day));
+        sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_dp.dates, ">"+ (parseFloat(short_term_rate) * 100).toFixed(2) + "%", short_portion.toFixed(4), short_portion < portion_7day));
     } 
 }
 
