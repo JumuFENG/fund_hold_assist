@@ -14,6 +14,7 @@ class DailyUpdater():
         self.sqldb = sqldb
 
     def update_all(self):
+        print("")
         print("START UPDATING....",datetime.now())
         datetoday = datetime.now()
         if datetoday.weekday() >= 5:

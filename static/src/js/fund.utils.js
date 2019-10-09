@@ -130,6 +130,20 @@ class Utils {
         }
     }
 
+    convertPortionToGram(portion, ppg) {
+        if (ppg == 0 || ppg == 1) {
+            return portion;
+        };
+        return (portion / ppg).toFixed(4);
+    }
+
+    convertGramToPortion(gram, ppg) {
+        if (ppg == 0 || ppg == 1) {
+            return gram;
+        };
+        return (gram * ppg).toFixed(4);
+    }
+
     getTotalDatesPortion(buytable) {
         var dates = "";
         var portion = 0;
@@ -175,6 +189,33 @@ class Utils {
             }
         };
         return (totalPortion - portionInDays).toFixed(4);
+    }
+
+    getShortTermDatesPortionMoreThan7Day(buytable, netvalue, short_term_rate, portion_7day) {
+        var buyrecs = [];
+        var portion = 0;
+        var max_value = (parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate))).toFixed(4);
+        for (var i = 0; i < buytable.length; i++) {
+            if(buytable[i].sold == 0 && buytable[i].netvalue < max_value) {
+                buyrecs.push(buytable[i]);
+                portion += buytable[i].portion;
+            }
+        };
+
+        for (var i = buyrecs.length - 1; i >= 0; i--) {
+            portion -= buyrecs[i].portion;
+            if (portion <= portion_7day) {
+                break;
+            }
+            buyrecs.pop();
+        };
+
+        var dates = "";
+        for (var i = 0; i < buyrecs.length; i++) {
+            dates += buyrecs[i].date;
+        };
+        
+        return {dates:dates, portion:portion.toFixed(4)};
     }
 }
 

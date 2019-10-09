@@ -199,34 +199,33 @@ function fillUpSellTableData(sellTable, fundcode) {
     var all_dp = utils.getTotalDatesPortion(buytable);
     var portion = all_dp.portion;
     var ppg = parseFloat(ftjson[fundcode]["ppg"]);
-    if (ppg != 0 && ppg != 1) {
-        portion = (portion / ppg).toFixed(4);
-    };
+    portion = utils.convertPortionToGram(portion, ppg);
 
     sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, all_dp.dates, "全部", portion));
     portion = utils.getPortionMoreThan(buytable, 31);
-    if (ppg != 0 && ppg != 1) {
-        portion = (portion / ppg).toFixed(4);
-    };
+    portion = utils.convertPortionToGram(portion, ppg);
     sellTable.appendChild(utils.create2ColRow(">31天", portion));
     portion = utils.getPortionMoreThan(buytable, 7);
-    if (ppg != 0 && ppg != 1) {
-        portion = (portion / ppg).toFixed(4);
-    };
-    sellTable.appendChild(utils.create2ColRow(">7天", portion));
+    var portion_7day = utils.convertPortionToGram(portion, ppg);
 
     var short_term_rate = ftjson[fundcode]["short_term_rate"];
     var jsonp = ftjson[fundcode].rtgz;
     var gz = jsonp ? jsonp.gsz : ftjson[fundcode]["latest_netvalue"];
     var short_dp = utils.getShortTermDatesPortion(buytable, gz, short_term_rate);
-    portion = short_dp.portion;
-    if (ppg != 0 && ppg != 1) {
-        portion = (portion / ppg).toFixed(4);
+    var short_portion = utils.convertPortionToGram(short_dp.portion, ppg);
+
+    if (short_portion <= 0 || portion_7day >= short_portion) {
+        sellTable.appendChild(utils.create2ColRow(">7天", portion_7day));
     };
 
-    if (portion > 0 ) {
-        sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_dp.dates, ">"+ (parseFloat(short_term_rate) * 100).toFixed(2) + "%", portion, true));
-    };
+    if (short_portion > 0 ) {
+        if (portion_7day < short_portion) {
+            var short_7d_dp = utils.getShortTermDatesPortionMoreThan7Day(buytable, gz, short_term_rate, utils.convertGramToPortion(portion_7day, ppg));
+            var short_portion_7d = utils.convertPortionToGram(short_7d_dp.portion, ppg);
+            sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_7d_dp.dates, ">7天", short_portion_7d, true));
+        };
+        sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_dp.dates, ">"+ (parseFloat(short_term_rate) * 100).toFixed(2) + "%", short_portion, short_portion < portion_7day));
+    } 
 }
 
 function updateLatestSellInfo(fundcode) {
