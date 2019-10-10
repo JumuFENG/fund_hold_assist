@@ -522,6 +522,7 @@ function redrawSzzsChart() {
     document.getElementById('funds_list_container').appendChild(charts_div);    
     document.getElementById('tradeoptions').style.display = 'none';
     document.getElementById('trade_panel').style.display = 'none';
+    document.getElementById('fund_single_detail_container').style.display = 'none';
 }
 
 function showAllFundList() {

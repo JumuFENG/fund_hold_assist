@@ -188,7 +188,7 @@ class Utils {
                 portionInDays += buytable[i].portion;
             }
         };
-        return totalPortion - portionInDays;
+        return totalPortion > portionInDays ? totalPortion - portionInDays: 0;
     }
 
     getShortTermDatesPortionMoreThan7Day(buytable, netvalue, short_term_rate, portion_7day) {
