@@ -60,8 +60,8 @@ class DailyUpdater():
         print("try to update index history for:", code)
         ih = Index_history(self.sqldb)
         ih.indexHistoryTillToday(code)
-        #ih.getHistoryFromSohu(code)
         ih.getHistoryFrom163(code)
+        ih.getHistoryFromSohu(code)
 
     def should_update(self, historytable):
         if not self.sqldb.isExistTable(historytable):
