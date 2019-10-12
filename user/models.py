@@ -168,18 +168,45 @@ class User():
         if len(hist_data1) < 1:
             return hist_data2
 
-        all_hist_data = []
         basic_his_data = hist_data1
         extend_his_data = hist_data2
         if len(hist_data1) < len(hist_data2):
             basic_his_data = hist_data2
             extend_his_data = hist_data1
 
+        all_dates = [];
+        for i in range(1, len(basic_his_data)):
+            all_dates.append(basic_his_data[i][0])
+
+        for i in range(1,len(extend_his_data)):
+            if extend_his_data[i][0] in all_dates:
+                continue
+            d = extend_his_data[i][0]
+            for j in range(0, len(all_dates)):
+                if d > all_dates[j]:
+                    if j == len(all_dates) - 1:
+                        all_dates.append(d)
+                        break
+                    if d < all_dates[j+1]:
+                        all_dates.insert(j+1, d)
+                        break
+                else:
+                    all_dates.insert(0, d)
+                    break;
+        all_data = [["date"]]
+        for x in all_dates:
+            all_data.append([x])
+        all_data = self.merge_to_basic(all_data, basic_his_data)
+        all_data = self.merge_to_basic(all_data, extend_his_data)
+        return all_data
+
+    def merge_to_basic(self, basic_his_data, extend_his_data):
         header = basic_his_data[0]
         for x in extend_his_data[0]:
             if x != 'date':
                 header += x,
 
+        all_hist_data = []
         all_hist_data.append(header)
         basic_his_data = basic_his_data[1:]
         extend_his_data = extend_his_data[1:]

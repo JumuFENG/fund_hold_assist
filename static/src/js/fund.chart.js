@@ -265,48 +265,8 @@ function updateHistData(hist_data) {
     if (all_hist_data.length < 1) {
         all_hist_data = hist_data;
     } else {
-        var basic_his_data = all_hist_data;
-        var extend_his_data = hist_data;
-        if (all_hist_data.length < hist_data.length) {
-            basic_his_data = hist_data;
-            extend_his_data = all_hist_data;
-        };
-
-        all_hist_data = [];
-        var header = basic_his_data[0];
-        for (var i = 1; i < extend_his_data[0].length; i++) {
-            header.push(extend_his_data[0][i]);
-        };
-        all_hist_data.push(header);
-
-        for (var i = 1; i < basic_his_data.length; i++) {
-            var row = basic_his_data[i];
-            var date = row[0];
-            var find_same_date = false;
-            for (var j = 1; j < extend_his_data.length; j++) {
-                var ext_data = extend_his_data[j];
-                var fdate = ext_data[0];
-                if (fdate < date) {
-                    continue;
-                } else {
-                    if (fdate == date) {
-                        for (var k = 1; k < ext_data.length; k++) {
-                            row.push(ext_data[k]);
-                        };
-                        find_same_date = true;
-                    }
-                    break;
-                };
-            };
-            if (!find_same_date) {
-                for (var ii = 0; ii < extend_his_data[1].length - 1; ii++) {
-                    row.push('');
-                };
-            };
-            all_hist_data.push(row);
-        };
+        all_hist_data = utils.mergeHistData(all_hist_data, hist_data);
     }
-
 
     if (chart)
     {
