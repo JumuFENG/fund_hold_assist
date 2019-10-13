@@ -14,7 +14,7 @@ function showFundDetailPage (detailparent) {
         buyrecs = ftjson[code]["buy_table"];
         for (var i = 0; i < buyrecs.length; i++) {
             if (buyrecs[i].sold == 0) {
-                buyTable.appendChild(utils.create2ColRow(buyrecs[i].date, buyrecs[i].cost));
+                buyTable.appendChild(utils.create2ColRow(utils.date_by_delta(buyrecs[i].date), buyrecs[i].cost));
             };
         };
         container.appendChild(buyTable);

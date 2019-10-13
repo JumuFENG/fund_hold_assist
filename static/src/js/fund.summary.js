@@ -71,7 +71,7 @@ function fillUpBudgetData(budgetTable, budgets) {
 
     budgetTable.appendChild(utils.createSingleRow("budget"));
     for (var i = 0; i < budgets.length; i++) {
-        var row = creatBuyRow(budgets[i]["date"], budgets[i]["mptb"], budgets[i]["bdt"]);
+        var row = creatBuyRow(utils.date_by_delta(budgets[i]["date"]), budgets[i]["mptb"], budgets[i]["bdt"]);
         budgetTable.appendChild(row);
     };
 }
@@ -108,7 +108,7 @@ function fillUpRollinsData(rollinTable, rollins) {
     rollinTable.appendChild(utils.createSingleRow("roll in"));
     for (var i = 0; i < rollins.length; i++) {
         if (rollins[i]["tri"] > 0) {
-            var row = creatBuyRow(rollins[i]["date"], rollins[i]["mptb"], rollins[i]["tri"]);
+            var row = creatBuyRow(utils.date_by_delta(rollins[i]["date"]), rollins[i]["mptb"], rollins[i]["tri"]);
             rollinTable.appendChild(row);
         }
     };

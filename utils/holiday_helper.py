@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 from utils import *
+from datetime import datetime, timedelta
 
 class Holiday():
     """check if is Holiday"""
@@ -24,3 +25,15 @@ class Holiday():
 
         if not self.isholiday(date):
             self.sqldb.insert(self.tablename, {column_date: date})
+
+class DateConverter():
+    def days_since_2000(self, date):
+        d = datetime.strptime("2000-01-01", "%Y-%m-%d")
+        if isinstance(date, str):
+            dt = datetime.strptime(date, "%Y-%m-%d")
+            return (dt - d).days
+        return (date - d).days
+
+    def date_by_delta(self, days):
+        d = datetime.strptime("2000-01-01", "%Y-%m-%d") + timedelta(days=days)
+        return d.strftime("%Y-%m-%d")

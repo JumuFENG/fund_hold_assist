@@ -14,6 +14,7 @@ class UserFund():
         self.sqldb = user.fund_center_db()
         self.code = code
         self.funds_table = user.funds_info_table()
+        self.date_conv = DateConverter() 
         if not self.sqldb.isExistTable(self.funds_table):
             attrs = {column_code:'varchar(10) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
@@ -133,7 +134,7 @@ class UserFund():
             self.delete_cosumed()
             budget = self.sqldb.select(self.budget_table, [column_date, column_net_value, column_budget])
             for (d,v,b) in budget:
-                values.append({"date":d, "mptb":str(Decimal(str(v)) * ppg), "bdt":b})
+                values.append({"date":self.date_conv.days_since_2000(d), "mptb":str(Decimal(str(v)) * ppg), "bdt":b})
         return values
 
     def get_roll_in_arr(self, fg):
@@ -162,7 +163,7 @@ class UserFund():
             to_rollin = 0;
             if c > float(r):
                 to_rollin = int(c - float(r))
-            values.append({"date":d, "cost":c, "ptn":p, "mptb":max_price_to_buy, "tri":str(to_rollin)})
+            values.append({"date":self.date_conv.days_since_2000(d), "cost":c, "ptn":p, "mptb":max_price_to_buy, "tri":str(to_rollin)})
 
         return values
 
@@ -174,7 +175,7 @@ class UserFund():
         values = []
         for (d,c,p,s) in dcp_not_sell:
             v = fg.netvalue_by_date(d)
-            values.append({"date":d, "nv":v, "cost":c, "ptn":p, "sold":s})
+            values.append({"date":self.date_conv.days_since_2000(d), "nv":v, "cost":c, "ptn":p, "sold":s})
         return values
 
     def get_portions_morethan_7day(self, fg, ppg):

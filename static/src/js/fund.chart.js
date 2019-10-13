@@ -118,12 +118,13 @@ class FundChart {
         var len = all_hist_data.length;
         for (var i = 1; i < showLen; i++) {
             var date = all_hist_data[len - showLen + i][0];
-            var r = [date];
+            var strDate = utils.date_by_delta(date)
+            var r = [strDate];
             for (var j = 0; j < this.lines.length; j++) {
                 var valIdx = all_hist_data[0].indexOf(this.lines[j].code) * 2 - 1;
                 var val = all_hist_data[len - showLen + i][valIdx];
                 if (val == '') {
-                    utils.logInfo(this.lines[j].name, date, "value not found!");
+                    utils.logInfo(this.lines[j].name, strDate, "value not found!");
                     if (len - showLen + i - 1 > 0) {
                         all_hist_data[len - showLen + i][valIdx] = all_hist_data[len - showLen + i - 1][valIdx];
                         all_hist_data[len - showLen + i][valIdx + 1] = '0';
@@ -134,7 +135,7 @@ class FundChart {
                 };
                 r.push(val);
                 var ptstyle = 'point {visible: false }';
-                var pttooltip = date + ": " + val + ": " + all_hist_data[len - showLen  + i][valIdx + 1] + "%";
+                var pttooltip = strDate + ": " + val + ": " + all_hist_data[len - showLen  + i][valIdx + 1] + "%";
                 if (ftjson[this.lines[j].code] !== undefined)
                 {
                     var buytable = ftjson[this.lines[j].code]["buy_table"];

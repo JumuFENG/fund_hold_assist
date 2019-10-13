@@ -17,6 +17,18 @@ class Utils {
         return dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
     }
 
+    days_since_2000(date) {
+        var d = new Date("2000-01-01");
+        var dt = new Date(date);
+        return (dt - d) / (24 * 60 * 60 * 1000);
+    }
+
+    date_by_delta(days) {
+        var dt = new Date("2000-01-01");
+        dt.setTime(dt.getTime() + days * 24 * 60 * 60 * 1000);
+        return dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
+    }
+
     loadJsonData() {
         var newscript = document.createElement('script');
         newscript.setAttribute('type','text/javascript');
