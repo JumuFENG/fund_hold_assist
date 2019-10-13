@@ -172,6 +172,35 @@ class FundChart {
             };
             rows.push(r);
         };
+
+        var addLatestVal = false;
+        for (var i = 0; i < this.lines.length; i++) {
+            if (ftjson[this.lines[i].code] === undefined) {
+                continue;
+            };
+            var jsonp = ftjson[this.lines[i].code].rtgz;
+            if (jsonp && jsonp.gsz) {
+                addLatestVal = true;
+                break;
+            };
+        };
+
+        if (addLatestVal) {
+            var r = [utils.getTodayDate()];
+            for (var i = 0; i < this.lines.length; i++) {
+                var funddata = ftjson[this.lines[i].code];
+                if (funddata !== undefined && funddata.rtgz && funddata.rtgz.gsz) {
+                    r.push(parseFloat(funddata.rtgz.gsz));
+                    r.push('point {visible: false }');
+                    r.push("最新估值:" + funddata.rtgz.gsz); // tooltip
+                } else {
+                    r.push(null);
+                    r.push(null);
+                    r.push(null);
+                }
+            };
+            rows.push(r);
+        };
     
         data.addRows(rows);
         this.data = data;

@@ -189,13 +189,22 @@ function getLatestRetracement(fundcode, latest_netvalue) {
 
 function jsonpgz(fundgz) {
     utils.logInfo(fundgz);
-    ftjson[fundgz.fundcode].rtgz = fundgz;
-    updateGuzhiInfo(fundgz.fundcode);
-    updateLatestSellInfo(fundgz.fundcode);
+    var code = fundgz.fundcode;
+    ftjson[code].rtgz = fundgz;
+    updateGuzhiInfo(code);
+    var hold_detail = document.getElementById("hold_detail_" + code);
+    if (hold_detail.style.display != "none") {
+        updateLatestSellInfo(code);
+        DrawFundHistory(code);
+    };
 }
 
 function fillUpSellTableData(sellTable, fundcode) {
     var buytable = ftjson[fundcode]["buy_table"];
+    if (buytable === undefined) {
+        return;
+    };
+
     var all_dp = utils.getTotalDatesPortion(buytable);
     var portion = all_dp.portion;
     var ppg = parseFloat(ftjson[fundcode]["ppg"]);
