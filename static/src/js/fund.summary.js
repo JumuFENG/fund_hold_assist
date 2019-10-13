@@ -71,7 +71,7 @@ function fillUpBudgetData(budgetTable, budgets) {
 
     budgetTable.appendChild(utils.createSingleRow("budget"));
     for (var i = 0; i < budgets.length; i++) {
-        var row = creatBuyRow(budgets[i]["date"], budgets[i]["max_price_to_buy"], budgets[i]["budget"]);
+        var row = creatBuyRow(budgets[i]["date"], budgets[i]["mptb"], budgets[i]["bdt"]);
         budgetTable.appendChild(row);
     };
 }
@@ -107,8 +107,8 @@ function fillUpRollinsData(rollinTable, rollins) {
 
     rollinTable.appendChild(utils.createSingleRow("roll in"));
     for (var i = 0; i < rollins.length; i++) {
-        if (rollins[i]["to_rollin"] > 0) {
-            var row = creatBuyRow(rollins[i]["date"], rollins[i]["max_price_to_buy"], rollins[i]["to_rollin"]);
+        if (rollins[i]["tri"] > 0) {
+            var row = creatBuyRow(rollins[i]["date"], rollins[i]["mptb"], rollins[i]["tri"]);
             rollinTable.appendChild(row);
         }
     };
@@ -134,13 +134,9 @@ function createRollinsTable(code) {
 }
 
 function getLatestRetracement(fundcode, latest_netvalue) {
-    var averprice = parseFloat(ftjson[fundcode]["averprice"]);
+    var averprice = parseFloat(ftjson[fundcode]["avp"]);
     if (averprice >= latest_netvalue) {
         return 0;
-    };
-    if (ftjson[fundcode]["ppg"] != 1) {
-        averprice /= ftjson[fundcode]["ppg"];
-        averprice = averprice.toFixed(4);
     };
 
     var buytable = ftjson[fundcode]["buy_table"];
@@ -173,7 +169,7 @@ function getLatestRetracement(fundcode, latest_netvalue) {
         });
 
         if (buyrec) {
-            total_portion += buyrec.portion;
+            total_portion += buyrec.ptn;
             total_cost += buyrec.cost;
         };
 
@@ -208,32 +204,28 @@ function fillUpSellTableData(sellTable, fundcode) {
     var all_dp = utils.getTotalDatesPortion(buytable);
     var portion = all_dp.portion;
     var ppg = parseFloat(ftjson[fundcode]["ppg"]);
-    portion = utils.convertPortionToGram(portion, ppg);
 
-    sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, all_dp.dates, "全部", portion.toFixed(4)));
+    sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, all_dp.dates, "全部", utils.convertPortionToGram(portion, ppg).toFixed(4)));
     portion = utils.getPortionMoreThan(buytable, 31);
-    portion = utils.convertPortionToGram(portion, ppg);
-    sellTable.appendChild(utils.create2ColRow(">31天", portion.toFixed(4)));
-    portion = utils.getPortionMoreThan(buytable, 7);
-    var portion_7day = utils.convertPortionToGram(portion, ppg);
+    sellTable.appendChild(utils.create2ColRow(">31天", utils.convertPortionToGram(portion, ppg).toFixed(4)));
+    var portion_7day = utils.getPortionMoreThan(buytable, 7);
 
-    var short_term_rate = ftjson[fundcode]["short_term_rate"];
+    var short_term_rate = ftjson[fundcode]["str"];
     var jsonp = ftjson[fundcode].rtgz;
-    var gz = jsonp ? jsonp.gsz : ftjson[fundcode]["latest_netvalue"];
+    var gz = jsonp ? jsonp.gsz : ftjson[fundcode]["lnv"];
     var short_dp = utils.getShortTermDatesPortion(buytable, gz, short_term_rate);
-    var short_portion = utils.convertPortionToGram(short_dp.portion, ppg);
+    var short_portion = short_dp.portion;
 
     if (short_portion <= 0 || portion_7day >= short_portion) {
-        sellTable.appendChild(utils.create2ColRow(">7天", portion_7day.toFixed(4)));
+        sellTable.appendChild(utils.create2ColRow(">7天", utils.convertPortionToGram(portion_7day, ppg).toFixed(4)));
     };
 
     if (short_portion > 0 ) {
         if (portion_7day < short_portion) {
-            var short_7d_dp = utils.getShortTermDatesPortionMoreThan7Day(buytable, gz, short_term_rate, utils.convertGramToPortion(portion_7day, ppg));
-            var short_portion_7d = utils.convertPortionToGram(short_7d_dp.portion, ppg);
-            sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_7d_dp.dates, ">7天", short_portion_7d.toFixed(4), true));
+            var short_7d_dp = utils.getShortTermDatesPortionMoreThan7Day(buytable, gz, short_term_rate, portion_7day);
+            sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_7d_dp.dates, ">7天", utils.convertPortionToGram(short_7d_dp.portion, ppg).toFixed(4), true));
         };
-        sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_dp.dates, ">"+ (parseFloat(short_term_rate) * 100).toFixed(2) + "%", short_portion.toFixed(4), short_portion < portion_7day));
+        sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_dp.dates, ">"+ (parseFloat(short_term_rate) * 100).toFixed(2) + "%", utils.convertPortionToGram(short_portion, ppg).toFixed(4), short_portion < portion_7day));
     } 
 }
 
@@ -295,16 +287,16 @@ function ToggleFundDetails(divDetail, fund_list_table) {
 function createGuzhiInfo(fundcode) {
     var funddata = ftjson[fundcode];
     var jsonp = funddata.rtgz;
-    var lbl_class = utils.incdec_lbl_classname(jsonp ? jsonp.gszzl : funddata["last_day_earned"]);
+    var lbl_class = utils.incdec_lbl_classname(jsonp ? jsonp.gszzl : funddata["lde"]);
 
     var html = "<div class='guzhi'>估值: <label id='guzhi_lgz_" + fundcode + "'";
     if (lbl_class) {
         html += " class='" + lbl_class + "'";
     };
     html +=">"; 
-    html += jsonp ? jsonp.gsz : funddata["latest_netvalue"];
+    html += jsonp ? jsonp.gsz : funddata["lnv"];
     html += "</label>";
-    html += funddata["latest_netvalue"];
+    html += funddata["lnv"];
     // 估值涨幅
     html += " 涨幅: <label id='guzhi_zl_" + fundcode + "'"
     if (lbl_class) {
@@ -314,14 +306,10 @@ function createGuzhiInfo(fundcode) {
     html += jsonp ? jsonp.gszzl + "%" : "-";
     // 总收益率
     html += "</label>总: <label id='guzhi_total_zl_" + fundcode + "'";
-    var netvalue = parseFloat(funddata["averprice"]);
-    if (funddata["ppg"] != 1) {
-        netvalue /= funddata["ppg"];
-        netvalue = netvalue.toFixed(4);
-    };
-    lbl_class = utils.incdec_lbl_classname((jsonp ? jsonp.gsz : funddata["latest_netvalue"]) - netvalue)
+    var netvalue = parseFloat(funddata["avp"]);
+    lbl_class = utils.incdec_lbl_classname((jsonp ? jsonp.gsz : funddata["lnv"]) - netvalue)
     html += " class='" + lbl_class + "' >";
-    var latest_netvalue = jsonp ? jsonp.gsz : funddata["latest_netvalue"];
+    var latest_netvalue = jsonp ? jsonp.gsz : funddata["lnv"];
     var total_percent = ((latest_netvalue - netvalue) * 100 / netvalue).toFixed(2) + "%";
     html += total_percent;
     html += "</label><label id = 'retrace_" + fundcode + "' style = 'visibility:";
@@ -337,10 +325,10 @@ function updateGuzhiInfo(fundcode) {
     var jsonp = ftjson[fundcode].rtgz;
     var funddata = ftjson[fundcode];
 
-    var lbl_class = utils.incdec_lbl_classname( jsonp ? jsonp.gszzl : funddata["last_day_earned"]);
+    var lbl_class = utils.incdec_lbl_classname( jsonp ? jsonp.gszzl : funddata["lde"]);
     var lbl_guzhi_lgz = document.getElementById("guzhi_lgz_" + fundcode);
     if (lbl_guzhi_lgz) {
-        lbl_guzhi_lgz.innerText = jsonp ? jsonp.gsz : funddata["latest_netvalue"];
+        lbl_guzhi_lgz.innerText = jsonp ? jsonp.gsz : funddata["lnv"];
         lbl_guzhi_lgz.className = lbl_class;
     };
     var lbl_guzhi_zl = document.getElementById("guzhi_zl_" + fundcode);
@@ -349,16 +337,12 @@ function updateGuzhiInfo(fundcode) {
         lbl_guzhi_zl.className = lbl_class;
     };
 
-    var latest_netvalue = jsonp ? jsonp.gsz : funddata["latest_netvalue"];
+    var latest_netvalue = jsonp ? jsonp.gsz : funddata["lnv"];
 
     var lbl_guzhi_total_percent = document.getElementById("guzhi_total_zl_" + fundcode);
     if (lbl_guzhi_total_percent) {
-        var netvalue = parseFloat(funddata["averprice"]);
-        if (funddata["ppg"] != 1) {
-            netvalue /= funddata["ppg"];
-            netvalue = netvalue.toFixed(4);
-        };
-        lbl_guzhi_total_percent.className = utils.incdec_lbl_classname((jsonp ? jsonp.gsz : funddata["latest_netvalue"]) - netvalue);
+        var netvalue = parseFloat(funddata["avp"]);
+        lbl_guzhi_total_percent.className = utils.incdec_lbl_classname((jsonp ? jsonp.gsz : funddata["lnv"]) - netvalue);
 
         var total_percent = ((latest_netvalue - netvalue) * 100 / netvalue).toFixed(2) + "%";
 
@@ -375,18 +359,18 @@ function updateGuzhiInfo(fundcode) {
 
 function createGeneralInnerHtmlWithoutName(funddata) {
     var html = "<div class='general_earned'>"
-    html += "持有: " + funddata["cost"] + " &lt;" + funddata["averprice"]+ "&gt; ";
+    html += "持有: " + funddata["cost"] + " &lt;" + funddata["avp"]+ "&gt; ";
 
-    var earned_lbl_class = utils.incdec_lbl_classname(funddata["earned_while_holding"]);
-    html += "<label class='" + earned_lbl_class + "'>" + funddata["earned_while_holding"] + "</label>";
-    html += "<label class='" + earned_lbl_class + "'>" + (100 * funddata["earned_while_holding"] / funddata["cost"]).toFixed(2) + "%</label>";
+    var earned_lbl_class = utils.incdec_lbl_classname(funddata["ewh"]);
+    html += "<label class='" + earned_lbl_class + "'>" + funddata["ewh"] + "</label>";
+    html += "<label class='" + earned_lbl_class + "'>" + (100 * funddata["ewh"] / funddata["cost"]).toFixed(2) + "%</label>";
     html += "</div>";
     return html;
 }
 
 function createGeneralInfoInSingleRow(fundcode) {
     var funddata = ftjson[fundcode];
-    var html = "<div class='fund_header' onclick='ToggleFundDetails(hold_detail_" + fundcode + ", fund_list_table)' id='fund_header_" + fundcode + "'>" + funddata["name"] + "<label class = '" + utils.incdec_lbl_classname(funddata["last_day_earned"]) + "'>" + funddata["last_day_earned"] + "</label>";
+    var html = "<div class='fund_header' onclick='ToggleFundDetails(hold_detail_" + fundcode + ", fund_list_table)' id='fund_header_" + fundcode + "'>" + funddata["name"] + "<label class = '" + utils.incdec_lbl_classname(funddata["lde"]) + "'>" + funddata["lde"] + "</label>";
     html += createGuzhiInfo(fundcode);
     html += createGeneralInnerHtmlWithoutName(funddata);
     html += "</div>";
@@ -545,8 +529,8 @@ function showAllFundList() {
         sendFetchEvent(fcode);
 
         var funddata = ftjson[fcode];
-        earned += funddata["last_day_earned"];
-        total_earned += funddata["earned_while_holding"];        
+        earned += funddata["lde"];
+        total_earned += funddata["ewh"];        
         cost += funddata["cost"];
         code_cost.push([fcode, funddata["cost"]]);
     }

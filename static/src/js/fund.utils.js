@@ -232,7 +232,7 @@ class Utils {
         for (var i = 0; i < buytable.length; i++) {
             if (buytable[i].sold == 0) {
                 dates += buytable[i].date;
-                portion += buytable[i].portion;
+                portion += buytable[i].ptn;
             };
         };
         return {dates:dates, portion: portion};
@@ -244,8 +244,8 @@ class Utils {
         var max_value = (parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate)));
 
         for (var i = 0; i < buytable.length; i++) {
-            if(buytable[i].sold == 0 && buytable[i].netvalue < max_value) {
-                portion += buytable[i].portion;
+            if(buytable[i].sold == 0 && buytable[i].nv < max_value) {
+                portion += buytable[i].ptn;
                 dates += buytable[i].date;
             }
         };
@@ -257,7 +257,7 @@ class Utils {
         var totalPortion = 0;
         for (var i = 0; i < buytable.length; i++) {
             if (buytable[i].sold == 0) {
-                totalPortion += buytable[i].portion;
+                totalPortion += buytable[i].ptn;
             };
         };
 
@@ -267,7 +267,7 @@ class Utils {
         var portionInDays = 0;
         for (var i = 0; i < buytable.length; i++) {
             if (buytable[i].date > strDate) {
-                portionInDays += buytable[i].portion;
+                portionInDays += buytable[i].ptn;
             }
         };
         return totalPortion > portionInDays ? totalPortion - portionInDays: 0;
@@ -278,14 +278,14 @@ class Utils {
         var portion = 0;
         var max_value = (parseFloat(netvalue) * (1.0 - parseFloat(short_term_rate)));
         for (var i = 0; i < buytable.length; i++) {
-            if(buytable[i].sold == 0 && buytable[i].netvalue < max_value) {
+            if(buytable[i].sold == 0 && buytable[i].nv < max_value) {
                 buyrecs.push(buytable[i]);
-                portion += buytable[i].portion;
+                portion += buytable[i].ptn;
             }
         };
 
         for (var i = buyrecs.length - 1; i >= 0; i--) {
-            portion -= buyrecs[i].portion;
+            portion -= buyrecs[i].ptn;
             if (portion <= portion_7day) {
                 break;
             }

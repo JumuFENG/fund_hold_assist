@@ -133,7 +133,7 @@ class UserFund():
             self.delete_cosumed()
             budget = self.sqldb.select(self.budget_table, [column_date, column_net_value, column_budget])
             for (d,v,b) in budget:
-                values.append({"date":d, "max_price_to_buy":str(Decimal(str(v)) * ppg), "budget":b})
+                values.append({"date":d, "mptb":str(Decimal(str(v)) * ppg), "bdt":b})
         return values
 
     def get_roll_in_arr(self, fg):
@@ -162,7 +162,7 @@ class UserFund():
             to_rollin = 0;
             if c > float(r):
                 to_rollin = int(c - float(r))
-            values.append({"date":d, "cost":c, "portion":p, "max_price_to_buy":max_price_to_buy, "to_rollin":str(to_rollin)})
+            values.append({"date":d, "cost":c, "ptn":p, "mptb":max_price_to_buy, "tri":str(to_rollin)})
 
         return values
 
@@ -174,7 +174,7 @@ class UserFund():
         values = []
         for (d,c,p,s) in dcp_not_sell:
             v = fg.netvalue_by_date(d)
-            values.append({"date":d, "netvalue":v, "cost":c, "portion":p, "sold":s})
+            values.append({"date":d, "nv":v, "cost":c, "ptn":p, "sold":s})
         return values
 
     def get_portions_morethan_7day(self, fg, ppg):
@@ -365,12 +365,11 @@ class UserFund():
 
         fund_json_obj["name"] = fg.name
         fund_json_obj["ppg"] = ppg
-        fund_json_obj["short_term_rate"] = fg.short_term_rate
+        fund_json_obj["str"] = fg.short_term_rate # short_term_rate
         fund_json_obj["cost"] = self.cost_hold
-        fund_json_obj["averprice"] = str(Decimal(str(self.average)) * ppg)
-        fund_json_obj["latest_netvalue"] = fg.latest_netvalue()
-        fund_json_obj["last_day_earned"] = self.last_day_earned(fg.history_table)
-        fund_json_obj["earned_while_holding"] = round((float(fg.latest_netvalue()) - float(self.average)) * float(self.portion_hold), 2)
-        fund_json_obj["morethan7day"] = self.get_portions_morethan_7day(fg, ppg)
+        fund_json_obj["avp"] = self.average # average price
+        fund_json_obj["lnv"] = fg.latest_netvalue() # latest_netvalue
+        fund_json_obj["lde"] = self.last_day_earned(fg.history_table) # last_day_earned
+        fund_json_obj["ewh"] = round((float(fg.latest_netvalue()) - float(self.average)) * float(self.portion_hold), 2) # earned_while_holding
 
         return fund_json_obj
