@@ -243,7 +243,7 @@ class Utils {
         var portion = 0;
         for (var i = 0; i < buytable.length; i++) {
             if (buytable[i].sold == 0) {
-                dates += buytable[i].date;
+                dates += this.date_by_delta(buytable[i].date);
                 portion += buytable[i].ptn;
             };
         };
@@ -258,7 +258,7 @@ class Utils {
         for (var i = 0; i < buytable.length; i++) {
             if(buytable[i].sold == 0 && buytable[i].nv < max_value) {
                 portion += buytable[i].ptn;
-                dates += buytable[i].date;
+                dates += this.date_by_delta(buytable[i].date);
             }
         };
 
@@ -273,12 +273,10 @@ class Utils {
             };
         };
 
-        var date = new Date();
-        var dt = new Date(date.getFullYear(), date.getMonth(), date.getDate() - days);
-        var strDate = dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
+        var datestart = this.days_since_2000(this.getTodayDate()) - days;
         var portionInDays = 0;
         for (var i = 0; i < buytable.length; i++) {
-            if (buytable[i].date > strDate) {
+            if (buytable[i].date > datestart) {
                 portionInDays += buytable[i].ptn;
             }
         };
@@ -306,7 +304,7 @@ class Utils {
 
         var dates = "";
         for (var i = 0; i < buyrecs.length; i++) {
-            dates += buyrecs[i].date;
+            dates += this.date_by_delta(buyrecs[i].date);
         };
         
         return {dates:dates, portion:portion};
