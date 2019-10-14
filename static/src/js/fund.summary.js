@@ -10,6 +10,7 @@ window.onload = function() {
 
     document.getElementById('funds_list_container').style.display = utils.isEmpty(ftjson) ? 'none': 'block';
     document.getElementById('fund_new_date').value = utils.getTodayDate();
+    CreateFundDetailFramework();
 }
 
 document.addEventListener(ExtensionLoadedEvent, e => {

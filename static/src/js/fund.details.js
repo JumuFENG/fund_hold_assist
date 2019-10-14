@@ -1,3 +1,9 @@
+function CreateFundDetailFramework() {
+    var buyTable = document.createElement("table");
+    buyTable.id = "fund_single_detail_buytable";
+    document.getElementById('fund_single_detail_container').appendChild(buyTable);
+}
+
 function showFundDetailPage (detailparent) {
     if (detailparent.className != "hold_detail") {
         return;
@@ -7,7 +13,8 @@ function showFundDetailPage (detailparent) {
     var code = detailparent.id.split("_").pop();
     var container = document.getElementById('fund_single_detail_container');
     container.style.display = 'block';
-    var buyTable = document.createElement("table");
+    var buyTable = document.getElementById("fund_single_detail_buytable");
+    utils.deleteAllRows(buyTable);
     buyTable.appendChild(utils.createSingleRow("buy:"));
     buyTable.appendChild(utils.createSplitLine());
     if (ftjson[code]["buy_table"] !== undefined) {
