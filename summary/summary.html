@@ -30,6 +30,9 @@
     <hr />
     <div id="charts_div" style="width:98%">
         <a href="javascript:showFundDetailPage(charts_div.parentElement)" >详情</a>
+        <div id="chart_interaction" style="display:none;">
+            <div id="chart_selected_data"></div>
+        </div>
         <ul id="dayslist">
             <li class="highlight" onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="0">默认</li>
             <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="30">30</li>

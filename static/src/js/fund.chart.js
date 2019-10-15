@@ -241,12 +241,47 @@ function googleChartLoaded() {
 function onChartPointSelected() {
     var selectedItem = chart.chart.getSelection()[0];
     if (selectedItem) {
-        var topping = chart.data.getValue(selectedItem.row, selectedItem.column);
-        alert(topping);
+        var date = chart.data.getValue(selectedItem.row, 0);
+        var val = chart.data.getValue(selectedItem.row, 1);
+        var code = chart.data.getColumnLabel(selectedItem.column);
+        document.getElementById("chart_interaction").style.display = "block";
+        if (!ftjson[code] || (!ftjson[code]["buy_table"] && !ftjson[code]["sell_table"])) {
+            document.getElementById("chart_selected_data").textContent = date +" 净值: "+ val;
+            return;
+        }
+        var buytable = ftjson[code]["buy_table"];
+        var datedelta = utils.days_since_2000(date);
+        var buyrec = buytable.find(function(curVal) {
+            return curVal.date == datedelta;
+        });
+        var selltable = ftjson[code]["sell_table"];
+        var sellrec = selltable.find(function(curVal) {
+            return curVal.date == datedelta;
+        });
+
+        if (!buyrec && !sellrec) {
+            document.getElementById("chart_selected_data").textContent = date +" 净值: "+ val;
+            return;
+        };
+
+        var textInfo = "";
+        if (buyrec) {
+            textInfo += "买入" + ":" + date;
+        };
+
+        if (sellrec) {
+            textInfo += "卖出: " + date;
+        };
+        document.getElementById("chart_selected_data").textContent = textInfo;
     }
 }
 
+function resetChartInteractionPanel() {
+    document.getElementById("chart_interaction").style.display = "none";
+}
+
 function DrawFundHistory(fundcode) {
+    resetChartInteractionPanel();
     var fdline = new FundLine(fundcode, '#B8860B', ftjson[fundcode]['name']);
     chart.lines = [fdline];
 
