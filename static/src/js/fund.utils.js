@@ -309,6 +309,59 @@ class Utils {
         
         return {dates:dates, portion:portion};
     }
+
+    getPuzzledDatePortion(buytable, puzzleDates, netvalue, least_rate, days) {
+        var portionMorethanDays = this.getPortionMoreThan(buytable, days);
+        var puzzlePortion = 0;
+        var puzzleCost = 0;
+        var noneSoldRecs = [];
+        var max_value = (parseFloat(netvalue) * (1.0 - parseFloat(least_rate)));
+        for (var i = 0; i < buytable.length; i++) {
+            var datePuzzled = false;
+            for (var j = 0; j < puzzleDates.length; j++) {
+                if (buytable[i].date == puzzleDates[j]) {
+                    puzzlePortion += buytable[i].ptn;
+                    puzzleCost += buytable[i].cost;
+                    datePuzzled = true;
+                    break;
+                }
+            }
+
+            if (!datePuzzled && buytable[i].sold == 0 && buytable[i].nv <= max_value) {
+                noneSoldRecs.push(buytable[i]);
+            };
+        };
+
+        if (portionMorethanDays <= puzzlePortion || noneSoldRecs.length <= 0) {
+            return null;
+        };
+
+        noneSoldRecs.sort(function(l, g) {
+            return l.nv - g.nv;
+        });
+
+        var aver = puzzleCost / puzzlePortion;
+        var dates = "";
+        for (var i = 0; i < puzzleDates.length; i++) {
+            dates += this.date_by_delta(puzzleDates[i]);
+        };
+        for (var i = 0; i < noneSoldRecs.length; i++) {
+            var newAver = (puzzleCost + noneSoldRecs[i].cost) / (puzzlePortion + noneSoldRecs[i].ptn);
+            if (newAver <= aver) {
+                aver = newAver;
+                puzzleCost += noneSoldRecs[i].cost;
+                puzzlePortion += noneSoldRecs[i].ptn;
+                dates += this.date_by_delta(noneSoldRecs[i].date);
+            };
+        };
+
+        return aver <= max_value && portionMorethanDays >= puzzlePortion? {
+            dates:dates, 
+            portion: puzzlePortion, 
+            cost: puzzleCost, 
+            rate: (parseFloat(netvalue) - aver)/aver
+        } : null;
+    }
 }
 
 var utils = new Utils();

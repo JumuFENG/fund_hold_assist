@@ -246,33 +246,38 @@ function onChartPointSelected() {
         var code = chart.data.getColumnLabel(selectedItem.column);
         document.getElementById("chart_interaction").style.display = "block";
         if (!ftjson[code] || (!ftjson[code]["buy_table"] && !ftjson[code]["sell_table"])) {
-            document.getElementById("chart_selected_data").textContent = date +" 净值: "+ val;
+            ShowSelectedPointInfo(date +" 净值: "+ val);
             return;
         }
         var buytable = ftjson[code]["buy_table"];
         var datedelta = utils.days_since_2000(date);
-        var buyrec = buytable.find(function(curVal) {
+        var buyrec = buytable? buytable.find(function(curVal) {
             return curVal.date == datedelta;
-        });
+        }) : null;
         var selltable = ftjson[code]["sell_table"];
-        var sellrec = selltable.find(function(curVal) {
+        var sellrec = selltable? selltable.find(function(curVal) {
             return curVal.date == datedelta;
-        });
+        }) : null;
 
         if (!buyrec && !sellrec) {
-            document.getElementById("chart_selected_data").textContent = date +" 净值: "+ val;
+            ShowSelectedPointInfo(date +" 净值: "+ val);
             return;
         };
 
         var textInfo = "";
         if (buyrec) {
-            textInfo += "买入" + ":" + date;
+            if (buyrec.sold == 1) {
+                textInfo += date + " 买入 " + buyrec.cost + " 已卖出";
+            } else {
+                BuyRecordSelected(buyrec, code);
+                return;
+            }
         };
 
         if (sellrec) {
-            textInfo += "卖出: " + date;
+            textInfo += date + " 卖出: " + sellrec.ptn + "份, 成本: " + sellrec.cost;
         };
-        document.getElementById("chart_selected_data").textContent = textInfo;
+        ShowSelectedPointInfo(textInfo);
     }
 }
 
@@ -348,5 +353,79 @@ function updateHistData(hist_data) {
 
         var days = utils.getHighlightedValue("dayslist");
         chart.drawChart(days);
+    }
+}
+
+function ShowSelectedPointInfo(textInfo) {
+    var selectDiv = document.getElementById("chart_selected_data");
+    selectDiv.textContent = textInfo;
+    selectDiv.selectedDates = null;
+    selectDiv.setAttribute("selectedCode", null);
+}
+
+function BuyRecordSelected(buyrec, code) {
+    var selectDiv = document.getElementById("chart_selected_data");
+    var selectedCode = selectDiv.getAttribute("selectedCode");
+    if (selectedCode) {
+        if (selectedCode != code) {
+            while(selectDiv.hasChildNodes()) {
+                selectDiv.removeChild(selectDiv.lastChild);
+            }
+            selectDiv.selectedDates = null;
+            selectedCode = null;
+        };
+    };
+    
+    if (!selectedCode) {
+        selectDiv.setAttribute("selectedCode", code);
+        selectedCode = code;
+        var btnSubmit = document.createElement("button");
+        btnSubmit.textContent = "OK";
+        btnSubmit.onclick = function (e) {
+            HandleSelectedRecords(selectDiv);
+        };
+        selectDiv.appendChild(btnSubmit);
+    };
+
+    var selectedDates = selectDiv.selectedDates;
+    if (!selectedDates) {
+        selectedDates = [buyrec.date];
+    } else {
+        selectedDates.push(buyrec.date);
+    }
+    selectDiv.selectedDates = selectedDates;
+
+    var buyInfo = document.createTextNode(utils.date_by_delta(buyrec.date) + ": " + buyrec.cost + " ");
+    selectDiv.insertBefore(buyInfo, selectDiv.lastChild);
+}
+
+function HandleSelectedRecords(selectDiv) {
+    var code = selectDiv.getAttribute("selectedCode");
+    if (!ftjson[code] || !ftjson[code].buy_table) {
+        alert("数据错误！");
+        return;
+    }
+
+    var buytable = ftjson[code].buy_table;
+    var selectedDates = selectDiv.selectedDates;
+    var jsonp = ftjson[code].rtgz;
+    var gz = jsonp ? jsonp.gsz : ftjson[code].lnv;
+    var short_term_rate = ftjson[code].str;
+    var short_term_days = 7;
+    var dp = utils.getPuzzledDatePortion(buytable, selectedDates, gz, short_term_rate, short_term_days);
+    if (!dp) {
+        selectDiv.appendChild(document.createTextNode("无合适买卖！"));
+    } else {
+        var portion = utils.convertPortionToGram(dp.portion, ftjson[code].ppg).toFixed(4);
+        var rate = (parseFloat(dp.rate) * 100).toFixed(2) + "%";
+        var dates = dp.dates;
+        selectDiv.appendChild(document.createTextNode("可卖出:" + portion + " 成本:" + dp.cost + " 预期收益:" + rate));
+        var btnSell = document.createElement("button");
+        btnSell.textContent = "卖出";
+        btnSell.onclick = function(e) {
+            //alert("卖出执行！" + code + ":" + dates);
+            sellFund(code, utils.getTodayDate(), dates);
+        }
+        selectDiv.appendChild(btnSell);
     }
 }
