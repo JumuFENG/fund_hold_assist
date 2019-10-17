@@ -238,6 +238,20 @@ class Utils {
         return gram * ppg;
     }
 
+    netvalueToPrice(nv, ppg) {
+        if (ppg == 0 || ppg == 1) {
+            return nv;
+        };
+        return nv * ppg;
+    }
+
+    priceToNetValue(price, ppg) {
+        if (ppg == 0 || ppg == 1) {
+            return price;
+        };
+        return price / ppg;
+    }
+
     getTotalDatesPortion(buytable) {
         var dates = "";
         var portion = 0;

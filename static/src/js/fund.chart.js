@@ -83,7 +83,7 @@ class FundChart {
             var buytable = null;
             for (var i = 0; ftjson != null && i < this.lines.length; i++) {
                 if (ftjson[this.lines[i].code] !== undefined) {
-                    buytable = ftjson[this.lines[i].code]["buy_table"];
+                    buytable = ftjson[this.lines[i].code].buy_table;
                     break;
                 }
             };
@@ -138,7 +138,7 @@ class FundChart {
                 var pttooltip = strDate + ": " + val + ": " + all_hist_data[len - showLen  + i][valIdx + 1] + "%";
                 if (ftjson[this.lines[j].code] !== undefined)
                 {
-                    var buytable = ftjson[this.lines[j].code]["buy_table"];
+                    var buytable = ftjson[this.lines[j].code].buy_table;
                     if (buytable) {
                         var buyrec = buytable.find(function(curVal) {
                             return curVal.date == date;
@@ -157,7 +157,7 @@ class FundChart {
                         };
                     };
 
-                    var selltable = ftjson[this.lines[j].code]["sell_table"];
+                    var selltable = ftjson[this.lines[j].code].sell_table;
                     if (selltable) {
                         var sellrec = selltable.find(function(curVal) {
                             return curVal.date == date;
@@ -245,16 +245,16 @@ function onChartPointSelected() {
         var val = chart.data.getValue(selectedItem.row, 1);
         var code = chart.data.getColumnLabel(selectedItem.column);
         document.getElementById("chart_interaction").style.display = "block";
-        if (!ftjson[code] || (!ftjson[code]["buy_table"] && !ftjson[code]["sell_table"])) {
+        if (!ftjson[code] || (!ftjson[code].buy_table && !ftjson[code].sell_table)) {
             ShowSelectedPointInfo(date +" 净值: "+ val);
             return;
         }
-        var buytable = ftjson[code]["buy_table"];
+        var buytable = ftjson[code].buy_table;
         var datedelta = utils.days_since_2000(date);
         var buyrec = buytable? buytable.find(function(curVal) {
             return curVal.date == datedelta;
         }) : null;
-        var selltable = ftjson[code]["sell_table"];
+        var selltable = ftjson[code].sell_table;
         var sellrec = selltable? selltable.find(function(curVal) {
             return curVal.date == datedelta;
         }) : null;

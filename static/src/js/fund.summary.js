@@ -72,7 +72,7 @@ function fillUpBudgetData(budgetTable, budgets) {
 
     budgetTable.appendChild(utils.createSingleRow("budget"));
     for (var i = 0; i < budgets.length; i++) {
-        var row = creatBuyRow(utils.date_by_delta(budgets[i]["date"]), budgets[i]["mptb"], budgets[i]["bdt"]);
+        var row = creatBuyRow(utils.date_by_delta(budgets[i].date), budgets[i].mptb, budgets[i].bdt);
         budgetTable.appendChild(row);
     };
 }
@@ -83,17 +83,17 @@ function updateBudgetsTable(code) {
         utils.deleteAllRows(budgetTable);
     };
     
-    fillUpBudgetData(budgetTable, ftjson[code]["budget"]);
+    fillUpBudgetData(budgetTable, ftjson[code].budget);
 }
 
 function createBudgetsTable(code) {
     var budgetTable = document.createElement("table");
     budgetTable.id = "budget_table_" + code;
-    if (ftjson[code]["budget"] == undefined) {
+    if (ftjson[code].budget == undefined) {
         return budgetTable;
     };
 
-    fillUpBudgetData(budgetTable, ftjson[code]["budget"]);
+    fillUpBudgetData(budgetTable, ftjson[code].budget);
     return budgetTable;
 }
 
@@ -101,17 +101,25 @@ function creatBuyRow(date, maxprice, cost) {
     return utils.create2ColRow(date, cost + "<" + maxprice + ">");
 }
 
-function fillUpRollinsData(rollinTable, rollins) {
+function fillUpRollinsData(rollinTable, code) {
+    var rollins = ftjson[code].sell_table;
     if (!rollins || rollins.length < 1) {
         return;
     }
 
     rollinTable.appendChild(utils.createSingleRow("roll in"));
+    var jsonp = ftjson[code].rtgz;
+    var gz = jsonp ? jsonp.gsz : ftjson[code].lnv;
+    var max_value = utils.netvalueToPrice(gz, ftjson[code].ppg);
     for (var i = 0; i < rollins.length; i++) {
-        if (rollins[i]["tri"] > 0) {
-            var row = creatBuyRow(utils.date_by_delta(rollins[i]["date"]), rollins[i]["mptb"], rollins[i]["tri"]);
+        if (rollins[i].tri > 0 && rollins[i].mptb * 1.1 > max_value) {
+            var row = creatBuyRow(utils.date_by_delta(rollins[i].date), rollins[i].mptb, rollins[i].tri);
             rollinTable.appendChild(row);
         }
+    };
+
+    if (rollinTable.rows.length == 1) {
+        utils.deleteAllRows(rollinTable);
     };
 }
 
@@ -120,27 +128,27 @@ function updateRollinsTable(code) {
     if (rollinTable.rows.length > 0) {
         utils.deleteAllRows(rollinTable);
     };
-    fillUpRollinsData(rollinTable, ftjson[code]["sell_table"]);
+    fillUpRollinsData(rollinTable, code);
 }
 
 function createRollinsTable(code) {
     var rollinTable = document.createElement("table");
     rollinTable.id = "rollin_table_" + code;
-    if (ftjson[code]["sell_table"] === undefined) {
+    if (ftjson[code].sell_table === undefined) {
         return rollinTable;
     };
 
-    fillUpRollinsData(rollinTable, ftjson[code]["sell_table"]);
+    fillUpRollinsData(rollinTable, code);
     return rollinTable;
 }
 
-function getLatestRetracement(fundcode, latest_netvalue) {
-    var averprice = parseFloat(ftjson[fundcode]["avp"]);
+function getLatestRetracement(code, latest_netvalue) {
+    var averprice = parseFloat(ftjson[code].avp);
     if (averprice >= latest_netvalue) {
         return 0;
     };
 
-    var buytable = ftjson[fundcode]["buy_table"];
+    var buytable = ftjson[code].buy_table;
     if (buytable === undefined) {
         return 0;
     };
@@ -150,7 +158,7 @@ function getLatestRetracement(fundcode, latest_netvalue) {
     };
 
     var fundDateIdx = 0;
-    var fundValIdx = all_hist_data[0].indexOf(fundcode) * 2 - 1;
+    var fundValIdx = all_hist_data[0].indexOf(code) * 2 - 1;
     if (fundValIdx < 0) {
         return 0;
     };
@@ -196,24 +204,24 @@ function jsonpgz(fundgz) {
     };
 }
 
-function fillUpSellTableData(sellTable, fundcode) {
-    var buytable = ftjson[fundcode]["buy_table"];
+function fillUpSellTableData(sellTable, code) {
+    var buytable = ftjson[code].buy_table;
     if (buytable === undefined) {
         return;
     };
 
     var all_dp = utils.getTotalDatesPortion(buytable);
     var portion = all_dp.portion;
-    var ppg = parseFloat(ftjson[fundcode]["ppg"]);
+    var ppg = parseFloat(ftjson[code].ppg);
 
-    sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, all_dp.dates, "全部", utils.convertPortionToGram(portion, ppg).toFixed(4)));
+    sellTable.appendChild(utils.createRadioRow("sell_" + code, all_dp.dates, "全部", utils.convertPortionToGram(portion, ppg).toFixed(4)));
     portion = utils.getPortionMoreThan(buytable, 31);
     sellTable.appendChild(utils.create2ColRow(">31天", utils.convertPortionToGram(portion, ppg).toFixed(4)));
     var portion_7day = utils.getPortionMoreThan(buytable, 7);
 
-    var short_term_rate = ftjson[fundcode]["str"];
-    var jsonp = ftjson[fundcode].rtgz;
-    var gz = jsonp ? jsonp.gsz : ftjson[fundcode]["lnv"];
+    var short_term_rate = ftjson[code].str;
+    var jsonp = ftjson[code].rtgz;
+    var gz = jsonp ? jsonp.gsz : ftjson[code].lnv;
     var short_dp = utils.getShortTermDatesPortion(buytable, gz, short_term_rate);
     var short_portion = short_dp.portion;
 
@@ -224,38 +232,38 @@ function fillUpSellTableData(sellTable, fundcode) {
     if (short_portion > 0 ) {
         if (portion_7day < short_portion) {
             var short_7d_dp = utils.getShortTermDatesPortionMoreThan7Day(buytable, gz, short_term_rate, portion_7day);
-            sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_7d_dp.dates, ">7天", utils.convertPortionToGram(short_7d_dp.portion, ppg).toFixed(4), true));
+            sellTable.appendChild(utils.createRadioRow("sell_" + code, short_7d_dp.dates, ">7天", utils.convertPortionToGram(short_7d_dp.portion, ppg).toFixed(4), true));
         };
-        sellTable.appendChild(utils.createRadioRow("sell_" + fundcode, short_dp.dates, ">"+ (parseFloat(short_term_rate) * 100).toFixed(2) + "%", utils.convertPortionToGram(short_portion, ppg).toFixed(4), short_portion < portion_7day));
+        sellTable.appendChild(utils.createRadioRow("sell_" + code, short_dp.dates, ">"+ (parseFloat(short_term_rate) * 100).toFixed(2) + "%", utils.convertPortionToGram(short_portion, ppg).toFixed(4), short_portion < portion_7day));
     } 
 }
 
-function updateLatestSellInfo(fundcode) {
-    var sellTable = document.getElementById("tbl_sell_" + fundcode);
+function updateLatestSellInfo(code) {
+    var sellTable = document.getElementById("tbl_sell_" + code);
     for (var i = sellTable.rows.length - 1; i >= 1; i--) {
         sellTable.deleteRow(i);
     };
 
-    fillUpSellTableData(sellTable, fundcode);
+    fillUpSellTableData(sellTable, code);
 }
 
-function createSellInfoTable(fundcode) {
+function createSellInfoTable(code) {
     var sellTable = document.createElement("table");
-    sellTable.id = "tbl_sell_" + fundcode;
+    sellTable.id = "tbl_sell_" + code;
     sellTable.appendChild(utils.createSingleRow("sell"));
 
-    if (ftjson[fundcode]["buy_table"] === undefined) {
+    if (ftjson[code].buy_table === undefined) {
         return sellTable;
     };
 
-    fillUpSellTableData(sellTable, fundcode);
+    fillUpSellTableData(sellTable, code);
     return sellTable;
 }
 
 function ToggleFundDetails(divDetail, fund_list_table) {
     if (divDetail.style.display == "none") {
-        var fundcode = divDetail.id.split('_').pop();
-        sendFetchEvent(fundcode);
+        var code = divDetail.id.split('_').pop();
+        sendFetchEvent(code);
         divDetail.style.display = "block";
 
         var sibling = fund_list_table.firstChild;
@@ -267,15 +275,15 @@ function ToggleFundDetails(divDetail, fund_list_table) {
             sibling = sibling.nextElementSibling;
         }
 
-        refreshHoldDetail(fundcode);
-        DrawFundHistory(fundcode);
+        refreshHoldDetail(code);
+        DrawFundHistory(code);
 
         var charts_div = document.getElementById("charts_div");
         charts_div.parentElement.removeChild(charts_div);
         divDetail.appendChild(charts_div);
 
         var tradepanel = document.getElementById("trade_panel");
-        tradepanel.setAttribute("code", fundcode);
+        tradepanel.setAttribute("code", code);
         var datepicker = document.getElementById("trade_panel_date");
         datepicker.value = utils.getTodayDate();
         document.getElementById('tradeoptions').style.display = 'block';
@@ -285,74 +293,74 @@ function ToggleFundDetails(divDetail, fund_list_table) {
     }
 }
 
-function createGuzhiInfo(fundcode) {
-    var funddata = ftjson[fundcode];
+function createGuzhiInfo(code) {
+    var funddata = ftjson[code];
     var jsonp = funddata.rtgz;
-    var lbl_class = utils.incdec_lbl_classname(jsonp ? jsonp.gszzl : funddata["lde"]);
+    var lbl_class = utils.incdec_lbl_classname(jsonp ? jsonp.gszzl : funddata.lde);
 
-    var html = "<div class='guzhi'>估值: <label id='guzhi_lgz_" + fundcode + "'";
+    var html = "<div class='guzhi'>估值: <label id='guzhi_lgz_" + code + "'";
     if (lbl_class) {
         html += " class='" + lbl_class + "'";
     };
     html +=">"; 
-    html += jsonp ? jsonp.gsz : funddata["lnv"];
+    html += jsonp ? jsonp.gsz : funddata.lnv;
     html += "</label>";
-    html += funddata["lnv"];
+    html += funddata.lnv;
     // 估值涨幅
-    html += " 涨幅: <label id='guzhi_zl_" + fundcode + "'"
+    html += " 涨幅: <label id='guzhi_zl_" + code + "'"
     if (lbl_class) {
         html += " class='" + lbl_class + "'";
     };
     html +=">";
     html += jsonp ? jsonp.gszzl + "%" : "-";
     // 总收益率
-    html += "</label>总: <label id='guzhi_total_zl_" + fundcode + "'";
-    var netvalue = parseFloat(funddata["avp"]);
-    lbl_class = utils.incdec_lbl_classname((jsonp ? jsonp.gsz : funddata["lnv"]) - netvalue)
+    html += "</label>总: <label id='guzhi_total_zl_" + code + "'";
+    var netvalue = parseFloat(funddata.avp);
+    lbl_class = utils.incdec_lbl_classname((jsonp ? jsonp.gsz : funddata.lnv) - netvalue)
     html += " class='" + lbl_class + "' >";
-    var latest_netvalue = jsonp ? jsonp.gsz : funddata["lnv"];
+    var latest_netvalue = jsonp ? jsonp.gsz : funddata.lnv;
     var total_percent = ((latest_netvalue - netvalue) * 100 / netvalue).toFixed(2) + "%";
     html += total_percent;
-    html += "</label><label id = 'retrace_" + fundcode + "' style = 'visibility:";
+    html += "</label><label id = 'retrace_" + code + "' style = 'visibility:";
     // 回撤
-    var retrace = getLatestRetracement(fundcode, latest_netvalue);
+    var retrace = getLatestRetracement(code, latest_netvalue);
     html += retrace > 0 ? "visible" : "hidden";
     html += ";' >| " + retrace + "%";
     html += "</label></div>";
     return html;
 }
 
-function updateGuzhiInfo(fundcode) {
-    var jsonp = ftjson[fundcode].rtgz;
-    var funddata = ftjson[fundcode];
+function updateGuzhiInfo(code) {
+    var jsonp = ftjson[code].rtgz;
+    var funddata = ftjson[code];
 
-    var lbl_class = utils.incdec_lbl_classname( jsonp ? jsonp.gszzl : funddata["lde"]);
-    var lbl_guzhi_lgz = document.getElementById("guzhi_lgz_" + fundcode);
+    var lbl_class = utils.incdec_lbl_classname( jsonp ? jsonp.gszzl : funddata.lde);
+    var lbl_guzhi_lgz = document.getElementById("guzhi_lgz_" + code);
     if (lbl_guzhi_lgz) {
-        lbl_guzhi_lgz.innerText = jsonp ? jsonp.gsz : funddata["lnv"];
+        lbl_guzhi_lgz.innerText = jsonp ? jsonp.gsz : funddata.lnv;
         lbl_guzhi_lgz.className = lbl_class;
     };
-    var lbl_guzhi_zl = document.getElementById("guzhi_zl_" + fundcode);
+    var lbl_guzhi_zl = document.getElementById("guzhi_zl_" + code);
     if (lbl_guzhi_zl) {
         lbl_guzhi_zl.innerText = jsonp ? jsonp.gszzl + "%" : "-";
         lbl_guzhi_zl.className = lbl_class;
     };
 
-    var latest_netvalue = jsonp ? jsonp.gsz : funddata["lnv"];
+    var latest_netvalue = jsonp ? jsonp.gsz : funddata.lnv;
 
-    var lbl_guzhi_total_percent = document.getElementById("guzhi_total_zl_" + fundcode);
+    var lbl_guzhi_total_percent = document.getElementById("guzhi_total_zl_" + code);
     if (lbl_guzhi_total_percent) {
-        var netvalue = parseFloat(funddata["avp"]);
-        lbl_guzhi_total_percent.className = utils.incdec_lbl_classname((jsonp ? jsonp.gsz : funddata["lnv"]) - netvalue);
+        var netvalue = parseFloat(funddata.avp);
+        lbl_guzhi_total_percent.className = utils.incdec_lbl_classname((jsonp ? jsonp.gsz : funddata.lnv) - netvalue);
 
         var total_percent = ((latest_netvalue - netvalue) * 100 / netvalue).toFixed(2) + "%";
 
         lbl_guzhi_total_percent.innerText = total_percent;
     };
 
-    var lbl_guzhi_retrace = document.getElementById("retrace_" + fundcode);
+    var lbl_guzhi_retrace = document.getElementById("retrace_" + code);
     if (lbl_guzhi_retrace) {
-        var retrace = getLatestRetracement(fundcode, latest_netvalue);
+        var retrace = getLatestRetracement(code, latest_netvalue);
         lbl_guzhi_retrace.innerText = "| " + retrace + "%";
         lbl_guzhi_retrace.style.visibility = retrace > 0 ? "visible" : "hidden";
     };
@@ -360,19 +368,19 @@ function updateGuzhiInfo(fundcode) {
 
 function createGeneralInnerHtmlWithoutName(funddata) {
     var html = "<div class='general_earned'>"
-    html += "持有: " + funddata["cost"] + " &lt;" + funddata["avp"]+ "&gt; ";
+    html += "持有: " + funddata.cost + " &lt;" + funddata.avp+ "&gt; ";
 
-    var earned_lbl_class = utils.incdec_lbl_classname(funddata["ewh"]);
-    html += "<label class='" + earned_lbl_class + "'>" + funddata["ewh"] + "</label>";
-    html += "<label class='" + earned_lbl_class + "'>" + (100 * funddata["ewh"] / funddata["cost"]).toFixed(2) + "%</label>";
+    var earned_lbl_class = utils.incdec_lbl_classname(funddata.ewh);
+    html += "<label class='" + earned_lbl_class + "'>" + funddata.ewh + "</label>";
+    html += "<label class='" + earned_lbl_class + "'>" + (100 * funddata.ewh / funddata.cost).toFixed(2) + "%</label>";
     html += "</div>";
     return html;
 }
 
-function createGeneralInfoInSingleRow(fundcode) {
-    var funddata = ftjson[fundcode];
-    var html = "<div class='fund_header' onclick='ToggleFundDetails(hold_detail_" + fundcode + ", fund_list_table)' id='fund_header_" + fundcode + "'>" + funddata["name"] + "<label class = '" + utils.incdec_lbl_classname(funddata["lde"]) + "'>" + funddata["lde"] + "</label>";
-    html += createGuzhiInfo(fundcode);
+function createGeneralInfoInSingleRow(code) {
+    var funddata = ftjson[code];
+    var html = "<div class='fund_header' onclick='ToggleFundDetails(hold_detail_" + code + ", fund_list_table)' id='fund_header_" + code + "'>" + funddata.name + "<label class = '" + utils.incdec_lbl_classname(funddata.lde) + "'>" + funddata.lde + "</label>";
+    html += createGuzhiInfo(code);
     html += createGeneralInnerHtmlWithoutName(funddata);
     html += "</div>";
     var general_root = document.createElement("div");
@@ -381,12 +389,12 @@ function createGeneralInfoInSingleRow(fundcode) {
 
     var hold_detail = document.createElement("div");
     hold_detail.className = "hold_detail";
-    hold_detail.id = "hold_detail_" + fundcode;
+    hold_detail.id = "hold_detail_" + code;
     hold_detail.style = "display:none;";
 
-    hold_detail.appendChild(createBudgetsTable(fundcode));
-    hold_detail.appendChild(createRollinsTable(fundcode));
-    hold_detail.appendChild(createSellInfoTable(fundcode));
+    hold_detail.appendChild(createBudgetsTable(code));
+    hold_detail.appendChild(createRollinsTable(code));
+    hold_detail.appendChild(createSellInfoTable(code));
 
     general_root.appendChild(hold_detail);
 
@@ -418,14 +426,14 @@ function fetchBuyData(code) {
 
     httpRequest.onreadystatechange = function () {
         if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-            ftjson[code]["buy_table"] = JSON.parse(httpRequest.responseText);
+            ftjson[code].buy_table = JSON.parse(httpRequest.responseText);
             refreshBuyData(code)
         }
     }
 }
 
 function refreshBuyData(code) {
-    if (ftjson[code]["buy_table"] === undefined) {
+    if (ftjson[code].buy_table === undefined) {
         fetchBuyData(code)
         return;
     };
@@ -441,14 +449,14 @@ function fetchBudgetData(code) {
 
     httpRequest.onreadystatechange = function () {
         if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-            ftjson[code]["budget"] = JSON.parse(httpRequest.responseText);
+            ftjson[code].budget = JSON.parse(httpRequest.responseText);
             refreshBudgetData(code);
         }
     }
 }
 
 function refreshBudgetData(code) {
-    if (ftjson[code]["budget"] === undefined) {
+    if (ftjson[code].budget === undefined) {
         fetchBudgetData(code);
         return;
     };
@@ -463,14 +471,14 @@ function fetchSellData(code) {
 
     httpRequest.onreadystatechange = function () {
         if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-            ftjson[code]["sell_table"] = JSON.parse(httpRequest.responseText);
+            ftjson[code].sell_table = JSON.parse(httpRequest.responseText);
             refreshSellData(code);
         }
     }
 }
 
 function refreshSellData(code) {
-    if (ftjson[code]["sell_table"] === undefined) {
+    if (ftjson[code].sell_table === undefined) {
         fetchSellData(code);
         return;
     };
@@ -530,10 +538,10 @@ function showAllFundList() {
         sendFetchEvent(fcode);
 
         var funddata = ftjson[fcode];
-        earned += funddata["lde"];
-        total_earned += funddata["ewh"];        
-        cost += funddata["cost"];
-        code_cost.push([fcode, funddata["cost"]]);
+        earned += funddata.lde;
+        total_earned += funddata.ewh;        
+        cost += funddata.cost;
+        code_cost.push([fcode, funddata.cost]);
     }
 
     updateTotalEarnedInfo(earned, total_earned, cost);
