@@ -147,7 +147,8 @@ class FundChart {
                             pttooltip += " cost:" + buyrec.cost;
                             var ptsize = 3;
                             var ptclr = '#FF4500';
-                            if (buyrec.cost > 500) {
+                            var aver_cost = ftjson[this.lines[j].code].holding_aver_cost;
+                            if (buyrec.cost > 2000 || (aver_cost > 0 && buyrec.cost > 2 * aver_cost)) { 
                                 ptsize = 5
                             };
                             if (buyrec.sold == 1) {
@@ -382,7 +383,7 @@ function BuyRecordSelected(buyrec, code) {
         var daysInput = document.createElement("input");
         daysInput.placeholder = "天数";
         daysInput.value = "31";
-        daysInput.size = 1;
+        daysInput.size = 2;
         selectDiv.selectedData.days = 31;
         daysInput.onchange = function(e) {
             selectDiv.selectedData.days = parseInt(daysInput.value);
@@ -392,8 +393,8 @@ function BuyRecordSelected(buyrec, code) {
 
         var rateInput = document.createElement("input");
         rateInput.placeholder = "期望收益率";
-        rateInput.size = 3;
-        rateInput.value = ftjson[code].str * 50; // *100/2
+        rateInput.size = 5;
+        rateInput.value = (ftjson[code].str * 50).toFixed(3); // *100/2
         selectDiv.selectedData.rate = parseFloat(ftjson[code].str) / 2;
         rateInput.onchange = function(e) {
             selectDiv.selectedData.rate = parseFloat(rateInput.value) / 100;

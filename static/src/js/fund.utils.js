@@ -376,6 +376,18 @@ class Utils {
             rate: (parseFloat(netvalue) - aver)/aver
         } : null;
     }
+
+    getHoldingAverageCost(buytable) {
+        var total_cost = 0;
+        var count = 0;
+        for (var i = 0; i < buytable.length; i++) {
+            if (buytable[i].sold == 0) {
+                total_cost += buytable[i].cost;
+                count++;
+            }
+        };
+        return count > 0 ? total_cost/count : 0;
+    }
 }
 
 var utils = new Utils();

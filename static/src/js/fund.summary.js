@@ -426,15 +426,17 @@ function fetchBuyData(code) {
 
     httpRequest.onreadystatechange = function () {
         if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-            ftjson[code].buy_table = JSON.parse(httpRequest.responseText);
-            refreshBuyData(code)
+            var buytable = JSON.parse(httpRequest.responseText);
+            ftjson[code].buy_table = buytable;
+            ftjson[code].holding_aver_cost = utils.getHoldingAverageCost(buytable);
+            refreshBuyData(code);
         }
     }
 }
 
 function refreshBuyData(code) {
     if (ftjson[code].buy_table === undefined) {
-        fetchBuyData(code)
+        fetchBuyData(code);
         return;
     };
 
@@ -461,7 +463,7 @@ function refreshBudgetData(code) {
         return;
     };
 
-    updateBudgetsTable(code)
+    updateBudgetsTable(code);
 }
 
 function fetchSellData(code) {
@@ -542,6 +544,9 @@ function showAllFundList() {
         total_earned += funddata.ewh;        
         cost += funddata.cost;
         code_cost.push([fcode, funddata.cost]);
+        if (ftjson[fcode].buy_table) {
+            ftjson[fcode].holding_aver_cost = utils.getHoldingAverageCost(ftjson[fcode].buy_table);
+        };
     }
 
     updateTotalEarnedInfo(earned, total_earned, cost);
