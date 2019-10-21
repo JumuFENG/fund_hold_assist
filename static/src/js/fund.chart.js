@@ -359,59 +359,83 @@ function updateHistData(hist_data) {
 function ShowSelectedPointInfo(textInfo) {
     var selectDiv = document.getElementById("chart_selected_data");
     selectDiv.textContent = textInfo;
-    selectDiv.selectedDates = null;
-    selectDiv.setAttribute("selectedCode", null);
+    selectDiv.selectedData = null;
 }
 
 function BuyRecordSelected(buyrec, code) {
     var selectDiv = document.getElementById("chart_selected_data");
-    var selectedCode = selectDiv.getAttribute("selectedCode");
-    if (selectedCode) {
-        if (selectedCode != code) {
-            while(selectDiv.hasChildNodes()) {
-                selectDiv.removeChild(selectDiv.lastChild);
-            }
-            selectDiv.selectedDates = null;
-            selectedCode = null;
-        };
+    var selectedCode = selectDiv.selectedData ? selectDiv.selectedData.code: null;
+    if (!selectedCode || selectedCode != code) {
+        while(selectDiv.hasChildNodes()) {
+            selectDiv.removeChild(selectDiv.lastChild);
+        }
+        selectDiv.selectedData = null;
+        selectedCode = null;
     };
     
     if (!selectedCode) {
-        selectDiv.setAttribute("selectedCode", code);
+        selectDiv.selectedData = {code: code};
         selectedCode = code;
+        var submitDiv = document.createElement("div");
+
+        submitDiv.appendChild(document.createTextNode("天数>"));
+        var daysInput = document.createElement("input");
+        daysInput.placeholder = "天数";
+        daysInput.value = "31";
+        daysInput.size = 1;
+        selectDiv.selectedData.days = 31;
+        daysInput.onchange = function(e) {
+            selectDiv.selectedData.days = parseInt(daysInput.value);
+        };
+        submitDiv.appendChild(daysInput);
+        submitDiv.appendChild(document.createTextNode(", 收益率>"));
+
+        var rateInput = document.createElement("input");
+        rateInput.placeholder = "期望收益率";
+        rateInput.size = 3;
+        rateInput.value = ftjson[code].str * 50; // *100/2
+        selectDiv.selectedData.rate = parseFloat(ftjson[code].str) / 2;
+        rateInput.onchange = function(e) {
+            selectDiv.selectedData.rate = parseFloat(rateInput.value) / 100;
+        };
+        submitDiv.appendChild(rateInput);
+        submitDiv.appendChild(document.createTextNode("%"));
+
         var btnSubmit = document.createElement("button");
         btnSubmit.textContent = "OK";
         btnSubmit.onclick = function (e) {
             HandleSelectedRecords(selectDiv);
         };
-        selectDiv.appendChild(btnSubmit);
+        submitDiv.appendChild(btnSubmit);
+
+        selectDiv.appendChild(submitDiv);
     };
 
-    var selectedDates = selectDiv.selectedDates;
+    var selectedDates = selectDiv.selectedData.dates;
     if (!selectedDates) {
         selectedDates = [buyrec.date];
     } else {
         selectedDates.push(buyrec.date);
     }
-    selectDiv.selectedDates = selectedDates;
+    selectDiv.selectedData.dates = selectedDates;
 
     var buyInfo = document.createTextNode(utils.date_by_delta(buyrec.date) + ": " + buyrec.cost + " ");
     selectDiv.insertBefore(buyInfo, selectDiv.lastChild);
 }
 
 function HandleSelectedRecords(selectDiv) {
-    var code = selectDiv.getAttribute("selectedCode");
+    var code = selectDiv.selectedData.code;
     if (!ftjson[code] || !ftjson[code].buy_table) {
         alert("数据错误！");
         return;
     }
 
     var buytable = ftjson[code].buy_table;
-    var selectedDates = selectDiv.selectedDates;
+    var selectedDates = selectDiv.selectedData.dates;
     var jsonp = ftjson[code].rtgz;
     var gz = jsonp ? jsonp.gsz : ftjson[code].lnv;
-    var short_term_rate = ftjson[code].str;
-    var short_term_days = 7;
+    var short_term_rate = selectDiv.selectedData.rate;
+    var short_term_days = selectDiv.selectedData.days;
     var dp = utils.getPuzzledDatePortion(buytable, selectedDates, gz, short_term_rate, short_term_days);
     if (!dp) {
         selectDiv.appendChild(document.createTextNode("无合适买卖！"));
