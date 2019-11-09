@@ -65,14 +65,16 @@ function sendFetchEvent(fundcode) {
     sendFetchEventActually(fundcode);
 }
 
-function fillUpBudgetData(budgetTable, budgets) {
+function fillUpBudgetData(budgetTable, code) {
+    var budgets = ftjson[code].budget;
     if (!budgets || budgets.length < 1) {
         return;
     };
 
     budgetTable.appendChild(utils.createSingleRow("budget"));
     for (var i = 0; i < budgets.length; i++) {
-        var row = creatBuyRow(utils.date_by_delta(budgets[i].date), budgets[i].mptb, budgets[i].bdt);
+        var strDate = utils.date_by_delta(budgets[i].date);
+        var row = utils.createCheckboxRow("budget_row_" + code, strDate, strDate, budgets[i].bdt + "<" + budgets[i].mptb + ">");
         budgetTable.appendChild(row);
     };
 }
@@ -83,7 +85,7 @@ function updateBudgetsTable(code) {
         utils.deleteAllRows(budgetTable);
     };
     
-    fillUpBudgetData(budgetTable, ftjson[code].budget);
+    fillUpBudgetData(budgetTable, code);
 }
 
 function createBudgetsTable(code) {
@@ -93,12 +95,8 @@ function createBudgetsTable(code) {
         return budgetTable;
     };
 
-    fillUpBudgetData(budgetTable, ftjson[code].budget);
+    fillUpBudgetData(budgetTable, code);
     return budgetTable;
-}
-
-function creatBuyRow(date, maxprice, cost) {
-    return utils.create2ColRow(date, cost + "<" + maxprice + ">");
 }
 
 function fillUpRollinsData(rollinTable, code) {
@@ -113,7 +111,8 @@ function fillUpRollinsData(rollinTable, code) {
     var max_value = utils.netvalueToPrice(gz, ftjson[code].ppg);
     for (var i = 0; i < rollins.length; i++) {
         if (rollins[i].tri > 0 && rollins[i].mptb * 1.1 > max_value) {
-            var row = creatBuyRow(utils.date_by_delta(rollins[i].date), rollins[i].mptb, rollins[i].tri);
+            var strDate = utils.date_by_delta(rollins[i].date);
+            var row = utils.createRadioRow("rollin_row_" + code, strDate, strDate, rollins[i].tri + "<" + rollins[i].mptb + ">");
             rollinTable.appendChild(row);
         }
     };
@@ -214,7 +213,7 @@ function fillUpSellTableData(sellTable, code) {
     var portion = all_dp.portion;
     var ppg = parseFloat(ftjson[code].ppg);
 
-    sellTable.appendChild(utils.createRadioRow("sell_" + code, all_dp.dates, "全部", utils.convertPortionToGram(portion, ppg).toFixed(4)));
+    sellTable.appendChild(utils.createRadioRow("sell_row_" + code, all_dp.dates, "全部", utils.convertPortionToGram(portion, ppg).toFixed(4)));
     portion = utils.getPortionMoreThan(buytable, 31);
     sellTable.appendChild(utils.create2ColRow(">31天", utils.convertPortionToGram(portion, ppg).toFixed(4)));
     var portion_7day = utils.getPortionMoreThan(buytable, 7);
@@ -232,9 +231,9 @@ function fillUpSellTableData(sellTable, code) {
     if (short_portion > 0 ) {
         if (portion_7day < short_portion) {
             var short_7d_dp = utils.getShortTermDatesPortionMoreThan7Day(buytable, gz, short_term_rate, portion_7day);
-            sellTable.appendChild(utils.createRadioRow("sell_" + code, short_7d_dp.dates, ">7天", utils.convertPortionToGram(short_7d_dp.portion, ppg).toFixed(4), true));
+            sellTable.appendChild(utils.createRadioRow("sell_row_" + code, short_7d_dp.dates, ">7天", utils.convertPortionToGram(short_7d_dp.portion, ppg).toFixed(4), true));
         };
-        sellTable.appendChild(utils.createRadioRow("sell_" + code, short_dp.dates, ">"+ (parseFloat(short_term_rate) * 100).toFixed(2) + "%", utils.convertPortionToGram(short_portion, ppg).toFixed(4), short_portion < portion_7day));
+        sellTable.appendChild(utils.createRadioRow("sell_row_" + code, short_dp.dates, ">"+ (parseFloat(short_term_rate) * 100).toFixed(2) + "%", utils.convertPortionToGram(short_portion, ppg).toFixed(4), short_portion < portion_7day));
     } 
 }
 
@@ -597,7 +596,7 @@ function TradeSubmit(tradepanel, tradedate, tradecost, tradeoptions) {
     if (option == "budget") {
         addBudget(code, date, cost);
     } else if (option == "sell") {
-        var sellRadios = document.getElementsByName('sell_' + code);
+        var sellRadios = document.getElementsByName("sell_row_" + code);
         var strbuydates = "";
         for (var i = 0; i < sellRadios.length; i++) {
             if (sellRadios[i].checked) {
@@ -613,8 +612,22 @@ function TradeSubmit(tradepanel, tradedate, tradecost, tradeoptions) {
         
         sellFund(code, date, strbuydates);
     } else {
-        var budget_dates = null;
+        var budget_dates = [];
+        var budgetRadios = document.getElementById("budget_row_" + code);
+        for (var i = 0; i < budgetRadios.length; i++) {
+            if (budgetRadios[i].checked) {
+                budget_dates.push(budgetRadios[i].value);
+            }
+        };
+
         var rollin_date = null;
+        var rollinRadios = document.getElementById("rollin_row_" + code);
+        for (var i = 0; i < rollinRadios.length; i++) {
+            if (rollinRadios[i].checked) {
+                rollin_date = rollinRadios[i].value;
+                break;
+            }
+        };
         buyFund(code, date, cost, budget_dates, rollin_date);
     }
 }
@@ -658,10 +671,12 @@ function buyFund(code, date, cost, budget_dates, rollin_date) {
         for (var i = 0; i < budget_dates.length; i++) {
             budgetdates += budget_dates[i]
         };
-        request.append("budget_dates", budgetdates);
+        if (budgetdates.length > 0) {
+            request.append("budget_dates", budgetdates);
+        };
     };
 
-    if (rollin_date) {
+    if (rollin_date && rollin_date.length > 0) {
         request.append("rollin_date", rollin_date)
     };
 

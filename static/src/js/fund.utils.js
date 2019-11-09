@@ -149,11 +149,12 @@ class Utils {
         return row;
     }
 
-    createRadioRow(name, value, c1, c2, checked = false) {
+    createInputRow(name, inputType, value, c1, c2, checked = false)
+    {
         var row = document.createElement("tr");
         var col1 = document.createElement("td");
         var radio = document.createElement("input");
-        radio.type = "radio";
+        radio.type = inputType;
         radio.name = name;
         radio.value = value;
         if (checked) {
@@ -166,6 +167,14 @@ class Utils {
         row.appendChild(col1);
         row.appendChild(col2);
         return row;
+    }
+
+    createRadioRow(name, value, c1, c2, checked = false) {
+        return this.createInputRow(name, "radio", value, c1, c2, checked);
+    }
+
+    createCheckboxRow(name, value, c1, c2, checked = false) {
+        return this.createInputRow(name, "checkbox", value, c1, c2, checked);
     }
 
     deleteAllRows(tbl) {
