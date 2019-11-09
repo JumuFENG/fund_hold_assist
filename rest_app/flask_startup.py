@@ -102,7 +102,7 @@ def fundbuy():
         code = request.form.get("code", type=str,default=None)
         date = request.form.get("date", type=str,default=None)
         cost = request.form.get("cost", type=str,default=None)
-        combined_dates = request.form.get("budget_dates", type=list,default=None)
+        combined_dates = request.form.get("budget_dates", type=str,default=None)
         budget_dates = split_combined_dates(combined_dates)
         rollin_date = request.form.get("rollin_date", type=str,default=None)
         print("fundbuy form")
