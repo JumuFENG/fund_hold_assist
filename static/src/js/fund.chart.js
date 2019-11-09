@@ -413,15 +413,22 @@ function BuyRecordSelected(buyrec, code) {
     };
 
     var selectedDates = selectDiv.selectedData.dates;
+    var dateExists = false;
     if (!selectedDates) {
         selectedDates = [buyrec.date];
     } else {
-        selectedDates.push(buyrec.date);
+        if (selectedDates.indexOf(buyrec.date) != -1) {
+            dateExists = true;
+        } else {
+            selectedDates.push(buyrec.date);
+        }
     }
     selectDiv.selectedData.dates = selectedDates;
 
-    var buyInfo = document.createTextNode(utils.date_by_delta(buyrec.date) + ": " + buyrec.cost + " ");
-    selectDiv.insertBefore(buyInfo, selectDiv.lastChild);
+    if (!dateExists) {
+        var buyInfo = document.createTextNode(utils.date_by_delta(buyrec.date) + ": " + buyrec.cost + " ");
+        selectDiv.insertBefore(buyInfo, selectDiv.lastChild);
+    };
 }
 
 function HandleSelectedRecords(selectDiv) {
