@@ -569,7 +569,7 @@ function SetTradeOption(t, cost, submit) {
     utils.toggelHighlight(t);
     if (t.id == "tradeoption_sell") {
         t.parentElement.setAttribute("trade", "sell");
-    } else if (t.id = "tradeoption_budget") {
+    } else if (t.id == "tradeoption_budget") {
         t.parentElement.setAttribute("trade", "budget");
     } else {
         t.parentElement.setAttribute("trade", "buy");
