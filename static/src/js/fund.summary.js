@@ -595,7 +595,7 @@ function TradeSubmit(tradepanel, tradedate, tradecost, tradeoptions) {
     var cost = parseFloat(tradecost.value);
     var option = tradeoptions.getAttribute("trade");
     if (option == "budget") {
-        alert("not implemented yet.");
+        addBudget(code, date, cost);
     } else if (option == "sell") {
         var sellRadios = document.getElementsByName('sell_' + code);
         var strbuydates = "";
@@ -616,6 +616,28 @@ function TradeSubmit(tradepanel, tradedate, tradecost, tradeoptions) {
         var budget_dates = null;
         var rollin_date = null;
         buyFund(code, date, cost, budget_dates, rollin_date);
+    }
+}
+
+function addBudget(code, date, cost) {
+    if (Number.isNaN(cost) || cost <= 0) {
+        alert("Wrong input data.");
+        return;
+    }
+
+    var httpRequest = new XMLHttpRequest();
+    httpRequest.open('POST', '../../fundbudget', true);
+    var request = new FormData();
+    request.append("code", code);
+    request.append("date", date);
+    request.append("budget", cost);
+
+    httpRequest.send(request);
+
+    httpRequest.onreadystatechange = function () {
+        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+            fetchFundSummary(code);
+        }
     }
 }
 
