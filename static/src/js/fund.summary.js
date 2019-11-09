@@ -613,7 +613,7 @@ function TradeSubmit(tradepanel, tradedate, tradecost, tradeoptions) {
         sellFund(code, date, strbuydates);
     } else {
         var budget_dates = [];
-        var budgetRadios = document.getElementById("budget_row_" + code);
+        var budgetRadios = document.getElementsByName("budget_row_" + code);
         for (var i = 0; i < budgetRadios.length; i++) {
             if (budgetRadios[i].checked) {
                 budget_dates.push(budgetRadios[i].value);
@@ -621,7 +621,7 @@ function TradeSubmit(tradepanel, tradedate, tradecost, tradeoptions) {
         };
 
         var rollin_date = null;
-        var rollinRadios = document.getElementById("rollin_row_" + code);
+        var rollinRadios = document.getElementsByName("rollin_row_" + code);
         for (var i = 0; i < rollinRadios.length; i++) {
             if (rollinRadios[i].checked) {
                 rollin_date = rollinRadios[i].value;
