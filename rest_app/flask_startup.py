@@ -160,7 +160,7 @@ def fundbudget():
     user = usermodel.user_by_email(session['useremail'])
     if request.method == 'POST':
         code = request.form.get("code", type=str, default=None)
-        cost = request.form.get("budget", type=str, default=None)
+        budget = request.form.get("budget", type=str, default=None)
         date = request.form.get("date", type=str, default=None)
         user.add_budget(code, budget, date)
         return "OK", 200
