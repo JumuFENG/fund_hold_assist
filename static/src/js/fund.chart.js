@@ -54,6 +54,65 @@ class FundChart {
         };
     }
 
+    createDataRow(histIdx) {
+        var date = all_hist_data[histIdx][0];
+        var strDate = utils.date_by_delta(date)
+        var r = [strDate];
+        for (var j = 0; j < this.lines.length; j++) {
+            var valIdx = all_hist_data[0].indexOf(this.lines[j].code) * 2 - 1;
+            var val = all_hist_data[histIdx][valIdx];
+            if (val == '') {
+                utils.logInfo(this.lines[j].name, strDate, "value not found!");
+                if (histIdx - 1 > 0) {
+                    all_hist_data[histIdx][valIdx] = all_hist_data[histIdx - 1][valIdx];
+                    all_hist_data[histIdx][valIdx + 1] = '0';
+                    val = all_hist_data[histIdx][valIdx];
+                } else {
+                    val = 0;
+                }
+            };
+            r.push(val);
+            var ptstyle = 'point {visible: false }';
+            var pttooltip = strDate + ": " + val + ": " + all_hist_data[histIdx][valIdx + 1] + "%";
+            if (ftjson[this.lines[j].code] !== undefined)
+            {
+                var buytable = ftjson[this.lines[j].code].buy_table;
+                if (buytable) {
+                    var buyrec = buytable.find(function(curVal) {
+                        return curVal.date == date;
+                    });
+                    if (buyrec) {
+                        pttooltip += " cost:" + buyrec.cost;
+                        var ptsize = 3;
+                        var ptclr = '#FF4500';
+                        var aver_cost = ftjson[this.lines[j].code].holding_aver_cost;
+                        if (buyrec.cost > 2000 || (aver_cost > 0 && buyrec.cost > 2 * aver_cost)) { 
+                            ptsize = 5
+                        };
+                        if (buyrec.sold == 1) {
+                            ptclr = '#FFD39B';
+                        };
+                        ptstyle = 'point {size: ' + ptsize + '; fill-color: ' + ptclr + ';}';
+                    };
+                };
+
+                var selltable = ftjson[this.lines[j].code].sell_table;
+                if (selltable) {
+                    var sellrec = selltable.find(function(curVal) {
+                        return curVal.date == date;
+                    });
+                    if (sellrec) {
+                        pttooltip += " sell:" + sellrec.cost;
+                        ptstyle = 'point {size: 4; fill-color: #8B6914;}';
+                    };
+                };
+            }
+            r.push(ptstyle);
+            r.push(pttooltip);
+        };
+        return r;
+    }
+
     createDataTable(days = 0) {
         if (all_hist_data.length < 1) {
             return;
@@ -117,61 +176,7 @@ class FundChart {
         var rows = [];
         var len = all_hist_data.length;
         for (var i = 1; i < showLen; i++) {
-            var date = all_hist_data[len - showLen + i][0];
-            var strDate = utils.date_by_delta(date)
-            var r = [strDate];
-            for (var j = 0; j < this.lines.length; j++) {
-                var valIdx = all_hist_data[0].indexOf(this.lines[j].code) * 2 - 1;
-                var val = all_hist_data[len - showLen + i][valIdx];
-                if (val == '') {
-                    utils.logInfo(this.lines[j].name, strDate, "value not found!");
-                    if (len - showLen + i - 1 > 0) {
-                        all_hist_data[len - showLen + i][valIdx] = all_hist_data[len - showLen + i - 1][valIdx];
-                        all_hist_data[len - showLen + i][valIdx + 1] = '0';
-                        val = all_hist_data[len - showLen + i][valIdx];
-                    } else {
-                        val = 0;
-                    }
-                };
-                r.push(val);
-                var ptstyle = 'point {visible: false }';
-                var pttooltip = strDate + ": " + val + ": " + all_hist_data[len - showLen  + i][valIdx + 1] + "%";
-                if (ftjson[this.lines[j].code] !== undefined)
-                {
-                    var buytable = ftjson[this.lines[j].code].buy_table;
-                    if (buytable) {
-                        var buyrec = buytable.find(function(curVal) {
-                            return curVal.date == date;
-                        });
-                        if (buyrec) {
-                            pttooltip += " cost:" + buyrec.cost;
-                            var ptsize = 3;
-                            var ptclr = '#FF4500';
-                            var aver_cost = ftjson[this.lines[j].code].holding_aver_cost;
-                            if (buyrec.cost > 2000 || (aver_cost > 0 && buyrec.cost > 2 * aver_cost)) { 
-                                ptsize = 5
-                            };
-                            if (buyrec.sold == 1) {
-                                ptclr = '#FFD39B';
-                            };
-                            ptstyle = 'point {size: ' + ptsize + '; fill-color: ' + ptclr + ';}';
-                        };
-                    };
-
-                    var selltable = ftjson[this.lines[j].code].sell_table;
-                    if (selltable) {
-                        var sellrec = selltable.find(function(curVal) {
-                            return curVal.date == date;
-                        });
-                        if (sellrec) {
-                            pttooltip += " sell:" + sellrec.cost;
-                            ptstyle = 'point {size: 4; fill-color: #8B6914;}';
-                        };
-                    };
-                }
-                r.push(ptstyle);
-                r.push(pttooltip);
-            };
+            var r = this.createDataRow(len - showLen + i);
             rows.push(r);
         };
 
@@ -208,6 +213,109 @@ class FundChart {
         this.data = data;
     }
 
+    getLeftLimitIndex() {
+        for (var i = 1; i < all_hist_data.length; i++) {
+            for (var j = 0; j < this.lines.length; j++) {
+                var valIdx = all_hist_data[0].indexOf(this.lines[j].code) * 2 - 1;
+                var val = all_hist_data[i][valIdx];
+                if (val > 0) {
+                    return i;
+                };
+            }
+        };
+        return i;
+    }
+
+    canShiftLeft() {
+        var beginDate = this.data.getValue(0, 0);
+        var date = utils.days_since_2000(beginDate);
+        var beginIdx = -1 + all_hist_data.findIndex(function(curVal) {
+            return curVal[0] == date;
+        });
+        if (beginIdx >= this.getLeftLimitIndex()) {
+            return true;
+        };
+        return false;
+    }
+
+    canShiftRight() {
+        var latestDate = this.data.getValue(this.data.getNumberOfRows() - 1, 0);
+        var date = utils.days_since_2000(latestDate);
+        var latestIdx = all_hist_data.findIndex(function(curVal) {
+            return curVal[0] == date;
+        });
+        return latestIdx > 0 && latestIdx != all_hist_data.length - 1;
+    }
+
+    leftShift() {
+        if (!this.canShiftLeft()) {
+            return;
+        };
+        var offset = parseInt(this.data.getNumberOfRows() / 4);
+        if (offset <= 0) {
+            return;
+        };
+        var strDate = this.data.getValue(0, 0);
+        var date = utils.days_since_2000(strDate);
+        var endIdx = all_hist_data.findIndex(function(curVal) {
+            return curVal[0] == date;
+        });
+        if (endIdx <= 1) {
+            return;
+        };
+        var beginIdx = endIdx - offset;
+        var leftIdx = this.getLeftLimitIndex();
+        beginIdx = beginIdx > leftIdx ? beginIdx : leftIdx;
+        offset = endIdx - beginIdx;
+
+        var len = this.data.getNumberOfRows();
+        for (var i = 0; i < offset; i++) {
+            this.data.removeRow(len - 1 - i);
+        };
+
+        var rows = [];
+        for (var i = beginIdx; i < endIdx; i++) {
+            var r = this.createDataRow(i);
+            rows.push(r);
+        };
+
+        this.data.insertRows(0, rows);
+        this.chart.draw(this.data, this.options);
+    }
+
+    rightShift() {
+        var offset = parseInt(this.data.getNumberOfRows() / 4);
+        if (offset <= 0) {
+            return;
+        };
+        var strDate = this.data.getValue(this.data.getNumberOfRows() - 1, 0);
+        var date = utils.days_since_2000(strDate);
+        var beginIdx = 1 + all_hist_data.findIndex(function(curVal) {
+            return curVal[0] == date;
+        });
+
+        if (beginIdx == all_hist_data.length || beginIdx == 0) {
+            return;
+        };
+
+        var endIdx = beginIdx + offset;
+        endIdx = endIdx < all_hist_data.length ? endIdx : all_hist_data.length;
+        offset = endIdx - beginIdx;
+
+        for (var i = 0; i < offset; i++) {
+            this.data.removeRow(0);
+        };
+
+        var rows = [];
+        for (var i = beginIdx; i < endIdx; i++) {
+            var r = this.createDataRow(i);
+            rows.push(r);
+        };
+
+        this.data.addRows(rows);
+        this.chart.draw(this.data, this.options);
+    }
+
     drawChart(days = 0) {
         this.createDataTable(days);
         this.createChartOption();
@@ -234,6 +342,8 @@ function googleChartLoaded() {
     chart.lines = [szline];
     if (all_hist_data.length > 0) {
         chart.drawChart();
+        document.getElementById("chart_left_arrow").disabled = false;
+        document.getElementById("chart_right_arrow").disabled = true;
     } else if (!utils.isEmpty(ftjson)) {
         getHistoryData('sz000001', 'index');
     }
@@ -298,6 +408,8 @@ function DrawFundHistory(fundcode) {
 
     var days = utils.getHighlightedValue("dayslist");
     chart.drawChart(days);
+    document.getElementById("chart_left_arrow").disabled = false;
+    document.getElementById("chart_right_arrow").disabled = true;
 }
 
 function RedrawHistoryGraphs(ele, t) {
@@ -305,8 +417,26 @@ function RedrawHistoryGraphs(ele, t) {
     if (chart)
     {
         chart.drawChart(days);
+        document.getElementById("chart_left_arrow").disabled = false;
+        document.getElementById("chart_right_arrow").disabled = true;
     }
     utils.toggelHighlight(t);
+}
+
+function LeftShiftGraph(leftBtn, rightBtn) {
+    if (chart) {
+        chart.leftShift();
+        leftBtn.disabled = !chart.canShiftLeft();
+        rightBtn.disabled = !chart.canShiftRight();
+    };
+}
+
+function RightShiftGraph(leftBtn, rightBtn) {
+    if (chart) {
+        chart.rightShift();
+        leftBtn.disabled = !chart.canShiftLeft();
+        rightBtn.disabled = !chart.canShiftRight();
+    };
 }
 
 function ResetHistoryGraph() {
@@ -317,6 +447,8 @@ function ResetHistoryGraph() {
     chart.lines = [new FundLine('sz000001', '#87CEFA', '上证指数')]
     var days = utils.getHighlightedValue("dayslist");
     chart.drawChart(days);
+    document.getElementById("chart_left_arrow").disabled = false;
+    document.getElementById("chart_right_arrow").disabled = true;
 }
 
 function getHistoryData(code, type) {
@@ -354,6 +486,8 @@ function updateHistData(hist_data) {
 
         var days = utils.getHighlightedValue("dayslist");
         chart.drawChart(days);
+        document.getElementById("chart_left_arrow").disabled = false;
+        document.getElementById("chart_right_arrow").disabled = true;
     }
 }
 
