@@ -40,6 +40,9 @@ class FundChart {
             hAxis: {
                 slantedText:true,
                 slantedTextAngle:-30
+            },
+            vAxis: {
+                baselineColor: 'red'
             }
         };
 
@@ -51,6 +54,10 @@ class FundChart {
             this.options.axes = {
                 y: yAxisLabels
             }
+        };
+
+        if (this.lines.length == 1 && ftjson[this.lines[0].code]) {
+            this.options.vAxis.baseline = ftjson[this.lines[0].code].avp;
         };
     }
 
