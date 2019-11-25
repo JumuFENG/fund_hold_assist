@@ -176,7 +176,7 @@ class FundChart {
         data.addColumn('string', '日期');
         for (var i = 0; i < this.lines.length; i++) {
             data.addColumn('number', this.lines[i].code);
-            data.addColumn({type: 'string', role: 'style'})
+            data.addColumn({type: 'string', role: 'style'});
             data.addColumn({type: 'string', role: 'tooltip'});
         };
 
