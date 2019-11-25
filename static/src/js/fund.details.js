@@ -182,6 +182,9 @@ class EarnedChart {
         var earned = 0;
         var portion = 0;
         var fixedVal = 0;
+        var cost = 0;
+        var days = 0;
+        var costAll = 0;
         for (var i = startDateIdx; i < len; i++) {
             var date = all_hist_data[i][0];
             var strDate = utils.date_by_delta(date)
@@ -190,12 +193,12 @@ class EarnedChart {
             var grIdx = valIdx + 1;
             earned += portion * all_hist_data[i - 1][valIdx] * parseFloat(all_hist_data[i][grIdx]) / 100;
             r.push(earned);
-            r.push(strDate + "累计: " + earned.toFixed(2));
             var buyrec = buytable.find(function(curVal){
                 return curVal.date == date;
             });
             if (buyrec) {
                 portion += buyrec.ptn;
+                cost += buyrec.cost;
             };
 
             var selltable = ftjson[this.code]? ftjson[this.code].sell_table : null;
@@ -205,8 +208,15 @@ class EarnedChart {
                 });
                 if (sellrec) {
                     portion -= sellrec.ptn;
+                    cost -= sellrec.cost;
                 };
             };
+            days++;
+            costAll += cost;
+            var tooltip = strDate + "\n累计收益: " + earned.toFixed(2);
+            tooltip += "\n平均成本: " + (costAll / days).toFixed(2);
+            tooltip += "\n平均收益率: " + (100 * earned * days / costAll).toFixed(2) + "%";
+            r.push(tooltip);
 
             var newVal = fixedVal * (100 + parseFloat(all_hist_data[i][grIdx]))/100;
             if (fixedVal == 0) {
