@@ -4,13 +4,12 @@ function showFundDetailPage (detailparent) {
     };
 
     if (!detailpage) {
-        detailpage = new FundDetail();
+        detailpage = new FundDetail(detailparent.id.split("_").pop(), document.getElementById('fund_single_detail_container'));
         detailpage.createFundDetailFramework();
     };
 
     document.getElementById('funds_list_container').style.display = 'none';
     detailpage.container.style.display = 'block';
-    detailpage.code = detailparent.id.split("_").pop();
     detailpage.switchContentTo(detailpage.navDiv.firstChild);
     detailpage.showSingleBuyTable(detailpage.navDiv.firstChild.bindContent);
 }
@@ -21,10 +20,13 @@ function BackToList() {
 }
 
 class FundDetail {
-    code = null;
-    navDiv = null;
-    contentDiv = null;
-    container = document.getElementById('fund_single_detail_container');
+    constructor(code, container) {
+        this.code = code;
+        this.container = container;
+        this.navDiv = null;
+        this.contentDiv = null;
+        this.buytable_code = null;
+    }
 
     createFundDetailFramework() {
         this.navDiv = document.createElement("div");
@@ -67,7 +69,6 @@ class FundDetail {
         t.bindContent.style.display = "block";
     }
 
-    buytable_code = null;
     showSingleBuyTable(buyTable) {
         if (this.buytable_code == null && this.code == null) {
             return;
@@ -90,7 +91,6 @@ class FundDetail {
         };
     }
 
-    chart = null;
     showSingleTotalEarned(totalChart) {
         if (this.chart == null && this.code == null) {
             return;
@@ -115,7 +115,7 @@ class FundDetail {
         }
         this.chart.drawChart();
     }
-}
+};
 
 class EarnedChart {
     constructor(code, chart_div) {
@@ -179,6 +179,9 @@ class EarnedChart {
 
         var rows = [];
         var len = all_hist_data.length;
+        var valIdx = all_hist_data[0].indexOf(this.code) * 2 - 1;
+        var grIdx = valIdx + 1;
+        var fixedMoney = 0;
         var earned = 0;
         var portion = 0;
         var fixedVal = 0;
@@ -189,17 +192,20 @@ class EarnedChart {
             var date = all_hist_data[i][0];
             var strDate = utils.date_by_delta(date)
             var r = [strDate];
-            var valIdx = all_hist_data[0].indexOf(this.code) * 2 - 1;
-            var grIdx = valIdx + 1;
-            earned += portion * all_hist_data[i - 1][valIdx] * parseFloat(all_hist_data[i][grIdx]) / 100;
-            r.push(earned);
+
+            earned += fixedMoney * (parseFloat(all_hist_data[i][grIdx]))/100;
+            fixedMoney = fixedMoney * (100 + parseFloat(all_hist_data[i][grIdx]))/100;
             var buyrec = buytable.find(function(curVal){
                 return curVal.date == date;
             });
             if (buyrec) {
                 portion += buyrec.ptn;
                 cost += buyrec.cost;
+                var buyFee = buyrec.cost - buyrec.ptn * all_hist_data[i][valIdx];
+                fixedMoney += buyrec.cost - buyFee;
+                earned -= buyFee;
             };
+            r.push(earned);
 
             var selltable = ftjson[this.code]? ftjson[this.code].sell_table : null;
             if (selltable) {
@@ -209,6 +215,7 @@ class EarnedChart {
                 if (sellrec) {
                     portion -= sellrec.ptn;
                     cost -= sellrec.cost;
+                    fixedMoney -= sellrec.ptn * all_hist_data[i][valIdx];
                 };
             };
             days++;
@@ -247,6 +254,6 @@ class EarnedChart {
     clearChart() {
         this.chart.draw(null, null);
     }
-}
+};
 
 var detailpage = null;
