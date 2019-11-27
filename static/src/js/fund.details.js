@@ -4,12 +4,12 @@ function showFundDetailPage (detailparent) {
     };
 
     if (!detailpage) {
-        detailpage = new FundDetail(detailparent.id.split("_").pop(), document.getElementById('fund_single_detail_container'));
+        detailpage = new FundDetail(document.getElementById('fund_single_detail_container'));
         detailpage.createFundDetailFramework();
     };
-
     document.getElementById('funds_list_container').style.display = 'none';
     detailpage.container.style.display = 'block';
+    detailpage.code = detailparent.id.split("_").pop();
     detailpage.switchContentTo(detailpage.navDiv.firstChild);
     detailpage.showSingleBuyTable(detailpage.navDiv.firstChild.bindContent);
 }
@@ -20,9 +20,9 @@ function BackToList() {
 }
 
 class FundDetail {
-    constructor(code, container) {
-        this.code = code;
+    constructor(container) {
         this.container = container;
+        this.code = null;
         this.navDiv = null;
         this.contentDiv = null;
         this.buytable_code = null;
