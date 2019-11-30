@@ -1,5 +1,5 @@
 class FundLine {
-    constructor(code, name, indexCode, indexName) {
+    constructor(code, name, indexCode = null, indexName = null) {
         this.code = code;
         this.name = name;
         this.indexCode = indexCode;
@@ -20,8 +20,6 @@ class FundChart {
 
     createChartOption() {
         // Set chart options
-        var series = {}
-
         this.options = {
             title: this.line.name,
             width: '100%',
@@ -46,12 +44,14 @@ class FundChart {
                     targetAxisIndex: 0,
                     pointSize: 0,
                     lineWidth: 1
-                },
-                2: {
-                    targetAxisIndex: 1,
-                    pointSize: 0,
-                    lineWidth: 1
                 }
+            }
+        };
+        if (this.line.indexCode) {
+            this.options.series["2"] = {
+                targetAxisIndex: 1,
+                pointSize: 0,
+                lineWidth: 1
             }
         };
     }
@@ -388,7 +388,9 @@ function resetChartInteractionPanel() {
 
 function DrawFundHistory(fundcode) {
     resetChartInteractionPanel();
-    chart.line = new FundLine(fundcode, ftjson[fundcode]['name'], 'sz000001', '上证指数');
+    chart.line = fundcode == "000217" ?
+        new FundLine(fundcode, ftjson[fundcode]['name']):
+        new FundLine(fundcode, ftjson[fundcode]['name'], 'sz000001', '上证指数');
 
     if (all_hist_data.length == 0 || all_hist_data[0].indexOf(fundcode) < 0) {
         getHistoryData(fundcode, 'fund');

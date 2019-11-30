@@ -130,7 +130,6 @@ class EarnedChart {
             width: '100%',
             height: '100%',
             crosshair: { trigger: 'both', opacity: 0.5},
-            pointSize: 2,
             hAxis: {
                 slantedText:true,
                 slantedTextAngle:-30
@@ -142,8 +141,14 @@ class EarnedChart {
                 }
             },
             series: {
-                0: {targetAxisIndex: 0},
-                1: {targetAxisIndex: 1}
+                0: {
+                    targetAxisIndex: 0,
+                    pointSize: 1
+                },
+                1: {
+                    targetAxisIndex: 1,
+                    lineWidth: 1
+                }
             }
         };
     }
@@ -172,7 +177,7 @@ class EarnedChart {
 
         var data = new google.visualization.DataTable();
         data.addColumn('string', '日期');
-        data.addColumn('number', '实际收益率');
+        data.addColumn('number', '累计收益');
         data.addColumn({type: 'string', role: 'tooltip'});
         data.addColumn('number', '理论收益率');
         data.addColumn({type: 'string', role: 'tooltip'});
