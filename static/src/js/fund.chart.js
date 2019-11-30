@@ -1,8 +1,9 @@
 class FundLine {
-    constructor(code, lineclr, name) {
+    constructor(code, name, indexCode, indexName) {
         this.code = code;
-        this.color = lineclr;
         this.name = name;
+        this.indexCode = indexCode;
+        this.indexName = indexName;
     }
 };
 
@@ -11,7 +12,7 @@ class FundChart {
         // Instantiate and draw our chart, passing in some options.
         this.chart = new google.visualization.LineChart(document.getElementById(chart_div));
         this.data = null;
-        this.lines = [];
+        this.line = null;
         google.visualization.events.addListener(this.chart, 'select', function selectHandler() {
             onChartPointSelected();
         });
@@ -20,56 +21,101 @@ class FundChart {
     createChartOption() {
         // Set chart options
         var series = {}
-        var lineNames = [];
-        for (var i = 0; i < this.lines.length; i++) {
-            lineNames.push(this.lines[i].name);
-            if (this.lines.length == 2) {
-                series[i] = {color: this.lines[i].color, axis: this.lines[i].code};
-            } else {
-                series[i] = {color: this.lines[i].color};
-            }
-        }
 
         this.options = {
-            title: lineNames.join(' vs. '),
+            title: this.line.name,
             width: '100%',
             height: '100%',
             crosshair: { trigger: 'both', opacity: 0.5},
-            pointSize: 3,
-            series: series,
             hAxis: {
                 slantedText:true,
                 slantedTextAngle:-30
             },
             vAxis: {
-                baselineColor: 'red'
+                0: {
+                },
+                1: {
+                }
+            },
+            series: {
+                0: {
+                    targetAxisIndex: 0,
+                    pointSize: 1
+                },
+                1: {
+                    targetAxisIndex: 0,
+                    pointSize: 0,
+                    lineWidth: 1
+                },
+                2: {
+                    targetAxisIndex: 1,
+                    pointSize: 0,
+                    lineWidth: 1
+                }
             }
-        };
-
-        if (this.lines.length == 2) {
-            var yAxisLabels = {};
-            for (var i = 0; i < this.lines.length; i++) {
-                yAxisLabels[this.lines[i].code] = {label: this.lines[i].name};
-            };
-            this.options.axes = {
-                y: yAxisLabels
-            }
-        };
-
-        if (this.lines.length == 1 && ftjson[this.lines[0].code]) {
-            this.options.vAxis.baseline = ftjson[this.lines[0].code].avp;
         };
     }
 
     createDataRow(histIdx) {
         var date = all_hist_data[histIdx][0];
-        var strDate = utils.date_by_delta(date)
+        var strDate = utils.date_by_delta(date);
         var r = [strDate];
-        for (var j = 0; j < this.lines.length; j++) {
-            var valIdx = all_hist_data[0].indexOf(this.lines[j].code) * 2 - 1;
+        var aver_price = null;
+        var valIdx = all_hist_data[0].indexOf(this.line.code) * 2 - 1;
+        var val = all_hist_data[histIdx][valIdx];
+        if (val == '') {
+            utils.logInfo(this.line.name, strDate, "value not found!");
+            if (histIdx - 1 > 0) {
+                all_hist_data[histIdx][valIdx] = all_hist_data[histIdx - 1][valIdx];
+                all_hist_data[histIdx][valIdx + 1] = '0';
+                val = all_hist_data[histIdx][valIdx];
+            } else {
+                val = 0;
+            }
+        };
+        r.push(val);
+        var ptstyle = 'point {visible: false }';
+        var pttooltip = strDate + "\n" + val + ": " + all_hist_data[histIdx][valIdx + 1] + "%";
+        if (ftjson[this.line.code] !== undefined) {
+            aver_price = ftjson[this.line.code].avp;
+            var buytable = ftjson[this.line.code].buy_table;
+            if (buytable) {
+                var buyrec = buytable.find(function(curVal) {
+                    return curVal.date == date;
+                });
+                if (buyrec) {
+                    pttooltip += "\n买入:" + buyrec.cost;
+                    var ptsize = 3;
+                    var ptclr = '#FF4500';
+                    var aver_cost = ftjson[this.line.code].holding_aver_cost;
+                    if (buyrec.cost > 2000 || (aver_cost > 0 && buyrec.cost > 2 * aver_cost)) { 
+                        ptsize = 5
+                    };
+                    if (buyrec.sold == 1) {
+                        ptclr = '#FFD39B';
+                    };
+                    ptstyle = 'point {size: ' + ptsize + '; fill-color: ' + ptclr + ';}';
+                };
+            };
+            var selltable = ftjson[this.line.code].sell_table;
+            if (selltable) {
+                var sellrec = selltable.find(function(curVal) {
+                    return curVal.date == date;
+                });
+                if (sellrec) {
+                    pttooltip += "\n卖出:" + sellrec.cost;
+                    ptstyle = 'point {size: 4; fill-color: #8B6914;}';
+                };
+            };
+        }
+        r.push(ptstyle);
+        r.push(pttooltip);
+        r.push(aver_price);
+        if (this.line.indexCode) {
+            var valIdx = all_hist_data[0].indexOf(this.line.indexCode) * 2 - 1;
             var val = all_hist_data[histIdx][valIdx];
             if (val == '') {
-                utils.logInfo(this.lines[j].name, strDate, "value not found!");
+                utils.logInfo(this.line.indexCode, strDate, "value not found!");
                 if (histIdx - 1 > 0) {
                     all_hist_data[histIdx][valIdx] = all_hist_data[histIdx - 1][valIdx];
                     all_hist_data[histIdx][valIdx + 1] = '0';
@@ -79,44 +125,8 @@ class FundChart {
                 }
             };
             r.push(val);
-            var ptstyle = 'point {visible: false }';
-            var pttooltip = strDate + ": " + val + ": " + all_hist_data[histIdx][valIdx + 1] + "%";
-            if (ftjson[this.lines[j].code] !== undefined)
-            {
-                var buytable = ftjson[this.lines[j].code].buy_table;
-                if (buytable) {
-                    var buyrec = buytable.find(function(curVal) {
-                        return curVal.date == date;
-                    });
-                    if (buyrec) {
-                        pttooltip += " cost:" + buyrec.cost;
-                        var ptsize = 3;
-                        var ptclr = '#FF4500';
-                        var aver_cost = ftjson[this.lines[j].code].holding_aver_cost;
-                        if (buyrec.cost > 2000 || (aver_cost > 0 && buyrec.cost > 2 * aver_cost)) { 
-                            ptsize = 5
-                        };
-                        if (buyrec.sold == 1) {
-                            ptclr = '#FFD39B';
-                        };
-                        ptstyle = 'point {size: ' + ptsize + '; fill-color: ' + ptclr + ';}';
-                    };
-                };
-
-                var selltable = ftjson[this.lines[j].code].sell_table;
-                if (selltable) {
-                    var sellrec = selltable.find(function(curVal) {
-                        return curVal.date == date;
-                    });
-                    if (sellrec) {
-                        pttooltip += " sell:" + sellrec.cost;
-                        ptstyle = 'point {size: 4; fill-color: #8B6914;}';
-                    };
-                };
-            }
-            r.push(ptstyle);
-            r.push(pttooltip);
         };
+
         return r;
     }
 
@@ -128,31 +138,11 @@ class FundChart {
         var showLen = 0;
         if (days > 0) {
             showLen = days + 1;
-        } else if (days == -1) {
-            var valIdx = [];
-            for (var j = 0; j < this.lines.length; j++) {
-                valIdx.push(all_hist_data[0].indexOf(this.lines[j].code) * 2 - 1);
-            };
-
-            for (var i = 1; i < all_hist_data.length; i++) {
-                for (var k = 0; k < valIdx.length; k++) {
-                    if (all_hist_data[i][valIdx[k]] != '') {
-                        showLen = all_hist_data.length - i + 1;
-                        break;
-                    }; 
-                };
-                if (showLen != 0) {
-                    break;
-                };
-            };
         } else if (days == 0) {
             var buytable = null;
-            for (var i = 0; ftjson != null && i < this.lines.length; i++) {
-                if (ftjson[this.lines[i].code] !== undefined) {
-                    buytable = ftjson[this.lines[i].code].buy_table;
-                    break;
-                }
-            };
+            if (ftjson != null && ftjson[this.line.code] !== undefined) {
+                buytable = ftjson[this.line.code].buy_table;
+            }
 
             if (buytable) {
                 var fundDateIdx = 0;
@@ -167,17 +157,21 @@ class FundChart {
             } else {
                 showLen = 11;
             }
-        } else {
-            showLen = all_hist_data.length;
+        } else if (days == -1) {
+            showLen = this.getMaxHistoryLen();
         }
+        var maxHistLen = this.getMaxHistoryLen();
+        showLen = maxHistLen >= showLen? showLen: maxHistLen;
 
         // Create the data table.
         var data = new google.visualization.DataTable();
         data.addColumn('string', '日期');
-        for (var i = 0; i < this.lines.length; i++) {
-            data.addColumn('number', this.lines[i].code);
-            data.addColumn({type: 'string', role: 'style'});
-            data.addColumn({type: 'string', role: 'tooltip'});
+        data.addColumn('number', this.line.code);
+        data.addColumn({type: 'string', role: 'style'});
+        data.addColumn({type: 'string', role: 'tooltip'});
+        data.addColumn('number', '均值');
+        if (this.line.indexCode) {
+            data.addColumn('number', this.line.indexName);
         };
 
         var rows = [];
@@ -188,31 +182,25 @@ class FundChart {
         };
 
         var addLatestVal = false;
-        for (var i = 0; i < this.lines.length; i++) {
-            if (ftjson[this.lines[i].code] === undefined) {
-                continue;
-            };
-            var jsonp = ftjson[this.lines[i].code].rtgz;
+        if (ftjson[this.line.code] !== undefined) {
+            var jsonp = ftjson[this.line.code].rtgz;
             if (jsonp && jsonp.gsz) {
                 addLatestVal = true;
-                break;
             };
         };
 
         if (addLatestVal) {
             var r = [utils.getTodayDate()];
-            for (var i = 0; i < this.lines.length; i++) {
-                var funddata = ftjson[this.lines[i].code];
-                if (funddata !== undefined && funddata.rtgz && funddata.rtgz.gsz) {
-                    r.push(parseFloat(funddata.rtgz.gsz));
-                    r.push('point {visible: false }');
-                    r.push("最新估值:" + funddata.rtgz.gsz); // tooltip
-                } else {
-                    r.push(null);
-                    r.push(null);
-                    r.push(null);
-                }
-            };
+            var funddata = ftjson[this.line.code];
+            if (funddata !== undefined && funddata.rtgz && funddata.rtgz.gsz) {
+                r.push(parseFloat(funddata.rtgz.gsz));
+                r.push('point {visible: false }');
+                r.push("最新估值:" + funddata.rtgz.gsz); // tooltip
+            }
+            r.push(null);
+            if (this.line.indexCode) {
+                r.push(null);
+            }
             rows.push(r);
         };
     
@@ -220,15 +208,16 @@ class FundChart {
         this.data = data;
     }
 
+    getMaxHistoryLen() {
+        return all_hist_data.length - this.getLeftLimitIndex() + 1;
+    }
+
     getLeftLimitIndex() {
+        var valIdx = all_hist_data[0].indexOf(this.line.code) * 2 - 1;
         for (var i = 1; i < all_hist_data.length; i++) {
-            for (var j = 0; j < this.lines.length; j++) {
-                var valIdx = all_hist_data[0].indexOf(this.lines[j].code) * 2 - 1;
-                var val = all_hist_data[i][valIdx];
-                if (val > 0) {
-                    return i;
-                };
-            }
+            if (all_hist_data[i][valIdx] != '') {
+                return i;
+            };
         };
         return i;
     }
@@ -345,13 +334,7 @@ var chart = null;
 
 function googleChartLoaded() {
     chart = new FundChart('fund_chart_div');
-    var szline = new FundLine('sz000001', '#87CEFA', '上证指数');
-    chart.lines = [szline];
-    if (all_hist_data.length > 0) {
-        chart.drawChart();
-        document.getElementById("chart_left_arrow").disabled = false;
-        document.getElementById("chart_right_arrow").disabled = true;
-    } else if (!utils.isEmpty(ftjson)) {
+    if (!utils.isEmpty(ftjson)) {
         getHistoryData('sz000001', 'index');
     }
 };
@@ -405,8 +388,7 @@ function resetChartInteractionPanel() {
 
 function DrawFundHistory(fundcode) {
     resetChartInteractionPanel();
-    var fdline = new FundLine(fundcode, '#B8860B', ftjson[fundcode]['name']);
-    chart.lines = [fdline];
+    chart.line = new FundLine(fundcode, ftjson[fundcode]['name'], 'sz000001', '上证指数');
 
     if (all_hist_data.length == 0 || all_hist_data[0].indexOf(fundcode) < 0) {
         getHistoryData(fundcode, 'fund');
@@ -446,18 +428,6 @@ function RightShiftGraph(leftBtn, rightBtn) {
     };
 }
 
-function ResetHistoryGraph() {
-    if (!chart) {
-        return;
-    }
-
-    chart.lines = [new FundLine('sz000001', '#87CEFA', '上证指数')]
-    var days = utils.getHighlightedValue("dayslist");
-    chart.drawChart(days);
-    document.getElementById("chart_left_arrow").disabled = false;
-    document.getElementById("chart_right_arrow").disabled = true;
-}
-
 function getHistoryData(code, type) {
     var httpRequest = new XMLHttpRequest();
     httpRequest.open('GET', '../../fundhist?code=' + code + '&type=' + type, true);
@@ -480,14 +450,7 @@ function updateHistData(hist_data) {
 
     if (chart)
     {
-        var chartRedraw = false;
-        for (var i = 0; i < chart.lines.length; i++) {
-            if (updatingcode = chart.lines[i].code) {
-                chartRedraw = true;
-            }
-        };
-
-        if (!chartRedraw) {
+        if (updatingcode != chart.line.code) {
             return;
         };
 

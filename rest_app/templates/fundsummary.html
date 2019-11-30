@@ -33,9 +33,9 @@
             <table id="fund_list_table"></table>
         </div>
         <hr />
-        <div id="charts_div" style="width:98%">
+        <div id="charts_div" style="width:98%; display:none;">
             <a href="javascript:showFundDetailPage(charts_div.parentElement)" >详情</a>
-            <div id="chart_interaction" style="display:none;">
+            <div id="chart_interaction">
                 <div id="chart_selected_data"></div>
             </div>
             <ul id="dayslist">
@@ -52,13 +52,13 @@
 
             <div id="fund_chart_div"></div> <br />
 
-            <ul id="tradeoptions" style="display:none;">
+            <ul id="tradeoptions">
                 <li class="highlight" id="tradeoption_buy" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">买入</li>
                 <li id="tradeoption_sell" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">卖出</li>
                 <li id="tradeoption_budget" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">加预算</li>
             </ul> <br/> <hr />
             
-            <div id="trade_panel" style="display:none;">
+            <div id="trade_panel">
                 <input id="trade_panel_date" type="date" />
                 <input id="trade_panel_cost" type="text" placeholder="金额"/>
                 <button id="trade_panel_submit" onclick="TradeSubmit(trade_panel, trade_panel_date, trade_panel_cost, tradeoptions)">确定</button>

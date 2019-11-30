@@ -279,13 +279,12 @@ function ToggleFundDetails(divDetail, fund_list_table) {
         var charts_div = document.getElementById("charts_div");
         charts_div.parentElement.removeChild(charts_div);
         divDetail.appendChild(charts_div);
+        charts_div.style.display = 'block';
 
         var tradepanel = document.getElementById("trade_panel");
         tradepanel.setAttribute("code", code);
         var datepicker = document.getElementById("trade_panel_date");
         datepicker.value = utils.getTodayDate();
-        document.getElementById('tradeoptions').style.display = 'block';
-        document.getElementById('trade_panel').style.display = 'block';
     } else {
         divDetail.style.display = "none";
     }
@@ -516,20 +515,7 @@ function updateTotalEarnedInfo(earned, total_earned, cost) {
     };
 }
 
-function redrawSzzsChart() {
-    ResetHistoryGraph();
-
-    var charts_div = document.getElementById("charts_div");
-    charts_div.parentElement.removeChild(charts_div);
-    document.getElementById('funds_list_container').appendChild(charts_div);    
-    document.getElementById('tradeoptions').style.display = 'none';
-    document.getElementById('trade_panel').style.display = 'none';
-    document.getElementById('fund_single_detail_container').style.display = 'none';
-}
-
 function showAllFundList() {
-    redrawSzzsChart();
-
     var earned = 0;
     var total_earned = 0;
     var cost = 0;
