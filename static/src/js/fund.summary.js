@@ -539,6 +539,13 @@ function showAllFundList() {
         return s[1] - f[1];
     });
 
+    var charts_div = document.getElementById("charts_div");
+    var funds_list_container = document.getElementById("funds_list_container")
+    if (charts_div.parentElement != funds_list_container) {
+        charts_div.parentElement.removeChild(charts_div);
+        funds_list_container.appendChild(charts_div);
+        charts_div.style.display = 'none';
+    }
     var fund_list_tbl = document.getElementById("fund_list_table");
     utils.deleteAllRows(fund_list_table);
     for (var i in code_cost) {
