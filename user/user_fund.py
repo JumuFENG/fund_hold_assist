@@ -14,7 +14,7 @@ class UserFund():
         self.sqldb = user.fund_center_db()
         self.code = code
         self.funds_table = user.funds_info_table()
-        self.date_conv = DateConverter() 
+        self.date_conv = DateConverter()
         if not self.sqldb.isExistTable(self.funds_table):
             attrs = {column_code:'varchar(10) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
@@ -129,12 +129,11 @@ class UserFund():
 
     def get_budget_arr(self):
         values = []
-        ppg = 1 if not ppgram.__contains__(self.code) else ppgram[self.code]
         if self.budget_table and self.sqldb.isExistTable(self.budget_table):
             self.delete_cosumed()
             budget = self.sqldb.select(self.budget_table, [column_date, column_net_value, column_budget])
             for (d,v,b) in budget:
-                values.append({"date":self.date_conv.days_since_2000(d), "mptb":str(Decimal(str(v)) * ppg), "bdt":b})
+                values.append({"date":self.date_conv.days_since_2000(d), "mptb":str(v), "bdt":b})
         return values
 
     def get_roll_in_arr(self, fg):
@@ -150,16 +149,15 @@ class UserFund():
             return
 
         values = []
-        ppg = 1 if not ppgram.__contains__(self.code) else ppgram[self.code]
         for (d, c, p, r, v) in sell_recs:
             if not r:
                 r = 0
             max_price_to_buy = 0
             if not v:
                 netvalue = fg.netvalue_by_date(d)
-                max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)) * ppg, 4)
+                max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)), 4)
             else:
-                max_price_to_buy = round(float(v) * ppg, 4)
+                max_price_to_buy = round(float(v), 4)
             to_rollin = 0;
             if c > float(r):
                 to_rollin = int(c - float(r))
@@ -177,19 +175,6 @@ class UserFund():
             v = fg.netvalue_by_date(d)
             values.append({"date":self.date_conv.days_since_2000(d), "nv":v, "cost":c, "ptn":p, "sold":s})
         return values
-
-    def get_portions_morethan_7day(self, fg, ppg):
-        dateToday = datetime.now().strftime("%Y-%m-%d")
-        dateBegin = (datetime.strptime(dateToday, "%Y-%m-%d") + timedelta(days=-7)).strftime("%Y-%m-%d")
-        history_table = fg.history_table
-
-        if not self.buy_table:
-            return 0
-        (portion_cannot_sell,), = self.sqldb.select(self.buy_table, "sum(%s)" % column_portion, "%s > '%s'" % (column_date, dateBegin))
-        if not portion_cannot_sell:
-            portion_cannot_sell = 0
-
-        return round((self.portion_hold - portion_cannot_sell) / ppg, 4)
 
     def fix_cost_portion_hold(self):
         if not self.sqldb.isExistTable(self.buy_table):
