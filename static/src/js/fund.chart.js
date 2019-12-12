@@ -10,16 +10,90 @@ class FundLine {
 class FundChart {
     constructor(chart_div) {
         // Instantiate and draw our chart, passing in some options.
-        this.chart = new google.visualization.LineChart(document.getElementById(chart_div));
+        this.chart = new google.visualization.LineChart(chart_div);
+        this.chartDiv = chart_div;
         this.data = null;
         this.line = null;
-        google.visualization.events.addListener(this.chart, 'select', function selectHandler() {
+        this.ticks = [];
+        this.marks = [];
+        this.maxValue = null;
+        this.minValue = null;
+        this.maxIndex = null;
+        this.minIndex = null;
+        google.visualization.events.addListener(this.chart, 'ready', this.drawVticks);
+        google.visualization.events.addListener(this.chart, 'select', function () {
             onChartPointSelected();
         });
     }
 
     createChartOption() {
         // Set chart options
+        this.ticks = [];
+        var minTick = Math.round(this.minValue * 100 - 1) / 100;
+        var maxTick = Math.round(this.maxValue * 100 + 1) / 100;
+        var delta = (maxTick - minTick) / 6;
+        for (var i = 0; i < 7; i++) {
+            var v = minTick + i * delta;
+            this.ticks.push(v);
+        };
+
+        var markMax = this.marks[0];
+        var markMin = this.marks[0];
+        for (var i = 1; i < this.marks.length; i++) {
+            if (this.marks[i] < markMin) {
+                markMin = this.marks[i];
+            };
+            if (this.marks[i] > markMax) {
+                markMax = this.marks[i];
+            };
+        };
+
+        for (var i = 0; i < this.ticks.length; i++) {
+            if (this.ticks[i] >= markMin && this.ticks[i] <= markMax) {
+                this.ticks.splice(i,1);
+            };
+        };
+
+        for (var i = 0; i < this.marks.length; i++) {
+            var added = false;
+            for (var j = 0; j < this.ticks.length - 1; j++) {
+                if (this.ticks[j] >= this.marks[i]) {
+                    this.ticks.splice(j, 0, this.marks[i]);
+                    added = true;
+                    break;
+                }
+                if (this.ticks[j] < this.marks[i] && this.ticks[j + 1] > this.marks[i]) {
+                    this.ticks.splice(j + 1, 0, this.marks[i]);
+                    added = true;
+                    break;
+                }
+            }
+            if (!added) {
+                this.ticks.push(this.marks[i]);
+            }
+        }
+
+        for (var i = this.ticks.length - 1; i > 0; i--) {
+            if (this.ticks[i] === this.ticks[i-1]) {
+                this.ticks.splice(i,1);
+            }
+        }
+
+        for (var i = this.ticks.length - 1; i > 0; i--) {
+            if (this.ticks[i] - this.ticks[i - 1] <= delta * 0.1) {
+                if (this.marks.indexOf(this.ticks[i]) === -1) {
+                    this.ticks.splice(i,1);
+                } else if (this.marks.indexOf(this.ticks[i - 1]) === -1) {
+                    this.ticks.splice(i - 1, 1);
+                }
+            }
+        }
+
+        var v0ticks = [];
+        for (var i = 0; i < this.ticks.length; i++) {
+            v0ticks.push({v: this.ticks[i], f: this.ticks[i].toFixed(4)});
+        };
+
         this.options = {
             title: this.line.name,
             width: '100%',
@@ -29,8 +103,9 @@ class FundChart {
                 slantedText:true,
                 slantedTextAngle:-30
             },
-            vAxis: {
+            vAxes: {
                 0: {
+                    ticks: v0ticks
                 },
                 1: {
                 }
@@ -39,16 +114,21 @@ class FundChart {
                 0: {
                     targetAxisIndex: 0,
                     pointSize: 1
-                },
-                1: {
-                    targetAxisIndex: 0,
-                    pointSize: 0,
-                    lineWidth: 1
                 }
             }
         };
         if (this.line.indexCode) {
-            this.options.series["2"] = {
+            var v2ticks = [];
+            var minTick2 = Math.round(this.minIndex - 1);
+            var maxTick2 = Math.round(this.maxIndex + 1);
+            var delta2 = (maxTick2 - minTick2) / 6;
+            for (var i = 0; i < 7; i++) {
+                var v = minTick2 + i * delta2;
+                v2ticks.push(v);
+            };
+
+            this.options.vAxes["1"].ticks = v2ticks
+            this.options.series["1"] = {
                 targetAxisIndex: 1,
                 pointSize: 0,
                 lineWidth: 1
@@ -74,10 +154,15 @@ class FundChart {
             }
         };
         r.push(val);
+        if (val > this.maxValue) {
+            this.maxValue = val;
+        };
+        if (val < this.minValue) {
+            this.minValue = val;
+        };
         var ptstyle = 'point {visible: false }';
         var pttooltip = strDate + "\n" + val + ": " + all_hist_data[histIdx][valIdx + 1] + "%";
         if (ftjson[this.line.code] !== undefined) {
-            aver_price = ftjson[this.line.code].avp;
             var buytable = ftjson[this.line.code].buy_table;
             if (buytable) {
                 var buyrec = buytable.find(function(curVal) {
@@ -110,7 +195,6 @@ class FundChart {
         }
         r.push(ptstyle);
         r.push(pttooltip);
-        r.push(aver_price);
         if (this.line.indexCode) {
             var valIdx = all_hist_data[0].indexOf(this.line.indexCode) * 2 - 1;
             var val = all_hist_data[histIdx][valIdx];
@@ -125,6 +209,12 @@ class FundChart {
                 }
             };
             r.push(val);
+            if (val > this.maxIndex) {
+                this.maxIndex = val;
+            };
+            if (val < this.minIndex) {
+                this.minIndex = val;
+            };
         };
 
         return r;
@@ -134,6 +224,19 @@ class FundChart {
         if (all_hist_data.length < 1) {
             return;
         };
+
+        this.marks = [];
+        this.maxValue = 0;
+        this.minValue = 0;
+        if (ftjson && ftjson[this.line.code] !== undefined) {
+            var average = ftjson[this.line.code].avp;
+            var lhrate = ftjson[this.line.code].str / 3.0; // short_term_rate/3
+            this.maxValue = average * (1 + lhrate);
+            this.minValue = average * (1 - lhrate);
+            this.marks.push(average);
+            this.marks.push(this.maxValue);
+            this.marks.push(this.minValue);
+        }
 
         var showLen = 0;
         if (days > 0) {
@@ -169,13 +272,18 @@ class FundChart {
         data.addColumn('number', this.line.code);
         data.addColumn({type: 'string', role: 'style'});
         data.addColumn({type: 'string', role: 'tooltip'});
-        data.addColumn('number', '均值');
         if (this.line.indexCode) {
             data.addColumn('number', this.line.indexName);
         };
 
         var rows = [];
         var len = all_hist_data.length;
+        if (this.line.indexCode) {
+            var valIdx = all_hist_data[0].indexOf(this.line.indexCode) * 2 - 1;
+            var val = all_hist_data[len - showLen + 1][valIdx];
+            this.maxIndex = val;
+            this.minIndex = val;
+        };
         for (var i = 1; i < showLen; i++) {
             var r = this.createDataRow(len - showLen + i);
             rows.push(r);
@@ -197,7 +305,6 @@ class FundChart {
                 r.push('point {visible: false }');
                 r.push("最新估值:" + funddata.rtgz.gsz); // tooltip
             }
-            r.push(null);
             if (this.line.indexCode) {
                 r.push(null);
             }
@@ -206,6 +313,26 @@ class FundChart {
     
         data.addRows(rows);
         this.data = data;
+    }
+
+    drawVticks() {
+        chart.onDrawVticks();
+    }
+
+    onDrawVticks() {
+        var tRects = this.chartDiv.getElementsByTagName('rect');
+        var tickRects = [];
+        for (var i = 0; i < tRects.length; i++) {
+            if (tRects[i].getAttribute('height') === '1') {
+                tickRects.push(tRects[i]);
+            }
+        };
+        console.log(this.ticks);
+        console.log(this.marks);
+        for (var i = 0; i < this.marks.length; i++) {
+            tickRects[this.ticks.indexOf(this.marks[i])].setAttribute('fill', '#ff0000');
+        };
+        console.log(tickRects.length);
     }
 
     getMaxHistoryLen() {
@@ -333,7 +460,7 @@ google.charts.setOnLoadCallback(googleChartLoaded);
 var chart = null;
 
 function googleChartLoaded() {
-    chart = new FundChart('fund_chart_div');
+    chart = new FundChart(document.getElementById('fund_chart_div'));
     if (!utils.isEmpty(ftjson)) {
         getHistoryData('sz000001', 'index');
     }
