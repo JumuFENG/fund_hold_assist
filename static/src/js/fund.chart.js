@@ -91,7 +91,7 @@ class FundChart {
 
         var v0ticks = [];
         for (var i = 0; i < this.ticks.length; i++) {
-            v0ticks.push({v: this.ticks[i], f: this.ticks[i].toFixed(4)});
+            v0ticks.push({v: this.ticks[i], f: this.ticks[i].toFixed(this.marks.indexOf(this.ticks[i]) === -1 ? 2 : 4)});
         };
 
         this.options = {
@@ -124,7 +124,7 @@ class FundChart {
             var delta2 = (maxTick2 - minTick2) / 6;
             for (var i = 0; i < 7; i++) {
                 var v = minTick2 + i * delta2;
-                v2ticks.push(v);
+                v2ticks.push({v: v, f: v.toFixed()});
             };
 
             this.options.vAxes["1"].ticks = v2ticks
@@ -327,12 +327,12 @@ class FundChart {
                 tickRects.push(tRects[i]);
             }
         };
-        console.log(this.ticks);
-        console.log(this.marks);
         for (var i = 0; i < this.marks.length; i++) {
             tickRects[this.ticks.indexOf(this.marks[i])].setAttribute('fill', '#ff0000');
         };
-        console.log(tickRects.length);
+        for (var i = this.ticks.length; i < tickRects.length; i++) {
+            tickRects[i].setAttribute('opacity','0.15');
+        };
     }
 
     getMaxHistoryLen() {
@@ -579,7 +579,7 @@ function updateHistData(hist_data) {
 
     if (chart)
     {
-        if (updatingcode != chart.line.code) {
+        if (!chart.line || updatingcode != chart.line.code) {
             return;
         };
 

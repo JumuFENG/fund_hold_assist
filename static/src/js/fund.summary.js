@@ -107,7 +107,7 @@ function fillUpRollinsData(rollinTable, code) {
     rollinTable.appendChild(utils.createSingleRow("roll in"));
     var jsonp = ftjson[code].rtgz;
     var gz = jsonp ? jsonp.gsz : ftjson[code].lnv;
-    var max_value = utils.netvalueToPrice(gz, ftjson[code].ppg);
+    var max_value = gz;
     for (var i = 0; i < rollins.length; i++) {
         if (rollins[i].tri > 0 && rollins[i].mptb * 1.1 > max_value) {
             var strDate = utils.date_by_delta(rollins[i].date);
