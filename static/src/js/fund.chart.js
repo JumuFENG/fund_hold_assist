@@ -14,6 +14,8 @@ class FundChart {
         this.chartDiv = chart_div;
         this.data = null;
         this.line = null;
+        this.average = null;
+        this.short_term_rate = null;
         this.ticks = [];
         this.marks = [];
         this.maxValue = null;
@@ -28,56 +30,35 @@ class FundChart {
 
     createChartOption() {
         // Set chart options
+        this.marks = [];
+        this.marks.push(this.average * (1 - this.short_term_rate));
+        this.marks.push(this.average * (1 - this.short_term_rate / 3.0));
+        this.marks.push(this.average);
+        this.marks.push(this.average * (1 + this.short_term_rate / 3.0));
+        this.marks.push(this.average * (1 + this.short_term_rate));
+
+        var markMax = this.marks[this.marks.length - 1];
+        var markMin = this.marks[0];
+        this.minValue = this.minValue < markMin ? this.minValue: markMin;
+        this.maxValue = this.maxValue > markMax ? this.maxValue: markMax;
+
         this.ticks = [];
+        for (var i = 0; i < this.marks.length; i++) {
+            this.ticks.push(this.marks[i]);
+        };
+
         var minTick = Math.round(this.minValue * 100 - 1) / 100;
         var maxTick = Math.round(this.maxValue * 100 + 1) / 100;
         var delta = (maxTick - minTick) / 6;
         for (var i = 0; i < 7; i++) {
             var v = minTick + i * delta;
+            if (v <= markMax && v >= markMin) {
+                continue;
+            };
             this.ticks.push(v);
         };
 
-        var markMax = this.marks[0];
-        var markMin = this.marks[0];
-        for (var i = 1; i < this.marks.length; i++) {
-            if (this.marks[i] < markMin) {
-                markMin = this.marks[i];
-            };
-            if (this.marks[i] > markMax) {
-                markMax = this.marks[i];
-            };
-        };
-
-        for (var i = 0; i < this.ticks.length; i++) {
-            if (this.ticks[i] >= markMin && this.ticks[i] <= markMax) {
-                this.ticks.splice(i,1);
-            };
-        };
-
-        for (var i = 0; i < this.marks.length; i++) {
-            var added = false;
-            for (var j = 0; j < this.ticks.length - 1; j++) {
-                if (this.ticks[j] >= this.marks[i]) {
-                    this.ticks.splice(j, 0, this.marks[i]);
-                    added = true;
-                    break;
-                }
-                if (this.ticks[j] < this.marks[i] && this.ticks[j + 1] > this.marks[i]) {
-                    this.ticks.splice(j + 1, 0, this.marks[i]);
-                    added = true;
-                    break;
-                }
-            }
-            if (!added) {
-                this.ticks.push(this.marks[i]);
-            }
-        }
-
-        for (var i = this.ticks.length - 1; i > 0; i--) {
-            if (this.ticks[i] === this.ticks[i-1]) {
-                this.ticks.splice(i,1);
-            }
-        }
+        this.ticks.sort();
 
         for (var i = this.ticks.length - 1; i > 0; i--) {
             if (this.ticks[i] - this.ticks[i - 1] <= delta * 0.1) {
@@ -118,16 +99,16 @@ class FundChart {
             }
         };
         if (this.line.indexCode) {
-            var v2ticks = [];
-            var minTick2 = Math.round(this.minIndex - 1);
-            var maxTick2 = Math.round(this.maxIndex + 1);
-            var delta2 = (maxTick2 - minTick2) / 6;
+            var v1ticks = [];
+            var minTick1 = Math.round(this.minIndex - 1);
+            var maxTick1 = Math.round(this.maxIndex + 1);
+            var delta1 = (maxTick1 - minTick1) / 6;
             for (var i = 0; i < 7; i++) {
-                var v = minTick2 + i * delta2;
-                v2ticks.push({v: v, f: v.toFixed()});
+                var v = minTick1 + i * delta1;
+                v1ticks.push({v: v, f: v.toFixed()});
             };
 
-            this.options.vAxes["1"].ticks = v2ticks
+            this.options.vAxes["1"].ticks = v1ticks
             this.options.series["1"] = {
                 targetAxisIndex: 1,
                 pointSize: 0,
@@ -225,17 +206,13 @@ class FundChart {
             return;
         };
 
-        this.marks = [];
         this.maxValue = 0;
         this.minValue = 0;
         if (ftjson && ftjson[this.line.code] !== undefined) {
-            var average = ftjson[this.line.code].avp;
-            var lhrate = ftjson[this.line.code].str / 3.0; // short_term_rate/3
-            this.maxValue = average * (1 + lhrate);
-            this.minValue = average * (1 - lhrate);
-            this.marks.push(average);
-            this.marks.push(this.maxValue);
-            this.marks.push(this.minValue);
+            this.average = ftjson[this.line.code].avp;
+            this.short_term_rate = parseFloat(ftjson[this.line.code].str);
+            this.maxValue = this.average;
+            this.minValue = this.average;
         }
 
         var showLen = 0;
