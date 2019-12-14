@@ -23,9 +23,7 @@ class FundChart {
         this.maxIndex = null;
         this.minIndex = null;
         google.visualization.events.addListener(this.chart, 'ready', this.drawVticks);
-        google.visualization.events.addListener(this.chart, 'select', function () {
-            onChartPointSelected();
-        });
+        google.visualization.events.addListener(this.chart, 'select', this.selectChartPoint);
     }
 
     createChartOption() {
@@ -296,6 +294,10 @@ class FundChart {
         chart.onDrawVticks();
     }
 
+    selectChartPoint() {
+        chart.onChartPointSelected();
+    }
+
     onDrawVticks() {
         var tRects = this.chartDiv.getElementsByTagName('rect');
         var tickRects = [];
@@ -424,74 +426,66 @@ class FundChart {
             this.chart.draw(this.data, this.options);
         };
     }
+
+    onChartPointSelected() {
+        var selectedItem = this.chart.getSelection()[0];
+        if (selectedItem) {
+            var date = this.data.getValue(selectedItem.row, 0);
+            var val = this.data.getValue(selectedItem.row, 1);
+            var code = this.data.getColumnLabel(selectedItem.column);
+            document.getElementById("chart_interaction").style.display = "block";
+            if (!ftjson[code] || (!ftjson[code].buy_table && !ftjson[code].sell_table)) {
+                ShowSelectedPointInfo(date +" 净值: "+ val);
+                return;
+            }
+            var buytable = ftjson[code].buy_table;
+            var datedelta = utils.days_since_2000(date);
+            var buyrec = buytable? buytable.find(function(curVal) {
+                return curVal.date == datedelta;
+            }) : null;
+            var selltable = ftjson[code].sell_table;
+            var sellrec = selltable? selltable.find(function(curVal) {
+                return curVal.date == datedelta;
+            }) : null;
+
+            if (!buyrec && !sellrec) {
+                ShowSelectedPointInfo(date +" 净值: "+ val);
+                return;
+            };
+
+            var textInfo = "";
+            if (buyrec) {
+                if (buyrec.sold == 1) {
+                    textInfo += date + " 买入 " + buyrec.cost + " 已卖出";
+                } else {
+                    BuyRecordSelected(buyrec, code);
+                    return;
+                }
+            };
+
+            if (sellrec) {
+                textInfo += date + " 卖出: " + sellrec.ptn + "份, 成本: " + sellrec.cost;
+            };
+            ShowSelectedPointInfo(textInfo);
+        }
+    }
 };
 
-
+var chart = null;
 
 // Load the Visualization API and the piechart package.
 google.charts.load('current', {'packages':['corechart']});
 
 // Set a callback to run when the Google Visualization API is loaded.
-google.charts.setOnLoadCallback(googleChartLoaded);
-
-var chart = null;
-
-function googleChartLoaded() {
+google.charts.setOnLoadCallback(function(){
     chart = new FundChart(document.getElementById('fund_chart_div'));
     if (!utils.isEmpty(ftjson)) {
         getHistoryData('sz000001', 'index');
     }
-};
-
-function onChartPointSelected() {
-    var selectedItem = chart.chart.getSelection()[0];
-    if (selectedItem) {
-        var date = chart.data.getValue(selectedItem.row, 0);
-        var val = chart.data.getValue(selectedItem.row, 1);
-        var code = chart.data.getColumnLabel(selectedItem.column);
-        document.getElementById("chart_interaction").style.display = "block";
-        if (!ftjson[code] || (!ftjson[code].buy_table && !ftjson[code].sell_table)) {
-            ShowSelectedPointInfo(date +" 净值: "+ val);
-            return;
-        }
-        var buytable = ftjson[code].buy_table;
-        var datedelta = utils.days_since_2000(date);
-        var buyrec = buytable? buytable.find(function(curVal) {
-            return curVal.date == datedelta;
-        }) : null;
-        var selltable = ftjson[code].sell_table;
-        var sellrec = selltable? selltable.find(function(curVal) {
-            return curVal.date == datedelta;
-        }) : null;
-
-        if (!buyrec && !sellrec) {
-            ShowSelectedPointInfo(date +" 净值: "+ val);
-            return;
-        };
-
-        var textInfo = "";
-        if (buyrec) {
-            if (buyrec.sold == 1) {
-                textInfo += date + " 买入 " + buyrec.cost + " 已卖出";
-            } else {
-                BuyRecordSelected(buyrec, code);
-                return;
-            }
-        };
-
-        if (sellrec) {
-            textInfo += date + " 卖出: " + sellrec.ptn + "份, 成本: " + sellrec.cost;
-        };
-        ShowSelectedPointInfo(textInfo);
-    }
-}
-
-function resetChartInteractionPanel() {
-    document.getElementById("chart_interaction").style.display = "none";
-}
+});
 
 function DrawFundHistory(fundcode) {
-    resetChartInteractionPanel();
+    document.getElementById("chart_interaction").style.display = "none";
     chart.line = fundcode == "000217" ?
         new FundLine(fundcode, ftjson[fundcode]['name']):
         new FundLine(fundcode, ftjson[fundcode]['name'], 'sz000001', '上证指数');
