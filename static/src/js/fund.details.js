@@ -26,6 +26,7 @@ class FundDetail {
         this.navDiv = null;
         this.contentDiv = null;
         this.buytable_code = null;
+        this.selltable_code = null;
     }
 
     createFundDetailFramework() {
@@ -44,6 +45,17 @@ class FundDetail {
         var buyTable = document.createElement("table");
         showBuyTableBtn.bindContent = buyTable;
         this.contentDiv.appendChild(buyTable);
+
+        var showBuyTableBtn = document.createElement("button");
+        showBuyTableBtn.textContent = "卖出记录";
+        showBuyTableBtn.onclick = function(e) {
+            detailpage.switchContentTo(e.target);
+            detailpage.showSingleSellTable(e.target.bindContent);
+        }
+        this.navDiv.appendChild(showBuyTableBtn);
+        var sellTable = document.createElement("table");
+        showBuyTableBtn.bindContent = sellTable;
+        this.contentDiv.appendChild(sellTable);
 
         var showTotalChartBtn = document.createElement("button");
         showTotalChartBtn.textContent = "累计收益";
@@ -81,13 +93,34 @@ class FundDetail {
         if (!this.code || ftjson[this.code].buy_table === undefined) {
             return;
         };
-        buyTable.appendChild(utils.createSingleRow("buy:"));
-        buyTable.appendChild(utils.createSplitLine());
+        buyTable.appendChild(utils.createSplitLine(3));
+        buyTable.appendChild(utils.createHeaders('买入日期', '金额', '净值'))
         var buyrecs = ftjson[this.code].buy_table;
         for (var i = 0; i < buyrecs.length; i++) {
             if (buyrecs[i].sold == 0) {
-                buyTable.appendChild(utils.create2ColRow(utils.date_by_delta(buyrecs[i].date), buyrecs[i].cost));
+                buyTable.appendChild(utils.createColsRow(utils.date_by_delta(buyrecs[i].date), buyrecs[i].cost, buyrecs[i].nv));
             };
+        };
+    }
+
+    showSingleSellTable(sellTable) {
+        if (this.selltable_code == null && this.code == null) {
+            return;
+        };
+        if (this.selltable_code == this.code) {
+            return;
+        };
+        utils.deleteAllRows(sellTable);
+        this.selltable_code = this.code;
+        if (!this.code || ftjson[this.code].sell_table === undefined) {
+            return;
+        };
+        
+        sellTable.appendChild(utils.createSplitLine(3));
+        sellTable.appendChild(utils.createHeaders('卖出日期','成本', '剩余'));
+        var sellrecs = ftjson[this.code].sell_table;
+        for (var i = 0; i < sellrecs.length; i++) {
+            sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].cost, sellrecs[i].tri));
         };
     }
 
@@ -99,9 +132,8 @@ class FundDetail {
         if (this.chart != null) {
             if (this.chart.code == this.code) {
                 return;
-            } else {
-                this.chart.clearChart()
             }
+            this.chart.clearChart();
         };
 
         if (this.code == null || ftjson[this.code].buy_table === undefined) {

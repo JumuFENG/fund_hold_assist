@@ -214,7 +214,7 @@ function fillUpSellTableData(sellTable, code) {
 
     sellTable.appendChild(utils.createRadioRow("sell_row_" + code, all_dp.dates, "全部", utils.convertPortionToGram(portion, ppg).toFixed(4)));
     portion = utils.getPortionMoreThan(buytable, 31);
-    sellTable.appendChild(utils.create2ColRow(">31天", utils.convertPortionToGram(portion, ppg).toFixed(4)));
+    sellTable.appendChild(utils.createColsRow(">31天", utils.convertPortionToGram(portion, ppg).toFixed(4)));
     var portion_7day = utils.getPortionMoreThan(buytable, 7);
 
     var short_term_rate = ftjson[code].str;
@@ -224,7 +224,7 @@ function fillUpSellTableData(sellTable, code) {
     var short_portion = short_dp.portion;
 
     if (short_portion <= 0 || portion_7day >= short_portion) {
-        sellTable.appendChild(utils.create2ColRow(">7天", utils.convertPortionToGram(portion_7day, ppg).toFixed(4)));
+        sellTable.appendChild(utils.createColsRow(">7天", utils.convertPortionToGram(portion_7day, ppg).toFixed(4)));
     };
 
     if (short_portion > 0 ) {

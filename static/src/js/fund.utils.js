@@ -130,27 +130,38 @@ class Utils {
         return row;
     }
 
-    createSplitLine() {
+    createSplitLine(span = 2) {
         var row = document.createElement("tr");
         var col = document.createElement("td");
+        if (span > 0) {
+            col.setAttribute("colspan",span);
+        };
         col.appendChild(document.createElement("hr"))
         row.appendChild(col);
         return row;
     }
 
-    create2ColRow(c1, c2){
+    createHeaders(...hs) {
+        var tr = document.createElement('tr');
+        for (var i = 0; i < hs.length; i++) {
+            var th = document.createElement('th');
+            th.appendChild(document.createTextNode(hs[i]));
+            tr.appendChild(th);
+        };
+        return tr;
+    }
+
+    createColsRow(...c){
         var row = document.createElement("tr");
-        var col1 = document.createElement("td");
-        col1.appendChild(document.createTextNode(c1));
-        var col2 = document.createElement("tr");
-        col2.appendChild(document.createTextNode(c2));
-        row.appendChild(col1);
-        row.appendChild(col2);
+        for (var i = 0; i < c.length; i++) {
+            var col = document.createElement("td");
+            col.appendChild(document.createTextNode((c[i])));
+            row.appendChild(col);
+        };
         return row;
     }
 
-    createInputRow(name, inputType, value, c1, c2, checked = false)
-    {
+    createInputRow(name, inputType, value, c1, c2, checked = false) {
         var row = document.createElement("tr");
         var col1 = document.createElement("td");
         var radio = document.createElement("input");
