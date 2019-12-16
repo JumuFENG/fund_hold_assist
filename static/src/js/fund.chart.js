@@ -480,7 +480,7 @@ google.charts.load('current', {'packages':['corechart']});
 // Set a callback to run when the Google Visualization API is loaded.
 google.charts.setOnLoadCallback(function(){
     chart = new FundChart(document.getElementById('fund_chart_div'));
-    if (!utils.isEmpty(ftjson)) {
+    if (!utils.isEmpty(ftjson) && all_hist_data[0].indexOf('sz000001') < 0) {
         getHistoryData('sz000001', 'index');
     }
 });
