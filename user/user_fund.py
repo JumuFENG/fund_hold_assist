@@ -71,6 +71,9 @@ class UserFund():
 
     def last_day_earned(self, history_table):
         history_dvs = self.sqldb.select(history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date);
+        if not history_dvs:
+            return 0
+
         (lastd, n, grate) = history_dvs[-1]
         (d, nv, g) = history_dvs[-2]
         latest_earned_per_portion = float(nv) * float(grate)

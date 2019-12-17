@@ -29,11 +29,16 @@ class FundGeneral():
 
     def latest_netvalue(self):
         history_dvs = self.sqldb.select(self.history_table, [column_date, column_net_value], order = " ORDER BY %s ASC" % column_date)
+        if not history_dvs:
+            return 0;
+
         (d, netvalue) = history_dvs[-1]
         return netvalue
 
     def get_fund_hist_data(self):
         fund_his = self.sqldb.select(self.history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date)
+        if not fund_his:
+            return
         fund_his_data = ('date', self.code),
         date_conv = DateConverter()
         for (d, v, g) in fund_his:
