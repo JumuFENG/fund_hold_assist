@@ -99,7 +99,7 @@ class User():
         for (c, ) in fund_codes:
             uf = UserFund(self, c)
             fund_json_obj = None
-            if uf.cost_hold and uf.average:
+            if uf.still_hold():
                 fund_json_obj = uf.get_fund_summary()
 
             if fund_json_obj:

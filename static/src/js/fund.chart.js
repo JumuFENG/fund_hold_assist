@@ -542,6 +542,10 @@ function getHistoryData(code, type) {
 }
 
 function updateHistData(hist_data) {
+    if (!hist_data) {
+        return;
+    };
+    
     var updatingcode = hist_data[0][1];
     if (all_hist_data.length < 1) {
         all_hist_data = hist_data;
