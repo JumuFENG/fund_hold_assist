@@ -218,6 +218,7 @@ class FundChart {
         if (days > 0) {
             showLen = days + 1;
         } else if (days == 0) {
+            showLen = 11;
             var buytable = null;
             if (ftjson != null && ftjson[this.fund.code] !== undefined) {
                 buytable = ftjson[this.fund.code].buy_table;
@@ -228,14 +229,14 @@ class FundChart {
                 var firstnotsell = buytable.find(function(curVal) {
                     return curVal.sold == 0;
                 });
-                var notselldate = firstnotsell.date;
-                var startDateArr = all_hist_data.find(function(curVal) {
-                    return curVal[fundDateIdx] == notselldate;
-                });
-                showLen = all_hist_data.length - all_hist_data.indexOf(startDateArr) + 2;
-            } else {
-                showLen = 11;
-            }
+                if (firstnotsell) {
+                    var notselldate = firstnotsell.date;
+                    var startDateArr = all_hist_data.find(function(curVal) {
+                        return curVal[fundDateIdx] == notselldate;
+                    });
+                    showLen = all_hist_data.length - all_hist_data.indexOf(startDateArr) + 2;
+                };
+            };
         } else if (days == -1) {
             showLen = this.getMaxHistoryLen();
         }

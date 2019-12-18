@@ -158,7 +158,8 @@ class UserFund():
             max_price_to_buy = 0
             if not v:
                 netvalue = fg.netvalue_by_date(d)
-                max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)), 4)
+                if netvalue:
+                    max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)), 4)
             else:
                 max_price_to_buy = round(float(v), 4)
             to_rollin = 0;
