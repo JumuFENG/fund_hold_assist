@@ -352,9 +352,12 @@ class UserFund():
         if self.cost_hold and self.average:
             return True
 
+        if not self.sqldb.isExistTable(self.buy_table):
+            return False
+
         buy_sum =self.sqldb.select(self.buy_table, ["sum(%s)" % column_cost, "sum(%s)" % column_portion], "%s = 0" % column_soldout)
         if buy_sum:
-            (cost,portion), = buy_sum
+            (cost, portion), = buy_sum
             average = 0
             if not cost:
                 cost = 0
@@ -364,8 +367,7 @@ class UserFund():
             if portion:
                 average = (Decimal(str(cost))/Decimal(str(portion))).quantize(Decimal("0.0000")) if not portion == 0 else 0
             self.sqldb.update(self.funds_table, {column_cost_hold:str(cost), column_portion_hold:str(portion), column_averagae_price:str(average)}, {column_code: self.code})
-            return cost > 0
-        return False
+        return True
 
     def get_fund_summary(self):
         fund_json_obj = {}

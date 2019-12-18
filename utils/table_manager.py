@@ -113,6 +113,13 @@ class TableCopy():
                 headers.append(cnm)
         return headers
 
+    def getTableAllHeaders(self, sqldb, tablename):
+        result = sqldb.select("information_schema.columns", "column_name", ["table_name = '%s'" % tablename, "table_schema = '%s'" % sqldb.database], order=" ORDER BY ordinal_position ASC")
+        headers = []
+        for cnm, in result:
+            headers.append(cnm)
+        return headers
+
     def UpdateRows(self, fromDb, toDb, fromtable, totable, rowIds):
         if not fromDb.isExistTable(fromtable):
             print("no table named", fromtable)
@@ -135,7 +142,7 @@ class TableCopy():
             print("no table named", tablename)
             return
 
-        headers = self.getTableHeaders(tarDb, tablename)
+        headers = self.getTableAllHeaders(tarDb, tablename)
         values = tarDb.select(tablename, headers, order=" ORDER BY id ASC")
 
         for x in values:
