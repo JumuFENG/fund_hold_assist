@@ -66,7 +66,7 @@ class DailyUpdater():
     def should_update(self, historytable):
         if not self.sqldb.isExistTable(historytable):
             print("history table", historytable, "not exist")
-            return False
+            return True
 
         maxDate = self.sqldb.select(historytable, "max(%s)" % column_date)
         if maxDate:
