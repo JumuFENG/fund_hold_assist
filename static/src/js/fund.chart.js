@@ -30,44 +30,56 @@ class FundChart {
         // Set chart options
         this.marks = [];
         var average = this.fund.average;
-        var short_term_rate = this.fund.short_term_rate;
-        this.marks.push(average * (1 - short_term_rate));
-        this.marks.push(average * (1 - short_term_rate / 3.0));
-        this.marks.push(average);
-        this.marks.push(average * (1 + short_term_rate / 3.0));
-        this.marks.push(average * (1 + short_term_rate));
+        if (average != 0) {
+            var short_term_rate = this.fund.short_term_rate ? this.fund.short_term_rate : 0.03;
+            this.marks.push(average * (1 - short_term_rate));
+            this.marks.push(average * (1 - short_term_rate / 3.0));                
+            this.marks.push(average);
+            this.marks.push(average * (1 + short_term_rate / 3.0));
+            this.marks.push(average * (1 + short_term_rate));
+        }
 
         this.ticks = [];
         for (var i = 0; i < this.marks.length; i++) {
             this.ticks.push(this.marks[i]);
         };
 
-        var markMax = this.marks[this.marks.length - 1];
-        var markMin = this.marks[0];
-        var minValue = this.fund.minValue < markMin ? this.fund.minValue: markMin;
-        var maxValue = this.fund.maxValue > markMax ? this.fund.maxValue: markMax;
+        var markMax = this.marks.length > 0 ? this.marks[this.marks.length - 1] : 0;
+        var markMin = this.marks.length > 0 ? this.marks[0] : 0;
+        var minValue = this.fund.minValue;
+        if (this.marks.length > 0 && minValue > markMin) {
+            minValue = markMin;
+        };
+        var maxValue = this.fund.maxValue;
+        if (this.marks.length > 0 && maxValue < markMax) {
+            maxValue = markMax;
+        };
         var minTick = Math.round(minValue * 100 - 1) / 100;
         var maxTick = Math.round(maxValue * 100 + 1) / 100;
         var delta = (maxTick - minTick) / 6;
         for (var i = 0; i < 7; i++) {
             var v = minTick + i * delta;
-            if (v <= markMax && v >= markMin) {
-                continue;
+            if (this.marks.length > 0) {
+                if (v <= markMax && v >= markMin) {
+                    continue;
+                };
             };
             this.ticks.push(v);
         };
 
         this.ticks.sort();
 
-        for (var i = this.ticks.length - 1; i > 0; i--) {
-            if (this.ticks[i] - this.ticks[i - 1] <= delta * 0.1) {
-                if (this.marks.indexOf(this.ticks[i]) === -1) {
-                    this.ticks.splice(i,1);
-                } else if (this.marks.indexOf(this.ticks[i - 1]) === -1) {
-                    this.ticks.splice(i - 1, 1);
+        if (this.marks.length > 0) {
+            for (var i = this.ticks.length - 1; i > 0; i--) {
+                if (this.ticks[i] - this.ticks[i - 1] <= delta * 0.1) {
+                    if (this.marks.indexOf(this.ticks[i]) === -1) {
+                        this.ticks.splice(i,1);
+                    } else if (this.marks.indexOf(this.ticks[i - 1]) === -1) {
+                        this.ticks.splice(i - 1, 1);
+                    }
                 }
             }
-        }
+        };
 
         var v0ticks = [];
         for (var i = 0; i < this.ticks.length; i++) {
@@ -120,7 +132,6 @@ class FundChart {
         var date = all_hist_data[histIdx][0];
         var strDate = utils.date_by_delta(date);
         var r = [strDate];
-        var aver_price = null;
         var valIdx = all_hist_data[0].indexOf(this.fund.code) * 2 - 1;
         var val = all_hist_data[histIdx][valIdx];
         if (val == '') {
@@ -205,13 +216,9 @@ class FundChart {
             return;
         };
 
-        this.fund.maxValue = 0;
-        this.fund.minValue = 0;
         if (ftjson && ftjson[this.fund.code] !== undefined) {
             this.fund.average = ftjson[this.fund.code].avp;
             this.fund.short_term_rate = parseFloat(ftjson[this.fund.code].str);
-            this.fund.maxValue = this.fund.average;
-            this.fund.minValue = this.fund.average;
         }
 
         var showLen = 0;
@@ -229,13 +236,14 @@ class FundChart {
                 var firstnotsell = buytable.find(function(curVal) {
                     return curVal.sold == 0;
                 });
-                if (firstnotsell) {
-                    var notselldate = firstnotsell.date;
-                    var startDateArr = all_hist_data.find(function(curVal) {
-                        return curVal[fundDateIdx] == notselldate;
-                    });
-                    showLen = all_hist_data.length - all_hist_data.indexOf(startDateArr) + 2;
+                if (!firstnotsell) {
+                    firstnotsell = buytable[buytable.length - 1];
                 };
+                var notselldate = firstnotsell.date;
+                var startDateArr = all_hist_data.find(function(curVal) {
+                    return curVal[fundDateIdx] == notselldate;
+                });
+                showLen = all_hist_data.length - all_hist_data.indexOf(startDateArr) + 2;
             };
         } else if (days == -1) {
             showLen = this.getMaxHistoryLen();
@@ -255,6 +263,12 @@ class FundChart {
 
         var rows = [];
         var len = all_hist_data.length;
+        if (this.fund.code) {
+            var valIdx = all_hist_data[0].indexOf(this.fund.code) * 2 - 1;
+            var val = all_hist_data[len - showLen + 1][valIdx];
+            this.fund.maxValue = val;
+            this.fund.minValue = val;
+        };
         if (this.fund.indexCode) {
             var valIdx = all_hist_data[0].indexOf(this.fund.indexCode) * 2 - 1;
             var val = all_hist_data[len - showLen + 1][valIdx];
