@@ -62,6 +62,8 @@ class UserFund():
             self.sqldb.addColumn(self.sell_table, column_rolled_in, 'varchar(20) DEFAULT NULL')
         if not self.sqldb.isExistTableColumn(self.sell_table, column_roll_in_value):
             self.sqldb.addColumn(self.sell_table, column_roll_in_value, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(self.sell_table, column_actual_sold):
+            self.sqldb.addColumn(self.sell_table, column_actual_sold, 'varchar(20) DEFAULT 0')
 
     def setup_budgettable(self):
         if not self.sqldb.isExistTable(self.budget_table):
@@ -147,12 +149,15 @@ class UserFund():
             print("table column not complete.")
             return
 
-        sell_recs = self.sqldb.select(self.sell_table, [column_date, column_cost_sold, column_portion, column_rolled_in, column_roll_in_value])
+        if not self.sqldb.isExistTableColumn(self.sell_table, column_actual_sold):
+            self.sqldb.addColumn(self.sell_table, column_actual_sold, 'varchar(20) DEFAULT 0')
+
+        sell_recs = self.sqldb.select(self.sell_table, [column_date, column_cost_sold, column_money_sold, column_portion, column_rolled_in, column_roll_in_value, column_actual_sold])
         if not sell_recs:
             return
 
         values = []
-        for (d, c, p, r, v) in sell_recs:
+        for (d, c, m, p, r, v, a) in sell_recs:
             if not r:
                 r = 0
             max_price_to_buy = 0
@@ -165,7 +170,7 @@ class UserFund():
             to_rollin = 0;
             if c > float(r):
                 to_rollin = int(c - float(r))
-            values.append({"date":self.date_conv.days_since_2000(d), "cost":c, "ptn":p, "mptb":max_price_to_buy, "tri":str(to_rollin)})
+            values.append({"date":self.date_conv.days_since_2000(d), "cost":c, "ms":m, "ptn":p, "mptb":max_price_to_buy, "tri":str(to_rollin), "acs": a})
 
         return values
 

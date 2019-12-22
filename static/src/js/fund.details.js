@@ -103,6 +103,56 @@ class FundDetail {
         };
     }
 
+    editActualSold(actualBox) {
+        var textNode = actualBox.firstChild;
+        var editBox = actualBox.getElementsByTagName('input')[0];
+        var editBtn = actualBox.getElementsByTagName('button')[0];
+        if (editBox.style.display == 'none') {
+            editBox.value = textNode.textContent;
+            editBox.style.display = 'inline';
+            textNode.textContent = '';
+            editBtn.textContent = '确定';
+        } else {
+            editBox.style.display = 'none';
+            textNode.textContent = editBox.value;
+            editBtn.textContent = '修改';
+        }
+    }
+    
+    createActualSoldCell(acs) {
+        var actual_sold_cell = document.createElement('div');
+        var acsNode = document.createTextNode(acs);
+        var edit_btn = document.createElement("button");
+        edit_btn.textContent = '修改';
+        var edit_box = document.createElement('input');
+        edit_box.style.maxWidth = '80px';
+        edit_box.style.display = 'none';
+        edit_btn.onclick = function(e) {
+            detailpage.editActualSold(e.target.parentElement);
+        }
+        actual_sold_cell.appendChild(acsNode);
+        actual_sold_cell.appendChild(edit_box);
+        actual_sold_cell.appendChild(edit_btn);
+        return actual_sold_cell
+    }
+    
+    createRollinCell(to_rollin) {
+        if (to_rollin == 0) {
+            return 0;
+        }
+        
+        var rollinBox = document.createElement('div');
+        var deleteBtn = document.createElement("button");
+        deleteBtn.textContent = '删除';
+        deleteBtn.onclick = function(e) {
+            e.target.parentElement.innerText = 0;
+        }
+        
+        rollinBox.appendChild(document.createTextNode(to_rollin));
+        rollinBox.appendChild(deleteBtn);
+        return rollinBox;
+    }
+    
     showSingleSellTable(sellTable) {
         if (this.selltable_code == null && this.code == null) {
             return;
@@ -116,11 +166,13 @@ class FundDetail {
             return;
         };
         
-        sellTable.appendChild(utils.createSplitLine(3));
-        sellTable.appendChild(utils.createHeaders('卖出日期','成本', '剩余'));
+        sellTable.appendChild(utils.createSplitLine(5));
+        sellTable.appendChild(utils.createHeaders('卖出日期','成本', '金额', '实收', '剩余成本'));
         var sellrecs = ftjson[this.code].sell_table;
         for (var i = 0; i < sellrecs.length; i++) {
-            sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].cost, sellrecs[i].tri));
+            var actual_sold_cell = this.createActualSoldCell(sellrecs[i].acs);
+            var rollin_cell = this.createRollinCell(sellrecs[i].tri);
+            sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].cost, sellrecs[i].ms, actual_sold_cell, rollin_cell));
         };
     }
 
