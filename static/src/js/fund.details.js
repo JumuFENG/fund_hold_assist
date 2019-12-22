@@ -10,8 +10,8 @@ function showFundDetailPage (detailparent) {
     document.getElementById('funds_list_container').style.display = 'none';
     detailpage.container.style.display = 'block';
     detailpage.code = detailparent.id.split("_").pop();
-    detailpage.switchContentTo(detailpage.navDiv.firstChild);
-    detailpage.showSingleBuyTable(detailpage.navDiv.firstChild.bindContent);
+    detailpage.switchContentTo(detailpage.navUl.firstChild);
+    detailpage.showSingleBuyTable(detailpage.navUl.firstChild.bindContent);
 }
 
 function BackToList() {
@@ -23,47 +23,52 @@ class FundDetail {
     constructor(container) {
         this.container = container;
         this.code = null;
-        this.navDiv = null;
+        this.navUl = null;
         this.contentDiv = null;
         this.buytable_code = null;
         this.selltable_code = null;
     }
 
     createFundDetailFramework() {
-        this.navDiv = document.createElement("div");
+        this.navUl = document.createElement("ul");
+        this.navUl.id = 'detailnav';
+        var navDiv = document.createElement('div');
+        navDiv.appendChild(this.navUl);
         this.contentDiv = document.createElement("div");
-        this.container.appendChild(this.navDiv);
+        this.container.appendChild(navDiv);
+        this.container.appendChild(document.createElement("br"));
+        this.container.appendChild(document.createElement("hr"));
         this.container.appendChild(this.contentDiv);
     
-        var showBuyTableBtn = document.createElement("button");
+        var showBuyTableBtn = document.createElement("li");
         showBuyTableBtn.textContent = "买入记录";
         showBuyTableBtn.onclick = function(e) {
             detailpage.switchContentTo(e.target);
             detailpage.showSingleBuyTable(e.target.bindContent);
         }
-        this.navDiv.appendChild(showBuyTableBtn);
+        this.navUl.appendChild(showBuyTableBtn);
         var buyTable = document.createElement("table");
         showBuyTableBtn.bindContent = buyTable;
         this.contentDiv.appendChild(buyTable);
 
-        var showBuyTableBtn = document.createElement("button");
+        var showBuyTableBtn = document.createElement("li");
         showBuyTableBtn.textContent = "卖出记录";
         showBuyTableBtn.onclick = function(e) {
             detailpage.switchContentTo(e.target);
             detailpage.showSingleSellTable(e.target.bindContent);
         }
-        this.navDiv.appendChild(showBuyTableBtn);
+        this.navUl.appendChild(showBuyTableBtn);
         var sellTable = document.createElement("table");
         showBuyTableBtn.bindContent = sellTable;
         this.contentDiv.appendChild(sellTable);
 
-        var showTotalChartBtn = document.createElement("button");
+        var showTotalChartBtn = document.createElement("li");
         showTotalChartBtn.textContent = "累计收益";
         showTotalChartBtn.onclick = function(e) {
             detailpage.switchContentTo(e.target);
             detailpage.showSingleTotalEarned(e.target.bindContent);
         }
-        this.navDiv.appendChild(showTotalChartBtn);
+        this.navUl.appendChild(showTotalChartBtn);
     
         var totalEarnedChart = document.createElement("div");
         showTotalChartBtn.bindContent = totalEarnedChart;
@@ -72,9 +77,11 @@ class FundDetail {
 
     switchContentTo(t) {
         var sibling = t.parentElement.firstChild;
+        t.className = 'highlight';
         while (sibling != null) {
             if (sibling != t) {
                 sibling.bindContent.style.display = "none";
+                sibling.className = '';
             };
             sibling = sibling.nextElementSibling;
         }
@@ -93,7 +100,6 @@ class FundDetail {
         if (!this.code || ftjson[this.code].buy_table === undefined) {
             return;
         };
-        buyTable.appendChild(utils.createSplitLine(3));
         buyTable.appendChild(utils.createHeaders('买入日期', '金额', '净值'))
         var buyrecs = ftjson[this.code].buy_table;
         for (var i = 0; i < buyrecs.length; i++) {
@@ -166,7 +172,6 @@ class FundDetail {
             return;
         };
         
-        sellTable.appendChild(utils.createSplitLine(5));
         sellTable.appendChild(utils.createHeaders('卖出日期','成本', '金额', '实收', '剩余成本'));
         var sellrecs = ftjson[this.code].sell_table;
         for (var i = 0; i < sellrecs.length; i++) {
