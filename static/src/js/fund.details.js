@@ -122,10 +122,18 @@ class FundDetail {
             editBox.style.display = 'none';
             textNode.textContent = editBox.value;
             editBtn.textContent = '修改';
+            var httpRequest = new XMLHttpRequest();
+            httpRequest.open('POST', '../../fundsell', true);
+            var request = new FormData();
+            request.append("code", this.code);
+            request.append("date", actualBox.getAttribute('date'));
+            request.append("action", 'setsold');
+            request.append('actual_sold', editBox.value)
+            httpRequest.send(request);
         }
     }
     
-    createActualSoldCell(acs) {
+    createActualSoldCell(acs, selldate) {
         var actual_sold_cell = document.createElement('div');
         var acsNode = document.createTextNode(acs);
         var edit_btn = document.createElement("button");
@@ -136,13 +144,26 @@ class FundDetail {
         edit_btn.onclick = function(e) {
             detailpage.editActualSold(e.target.parentElement);
         }
+        actual_sold_cell.setAttribute('date', selldate);
         actual_sold_cell.appendChild(acsNode);
         actual_sold_cell.appendChild(edit_box);
         actual_sold_cell.appendChild(edit_btn);
         return actual_sold_cell
     }
     
-    createRollinCell(to_rollin) {
+    deleteRollin(rollinBox) {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('POST', '../../fundsell', true);
+        var request = new FormData();
+        request.append("code", this.code);
+        request.append("date", rollinBox.getAttribute('date'));
+        request.append("action", 'fixrollin');
+        request.append('rolledin', rollinBox.getAttribute('cost'))
+        httpRequest.send(request);
+        rollinBox.innerText = 0;
+    }
+    
+    createRollinCell(to_rollin, cost, selldate) {
         if (to_rollin == 0) {
             return 0;
         }
@@ -151,9 +172,11 @@ class FundDetail {
         var deleteBtn = document.createElement("button");
         deleteBtn.textContent = '删除';
         deleteBtn.onclick = function(e) {
-            e.target.parentElement.innerText = 0;
+            detailpage.deleteRollin(e.target.parentElement);
         }
         
+        rollinBox.setAttribute('date', selldate);
+        rollinBox.setAttribute('cost', cost);
         rollinBox.appendChild(document.createTextNode(to_rollin));
         rollinBox.appendChild(deleteBtn);
         return rollinBox;
@@ -175,8 +198,9 @@ class FundDetail {
         sellTable.appendChild(utils.createHeaders('卖出日期','成本', '金额', '实收', '剩余成本'));
         var sellrecs = ftjson[this.code].sell_table;
         for (var i = 0; i < sellrecs.length; i++) {
-            var actual_sold_cell = this.createActualSoldCell(sellrecs[i].acs);
-            var rollin_cell = this.createRollinCell(sellrecs[i].tri);
+            var selldate = utils.date_by_delta(sellrecs[i].date);
+            var actual_sold_cell = this.createActualSoldCell(sellrecs[i].acs, selldate);
+            var rollin_cell = this.createRollinCell(sellrecs[i].tri, sellrecs[i].cost, selldate);
             sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].cost, sellrecs[i].ms, actual_sold_cell, rollin_cell));
         };
     }

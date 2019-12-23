@@ -132,12 +132,22 @@ def fundsell():
     if request.method == 'POST':
         code = request.form.get("code", type=str, default=None)
         date = request.form.get("date", type=str, default=None)
-        combined_dates = request.form.get("buydates", type=str, default=None)
-        buydates = split_combined_dates(combined_dates)
-        print("fundsell form")
-        print(code, date, buydates)
-        user.sell_not_confirm(code, date, buydates)
-        user.confirm_sell(code, date)
+        act = request.form.get('action', type=str, default=None)
+        if act == 'fixrollin':
+            uf = UserFund(user, code)
+            rolledin = request.form.get('rolledin', type=str, default='0')
+            uf.fix_roll_in(date, rolledin)
+        elif act == 'setsold':
+            uf = UserFund(user, code)
+            actual_sold = request.form.get('actual_sold', type=str, default='0')
+            uf.set_actual_sold(date, actual_sold)
+        else:
+            combined_dates = request.form.get("buydates", type=str, default=None)
+            buydates = split_combined_dates(combined_dates)
+            print("fundsell form")
+            print(code, date, buydates)
+            user.sell_not_confirm(code, date, buydates)
+            user.confirm_sell(code, date)
         return "OK", 200
     else:
         print("fundsell GET")

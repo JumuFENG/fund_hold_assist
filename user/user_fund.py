@@ -141,6 +141,25 @@ class UserFund():
                 values.append({"date":self.date_conv.days_since_2000(d), "mptb":str(v), "bdt":b})
         return values
 
+    def set_actual_sold(self, date, actual_sold):
+        if not self.sell_table or not self.sqldb.isExistTable(self.sell_table):
+            return
+
+        if not self.sqldb.isExistTableColumn(self.sell_table, column_actual_sold):
+            self.sqldb.addColumn(self.sell_table, column_actual_sold, 'varchar(20) DEFAULT 0')
+
+        self.sqldb.update(self.sell_table, {column_actual_sold:str(actual_sold)}, {column_date: str(date)})
+
+    def fix_roll_in(self, date, rolled_in):
+        if not self.sell_table or not self.sqldb.isExistTable(self.sell_table):
+            return
+
+        if not self.sqldb.isExistTableColumn(self.sell_table, column_rolled_in):
+            print("table column not complete.")
+            return
+
+        self.sqldb.update(self.sell_table, {column_rolled_in:str(rolled_in)}, {column_date: str(date)})
+
     def get_roll_in_arr(self, fg):
         if not self.sell_table or not self.sqldb.isExistTable(self.sell_table):
             return
