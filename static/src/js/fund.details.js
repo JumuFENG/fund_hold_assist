@@ -191,7 +191,7 @@ class FundDetail {
         };
         utils.deleteAllRows(sellTable);
         this.selltable_code = this.code;
-        if (!this.code || ftjson[this.code].sell_table === undefined) {
+        if (!this.code || !ftjson[this.code].sell_table) {
             return;
         };
         

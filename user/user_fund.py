@@ -24,7 +24,10 @@ class UserFund():
         else:
             details = self.sqldb.select(self.funds_table, "*", "%s = '%s'" % (column_code, code))
             if details:
-                (i, self.code, self.buy_table, self.sell_table, self.budget_table, self.cost_hold, self.portion_hold, self.average), = details
+                if len(details[0]) == 9:
+                    (i, self.code, self.buy_table, self.sell_table, self.budget_table, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on), = details
+                else:
+                    self.init_user_fund_in_db(user.id, self.funds_table)
             else:
                 self.sqldb.insert(self.funds_table, {column_code: self.code})
                 self.init_user_fund_in_db(user.id, self.funds_table)
@@ -41,7 +44,8 @@ class UserFund():
         self.cost_hold = tbl_mgr.GetTableColumnInfo(column_cost_hold, "0", "double(16,2) DEFAULT NULL")
         self.portion_hold = tbl_mgr.GetTableColumnInfo(column_portion_hold, "0", "double(16,4) DEFAULT NULL")
         self.average = tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
-        self.sqldb.update(tablename, {column_buy_table:self.buy_table, column_sell_table: self.sell_table, column_budget_table: self.budget_table, column_cost_hold: self.cost_hold, column_portion_hold: self.portion_hold, column_averagae_price: self.average}, {column_code : self.code})
+        self.keep_eye_on = tbl_mgr.GetTableColumnInfo(column_keepeyeon, "1", 'tinyint(1) DEFAULT 1')
+        self.sqldb.update(tablename, {column_buy_table:self.buy_table, column_sell_table: self.sell_table, column_budget_table: self.budget_table, column_cost_hold: str(self.cost_hold), column_portion_hold: str(self.portion_hold), column_averagae_price: str(self.average)}, {column_code : self.code})
 
     def setup_buytable(self):
         if not self.sqldb.isExistTable(self.buy_table) :

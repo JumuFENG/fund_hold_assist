@@ -74,6 +74,13 @@ class User():
             uf = UserFund(self, c)
             uf.update_history()
 
+    def forget_fund(self, code):
+        sqldb = self.fund_center_db()
+        if not sqldb.isExistTable(self.funds_info_table()) or not sqldb.isExistTableColumn(self.funds_info_table(), column_keepeyeon):
+            return
+
+        sqldb.update(self.funds_info_table(), {column_keepeyeon:str(0)}, {column_code: str(code)})
+
     def confirm_buy_sell(self):
         sqldb = self.fund_center_db()
         if not sqldb.isExistTable(self.funds_info_table()):
@@ -99,7 +106,7 @@ class User():
         for (c, ) in fund_codes:
             uf = UserFund(self, c)
             fund_json_obj = None
-            if uf.still_hold():
+            if uf.still_hold() and uf.keep_eye_on:
                 fund_json_obj = uf.get_fund_summary()
 
             if fund_json_obj:
@@ -152,7 +159,7 @@ class User():
         funds_holding = []
         for (c, ) in fund_codes:
             uf = UserFund(self, c)
-            if uf.cost_hold and uf.average:
+            if uf.keep_eye_on and uf.still_hold():
                 funds_holding.append(c)
 
         for c in funds_holding:

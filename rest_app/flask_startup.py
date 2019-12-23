@@ -225,6 +225,23 @@ def fund_hist_data():
         else:
             return "Error", 500
 
+@app.route('/fundmisc', methods=['GET', 'POST'])
+def fundmisc():
+    if not session.get('logged_in'):
+        return "Please login."
+
+    gen_db = SqlHelper(password = db_pwd, database = "general")
+    usermodel = UserModel(gen_db)
+    user = usermodel.user_by_email(session['useremail'])
+    if request.method == 'POST':
+        code = request.form.get("code", type=str, default=None)
+        action = request.form.get("action", type=str, default=None)
+        if action == 'forget':
+            user.forget_fund(code)
+        return "OK", 200
+    else:
+        return "Not implement yet", 403
+
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
     if not session.get('logged_in'):

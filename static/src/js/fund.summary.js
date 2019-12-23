@@ -392,6 +392,26 @@ function createGeneralInfoInSingleRow(code) {
     hold_detail.appendChild(createBudgetsTable(code));
     hold_detail.appendChild(createRollinsTable(code));
     hold_detail.appendChild(createSellInfoTable(code));
+    if (funddata.avp == 0 && funddata.cost == 0) {
+        var forgetBtn = document.createElement("button");
+        forgetBtn.textContent = "不再关注";
+        forgetBtn.onclick = function(e) {
+            var code = e.target.parentElement.id.split('_').pop();
+            var httpRequest = new XMLHttpRequest();
+            httpRequest.open('POST', '../../fundmisc', true);
+            var request = new FormData();
+            request.append("code", code);
+            request.append("action", "forget");
+            httpRequest.send(request);
+
+            httpRequest.onreadystatechange = function () {
+                if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                    location.reload();
+                }
+            }
+        }
+        hold_detail.appendChild(forgetBtn);
+    }
 
     general_root.appendChild(hold_detail);
 

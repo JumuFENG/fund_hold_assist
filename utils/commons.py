@@ -49,6 +49,7 @@ column_cost_hold = "cost_hold"
 column_portion_hold = "portion_hold"
 column_averagae_price = "aver_price"
 column_budget_table = "invest_budget"
+column_keepeyeon = "keep_eye"
 
 column_date = "date"
 column_net_value = "net_value"
