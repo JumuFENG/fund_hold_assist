@@ -207,6 +207,13 @@ def fundsummary():
         uf.confirm_buy_sell()
         return json.dumps(uf.get_fund_summary())
 
+def update_history(code, email):
+    gen_db = SqlHelper(password = db_pwd, database = "general")
+    usermodel = UserModel(gen_db)
+    user = usermodel.user_by_email(email)
+    uf = UserFund(user, code)
+    uf.update_history()
+
 @app.route('/fundhist', methods=['GET'])
 def fund_hist_data():
     if request.method == 'GET':
@@ -216,7 +223,10 @@ def fund_hist_data():
         sqldb = SqlHelper(password = db_pwd, database = "fund_center")
         if ftype == "fund":
             fg = FundGeneral(sqldb, code)
-            return json.dumps(fg.get_fund_hist_data())
+            hist_data = fg.get_fund_hist_data()
+            if session.get('logged_in') and not hist_data:
+                update_history(code, session['useremail'])
+            return json.dumps(hist_data)
         elif ftype == "index":
             if code.startswith("sz"):
                 code = code[2:]

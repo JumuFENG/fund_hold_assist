@@ -31,7 +31,7 @@ daemon = False   # 是否后台运行
 
 debug = False
 
-timeout = 5   # server端的请求超时秒数
+timeout = 300   # server端的请求超时秒数
 
 loglevel = 'error'
 
