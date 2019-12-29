@@ -47,19 +47,19 @@ class FundDetail {
             detailpage.showSingleBuyTable(e.target.bindContent);
         }
         this.navUl.appendChild(showBuyTableBtn);
-        var buyTable = document.createElement("table");
-        showBuyTableBtn.bindContent = buyTable;
-        this.contentDiv.appendChild(buyTable);
+        var buyDiv = document.createElement("div");
+        showBuyTableBtn.bindContent = buyDiv;
+        this.contentDiv.appendChild(buyDiv);
 
-        var showBuyTableBtn = document.createElement("li");
-        showBuyTableBtn.textContent = "卖出记录";
-        showBuyTableBtn.onclick = function(e) {
+        var showSellTableBtn = document.createElement("li");
+        showSellTableBtn.textContent = "卖出记录";
+        showSellTableBtn.onclick = function(e) {
             detailpage.switchContentTo(e.target);
             detailpage.showSingleSellTable(e.target.bindContent);
         }
-        this.navUl.appendChild(showBuyTableBtn);
+        this.navUl.appendChild(showSellTableBtn);
         var sellTable = document.createElement("table");
-        showBuyTableBtn.bindContent = sellTable;
+        showSellTableBtn.bindContent = sellTable;
         this.contentDiv.appendChild(sellTable);
 
         var showTotalChartBtn = document.createElement("li");
@@ -87,26 +87,122 @@ class FundDetail {
         }
         t.bindContent.style.display = "block";
     }
+    
+    sellByDateClicked(buyTable) {
+        utils.deleteAllRows(buyTable);
+        var checkAll = document.createElement('input');
+        checkAll.type = 'checkbox';
+        checkAll.value = 'detail_buy_row_' + this.code;
+        checkAll.onclick = function(e) {
+            document.getElementsByName(e.target.value).forEach(function(c){
+                c.checked = e.target.checked;
+            });
+            detailpage.buyDateCheckClicked(e.target.value);
+        }
+        var checkAllDiv = document.createElement('div');
+        checkAllDiv.appendChild(checkAll);
+        checkAllDiv.appendChild(document.createTextNode('全选'));
+        buyTable.appendChild(utils.createHeaders(checkAllDiv, '金额', '净值'));
+        var buyrecs = ftjson[this.code].buy_table;
+        for (var i = 0; i < buyrecs.length; i++) {
+            if (buyrecs[i].sold == 0) {
+                var checkDate = document.createElement('input');
+                checkDate.type = 'checkbox';
+                checkDate.name = 'detail_buy_row_' + this.code;
+                checkDate.value = buyrecs[i].ptn;
+                checkDate.checked = false;
+                checkDate.onclick = function(e) {
+                    detailpage.buyDateCheckClicked(e.target.name);
+                }
+                var checkDiv = document.createElement('div');
+                checkDiv.appendChild(checkDate);
+                checkDiv.appendChild(document.createTextNode(utils.date_by_delta(buyrecs[i].date)));
+                
+                buyTable.appendChild(utils.createColsRow(checkDiv, buyrecs[i].cost, buyrecs[i].nv ? buyrecs[i].nv : 'null'));
+            };
+        };
+    }
+    
+    buyDateCheckClicked(checkname) {
+        var checkedboxes = document.getElementsByName(checkname);
+        var portion = 0;
+        var dates = '';
+        var days = 0;
+        checkedboxes.forEach(function(d){
+            if (d.checked) {
+                portion += parseFloat(d.value);
+                dates += d.nextSibling.data;
+                days ++;
+            }
+        });
+        
+        var sellBtn = document.getElementById('detail_sell_btn_' + this.code);
+        sellBtn.style.display = portion === Math.NaN ? 'none' : 'inline';
+        var sellContent = document.getElementById('detail_sell_div_' + this.code);
+        sellContent.textContent = '共' + days + '天, 份额：' + portion.toFixed(4);
+        sellContent.value = dates;
+    }
+    
+    onSellBtnClicked() {
+        var sellContent = document.getElementById('detail_sell_div_' + this.code);
+        var sellDatePicker = document.getElementById('detail_sell_datepick_' + this.code);
+        if (sellContent.value != '') {
+            sellFund(this.code, sellDatePicker.value, sellContent.value);
+        }
+    }
 
-    showSingleBuyTable(buyTable) {
+    showSingleBuyTable(buyDiv) {
         if (this.buytable_code == null && this.code == null) {
             return;
         };
         if (this.buytable_code == this.code) {
             return;
         };
-        utils.deleteAllRows(buyTable);
+        
+        utils.removeAllChild(buyDiv);
         this.buytable_code = this.code;
         if (!this.code || ftjson[this.code].buy_table === undefined) {
             return;
         };
-        buyTable.appendChild(utils.createHeaders('买入日期', '金额', '净值'))
+        
+        var sellByDateBtn = document.createElement('button');
+        sellByDateBtn.textContent = '按日期卖出';
+        sellByDateBtn.onclick = function(e) {
+            var buyTable = e.target.parentElement.getElementsByTagName('table')[0];
+            detailpage.sellByDateClicked(buyTable);
+        }
+        
+        buyDiv.appendChild(sellByDateBtn);
+        
+        var buyTable = document.createElement('table');
+        buyTable.appendChild(utils.createHeaders('买入日期', '金额', '净值'));
         var buyrecs = ftjson[this.code].buy_table;
         for (var i = 0; i < buyrecs.length; i++) {
             if (buyrecs[i].sold == 0) {
-                buyTable.appendChild(utils.createColsRow(utils.date_by_delta(buyrecs[i].date), buyrecs[i].cost, buyrecs[i].nv));
+                buyTable.appendChild(utils.createColsRow(utils.date_by_delta(buyrecs[i].date), buyrecs[i].cost, buyrecs[i].nv ? buyrecs[i].nv : 'null'));
             };
         };
+        
+        buyDiv.appendChild(buyTable);
+        
+        var sellPanel = document.createElement('div');
+        var sellContent = document.createElement('div');
+        sellContent.id = 'detail_sell_div_' + this.code;
+        sellPanel.appendChild(sellContent);
+        var sellDatepicker = document.createElement('input');
+        sellDatepicker.type = 'date';
+        sellDatepicker.id = 'detail_sell_datepick_' + this.code;
+        sellDatepicker.value = utils.getTodayDate();
+        sellPanel.appendChild(sellDatepicker);
+        var sellBtn = document.createElement('button');
+        sellBtn.textContent = '卖出';
+        sellBtn.id = 'detail_sell_btn_' + this.code;
+        sellBtn.onclick = function(e) {
+            detailpage.onSellBtnClicked();
+        }
+        sellPanel.appendChild(sellBtn);
+        
+        buyDiv.appendChild(sellPanel);
     }
 
     editActualSold(actualBox) {

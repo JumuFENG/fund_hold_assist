@@ -145,7 +145,11 @@ class Utils {
         var tr = document.createElement('tr');
         for (var i = 0; i < hs.length; i++) {
             var th = document.createElement('th');
-            th.appendChild(document.createTextNode(hs[i]));
+            if ('object' != typeof(hs[i])) {
+                th.appendChild(document.createTextNode(hs[i]));
+            } else {
+                th.appendChild(hs[i]);
+            }
             tr.appendChild(th);
         };
         return tr;
@@ -195,6 +199,12 @@ class Utils {
     deleteAllRows(tbl) {
         for (var idx = tbl.rows.length - 1; idx >= 0; idx--) {
             tbl.deleteRow(idx);
+        }
+    }
+    
+    removeAllChild(ele) {
+        while(ele.hasChildNodes()) {
+            ele.removeChild(ele.lastChild);
         }
     }
 

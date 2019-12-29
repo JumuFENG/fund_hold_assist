@@ -591,9 +591,7 @@ function BuyRecordSelected(buyrec, code) {
     var selectDiv = document.getElementById("chart_selected_data");
     var selectedCode = selectDiv.selectedData ? selectDiv.selectedData.code: null;
     if (!selectedCode || selectedCode != code) {
-        while(selectDiv.hasChildNodes()) {
-            selectDiv.removeChild(selectDiv.lastChild);
-        }
+        utils.removeAllChild(selectDiv);
         selectDiv.selectedData = null;
         selectedCode = null;
     };
