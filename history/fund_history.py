@@ -53,6 +53,10 @@ class AllFunds():
             self.sqldb.addColumn(gl_all_funds_info_table, column_shortterm_rate, 'varchar(10) DEFAULT NULL')
         if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_table_history):
             self.sqldb.addColumn(gl_all_funds_info_table, column_table_history, 'varchar(20) DEFAULT NULL')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_qdii):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_qdii, 'tinyint(1) DEFAULT 0')
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_tracking_index):
+            self.sqldb.addColumn(gl_all_funds_info_table, column_tracking_index, 'varchar(10) DEFAULT NULL')
 
     def set_pre_buy_fee(self, code, fee):
         self.sqldb.update(gl_all_funds_info_table, {column_fee:str(fee)}, {column_code: code})
@@ -298,6 +302,15 @@ class AllFunds():
                 trs = []
                 soup = None
         driver.quit()
+
+    def updateIsQDII(self):
+        v = self.sqldb.select(gl_all_funds_info_table, [column_code, column_name, column_type])
+        for (c, n, t) in v:
+            if (n and 'QDII' in n.upper()) or (t and 'QDII' in t.upper()):
+                self.sqldb.update(gl_all_funds_info_table, {column_qdii:'1'}, {column_code: c})
+
+    def updateTrackIndex(self, code, index):
+        self.sqldb.update(gl_all_funds_info_table, {column_tracking_index: index}, {column_code: code})
 
 class FundHistoryDataDownloader():
     """
