@@ -248,8 +248,20 @@ def fundmisc():
         action = request.form.get("action", type=str, default=None)
         if action == 'forget':
             user.forget_fund(code)
+        elif action == 'trackindex':
+            icode = request.form.get("trackcode", type=str, default=None)
+            uf = UserFund(user, code)
+            uf.update_tracking_index(icode)
         return "OK", 200
     else:
+        actype = request.args.get("action", type=str, default=None)
+        code = request.args.get("code", type=str, default=None)
+        if actype == 'trackindex':
+            if user.is_admin():
+                return "OK", 200
+            uf = UserFund(user, code)
+            if uf.track_index_empty():
+                return "OK", 200
         return "Not implement yet", 403
 
 @app.route('/dashboard', methods=['GET'])

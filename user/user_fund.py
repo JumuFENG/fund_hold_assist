@@ -417,3 +417,14 @@ class UserFund():
             fund_json_obj["in"] = ig.name
 
         return fund_json_obj
+
+    def update_tracking_index(self, index_code):
+        af = AllFunds(self.sqldb)
+        af.updateTrackIndex(self.code, index_code)
+
+    def track_index_empty(self):
+        tc = self.sqldb.select(gl_all_funds_info_table, [column_tracking_index], "%s = '%s'" % (column_code, self.code))
+        if tc:
+            (tc,), = tc
+            return not tc
+        return True

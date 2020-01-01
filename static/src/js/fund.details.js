@@ -10,8 +10,7 @@ function showFundDetailPage (detailparent) {
     document.getElementById('funds_list_container').style.display = 'none';
     detailpage.container.style.display = 'block';
     detailpage.code = detailparent.id.split("_").pop();
-    detailpage.switchContentTo(detailpage.navUl.firstChild);
-    detailpage.showSingleBuyTable(detailpage.navUl.firstChild.bindContent);
+    detailpage.navUl.firstChild.click();
 }
 
 function BackToList() {
@@ -25,6 +24,7 @@ class FundDetail {
         this.code = null;
         this.navUl = null;
         this.contentDiv = null;
+        this.basic_code = null;
         this.buytable_code = null;
         this.selltable_code = null;
     }
@@ -39,6 +39,17 @@ class FundDetail {
         this.container.appendChild(document.createElement("br"));
         this.container.appendChild(document.createElement("hr"));
         this.container.appendChild(this.contentDiv);
+        
+        var fundbasicBtn = document.createElement("li");
+        fundbasicBtn.textContent = "概况";
+        fundbasicBtn.onclick = function(e) {
+            detailpage.switchContentTo(e.target);
+            detailpage.showBasicInfo(e.target.bindContent);
+        }
+        this.navUl.appendChild(fundbasicBtn);
+        var basicDiv = document.createElement("div");
+        fundbasicBtn.bindContent = basicDiv;
+        this.contentDiv.appendChild(basicDiv);
     
         var showBuyTableBtn = document.createElement("li");
         showBuyTableBtn.textContent = "买入记录";
@@ -86,6 +97,79 @@ class FundDetail {
             sibling = sibling.nextElementSibling;
         }
         t.bindContent.style.display = "block";
+    }
+    
+    setTrackingIndex(trackDiv) {
+        var trackInput = trackDiv.getElementsByTagName('input')[0];
+
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('POST', '../../fundmisc', true);
+        var request = new FormData();
+        request.append("code", this.code);
+        request.append("action", "trackindex");
+        request.append("trackcode", trackInput.value);
+        httpRequest.send(request);
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                detailpage.showTrackingInfo(trackDiv);
+            }
+        }
+    }
+    
+    enableEditTrackingIndex(trackDiv) {
+        utils.removeAllChild(trackDiv);
+        trackDiv.appendChild(document.createTextNode('请输入指数代码：'));
+        var trackInput = document.createElement('input');
+        var setTrackBtn = document.createElement('button');
+        setTrackBtn.textContent = '确定';
+        setTrackBtn.onclick = function(e) {
+            detailpage.setTrackingIndex(e.target.parentElement);
+        }
+        trackDiv.appendChild(trackInput);
+        trackDiv.appendChild(setTrackBtn);
+    }
+    
+    showTrackingInfo(trackDiv) {
+        utils.removeAllChild(trackDiv);
+        trackDiv.appendChild(document.createTextNode('跟踪指数: '));
+        trackDiv.fundcode = this.code;
+        if (ftjson[this.code].ic) {
+            trackDiv.appendChild(document.createTextNode(ftjson[this.code].in));
+        }
+        var trackEdit = document.createElement('button');
+        trackEdit.textContent = '修改';
+        trackEdit.onclick = function(e) {
+            var httpRequest = new XMLHttpRequest();
+            httpRequest.open('GET', '../../fundmisc?action=trackindex&code=' + e.target.parentElement.fundcode, true);
+            httpRequest.send();
+
+            httpRequest.onreadystatechange = function () {
+                if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                    detailpage.enableEditTrackingIndex(e.target.parentElement);
+                }
+            }
+        }
+        trackDiv.appendChild(trackEdit);
+    }
+    
+    showBasicInfo(basicDiv) {
+        if (this.basic_code == null && this.code == null) {
+            return;
+        };
+        if (this.basic_code == this.code) {
+            return;
+        };
+        
+        utils.removeAllChild(basicDiv);
+        this.basic_code = this.code;
+        if (!this.code || !ftjson[this.code]) {
+            return;
+        };
+        
+        var trackDiv = document.createElement('div');
+        this.showTrackingInfo(trackDiv);
+        basicDiv.appendChild(trackDiv);
     }
     
     sellByDateClicked(buyTable) {

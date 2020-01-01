@@ -21,6 +21,9 @@ class User():
             self.funddb = SqlHelper(password = db_pwd, database = "fund_center")
         return self.funddb
 
+    def is_admin(self):
+        return self.id == 11
+
     def funds_info_table(self):
         return "u"+ str(self.id) + "_" + gl_fund_info_table
 
