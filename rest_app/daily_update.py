@@ -27,11 +27,21 @@ class DailyUpdater():
             print("it is Holiday, no data to update.", strtoday)
             return
 
-        fundcodes = self.sqldb.select(gl_all_funds_info_table, [column_code, column_table_history], " %s is not null" % column_table_history)
+        morningOnetime = False
+        if datetoday.hour < 12:
+            morningOnetime = True
+            print("update in the morning at", datetoday.hour)
+
+        fundcodes = self.sqldb.select(gl_all_funds_info_table, [column_code, column_table_history, column_qdii], " %s is not null" % column_table_history)
         if fundcodes :
-            for (c, h) in fundcodes:
-                if self.should_update(h):
-                    self.download_all_fund_history(c)
+            for (c, h, qd) in fundcodes:
+                if (morningOnetime and qd) or not ( morningOnetime or qd) :
+                    if self.should_update(h):
+                        self.download_all_fund_history(c)
+
+        if not morningOnetime:
+            print("index and gold only update in the morning")
+            return
 
         indexcodes = self.sqldb.select(gl_index_info_table, fields=[column_code, column_table_history])
         if indexcodes:
