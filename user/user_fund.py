@@ -411,4 +411,9 @@ class UserFund():
         fund_json_obj["lde"] = self.last_day_earned(fg.history_table) # last_day_earned
         fund_json_obj["ewh"] = round((float(fg.latest_netvalue()) - float(self.average)) * float(self.portion_hold), 2) # earned_while_holding
 
+        if fg.index_code:
+            fund_json_obj["ic"] = 'sz' + fg.index_code # index_code
+            ig = IndexGeneral(self.sqldb, fg.index_code)
+            fund_json_obj["in"] = ig.name
+
         return fund_json_obj

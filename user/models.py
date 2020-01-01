@@ -151,8 +151,6 @@ class User():
             print("can not find fund info DB.")
             return
 
-        ig = IndexGeneral(sqldb, "000001")
-        all_hist_data = ig.get_index_hist_data()
 
         fund_codes = sqldb.select(self.funds_info_table(), [column_code])
 
@@ -162,10 +160,19 @@ class User():
             if uf.keep_eye_on and uf.still_hold():
                 funds_holding.append(c)
 
+        indexs_holding = set()
+        all_hist_data = []
         for c in funds_holding:
             fg = FundGeneral(sqldb, c)
+            if fg.index_code:
+                indexs_holding.add(fg.index_code)
             fund_his_data = fg.get_fund_hist_data()
             all_hist_data = self.merge_hist_data(all_hist_data, fund_his_data)
+            
+        for c in indexs_holding:
+            ig = IndexGeneral(sqldb, c)
+            index_his_data = ig.get_index_hist_data()
+            all_hist_data = self.merge_hist_data(all_hist_data, index_his_data)
 
         return all_hist_data
 

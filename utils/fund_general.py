@@ -10,14 +10,28 @@ class FundGeneral():
     def __init__(self, sqldb, code):
         self.sqldb = sqldb
 
-        generals = self.sqldb.select(gl_all_funds_info_table, "*", "%s = '%s'" % (column_code, code))
-        (i, self.code, self.name, self.fund_url, ftype, risklvl, amount, setup_date, star, self.summery_url, pre_buy_fee, shzq, zszq, jajx, num5star, mstar3, mstar5, self.short_term_rate, self.history_table), = generals
+        fgs = self.sqldb.select(gl_all_funds_info_table, "*", "%s = '%s'" % (column_code, code))
+        fgs, = fgs
+        self.code = fgs[1];
+        self.name = fgs[2];
+        self.fund_url = fgs[3];
+        self.summery_url = fgs[9];
+        pre_buy_fee = fgs[10];
+        self.pre_buy_fee = 0;
+        if pre_buy_fee:
+            self.pre_buy_fee = float(pre_buy_fee.strip('%')) / 100
+        self.short_term_rate = fgs[17]
+        self.history_table = fgs[18]
         if not self.history_table:
             self.history_table = "f_his_" + self.code
             self.sqldb.update(gl_all_funds_info_table, {column_table_history: self.history_table}, {column_code:self.code});
-        self.pre_buy_fee = 0
-        if pre_buy_fee:
-            self.pre_buy_fee = float(pre_buy_fee.strip('%')) / 100
+        self.qdii = fgs[19]
+        index_code = None
+        if not fgs[20]:
+            index_code = '000001'
+        elif len(fgs[20]) == 6:
+            index_code = fgs[20]
+        self.index_code = index_code
 
     def netvalue_by_date(self, date):
         if not date:

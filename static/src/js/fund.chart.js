@@ -502,10 +502,12 @@ google.charts.setOnLoadCallback(function(){
 
 function DrawFundHistory(fundcode) {
     document.getElementById("chart_interaction").style.display = "none";
-    chart.fund = fundcode == "000217" ?
-        new FundLine(fundcode, ftjson[fundcode]['name']):
-        new FundLine(fundcode, ftjson[fundcode]['name'], 'sz000001', '上证指数');
+    chart.fund = new FundLine(fundcode, ftjson[fundcode].name, ftjson[fundcode].ic, ftjson[fundcode].in);
 
+    if (chart.fund.indexCode && ( all_hist_data.length == 0 || all_hist_data[0].indexOf(chart.fund.indexCode) < 0)) {
+        getHistoryData(chart.fund.indexCode, 'index');
+    }
+    
     if (all_hist_data.length == 0 || all_hist_data[0].indexOf(fundcode) < 0) {
         getHistoryData(fundcode, 'fund');
         return;
