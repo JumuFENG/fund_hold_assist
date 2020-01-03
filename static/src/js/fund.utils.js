@@ -159,7 +159,7 @@ class Utils {
         var row = document.createElement("tr");
         for (var i = 0; i < c.length; i++) {
             var col = document.createElement("td");
-            if ('object' != typeof(c[i])) {
+            if ('object' != typeof(c[i]) || !c[i]) {
                 col.appendChild(document.createTextNode(c[i]));
             } else {
                 col.appendChild(c[i]);

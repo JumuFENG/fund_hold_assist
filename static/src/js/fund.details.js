@@ -138,7 +138,7 @@ class FundDetail {
             trackDiv.appendChild(document.createTextNode(ftjson[this.code].in));
         }
         var trackEdit = document.createElement('button');
-        trackEdit.textContent = '修改';
+        trackEdit.textContent = ftjson[this.code].ic ? '更改' : '设置';
         trackEdit.onclick = function(e) {
             var httpRequest = new XMLHttpRequest();
             httpRequest.open('GET', '../../fundmisc?action=trackindex&code=' + e.target.parentElement.fundcode, true);
@@ -263,7 +263,7 @@ class FundDetail {
         var buyrecs = ftjson[this.code].buy_table;
         for (var i = 0; i < buyrecs.length; i++) {
             if (buyrecs[i].sold == 0) {
-                buyTable.appendChild(utils.createColsRow(utils.date_by_delta(buyrecs[i].date), buyrecs[i].cost, buyrecs[i].nv ? buyrecs[i].nv : 'null'));
+                buyTable.appendChild(utils.createColsRow(utils.date_by_delta(buyrecs[i].date), buyrecs[i].cost, buyrecs[i].nv));
             };
         };
         
