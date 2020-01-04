@@ -220,10 +220,12 @@ class FundDetail {
             }
         });
         
+        portion = utils.convertPortionToGram(portion, ftjson[this.code].ppg);
+        
         var sellBtn = document.getElementById('detail_sell_btn_' + this.code);
         sellBtn.style.display = portion === Math.NaN ? 'none' : 'inline';
         var sellContent = document.getElementById('detail_sell_div_' + this.code);
-        sellContent.textContent = '共' + days + '天, 份额：' + portion.toFixed(4);
+        sellContent.textContent = '' + days + '天, 共：' + portion.toFixed(4);
         sellContent.value = dates;
     }
     
