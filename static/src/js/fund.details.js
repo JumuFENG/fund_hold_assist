@@ -316,18 +316,20 @@ class FundDetail {
     createActualSoldCell(acs, selldate) {
         var actual_sold_cell = document.createElement('div');
         var acsNode = document.createTextNode(acs);
-        var edit_btn = document.createElement("button");
-        edit_btn.textContent = '修改';
-        var edit_box = document.createElement('input');
-        edit_box.style.maxWidth = '80px';
-        edit_box.style.display = 'none';
-        edit_btn.onclick = function(e) {
-            detailpage.editActualSold(e.target.parentElement);
+        actual_sold_cell.appendChild(acsNode);
+        if (acs == 0) {
+            var edit_btn = document.createElement("button");
+            edit_btn.textContent = '修改';
+            var edit_box = document.createElement('input');
+            edit_box.style.maxWidth = '80px';
+            edit_box.style.display = 'none';
+            edit_btn.onclick = function(e) {
+                detailpage.editActualSold(e.target.parentElement);
+            }
+            actual_sold_cell.appendChild(edit_box);
+            actual_sold_cell.appendChild(edit_btn);
         }
         actual_sold_cell.setAttribute('date', selldate);
-        actual_sold_cell.appendChild(acsNode);
-        actual_sold_cell.appendChild(edit_box);
-        actual_sold_cell.appendChild(edit_btn);
         return actual_sold_cell
     }
     
@@ -404,17 +406,21 @@ class FundDetail {
         if (this.chart) {
             this.chart.code = this.code;
         } else {
-            this.chart = new EarnedChart(this.code, totalChart);
+            var chart_div = document.createElement('div');
+            totalChart.appendChild(chart_div);
+            var chart_cost_div = document.createElement('div');
+            totalChart.appendChild(chart_cost_div);
+            this.chart = new EarnedChart(this.code, chart_div, chart_cost_div);
         }
         this.chart.drawChart();
     }
 };
 
 class EarnedChart {
-    constructor(code, chart_div) {
+    constructor(code, chart_div, chart_cost_div) {
         this.code = code;
         this.chart = new google.visualization.LineChart(chart_div);
-        this.data = null;
+        this.chart_cost = new google.visualization.LineChart(chart_cost_div);
     }
 
     createChartOption() {
@@ -435,12 +441,10 @@ class EarnedChart {
             },
             series: {
                 0: {
-                    targetAxisIndex: 0,
-                    pointSize: 1
+                    targetAxisIndex: 0
                 },
                 1: {
-                    targetAxisIndex: 1,
-                    lineWidth: 1
+                    targetAxisIndex: 1
                 }
             }
         };
@@ -474,8 +478,13 @@ class EarnedChart {
         data.addColumn({type: 'string', role: 'tooltip'});
         data.addColumn('number', '理论收益率');
         data.addColumn({type: 'string', role: 'tooltip'});
+        
+        var data_cost = new google.visualization.DataTable();
+        data_cost.addColumn('string', '日期');
+        data_cost.addColumn('number', '持有成本');
 
         var rows = [];
+        var rows_cost = [];
         var len = all_hist_data.length;
         var valIdx = all_hist_data[0].indexOf(this.code) * 2 - 1;
         var grIdx = valIdx + 1;
@@ -490,6 +499,7 @@ class EarnedChart {
             var date = all_hist_data[i][0];
             var strDate = utils.date_by_delta(date)
             var r = [strDate];
+            var r2 = [strDate];
 
             earned += fixedMoney * (parseFloat(all_hist_data[i][grIdx]))/100;
             fixedMoney = fixedMoney * (100 + parseFloat(all_hist_data[i][grIdx]))/100;
@@ -516,6 +526,9 @@ class EarnedChart {
                     fixedMoney -= sellrec.ptn * all_hist_data[i][valIdx];
                 };
             };
+            r2.push(cost);
+            rows_cost.push(r2);
+            
             days++;
             costAll += cost;
             var tooltip = strDate + "\n累计收益: " + earned.toFixed(2);
@@ -538,6 +551,8 @@ class EarnedChart {
 
         data.addRows(rows);
         this.data = data;
+        data_cost.addRows(rows_cost);
+        this.data_cost = data_cost;
     }
 
     drawChart() {
@@ -547,10 +562,18 @@ class EarnedChart {
         if (this.data) {
             this.chart.draw(this.data, this.options);
         };
+        if (this.data_cost) {
+            this.chart_cost.draw(this.data_cost, this.options);
+        }
     }
 
     clearChart() {
-        this.chart.draw(null, null);
+        if (this.chart) {
+            this.chart.draw(null, null);
+        }
+        if (this.chart_cost) {
+            this.chart_cost.draw(null, null);
+        }
     }
 };
 
