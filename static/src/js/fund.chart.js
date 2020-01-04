@@ -88,6 +88,7 @@ class FundChart {
 
         this.options = {
             title: this.fund.name,
+            legend: { position: 'top' },
             width: '100%',
             height: '100%',
             crosshair: { trigger: 'both', opacity: 0.5},

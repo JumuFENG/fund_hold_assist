@@ -132,6 +132,8 @@ class FundDetail {
     
     showTrackingInfo(trackDiv) {
         utils.removeAllChild(trackDiv);
+        trackDiv.appendChild(document.createTextNode(ftjson[this.code].name ));
+        trackDiv.appendChild(document.createElement('br'));
         trackDiv.appendChild(document.createTextNode('跟踪指数: '));
         trackDiv.fundcode = this.code;
         if (ftjson[this.code].ic) {
@@ -170,6 +172,24 @@ class FundDetail {
         var trackDiv = document.createElement('div');
         this.showTrackingInfo(trackDiv);
         basicDiv.appendChild(trackDiv);
+        
+        if (this.historyChart) {
+            if (this.historyChart.code == this.code) {
+                return;
+            }
+            this.historyChart.clearChart();
+        }
+        
+        if (this.code == null || all_hist_data[0].indexOf(this.code) == -1) {
+            return;
+        }
+        
+        if (this.historyChart) {
+            this.historyChart.code = this.code;
+        } else {
+            this.historyChart = new HistoryStatisticChart(this.code, basicDiv);
+        }
+        this.historyChart.drawChart();
     }
     
     sellByDateClicked(buyTable) {
@@ -223,7 +243,7 @@ class FundDetail {
         portion = utils.convertPortionToGram(portion, ftjson[this.code].ppg);
         
         var sellBtn = document.getElementById('detail_sell_btn_' + this.code);
-        sellBtn.style.display = portion === Math.NaN ? 'none' : 'inline';
+        sellBtn.style.display = Number.isNaN(portion) ? 'none' : 'inline';
         var sellContent = document.getElementById('detail_sell_div_' + this.code);
         sellContent.textContent = '' + days + '天, 共：' + portion.toFixed(4);
         sellContent.value = dates;
@@ -433,6 +453,7 @@ class EarnedChart {
             width: '100%',
             height: '100%',
             crosshair: { trigger: 'both', opacity: 0.5},
+            legend: { position: 'top'},
             hAxis: {
                 slantedText:true,
                 slantedTextAngle:-30
@@ -578,6 +599,98 @@ class EarnedChart {
         if (this.chart_cost) {
             this.chart_cost.draw(null, null);
         }
+    }
+};
+
+class HistoryStatisticChart {
+    constructor(code, chart_div) {
+        this.code = code;
+        this.basicDiv = chart_div;
+    }
+
+    createChartOption(charName, bsize) {
+        return {
+            title: charName,
+            legend: { position: 'none' },
+            histogram: {
+                bucketSize: bsize,
+                maxNumBuckets: 200,
+                lastBucketPercentile: 2
+            },
+            hAxis: {
+                slantedText:true,
+                slantedTextAngle:-30
+            },
+            width: '100%'
+        };
+    }
+    
+    createDataTable() {
+        var valIdx = all_hist_data[0].indexOf(this.code) * 2 - 1;
+        var startIdx = 1;
+        for (var i = 1; i < all_hist_data.length; ++i) {
+            var val = all_hist_data[i][valIdx];
+            if (val != '') {
+                startIdx = i;
+                break;
+            }
+        }
+        var vals = [];
+        var grs = [];
+        for (var i = startIdx; i <  all_hist_data.length; ++i) {
+            var val = parseFloat(all_hist_data[i][valIdx]);
+            if (!Number.isNaN(val)) {
+                vals.push(val);
+            }
+            var gr = parseFloat(all_hist_data[i][valIdx + 1]);
+            if (Number.isNaN(gr)) {
+                gr = 0;
+            }
+            grs.push(gr);
+        }
+        vals.sort(function(l,g) {
+            return l - g;
+        });
+        grs.sort(function(l,g) {
+            return l - g;
+        });
+
+        this.nvData = this.createSingleDataTable(vals);
+        this.grData = this.createSingleDataTable(grs);
+    }
+    
+    createSingleDataTable(vals) {
+        var data = new google.visualization.DataTable();
+        data.addColumn('number');
+
+        var rows = [];
+        for (var i = 0; i < vals.length; i++) {
+            rows.push( [vals[i]]);
+        };
+        data.addRows(rows);
+        return data;
+    }
+    
+    drawChart() {
+        var nv_div = document.createElement('div');
+        this.basicDiv.appendChild(nv_div);
+        var gr_div = document.createElement('div');
+        this.basicDiv.appendChild(gr_div);
+        var nvChart = new google.visualization.Histogram(nv_div); //new google.charts.Bar(nv_div);
+        var grChart = new google.visualization.Histogram(gr_div);
+
+        this.createDataTable();
+
+        if (this.nvData) {
+            nvChart.draw(this.nvData, this.createChartOption('净值分布', 0.01));
+        };
+        if (this.grData) {
+            grChart.draw(this.grData, this.createChartOption('日涨幅分布(%)',0.1));
+        };
+    }
+    
+    clearChart() {
+        utils.removeAllChild(this.basicDiv);
     }
 };
 
