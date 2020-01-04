@@ -409,8 +409,10 @@ class FundDetail {
             this.chart.code = this.code;
         } else {
             var chart_div = document.createElement('div');
+            chart_div.style.marginTop = '5px';
             totalChart.appendChild(chart_div);
             var chart_cost_div = document.createElement('div');
+            chart_cost_div.style.marginTop = '5px';
             totalChart.appendChild(chart_cost_div);
             this.chart = new EarnedChart(this.code, chart_div, chart_cost_div);
         }
