@@ -163,33 +163,32 @@ class FundDetail {
             return;
         };
         
-        utils.removeAllChild(basicDiv);
         this.basic_code = this.code;
-        if (!this.code || !ftjson[this.code]) {
-            return;
+        if (this.code && ftjson[this.code]) {
+            if (!this.trackDiv) {
+                this.trackDiv = document.createElement('div');
+                basicDiv.appendChild(this.trackDiv);
+            };
+            this.showTrackingInfo(this.trackDiv);
+
+            if (this.historyChart) {
+                if (this.historyChart.code == this.code) {
+                    return;
+                }
+                this.historyChart.clearChart();
+            }
         };
         
-        var trackDiv = document.createElement('div');
-        this.showTrackingInfo(trackDiv);
-        basicDiv.appendChild(trackDiv);
-        
-        if (this.historyChart) {
-            if (this.historyChart.code == this.code) {
-                return;
+        if (this.code && all_hist_data[0].indexOf(this.code) != -1) {
+            if (this.historyChart) {
+                this.historyChart.code = this.code;
+            } else {
+                var chart_div = document.createElement('div');
+                basicDiv.appendChild(chart_div);
+                this.historyChart = new HistoryStatisticChart(this.code, chart_div);
             }
-            this.historyChart.clearChart();
+            this.historyChart.drawChart();
         }
-        
-        if (this.code == null || all_hist_data[0].indexOf(this.code) == -1) {
-            return;
-        }
-        
-        if (this.historyChart) {
-            this.historyChart.code = this.code;
-        } else {
-            this.historyChart = new HistoryStatisticChart(this.code, basicDiv);
-        }
-        this.historyChart.drawChart();
     }
     
     sellByDateClicked(buyTable) {
@@ -605,7 +604,12 @@ class EarnedChart {
 class HistoryStatisticChart {
     constructor(code, chart_div) {
         this.code = code;
-        this.basicDiv = chart_div;
+        var nv_div = document.createElement('div');
+        chart_div.appendChild(nv_div);
+        var gr_div = document.createElement('div');
+        chart_div.appendChild(gr_div);
+        this.nvChart = new google.visualization.Histogram(nv_div); //new google.charts.Bar(nv_div);
+        this.grChart = new google.visualization.Histogram(gr_div);
     }
 
     createChartOption(charName, bsize) {
@@ -672,25 +676,23 @@ class HistoryStatisticChart {
     }
     
     drawChart() {
-        var nv_div = document.createElement('div');
-        this.basicDiv.appendChild(nv_div);
-        var gr_div = document.createElement('div');
-        this.basicDiv.appendChild(gr_div);
-        var nvChart = new google.visualization.Histogram(nv_div); //new google.charts.Bar(nv_div);
-        var grChart = new google.visualization.Histogram(gr_div);
-
         this.createDataTable();
 
         if (this.nvData) {
-            nvChart.draw(this.nvData, this.createChartOption('净值分布', 0.01));
+            this.nvChart.draw(this.nvData, this.createChartOption('净值分布', 0.01));
         };
         if (this.grData) {
-            grChart.draw(this.grData, this.createChartOption('日涨幅分布(%)',0.1));
+            this.grChart.draw(this.grData, this.createChartOption('日涨幅分布(%)',0.1));
         };
     }
     
     clearChart() {
-        utils.removeAllChild(this.basicDiv);
+        if (this.nvChart) {
+            this.nvChart.draw(null, null);
+        };
+        if (this.grChart) {
+            this.grChart.draw(null, null);
+        };
     }
 };
 
