@@ -607,28 +607,17 @@ class HistoryStatisticChart {
         var nv_div = document.createElement('div');
         chart_div.appendChild(nv_div);
         var gr_div = document.createElement('div');
+        this.grTable = document.createElement('table');
+        var gr_chart = document.createElement('div');
+        this.strDiv = document.createElement('div');
+        gr_div.appendChild(this.grTable);
+        gr_div.appendChild(gr_chart);
+        gr_div.appendChild(this.strDiv);
         chart_div.appendChild(gr_div);
-        this.nvChart = new google.visualization.Histogram(nv_div); //new google.charts.Bar(nv_div);
-        this.grChart = new google.visualization.Histogram(gr_div);
+        this.nvChart = new google.visualization.Histogram(nv_div);
+        this.grChart = new google.visualization.Histogram(gr_chart);
     }
 
-    createChartOption(charName, bsize) {
-        return {
-            title: charName,
-            legend: { position: 'none' },
-            histogram: {
-                bucketSize: bsize,
-                maxNumBuckets: 200,
-                lastBucketPercentile: 2
-            },
-            hAxis: {
-                slantedText:true,
-                slantedTextAngle:-30
-            },
-            width: '100%'
-        };
-    }
-    
     createDataTable() {
         var valIdx = all_hist_data[0].indexOf(this.code) * 2 - 1;
         var startIdx = 1;
@@ -659,6 +648,24 @@ class HistoryStatisticChart {
             return l - g;
         });
 
+        this.grTable.appendChild(utils.createColsRow('', grs[0] + '%', grs[grs.length - 1] + '%'));
+        var min1Val = grs[Math.round(grs.length*0.005)];
+        var max1Val = grs[grs.length - 1 - Math.round(grs.length*0.005)];
+        this.grTable.appendChild(utils.createColsRow('99%', ' (' + min1Val + '%, ', max1Val + '%)'));
+        var min5Val = grs[Math.round(grs.length*0.025)];
+        var max5Val = grs[grs.length - 1 - Math.round(grs.length*0.025)];
+        this.grTable.appendChild(utils.createColsRow('95%', ' (' + min5Val + '%, ', max5Val + '%)'));
+        var min10Val = grs[Math.round(grs.length*0.05)];
+        var max10Val = grs[grs.length - 1 - Math.round(grs.length*0.05)];
+        this.grTable.appendChild(utils.createColsRow('90%', ' (' + min10Val + '%, ', max10Val + '%)'));
+        var min20Val = grs[Math.round(grs.length*0.1)];
+        var max20Val = grs[grs.length - 1 - Math.round(grs.length*0.1)];
+        this.grTable.appendChild(utils.createColsRow('80%', ' (' + min20Val + '%, ', max20Val + '%)'));
+        var min40Val = grs[Math.round(grs.length*0.025)];
+        var max40Val = grs[grs.length - 1 - Math.round(grs.length*0.025)];
+        this.grTable.appendChild(utils.createColsRow('60%', ' (' + min40Val + '%, ', max40Val + '%)'));
+
+        this.showShortTermRateInfo(grs[grs.length - 1] - grs[0] >= 10 ? max10Val: max5Val);
         this.nvData = this.createSingleDataTable(vals);
         this.grData = this.createSingleDataTable(grs);
     }
@@ -673,6 +680,37 @@ class HistoryStatisticChart {
         };
         data.addRows(rows);
         return data;
+    }
+    
+    showShortTermRateInfo(srate) {
+        utils.removeAllChild(this.strDiv);
+        this.strDiv.appendChild(document.createTextNode('预期收益率: '));
+        var strInput = document.createElement('input');
+        strInput.style.maxWidth = '55px';
+        strInput.value = srate;
+        this.strDiv.appendChild(strInput);
+        this.strDiv.appendChild(document.createTextNode('%.'));
+        var strBtn = document.createElement('button');
+        strBtn.textContent = '确认修改';
+        this.strDiv.appendChild(strBtn);
+    }
+
+    createChartOption(charName, bsize) {
+        return {
+            title: charName,
+            legend: { position: 'none' },
+            histogram: {
+                bucketSize: bsize,
+                maxNumBuckets: 200,
+                hideBucketItems: true,
+                lastBucketPercentile: 2
+            },
+            hAxis: {
+                slantedText:true,
+                slantedTextAngle:-30
+            },
+            width: '100%'
+        };
     }
     
     drawChart() {
@@ -692,6 +730,9 @@ class HistoryStatisticChart {
         };
         if (this.grChart) {
             this.grChart.draw(null, null);
+        };
+        if (this.grTable) {
+            utils.deleteAllRows(this.grTable);
         };
     }
 };
