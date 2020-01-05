@@ -9,6 +9,7 @@ function showFundDetailPage (detailparent) {
     };
     document.getElementById('funds_list_container').style.display = 'none';
     detailpage.container.style.display = 'block';
+    detailpage.container.scrollIntoView();
     detailpage.code = detailparent.id.split("_").pop();
     detailpage.navUl.firstChild.click();
 }
@@ -16,6 +17,7 @@ function showFundDetailPage (detailparent) {
 function BackToList() {
     detailpage.container.style.display = 'none';
     document.getElementById('funds_list_container').style.display = 'block';
+    document.getElementById('fund_header_' + detailpage.code).scrollIntoView();
 }
 
 class FundDetail {

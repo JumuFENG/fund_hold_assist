@@ -263,6 +263,7 @@ function ToggleFundDetails(divDetail, fund_list_table) {
         var code = divDetail.id.split('_').pop();
         sendFetchEvent(code);
         divDetail.style.display = "block";
+        divDetail.parentElement.scrollIntoView();
 
         var sibling = fund_list_table.firstChild;
         while (sibling != null) {
