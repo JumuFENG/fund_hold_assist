@@ -11,6 +11,7 @@ function showFundDetailPage (detailparent) {
     detailpage.container.style.display = 'block';
     detailpage.container.scrollIntoView();
     detailpage.code = detailparent.id.split("_").pop();
+    detailpage.setDetailPageFundName();
     detailpage.navUl.firstChild.click();
 }
 
@@ -32,11 +33,13 @@ class FundDetail {
     }
 
     createFundDetailFramework() {
+        this.nameDiv = document.createElement('div');
         this.navUl = document.createElement("ul");
         this.navUl.id = 'detailnav';
         var navDiv = document.createElement('div');
         navDiv.appendChild(this.navUl);
         this.contentDiv = document.createElement("div");
+        this.container.appendChild(this.nameDiv);
         this.container.appendChild(navDiv);
         this.container.appendChild(document.createElement("br"));
         this.container.appendChild(document.createElement("hr"));
@@ -100,6 +103,10 @@ class FundDetail {
         }
         t.bindContent.style.display = "block";
     }
+
+    setDetailPageFundName() {
+        this.nameDiv.innerText = ftjson[this.code].name;
+    }
     
     setTrackingIndex(trackDiv) {
         var trackInput = trackDiv.getElementsByTagName('input')[0];
@@ -134,8 +141,6 @@ class FundDetail {
     
     showTrackingInfo(trackDiv) {
         utils.removeAllChild(trackDiv);
-        trackDiv.appendChild(document.createTextNode(ftjson[this.code].name ));
-        trackDiv.appendChild(document.createElement('br'));
         trackDiv.appendChild(document.createTextNode('跟踪指数: '));
         trackDiv.fundcode = this.code;
         if (ftjson[this.code].ic) {
@@ -284,11 +289,15 @@ class FundDetail {
         var buyTable = document.createElement('table');
         buyTable.appendChild(utils.createHeaders('买入日期', '金额', '净值'));
         var buyrecs = ftjson[this.code].buy_table;
+        var sum_cost = 0;
         for (var i = 0; i < buyrecs.length; i++) {
             if (buyrecs[i].sold == 0) {
                 buyTable.appendChild(utils.createColsRow(utils.date_by_delta(buyrecs[i].date), buyrecs[i].cost, buyrecs[i].nv));
+                sum_cost += buyrecs[i].cost;
             };
         };
+
+        buyTable.appendChild(utils.createColsRow('总计', sum_cost, ''));
         
         buyDiv.appendChild(buyTable);
         
@@ -328,11 +337,17 @@ class FundDetail {
             var httpRequest = new XMLHttpRequest();
             httpRequest.open('POST', '../../fundsell', true);
             var request = new FormData();
-            request.append("code", this.code);
+            var fundcode = this.code;
+            request.append("code", fundcode);
             request.append("date", actualBox.getAttribute('date'));
             request.append("action", 'setsold');
             request.append('actual_sold', editBox.value)
             httpRequest.send(request);
+            httpRequest.onreadystatechange = function () {
+                if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                    detailpage.updateSingleSellTable(actualBox, editBox.value);
+                }
+            }
         }
     }
     
@@ -394,6 +409,10 @@ class FundDetail {
         if (this.selltable_code == this.code) {
             return;
         };
+        this.reloadSingleSellTable(sellTable);
+    }
+
+    reloadSingleSellTable(sellTable) {
         utils.deleteAllRows(sellTable);
         this.selltable_code = this.code;
         if (!this.code || !ftjson[this.code].sell_table) {
@@ -402,11 +421,35 @@ class FundDetail {
         
         sellTable.appendChild(utils.createHeaders('卖出日期','成本', '金额', '实收', '剩余成本'));
         var sellrecs = ftjson[this.code].sell_table;
+        var sum_cost = 0, sum_ms = 0, sum_acs = 0;
         for (var i = 0; i < sellrecs.length; i++) {
+            sum_cost += sellrecs[i].cost;
+            sum_ms += sellrecs[i].ms;
+            sum_acs += parseFloat(sellrecs[i].acs);
             var selldate = utils.date_by_delta(sellrecs[i].date);
             var actual_sold_cell = this.createActualSoldCell(sellrecs[i].acs, selldate);
             var rollin_cell = this.createRollinCell(sellrecs[i].tri, sellrecs[i].cost, selldate);
             sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].cost, sellrecs[i].ms, actual_sold_cell, rollin_cell));
+        };
+        sellTable.appendChild(utils.createColsRow('总计', sum_cost, sum_ms.toFixed(4), sum_acs.toFixed(4), '实收' + (sum_acs - sum_cost).toFixed(4)));
+    }
+
+    updateSingleSellTable(actualBox, acs) {
+        if (ftjson[this.code] && ftjson[this.code].sell_table) {
+            var date = utils.days_since_2000(actualBox.getAttribute('date'));
+            for (var i = 0; i < ftjson[this.code].sell_table.length; i++) { 
+                if (ftjson[this.code].sell_table[i].date == date) {
+                    ftjson[this.code].sell_table[i].acs = acs;
+                };
+            };
+        };
+
+        var sellTable = actualBox.parentElement;
+        while(sellTable && sellTable.tagName.toUpperCase() != 'TABLE') {
+            sellTable = sellTable.parentElement;
+        }
+        if (sellTable) {
+            reloadSingleSellTable(sellTable);
         };
     }
 
@@ -663,8 +706,8 @@ class HistoryStatisticChart {
         var min20Val = grs[Math.round(grs.length*0.1)];
         var max20Val = grs[grs.length - 1 - Math.round(grs.length*0.1)];
         this.grTable.appendChild(utils.createColsRow('80%', ' (' + min20Val + '%, ', max20Val + '%)'));
-        var min40Val = grs[Math.round(grs.length*0.025)];
-        var max40Val = grs[grs.length - 1 - Math.round(grs.length*0.025)];
+        var min40Val = grs[Math.round(grs.length*0.2)];
+        var max40Val = grs[grs.length - 1 - Math.round(grs.length*0.2)];
         this.grTable.appendChild(utils.createColsRow('60%', ' (' + min40Val + '%, ', max40Val + '%)'));
 
         this.showShortTermRateInfo(grs[grs.length - 1] - grs[0] >= 10 ? max10Val: max5Val);
