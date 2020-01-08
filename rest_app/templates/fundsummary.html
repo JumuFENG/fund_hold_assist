@@ -6,6 +6,7 @@
   <script type="text/javascript" src="{{ url_for('static', filename='src/js/fund.summary.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('static', filename='src/js/fund.chart.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('static', filename='src/js/fund.details.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='src/js/fund.stats.js') }}"></script>
   <script type="text/javascript">
     var ftjson = {{ fundsJson|tojson|safe }};
     var all_hist_data = {{ hist_data_arr|tojson|safe }};
@@ -73,8 +74,6 @@
             <input id="fund_new_cost" type="text" placeholder="金额"/>
             <button id="fund_new_submit" onclick="FundNewSubmit(fund_new_date.value, fund_new_code.value, fund_new_cost.value)">确定</button>
         </div>
-
-        <div id="fund_single_detail_container" style="display:none;"><a href="javascript:BackToList()"><<返回</a></div>
 
     {% else %}
         <div class="loginsignup">

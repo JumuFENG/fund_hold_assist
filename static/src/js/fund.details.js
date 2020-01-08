@@ -4,7 +4,7 @@ function showFundDetailPage (detailparent) {
     };
 
     if (!detailpage) {
-        detailpage = new FundDetail(document.getElementById('fund_single_detail_container'));
+        detailpage = new FundDetail();
         detailpage.createFundDetailFramework();
     };
     document.getElementById('funds_list_container').style.display = 'none';
@@ -15,15 +15,10 @@ function showFundDetailPage (detailparent) {
     detailpage.navUl.firstChild.click();
 }
 
-function BackToList() {
-    detailpage.container.style.display = 'none';
-    document.getElementById('funds_list_container').style.display = 'block';
-    document.getElementById('fund_header_' + detailpage.code).scrollIntoView();
-}
 
 class FundDetail {
-    constructor(container) {
-        this.container = container;
+    constructor() {
+        this.container = null;
         this.code = null;
         this.navUl = null;
         this.contentDiv = null;
@@ -33,6 +28,14 @@ class FundDetail {
     }
 
     createFundDetailFramework() {
+        this.container = document.createElement('div');
+        document.getElementsByTagName('body')[0].appendChild(this.container);
+
+        var backLink = document.createElement('a');
+        backLink.textContent = '返回';
+        backLink.href = 'javascript:detailpage.backToList()';
+        this.container.appendChild(backLink);
+        
         this.nameDiv = document.createElement('div');
         this.navUl = document.createElement("ul");
         this.navUl.id = 'detailnav';
@@ -89,6 +92,12 @@ class FundDetail {
         var totalEarnedChart = document.createElement("div");
         showTotalChartBtn.bindContent = totalEarnedChart;
         this.contentDiv.appendChild(totalEarnedChart);
+    }
+
+    backToList() {
+        detailpage.container.style.display = 'none';
+        document.getElementById('funds_list_container').style.display = 'block';
+        document.getElementById('fund_header_' + this.code).scrollIntoView();
     }
 
     switchContentTo(t) {

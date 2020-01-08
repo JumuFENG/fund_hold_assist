@@ -262,6 +262,8 @@ def fundmisc():
             uf = UserFund(user, code)
             if uf.track_index_empty():
                 return "OK", 200
+        elif actype == 'fundstats':
+            return json.dumps(user.get_holding_funds_stats())
         return "Not implement yet", 403
 
 @app.route('/dashboard', methods=['GET'])

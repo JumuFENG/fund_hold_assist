@@ -376,6 +376,9 @@ class UserFund():
         fh.fundHistoryTillToday(self.code)
         self.confirm_buy_sell()
 
+    def ever_hold(self):
+        return self.sqldb.isExistTable(self.buy_table)
+
     def still_hold(self):
         if self.cost_hold and self.average:
             return True
@@ -428,3 +431,14 @@ class UserFund():
             (tc,), = tc
             return not tc
         return True
+
+    def get_holding_stats(self):
+        fund_stats_obj = {}
+        fg = FundGeneral(self.sqldb, self.code)
+
+        fund_stats_obj["name"] = fg.name
+        fund_stats_obj["cost"] = self.cost_hold
+        fund_stats_obj["ewh"] = round((float(fg.latest_netvalue()) - float(self.average)) * float(self.portion_hold), 2)
+
+        return fund_stats_obj
+        

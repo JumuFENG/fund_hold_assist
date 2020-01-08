@@ -251,6 +251,26 @@ class User():
 
         return all_hist_data
 
+    def get_holding_funds_stats(self):
+        sqldb = self.fund_center_db()
+        if not sqldb.isExistTable(self.funds_info_table()):
+            print("can not find fund info DB.")
+            return {}
+
+        fund_codes = sqldb.select(self.funds_info_table(), [column_code])
+
+        fund_stats = {}
+        for (c, ) in fund_codes:
+            uf = UserFund(self, c)
+            fund_stats_obj = None
+            if uf.ever_hold():
+                fund_stats_obj = uf.get_holding_stats()
+
+            if fund_stats_obj:
+                fund_stats[c] = fund_stats_obj
+
+        return fund_stats
+
 class UserModel():
     def __init__(self, sqldb):
         self.tablename = 'users'

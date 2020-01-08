@@ -10,6 +10,10 @@ window.onload = function() {
 
     document.getElementById('funds_list_container').style.display = utils.isEmpty(ftjson) ? 'none': 'block';
     document.getElementById('fund_new_date').value = utils.getTodayDate();
+    var aUserStats = document.createElement('a');
+    aUserStats.textContent = '详细统计表';
+    aUserStats.href = 'javascript:showFundStats()';
+    document.getElementById('funds_all_in_1').firstElementChild.appendChild(aUserStats);
 }
 
 document.addEventListener(ExtensionLoadedEvent, e => {
@@ -569,6 +573,17 @@ function showAllFundList() {
     }
     var fund_list_tbl = document.getElementById("fund_list_table");
     utils.deleteAllRows(fund_list_table);
+    ftjson['sz000001'] = {
+        avp: 0,
+        cost: 1,
+        ewh: 0,
+        lde: 0,
+        lnv: 0,
+        name: "上证指数",
+        ppg: 1,
+        str: "0"
+    };
+    code_cost.push(['sz000001', 0]);
     for (var i in code_cost) {
         fund_list_tbl.appendChild(utils.createSplitLine());
 
