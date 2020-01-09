@@ -223,6 +223,9 @@ class FundDetail {
         checkAllDiv.appendChild(document.createTextNode('全选'));
         buyTable.appendChild(utils.createHeaders(checkAllDiv, '金额', '净值'));
         var buyrecs = ftjson[this.code].buy_table;
+        buyrecs.sort(function(l, g){
+            return l.nv - g.nv;
+        });
         for (var i = 0; i < buyrecs.length; i++) {
             if (buyrecs[i].sold == 0) {
                 var checkDate = document.createElement('input');
