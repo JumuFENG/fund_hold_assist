@@ -36,7 +36,7 @@ class FundStats {
     }
 
     backToList () {
-        this.container.display = 'none';
+        this.container.style.display = 'none';
         document.getElementById('funds_list_container').style.display = 'block';
     }
 
@@ -47,9 +47,9 @@ class FundStats {
 
         this.statsTable = document.createElement('table');
         this.container.appendChild(this.statsTable);
-        this.statsTable.appendChild(utils.createHeaders('名称', '持有成本', '浮动收益'));
+        this.statsTable.appendChild(utils.createHeaders('基金名称', '持有成本', '持有收益', '售出成本', '售出额', '天数'));
         for (var fs in this.fundstatsJson) {
-            this.statsTable.appendChild(utils.createColsRow(this.fundstatsJson[fs].name, this.fundstatsJson[fs].cost, this.fundstatsJson[fs].ewh));
+            this.statsTable.appendChild(utils.createColsRow(this.fundstatsJson[fs].name, this.fundstatsJson[fs].cost, this.fundstatsJson[fs].ewh, this.fundstatsJson[fs].cs, this.fundstatsJson[fs].acs, this.fundstatsJson[fs].hds));
         };
     }
 }

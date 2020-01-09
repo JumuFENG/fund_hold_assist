@@ -439,6 +439,46 @@ class UserFund():
         fund_stats_obj["name"] = fg.name
         fund_stats_obj["cost"] = self.cost_hold
         fund_stats_obj["ewh"] = round((float(fg.latest_netvalue()) - float(self.average)) * float(self.portion_hold), 2)
+        sell_recs = self.sqldb.select(self.sell_table, [column_date, column_portion, column_money_sold, column_cost_sold, column_actual_sold], order = " ORDER BY %s ASC" % column_date)
+        buy_recs = self.sqldb.select(self.buy_table, [column_date, column_cost, column_portion], order = " ORDER BY %s ASC" % column_date)
+
+        cost_sold = 0;
+        actual_sold = 0;
+        if not sell_recs:
+            fund_stats_obj["cs"] = cost_sold
+            fund_stats_obj["acs"] = actual_sold
+            fund_stats_obj['hds'] = (datetime.now() - datetime.strptime(buy_recs[0][0], "%Y-%m-%d")).days if sell_recs else 0
+            return fund_stats_obj
+            
+        for (d, p, m, c, a) in sell_recs:
+            cost_sold += c
+            acs = int(a)
+            actual_sold += acs
+            if acs == 0:
+                actual_sold += (m if m else 0)
+        fund_stats_obj["cs"] = cost_sold
+        fund_stats_obj["acs"] = actual_sold
+
+        day_num = 0;
+        cur_portion = 0;
+        bIdx = 0
+        start_buy_date = buy_recs[bIdx][0]
+        for i in range(0, len(sell_recs)):
+            for j in range(bIdx, len(buy_recs)):
+                if buy_recs[j][0] < sell_recs[i][0]:
+                    cur_portion += buy_recs[j][2]
+                else:
+                    bIdx = j
+                    break;
+            cur_portion -= (sell_recs[i][1] if sell_recs[i][1] else 0)
+            if cur_portion < 100:
+                day_num += (datetime.strptime(sell_recs[i][0], "%Y-%m-%d") - datetime.strptime(start_buy_date, "%Y-%m-%d")).days
+                if bIdx < len(buy_recs):
+                    start_buy_date = buy_recs[bIdx][0]
+        if cur_portion > 100:
+            day_num += (datetime.now() - datetime.strptime(start_buy_date, "%Y-%m-%d")).days
+
+        fund_stats_obj['hds'] = day_num # hold days
 
         return fund_stats_obj
         
