@@ -47,10 +47,23 @@ class FundStats {
 
         this.statsTable = document.createElement('table');
         this.container.appendChild(this.statsTable);
-        this.statsTable.appendChild(utils.createHeaders('基金名称', '持有成本', '持有收益', '售出成本', '售出额', '天数'));
+        this.statsTable.appendChild(utils.createHeaders('基金名称', '持有成本', '持有收益', '售出成本', '售出额', '总收益', '天数'));
+        var cost = 0, ewh = 0, cs = 0, acs = 0;
         for (var fs in this.fundstatsJson) {
-            this.statsTable.appendChild(utils.createColsRow(this.fundstatsJson[fs].name, this.fundstatsJson[fs].cost, this.fundstatsJson[fs].ewh, this.fundstatsJson[fs].cs, this.fundstatsJson[fs].acs, this.fundstatsJson[fs].hds));
+            this.statsTable.appendChild(utils.createColsRow(
+                this.fundstatsJson[fs].name,
+                this.fundstatsJson[fs].cost,
+                this.fundstatsJson[fs].ewh,
+                this.fundstatsJson[fs].cs,
+                this.fundstatsJson[fs].acs.toFixed(2),
+                (this.fundstatsJson[fs].acs - this.fundstatsJson[fs].cs + this.fundstatsJson[fs].ewh).toFixed(2),
+                this.fundstatsJson[fs].hds));
+            cost += this.fundstatsJson[fs].cost;
+            ewh += this.fundstatsJson[fs].ewh;
+            cs += this.fundstatsJson[fs].cs;
+            acs += this.fundstatsJson[fs].acs;
         };
+        this.statsTable.appendChild(utils.createColsRow('总计', cost, ewh.toFixed(2), cs, acs.toFixed(2), (acs - cs + ewh).toFixed(2)), '-');
     }
 }
 

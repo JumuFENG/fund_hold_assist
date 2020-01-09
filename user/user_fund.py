@@ -452,7 +452,7 @@ class UserFund():
             
         for (d, p, m, c, a) in sell_recs:
             cost_sold += c
-            acs = int(a)
+            acs = float(a)
             actual_sold += acs
             if acs == 0:
                 actual_sold += (m if m else 0)
