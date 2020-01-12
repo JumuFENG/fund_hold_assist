@@ -8,7 +8,7 @@ function showFundStats (detailparent) {
 
         httpRequest.onreadystatechange = function () {
             if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                fundstats.fundstatsJson = JSON.parse(httpRequest.responseText);
+                fundstats.statsJson = JSON.parse(httpRequest.responseText);
                 fundstats.showFundStats();
             };
         }
@@ -21,7 +21,7 @@ function showFundStats (detailparent) {
 class FundStats {
     constructor() {
         this.container = null;
-        this.fundstatsJson = null;
+        this.statsJson = null;
     }
 
     createStatsPage() {
@@ -41,29 +41,39 @@ class FundStats {
     }
 
     showFundStats() {
-        if (!this.fundstatsJson) {
+        if (!this.statsJson) {
             return;
         };
 
+        var cost = 0, ewh = 0, cs = 0, acs = 0, earned = 0;
+        for (var i in this.statsJson) {
+            cost += this.statsJson[i].cost;
+            ewh += this.statsJson[i].ewh;
+            cs += this.statsJson[i].cs;
+            acs += this.statsJson[i].acs;
+            this.statsJson[i].earned = this.statsJson[i].acs - this.statsJson[i].cs + this.statsJson[i].ewh;
+            earned += this.statsJson[i].earned;
+            this.statsJson[i].earnedRate = this.statsJson[i].earned / (this.statsJson[i].cost + this.statsJson[i].cs);
+            this.statsJson[i].preDayEarnedRate = this.statsJson[i].earnedRate / this.statsJson[i].hds;
+        };
+        
         this.statsTable = document.createElement('table');
         this.container.appendChild(this.statsTable);
-        this.statsTable.appendChild(utils.createHeaders('基金名称', '持有成本', '持有收益', '售出成本', '售出额', '总收益', '天数'));
-        var cost = 0, ewh = 0, cs = 0, acs = 0;
-        for (var fs in this.fundstatsJson) {
+
+        this.statsTable.appendChild(utils.createHeaders('基金名称', '持有成本', '持有收益', '售出成本', '售出额', '天数', '总收益', '收益率(%)', '日均收益率(‱)'));
+        for (var i in this.statsJson) {
             this.statsTable.appendChild(utils.createColsRow(
-                this.fundstatsJson[fs].name,
-                this.fundstatsJson[fs].cost,
-                this.fundstatsJson[fs].ewh,
-                this.fundstatsJson[fs].cs,
-                this.fundstatsJson[fs].acs.toFixed(2),
-                (this.fundstatsJson[fs].acs - this.fundstatsJson[fs].cs + this.fundstatsJson[fs].ewh).toFixed(2),
-                this.fundstatsJson[fs].hds));
-            cost += this.fundstatsJson[fs].cost;
-            ewh += this.fundstatsJson[fs].ewh;
-            cs += this.fundstatsJson[fs].cs;
-            acs += this.fundstatsJson[fs].acs;
+                this.statsJson[i].name,
+                this.statsJson[i].cost,
+                this.statsJson[i].ewh,
+                this.statsJson[i].cs,
+                this.statsJson[i].acs.toFixed(2),
+                this.statsJson[i].hds,
+                this.statsJson[i].earned.toFixed(2),
+                (this.statsJson[i].earnedRate * 100).toFixed(2),
+                (this.statsJson[i].preDayEarnedRate * 10000).toFixed(2)));
         };
-        this.statsTable.appendChild(utils.createColsRow('总计', cost, ewh.toFixed(2), cs, acs.toFixed(2), (acs - cs + ewh).toFixed(2)), '-');
+        this.statsTable.appendChild(utils.createColsRow('总计', cost, ewh.toFixed(2), cs, acs.toFixed(2), '-', earned.toFixed(2), (100 * earned / (cost + cs)).toFixed(2), '-'));
     }
 }
 
