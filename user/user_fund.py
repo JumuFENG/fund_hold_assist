@@ -354,6 +354,19 @@ class UserFund():
 
         self.fix_cost_portion_hold()
 
+    def add_divident(self, date, acs):
+        if not self.sqldb.isExistTable(self.sell_table):
+            self.setup_selltable()
+
+        sell_rec = self.sqldb.select(self.sell_table, conds = "%s = '%s'" % (column_date, date))
+        if sell_rec:
+            ((sell_rec),) = sell_rec
+            if sell_rec:
+                print("find record", sell_rec, "ignore")
+                return
+
+        self.sqldb.insert({column_date:date, column_actual_sold:str(acs), column_money_sold:str(acs), column_earned:str(acs), column_return_percentage:'0', column_portion: '0', column_cost_sold:'0', column_rolled_in:'0'})
+
     def sell_by_dates(self, date, buydates):
         self.add_sell_rec(date, buydates)
         self.confirm_sell_rec(date)
@@ -447,7 +460,7 @@ class UserFund():
         if not sell_recs:
             fund_stats_obj["cs"] = cost_sold
             fund_stats_obj["acs"] = actual_sold
-            fund_stats_obj['hds'] = (datetime.now() - datetime.strptime(buy_recs[0][0], "%Y-%m-%d")).days if sell_recs else 0
+            fund_stats_obj['hds'] = (datetime.now() - datetime.strptime(buy_recs[0][0], "%Y-%m-%d")).days if buy_recs else 0
             return fund_stats_obj
             
         for (d, p, m, c, a) in sell_recs:

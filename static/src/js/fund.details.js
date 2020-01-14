@@ -77,9 +77,9 @@ class FundDetail {
             detailpage.showSingleSellTable(e.target.bindContent);
         }
         this.navUl.appendChild(showSellTableBtn);
-        var sellTable = document.createElement("table");
-        showSellTableBtn.bindContent = sellTable;
-        this.contentDiv.appendChild(sellTable);
+        var sellDiv = document.createElement("div");
+        showSellTableBtn.bindContent = sellDiv;
+        this.contentDiv.appendChild(sellDiv);
 
         var showTotalChartBtn = document.createElement("li");
         showTotalChartBtn.textContent = "累计收益";
@@ -354,7 +354,7 @@ class FundDetail {
             request.append("code", fundcode);
             request.append("date", actualBox.getAttribute('date'));
             request.append("action", 'setsold');
-            request.append('actual_sold', editBox.value)
+            request.append('actual_sold', editBox.value);
             httpRequest.send(request);
             httpRequest.onreadystatechange = function () {
                 if (httpRequest.readyState == 4 && httpRequest.status == 200) {
@@ -415,15 +415,60 @@ class FundDetail {
         rollinBox.appendChild(deleteBtn);
         return rollinBox;
     }
-    
-    showSingleSellTable(sellTable) {
+
+    onAddBonusClicked(dpicker, bonusInput) {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('POST', '../../fundsell', true);
+        var request = new FormData();
+        var fundcode = this.code;
+        request.append("code", fundcode);
+        request.append("date", dpicker.value);
+        request.append("action", 'divident');
+        request.append('bonus', bonusInput.value);
+        httpRequest.send(request);
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                fetchFundSummary(fundcode);
+            }
+        }
+    }
+
+    createBonusArea(rDiv) {
+        var bonusDatepicker = document.createElement('input');
+        bonusDatepicker.type = 'date';
+        bonusDatepicker.value = utils.getTodayDate();
+        var bonusInput = document.createElement('input');
+        var confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'OK';
+        confirmBtn.onclick = function(e) {
+            detailpage.onAddBonusClicked(bonusDatepicker, bonusInput);
+        }
+
+        rDiv.appendChild(bonusDatepicker);
+        rDiv.appendChild(bonusInput);
+        rDiv.appendChild(confirmBtn);
+    }
+
+    showSingleSellTable(sellDiv) {
         if (this.selltable_code == null && this.code == null) {
             return;
         };
         if (this.selltable_code == this.code) {
             return;
         };
+
+        utils.removeAllChild(sellDiv);
+        var sellTable = document.createElement('table');
         this.reloadSingleSellTable(sellTable);
+        sellDiv.appendChild(sellTable);
+        var addBonusBtn = document.createElement('button');
+        addBonusBtn.textContent = '添加分红';
+        addBonusBtn.onclick = function(e) {
+            detailpage.createBonusArea(e.target.parentElement);
+        }
+        var extraDiv = document.createElement('div');
+        extraDiv.appendChild(addBonusBtn);
+        sellDiv.appendChild(extraDiv);
     }
 
     reloadSingleSellTable(sellTable) {

@@ -141,6 +141,10 @@ def fundsell():
             uf = UserFund(user, code)
             actual_sold = request.form.get('actual_sold', type=str, default='0')
             uf.set_actual_sold(date, actual_sold)
+        elif act == 'divident':
+            uf = UserFund(user, code)
+            bonus = request.form.get('bonus', type=str, default='0')
+            uf.add_divident(date, bonus)
         else:
             combined_dates = request.form.get("buydates", type=str, default=None)
             buydates = split_combined_dates(combined_dates)
