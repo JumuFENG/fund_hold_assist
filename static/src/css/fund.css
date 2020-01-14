@@ -104,3 +104,15 @@ div.total_earned label {
     background: #555;
     color: white;
 }
+
+.sortableTable, .sortableTable td, .sortableTable th {
+    border: 1px solid grey;
+}
+
+.sortableTable {
+    border-collapse: collapse;
+}
+
+.sortableTable th {
+    background-color: lightgray;
+}
