@@ -337,7 +337,7 @@ class FundDetail {
         var actualBox = document.getElementById(editId);
         var textNode = actualBox.firstChild;
         var editBox = actualBox.getElementsByTagName('input')[0];
-        var editBtn = actualBox.getElementsByTagName('button')[0];
+        var editBtn = actualBox.getElementsByTagName('a')[0];
         if (editBox.style.display == 'none') {
             editBox.value = textNode.textContent;
             editBox.style.display = 'inline';
@@ -508,7 +508,7 @@ class FundDetail {
             sellTable = sellTable.parentElement;
         }
         if (sellTable) {
-            reloadSingleSellTable(sellTable);
+            this.reloadSingleSellTable(sellTable);
         };
     }
 
