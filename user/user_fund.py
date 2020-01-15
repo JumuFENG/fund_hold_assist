@@ -365,7 +365,7 @@ class UserFund():
                 print("find record", sell_rec, "ignore")
                 return
 
-        self.sqldb.insert({column_date:date, column_actual_sold:str(acs), column_money_sold:str(acs), column_earned:str(acs), column_return_percentage:'0', column_portion: '0', column_cost_sold:'0', column_rolled_in:'0'})
+        self.sqldb.insert(self.sell_table, {column_date:date, column_actual_sold:str(acs), column_money_sold:str(acs), column_earned:str(acs), column_return_percentage:'0', column_portion: '0', column_cost_sold:'0', column_rolled_in:'0'})
 
     def sell_by_dates(self, date, buydates):
         self.add_sell_rec(date, buydates)

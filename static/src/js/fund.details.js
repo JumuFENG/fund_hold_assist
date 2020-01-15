@@ -429,24 +429,9 @@ class FundDetail {
         httpRequest.onreadystatechange = function () {
             if (httpRequest.readyState == 4 && httpRequest.status == 200) {
                 fetchFundSummary(fundcode);
+                document.getElementById('bonus_area_' + this.code).style.display = 'none';
             }
         }
-    }
-
-    createBonusArea(rDiv) {
-        var bonusDatepicker = document.createElement('input');
-        bonusDatepicker.type = 'date';
-        bonusDatepicker.value = utils.getTodayDate();
-        var bonusInput = document.createElement('input');
-        var confirmBtn = document.createElement('button');
-        confirmBtn.textContent = 'OK';
-        confirmBtn.onclick = function(e) {
-            detailpage.onAddBonusClicked(bonusDatepicker, bonusInput);
-        }
-
-        rDiv.appendChild(bonusDatepicker);
-        rDiv.appendChild(bonusInput);
-        rDiv.appendChild(confirmBtn);
     }
 
     showSingleSellTable(sellDiv) {
@@ -464,10 +449,28 @@ class FundDetail {
         var addBonusBtn = document.createElement('button');
         addBonusBtn.textContent = '添加分红';
         addBonusBtn.onclick = function(e) {
-            detailpage.createBonusArea(e.target.parentElement);
+            document.getElementById('bonus_area_' + this.code).style.display = 'block';
         }
         var extraDiv = document.createElement('div');
         extraDiv.appendChild(addBonusBtn);
+
+        var bonusDatepicker = document.createElement('input');
+        bonusDatepicker.type = 'date';
+        bonusDatepicker.value = utils.getTodayDate();
+        var bonusInput = document.createElement('input');
+        var confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'OK';
+        confirmBtn.onclick = function(e) {
+            detailpage.onAddBonusClicked(bonusDatepicker, bonusInput);
+        }
+
+        var bonusArea = document.createElement('div');
+        bonusArea.id = 'bonus_area_' + this.code;
+        bonusArea.style.display = 'none';
+        bonusArea.appendChild(bonusDatepicker);
+        bonusArea.appendChild(confirmBtn);
+        extraDiv.appendChild(bonusArea);
+
         sellDiv.appendChild(extraDiv);
     }
 
