@@ -416,6 +416,10 @@ class FundDetail {
         return rollinBox;
     }
 
+    showBonusArea() {
+        document.getElementById('bonus_area_' + this.code).style.display = 'block';
+    }
+
     onAddBonusClicked(dpicker, bonusInput) {
         var httpRequest = new XMLHttpRequest();
         httpRequest.open('POST', '../../fundsell', true);
@@ -429,7 +433,7 @@ class FundDetail {
         httpRequest.onreadystatechange = function () {
             if (httpRequest.readyState == 4 && httpRequest.status == 200) {
                 fetchFundSummary(fundcode);
-                document.getElementById('bonus_area_' + this.code).style.display = 'none';
+                document.getElementById('bonus_area_' + fundcode).style.display = 'none';
             }
         }
     }
@@ -449,7 +453,7 @@ class FundDetail {
         var addBonusBtn = document.createElement('button');
         addBonusBtn.textContent = '添加分红';
         addBonusBtn.onclick = function(e) {
-            document.getElementById('bonus_area_' + this.code).style.display = 'block';
+            detailpage.showBonusArea();
         }
         var extraDiv = document.createElement('div');
         extraDiv.appendChild(addBonusBtn);
@@ -458,6 +462,7 @@ class FundDetail {
         bonusDatepicker.type = 'date';
         bonusDatepicker.value = utils.getTodayDate();
         var bonusInput = document.createElement('input');
+        bonusInput.style.maxWidth = '80px';
         var confirmBtn = document.createElement('button');
         confirmBtn.textContent = 'OK';
         confirmBtn.onclick = function(e) {
@@ -468,6 +473,7 @@ class FundDetail {
         bonusArea.id = 'bonus_area_' + this.code;
         bonusArea.style.display = 'none';
         bonusArea.appendChild(bonusDatepicker);
+        bonusArea.appendChild(bonusInput);
         bonusArea.appendChild(confirmBtn);
         extraDiv.appendChild(bonusArea);
 
