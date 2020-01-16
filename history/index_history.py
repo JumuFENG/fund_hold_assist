@@ -137,6 +137,7 @@ class Index_history():
             params['start'] = sDate
             params['end'] = eDate
         response = self.getRequest(sohuApiUrl, params)
+        print(response)
         jresp = json.loads(response)[0]["hq"]
         jresp.reverse()
         values = []
