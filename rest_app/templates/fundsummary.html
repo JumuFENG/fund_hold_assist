@@ -23,58 +23,6 @@
             <button onclick="location.reload()">Reload</button>
             <button id="btn_swith_show_all" onclick="ForceFetchAll()">Fetch All</button>
         </div>
-
-        <div id="funds_list_container">
-        <div id="funds_all_in_1">
-            <div class="total_earned">
-                <span>上日总计:<label id="last_total_earned"></label></span><label id="last_total_percent"></label><br />
-                <span>持有总成本:<label id="total_cost"></label></span>
-                <span>收益:<label id="total_earned"></label></span><label id="total_percent"></label>
-            </div>
-            <table id="fund_list_table"></table>
-        </div>
-        <hr />
-        <div id="charts_div" style="width:98%; display:none;">
-            <a href="javascript:showFundDetailPage(charts_div.parentElement)" >详情</a>
-            <div id="chart_interaction">
-                <div id="chart_selected_data"></div>
-            </div>
-            <ul id="dayslist">
-                <li class="highlight" onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="0">默认</li>
-                <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="30">30</li>
-                <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="100">100</li>
-                <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="300">300</li>
-                <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="1000">1000</a></li>
-                <li onclick="RedrawHistoryGraphs(this.parentElement.parentElement, this)" value="-1">最大</a></li>
-                <button id="chart_left_arrow" onclick="LeftShiftGraph(chart_left_arrow, chart_right_arrow)">&lt;-</button>
-                <button id="chart_right_arrow" onclick="RightShiftGraph(chart_left_arrow, chart_right_arrow)">-&gt;</button>
-            </ul>
-            <br />
-
-            <div id="fund_chart_div"></div> <br />
-
-            <ul id="tradeoptions">
-                <li class="highlight" id="tradeoption_buy" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">买入</li>
-                <li id="tradeoption_sell" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">卖出</li>
-                <li id="tradeoption_budget" onclick="SetTradeOption(this, trade_panel_cost, trade_panel_submit)">加预算</li>
-            </ul> <br/> <hr />
-            
-            <div id="trade_panel">
-                <input id="trade_panel_date" type="date" />
-                <input id="trade_panel_cost" type="text" placeholder="金额"/>
-                <button id="trade_panel_submit" onclick="TradeSubmit(trade_panel, trade_panel_date, trade_panel_cost, tradeoptions)">确定</button>
-            </div>
-        </div>
-        </div>
-
-        <div id="fund_new_container">
-        新买基金: <br />
-            <input id="fund_new_date" type="date" />
-            <input id="fund_new_code" type="text" placeholder="基金代码"/>
-            <input id="fund_new_cost" type="text" placeholder="金额"/>
-            <button id="fund_new_submit" onclick="FundNewSubmit(fund_new_date.value, fund_new_code.value, fund_new_cost.value)">确定</button>
-        </div>
-
     {% else %}
         <div class="loginsignup">
             <span>Already have an account? <a href="{{ url_for('login') }}">Log in.</a><span>

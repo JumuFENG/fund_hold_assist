@@ -424,4 +424,10 @@ class Utils {
     }
 }
 
+var TradeType = {
+    Buy:1,
+    Sell:2,
+    Budget:3
+};
+
 var utils = new Utils();

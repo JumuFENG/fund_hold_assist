@@ -10,11 +10,15 @@ pip3 install Image
 
 pip3 install requests
 
-pip install beautifulsoup4
+pip3 install beautifulsoup4
 
 pip3 install selenium
 
 pip3 install tushare
+
+pip3 install lxml
+
+pip3 install pandas
 
 create database tesddb and fund_center manually.
 

@@ -1,5 +1,5 @@
-function showFundDetailPage (detailparent) {
-    if (detailparent.className != "hold_detail") {
+function showFundDetailPage (code) {
+    if (!code) {
         return;
     };
 
@@ -7,14 +7,13 @@ function showFundDetailPage (detailparent) {
         detailpage = new FundDetail();
         detailpage.createFundDetailFramework();
     };
-    document.getElementById('funds_list_container').style.display = 'none';
+    fundSummary.hide();
     detailpage.container.style.display = 'block';
     detailpage.container.scrollIntoView();
-    detailpage.code = detailparent.id.split("_").pop();
+    detailpage.code = code;
     detailpage.setDetailPageFundName();
     detailpage.navUl.firstChild.click();
 }
-
 
 class FundDetail {
     constructor() {
@@ -96,7 +95,7 @@ class FundDetail {
 
     backToList() {
         detailpage.container.style.display = 'none';
-        document.getElementById('funds_list_container').style.display = 'block';
+        fundSummary.show();
         document.getElementById('fund_header_' + this.code).scrollIntoView();
     }
 
