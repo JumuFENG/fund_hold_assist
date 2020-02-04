@@ -332,6 +332,20 @@ class UserModel():
                     accounts.append({'id':user.id, 'name':user.name, 'email':user.email})
         return accounts
 
+    def get_all_combined_users(self, user):
+        parent = user
+        if user.parent:
+            parent = self.user_by_id(user.parent)
+
+        users = [parent]
+        sub_table = parent.sub_table
+        if sub_table and self.sqldb.isExistTable(sub_table):
+            subs = self.sqldb.select(sub_table, 'subid')
+            if subs:
+                for sid in subs:
+                    users.append(self.user_by_id(sid))
+        return users
+
     def bind_account(self, user, sub):
         if not user or not sub:
             return
@@ -363,3 +377,10 @@ class UserModel():
             parent = self.user_by_id(user.parent)
             return {'id': parent.id, 'name': parent.name, 'email': parent.email}
         return {}
+
+    def get_bind_users_fundstats(self, user):
+        users = self.get_all_combined_users(user)
+        fund_stats = {}
+        for u in users:
+            fund_stats.update(u.get_holding_funds_stats())
+        return fund_stats

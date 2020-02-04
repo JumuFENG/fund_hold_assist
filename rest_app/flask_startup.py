@@ -268,6 +268,8 @@ def fundmisc():
                 return "OK", 200
         elif actype == 'fundstats':
             return json.dumps(user.get_holding_funds_stats())
+        elif actype == 'allfundstats':
+            return json.dumps(usermodel.get_bind_users_fundstats(user))
         return "Not implement yet", 403
 
 @app.route('/dashboard', methods=['GET'])

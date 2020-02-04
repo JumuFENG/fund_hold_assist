@@ -30,7 +30,7 @@ class FundChart {
         // Set chart options
         this.marks = [];
         var average = this.fund.average;
-        if (average != 0) {
+        if (average != 0 && average !== undefined) {
             var short_term_rate = this.fund.short_term_rate ? this.fund.short_term_rate : 0.03;
             this.marks.push(average * (1 - short_term_rate));
             this.marks.push(average * (1 - short_term_rate / 3.0));                

@@ -2,19 +2,10 @@ function showFundStats (detailparent) {
     if (!fundstats) {
         fundstats = new FundStats();
         fundstats.createStatsPage();
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.open('GET', '../../fundmisc?action=fundstats', true);
-        httpRequest.send();
-
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                fundstats.statsJson = JSON.parse(httpRequest.responseText);
-                fundstats.showFundStats();
-            };
-        }
+        fundstats.getFundStats();
     };
 
-    document.getElementById('funds_list_container').style.display = 'none';
+    fundSummary.hide();
     fundstats.container.style.display = 'block';
 }
 
@@ -31,13 +22,19 @@ class FundStats {
         var backLink = document.createElement('a');
         backLink.textContent = '返回';
         backLink.href = 'javascript:fundstats.backToList()';
-
         this.container.appendChild(backLink);
+
+        this.container.appendChild(document.createTextNode(' '));
+
+        var getAllLink = document.createElement('a');
+        getAllLink.textContent = '全部关联账户';
+        getAllLink.href = 'javascript:fundstats.getFundStats(false)';
+        this.container.appendChild(getAllLink);
     }
 
     backToList () {
         this.container.style.display = 'none';
-        document.getElementById('funds_list_container').style.display = 'block';
+        fundSummary.show();
     }
 
     createHeaders(...hs) {
@@ -49,6 +46,19 @@ class FundStats {
             tr.appendChild(th);
         };
         return tr;
+    }
+
+    getFundStats(curAccount = true) {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('GET', '../../fundmisc?action=' + (curAccount ? 'fundstats':'allfundstats'), true);
+        httpRequest.send();
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                fundstats.statsJson = JSON.parse(httpRequest.responseText);
+                fundstats.showFundStats();
+            };
+        }
     }
 
     showFundStats() {
@@ -68,10 +78,13 @@ class FundStats {
             this.statsJson[i].preDayEarnedRate = this.statsJson[i].earnedRate / this.statsJson[i].hds;
         };
         
-        this.statsTable = document.createElement('table');
-        this.statsTable.className = 'sortableTable';
-        this.container.appendChild(this.statsTable);
-
+        if (!this.statsTable) {
+            this.statsTable = document.createElement('table');
+            this.statsTable.className = 'sortableTable';
+            this.container.appendChild(this.statsTable);
+        };
+        
+        utils.deleteAllRows(this.statsTable)
         this.statsTable.appendChild(this.createHeaders('基金名称', '持有成本', '持有收益', '售出成本', '售出额', '天数', '总收益', '收益率(%)', '日均收益率(‱)'));
         for (var i in this.statsJson) {
             this.statsTable.appendChild(utils.createColsRow(

@@ -134,7 +134,7 @@ class FundSummary {
         var buyNewBtn = document.createElement('button');
         buyNewBtn.textContent = '确定';
         buyNewBtn.onclick = function(e) {
-            buyFund(buyNewDate.value, buyNewCode.value, parseFloat(buyNewCost.value), null, null);
+            buyFund(buyNewCode.value, buyNewDate.value, parseFloat(buyNewCost.value), null, null);
         }
         buyNewArea.appendChild(buyNewBtn);
     }
