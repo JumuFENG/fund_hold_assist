@@ -9,11 +9,13 @@ from utils import *
 from user.user_fund import *
 
 class User():
-    def __init__(self, id, name, email, password=None):
+    def __init__(self, id, name, email, password=None, st = None, parent = None):
         self.id = id
         self.name = name
         self.email = email
         self.password = password
+        self.sub_table = st
+        self.parent = parent
         self.funddb = None
 
     def fund_center_db(self):
@@ -275,10 +277,13 @@ class UserModel():
     def __init__(self, sqldb):
         self.tablename = 'users'
         self.sqldb = sqldb
+        if self.sqldb.isExistTable(self.tablename):
+            self.check_column('sub_table', "varchar(255) DEFAULT NULL")
+            self.check_column('parent_account', "varchar(16) DEFAULT NULL")
 
     def add_new(self, name, password, email):
         if not self.sqldb.isExistTable(self.tablename):
-            attrs = {'name':'varchar(255) DEFAULT NULL', 'password':"varchar(255) DEFAULT NULL",  'email':"varchar(255) DEFAULT NULL"}
+            attrs = {'name':'varchar(255) DEFAULT NULL', 'password':"varchar(255) DEFAULT NULL",  'email':"varchar(255) DEFAULT NULL", 'sub_table':"varchar(255) DEFAULT NULL", 'parent_account':"varchar(16) DEFAULT NULL"}
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.tablename, attrs, constraint)
         (result,), = self.sqldb.select(self.tablename, 'count(*)', ["email = '%s'" % email])
@@ -289,20 +294,24 @@ class UserModel():
         self.sqldb.insert(self.tablename, {'name':name, 'password':password, 'email':email})
         return self.user_by_email(email)
 
+    def check_column(self, col, val):
+        if not self.sqldb.isExistTableColumn(self.tablename, col):
+            self.sqldb.addColumn(self.tablename, col, val)
+
     def user_by_id(self, id):
         result = self.sqldb.select(self.tablename, "*", ["id = '%s'" % id])
         if not result:
             return None
 
-        (id, name, password, email), = result
-        return User(id, name, email, password)
+        (id, name, password, email, st, parent), = result
+        return User(id, name, email, password, st, parent)
 
     def user_by_email(self, email):
         result = self.sqldb.select(self.tablename, "*", ["email = '%s'" % email])
         if not result:
             return None
-        (id, name, password, email), = result
-        return User(id, name, email, password)
+        (id, name, password, email, st, parent), = result
+        return User(id, name, email, password, st, parent)
 
     def set_password(self, user, password):
         user.password = password
@@ -310,3 +319,47 @@ class UserModel():
 
     def check_password(self, user, password):
         return password == user.password
+
+    def get_bind_accounts(self, email):
+        user = self.user_by_email(email)
+        sub_table = user.sub_table
+        accounts = []
+        if sub_table and self.sqldb.isExistTable(sub_table):
+            subs = self.sqldb.select(sub_table, 'subid')
+            if subs:
+                for sid in subs:
+                    user = self.user_by_id(sid)
+                    accounts.append({'id':user.id, 'name':user.name, 'email':user.email})
+        return accounts
+
+    def bind_account(self, user, sub):
+        if not user or not sub:
+            return
+
+        sub_table = user.sub_table
+        parent = user.parent
+
+        if not sub_table and not parent:
+            sub_table = 'u' + str(user.id) + '_subtable'
+            self.sqldb.update(self.tablename, {'sub_table': sub_table}, {'id' : str(user.id)})
+
+        if not sub_table:
+            return
+
+        if sub.parent or sub.sub_table:
+            return
+
+        if not self.sqldb.isExistTable(sub_table):
+            attrs = {'subid':"varchar(16) DEFAULT NULL"}
+            constraint = 'PRIMARY KEY(`id`)'
+            self.sqldb.creatTable(sub_table, attrs, constraint)
+
+        self.sqldb.insert(sub_table, {'subid':str(sub.id)})
+        self.sqldb.update(self.tablename, {'parent_account': str(user.id)}, {'id' : str(sub.id)})
+
+    def get_parent(self, email):
+        user = self.user_by_email(email)
+        if user.parent:
+            parent = self.user_by_id(user.parent)
+            return {'id': parent.id, 'name': parent.name, 'email': parent.email}
+        return {}

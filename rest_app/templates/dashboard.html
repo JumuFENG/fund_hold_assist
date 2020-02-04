@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+
+{% block additionalscripts %}
+  <script type="text/javascript" src="{{ url_for('static', filename='src/js/fund.utils.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='src/js/user.dash.js') }}"></script>
+{% endblock %}
+
+
+{% block content %}
+    {% if not session['logged_in'] %}
+        <div class="loginsignup">
+            <span>Already have an account? <a href="{{ url_for('login') }}">Log in.</a><span>
+            <a href="{{ url_for('guest') }}">Visit as guest.</a>
+        </div>
+    {% endif %}
+{% endblock %}
+ 

@@ -274,7 +274,42 @@ def fundmisc():
 def dashboard():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
-    return "login success!"
+    return render_template('/dashboard.html')
+
+@app.route('/userbind', methods=['GET', 'POST'])
+def userbind():
+    if not session.get('logged_in'):
+        return "Please login."
+    gen_db = SqlHelper(password = db_pwd, database = "general")
+    usermodel = UserModel(gen_db)
+    if request.method == 'GET':
+        parent = request.args.get("type", type=str, default=None)
+        if parent == 'parent':
+            return json.dumps(usermodel.get_parent(session['useremail']))
+        return json.dumps(usermodel.get_bind_accounts(session['useremail']))
+    else:
+        bind_email = request.form.get('email', type=str, default=None)
+        bind_user = usermodel.user_by_email(bind_email)
+        pwd = request.form.get("password", type=str, default=None)
+        action = request.form.get('action', type=str, default=None)
+        if action == 'bindsub':
+            if not bind_user:
+                return '{error1}'
+            elif not usermodel.check_password(bind_user, pwd):
+                return '{errpwd}'
+            else:
+                usermodel.bind_account(usermodel.user_by_email(session['useremail']), bind_user)
+                return 'OK', 200
+        elif action == 'bindparent':
+            if not bind_user:
+                return '{error}'
+            elif not usermodel.check_password(bind_user, pwd):
+                return '{errpwd}'
+            else:
+                usermodel.bind_account(bind_user, usermodel.user_by_email(session['useremail']))
+                return 'OK', 200
+        else:
+            return json.dumps('{Wrong}')
 
 @app.route('/api/')
 def index():

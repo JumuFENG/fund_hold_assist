@@ -32,7 +32,7 @@ class DailyUpdater():
             morningOnetime = True
             print("update in the morning at", datetoday.hour)
 
-        fundcodes = self.sqldb.select(gl_all_funds_info_table, [column_code, column_table_history, column_qdii], " %s is not null" % column_table_history)
+        fundcodes = self.sqldb.select(gl_all_funds_info_table, [column_code, column_table_history, column_qdii], " %s is not null and %s != ''" % (column_table_history, column_table_history))
         if fundcodes :
             for (c, h, qd) in fundcodes:
                 if (morningOnetime and qd) or not ( morningOnetime or qd) :

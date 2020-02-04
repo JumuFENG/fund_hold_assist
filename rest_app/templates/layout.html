@@ -8,12 +8,15 @@
   <body class="{{template}}">
     {% if not loginsignup %}
       <div>
-      {% if session['username'] %}
-        Hi {{ session['username'] }}!
-      {% endif %}
       {% if session['logged_in'] %}
+        {% if session['username'] %}
+          Hi <a href="{{ url_for('dashboard') }}">{{ session['username'] }}</a>!
+        {% endif %}
         <a href="{{ url_for('logout') }}">Log out</a>
       {% else %}
+        {% if session['username'] %}
+          Hi {{ session['username'] }}!
+        {% endif %}
         <a href="{{ url_for('login') }}"> Login </a>
         <a href="{{ url_for('signup') }}"> Sign up</a>
       {% endif %}

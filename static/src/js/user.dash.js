@@ -1,0 +1,154 @@
+window.onload = function() {
+    if (!userDash) {
+        userDash = new UserDashboard(document.getElementsByClassName('container')[0]);
+        userDash.createDashboard();
+    };
+    userDash.getSubAccounts();
+    userDash.getParent();
+}
+
+class UserDashboard {
+    constructor(c) {
+        this.container = c;
+    }
+
+    createDashboard() {
+        var backHomeAchor = document.createElement('a');
+        backHomeAchor.textContent = 'Home';
+        backHomeAchor.href = '/login';
+        this.container.appendChild(backHomeAchor);
+    }
+
+    createAddSubAccountArea() {
+        var subAccountDiv = document.createElement('div');
+        // subAccountDiv.appendChild(document.createTextNode('添加子账户'));
+        // subAccountDiv.appendChild(document.createElement('br'));
+        this.container.appendChild(subAccountDiv);
+
+        var emailInput = document.createElement('input');
+        emailInput.type = 'email';
+        emailInput.name = 'email';
+        emailInput.placeholder = 'Email';
+        subAccountDiv.appendChild(emailInput);
+        subAccountDiv.appendChild(document.createElement('br'));
+
+        var pswInput = document.createElement('input');
+        pswInput.type = 'password';
+        pswInput.name = 'password';
+        pswInput.placeholder = 'Password';
+        subAccountDiv.appendChild(pswInput);
+        subAccountDiv.appendChild(document.createElement('br'));
+
+        var submitBtn = document.createElement('input');
+        submitBtn.type = 'submit';
+        submitBtn.value = '添加子账户';
+        submitBtn.onclick = function(e) {
+            userDash.addSubAccount(emailInput.value, pswInput.value);
+        }
+        subAccountDiv.appendChild(submitBtn);
+
+        if (!this.subAccounts || this.subAccounts.length < 1) {
+            var bindBtn = document.createElement('input');
+            bindBtn.type = 'submit';
+            bindBtn.value = '绑定父账户';
+            bindBtn.onclick = function(e) {
+                userDash.bindToParent(emailInput.value, pswInput.value);
+            }
+            subAccountDiv.appendChild(bindBtn);
+        };
+    }
+
+    showSubAccounts(subs) {
+        if (subs.length < 1) {
+            return;
+        };
+        this.subAccounts = subs;
+        var subAccountDiv = document.createElement('div');
+        subAccountDiv.appendChild(document.createTextNode('子账户'));
+        subAccountDiv.appendChild(document.createElement('br'));
+        this.container.appendChild(subAccountDiv);
+        var accTable = document.createElement('table');
+        accTable.appendChild(utils.createHeaders('name', 'email'));
+        for (var i = 0; i < this.subAccounts.length; i++) {
+            accTable.appendChild(utils.createColsRow(this.subAccounts[i].name, this.subAccounts[i].email));
+        };
+        subAccountDiv.appendChild(accTable);
+    }
+
+    addSubAccount(email, pwd) {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('POST', '../../userbind', true);
+        var request = new FormData();
+        request.append("action", "bindsub");
+        request.append("email", email);
+        request.append('password', pwd);
+        httpRequest.send(request);
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                location.reload();
+            }
+        }
+    }
+
+    bindToParent(email, pwd) {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('POST', '../../userbind', true);
+        var request = new FormData();
+        request.append("action", "bindparent");
+        request.append("email", email);
+        request.append('password', pwd);
+        httpRequest.send(request);
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                location.reload();
+            }
+        }
+    }
+
+    getSubAccounts() {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('GET', '../../userbind', true);
+        httpRequest.send();
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                userDash.showSubAccounts(JSON.parse(httpRequest.responseText));
+            }
+        }
+    }
+
+    showParentAccount() {
+        if (!this.parentAccount) {
+            return;
+        };
+
+        var parentDiv = document.createElement('div');
+        parentDiv.appendChild(document.createTextNode('父账户：' + this.parentAccount.name + ' Email: ' + this.parentAccount.email));
+        this.container.appendChild(parentDiv);
+    }
+
+    showAddSubAccounts(parent) {
+        if (!parent.id) {
+            this.createAddSubAccountArea();
+        } else {
+            this.parentAccount = parent;
+            this.showParentAccount();
+        };
+    }
+
+    getParent() {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('GET', '../../userbind?type=parent', true);
+        httpRequest.send();
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                userDash.showAddSubAccounts(JSON.parse(httpRequest.responseText));
+            }
+        }
+    }
+}
+
+var userDash = null;
