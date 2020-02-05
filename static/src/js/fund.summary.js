@@ -7,6 +7,10 @@ window.onload = function() {
     if (!fundSummary) {
         fundSummary = new FundSummary();
         fundSummary.createSummaryFramework();
+        ftjson['sz000001'] = {
+            name: "上证指数",
+            hideTrade: true
+        };
     };
 
     fundSummary.showAllFundList();
@@ -64,9 +68,154 @@ function sendFetchEvent(fundcode) {
     sendFetchEventActually(fundcode);
 }
 
+class ChartWrapper {
+    constructor() {
+        this.code = null;
+        this.chartDiv = null;
+        this.daysOpt = null;
+        this.tradeOptionDiv = null;
+    }
+
+    createChatsDiv(parentDiv) {
+        if (!parentDiv) {
+            return;
+        };
+
+        this.chartDiv = document.createElement('div');
+        parentDiv.appendChild(this.chartDiv);
+        var chartInteraction = document.createElement('div');
+        chartInteraction.id = 'chart_interaction';
+        var chartSelection = document.createElement('div');
+        chartSelection.id = 'chart_selected_data';
+        chartInteraction.appendChild(chartSelection);
+        this.chartDiv.appendChild(chartInteraction);
+
+        this.daysOpt = document.createElement('ul');
+        this.daysOpt.id = 'dayslist';
+        this.chartDiv.appendChild(this.daysOpt);
+        this.chartDiv.appendChild(document.createElement('br'));
+        this.daysOpt.appendChild(this.createDaysLi(0, '默认', 'highlight'));
+        this.daysOpt.appendChild(this.createDaysLi(30, '30'));
+        this.daysOpt.appendChild(this.createDaysLi(100, '100'));
+        this.daysOpt.appendChild(this.createDaysLi(300, '300'));
+        this.daysOpt.appendChild(this.createDaysLi(1000, '1000'));
+        this.daysOpt.appendChild(this.createDaysLi(-1, '最大'));
+
+        var leftArrowBtn = document.createElement('button');
+        leftArrowBtn.id = 'chart_left_arrow';
+        leftArrowBtn.textContent = '<-';
+        this.daysOpt.appendChild(leftArrowBtn);
+        var rightArrowBtn = document.createElement('button');
+        rightArrowBtn.id = 'chart_right_arrow';
+        rightArrowBtn.textContent = '->'
+        this.daysOpt.appendChild(rightArrowBtn);
+        leftArrowBtn.onclick = function(e) {
+            LeftShiftGraph(leftArrowBtn, rightArrowBtn);
+        }
+        rightArrowBtn.onclick = function(e) {
+            RightShiftGraph(leftArrowBtn, rightArrowBtn);
+        }
+
+        var fundChartDiv = document.createElement('div');
+        fundChartDiv.id = 'fund_chart_div';
+        this.chartDiv.appendChild(fundChartDiv);
+        this.chartDiv.appendChild(document.createElement('br'));
+
+        this.tradeOptionDiv = document.createElement('div');
+        this.tradeOptionDiv.id = 'tradeoptions_container';
+        this.chartDiv.appendChild(this.tradeOptionDiv);
+        this.createTradeOptions();
+    }
+
+    setParent(p) {
+        this.chartDiv.parentElement.removeChild(this.chartDiv);
+        p.appendChild(this.chartDiv);
+    }
+
+    hide() {
+        this.chartDiv.style.display = 'none';
+    }
+
+    show() {
+        this.chartDiv.style.display = 'block';
+    }
+
+    createDaysLi(val, text, cls = null) {
+        var d = document.createElement('li');
+        if (cls) {
+            d.className = 'highlight';            
+        };
+        d.value = val;
+        d.textContent = text;
+        d.onclick = function(e) {
+            fundSummary.redrawHistoryGraphs(e.target.parentElement.parentElement, e.target);
+        }
+        return d;
+    }
+
+    createTradeOptions() {
+        var tradeOption = document.createElement('ul');
+        tradeOption.id = 'tradeoptions';
+        this.tradeOptionDiv.appendChild(tradeOption);
+        var liBuy = document.createElement('li');
+        liBuy.className = 'highlight';
+        liBuy.textContent = '买入';
+        tradeOption.appendChild(liBuy);
+        var liSell = document.createElement('li');
+        liSell.textContent = '卖出';
+        tradeOption.appendChild(liSell);
+        var liBudget = document.createElement('li');
+        liBudget.textContent = '加预算';
+        tradeOption.appendChild(liBudget);
+
+        this.tradeOptionDiv.appendChild(document.createElement('br'));
+        this.tradeOptionDiv.appendChild(document.createElement('hr'));
+
+        var tradePanel = document.createElement('div');
+        this.tradeOptionDiv.appendChild(tradePanel);
+        var tradeDate = document.createElement('input');
+        tradeDate.type = 'date';
+        tradeDate.value = utils.getTodayDate();
+        tradePanel.appendChild(tradeDate);
+        var tradeCost = document.createElement('input');
+        tradeCost.placeholder = '金额';
+        tradePanel.appendChild(tradeCost);
+        var tradeBtn = document.createElement('button');
+        tradeBtn.textContent = '确定';
+        tradeBtn.trade = TradeType.Buy;
+        tradeBtn.onclick = function(e) {
+            TradeSubmit(e.target.trade, fundSummary.chartWrapper.code, tradeDate, tradeCost);
+        }
+        liBuy.onclick = function(e) {
+            SetTradeOption(TradeType.Buy, tradeCost, tradeBtn);
+            utils.toggleHighlight(e.target);
+        }
+        liSell.onclick = function(e) {
+            SetTradeOption(TradeType.Sell, tradeCost, tradeBtn);
+            utils.toggleHighlight(e.target);
+        }
+        liBudget.onclick = function(e) {
+            SetTradeOption(TradeType.Budget, tradeCost, tradeBtn);
+            utils.toggleHighlight(e.target);
+        }
+        tradePanel.appendChild(tradeBtn);
+    }
+
+    showTradeOptions() {
+        this.tradeOptionDiv.style.display = 'block';
+    }
+
+    hideTradeOptions() {
+        this.tradeOptionDiv.style.display = 'none';
+    }
+}
+
 class FundSummary {
     constructor() {
         this.container = null;
+        this.fundListTable = null;
+        this.summaryHeader = null;
+        this.chartWrapper = null;
     }
 
     updateSummaryHeader(earned, total_earned, cost) {
@@ -135,131 +284,10 @@ class FundSummary {
         buyNewBtn.textContent = '确定';
         buyNewBtn.onclick = function(e) {
             buyFund(buyNewCode.value, buyNewDate.value, parseFloat(buyNewCost.value), null, null);
+            buyNewCode.value = '';
+            buyNewCost.value = '';
         }
         buyNewArea.appendChild(buyNewBtn);
-    }
-
-    createDaysLi(val, text, cls = null) {
-        var d = document.createElement('li');
-        if (cls) {
-            d.className = 'highlight';            
-        };
-        d.value = val;
-        d.textContent = text;
-        d.onclick = function(e) {
-            RedrawHistoryGraphs(e.target.parentElement.parentElement, e.target);
-        }
-        return d;
-    }
-
-    createChatsDiv() {
-        if (!this.chartsDiv) {
-            return;
-        };
-
-        var chartInteraction = document.createElement('div');
-        chartInteraction.id = 'chart_interaction';
-        var chartSelection = document.createElement('div');
-        chartSelection.id = 'chart_selected_data';
-        chartInteraction.appendChild(chartSelection);
-        this.chartsDiv.appendChild(chartInteraction);
-
-        var daysOpt = document.createElement('ul');
-        daysOpt.id = 'dayslist';
-        this.chartsDiv.appendChild(daysOpt);
-        this.chartsDiv.appendChild(document.createElement('br'));
-        daysOpt.appendChild(this.createDaysLi(0, '默认', 'highlight'));
-        daysOpt.appendChild(this.createDaysLi(30, '30'));
-        daysOpt.appendChild(this.createDaysLi(100, '100'));
-        daysOpt.appendChild(this.createDaysLi(300, '300'));
-        daysOpt.appendChild(this.createDaysLi(1000, '1000'));
-        daysOpt.appendChild(this.createDaysLi(-1, '最大'));
-
-        var leftArrowBtn = document.createElement('button');
-        leftArrowBtn.id = 'chart_left_arrow';
-        leftArrowBtn.textContent = '<-';
-        daysOpt.appendChild(leftArrowBtn);
-        var rightArrowBtn = document.createElement('button');
-        rightArrowBtn.id = 'chart_right_arrow';
-        rightArrowBtn.textContent = '->'
-        daysOpt.appendChild(rightArrowBtn);
-        leftArrowBtn.onclick = function(e) {
-            LeftShiftGraph(leftArrowBtn, rightArrowBtn);
-        }
-        rightArrowBtn.onclick = function(e) {
-            RightShiftGraph(leftArrowBtn, rightArrowBtn);
-        }
-
-        var fundChartDiv = document.createElement('div');
-        fundChartDiv.id = 'fund_chart_div';
-        this.chartsDiv.appendChild(fundChartDiv);
-        this.chartsDiv.appendChild(document.createElement('br'));
-
-        var tradeOptionDiv = document.createElement('div');
-        tradeOptionDiv.id = 'tradeoptions_container';
-        this.chartsDiv.appendChild(tradeOptionDiv);
-        this.showTradeOptions(tradeOptionDiv);
-        this.chartsDiv.style.display = 'none';
-    }
-
-    showTradeOptions(tradeOptionDiv = null) {
-        if (!tradeOptionDiv) {
-            tradeOptionDiv = document.getElementById('tradeoptions_container');
-        };
-        if (tradeOptionDiv.childNodes.length > 0) {
-            tradeOptionDiv.style.display = 'block';
-            return;
-        };
-
-        var tradeOption = document.createElement('ul');
-        tradeOption.id = 'tradeoptions';
-        tradeOptionDiv.appendChild(tradeOption);
-        var liBuy = document.createElement('li');
-        liBuy.className = 'highlight';
-        liBuy.textContent = '买入';
-        tradeOption.appendChild(liBuy);
-        var liSell = document.createElement('li');
-        liSell.textContent = '卖出';
-        tradeOption.appendChild(liSell);
-        var liBudget = document.createElement('li');
-        liBudget.textContent = '加预算';
-        tradeOption.appendChild(liBudget);
-
-        tradeOptionDiv.appendChild(document.createElement('br'));
-        tradeOptionDiv.appendChild(document.createElement('hr'));
-
-        var tradePanel = document.createElement('div');
-        tradeOptionDiv.appendChild(tradePanel);
-        var tradeDate = document.createElement('input');
-        tradeDate.type = 'date';
-        tradeDate.value = utils.getTodayDate();
-        tradePanel.appendChild(tradeDate);
-        var tradeCost = document.createElement('input');
-        tradeCost.placeholder = '金额';
-        tradePanel.appendChild(tradeCost);
-        var tradeBtn = document.createElement('button');
-        tradeBtn.textContent = '确定';
-        tradeBtn.trade = TradeType.Buy;
-        tradeBtn.onclick = function(e) {
-            TradeSubmit(e.target.trade, this.chartsDiv.code, tradeDate, tradeCost);
-        }
-        liBuy.onclick = function(e) {
-            SetTradeOption(TradeType.Buy, tradeCost, tradeBtn);
-            utils.toggelHighlight(e.target);
-        }
-        liSell.onclick = function(e) {
-            SetTradeOption(TradeType.Sell, tradeCost, tradeBtn);
-            utils.toggelHighlight(e.target);
-        }
-        liBudget.onclick = function(e) {
-            SetTradeOption(TradeType.Budget, tradeCost, tradeBtn);
-            utils.toggelHighlight(e.target);
-        }
-        tradePanel.appendChild(tradeBtn);
-    }
-
-    hideTradeOptions() {
-        document.getElementById('tradeoptions_container').style.display = 'none';
     }
 
     createSummaryFramework() {
@@ -273,9 +301,9 @@ class FundSummary {
         this.fundListTable = document.createElement('table');
         var fundlistDiv = document.createElement('div');
         fundlistDiv.appendChild(this.fundListTable);
-        this.chartsDiv = document.createElement('div');
-        this.createChatsDiv();
-        fundlistDiv.appendChild(this.chartsDiv);
+        this.chartWrapper = new ChartWrapper();
+        this.chartWrapper.createChatsDiv(this.fundListTable.parentElement);
+        this.chartWrapper.hide();
         this.container.appendChild(fundlistDiv);
         var buyNewArea = document.createElement('div');
         this.createBuyNewArea(buyNewArea);
@@ -298,9 +326,12 @@ class FundSummary {
         var cost = 0;
         var code_cost = [];
         for (var fcode in ftjson){
+            var funddata = ftjson[fcode];
+            if (funddata.hideTrade) {
+                continue;
+            };
             sendFetchEvent(fcode);
 
-            var funddata = ftjson[fcode];
             earned += funddata.lde;
             total_earned += funddata.ewh;        
             cost += funddata.cost;
@@ -316,16 +347,17 @@ class FundSummary {
             return s[1] - f[1];
         });
 
-        utils.deleteAllRows(this.fundListTable);
-        ftjson['sz000001'] = {
-            name: "上证指数",
-            hideTrade: true
+        if (ftjson['sz000001']) {
+            code_cost.push(['sz000001', 0]);
         };
-        code_cost.push(['sz000001', 0]);
+
+        this.chartWrapper.setParent(this.fundListTable.parentElement);
+        utils.deleteAllRows(this.fundListTable);
         for (var i in code_cost) {
             var row = this.createGeneralInfoInSingleRow(code_cost[i][0]);
             this.fundListTable.appendChild(row)
         }
+        this.fundListTable.appendChild(utils.createSplitLine());
     }
 
     createGeneralInfoInSingleRow(code) {
@@ -415,22 +447,52 @@ class FundSummary {
             if (!ftjson[code].hideTrade) {
                 refreshHoldDetail(code);
             };
-            DrawFundHistory(code);
 
-            this.chartsDiv.parentElement.removeChild(this.chartsDiv);
-            divDetail.appendChild(this.chartsDiv);
-            this.chartsDiv.style.display = 'block';
-            this.chartsDiv.code = code;
+            this.chartWrapper.setParent(divDetail);
+            this.chartWrapper.show();
+            this.chartWrapper.code = code;
             if (!ftjson[code].hideTrade) {
-                this.showTradeOptions();
+                this.chartWrapper.showTradeOptions();
             } else {
-                this.hideTradeOptions();
+                this.chartWrapper.hideTradeOptions();
             };
+            this.drawFundHistory(this.chartWrapper.code);
         } else {
             divDetail.style.display = "none";
         }
     }
 
+    drawFundHistory(code) {
+        document.getElementById("chart_interaction").style.display = "none";
+        if (!chart.chartDiv) {
+            chart.setChartDiv(document.getElementById('fund_chart_div'));
+        };
+        chart.fund = new FundLine(code, ftjson[code].name, ftjson[code].ic, ftjson[code].in);
+
+        if (chart.fund.indexCode && ( all_hist_data.length < 1 || all_hist_data[0].indexOf(chart.fund.indexCode) < 0)) {
+            getHistoryData(chart.fund.indexCode, 'index');
+        }
+        
+        if (all_hist_data.length == 0 || all_hist_data[0].indexOf(code) < 0) {
+            getHistoryData(code, 'fund');
+            return;
+        };
+
+        var days = utils.getHighlightedValue("dayslist");
+        chart.drawChart(days);
+        document.getElementById("chart_left_arrow").disabled = false;
+        document.getElementById("chart_right_arrow").disabled = true;
+    }
+
+    redrawHistoryGraphs(ele, t) {
+        var days = t.value;
+        if (chart) {
+            chart.drawChart(days);
+            document.getElementById("chart_left_arrow").disabled = false;
+            document.getElementById("chart_right_arrow").disabled = true;
+        }
+        utils.toggleHighlight(t);
+    }
 }
 
 var fundSummary = null;
@@ -569,7 +631,9 @@ function jsonpgz(fundgz) {
     var hold_detail = document.getElementById("hold_detail_" + code);
     if (hold_detail.style.display != "none") {
         updateLatestSellInfo(code);
-        DrawFundHistory(code);
+        if (fundSummary) {
+            fundSummary.drawFundHistory(code);
+        };
     };
 }
 

@@ -14,14 +14,19 @@ class FundLine {
 };
 
 class FundChart {
-    constructor(chart_div) {
+    constructor() {
         // Instantiate and draw our chart, passing in some options.
-        this.chart = new google.visualization.LineChart(chart_div);
-        this.chartDiv = chart_div;
+        this.chartDiv = null;
+        this.chart = null;
         this.data = null;
         this.fund = null;
         this.ticks = [];
         this.marks = [];
+    }
+
+    setChartDiv(chart_div) {
+        this.chartDiv = chart_div;
+        this.chart = new google.visualization.LineChart(chart_div);
         google.visualization.events.addListener(this.chart, 'ready', this.drawVticks);
         google.visualization.events.addListener(this.chart, 'select', this.selectChartPoint);
     }
@@ -495,41 +500,8 @@ google.charts.load('current', {'packages':['corechart']});
 
 // Set a callback to run when the Google Visualization API is loaded.
 google.charts.setOnLoadCallback(function(){
-    chart = new FundChart(document.getElementById('fund_chart_div'));
-    if (!utils.isEmpty(ftjson) && (all_hist_data.length < 1 || all_hist_data[0].indexOf('sz000001') < 0)) {
-        getHistoryData('sz000001', 'index');
-    }
+    chart = new FundChart();
 });
-
-function DrawFundHistory(fundcode) {
-    document.getElementById("chart_interaction").style.display = "none";
-    chart.fund = new FundLine(fundcode, ftjson[fundcode].name, ftjson[fundcode].ic, ftjson[fundcode].in);
-
-    if (chart.fund.indexCode && ( all_hist_data.length == 0 || all_hist_data[0].indexOf(chart.fund.indexCode) < 0)) {
-        getHistoryData(chart.fund.indexCode, 'index');
-    }
-    
-    if (all_hist_data.length == 0 || all_hist_data[0].indexOf(fundcode) < 0) {
-        getHistoryData(fundcode, 'fund');
-        return;
-    };
-
-    var days = utils.getHighlightedValue("dayslist");
-    chart.drawChart(days);
-    document.getElementById("chart_left_arrow").disabled = false;
-    document.getElementById("chart_right_arrow").disabled = true;
-}
-
-function RedrawHistoryGraphs(ele, t) {
-    var days = t.value;
-    if (chart)
-    {
-        chart.drawChart(days);
-        document.getElementById("chart_left_arrow").disabled = false;
-        document.getElementById("chart_right_arrow").disabled = true;
-    }
-    utils.toggelHighlight(t);
-}
 
 function LeftShiftGraph(leftBtn, rightBtn) {
     if (chart) {
@@ -571,8 +543,7 @@ function updateHistData(hist_data) {
         all_hist_data = utils.mergeHistData(all_hist_data, hist_data);
     }
 
-    if (chart)
-    {
+    if (chart) {
         if (!chart.fund || updatingcode != chart.fund.code) {
             return;
         };

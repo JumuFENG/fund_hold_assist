@@ -218,7 +218,7 @@ class Utils {
         return lbl_class;
     }
 
-    toggelHighlight(t) {
+    toggleHighlight(t) {
         t.className = "highlight";
         var sibling = t.parentElement.firstChild;
         while (sibling != null) {
