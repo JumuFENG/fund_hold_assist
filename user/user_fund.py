@@ -187,7 +187,10 @@ class UserFund():
             if not v:
                 netvalue = fg.netvalue_by_date(d)
                 if netvalue:
-                    max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)), 4)
+                    if not fg.short_term_rate:
+                        max_price_to_buy = round(netvalue, 4)
+                    else:
+                        max_price_to_buy = round(netvalue * (1.0 - float(fg.short_term_rate)), 4)
             else:
                 max_price_to_buy = round(float(v), 4)
             to_rollin = 0;
@@ -349,7 +352,9 @@ class UserFund():
         money = Decimal(portion) * Decimal(str(netvalue))
         earned = money - Decimal(cost)
         return_percent = earned / Decimal(cost)
-        max_value_to_sell = round(netvalue * (1.0 - float(fg.short_term_rate)), 4)
+        max_value_to_sell = round(netvalue, 4)
+        if fg.short_term_rate:
+            max_value_to_sell = round(netvalue * (1.0 - float(fg.short_term_rate)), 4)
         self.sqldb.update(self.sell_table, {column_money_sold:str(money), column_earned : str(earned), column_return_percentage : str(return_percent), column_roll_in_value:str(max_value_to_sell)}, {column_date:date})
 
         self.fix_cost_portion_hold()
