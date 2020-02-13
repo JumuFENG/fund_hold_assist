@@ -310,6 +310,16 @@ def userbind():
             else:
                 usermodel.bind_account(bind_user, usermodel.user_by_email(session['useremail']))
                 return 'OK', 200
+        elif action == 'switchaccount':
+            curUser = usermodel.user_by_email(session['useremail'])
+            tarUser = bind_user
+            if usermodel.is_combined(curUser, tarUser):
+                session['logged_in'] = True
+                session['useremail'] = tarUser.email
+                session['username'] = tarUser.name
+                return 'OK', 200
+            else:
+                return '{wrongarg}'
         else:
             return json.dumps('{Wrong}')
 

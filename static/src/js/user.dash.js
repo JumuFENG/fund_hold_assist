@@ -68,9 +68,16 @@ class UserDashboard {
         subAccountDiv.appendChild(document.createElement('br'));
         this.container.appendChild(subAccountDiv);
         var accTable = document.createElement('table');
-        accTable.appendChild(utils.createHeaders('name', 'email'));
+        accTable.appendChild(utils.createHeaders('name', 'email', ''));
         for (var i = 0; i < this.subAccounts.length; i++) {
-            accTable.appendChild(utils.createColsRow(this.subAccounts[i].name, this.subAccounts[i].email));
+            var switchBtn = document.createElement('button');
+            var curAccout = this.subAccounts[i];
+            switchBtn.textContent = '切到' + curAccout.name;
+            switchBtn.switchEmail = curAccout.email;
+            switchBtn.onclick = function(e) {
+                userDash.switchAccount(e.target.switchEmail);
+            }
+            accTable.appendChild(utils.createColsRow(curAccout.name, curAccout.email, switchBtn));
         };
         subAccountDiv.appendChild(accTable);
     }
@@ -126,6 +133,12 @@ class UserDashboard {
 
         var parentDiv = document.createElement('div');
         parentDiv.appendChild(document.createTextNode('父账户：' + this.parentAccount.name + ' Email: ' + this.parentAccount.email));
+        var switchBtn = document.createElement('button');
+        switchBtn.textContent = '切到父账户';
+        switchBtn.onclick = function(e) {
+            userDash.switchAccount(userDash.parentAccount.email);
+        }
+        parentDiv.appendChild(switchBtn);
         this.container.appendChild(parentDiv);
     }
 
@@ -146,6 +159,21 @@ class UserDashboard {
         httpRequest.onreadystatechange = function () {
             if (httpRequest.readyState == 4 && httpRequest.status == 200) {
                 userDash.showAddSubAccounts(JSON.parse(httpRequest.responseText));
+            }
+        }
+    }
+
+    switchAccount(email) {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('POST', '../../userbind', true);
+        var request = new FormData();
+        request.append("action", "switchaccount");
+        request.append("email", email);
+        httpRequest.send(request);
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                window.location = 'login';
             }
         }
     }

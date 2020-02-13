@@ -346,6 +346,13 @@ class UserModel():
                     users.append(self.user_by_id(sid))
         return users
 
+    def is_combined(self, u1, u2):
+        users = self.get_all_combined_users(u1)
+        for u in users:
+            if u.id == u2.id:
+                return True
+        return False
+
     def bind_account(self, user, sub):
         if not user or not sub:
             return
