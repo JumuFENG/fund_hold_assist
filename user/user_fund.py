@@ -75,6 +75,11 @@ class UserFund():
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.budget_table, attrs, constraint)
 
+    def check_exist_in_allfunds(self):
+        fg = self.sqldb.select(gl_all_funds_info_table, "*", "%s = '%s'" % (column_code, self.code))
+        if not fg:
+            self.sqldb.insert(gl_all_funds_info_table, {column_code: self.code})
+
     def last_day_earned(self, history_table):
         history_dvs = self.sqldb.select(history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date);
         if not history_dvs:
@@ -247,6 +252,7 @@ class UserFund():
     def add_buy_rec(self, date, cost, budget_dates = None, rollin_date = None):
         if not self.sqldb.isExistTable(self.buy_table):
             self.setup_buytable()
+            self.check_exist_in_allfunds()
 
         buy_rec = self.sqldb.select(self.buy_table, conds = "%s = '%s'" % (column_date, date))
         if buy_rec:

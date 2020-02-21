@@ -139,16 +139,13 @@ class AllFunds():
 
         url = self.get_fund_url(code)
         if not url:
-            print("url of", code, "not exist.")
-            return
+            url = "http://fund.eastmoney.com/" + code + ".html"
+            self.updateInfoOfFund(code, {column_url: url})
         return self.getRequest(url)
 
     def updateInfoOfFund(self, code, infoDic):
         if not self.sqldb.isExistTable(gl_all_funds_info_table):
             print(gl_all_funds_info_table, "not exist.")
-            return
-        if not len(infoDic) == 11 and not len(infoDic) == 6:
-            print("len of infoDic should be 11 or 6, but get", len(infoDic))
             return
 
         self.sqldb.update(gl_all_funds_info_table, infoDic, {column_code: code})
@@ -159,6 +156,8 @@ class AllFunds():
             return
 
         soup = BeautifulSoup(c, 'html.parser')
+        fhdr = soup.select('.fundDetail-header')[0].div.get_text()
+        name = fhdr.split('(')[0]
         tds = soup.select('.infoOfFund > table td')
         #print(tds[0].get_text().replace(u'\xa0', u' '))
         td_fund_type = tds[0].a.get_text()
@@ -172,7 +171,9 @@ class AllFunds():
 
         fund_info_url = soup.select('.fundDetail-footer > ul > li')[1].a.get('href')
 
-        infoDic = {column_type: td_fund_type, column_risk_level: td_risk_level, column_amount: td_money_amount, column_setup_date: td_setup_date, column_star_level: td_star_level, column_summary_url: fund_info_url}
+        buyfee = soup.select('.buyWayWrap .staticItem .staticCell .nowPrice')[0].get_text()
+
+        infoDic = {column_name: name, column_type: td_fund_type, column_risk_level: td_risk_level, column_amount: td_money_amount, column_setup_date: td_setup_date, column_star_level: td_star_level, column_summary_url: fund_info_url, column_fee: buyfee}
         ratingDic = self.loadRatingInfo(code)
         if ratingDic:
             infoDic = dict(infoDic, **ratingDic)
