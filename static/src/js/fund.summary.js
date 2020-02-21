@@ -474,7 +474,7 @@ class FundSummary {
         }
         
         if (all_hist_data.length == 0 || all_hist_data[0].indexOf(code) < 0) {
-            getHistoryData(code, 'fund');
+            getHistoryData(code, ftjson[code].hideTrade? 'index': 'fund');
             return;
         };
 
