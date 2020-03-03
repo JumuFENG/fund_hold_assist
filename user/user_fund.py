@@ -449,6 +449,14 @@ class UserFund():
         af = AllFunds(self.sqldb)
         af.updateTrackIndex(self.code, index_code)
 
+        ig = IndexGeneral(self.sqldb, index_code)
+        if not ig.name:
+            ai = AllIndexes(self.sqldb)
+            ai.loadInfo(index_code)
+            ih = Index_history(self.sqldb)
+            ih.indexHistoryTillToday(index_code)
+            ih.getHistoryFromSohu(index_code)
+
     def track_index_empty(self):
         tc = self.sqldb.select(gl_all_funds_info_table, [column_tracking_index], "%s = '%s'" % (column_code, self.code))
         if tc:
