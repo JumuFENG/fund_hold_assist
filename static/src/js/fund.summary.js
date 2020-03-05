@@ -998,8 +998,11 @@ function buyFund(code, date, cost, budget_dates, rollin_date, callback) {
 
     httpRequest.onreadystatechange = function () {
         if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+            if (detailpage.buydetail) {
+                detailpage.buydetail.code = null;
+            };
             fetchFundSummary(code, callback);
-        }
+        } 
     }
 }
 
@@ -1013,6 +1016,9 @@ function sellFund(code, date, strbuydates, callback) {
     httpRequest.send(request);
     httpRequest.onreadystatechange = function () {
         if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+            if (detailpage) {
+                detailpage.selltable_code = null;
+            };
             fetchFundSummary(code, callback);
         }
     }

@@ -431,3 +431,47 @@ var TradeType = {
 };
 
 var utils = new Utils();
+
+class RadioAnchorBar {
+    constructor(text = '') {
+        this.container = document.createElement('div');
+        this.container.className = 'radio_anchor_div';
+        if (text.length > 0) {
+            this.container.appendChild(document.createTextNode(text));
+        };
+        this.radioAchors = [];
+    }
+
+    addRadio(text, cb) {
+        var ra = document.createElement('a');
+        ra.href = 'javascript:void(0)';
+        ra.anchorBar = this;
+        ra.textContent = text;
+        ra.onclick = function(e) {
+            e.target.anchorBar.setHightlight(e.target, cb);
+        }
+        this.container.appendChild(ra);
+        this.radioAchors.push(ra);
+    }
+
+    setHightlight(r, cb) {
+        if (!cb) {
+            r.click();
+            return;
+        };
+        
+        for (var i = 0; i < this.radioAchors.length; i++) {
+            if (this.radioAchors[i] == r) {
+                if (this.radioAchors[i].className == 'highlight') {
+                    return;
+                };
+                this.radioAchors[i].className = 'highlight';
+                if (typeof(cb) === 'function') {
+                    cb();
+                };
+            } else {
+                this.radioAchors[i].className = '';
+            }
+        };
+    }
+}

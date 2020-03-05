@@ -438,6 +438,7 @@ class FundBuyDetail {
     constructor(buy_detail_div) {
         this.container = buy_detail_div;
         this.code = null;
+        this.radioBar = null;
         this.buyTable = null;
     }
 
@@ -532,7 +533,6 @@ class FundBuyDetail {
         var sellDatePicker = document.getElementById('detail_sell_datepick_' + this.code);
         if (sellContent.value != '') {
             sellFund(this.code, sellDatePicker.value, sellContent.value, function(){
-                detailpage.selltable_code = null;
                 fetchBuyData(detailpage.code, function(){
                     detailpage.buydetail.updateSingleBuyTable();                    
                 });
@@ -547,18 +547,15 @@ class FundBuyDetail {
             return;
         };
         
-        var sellBtnDiv = document.createElement('div');
-        sellBtnDiv.className = 'radio_anchor_div';
-        sellBtnDiv.appendChild(document.createTextNode('卖出'));
-        var sellByDate = document.createElement('a');
-        sellByDate.textContent = '按日期';
-        sellByDate.href = 'javascript:detailpage.buydetail.sortBuyTable(true);';
-        sellBtnDiv.appendChild(sellByDate);
-        var sellByVal = document.createElement('a');
-        sellByVal.textContent = '按净值';
-        sellByVal.href = 'javascript:detailpage.buydetail.sortBuyTable(false);';
-        sellBtnDiv.appendChild(sellByVal);
-        this.container.appendChild(sellBtnDiv);        
+        this.radioBar = new RadioAnchorBar('卖出');
+        this.radioBar.addRadio('按日期', function(){
+            detailpage.buydetail.sortBuyTable(true);
+        });
+        this.radioBar.addRadio('按净值', function(){
+            detailpage.buydetail.sortBuyTable(false);
+        });
+
+        this.container.appendChild(this.radioBar.container);
         
         var checkAll = document.createElement('input');
         checkAll.type = 'checkbox';
@@ -604,7 +601,7 @@ class FundBuyDetail {
         };
 
         this.buyTable.appendChild(utils.createColsRow('总计', sum_cost, ''));
-        this.sortBuyTable(true);
+        this.radioBar.setHightlight(this.radioBar.radioAchors[0]);
         
         var sellPanel = document.createElement('div');
         var sellContent = document.createElement('div');
