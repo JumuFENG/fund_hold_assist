@@ -117,23 +117,17 @@ class FundDetail {
     }
     
     setTrackingIndex(trackDiv) {
+        var queries = new FormData();
+        queries.append("code", this.code);
+        queries.append("action", "trackindex");
         var trackInput = trackDiv.getElementsByTagName('input')[0];
+        queries.append("trackcode", trackInput.value);
 
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.open('POST', '../../fundmisc', true);
-        var request = new FormData();
-        request.append("code", this.code);
-        request.append("action", "trackindex");
-        request.append("trackcode", trackInput.value);
-        httpRequest.send(request);
-
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                fetchFundSummary(detailpage.code, function(){
-                    detailpage.showTrackingInfo(trackDiv);                    
-                });
-            }
-        }
+        utils.post('fundmisc', queries, function(){
+            request.fetchFundSummary(detailpage.code, function(){
+                detailpage.showTrackingInfo(trackDiv);
+            });
+        });
     }
     
     enableEditTrackingIndex(trackDiv) {
@@ -159,15 +153,9 @@ class FundDetail {
         var trackEdit = document.createElement('button');
         trackEdit.textContent = ftjson[this.code].ic ? '更改' : '设置';
         trackEdit.onclick = function(e) {
-            var httpRequest = new XMLHttpRequest();
-            httpRequest.open('GET', '../../fundmisc?action=trackindex&code=' + e.target.parentElement.fundcode, true);
-            httpRequest.send();
-
-            httpRequest.onreadystatechange = function () {
-                if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                    detailpage.enableEditTrackingIndex(e.target.parentElement);
-                }
-            }
+            utils.get('fundmisc', 'action=trackindex&code=' + e.target.parentElement.fundcode, function(rsp){
+                detailpage.enableEditTrackingIndex(e.target.parentElement);
+            });
         }
         trackDiv.appendChild(trackEdit);
     }
@@ -222,20 +210,15 @@ class FundDetail {
             editBox.style.display = 'none';
             textNode.textContent = editBox.value;
             editBtn.textContent = '修改';
-            var httpRequest = new XMLHttpRequest();
-            httpRequest.open('POST', '../../fundsell', true);
-            var request = new FormData();
+            var queries = new FormData();
             var fundcode = this.code;
-            request.append("code", fundcode);
-            request.append("date", actualBox.getAttribute('date'));
-            request.append("action", 'setsold');
-            request.append('actual_sold', editBox.value);
-            httpRequest.send(request);
-            httpRequest.onreadystatechange = function () {
-                if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                    detailpage.updateSingleSellTable(actualBox, editBox.value);
-                }
-            }
+            queries.append("code", fundcode);
+            queries.append("date", actualBox.getAttribute('date'));
+            queries.append("action", 'setsold');
+            queries.append('actual_sold', editBox.value);
+            utils.post('fundsell', queries, function(){
+                detailpage.updateSingleSellTable(actualBox, editBox.value);
+            });
         }
     }
     
@@ -261,14 +244,13 @@ class FundDetail {
     
     deleteRollin(deleteId) {
         var rollinBox = document.getElementById(deleteId);
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.open('POST', '../../fundsell', true);
-        var request = new FormData();
-        request.append("code", this.code);
-        request.append("date", rollinBox.getAttribute('date'));
-        request.append("action", 'fixrollin');
-        request.append('rolledin', rollinBox.getAttribute('cost'));
-        httpRequest.send(request);
+        var queries = new FormData();
+        queries.append("code", this.code);
+        queries.append("date", rollinBox.getAttribute('date'));
+        queries.append("action", 'fixrollin');
+        queries.append('rolledin', rollinBox.getAttribute('cost'));
+        utils.post('fundsell', queries);
+
         rollinBox.innerText = 0;
     }
     
@@ -296,21 +278,16 @@ class FundDetail {
     }
 
     onAddBonusClicked(dpicker, bonusInput) {
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.open('POST', '../../fundsell', true);
-        var request = new FormData();
+        var queries = new FormData();
         var fundcode = this.code;
-        request.append("code", fundcode);
-        request.append("date", dpicker.value);
-        request.append("action", 'divident');
-        request.append('bonus', bonusInput.value);
-        httpRequest.send(request);
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                fetchFundSummary(fundcode);
-                document.getElementById('bonus_area_' + fundcode).style.display = 'none';
-            }
-        }
+        queries.append("code", fundcode);
+        queries.append("date", dpicker.value);
+        queries.append("action", 'divident');
+        queries.append('bonus', bonusInput.value);
+        utils.post('fundsell', queries, function(){
+            request.fetchFundSummary(fundcode);
+            document.getElementById('bonus_area_' + fundcode).style.display = 'none';
+        });
     }
 
     showSingleSellTable(sellDiv) {
@@ -362,7 +339,7 @@ class FundDetail {
         };
 
         if (!ftjson[this.code].sell_table) {
-            fetchSellData(this.code, function(){
+            request.fetchSellData(this.code, function(){
                 detailpage.reloadSingleSellTable(sellTable);
             });
             return;
@@ -532,8 +509,8 @@ class FundBuyDetail {
         var sellContent = document.getElementById('detail_sell_div_' + this.code);
         var sellDatePicker = document.getElementById('detail_sell_datepick_' + this.code);
         if (sellContent.value != '') {
-            sellFund(this.code, sellDatePicker.value, sellContent.value, function(){
-                fetchBuyData(detailpage.code, function(){
+            request.sellFund(this.code, sellDatePicker.value, sellContent.value, function(){
+                request.fetchBuyData(detailpage.code, function(){
                     detailpage.buydetail.updateSingleBuyTable();                    
                 });
             });

@@ -29,6 +29,38 @@ class Utils {
         return dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
     }
 
+    get(path, queries, cb) {
+        var httpRequest = new XMLHttpRequest();
+        var lnk = '../../' + path;
+        if (queries && queries.length > 0) {
+            lnk += '?' + queries;
+        };
+        httpRequest.open('GET', lnk, true);
+        httpRequest.send();
+
+        httpRequest.onreadystatechange = function() {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                if (typeof(cb === 'function')) {
+                    cb(httpRequest.responseText);
+                };
+            };
+        }
+    }
+
+    post(querystr, form, cb) {
+        var httpRequest = new XMLHttpRequest();
+        httpRequest.open('POST', '../../' + querystr);
+        httpRequest.send(form);
+
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                if (typeof(cb) === 'function') {
+                    cb();
+                };
+            } 
+        }
+    }
+
     loadJsonData() {
         var newscript = document.createElement('script');
         newscript.setAttribute('type','text/javascript');
@@ -242,22 +274,6 @@ class Utils {
         return days;
     }
 
-    httpRequestGet(path, queries = null, callback = null) {
-        var httpRequest = new XMLHttpRequest();
-        var lnk = '../../' + path;
-        if (queries != null) {
-            lnk += '?' + queries;
-        };
-        httpRequest.open('GET', lnk, true);
-        httpRequest.send();
-
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                callback(httpRequest)
-            }
-        }
-    }
-
     convertPortionToGram(portion, ppg) {
         if (ppg == 0 || ppg == 1) {
             return portion;
@@ -424,13 +440,13 @@ class Utils {
     }
 }
 
+var utils = new Utils();
+
 var TradeType = {
     Buy:1,
     Sell:2,
     Budget:3
 };
-
-var utils = new Utils();
 
 class RadioAnchorBar {
     constructor(text = '') {

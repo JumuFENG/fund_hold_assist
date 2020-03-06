@@ -49,16 +49,10 @@ class FundStats {
     }
 
     getFundStats(curAccount = true) {
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.open('GET', '../../fundmisc?action=' + (curAccount ? 'fundstats':'allfundstats'), true);
-        httpRequest.send();
-
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                fundstats.statsJson = JSON.parse(httpRequest.responseText);
-                fundstats.showFundStats();
-            };
-        }
+        utils.get('fundmisc', 'action=' + (curAccount ? 'fundstats':'allfundstats'), function(rsp){
+            fundstats.statsJson = JSON.parse(rsp);
+            fundstats.showFundStats();
+        });
     }
 
     showFundStats() {

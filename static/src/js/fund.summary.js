@@ -42,16 +42,10 @@ function sendFetchEventActually(fundcode) {
         document.dispatchEvent(selectedCodeEvt);
     }
     else {
-        var httpRequest = new XMLHttpRequest();
-        var request = encodeURIComponent('http://fundgz.1234567.com.cn/js/' + fundcode + '.js?rt=' + (new Date()).getTime());
-        httpRequest.open('GET', '../../api/get?url=' + request, true);
-        httpRequest.send();
-
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                eval(httpRequest.responseText);
-            }
-        }
+        var req = encodeURIComponent('http://fundgz.1234567.com.cn/js/' + fundcode + '.js?rt=' + (new Date()).getTime());
+        utils.get('api/get', 'url=' + req, function(rsp){
+            eval(rsp);
+        });
     }
 }
 
@@ -283,7 +277,7 @@ class FundSummary {
         var buyNewBtn = document.createElement('button');
         buyNewBtn.textContent = '确定';
         buyNewBtn.onclick = function(e) {
-            buyFund(buyNewCode.value, buyNewDate.value, parseFloat(buyNewCost.value), null, null);
+            request.buyFund(buyNewCode.value, buyNewDate.value, parseFloat(buyNewCost.value), null, null);
             buyNewCode.value = '';
             buyNewCost.value = '';
         }
@@ -400,18 +394,7 @@ class FundSummary {
             forgetBtn.textContent = "不再关注";
             forgetBtn.onclick = function(e) {
                 var code = e.target.parentElement.id.split('_').pop();
-                var httpRequest = new XMLHttpRequest();
-                httpRequest.open('POST', '../../fundmisc', true);
-                var request = new FormData();
-                request.append("code", code);
-                request.append("action", "forget");
-                httpRequest.send(request);
-
-                httpRequest.onreadystatechange = function () {
-                    if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                        location.reload();
-                    }
-                }
+                request.forget(code);
             }
             hold_detail.appendChild(forgetBtn);
         }
@@ -470,11 +453,15 @@ class FundSummary {
         chart.fund = new FundLine(code, ftjson[code].name, ftjson[code].ic, ftjson[code].in);
 
         if (chart.fund.indexCode && ( all_hist_data.length < 1 || all_hist_data[0].indexOf(chart.fund.indexCode) < 0)) {
-            getHistoryData(chart.fund.indexCode, 'index');
+            request.getHistoryData(chart.fund.indexCode, 'index', function(h){
+                updateHistData(h);
+            });
         }
         
         if (all_hist_data.length == 0 || all_hist_data[0].indexOf(code) < 0) {
-            getHistoryData(code, ftjson[code].hideTrade? 'index': 'fund');
+            request.getHistoryData(code, ftjson[code].hideTrade? 'index': 'fund', function(h){
+                updateHistData(h);
+            });
             return;
         };
 
@@ -793,104 +780,150 @@ function createEarnedInfo(funddata) {
     return earnedDiv;
 }
 
+class RequestUtils {
+    getHistoryData(code, type, cb) {
+        utils.get('fundhist', 'code=' + code + '&type=' + type, function(rsp){
+            if (typeof(cb) == 'function') {
+                cb(JSON.parse(rsp));
+            };
+        });
+    }
 
-function fetchFundSummary(code, callback) {
-    var httpRequest = new XMLHttpRequest();
-    httpRequest.open('GET', '../../fundsummary?code=' + code, true);
-    httpRequest.send();
-
-    httpRequest.onreadystatechange = function () {
-        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-            ftjson[code] = JSON.parse(httpRequest.responseText);
-            if (typeof(callback) === 'function') {
-                callback();
+    fetchFundSummary(code, cb) {
+        utils.get('fundsummary', 'code=' + code, function(rsp){
+            ftjson[code] = JSON.parse(rsp);
+            if (typeof(cb) === 'function') {
+                cb();
             } else {
                 fundSummary.showAllFundList();
-                fundSummary.toggleFundDetails(code);                
+                fundSummary.toggleFundDetails(code);
             }
-        }
+        });
     }
-}
 
-function fetchBuyData(code, callback) {
-    var httpRequest = new XMLHttpRequest();
-    httpRequest.open('GET', '../../fundbuy?code=' + code, true);
-    httpRequest.send();
-
-    httpRequest.onreadystatechange = function () {
-        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-            var buytable = JSON.parse(httpRequest.responseText);
+    fetchBuyData(code, cb) {
+        utils.get('fundbuy', 'code=' + code, function(rsp){
+            var buytable = JSON.parse(rsp);
             ftjson[code].buy_table = buytable;
             ftjson[code].holding_aver_cost = utils.getHoldingAverageCost(buytable);
-            refreshBuyData(code);
-            if (typeof(callback) === 'function') {
-                callback();
+            updateGuzhiInfo(code);
+            updateLatestSellInfo(code);
+            if (typeof(cb) === 'function') {
+                cb();
             }
-        }
+        });
     }
-}
 
-function refreshBuyData(code) {
-    if (ftjson[code].buy_table === undefined) {
-        fetchBuyData(code);
-        return;
-    };
-
-    updateGuzhiInfo(code);
-    updateLatestSellInfo(code);
-}
-
-function fetchBudgetData(code) {
-    var httpRequest = new XMLHttpRequest();
-    httpRequest.open('GET', '../../fundbudget?code=' + code, true);
-    httpRequest.send();
-
-    httpRequest.onreadystatechange = function () {
-        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-            ftjson[code].budget = JSON.parse(httpRequest.responseText);
-            refreshBudgetData(code);
-        }
+    fetchBudgetData(code) {
+        utils.get('fundbudget', 'code=' + code, function(rsp) {
+            ftjson[code].budget = JSON.parse(rsp);
+            updateBudgetsTable(code);
+        });
     }
-}
-
-function refreshBudgetData(code) {
-    if (ftjson[code].budget === undefined) {
-        fetchBudgetData(code);
-        return;
-    };
-
-    updateBudgetsTable(code);
-}
-
-function fetchSellData(code, callback) {
-    var httpRequest = new XMLHttpRequest();
-    httpRequest.open('GET', '../../fundsell?code=' + code, true);
-    httpRequest.send();
-
-    httpRequest.onreadystatechange = function () {
-        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-            ftjson[code].sell_table = JSON.parse(httpRequest.responseText);
-            refreshSellData(code);
-            if (typeof(callback) === 'function') {
-                callback();
+    
+    fetchSellData(code, cb) {
+        utils.get('fundsell', 'code=' + code, function(rsp){
+            ftjson[code].sell_table = JSON.parse(rsp);
+            updateRollinsTable(code);
+            if (typeof(cb) === 'function') {
+                cb();
             }
+        });
+    }
+
+    addBudget(code, date, cost) {
+        if (Number.isNaN(cost) || cost <= 0) {
+            alert("Wrong input data.");
+            return;
         }
+
+        var queries = new FormData();
+        queries.append("code", code);
+        queries.append("date", date);
+        queries.append("budget", cost);
+
+        utils.post(fundbudget, queries, function(){
+            request.fetchFundSummary(code);
+        });
+    }
+
+    buyFund(code, date, cost, budget_dates, rollin_date, cb) {
+        if (Number.isNaN(cost) || cost <= 0) {
+            alert("Wrong input data.");
+            return;
+        }
+
+        var queries = new FormData();
+        queries.append("code", code);
+        queries.append("date", date);
+        queries.append("cost", cost);
+        if (budget_dates && budget_dates.length > 0) {
+            var budgetdates = "";
+            for (var i = 0; i < budget_dates.length; i++) {
+                budgetdates += budget_dates[i]
+            };
+            if (budgetdates.length > 0) {
+                queries.append("budget_dates", budgetdates);
+            };
+        };
+
+        if (rollin_date && rollin_date.length > 0) {
+            queries.append("rollin_date", rollin_date)
+        };
+
+        utils.post('fundbuy', queries, function(){
+            if (detailpage && detailpage.buydetail) {
+                detailpage.buydetail.code = null;
+            };
+            request.fetchFundSummary(code, cb);
+        });
+    }
+
+    sellFund(code, date, strbuydates, cb) {
+        var queries = new FormData();
+        queries.append("code", code);
+        queries.append("date", date);
+        queries.append("buydates", strbuydates);
+
+        utils.post('fundsell', queries, function(){
+            if (detailpage) {
+                detailpage.selltable_code = null;
+            };
+            request.fetchFundSummary(code, cb);
+        });
+    }
+
+    forget(code) {
+        var queries = new FormData();
+        queries.append("code", code);
+        queries.append("action", "forget");
+        this.queries('fundmisc', queries, function(){
+            location.reload();
+        });
     }
 }
 
-function refreshSellData(code) {
-    if (ftjson[code].sell_table === undefined) {
-        fetchSellData(code);
-        return;
-    };
-
-    updateRollinsTable(code);
-}
+var request = new RequestUtils();
 
 function refreshHoldDetail(code) {
-    refreshBuyData(code);
-    refreshBudgetData(code);
-    refreshSellData(code);
+    if (ftjson[code].buy_table === undefined) {
+        request.fetchBuyData(code);
+    } else {
+        updateGuzhiInfo(code);
+        updateLatestSellInfo(code);        
+    }
+
+    if (ftjson[code].budget === undefined) {
+        request.fetchBudgetData(code);
+    } else {
+        updateBudgetsTable(code);        
+    }
+
+    if (ftjson[code].sell_table === undefined) {
+        request.fetchSellData(code);
+    } else {
+        updateRollinsTable(code);        
+    }
 }
 
 function SetTradeOption(tp, cost, submit) {
@@ -908,7 +941,7 @@ function TradeSubmit(tradetype, code, tradedate, tradecost) {
     var date = tradedate.value;
     var cost = parseFloat(tradecost.value);
     if (tradetype == TradeType.Budget) {
-        addBudget(code, date, cost);
+        request.addBudget(code, date, cost);
     } else if (tradetype == TradeType.Sell) {
         var sellRadios = document.getElementsByName("sell_row_" + code);
         var strbuydates = "";
@@ -924,7 +957,7 @@ function TradeSubmit(tradetype, code, tradedate, tradecost) {
             return;
         };
         
-        sellFund(code, date, strbuydates);
+        request.sellFund(code, date, strbuydates);
     } else {
         var budget_dates = [];
         var budgetRadios = document.getElementsByName("budget_row_" + code);
@@ -942,85 +975,6 @@ function TradeSubmit(tradetype, code, tradedate, tradecost) {
                 break;
             }
         };
-        buyFund(code, date, cost, budget_dates, rollin_date);
+        request.buyFund(code, date, cost, budget_dates, rollin_date);
     }
 }
-
-function addBudget(code, date, cost) {
-    if (Number.isNaN(cost) || cost <= 0) {
-        alert("Wrong input data.");
-        return;
-    }
-
-    var httpRequest = new XMLHttpRequest();
-    httpRequest.open('POST', '../../fundbudget', true);
-    var request = new FormData();
-    request.append("code", code);
-    request.append("date", date);
-    request.append("budget", cost);
-
-    httpRequest.send(request);
-
-    httpRequest.onreadystatechange = function () {
-        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-            fetchFundSummary(code);
-        }
-    }
-}
-
-function buyFund(code, date, cost, budget_dates, rollin_date, callback) {
-    if (Number.isNaN(cost) || cost <= 0) {
-        alert("Wrong input data.");
-        return;
-    }
-
-    var httpRequest = new XMLHttpRequest();
-    httpRequest.open('POST', '../../fundbuy', true);
-    var request = new FormData();
-    request.append("code", code);
-    request.append("date", date);
-    request.append("cost", cost);
-    if (budget_dates) {
-        budgetdates = "";
-        for (var i = 0; i < budget_dates.length; i++) {
-            budgetdates += budget_dates[i]
-        };
-        if (budgetdates.length > 0) {
-            request.append("budget_dates", budgetdates);
-        };
-    };
-
-    if (rollin_date && rollin_date.length > 0) {
-        request.append("rollin_date", rollin_date)
-    };
-
-    httpRequest.send(request);
-
-    httpRequest.onreadystatechange = function () {
-        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-            if (detailpage.buydetail) {
-                detailpage.buydetail.code = null;
-            };
-            fetchFundSummary(code, callback);
-        } 
-    }
-}
-
-function sellFund(code, date, strbuydates, callback) {
-    var httpRequest = new XMLHttpRequest();
-    httpRequest.open('POST', '../../fundsell', true);
-    var request = new FormData();
-    request.append("code", code);
-    request.append("date", date);
-    request.append("buydates", strbuydates);
-    httpRequest.send(request);
-    httpRequest.onreadystatechange = function () {
-        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-            if (detailpage) {
-                detailpage.selltable_code = null;
-            };
-            fetchFundSummary(code, callback);
-        }
-    }
-}
-

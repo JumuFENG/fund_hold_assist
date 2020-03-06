@@ -83,47 +83,29 @@ class UserDashboard {
     }
 
     addSubAccount(email, pwd) {
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.open('POST', '../../userbind', true);
-        var request = new FormData();
-        request.append("action", "bindsub");
-        request.append("email", email);
-        request.append('password', pwd);
-        httpRequest.send(request);
-
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                location.reload();
-            }
-        }
+        var queries = new FormData();
+        queries.append("action", "bindsub");
+        queries.append("email", email);
+        queries.append('password', pwd);
+        utils.post('userbind', queries, function(){
+            location.reload();
+        });
     }
 
     bindToParent(email, pwd) {
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.open('POST', '../../userbind', true);
         var request = new FormData();
         request.append("action", "bindparent");
         request.append("email", email);
         request.append('password', pwd);
-        httpRequest.send(request);
-
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                location.reload();
-            }
-        }
+        utils.post('userbind', queries, function(){
+            location.reload();
+        });
     }
 
     getSubAccounts() {
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.open('GET', '../../userbind', true);
-        httpRequest.send();
-
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                userDash.showSubAccounts(JSON.parse(httpRequest.responseText));
-            }
-        }
+        utils.get('userbind', '', function(rsp){
+            userDash.showSubAccounts(JSON.parse(rsp));
+        });
     }
 
     showParentAccount() {
@@ -152,30 +134,18 @@ class UserDashboard {
     }
 
     getParent() {
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.open('GET', '../../userbind?type=parent', true);
-        httpRequest.send();
-
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                userDash.showAddSubAccounts(JSON.parse(httpRequest.responseText));
-            }
-        }
+        utils.get('userbind', 'type=parent', function(rsp){
+            userDash.showAddSubAccounts(JSON.parse(rsp));
+        });
     }
 
     switchAccount(email) {
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.open('POST', '../../userbind', true);
-        var request = new FormData();
-        request.append("action", "switchaccount");
-        request.append("email", email);
-        httpRequest.send(request);
-
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                window.location = 'login';
-            }
-        }
+        var queries = new FormData();
+        queries.append("action", "switchaccount");
+        queries.append("email", email);
+        utils.post('userbind', queries, function(){
+            window.location = 'login';
+        });
     }
 }
 

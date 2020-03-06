@@ -205,9 +205,16 @@ class FundChart {
                     val = 0;
                 }
             };
+            if (val == '') {
+                val = null;
+            };
             r.push(val);
             if (val > this.fund.maxIndex) {
                 this.fund.maxIndex = val;
+            };
+
+            if (this.fund.minIndex == '' && val) {
+                this.fund.minIndex = val;
             };
             if (val < this.fund.minIndex) {
                 this.fund.minIndex = val;
@@ -298,16 +305,23 @@ class FundChart {
             var r = [utils.getTodayDate()];
             var funddata = ftjson[this.fund.code];
             if (funddata !== undefined && funddata.rtgz && funddata.rtgz.gsz) {
-                r.push(parseFloat(funddata.rtgz.gsz));
+                var gz = parseFloat(funddata.rtgz.gsz);
+                r.push(parseFloat(gz));
                 r.push('point {visible: false }');
                 r.push("最新估值:" + funddata.rtgz.gsz); // tooltip
+                if (gz > this.fund.maxValue) {
+                    this.fund.maxValue = gz;
+                };
+                if (gz < this.fund.minValue) {
+                    this.fund.minValue = gz;
+                };
             }
             if (this.fund.indexCode) {
                 r.push(null);
             }
             rows.push(r);
         };
-    
+
         data.addRows(rows);
         this.data = data;
     }
@@ -519,18 +533,6 @@ function RightShiftGraph(leftBtn, rightBtn) {
     };
 }
 
-function getHistoryData(code, type) {
-    var httpRequest = new XMLHttpRequest();
-    httpRequest.open('GET', '../../fundhist?code=' + code + '&type=' + type, true);
-    httpRequest.send();
-
-    httpRequest.onreadystatechange = function () {
-        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-            updateHistData(JSON.parse(httpRequest.responseText));
-        }
-    }
-}
-
 function updateHistData(hist_data) {
     if (!hist_data) {
         return;
@@ -652,7 +654,7 @@ function HandleSelectedRecords(selectDiv) {
         btnSell.textContent = "卖出";
         btnSell.onclick = function(e) {
             //alert("卖出执行！" + code + ":" + dates);
-            sellFund(code, utils.getTodayDate(), dates);
+            request.sellFund(code, utils.getTodayDate(), dates);
         }
         selectDiv.appendChild(btnSell);
     }
