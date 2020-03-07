@@ -886,8 +886,8 @@ class RequestUtils {
         queries.append("buydates", strbuydates);
 
         utils.post('fundsell', queries, function(){
-            if (detailpage) {
-                detailpage.selltable_code = null;
+            if (detailpage && detailpage.selldetail) {
+                detailpage.selldetail.code = null;
             };
             request.fetchFundSummary(code, cb);
         });

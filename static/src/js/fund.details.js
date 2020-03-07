@@ -22,7 +22,21 @@ class FundDetail {
         this.navUl = null;
         this.contentDiv = null;
         this.basic_code = null;
-        this.selltable_code = null;
+    }
+
+    addNav(text, cb) {
+        var navBtn = document.createElement("li");
+        navBtn.textContent = "概况";
+        navBtn.onclick = function(e) {
+            detailpage.switchContentTo(e.target);
+            if (typeof(cb) === 'function') {
+                cb(e.target.bindContent);
+            };
+        }
+        this.navUl.appendChild(navBtn);
+        var cDiv = document.createElement("div");
+        navBtn.bindContent = cDiv;
+        this.contentDiv.appendChild(cDiv);
     }
 
     createFundDetailFramework() {
@@ -46,56 +60,27 @@ class FundDetail {
         this.container.appendChild(document.createElement("hr"));
         this.container.appendChild(this.contentDiv);
         
-        var fundbasicBtn = document.createElement("li");
-        fundbasicBtn.textContent = "概况";
-        fundbasicBtn.onclick = function(e) {
-            detailpage.switchContentTo(e.target);
-            detailpage.showBasicInfo(e.target.bindContent);
-        }
-        this.navUl.appendChild(fundbasicBtn);
-        var basicDiv = document.createElement("div");
-        fundbasicBtn.bindContent = basicDiv;
-        this.contentDiv.appendChild(basicDiv);
+        this.addNav('概况', function(c) {
+            detailpage.showBasicInfo(c);
+        });
     
-        var showBuyTableBtn = document.createElement("li");
-        showBuyTableBtn.textContent = "买入记录";
-        showBuyTableBtn.onclick = function(e) {
-            detailpage.switchContentTo(e.target);
+        this.addNav('买入记录', function(c){
             if (!detailpage.buydetail) {
-                detailpage.buydetail = new FundBuyDetail(e.target.bindContent);
+                detailpage.buydetail = new FundBuyDetail(c);
             };
             detailpage.buydetail.showSingleBuyTable();
-        }
-        this.navUl.appendChild(showBuyTableBtn);
-        var buyDiv = document.createElement("div");
-        showBuyTableBtn.bindContent = buyDiv;
-        this.contentDiv.appendChild(buyDiv);
+        });
 
-        var showSellTableBtn = document.createElement("li");
-        showSellTableBtn.textContent = "卖出记录";
-        showSellTableBtn.onclick = function(e) {
-            detailpage.switchContentTo(e.target);
+        this.addNav('卖出记录', function(c){
             if (!detailpage.selldetail) {
-                detailpage.selldetail = new FundSellDetail(e.target.bindContent);
+                detailpage.selldetail = new FundSellDetail(c);
             };
             detailpage.selldetail.showSingleSellDetails();
-        }
-        this.navUl.appendChild(showSellTableBtn);
-        var sellDiv = document.createElement("div");
-        showSellTableBtn.bindContent = sellDiv;
-        this.contentDiv.appendChild(sellDiv);
+        });
 
-        var showTotalChartBtn = document.createElement("li");
-        showTotalChartBtn.textContent = "累计收益";
-        showTotalChartBtn.onclick = function(e) {
-            detailpage.switchContentTo(e.target);
-            detailpage.showSingleTotalEarned(e.target.bindContent);
-        }
-        this.navUl.appendChild(showTotalChartBtn);
-    
-        var totalEarnedChart = document.createElement("div");
-        showTotalChartBtn.bindContent = totalEarnedChart;
-        this.contentDiv.appendChild(totalEarnedChart);
+        this.addNav('累计收益', function(c){
+            detailpage.showSingleTotalEarned(c);
+        });
     }
 
     backToList() {
