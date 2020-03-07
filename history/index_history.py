@@ -50,7 +50,7 @@ class AllIndexes():
         if idxinfo:
             self.sqldb.update(gl_index_info_table, {column_name: name}, {column_code: code})
         else:
-            self.sqldb.insert(gl_index_info_table, {column_name: name, column_code: code})
+            self.sqldb.insert(gl_index_info_table, {column_name: name, column_code: code, column_table_history: "i_his_" + self.code, column_table_full_history: "i_ful_his_" + self.code})
         
 
 class Index_history():
@@ -62,11 +62,11 @@ class Index_history():
 
     def setIndexCode(self, code):
         self.code = code
-        tbl_mgr = TableManager(self.sqldb, gl_index_info_table, self.code)
 
-        self.name = tbl_mgr.GetTableColumnInfo(column_name, index_code_name[self.code])
-        self.index_db_table = tbl_mgr.GetTableColumnInfo(column_table_history, "i_his_" + self.code)
-        self.index_full_his_db = tbl_mgr.GetTableColumnInfo(column_table_full_history, "i_ful_his_" + self.code)
+        ig = IndexGeneral(self.sqldb, self.code)
+        self.name = ig.name
+        self.index_db_table = ig.histable
+        self.index_full_his_db = ig.fullhistable
 
     def getRequest(self, url, params=None, proxies=None):
         rsp = requests.get(url, params=params, proxies=proxies)
@@ -80,7 +80,6 @@ class Index_history():
             f.write(rsp.content)
 
     def saveTSHistoryData(self, df):
-
         if not self.sqldb.isExistTable(self.index_db_table):
             attrs = {df.index.name:'varchar(20) DEFAULT NULL'}
             for c in df.columns:
