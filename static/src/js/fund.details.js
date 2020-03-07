@@ -61,7 +61,9 @@ class FundDetail {
         showBuyTableBtn.textContent = "买入记录";
         showBuyTableBtn.onclick = function(e) {
             detailpage.switchContentTo(e.target);
-            detailpage.buydetail = new FundBuyDetail(e.target.bindContent);
+            if (!detailpage.buydetail) {
+                detailpage.buydetail = new FundBuyDetail(e.target.bindContent);
+            };
             detailpage.buydetail.showSingleBuyTable();
         }
         this.navUl.appendChild(showBuyTableBtn);
@@ -73,7 +75,10 @@ class FundDetail {
         showSellTableBtn.textContent = "卖出记录";
         showSellTableBtn.onclick = function(e) {
             detailpage.switchContentTo(e.target);
-            detailpage.showSingleSellTable(e.target.bindContent);
+            if (!detailpage.selldetail) {
+                detailpage.selldetail = new FundSellDetail(e.target.bindContent);
+            };
+            detailpage.selldetail.showSingleSellDetails();
         }
         this.navUl.appendChild(showSellTableBtn);
         var sellDiv = document.createElement("div");
@@ -164,7 +169,12 @@ class FundDetail {
         if (this.basic_code == null && this.code == null) {
             return;
         };
+
         if (this.basic_code == this.code) {
+            return;
+        };
+
+        if (!ftjson || !all_hist_data || all_hist_data.length == 0) {
             return;
         };
         
@@ -194,190 +204,6 @@ class FundDetail {
             }
             this.historyChart.drawChart();
         }
-    }
-    
-    editActualSold(editId) {
-        var actualBox = document.getElementById(editId);
-        var textNode = actualBox.firstChild;
-        var editBox = actualBox.getElementsByTagName('input')[0];
-        var editBtn = actualBox.getElementsByTagName('a')[0];
-        if (editBox.style.display == 'none') {
-            editBox.value = textNode.textContent;
-            editBox.style.display = 'inline';
-            textNode.textContent = '';
-            editBtn.textContent = '确定';
-        } else {
-            editBox.style.display = 'none';
-            textNode.textContent = editBox.value;
-            editBtn.textContent = '修改';
-            var queries = new FormData();
-            var fundcode = this.code;
-            queries.append("code", fundcode);
-            queries.append("date", actualBox.getAttribute('date'));
-            queries.append("action", 'setsold');
-            queries.append('actual_sold', editBox.value);
-            utils.post('fundsell', queries, function(){
-                detailpage.updateSingleSellTable(actualBox, editBox.value);
-            });
-        }
-    }
-    
-    createActualSoldCell(acs, selldate) {
-        var actual_sold_cell = document.createElement('div');
-        var acsNode = document.createTextNode(acs);
-        actual_sold_cell.appendChild(acsNode);
-        if (acs == 0) {
-            var edit_btn = document.createElement("a");
-            edit_btn.textContent = '修改';
-            var editId = 'actual_sold_' + this.code + '_' + selldate;
-            edit_btn.href = 'javascript:detailpage.editActualSold("' + editId + '")';
-            var edit_box = document.createElement('input');
-            edit_box.style.maxWidth = '80px';
-            edit_box.style.display = 'none';
-            actual_sold_cell.id = editId;
-            actual_sold_cell.appendChild(edit_box);
-            actual_sold_cell.appendChild(edit_btn);
-        }
-        actual_sold_cell.setAttribute('date', selldate);
-        return actual_sold_cell
-    }
-    
-    deleteRollin(deleteId) {
-        var rollinBox = document.getElementById(deleteId);
-        var queries = new FormData();
-        queries.append("code", this.code);
-        queries.append("date", rollinBox.getAttribute('date'));
-        queries.append("action", 'fixrollin');
-        queries.append('rolledin', rollinBox.getAttribute('cost'));
-        utils.post('fundsell', queries);
-
-        rollinBox.innerText = 0;
-    }
-    
-    createRollinCell(to_rollin, cost, selldate) {
-        if (to_rollin == 0) {
-            return 0;
-        }
-        
-        var rollinBox = document.createElement('div');
-        var deleteBtn = document.createElement("a");
-        deleteBtn.textContent = '删除';
-        var deleteId = 'delete_rollin_' + this.code + '_' + selldate;
-        deleteBtn.href = 'javascript:detailpage.deleteRollin("' + deleteId + '")';
-        
-        rollinBox.id = deleteId;
-        rollinBox.setAttribute('date', selldate);
-        rollinBox.setAttribute('cost', cost);
-        rollinBox.appendChild(document.createTextNode(to_rollin));
-        rollinBox.appendChild(deleteBtn);
-        return rollinBox;
-    }
-
-    showBonusArea() {
-        document.getElementById('bonus_area_' + this.code).style.display = 'block';
-    }
-
-    onAddBonusClicked(dpicker, bonusInput) {
-        var queries = new FormData();
-        var fundcode = this.code;
-        queries.append("code", fundcode);
-        queries.append("date", dpicker.value);
-        queries.append("action", 'divident');
-        queries.append('bonus', bonusInput.value);
-        utils.post('fundsell', queries, function(){
-            request.fetchFundSummary(fundcode);
-            document.getElementById('bonus_area_' + fundcode).style.display = 'none';
-        });
-    }
-
-    showSingleSellTable(sellDiv) {
-        if (this.selltable_code == null && this.code == null) {
-            return;
-        };
-        if (this.selltable_code == this.code) {
-            return;
-        };
-
-        utils.removeAllChild(sellDiv);
-        var sellTable = document.createElement('table');
-        this.reloadSingleSellTable(sellTable);
-        sellDiv.appendChild(sellTable);
-        var addBonusBtn = document.createElement('button');
-        addBonusBtn.textContent = '添加分红';
-        addBonusBtn.onclick = function(e) {
-            detailpage.showBonusArea();
-        }
-        var extraDiv = document.createElement('div');
-        extraDiv.appendChild(addBonusBtn);
-
-        var bonusDatepicker = document.createElement('input');
-        bonusDatepicker.type = 'date';
-        bonusDatepicker.value = utils.getTodayDate();
-        var bonusInput = document.createElement('input');
-        bonusInput.style.maxWidth = '80px';
-        var confirmBtn = document.createElement('button');
-        confirmBtn.textContent = 'OK';
-        confirmBtn.onclick = function(e) {
-            detailpage.onAddBonusClicked(bonusDatepicker, bonusInput);
-        }
-
-        var bonusArea = document.createElement('div');
-        bonusArea.id = 'bonus_area_' + this.code;
-        bonusArea.style.display = 'none';
-        bonusArea.appendChild(bonusDatepicker);
-        bonusArea.appendChild(bonusInput);
-        bonusArea.appendChild(confirmBtn);
-        extraDiv.appendChild(bonusArea);
-
-        sellDiv.appendChild(extraDiv);
-    }
-
-    reloadSingleSellTable(sellTable) {
-        utils.deleteAllRows(sellTable);
-        if (!this.code) {
-            return;
-        };
-
-        if (!ftjson[this.code].sell_table) {
-            request.fetchSellData(this.code, function(){
-                detailpage.reloadSingleSellTable(sellTable);
-            });
-            return;
-        };
-        
-        this.selltable_code = this.code;
-        sellTable.appendChild(utils.createHeaders('卖出日期','成本', '金额', '实收', '剩余成本'));
-        var sellrecs = ftjson[this.code].sell_table;
-        var sum_cost = 0, sum_ms = 0, sum_acs = 0;
-        for (var i = 0; i < sellrecs.length; i++) {
-            sum_cost += sellrecs[i].cost;
-            sum_ms += sellrecs[i].ms;
-            sum_acs += parseFloat(sellrecs[i].acs);
-            var selldate = utils.date_by_delta(sellrecs[i].date);
-            var actual_sold_cell = this.createActualSoldCell(sellrecs[i].acs, selldate);
-            var rollin_cell = this.createRollinCell(sellrecs[i].tri, sellrecs[i].cost, selldate);
-            sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].cost, sellrecs[i].ms, actual_sold_cell, rollin_cell));
-        };
-        sellTable.appendChild(utils.createColsRow('总计', sum_cost, sum_ms.toFixed(2), sum_acs.toFixed(2), '实收' + (sum_acs - sum_cost).toFixed(2)));
-    }
-
-    updateSingleSellTable(actualBox, acs) {
-        if (ftjson[this.code] && ftjson[this.code].sell_table) {
-            var date = utils.days_since_2000(actualBox.getAttribute('date'));
-            for (var i = 0; i < ftjson[this.code].sell_table.length; i++) { 
-                if (ftjson[this.code].sell_table[i].date == date) {
-                    ftjson[this.code].sell_table[i].acs = acs;
-                };
-            };
-        };
-
-        var sellTable = actualBox.parentElement;
-        while(sellTable && sellTable.tagName.toUpperCase() != 'TABLE') {
-            sellTable = sellTable.parentElement;
-        }
-        if (sellTable) {
-            this.reloadSingleSellTable(sellTable);
-        };
     }
 
     showSingleTotalEarned(totalChart) {
@@ -609,6 +435,229 @@ class FundBuyDetail {
         };
         
         this.updateSingleBuyTable();
+    }
+}
+
+class FundSellDetail {
+    constructor(sell_detail_div) {
+        this.container = sell_detail_div;
+        this.code = null;
+        this.sellTable = null;
+        this.bonusContainer = null;
+        this.bonusArea = null;
+    }
+
+    editActualSold(editId) {
+        var actualBox = document.getElementById(editId);
+        var textNode = actualBox.firstChild;
+        var editBox = actualBox.getElementsByTagName('input')[0];
+        var editBtn = actualBox.getElementsByTagName('a')[0];
+        if (editBox.style.display == 'none') {
+            editBox.value = textNode.textContent;
+            editBox.style.display = 'inline';
+            textNode.textContent = '';
+            editBtn.textContent = '确定';
+        } else {
+            editBox.style.display = 'none';
+            textNode.textContent = editBox.value;
+            editBtn.textContent = '修改';
+            var queries = new FormData();
+            var fundcode = this.code;
+            var date = actualBox.getAttribute('date');
+            var acs = editBox.value;
+            queries.append("code", fundcode);
+            queries.append("date", date);
+            queries.append("action", 'setsold');
+            queries.append('actual_sold', acs);
+            utils.post('fundsell', queries, function(){
+                var sell_table = ftjson[fundcode].sell_table;
+                if (sell_table) {
+                    var daysince2000 = utils.days_since_2000(date);
+                    var sellrec = sell_table.find(function(curVal){
+                        return curVal.date == daysince2000;
+                    });
+                    if (sellrec) {
+                        sellrec.acs = acs;
+                    };
+                    detailpage.selldetail.reloadSingleSellTable();
+                };
+            });
+        }
+    }
+    
+    createActualSoldCell(acs, selldate) {
+        var actual_sold_cell = document.createElement('div');
+        var acsNode = document.createTextNode(acs);
+        actual_sold_cell.appendChild(acsNode);
+        if (acs == 0) {
+            var edit_btn = document.createElement("a");
+            edit_btn.textContent = '修改';
+            var editId = 'actual_sold_' + this.code + '_' + selldate;
+            edit_btn.href = 'javascript:detailpage.selldetail.editActualSold("' + editId + '")';
+            var edit_box = document.createElement('input');
+            edit_box.style.maxWidth = '80px';
+            edit_box.style.display = 'none';
+            actual_sold_cell.id = editId;
+            actual_sold_cell.appendChild(edit_box);
+            actual_sold_cell.appendChild(edit_btn);
+        }
+        actual_sold_cell.setAttribute('date', selldate);
+        return actual_sold_cell
+    }
+    
+    deleteRollin(deleteId) {
+        var rollinBox = document.getElementById(deleteId);
+        var queries = new FormData();
+        var date = rollinBox.getAttribute('date');
+        queries.append("code", this.code);
+        queries.append("date", date);
+        queries.append("action", 'fixrollin');
+        queries.append('rolledin', rollinBox.getAttribute('cost'));
+        utils.post('fundsell', queries, function(){
+            var sell_table = ftjson[detailpage.selldetail.code].sell_table;
+            if (sell_table) {
+                var daysince2000 = utils.days_since_2000(date);
+                var sellrec = sell_table.find(function(curVal){
+                    return curVal.date == daysince2000;
+                });
+                if (sellrec) {
+                    sellrec.tri = 0;
+                };
+                detailpage.selldetail.reloadSingleSellTable();
+            };
+        });
+
+        rollinBox.innerText = 0;
+    }
+    
+    createRollinCell(to_rollin, cost, selldate) {
+        if (to_rollin == 0) {
+            return 0;
+        }
+        
+        var rollinBox = document.createElement('div');
+        var deleteBtn = document.createElement("a");
+        deleteBtn.textContent = '删除';
+        var deleteId = 'delete_rollin_' + this.code + '_' + selldate;
+        deleteBtn.href = 'javascript:detailpage.selldetail.deleteRollin("' + deleteId + '")';
+        
+        rollinBox.id = deleteId;
+        rollinBox.setAttribute('date', selldate);
+        rollinBox.setAttribute('cost', cost);
+        rollinBox.appendChild(document.createTextNode(to_rollin));
+        rollinBox.appendChild(deleteBtn);
+        return rollinBox;
+    }
+
+    reloadSingleSellTable() {
+        if (!detailpage.code) {
+            return;
+        };
+
+        if (!ftjson[detailpage.code].sell_table) {
+            request.fetchSellData(detailpage.code, function(){
+                detailpage.selldetail.reloadSingleSellTable();
+            });
+            return;
+        };
+
+        this.code = detailpage.code;
+        if (this.sellTable) {
+            utils.deleteAllRows(this.sellTable);
+        } else {
+            this.sellTable = document.createElement('table');
+        };
+        this.container.appendChild(this.sellTable);
+        if (this.bonusContainer) {
+            this.container.appendChild(this.bonusContainer);
+        };
+        
+        this.sellTable.appendChild(utils.createHeaders('卖出日期','成本', '金额', '实收', '剩余成本'));
+        var sellrecs = ftjson[this.code].sell_table;
+        var sum_cost = 0, sum_ms = 0, sum_acs = 0;
+        for (var i = 0; i < sellrecs.length; i++) {
+            sum_cost += sellrecs[i].cost;
+            sum_ms += sellrecs[i].ms;
+            sum_acs += parseFloat(sellrecs[i].acs);
+            var selldate = utils.date_by_delta(sellrecs[i].date);
+            var actual_sold_cell = this.createActualSoldCell(sellrecs[i].acs, selldate);
+            var rollin_cell = this.createRollinCell(sellrecs[i].tri, sellrecs[i].cost, selldate);
+            this.sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].cost, sellrecs[i].ms, actual_sold_cell, rollin_cell));
+        };
+        this.sellTable.appendChild(utils.createColsRow('总计', sum_cost, sum_ms.toFixed(2), sum_acs.toFixed(2), '实收' + (sum_acs - sum_cost).toFixed(2)));
+    }
+
+    reloadBonusArea() {
+        if (!this.bonusContainer) {
+            var addBonusBtn = document.createElement('button');
+            addBonusBtn.textContent = '添加分红';
+            addBonusBtn.onclick = function(e) {
+                detailpage.selldetail.showBonusArea();
+            }
+            this.bonusContainer = document.createElement('div');
+            this.bonusContainer.appendChild(addBonusBtn);
+
+            var bonusDatepicker = document.createElement('input');
+            bonusDatepicker.type = 'date';
+            bonusDatepicker.value = utils.getTodayDate();
+            var bonusInput = document.createElement('input');
+            bonusInput.style.maxWidth = '80px';
+            var confirmBtn = document.createElement('button');
+            confirmBtn.textContent = 'OK';
+            confirmBtn.onclick = function(e) {
+                detailpage.selldetail.onAddBonusClicked(bonusDatepicker, bonusInput);
+            }
+
+            this.bonusArea = document.createElement('div');
+            this.bonusArea.appendChild(bonusDatepicker);
+            this.bonusArea.appendChild(bonusInput);
+            this.bonusArea.appendChild(confirmBtn);
+            this.bonusContainer.appendChild(this.bonusArea);
+        };
+
+        this.bonusArea.style.display = 'none';
+        this.container.appendChild(this.bonusContainer);
+    }
+
+    showBonusArea() {
+        if (this.bonusArea) {
+            this.bonusArea.style.display = 'block';
+        };
+    }
+
+    onAddBonusClicked(dpicker, bonusInput) {
+        var queries = new FormData();
+        var fundcode = this.code;
+        queries.append("code", fundcode);
+        queries.append("date", dpicker.value);
+        queries.append("action", 'divident');
+        queries.append('bonus', bonusInput.value);
+        utils.post('fundsell', queries, function(){
+            request.fetchSellData(fundcode, function(){
+                detailpage.selldetail.updateSingleSellDetails();
+            });
+        });
+    }
+
+    updateSingleSellDetails() {
+        utils.removeAllChild(this.container);
+        if (!detailpage.code) {
+            return;
+        };
+
+        this.reloadSingleSellTable();
+        this.reloadBonusArea();
+    }
+
+    showSingleSellDetails() {
+        if (this.code == null && detailpage.code == null) {
+            return;
+        };
+        if (this.code == detailpage.code) {
+            return;
+        };
+
+        this.updateSingleSellDetails();
     }
 }
 
