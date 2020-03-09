@@ -26,7 +26,7 @@ class FundDetail {
 
     addNav(text, cb) {
         var navBtn = document.createElement("li");
-        navBtn.textContent = "概况";
+        navBtn.textContent = text;
         navBtn.onclick = function(e) {
             detailpage.switchContentTo(e.target);
             if (typeof(cb) === 'function') {
