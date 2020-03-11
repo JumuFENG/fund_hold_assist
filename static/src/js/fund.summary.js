@@ -62,15 +62,125 @@ function sendFetchEvent(fundcode) {
     sendFetchEventActually(fundcode);
 }
 
+class TradeOption {
+    constructor(tdiv) {
+        this.tradeDiv = tdiv;
+        this.tradeOptBar = null;
+        this.tradeType = null;
+        this.datePicker = null;
+        this.costInput = null;
+        this.submitBtn = null;
+    }
+
+    show() {
+        this.tradeDiv.style.display = 'block';
+    }
+
+    hide() {
+        this.tradeDiv.style.display = 'none';
+    }
+
+    createTradeOptions() {
+        this.tradeOptBar = new RadioAnchorBar();
+        this.tradeOptBar.addRadio('买入', function(){
+            fundSummary.chartWrapper.tradeOption.setTradeOption(TradeType.Buy);
+        });
+        this.tradeOptBar.addRadio('卖出', function(){
+            fundSummary.chartWrapper.tradeOption.setTradeOption(TradeType.Sell);
+        });
+        this.tradeOptBar.addRadio('加预算', function(){
+            fundSummary.chartWrapper.tradeOption.setTradeOption(TradeType.Budget);
+        });
+        this.tradeDiv.appendChild(this.tradeOptBar.container);
+
+        var tradePanel = document.createElement('div');
+        this.tradeDiv.appendChild(tradePanel);
+        this.datePicker = document.createElement('input');
+        this.datePicker.type = 'date';
+        this.datePicker.value = utils.getTodayDate();
+        tradePanel.appendChild(this.datePicker);
+        this.costInput = document.createElement('input');
+        this.costInput.placeholder = '金额';
+        tradePanel.appendChild(this.costInput);
+        this.submitBtn = document.createElement('button');
+        this.submitBtn.textContent = '确定';
+        this.submitBtn.onclick = function(e) {
+            fundSummary.chartWrapper.tradeOption.onSubmitClicked();
+        }
+        tradePanel.appendChild(this.submitBtn);
+
+
+        this.tradeOptBar.selectDefault();
+    }
+
+    setTradeOption(tradeTp) {
+        this.tradeType = tradeTp;
+        this.changeTradePanel(tradeTp == TradeType.Sell);
+    }
+
+    changeTradePanel(bSell) {
+        if (bSell) {
+            this.costInput.style.display = "none";
+            this.submitBtn.textContent = "卖出";
+        } else {
+            this.costInput.style.display = "inline";
+            this.submitBtn.textContent = "确定";
+        }
+    }
+
+    onSubmitClicked() {
+        var code = fundSummary.chartWrapper.code;
+        var date = this.datePicker.value;
+        var cost = parseFloat(this.costInput.value);
+        if (this.tradeType == TradeType.Budget) {
+            request.addBudget(code, date, cost);
+        } else if (this.tradeType == TradeType.Sell) {
+            var sellRadios = document.getElementsByName("sell_row_" + code);
+            var strbuydates = "";
+            for (var i = 0; i < sellRadios.length; i++) {
+                if (sellRadios[i].checked) {
+                    strbuydates = sellRadios[i].value;
+                    break;
+                }
+            };
+
+            if (strbuydates == "") {
+                alert("No sell dates selected.");
+                return;
+            };
+            
+            request.sellFund(code, date, strbuydates);
+        } else {
+            var budget_dates = [];
+            var budgetRadios = document.getElementsByName("budget_row_" + code);
+            for (var i = 0; i < budgetRadios.length; i++) {
+                if (budgetRadios[i].checked) {
+                    budget_dates.push(budgetRadios[i].value);
+                }
+            };
+
+            var rollin_date = null;
+            var rollinRadios = document.getElementsByName("rollin_row_" + code);
+            for (var i = 0; i < rollinRadios.length; i++) {
+                if (rollinRadios[i].checked) {
+                    rollin_date = rollinRadios[i].value;
+                    break;
+                }
+            };
+            request.buyFund(code, date, cost, budget_dates, rollin_date);
+        }
+    }
+}
+
 class ChartWrapper {
     constructor() {
         this.code = null;
         this.chartDiv = null;
         this.daysOpt = null;
-        this.tradeOptionDiv = null;
+        this.tradeOption = null;
     }
 
-    createChatsDiv(parentDiv) {
+    createChartsDiv(parentDiv) {
         if (!parentDiv) {
             return;
         };
@@ -125,12 +235,10 @@ class ChartWrapper {
         var fundChartDiv = document.createElement('div');
         fundChartDiv.id = 'fund_chart_div';
         this.chartDiv.appendChild(fundChartDiv);
-        this.chartDiv.appendChild(document.createElement('br'));
 
-        this.tradeOptionDiv = document.createElement('div');
-        this.tradeOptionDiv.id = 'tradeoptions_container';
-        this.chartDiv.appendChild(this.tradeOptionDiv);
-        this.createTradeOptions();
+        this.tradeOption = new TradeOption(document.createElement('div'));
+        this.tradeOption.createTradeOptions();
+        this.chartDiv.appendChild(this.tradeOption.tradeDiv);
     }
 
     setParent(p) {
@@ -144,62 +252,6 @@ class ChartWrapper {
 
     show() {
         this.chartDiv.style.display = 'block';
-    }
-
-    createTradeOptions() {
-        var tradeOption = document.createElement('ul');
-        tradeOption.id = 'tradeoptions';
-        this.tradeOptionDiv.appendChild(tradeOption);
-        var liBuy = document.createElement('li');
-        liBuy.className = 'highlight';
-        liBuy.textContent = '买入';
-        tradeOption.appendChild(liBuy);
-        var liSell = document.createElement('li');
-        liSell.textContent = '卖出';
-        tradeOption.appendChild(liSell);
-        var liBudget = document.createElement('li');
-        liBudget.textContent = '加预算';
-        tradeOption.appendChild(liBudget);
-
-        this.tradeOptionDiv.appendChild(document.createElement('br'));
-        this.tradeOptionDiv.appendChild(document.createElement('hr'));
-
-        var tradePanel = document.createElement('div');
-        this.tradeOptionDiv.appendChild(tradePanel);
-        var tradeDate = document.createElement('input');
-        tradeDate.type = 'date';
-        tradeDate.value = utils.getTodayDate();
-        tradePanel.appendChild(tradeDate);
-        var tradeCost = document.createElement('input');
-        tradeCost.placeholder = '金额';
-        tradePanel.appendChild(tradeCost);
-        var tradeBtn = document.createElement('button');
-        tradeBtn.textContent = '确定';
-        tradeBtn.trade = TradeType.Buy;
-        tradeBtn.onclick = function(e) {
-            TradeSubmit(e.target.trade, fundSummary.chartWrapper.code, tradeDate, tradeCost);
-        }
-        liBuy.onclick = function(e) {
-            SetTradeOption(TradeType.Buy, tradeCost, tradeBtn);
-            utils.toggleHighlight(e.target);
-        }
-        liSell.onclick = function(e) {
-            SetTradeOption(TradeType.Sell, tradeCost, tradeBtn);
-            utils.toggleHighlight(e.target);
-        }
-        liBudget.onclick = function(e) {
-            SetTradeOption(TradeType.Budget, tradeCost, tradeBtn);
-            utils.toggleHighlight(e.target);
-        }
-        tradePanel.appendChild(tradeBtn);
-    }
-
-    showTradeOptions() {
-        this.tradeOptionDiv.style.display = 'block';
-    }
-
-    hideTradeOptions() {
-        this.tradeOptionDiv.style.display = 'none';
     }
 }
 
@@ -295,7 +347,7 @@ class FundSummary {
         var fundlistDiv = document.createElement('div');
         fundlistDiv.appendChild(this.fundListTable);
         this.chartWrapper = new ChartWrapper();
-        this.chartWrapper.createChatsDiv(this.fundListTable.parentElement);
+        this.chartWrapper.createChartsDiv(this.fundListTable.parentElement);
         this.chartWrapper.hide();
         this.container.appendChild(fundlistDiv);
         var buyNewArea = document.createElement('div');
@@ -434,9 +486,9 @@ class FundSummary {
             this.chartWrapper.show();
             this.chartWrapper.code = code;
             if (!ftjson[code].hideTrade) {
-                this.chartWrapper.showTradeOptions();
+                this.chartWrapper.tradeOption.show();
             } else {
-                this.chartWrapper.hideTradeOptions();
+                this.chartWrapper.tradeOption.hide();
             };
             this.drawFundHistory(this.chartWrapper.code);
         } else {
@@ -918,58 +970,5 @@ function refreshHoldDetail(code) {
         request.fetchSellData(code);
     } else {
         updateRollinsTable(code);        
-    }
-}
-
-function SetTradeOption(tp, cost, submit) {
-    submit.trade = tp;
-    if (tp == TradeType.Sell) {
-        cost.style.display = "none";
-        submit.textContent = "卖出";
-    } else {
-        cost.style.display = "inline";
-        submit.textContent = "确定";
-    }
-}
-
-function TradeSubmit(tradetype, code, tradedate, tradecost) {
-    var date = tradedate.value;
-    var cost = parseFloat(tradecost.value);
-    if (tradetype == TradeType.Budget) {
-        request.addBudget(code, date, cost);
-    } else if (tradetype == TradeType.Sell) {
-        var sellRadios = document.getElementsByName("sell_row_" + code);
-        var strbuydates = "";
-        for (var i = 0; i < sellRadios.length; i++) {
-            if (sellRadios[i].checked) {
-                strbuydates = sellRadios[i].value;
-                break;
-            }
-        };
-
-        if (strbuydates == "") {
-            alert("No sell dates selected.");
-            return;
-        };
-        
-        request.sellFund(code, date, strbuydates);
-    } else {
-        var budget_dates = [];
-        var budgetRadios = document.getElementsByName("budget_row_" + code);
-        for (var i = 0; i < budgetRadios.length; i++) {
-            if (budgetRadios[i].checked) {
-                budget_dates.push(budgetRadios[i].value);
-            }
-        };
-
-        var rollin_date = null;
-        var rollinRadios = document.getElementsByName("rollin_row_" + code);
-        for (var i = 0; i < rollinRadios.length; i++) {
-            if (rollinRadios[i].checked) {
-                rollin_date = rollinRadios[i].value;
-                break;
-            }
-        };
-        request.buyFund(code, date, cost, budget_dates, rollin_date);
     }
 }
