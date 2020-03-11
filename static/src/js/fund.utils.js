@@ -490,4 +490,18 @@ class RadioAnchorBar {
             }
         };
     }
+
+    selectDefault() {
+        var defaultItem = this.radioAchors[this.getHighlighted()];
+        this.setHightlight(defaultItem);
+    }
+
+    getHighlighted() {
+        for (var i = 0; i < this.radioAchors.length; i++) {
+            if (this.radioAchors[i].className == 'highlight') {
+                return i;
+            }
+        };
+        return 0;
+    }
 }

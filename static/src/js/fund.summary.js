@@ -84,32 +84,44 @@ class ChartWrapper {
         chartInteraction.appendChild(chartSelection);
         this.chartDiv.appendChild(chartInteraction);
 
-        this.daysOpt = document.createElement('ul');
-        this.daysOpt.id = 'dayslist';
-        this.chartDiv.appendChild(this.daysOpt);
-        this.chartDiv.appendChild(document.createElement('br'));
-        this.daysOpt.appendChild(this.createDaysLi(0, '默认', 'highlight'));
-        this.daysOpt.appendChild(this.createDaysLi(30, '30'));
-        this.daysOpt.appendChild(this.createDaysLi(100, '100'));
-        this.daysOpt.appendChild(this.createDaysLi(300, '300'));
-        this.daysOpt.appendChild(this.createDaysLi(1000, '1000'));
-        this.daysOpt.appendChild(this.createDaysLi(-1, '最大'));
+        this.daysOpt = new RadioAnchorBar();
+        this.chartDiv.appendChild(this.daysOpt.container);
+        this.daysOpt.addRadio('默认', function(){
+            fundSummary.redrawHistoryGraphs(0);
+        });
+        this.daysOpt.addRadio('30', function(){
+            fundSummary.redrawHistoryGraphs(30);
+        });
+        this.daysOpt.addRadio('60', function(){
+            fundSummary.redrawHistoryGraphs(60);
+        });
+        this.daysOpt.addRadio('100', function(){
+            fundSummary.redrawHistoryGraphs(100);
+        });
+        this.daysOpt.addRadio('300', function(){
+            fundSummary.redrawHistoryGraphs(300);
+        });
+        this.daysOpt.addRadio('1000', function(){
+            fundSummary.redrawHistoryGraphs(1000);
+        });
+        this.daysOpt.addRadio('最大', function(){
+            fundSummary.redrawHistoryGraphs(-1);
+        });
 
         var leftArrowBtn = document.createElement('button');
         leftArrowBtn.id = 'chart_left_arrow';
         leftArrowBtn.textContent = '<-';
-        this.daysOpt.appendChild(leftArrowBtn);
+        this.daysOpt.container.appendChild(leftArrowBtn);
         var rightArrowBtn = document.createElement('button');
         rightArrowBtn.id = 'chart_right_arrow';
         rightArrowBtn.textContent = '->'
-        this.daysOpt.appendChild(rightArrowBtn);
+        this.daysOpt.container.appendChild(rightArrowBtn);
         leftArrowBtn.onclick = function(e) {
             LeftShiftGraph(leftArrowBtn, rightArrowBtn);
         }
         rightArrowBtn.onclick = function(e) {
             RightShiftGraph(leftArrowBtn, rightArrowBtn);
         }
-
         var fundChartDiv = document.createElement('div');
         fundChartDiv.id = 'fund_chart_div';
         this.chartDiv.appendChild(fundChartDiv);
@@ -132,19 +144,6 @@ class ChartWrapper {
 
     show() {
         this.chartDiv.style.display = 'block';
-    }
-
-    createDaysLi(val, text, cls = null) {
-        var d = document.createElement('li');
-        if (cls) {
-            d.className = 'highlight';            
-        };
-        d.value = val;
-        d.textContent = text;
-        d.onclick = function(e) {
-            fundSummary.redrawHistoryGraphs(e.target.parentElement.parentElement, e.target);
-        }
-        return d;
     }
 
     createTradeOptions() {
@@ -464,21 +463,17 @@ class FundSummary {
             });
             return;
         };
-
-        var days = utils.getHighlightedValue("dayslist");
-        chart.drawChart(days);
+        this.chartWrapper.daysOpt.selectDefault();
         document.getElementById("chart_left_arrow").disabled = false;
         document.getElementById("chart_right_arrow").disabled = true;
     }
 
-    redrawHistoryGraphs(ele, t) {
-        var days = t.value;
+    redrawHistoryGraphs(days) {
         if (chart) {
             chart.drawChart(days);
             document.getElementById("chart_left_arrow").disabled = false;
             document.getElementById("chart_right_arrow").disabled = true;
         }
-        utils.toggleHighlight(t);
     }
 }
 

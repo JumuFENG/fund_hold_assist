@@ -389,7 +389,7 @@ class FundBuyDetail {
         };
 
         this.buyTable.appendChild(utils.createColsRow('总计', sum_cost, ''));
-        this.radioBar.setHightlight(this.radioBar.radioAchors[0]);
+        this.radioBar.selectDefault();
         
         var sellPanel = document.createElement('div');
         var sellContent = document.createElement('div');
@@ -567,7 +567,7 @@ class FundSellDetail {
             var selldate = utils.date_by_delta(sellrecs[i].date);
             var actual_sold_cell = this.createActualSoldCell(sellrecs[i].acs, selldate);
             var rollin_cell = this.createRollinCell(sellrecs[i].tri, sellrecs[i].cost, selldate);
-            this.sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].cost, sellrecs[i].ms, actual_sold_cell, rollin_cell));
+            this.sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].cost == 0 ? '分红' : sellrecs[i].cost, sellrecs[i].ms, actual_sold_cell, rollin_cell));
         };
         this.sellTable.appendChild(utils.createColsRow('总计', sum_cost, sum_ms.toFixed(2), sum_acs.toFixed(2), '实收' + (sum_acs - sum_cost).toFixed(2)));
     }
