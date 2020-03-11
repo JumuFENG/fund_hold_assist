@@ -213,6 +213,8 @@ class UserFund():
         values = []
         for (d,c,p,s) in dcp_not_sell:
             v = fg.netvalue_by_date(d)
+            if v and not p:
+                self.confirm_buy_rec(d)
             values.append({"date":self.date_conv.days_since_2000(d), "nv":v, "cost":c, "ptn":p, "sold":s})
         return values
 
