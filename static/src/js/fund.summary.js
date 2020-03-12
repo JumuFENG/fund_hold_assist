@@ -504,20 +504,18 @@ class FundSummary {
         chart.fund = new FundLine(code, ftjson[code].name, ftjson[code].ic, ftjson[code].in);
 
         if (chart.fund.indexCode && ( all_hist_data.length < 1 || all_hist_data[0].indexOf(chart.fund.indexCode) < 0)) {
-            request.getHistoryData(chart.fund.indexCode, 'index', function(h){
-                updateHistData(h);
+            request.getHistoryData(chart.fund.indexCode, 'index', function(){
+                fundSummary.chartWrapper.daysOpt.selectDefault();
             });
         }
         
         if (all_hist_data.length == 0 || all_hist_data[0].indexOf(code) < 0) {
-            request.getHistoryData(code, ftjson[code].hideTrade? 'index': 'fund', function(h){
-                updateHistData(h);
+            request.getHistoryData(code, ftjson[code].hideTrade? 'index': 'fund', function(){
+                fundSummary.chartWrapper.daysOpt.selectDefault();
             });
             return;
         };
         this.chartWrapper.daysOpt.selectDefault();
-        document.getElementById("chart_left_arrow").disabled = false;
-        document.getElementById("chart_right_arrow").disabled = true;
     }
 
     redrawHistoryGraphs(days) {
@@ -830,8 +828,20 @@ function createEarnedInfo(funddata) {
 class RequestUtils {
     getHistoryData(code, type, cb) {
         utils.get('fundhist', 'code=' + code + '&type=' + type, function(rsp){
+            var hist_data = JSON.parse(rsp);
+            if (!hist_data) {
+                return;
+            };
+            
+            var updatingcode = hist_data[0][1];
+            if (all_hist_data.length < 1) {
+                all_hist_data = hist_data;
+            } else {
+                all_hist_data = utils.mergeHistData(all_hist_data, hist_data);
+            }
+
             if (typeof(cb) == 'function') {
-                cb(JSON.parse(rsp));
+                cb();
             };
         });
     }

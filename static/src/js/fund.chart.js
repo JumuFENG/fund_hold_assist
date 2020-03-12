@@ -533,30 +533,6 @@ function RightShiftGraph(leftBtn, rightBtn) {
     };
 }
 
-function updateHistData(hist_data) {
-    if (!hist_data) {
-        return;
-    };
-    
-    var updatingcode = hist_data[0][1];
-    if (all_hist_data.length < 1) {
-        all_hist_data = hist_data;
-    } else {
-        all_hist_data = utils.mergeHistData(all_hist_data, hist_data);
-    }
-
-    if (chart) {
-        if (!chart.fund || updatingcode != chart.fund.code) {
-            return;
-        };
-
-        var days = utils.getHighlightedValue("dayslist");
-        chart.drawChart(days);
-        document.getElementById("chart_left_arrow").disabled = false;
-        document.getElementById("chart_right_arrow").disabled = true;
-    }
-}
-
 function ShowSelectedPointInfo(textInfo) {
     var selectDiv = document.getElementById("chart_selected_data");
     selectDiv.textContent = textInfo;
