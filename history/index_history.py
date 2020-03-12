@@ -179,7 +179,7 @@ class Index_history():
             params['end'] = eDate
         response = self.getRequest(sohuApiUrl, params)
         jresp = json.loads(response)
-        if not jresp:
+        if not jresp or jresp[0]['status'] == 2:
             print('getHistoryFromSohu get response: ', response)
             return
         jresp = jresp[0]["hq"]

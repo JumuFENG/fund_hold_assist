@@ -35,19 +35,19 @@ class DailyUpdater():
         fundcodes = self.sqldb.select(gl_all_funds_info_table, [column_code, column_table_history, column_qdii], " %s is not null and %s != ''" % (column_table_history, column_table_history))
         if fundcodes :
             for (c, h, qd) in fundcodes:
-                if (morningOnetime and qd) or not ( morningOnetime or qd) :
+                if (morningOnetime and qd) or not morningOnetime:
                     if self.should_update(h):
                         self.download_all_fund_history(c)
-
-        if not morningOnetime:
-            print("index and gold only update in the morning")
-            return
 
         indexcodes = self.sqldb.select(gl_index_info_table, fields=[column_code, column_table_history])
         if indexcodes:
             for (c, h) in indexcodes:
                 if self.should_update(h):
                     self.download_all_index_history(c)
+
+        if not morningOnetime:
+            print("gold only update in the morning")
+            return
 
         goldcodes = self.sqldb.select(gl_gold_info_table, fields=[column_code, column_table_history])
         if goldcodes:
