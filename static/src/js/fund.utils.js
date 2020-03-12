@@ -472,6 +472,7 @@ class RadioAnchorBar {
 
     setHightlight(r, cb) {
         if (!cb) {
+            r.className = '';
             r.click();
             return;
         };
