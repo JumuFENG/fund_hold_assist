@@ -467,12 +467,17 @@ class UserFund():
         return True
 
     def get_cost_sold_stats(self, sell_recs):
+        if not sell_recs:
+            return 0
         cost_sold = 0
         for (d, p, m, c, a) in sell_recs:
             cost_sold += c
         return cost_sold
 
     def get_actual_sold_stats(self, sell_recs):
+        if not sell_recs:
+            return 0
+
         actual_sold = 0
         for (d, p, m, c, a) in sell_recs:
             acs = float(a)
@@ -518,7 +523,7 @@ class UserFund():
         fund_stats_obj["cs"] = self.get_cost_sold_stats(sell_recs)
         fund_stats_obj["acs"] = self.get_actual_sold_stats(sell_recs)
         fund_stats_obj['hds'] = self.get_hold_days_stats(buy_recs, sell_recs) # hold days
-        fund_stats_obj['srct'] = len(sell_recs) + (1 if self.cost_hold > 0 else 0) # sell record count
+        fund_stats_obj['srct'] = (len(sell_recs) if sell_recs else 0) + (1 if self.cost_hold > 0 else 0) # sell record count
 
         return fund_stats_obj
         
