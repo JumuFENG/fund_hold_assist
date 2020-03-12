@@ -385,9 +385,25 @@ class UserModel():
             return {'id': parent.id, 'name': parent.name, 'email': parent.email}
         return {}
 
+    def merge_stats(self, st1, st2):
+        st = {}
+        st['name'] = st1['name']
+        st['cost'] = st1['cost'] + st2['cost']
+        st['ewh'] = round(st1['ewh'] + st2['ewh'], 2)
+        st['cs'] = st1['cs'] + st2['cs']
+        st['acs'] = st1['acs'] + st2['acs']
+        st['hds'] = st1['hds'] + st2['hds']
+        st['srct'] = st1['srct'] + st2['srct']
+        return st
+
     def get_bind_users_fundstats(self, user):
         users = self.get_all_combined_users(user)
         fund_stats = {}
         for u in users:
-            fund_stats.update(u.get_holding_funds_stats())
+            u_stats = u.get_holding_funds_stats()
+            for c in u_stats:
+                if fund_stats.__contains__(c):
+                    fund_stats[c] = self.merge_stats(fund_stats[c], u_stats[c])
+                else:
+                    fund_stats[c] = u_stats[c]
         return fund_stats

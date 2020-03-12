@@ -483,7 +483,7 @@ class UserFund():
             acs = float(a)
             actual_sold += acs
             if acs == 0:
-                actual_sold += (float(m) if float(m) > 0 else 0)
+                actual_sold += (float(m) if m and float(m) > 0 else 0)
         return actual_sold
 
     def get_hold_days_stats(self, buy_recs, sell_recs):
