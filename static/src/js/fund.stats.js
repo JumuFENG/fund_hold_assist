@@ -80,7 +80,7 @@ class FundStats {
         };
         
         utils.deleteAllRows(this.statsTable)
-        this.statsTable.appendChild(this.createHeaders('基金名称', '持有成本', '持有收益', '售出成本', '售出额', '天数', '总收益', '收益率(%)', '日均收益', '日均收益率(‱)'));
+        this.statsTable.appendChild(this.createHeaders('基金名称', '持有成本', '持有收益', '售出成本', '售出额', '天数', '卖次数', '总收益', '收益率(%)', '标准收益率(%)', '日均收益', '日均收益率(‱)'));
         for (var i in this.statsJson) {
             this.statsTable.appendChild(utils.createColsRow(
                 this.statsJson[i].name,
@@ -89,12 +89,14 @@ class FundStats {
                 this.statsJson[i].cs,
                 this.statsJson[i].acs.toFixed(2),
                 this.statsJson[i].hds,
+                this.statsJson[i].srct,
                 this.statsJson[i].earned.toFixed(2),
                 (this.statsJson[i].earnedRate * 100).toFixed(2),
+                (this.statsJson[i].earnedRate * this.statsJson[i].srct * 100).toFixed(2),
                 this.statsJson[i].perDayEarned.toFixed(2),
                 (this.statsJson[i].perDayEarnedRate * 10000).toFixed(2)));
         };
-        this.lastRow = utils.createColsRow('总计', cost, ewh.toFixed(2), cs, acs.toFixed(2), '-', earned.toFixed(2), (100 * earned / (cost + cs)).toFixed(2), '-', '-');
+        this.lastRow = utils.createColsRow('总计', cost, ewh.toFixed(2), cs, acs.toFixed(2), '-', '-', earned.toFixed(2), (100 * earned / (cost + cs)).toFixed(2), '-', '-', '-');
         this.statsTable.appendChild(this.lastRow);
     }
 

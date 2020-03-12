@@ -518,6 +518,7 @@ class UserFund():
         fund_stats_obj["cs"] = self.get_cost_sold_stats(sell_recs)
         fund_stats_obj["acs"] = self.get_actual_sold_stats(sell_recs)
         fund_stats_obj['hds'] = self.get_hold_days_stats(buy_recs, sell_recs) # hold days
+        fund_stats_obj['srct'] = len(sell_recs) + (1 if self.cost_hold > 0 else 0) # sell record count
 
         return fund_stats_obj
         
