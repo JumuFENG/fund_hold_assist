@@ -466,35 +466,27 @@ class UserFund():
             return not tc
         return True
 
-    def get_holding_stats(self):
-        fund_stats_obj = {}
-        fg = FundGeneral(self.sqldb, self.code)
-
-        fund_stats_obj["name"] = fg.name
-        fund_stats_obj["cost"] = self.cost_hold
-        fund_stats_obj["ewh"] = round((float(fg.latest_netvalue()) - float(self.average)) * float(self.portion_hold), 2)
-        sell_recs = self.sqldb.select(self.sell_table, [column_date, column_portion, column_money_sold, column_cost_sold, column_actual_sold], order = " ORDER BY %s ASC" % column_date)
-        buy_recs = self.sqldb.select(self.buy_table, [column_date, column_cost, column_portion], order = " ORDER BY %s ASC" % column_date)
-
-        cost_sold = 0;
-        actual_sold = 0;
-        if not sell_recs:
-            fund_stats_obj["cs"] = cost_sold
-            fund_stats_obj["acs"] = actual_sold
-            fund_stats_obj['hds'] = (datetime.now() - datetime.strptime(buy_recs[0][0], "%Y-%m-%d")).days if buy_recs else 0
-            return fund_stats_obj
-            
+    def get_cost_sold_stats(self, sell_recs):
+        cost_sold = 0
         for (d, p, m, c, a) in sell_recs:
             cost_sold += c
+        return cost_sold
+
+    def get_actual_sold_stats(self, sell_recs):
+        actual_sold = 0
+        for (d, p, m, c, a) in sell_recs:
             acs = float(a)
             actual_sold += acs
             if acs == 0:
-                actual_sold += (m if m else 0)
-        fund_stats_obj["cs"] = cost_sold
-        fund_stats_obj["acs"] = actual_sold
+                actual_sold += (float(m) if float(m) > 0 else 0)
+        return actual_sold
 
-        day_num = 0;
-        cur_portion = 0;
+    def get_hold_days_stats(self, buy_recs, sell_recs):
+        if not sell_recs:
+            return (datetime.now() - datetime.strptime(buy_recs[0][0], "%Y-%m-%d")).days if buy_recs else 0
+
+        day_num = 0
+        cur_portion = 0
         bIdx = 0
         start_buy_date = buy_recs[bIdx][0]
         for i in range(0, len(sell_recs)):
@@ -511,8 +503,21 @@ class UserFund():
                     start_buy_date = buy_recs[bIdx][0]
         if cur_portion > 100:
             day_num += (datetime.now() - datetime.strptime(start_buy_date, "%Y-%m-%d")).days
+        return day_num
 
-        fund_stats_obj['hds'] = day_num # hold days
+    def get_holding_stats(self):
+        fund_stats_obj = {}
+        fg = FundGeneral(self.sqldb, self.code)
+
+        fund_stats_obj["name"] = fg.name
+        fund_stats_obj["cost"] = self.cost_hold
+        fund_stats_obj["ewh"] = round((float(fg.latest_netvalue()) - float(self.average)) * float(self.portion_hold), 2)
+        sell_recs = self.sqldb.select(self.sell_table, [column_date, column_portion, column_money_sold, column_cost_sold, column_actual_sold], order = " ORDER BY %s ASC" % column_date)
+        buy_recs = self.sqldb.select(self.buy_table, [column_date, column_cost, column_portion], order = " ORDER BY %s ASC" % column_date)
+
+        fund_stats_obj["cs"] = self.get_cost_sold_stats(sell_recs)
+        fund_stats_obj["acs"] = self.get_actual_sold_stats(sell_recs)
+        fund_stats_obj['hds'] = self.get_hold_days_stats(buy_recs, sell_recs) # hold days
 
         return fund_stats_obj
         

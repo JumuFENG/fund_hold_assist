@@ -67,9 +67,10 @@ class FundStats {
             cs += this.statsJson[i].cs;
             acs += this.statsJson[i].acs;
             this.statsJson[i].earned = this.statsJson[i].acs - this.statsJson[i].cs + this.statsJson[i].ewh;
+            this.statsJson[i].perDayEarned = this.statsJson[i].earned / this.statsJson[i].hds;
             earned += this.statsJson[i].earned;
             this.statsJson[i].earnedRate = this.statsJson[i].earned / (this.statsJson[i].cost + this.statsJson[i].cs);
-            this.statsJson[i].preDayEarnedRate = this.statsJson[i].earnedRate / this.statsJson[i].hds;
+            this.statsJson[i].perDayEarnedRate = this.statsJson[i].earnedRate / this.statsJson[i].hds;
         };
         
         if (!this.statsTable) {
@@ -79,7 +80,7 @@ class FundStats {
         };
         
         utils.deleteAllRows(this.statsTable)
-        this.statsTable.appendChild(this.createHeaders('基金名称', '持有成本', '持有收益', '售出成本', '售出额', '天数', '总收益', '收益率(%)', '日均收益率(‱)'));
+        this.statsTable.appendChild(this.createHeaders('基金名称', '持有成本', '持有收益', '售出成本', '售出额', '天数', '总收益', '收益率(%)', '日均收益', '日均收益率(‱)'));
         for (var i in this.statsJson) {
             this.statsTable.appendChild(utils.createColsRow(
                 this.statsJson[i].name,
@@ -90,9 +91,10 @@ class FundStats {
                 this.statsJson[i].hds,
                 this.statsJson[i].earned.toFixed(2),
                 (this.statsJson[i].earnedRate * 100).toFixed(2),
-                (this.statsJson[i].preDayEarnedRate * 10000).toFixed(2)));
+                this.statsJson[i].perDayEarned.toFixed(2),
+                (this.statsJson[i].perDayEarnedRate * 10000).toFixed(2)));
         };
-        this.lastRow = utils.createColsRow('总计', cost, ewh.toFixed(2), cs, acs.toFixed(2), '-', earned.toFixed(2), (100 * earned / (cost + cs)).toFixed(2), '-');
+        this.lastRow = utils.createColsRow('总计', cost, ewh.toFixed(2), cs, acs.toFixed(2), '-', earned.toFixed(2), (100 * earned / (cost + cs)).toFixed(2), '-', '-');
         this.statsTable.appendChild(this.lastRow);
     }
 
