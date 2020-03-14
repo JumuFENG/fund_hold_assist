@@ -332,11 +332,11 @@ class FundChart {
     }
 
     drawVticks() {
-        chart.onDrawVticks();
+        fundSummary.chartWrapper.chart.onDrawVticks();
     }
 
     selectChartPoint() {
-        chart.onChartPointSelected();
+        fundSummary.chartWrapper.chart.onChartPointSelected();
     }
 
     onDrawVticks() {
@@ -512,31 +512,13 @@ class FundChart {
     }
 };
 
-var chart = null;
-
 // Load the Visualization API and the piechart package.
 google.charts.load('current', {'packages':['corechart']});
 
 // Set a callback to run when the Google Visualization API is loaded.
 google.charts.setOnLoadCallback(function(){
-    chart = new FundChart();
+    fundSummary.chartWrapper.initGoogleChart();
 });
-
-function LeftShiftGraph(leftBtn, rightBtn) {
-    if (chart) {
-        chart.leftShift();
-        leftBtn.disabled = !chart.canShiftLeft();
-        rightBtn.disabled = !chart.canShiftRight();
-    };
-}
-
-function RightShiftGraph(leftBtn, rightBtn) {
-    if (chart) {
-        chart.rightShift();
-        leftBtn.disabled = !chart.canShiftLeft();
-        rightBtn.disabled = !chart.canShiftRight();
-    };
-}
 
 function ShowSelectedPointInfo(textInfo) {
     var selectDiv = document.getElementById("chart_selected_data");
@@ -638,5 +620,249 @@ function HandleSelectedRecords(selectDiv) {
             request.sellFund(code, utils.getTodayDate(), dates);
         }
         selectDiv.appendChild(btnSell);
+    }
+}
+
+class TradeOption {
+    constructor(tdiv) {
+        this.tradeDiv = tdiv;
+        this.tradeOptBar = null;
+        this.tradeType = null;
+        this.datePicker = null;
+        this.costInput = null;
+        this.submitBtn = null;
+    }
+
+    show() {
+        this.tradeDiv.style.display = 'block';
+    }
+
+    hide() {
+        this.tradeDiv.style.display = 'none';
+    }
+
+    createTradeOptions() {
+        this.tradeOptBar = new RadioAnchorBar();
+        this.tradeOptBar.addRadio('买入', function(){
+            fundSummary.chartWrapper.tradeOption.setTradeOption(TradeType.Buy);
+        });
+        this.tradeOptBar.addRadio('卖出', function(){
+            fundSummary.chartWrapper.tradeOption.setTradeOption(TradeType.Sell);
+        });
+        this.tradeOptBar.addRadio('加预算', function(){
+            fundSummary.chartWrapper.tradeOption.setTradeOption(TradeType.Budget);
+        });
+        this.tradeDiv.appendChild(this.tradeOptBar.container);
+
+        var tradePanel = document.createElement('div');
+        this.tradeDiv.appendChild(tradePanel);
+        this.datePicker = document.createElement('input');
+        this.datePicker.type = 'date';
+        this.datePicker.value = utils.getTodayDate();
+        tradePanel.appendChild(this.datePicker);
+        this.costInput = document.createElement('input');
+        this.costInput.placeholder = '金额';
+        tradePanel.appendChild(this.costInput);
+        this.submitBtn = document.createElement('button');
+        this.submitBtn.textContent = '确定';
+        this.submitBtn.onclick = function(e) {
+            fundSummary.chartWrapper.tradeOption.onSubmitClicked();
+        }
+        tradePanel.appendChild(this.submitBtn);
+
+
+        this.tradeOptBar.selectDefault();
+    }
+
+    setTradeOption(tradeTp) {
+        this.tradeType = tradeTp;
+        this.changeTradePanel(tradeTp == TradeType.Sell);
+    }
+
+    changeTradePanel(bSell) {
+        if (bSell) {
+            this.costInput.style.display = "none";
+            this.submitBtn.textContent = "卖出";
+        } else {
+            this.costInput.style.display = "inline";
+            this.submitBtn.textContent = "确定";
+        }
+    }
+
+    onSubmitClicked() {
+        var code = fundSummary.chartWrapper.code;
+        var date = this.datePicker.value;
+        var cost = parseFloat(this.costInput.value);
+        if (this.tradeType == TradeType.Budget) {
+            request.addBudget(code, date, cost);
+        } else if (this.tradeType == TradeType.Sell) {
+            var sellRadios = document.getElementsByName("sell_row_" + code);
+            var strbuydates = "";
+            for (var i = 0; i < sellRadios.length; i++) {
+                if (sellRadios[i].checked) {
+                    strbuydates = sellRadios[i].value;
+                    break;
+                }
+            };
+
+            if (strbuydates == "") {
+                alert("No sell dates selected.");
+                return;
+            };
+            
+            request.sellFund(code, date, strbuydates);
+        } else {
+            var budget_dates = [];
+            var budgetRadios = document.getElementsByName("budget_row_" + code);
+            for (var i = 0; i < budgetRadios.length; i++) {
+                if (budgetRadios[i].checked) {
+                    budget_dates.push(budgetRadios[i].value);
+                }
+            };
+
+            var rollin_date = null;
+            var rollinRadios = document.getElementsByName("rollin_row_" + code);
+            for (var i = 0; i < rollinRadios.length; i++) {
+                if (rollinRadios[i].checked) {
+                    rollin_date = rollinRadios[i].value;
+                    break;
+                }
+            };
+            request.buyFund(code, date, cost, budget_dates, rollin_date);
+        }
+    }
+}
+
+class ChartWrapper {
+    constructor() {
+        this.code = null;
+        this.chartDiv = null;
+        this.daysOpt = null;
+        this.tradeOption = null;
+        this.chart = null;
+        this.googleChartDiv = null;
+        this.leftBtn = null;
+        this.rightBtn = null;
+    }
+
+    createChartsDiv(parentDiv) {
+        if (!parentDiv) {
+            return;
+        };
+
+        this.chartDiv = document.createElement('div');
+        parentDiv.appendChild(this.chartDiv);
+        var chartInteraction = document.createElement('div');
+        chartInteraction.id = 'chart_interaction';
+        var chartSelection = document.createElement('div');
+        chartSelection.id = 'chart_selected_data';
+        chartInteraction.appendChild(chartSelection);
+        this.chartDiv.appendChild(chartInteraction);
+
+        this.daysOpt = new RadioAnchorBar();
+        this.chartDiv.appendChild(this.daysOpt.container);
+        this.daysOpt.addRadio('默认', function(){
+            fundSummary.chartWrapper.redrawHistoryGraphs(0);
+        });
+        this.daysOpt.addRadio('30', function(){
+            fundSummary.chartWrapper.redrawHistoryGraphs(30);
+        });
+        this.daysOpt.addRadio('60', function(){
+            fundSummary.chartWrapper.redrawHistoryGraphs(60);
+        });
+        this.daysOpt.addRadio('100', function(){
+            fundSummary.chartWrapper.redrawHistoryGraphs(100);
+        });
+        this.daysOpt.addRadio('300', function(){
+            fundSummary.chartWrapper.redrawHistoryGraphs(300);
+        });
+        this.daysOpt.addRadio('1000', function(){
+            fundSummary.chartWrapper.redrawHistoryGraphs(1000);
+        });
+        this.daysOpt.addRadio('最大', function(){
+            fundSummary.chartWrapper.redrawHistoryGraphs(-1);
+        });
+
+        this.leftBtn = document.createElement('button');
+        this.leftBtn.textContent = '<-';
+        this.daysOpt.container.appendChild(this.leftBtn);
+        this.leftBtn.onclick = function(e) {
+            fundSummary.chartWrapper.leftShiftChart();
+        }
+        this.rightBtn = document.createElement('button');
+        this.rightBtn.textContent = '->'
+        this.daysOpt.container.appendChild(this.rightBtn);
+        this.rightBtn.onclick = function(e) {
+            fundSummary.chartWrapper.rightShiftChart();
+        }
+        this.googleChartDiv = document.createElement('div');
+        this.chartDiv.appendChild(this.googleChartDiv);
+
+        this.tradeOption = new TradeOption(document.createElement('div'));
+        this.tradeOption.createTradeOptions();
+        this.chartDiv.appendChild(this.tradeOption.tradeDiv);
+    }
+
+    setParent(p) {
+        this.chartDiv.parentElement.removeChild(this.chartDiv);
+        p.appendChild(this.chartDiv);
+    }
+
+    hide() {
+        this.chartDiv.style.display = 'none';
+    }
+
+    show() {
+        this.chartDiv.style.display = 'block';
+    }
+
+    initGoogleChart() {
+        this.chart = new FundChart();
+    }
+
+    drawFundHistory() {
+        document.getElementById("chart_interaction").style.display = "none";
+        if (!this.chart.chartDiv) {
+            this.chart.setChartDiv(this.googleChartDiv);
+        };
+        this.chart.fund = new FundLine(this.code, ftjson[this.code].name, ftjson[this.code].ic, ftjson[this.code].in);
+
+        if (this.chart.fund.indexCode && ( all_hist_data.length < 1 || all_hist_data[0].indexOf(this.chart.fund.indexCode) < 0)) {
+            request.getHistoryData(this.chart.fund.indexCode, 'index', function(){
+                fundSummary.chartWrapper.daysOpt.selectDefault();
+            });
+        }
+        
+        if (all_hist_data.length == 0 || all_hist_data[0].indexOf(this.code) < 0) {
+            request.getHistoryData(this.code, ftjson[this.code].isIndex? 'index': 'fund', function(){
+                fundSummary.chartWrapper.daysOpt.selectDefault();
+            });
+            return;
+        };
+        this.daysOpt.selectDefault();
+    }
+
+    redrawHistoryGraphs(days) {
+        if (this.chart) {
+            this.chart.drawChart(days);
+            this.leftBtn.disabled = false;
+            this.rightBtn.disabled = true;
+        }
+    }
+
+    leftShiftChart(leftBtn, rightBtn) {
+        if (this.chart) {
+            this.chart.leftShift();
+            this.leftBtn.disabled = !this.chart.canShiftLeft();
+            this.rightBtn.disabled = !this.chart.canShiftRight();
+        };
+    }
+
+    rightShiftChart(leftBtn, rightBtn) {
+        if (this.chart) {
+            this.chart.rightShift();
+            this.leftBtn.disabled = !this.chart.canShiftLeft();
+            this.rightBtn.disabled = !this.chart.canShiftRight();
+        };
     }
 }
