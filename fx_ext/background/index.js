@@ -11,9 +11,9 @@
         });
     }
 
-    function getHttpRequest (code) {
+    function getHttpRequest (url) {
         var httpRequest = new XMLHttpRequest();//第一步：建立所需的对象
-        httpRequest.open('GET', 'http://fundgz.1234567.com.cn/js/' + code + '.js?rt=' +  (new Date()).getTime(), true);//第二步：打开连接 
+        httpRequest.open('GET', url, true);//第二步：打开连接 
         httpRequest.send();//第三步：发送请求 
         /**
          * 获取数据后的处理程序
@@ -22,14 +22,14 @@
             if (httpRequest.readyState == 4 && httpRequest.status == 200) {
                 logInfo("httpRequest get response OK.");
                 var json = httpRequest.responseText;//获取到json字符串，还需解析
-                sendMessage({command: "rtgz", jsonp: json});
+                sendMessage({command: "response", response: json});
             }
         };
     }
 
     function notify(message) {
-        logInfo("background receive message: " + message.code);
-        getHttpRequest(message.code);
+        logInfo("background receive message: " + message.url);
+        getHttpRequest(message.url);
     }
 
     chrome.runtime.onMessage.addListener(notify);

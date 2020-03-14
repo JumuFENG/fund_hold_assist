@@ -2,8 +2,8 @@
     'use strict';
     
     let ExtensionLoadedEvent = "ExtensionLoaded";
-    let CodeToFetchEvent = "FundCodeToFetch";
-    let RealtimeInfoFetchedEvent = "FundGzReturned"
+    let UrlToGetEvent = "UrlToGet";
+    let RealtimeInfoFetchedEvent = "RealtimeInfoReturned"
 
     function logInfo(...args) {
         //console.log(args);
@@ -18,9 +18,9 @@
     }
 
     function onMessage(message) {
-        if (message.command === "rtgz") {
+        if (message.command === "response") {
             let infoFetchedEvt = new CustomEvent(RealtimeInfoFetchedEvent, {
-                detail: message.jsonp
+                detail: message.response
             });
             document.dispatchEvent(infoFetchedEvt);
         } else {
@@ -30,9 +30,9 @@
 
     chrome.runtime.onMessage.addListener(onMessage);
 
-    document.addEventListener(CodeToFetchEvent, e => {
-        logInfo(e.detail.code);
-        chrome.runtime.sendMessage({"code": e.detail.code});
+    document.addEventListener(UrlToGetEvent, e => {
+        logInfo(e.detail.url);
+        chrome.runtime.sendMessage({"url": e.detail.url});
     })
 
     document.dispatchEvent(new CustomEvent(ExtensionLoadedEvent, {

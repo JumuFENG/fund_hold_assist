@@ -317,7 +317,12 @@ class FundChart {
                 };
             }
             if (this.fund.indexCode) {
-                r.push(null);
+                var icode = this.fund.indexCode;
+                if(irjson[icode] && irjson[icode].rtgz) {
+                    r.push(irjson[icode].rtgz);
+                } else {
+                    r.push(null);
+                }
             }
             rows.push(r);
         };

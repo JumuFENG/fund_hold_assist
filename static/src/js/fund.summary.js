@@ -1,6 +1,6 @@
 let ExtensionLoadedEvent = "ExtensionLoaded";
-let CodeToFetchEvent = 'FundCodeToFetch';
-let RealtimeInfoFetchedEvent = "FundGzReturned";
+let UrlToGetEvent = 'UrlToGet';
+let RealtimeInfoFetchedEvent = "RealtimeInfoReturned";
 let extensionLoaded = false;
 
 window.onload = function() {
@@ -9,7 +9,7 @@ window.onload = function() {
         fundSummary.createSummaryFramework();
         ftjson['sz000001'] = {
             name: "上证指数",
-            hideTrade: true
+            isIndex: true
         };
     };
 
@@ -26,41 +26,134 @@ document.addEventListener(RealtimeInfoFetchedEvent, e => {
     eval(e.detail);
 });
 
-function ForceFetchAll() {
-    for (var fcode in ftjson){
-        sendFetchEventActually(fcode);
+var irjson = {};
+
+function jsonpgz(fundgz) {
+    utils.logInfo(fundgz);
+    var code = fundgz.fundcode;
+    ftjson[code].rtgz = fundgz;
+    updateGuzhiInfo(code);
+    var hold_detail = document.getElementById("hold_detail_" + code);
+    if (hold_detail.style.display != "none") {
+        updateLatestSellInfo(code);
+        if (fundSummary) {
+            fundSummary.drawFundHistory(code);
+        };
+    };
+}
+
+function _ir_cb(irtdata) {
+    for (var code in irtdata) {
+        var idata = irtdata[code];
+        var icode = 'sz' + idata.symbol;
+        irjson[icode] = {
+            rtgz: idata.price,
+            percent: idata.percent,
+            date: utils.date_by_delta(utils.days_since_2000(idata.time))
+        };
+        utils.logInfo(irjson);
     }
 }
 
-function sendFetchEventActually(fundcode) {
-    if (extensionLoaded) {
-        let selectedCodeEvt = new CustomEvent(CodeToFetchEvent, {
+class RealTimeHelper {
+    timeFitToFetch() {
+        var nowDate=new Date();
+        var day_of_week = nowDate.getDay();
+        if (day_of_week < 1 || day_of_week > 5) {
+            return false;
+        };
+        var hour_of_day = nowDate.getHours();
+        if (hour_of_day < 9 || hour_of_day > 16) {
+            return false;
+        }
+        return true;
+    }
+
+    dispatchUrlToGet(url) {
+        let urlEvt = new CustomEvent(UrlToGetEvent, {
             detail: {
-                code: fundcode
+                url: url
             }
         });
-        document.dispatchEvent(selectedCodeEvt);
+        document.dispatchEvent(urlEvt);
     }
-    else {
-        var req = encodeURIComponent('http://fundgz.1234567.com.cn/js/' + fundcode + '.js?rt=' + (new Date()).getTime());
-        utils.get('api/get', 'url=' + req, function(rsp){
-            eval(rsp);
-        });
+
+    fetchFundRtDataActually(fundcode) {
+        var url = 'http://fundgz.1234567.com.cn/js/' + fundcode + '.js?rt=' + (new Date()).getTime();
+        if (extensionLoaded) {
+            this.dispatchUrlToGet(url);
+        } else {
+            request.getRealTimeData(url, function(rsp){
+                eval(rsp);
+            });
+        }
+    }
+
+    fetchFundRtData(fundcode) {
+        if (this.timeFitToFetch()) {
+            this.fetchFundRtDataActually(fundcode);
+        };
+    }
+
+    pushIndexCode(szcode) {
+        if (!irjson[szcode]) {
+            irjson[szcode] = {};
+        };
+    }
+
+    get126IndexUrl() {
+        var i126codes = '';
+        for (var c in irjson) {
+            if (c.startsWith('sz')) {
+                i126codes += c.replace('sz', c[2] == '0' ? '0' : '1') + ',';
+            } else {
+                utils.logInfo('index code not start with sz', c);
+                i126codes += c + ',';
+            }
+        };
+
+        if (i126codes.length > 0) {
+            return 'http://api.money.126.net/data/feed/' + i126codes + 'money.api?callback=_ir_cb';
+        };
+    }
+
+    fetchIndexRtDataActually() {
+        var url = this.get126IndexUrl();
+        if (!url) {
+            return;
+        };
+
+        if (extensionLoaded) {
+            this.dispatchUrlToGet(url);
+        } else {
+            request.getRealTimeData(url, function(rsp){
+                eval(rsp);
+            });
+        }
+    }
+
+    fetchIndexRtData() {
+        if (this.timeFitToFetch()) {
+            this.fetchIndexRtDataActually();
+        };
+    }
+
+    forceFetchAll() {
+        for (var fcode in ftjson){
+            if (ftjson[fcode].isIndex) {
+                this.pushIndexCode(fcode);
+            } else {
+                this.fetchFundRtDataActually(fcode);
+            }
+            if (ftjson[fcode].ic) {
+                this.pushIndexCode(ftjson[fcode].ic);
+            };
+        }
+        this.fetchIndexRtDataActually();
     }
 }
 
-function sendFetchEvent(fundcode) {
-    var nowDate=new Date();
-    var day_of_week = nowDate.getDay();
-    if (day_of_week < 1 || day_of_week > 5) {
-        return;
-    };
-    var hour_of_day = nowDate.getHours();
-    if (hour_of_day < 9 || hour_of_day > 16) {
-        return;
-    };
-    sendFetchEventActually(fundcode);
-}
+var rtHelper = new RealTimeHelper();
 
 class TradeOption {
     constructor(tdiv) {
@@ -372,10 +465,11 @@ class FundSummary {
         var code_cost = [];
         for (var fcode in ftjson){
             var funddata = ftjson[fcode];
-            if (funddata.hideTrade) {
+            if (funddata.isIndex) {
+                rtHelper.pushIndexCode(fcode);
                 continue;
             };
-            sendFetchEvent(fcode);
+            rtHelper.fetchFundRtData(fcode);
 
             earned += funddata.lde;
             total_earned += funddata.ewh;        
@@ -384,7 +478,12 @@ class FundSummary {
             if (ftjson[fcode].buy_table) {
                 ftjson[fcode].holding_aver_cost = utils.getHoldingAverageCost(ftjson[fcode].buy_table);
             };
+            if (ftjson[fcode].ic) {
+                rtHelper.pushIndexCode(ftjson[fcode].ic);
+            };
         }
+
+        rtHelper.fetchIndexRtData();
 
         this.updateSummaryHeader(earned, total_earned, cost);
 
@@ -418,7 +517,7 @@ class FundSummary {
         general_root.appendChild(fundHeader);
         fundHeader.appendChild(document.createElement('hr'));
         fundHeader.appendChild(document.createTextNode(funddata.name));
-        if (!funddata.hideTrade) {
+        if (!funddata.isIndex) {
             var ldeLabel = document.createElement('label');
             ldeLabel.className = utils.incdec_lbl_classname(funddata.lde);
             ldeLabel.textContent = funddata.lde;
@@ -431,7 +530,7 @@ class FundSummary {
         hold_detail.id = "hold_detail_" + code;
         hold_detail.style = "display:none;";
 
-        if (!funddata.hideTrade) {
+        if (!funddata.isIndex) {
             var detailLnk = document.createElement('a');
             detailLnk.textContent = '详情';
             detailLnk.href = 'javascript:showFundDetailPage("' + code + '")'
@@ -463,8 +562,8 @@ class FundSummary {
         var divDetail = document.getElementById("hold_detail_" + code);
         if (divDetail.style.display == "none") {
             var code = divDetail.id.split('_').pop();
-            if (!ftjson[code].hideTrade) {
-                sendFetchEvent(code);
+            if (!ftjson[code].isIndex) {
+                rtHelper.fetchFundRtData(code);
             };
             divDetail.style.display = "block";
             divDetail.parentElement.scrollIntoView();
@@ -478,14 +577,14 @@ class FundSummary {
                 sibling = sibling.nextElementSibling;
             }
 
-            if (!ftjson[code].hideTrade) {
+            if (!ftjson[code].isIndex) {
                 refreshHoldDetail(code);
             };
 
             this.chartWrapper.setParent(divDetail);
             this.chartWrapper.show();
             this.chartWrapper.code = code;
-            if (!ftjson[code].hideTrade) {
+            if (!ftjson[code].isIndex) {
                 this.chartWrapper.tradeOption.show();
             } else {
                 this.chartWrapper.tradeOption.hide();
@@ -510,7 +609,7 @@ class FundSummary {
         }
         
         if (all_hist_data.length == 0 || all_hist_data[0].indexOf(code) < 0) {
-            request.getHistoryData(code, ftjson[code].hideTrade? 'index': 'fund', function(){
+            request.getHistoryData(code, ftjson[code].isIndex? 'index': 'fund', function(){
                 fundSummary.chartWrapper.daysOpt.selectDefault();
             });
             return;
@@ -654,20 +753,6 @@ function getLatestRetracement(code, latest_netvalue) {
     var latest_earned = total_portion * latest_netvalue - total_cost;
     return ((maxEarnedSinceBuy - latest_earned) * 100 / maxEarnedSinceBuy).toFixed(2);
 } 
-
-function jsonpgz(fundgz) {
-    utils.logInfo(fundgz);
-    var code = fundgz.fundcode;
-    ftjson[code].rtgz = fundgz;
-    updateGuzhiInfo(code);
-    var hold_detail = document.getElementById("hold_detail_" + code);
-    if (hold_detail.style.display != "none") {
-        updateLatestSellInfo(code);
-        if (fundSummary) {
-            fundSummary.drawFundHistory(code);
-        };
-    };
-}
 
 function fillUpSellTableData(sellTable, code) {
     var buytable = ftjson[code].buy_table;
@@ -826,6 +911,11 @@ function createEarnedInfo(funddata) {
 }
 
 class RequestUtils {
+    getRealTimeData(url, cb) {
+        var enUrl = encodeURIComponent(url);
+        utils.get('api/get', 'url=' + enUrl, cb);
+    }
+
     getHistoryData(code, type, cb) {
         utils.get('fundhist', 'code=' + code + '&type=' + type, function(rsp){
             var hist_data = JSON.parse(rsp);

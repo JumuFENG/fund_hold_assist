@@ -21,7 +21,7 @@
     {% if session['logged_in'] %}
         <div>
             <button onclick="location.reload()">Reload</button>
-            <button id="btn_swith_show_all" onclick="ForceFetchAll()">Fetch All</button>
+            <button id="btn_swith_show_all" onclick="rtHelper.forceFetchAll()">Fetch All</button>
         </div>
     {% else %}
         <div class="loginsignup">
