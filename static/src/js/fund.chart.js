@@ -328,6 +328,12 @@ class FundChart {
                 var icode = this.fund.indexCode;
                 if(irjson[icode] && irjson[icode].rtgz) {
                     r.push(irjson[icode].rtgz);
+                    if (irjson[icode].rtgz > this.fund.maxIndex) {
+                        this.fund.maxIndex = irjson[icode].rtgz;
+                    };
+                    if (irjson[icode].rtgz < this.fund.minIndex) {
+                        this.fund.minIndex = irjson[icode].rtgz;
+                    };
                 } else {
                     r.push(null);
                 }
@@ -528,7 +534,6 @@ class TradeOption {
         }
         tradePanel.appendChild(this.submitBtn);
 
-
         this.tradeOptBar.selectDefault();
     }
 
@@ -596,6 +601,7 @@ class ChartWrapper {
         this.code = null;
         this.chartDiv = null;
         this.selectionDiv = null;
+        this.selectedData = null;
         this.interactionDiv = null;
         this.daysOpt = null;
         this.tradeOption = null;
@@ -713,7 +719,7 @@ class ChartWrapper {
         }
     }
 
-    leftShiftChart(leftBtn, rightBtn) {
+    leftShiftChart() {
         if (this.chart) {
             this.chart.leftShift();
             this.leftBtn.disabled = !this.chart.canShiftLeft();
@@ -721,7 +727,7 @@ class ChartWrapper {
         };
     }
 
-    rightShiftChart(leftBtn, rightBtn) {
+    rightShiftChart() {
         if (this.chart) {
             this.chart.rightShift();
             this.leftBtn.disabled = !this.chart.canShiftLeft();
@@ -731,7 +737,7 @@ class ChartWrapper {
 
     showSelectedPointInfo(textInfo) {
         this.selectionDiv.textContent = textInfo;
-        this.selectionDiv.selectedData = null;
+        this.selectedData = null;
     }
 
     onChartPointSelected() {
@@ -739,7 +745,7 @@ class ChartWrapper {
         if (selectedItem) {
             var date = this.chart.data.getValue(selectedItem.row, 0);
             var val = this.chart.data.getValue(selectedItem.row, 1);
-            var code = this.chart.data.getColumnLabel(selectedItem.column);
+            var code = this.code;
             this.interactionDiv.style.display = "block";
             if (!ftjson[code] || (!ftjson[code].buy_table && !ftjson[code].sell_table)) {
                 this.showSelectedPointInfo(date +" 净值: "+ val);
@@ -765,7 +771,7 @@ class ChartWrapper {
                 if (buyrec.sold == 1) {
                     textInfo += date + " 买入 " + buyrec.cost + " 已卖出";
                 } else {
-                    this.buyRecordSelected(buyrec, code);
+                    this.buyRecordSelected(buyrec);
                     return;
                 }
             };
@@ -777,17 +783,17 @@ class ChartWrapper {
         }
     }
 
-    buyRecordSelected(buyrec, code) {
-        var selectedCode = this.selectionDiv.selectedData ? this.selectionDiv.selectedData.code: null;
-        if (!selectedCode || selectedCode != code) {
+    buyRecordSelected(buyrec) {
+        var selectedCode = this.selectedData ? this.selectedData.code: null;
+        if (!selectedCode || selectedCode != this.code) {
             utils.removeAllChild(this.selectionDiv);
-            this.selectionDiv.selectedData = null;
+            this.selectedData = null;
             selectedCode = null;
         };
         
         if (!selectedCode) {
-            this.selectionDiv.selectedData = {code: code};
-            selectedCode = code;
+            this.selectedData = {code: this.code};
+            selectedCode = this.code;
             var submitDiv = document.createElement("div");
 
             submitDiv.appendChild(document.createTextNode("天数>"));
@@ -795,9 +801,9 @@ class ChartWrapper {
             daysInput.placeholder = "天数";
             daysInput.value = "31";
             daysInput.size = 2;
-            this.selectionDiv.selectedData.days = 31;
+            this.selectedData.days = 31;
             daysInput.onchange = function(e) {
-                this.selectionDiv.selectedData.days = parseInt(daysInput.value);
+                fundSummary.chartWrapper.selectedData.days = parseInt(daysInput.value);
             };
             submitDiv.appendChild(daysInput);
             submitDiv.appendChild(document.createTextNode(", 收益率>"));
@@ -805,10 +811,10 @@ class ChartWrapper {
             var rateInput = document.createElement("input");
             rateInput.placeholder = "期望收益率";
             rateInput.size = 5;
-            rateInput.value = (ftjson[code].str * 50).toFixed(3); // *100/2
-            this.selectionDiv.selectedData.rate = parseFloat(ftjson[code].str) / 2;
+            rateInput.value = (ftjson[this.code].str * 50).toFixed(3); // *100/2
+            this.selectedData.rate = parseFloat(ftjson[this.code].str) / 2;
             rateInput.onchange = function(e) {
-                this.selectionDiv.selectedData.rate = parseFloat(rateInput.value) / 100;
+                fundSummary.chartWrapper.selectedData.rate = parseFloat(rateInput.value) / 100;
             };
             submitDiv.appendChild(rateInput);
             submitDiv.appendChild(document.createTextNode("%"));
@@ -823,7 +829,7 @@ class ChartWrapper {
             this.selectionDiv.appendChild(submitDiv);
         };
 
-        var selectedDates = this.selectionDiv.selectedData.dates;
+        var selectedDates = this.selectedData.dates;
         var dateExists = false;
         if (!selectedDates) {
             selectedDates = [buyrec.date];
@@ -834,7 +840,7 @@ class ChartWrapper {
                 selectedDates.push(buyrec.date);
             }
         }
-        this.selectionDiv.selectedData.dates = selectedDates;
+        this.selectedData.dates = selectedDates;
 
         if (!dateExists) {
             var buyInfo = document.createTextNode(utils.date_by_delta(buyrec.date) + ": " + buyrec.cost + " ");
@@ -843,18 +849,18 @@ class ChartWrapper {
     }
 
     handleSelectedRecords() {
-        var code = this.selectionDiv.selectedData.code;
+        var code = this.selectedData.code;
         if (!ftjson[code] || !ftjson[code].buy_table) {
             alert("数据错误！");
             return;
         }
 
         var buytable = ftjson[code].buy_table;
-        var selectedDates = this.selectionDiv.selectedData.dates;
+        var selectedDates = this.selectedData.dates;
         var jsonp = ftjson[code].rtgz;
         var gz = jsonp ? jsonp.gsz : ftjson[code].lnv;
-        var short_term_rate = this.selectionDiv.selectedData.rate;
-        var short_term_days = this.selectionDiv.selectedData.days;
+        var short_term_rate = this.selectedData.rate;
+        var short_term_days = this.selectedData.days;
         var dp = utils.getPuzzledDatePortion(buytable, selectedDates, gz, short_term_rate, short_term_days);
         if (!dp) {
             this.selectionDiv.appendChild(document.createTextNode("无合适买卖！"));
