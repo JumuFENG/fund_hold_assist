@@ -204,7 +204,7 @@ class FundSummary {
 
         var aStats = document.createElement('a');
         aStats.textContent = '详细统计表';
-        aStats.href = 'javascript:showFundStats()';
+        aStats.href = 'javascript:fundSummary.showFundStats()';
         this.summaryHeader.appendChild(aStats);
     }
 
@@ -340,7 +340,7 @@ class FundSummary {
         if (!funddata.isIndex) {
             var detailLnk = document.createElement('a');
             detailLnk.textContent = '详情';
-            detailLnk.href = 'javascript:showFundDetailPage("' + code + '")'
+            detailLnk.href = 'javascript:fundSummary.showFundDetailPage("' + code + '")'
             hold_detail.appendChild(detailLnk);
             hold_detail.appendChild(createBudgetsTable(code));
             hold_detail.appendChild(createRollinsTable(code));
@@ -421,6 +421,34 @@ class FundSummary {
         } else {
             divDetail.style.display = "none";
         }
+    }
+
+    showFundDetailPage(code) {
+        if (!code) {
+            return;
+        };
+
+        if (!detailpage) {
+            detailpage = new FundDetail();
+            detailpage.createFundDetailFramework();
+        };
+        this.hide();
+        detailpage.container.style.display = 'block';
+        detailpage.container.scrollIntoView();
+        detailpage.code = code;
+        detailpage.setDetailPageFundName();
+        detailpage.navUl.firstChild.click();
+    }
+
+    showFundStats() {
+        if (!fundstats) {
+            fundstats = new FundStats();
+            fundstats.createStatsPage();
+            fundstats.getFundStats();
+        };
+
+        this.hide();
+        fundstats.container.style.display = 'block';
     }
 }
 

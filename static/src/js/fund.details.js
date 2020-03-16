@@ -1,20 +1,3 @@
-function showFundDetailPage (code) {
-    if (!code) {
-        return;
-    };
-
-    if (!detailpage) {
-        detailpage = new FundDetail();
-        detailpage.createFundDetailFramework();
-    };
-    fundSummary.hide();
-    detailpage.container.style.display = 'block';
-    detailpage.container.scrollIntoView();
-    detailpage.code = code;
-    detailpage.setDetailPageFundName();
-    detailpage.navUl.firstChild.click();
-}
-
 class FundDetail {
     constructor() {
         this.container = null;

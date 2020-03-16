@@ -1,14 +1,3 @@
-function showFundStats (detailparent) {
-    if (!fundstats) {
-        fundstats = new FundStats();
-        fundstats.createStatsPage();
-        fundstats.getFundStats();
-    };
-
-    fundSummary.hide();
-    fundstats.container.style.display = 'block';
-}
-
 class FundStats {
     constructor() {
         this.container = null;

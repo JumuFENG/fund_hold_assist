@@ -1,3 +1,11 @@
+// Load the Visualization API and the piechart package.
+google.charts.load('current', {'packages':['corechart']});
+
+// Set a callback to run when the Google Visualization API is loaded.
+google.charts.setOnLoadCallback(function(){
+    fundSummary.chartWrapper.initGoogleChart();
+});
+
 class FundLine {
     constructor(code, name, indexCode = null, indexName = null) {
         this.code = code;
@@ -336,7 +344,7 @@ class FundChart {
     }
 
     selectChartPoint() {
-        fundSummary.chartWrapper.chart.onChartPointSelected();
+        fundSummary.chartWrapper.onChartPointSelected();
     }
 
     onDrawVticks() {
@@ -468,160 +476,10 @@ class FundChart {
         };
     }
 
-    onChartPointSelected() {
-        var selectedItem = this.chart.getSelection()[0];
-        if (selectedItem) {
-            var date = this.data.getValue(selectedItem.row, 0);
-            var val = this.data.getValue(selectedItem.row, 1);
-            var code = this.data.getColumnLabel(selectedItem.column);
-            document.getElementById("chart_interaction").style.display = "block";
-            if (!ftjson[code] || (!ftjson[code].buy_table && !ftjson[code].sell_table)) {
-                ShowSelectedPointInfo(date +" 净值: "+ val);
-                return;
-            }
-            var buytable = ftjson[code].buy_table;
-            var datedelta = utils.days_since_2000(date);
-            var buyrec = buytable? buytable.find(function(curVal) {
-                return curVal.date == datedelta;
-            }) : null;
-            var selltable = ftjson[code].sell_table;
-            var sellrec = selltable? selltable.find(function(curVal) {
-                return curVal.date == datedelta;
-            }) : null;
-
-            if (!buyrec && !sellrec) {
-                ShowSelectedPointInfo(date +" 净值: "+ val);
-                return;
-            };
-
-            var textInfo = "";
-            if (buyrec) {
-                if (buyrec.sold == 1) {
-                    textInfo += date + " 买入 " + buyrec.cost + " 已卖出";
-                } else {
-                    BuyRecordSelected(buyrec, code);
-                    return;
-                }
-            };
-
-            if (sellrec) {
-                textInfo += date + " 卖出: " + sellrec.ptn + "份, 成本: " + sellrec.cost;
-            };
-            ShowSelectedPointInfo(textInfo);
-        }
+    getSelectedItem() {
+        return this.chart.getSelection()[0];
     }
 };
-
-// Load the Visualization API and the piechart package.
-google.charts.load('current', {'packages':['corechart']});
-
-// Set a callback to run when the Google Visualization API is loaded.
-google.charts.setOnLoadCallback(function(){
-    fundSummary.chartWrapper.initGoogleChart();
-});
-
-function ShowSelectedPointInfo(textInfo) {
-    var selectDiv = document.getElementById("chart_selected_data");
-    selectDiv.textContent = textInfo;
-    selectDiv.selectedData = null;
-}
-
-function BuyRecordSelected(buyrec, code) {
-    var selectDiv = document.getElementById("chart_selected_data");
-    var selectedCode = selectDiv.selectedData ? selectDiv.selectedData.code: null;
-    if (!selectedCode || selectedCode != code) {
-        utils.removeAllChild(selectDiv);
-        selectDiv.selectedData = null;
-        selectedCode = null;
-    };
-    
-    if (!selectedCode) {
-        selectDiv.selectedData = {code: code};
-        selectedCode = code;
-        var submitDiv = document.createElement("div");
-
-        submitDiv.appendChild(document.createTextNode("天数>"));
-        var daysInput = document.createElement("input");
-        daysInput.placeholder = "天数";
-        daysInput.value = "31";
-        daysInput.size = 2;
-        selectDiv.selectedData.days = 31;
-        daysInput.onchange = function(e) {
-            selectDiv.selectedData.days = parseInt(daysInput.value);
-        };
-        submitDiv.appendChild(daysInput);
-        submitDiv.appendChild(document.createTextNode(", 收益率>"));
-
-        var rateInput = document.createElement("input");
-        rateInput.placeholder = "期望收益率";
-        rateInput.size = 5;
-        rateInput.value = (ftjson[code].str * 50).toFixed(3); // *100/2
-        selectDiv.selectedData.rate = parseFloat(ftjson[code].str) / 2;
-        rateInput.onchange = function(e) {
-            selectDiv.selectedData.rate = parseFloat(rateInput.value) / 100;
-        };
-        submitDiv.appendChild(rateInput);
-        submitDiv.appendChild(document.createTextNode("%"));
-
-        var btnSubmit = document.createElement("button");
-        btnSubmit.textContent = "OK";
-        btnSubmit.onclick = function (e) {
-            HandleSelectedRecords(selectDiv);
-        };
-        submitDiv.appendChild(btnSubmit);
-
-        selectDiv.appendChild(submitDiv);
-    };
-
-    var selectedDates = selectDiv.selectedData.dates;
-    var dateExists = false;
-    if (!selectedDates) {
-        selectedDates = [buyrec.date];
-    } else {
-        if (selectedDates.indexOf(buyrec.date) != -1) {
-            dateExists = true;
-        } else {
-            selectedDates.push(buyrec.date);
-        }
-    }
-    selectDiv.selectedData.dates = selectedDates;
-
-    if (!dateExists) {
-        var buyInfo = document.createTextNode(utils.date_by_delta(buyrec.date) + ": " + buyrec.cost + " ");
-        selectDiv.insertBefore(buyInfo, selectDiv.lastChild);
-    };
-}
-
-function HandleSelectedRecords(selectDiv) {
-    var code = selectDiv.selectedData.code;
-    if (!ftjson[code] || !ftjson[code].buy_table) {
-        alert("数据错误！");
-        return;
-    }
-
-    var buytable = ftjson[code].buy_table;
-    var selectedDates = selectDiv.selectedData.dates;
-    var jsonp = ftjson[code].rtgz;
-    var gz = jsonp ? jsonp.gsz : ftjson[code].lnv;
-    var short_term_rate = selectDiv.selectedData.rate;
-    var short_term_days = selectDiv.selectedData.days;
-    var dp = utils.getPuzzledDatePortion(buytable, selectedDates, gz, short_term_rate, short_term_days);
-    if (!dp) {
-        selectDiv.appendChild(document.createTextNode("无合适买卖！"));
-    } else {
-        var portion = utils.convertPortionToGram(dp.portion, ftjson[code].ppg).toFixed(4);
-        var rate = (parseFloat(dp.rate) * 100).toFixed(2) + "%";
-        var dates = dp.dates;
-        selectDiv.appendChild(document.createTextNode("可卖出:" + portion + " 成本:" + dp.cost + " 预期收益:" + rate));
-        var btnSell = document.createElement("button");
-        btnSell.textContent = "卖出";
-        btnSell.onclick = function(e) {
-            //alert("卖出执行！" + code + ":" + dates);
-            request.sellFund(code, utils.getTodayDate(), dates);
-        }
-        selectDiv.appendChild(btnSell);
-    }
-}
 
 class TradeOption {
     constructor(tdiv) {
@@ -737,6 +595,8 @@ class ChartWrapper {
     constructor() {
         this.code = null;
         this.chartDiv = null;
+        this.selectionDiv = null;
+        this.interactionDiv = null;
         this.daysOpt = null;
         this.tradeOption = null;
         this.chart = null;
@@ -752,12 +612,10 @@ class ChartWrapper {
 
         this.chartDiv = document.createElement('div');
         parentDiv.appendChild(this.chartDiv);
-        var chartInteraction = document.createElement('div');
-        chartInteraction.id = 'chart_interaction';
-        var chartSelection = document.createElement('div');
-        chartSelection.id = 'chart_selected_data';
-        chartInteraction.appendChild(chartSelection);
-        this.chartDiv.appendChild(chartInteraction);
+        this.interactionDiv = document.createElement('div');
+        this.selectionDiv = document.createElement('div');
+        this.interactionDiv.appendChild(this.selectionDiv);
+        this.chartDiv.appendChild(this.interactionDiv);
 
         this.daysOpt = new RadioAnchorBar();
         this.chartDiv.appendChild(this.daysOpt.container);
@@ -821,7 +679,12 @@ class ChartWrapper {
     }
 
     drawFundHistory() {
-        document.getElementById("chart_interaction").style.display = "none";
+        if (!this.chart) {
+            utils.logInfo('google chart not initialized!');
+            return;
+        };
+
+        this.interactionDiv.style.display = "none";
         if (!this.chart.chartDiv) {
             this.chart.setChartDiv(this.googleChartDiv);
         };
@@ -864,5 +727,149 @@ class ChartWrapper {
             this.leftBtn.disabled = !this.chart.canShiftLeft();
             this.rightBtn.disabled = !this.chart.canShiftRight();
         };
+    }
+
+    showSelectedPointInfo(textInfo) {
+        this.selectionDiv.textContent = textInfo;
+        this.selectionDiv.selectedData = null;
+    }
+
+    onChartPointSelected() {
+        var selectedItem = this.chart.getSelectedItem();
+        if (selectedItem) {
+            var date = this.chart.data.getValue(selectedItem.row, 0);
+            var val = this.chart.data.getValue(selectedItem.row, 1);
+            var code = this.chart.data.getColumnLabel(selectedItem.column);
+            this.interactionDiv.style.display = "block";
+            if (!ftjson[code] || (!ftjson[code].buy_table && !ftjson[code].sell_table)) {
+                this.showSelectedPointInfo(date +" 净值: "+ val);
+                return;
+            }
+            var buytable = ftjson[code].buy_table;
+            var datedelta = utils.days_since_2000(date);
+            var buyrec = buytable? buytable.find(function(curVal) {
+                return curVal.date == datedelta;
+            }) : null;
+            var selltable = ftjson[code].sell_table;
+            var sellrec = selltable? selltable.find(function(curVal) {
+                return curVal.date == datedelta;
+            }) : null;
+
+            if (!buyrec && !sellrec) {
+                this.showSelectedPointInfo(date +" 净值: "+ val);
+                return;
+            };
+
+            var textInfo = "";
+            if (buyrec) {
+                if (buyrec.sold == 1) {
+                    textInfo += date + " 买入 " + buyrec.cost + " 已卖出";
+                } else {
+                    this.buyRecordSelected(buyrec, code);
+                    return;
+                }
+            };
+
+            if (sellrec) {
+                textInfo += date + " 卖出: " + sellrec.ptn + "份, 成本: " + sellrec.cost;
+            };
+            this.showSelectedPointInfo(textInfo);
+        }
+    }
+
+    buyRecordSelected(buyrec, code) {
+        var selectedCode = this.selectionDiv.selectedData ? this.selectionDiv.selectedData.code: null;
+        if (!selectedCode || selectedCode != code) {
+            utils.removeAllChild(this.selectionDiv);
+            this.selectionDiv.selectedData = null;
+            selectedCode = null;
+        };
+        
+        if (!selectedCode) {
+            this.selectionDiv.selectedData = {code: code};
+            selectedCode = code;
+            var submitDiv = document.createElement("div");
+
+            submitDiv.appendChild(document.createTextNode("天数>"));
+            var daysInput = document.createElement("input");
+            daysInput.placeholder = "天数";
+            daysInput.value = "31";
+            daysInput.size = 2;
+            this.selectionDiv.selectedData.days = 31;
+            daysInput.onchange = function(e) {
+                this.selectionDiv.selectedData.days = parseInt(daysInput.value);
+            };
+            submitDiv.appendChild(daysInput);
+            submitDiv.appendChild(document.createTextNode(", 收益率>"));
+
+            var rateInput = document.createElement("input");
+            rateInput.placeholder = "期望收益率";
+            rateInput.size = 5;
+            rateInput.value = (ftjson[code].str * 50).toFixed(3); // *100/2
+            this.selectionDiv.selectedData.rate = parseFloat(ftjson[code].str) / 2;
+            rateInput.onchange = function(e) {
+                this.selectionDiv.selectedData.rate = parseFloat(rateInput.value) / 100;
+            };
+            submitDiv.appendChild(rateInput);
+            submitDiv.appendChild(document.createTextNode("%"));
+
+            var btnSubmit = document.createElement("button");
+            btnSubmit.textContent = "OK";
+            btnSubmit.onclick = function (e) {
+                fundSummary.chartWrapper.handleSelectedRecords();
+            };
+            submitDiv.appendChild(btnSubmit);
+
+            this.selectionDiv.appendChild(submitDiv);
+        };
+
+        var selectedDates = this.selectionDiv.selectedData.dates;
+        var dateExists = false;
+        if (!selectedDates) {
+            selectedDates = [buyrec.date];
+        } else {
+            if (selectedDates.indexOf(buyrec.date) != -1) {
+                dateExists = true;
+            } else {
+                selectedDates.push(buyrec.date);
+            }
+        }
+        this.selectionDiv.selectedData.dates = selectedDates;
+
+        if (!dateExists) {
+            var buyInfo = document.createTextNode(utils.date_by_delta(buyrec.date) + ": " + buyrec.cost + " ");
+            this.selectionDiv.insertBefore(buyInfo, this.selectionDiv.lastChild);
+        };
+    }
+
+    handleSelectedRecords() {
+        var code = this.selectionDiv.selectedData.code;
+        if (!ftjson[code] || !ftjson[code].buy_table) {
+            alert("数据错误！");
+            return;
+        }
+
+        var buytable = ftjson[code].buy_table;
+        var selectedDates = this.selectionDiv.selectedData.dates;
+        var jsonp = ftjson[code].rtgz;
+        var gz = jsonp ? jsonp.gsz : ftjson[code].lnv;
+        var short_term_rate = this.selectionDiv.selectedData.rate;
+        var short_term_days = this.selectionDiv.selectedData.days;
+        var dp = utils.getPuzzledDatePortion(buytable, selectedDates, gz, short_term_rate, short_term_days);
+        if (!dp) {
+            this.selectionDiv.appendChild(document.createTextNode("无合适买卖！"));
+        } else {
+            var portion = utils.convertPortionToGram(dp.portion, ftjson[code].ppg).toFixed(4);
+            var rate = (parseFloat(dp.rate) * 100).toFixed(2) + "%";
+            var dates = dp.dates;
+            this.selectionDiv.appendChild(document.createTextNode("可卖出:" + portion + " 成本:" + dp.cost + " 预期收益:" + rate));
+            var btnSell = document.createElement("button");
+            btnSell.textContent = "卖出";
+            btnSell.onclick = function(e) {
+                //alert("卖出执行！" + code + ":" + dates);
+                request.sellFund(code, utils.getTodayDate(), dates);
+            }
+            this.selectionDiv.appendChild(btnSell);
+        }
     }
 }
