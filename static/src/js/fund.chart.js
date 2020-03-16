@@ -3,8 +3,10 @@ google.charts.load('current', {'packages':['corechart']});
 
 // Set a callback to run when the Google Visualization API is loaded.
 google.charts.setOnLoadCallback(function(){
-    fundSummary.chartWrapper.initGoogleChart();
+    chartWrapperChart = new FundChart();
 });
+
+var chartWrapperChart = null;
 
 class FundLine {
     constructor(code, name, indexCode = null, indexName = null) {
@@ -346,7 +348,7 @@ class FundChart {
     }
 
     drawVticks() {
-        fundSummary.chartWrapper.chart.onDrawVticks();
+        chartWrapperChart.onDrawVticks();
     }
 
     selectChartPoint() {
@@ -605,7 +607,6 @@ class ChartWrapper {
         this.interactionDiv = null;
         this.daysOpt = null;
         this.tradeOption = null;
-        this.chart = null;
         this.googleChartDiv = null;
         this.leftBtn = null;
         this.rightBtn = null;
@@ -681,23 +682,23 @@ class ChartWrapper {
     }
 
     initGoogleChart() {
-        this.chart = new FundChart();
+        
     }
 
     drawFundHistory() {
-        if (!this.chart) {
+        if (!chartWrapperChart) {
             utils.logInfo('google chart not initialized!');
             return;
         };
 
         this.interactionDiv.style.display = "none";
-        if (!this.chart.chartDiv) {
-            this.chart.setChartDiv(this.googleChartDiv);
+        if (!chartWrapperChart.chartDiv) {
+            chartWrapperChart.setChartDiv(this.googleChartDiv);
         };
-        this.chart.fund = new FundLine(this.code, ftjson[this.code].name, ftjson[this.code].ic, ftjson[this.code].in);
+        chartWrapperChart.fund = new FundLine(this.code, ftjson[this.code].name, ftjson[this.code].ic, ftjson[this.code].in);
 
-        if (this.chart.fund.indexCode && ( all_hist_data.length < 1 || all_hist_data[0].indexOf(this.chart.fund.indexCode) < 0)) {
-            request.getHistoryData(this.chart.fund.indexCode, 'index', function(){
+        if (chartWrapperChart.fund.indexCode && ( all_hist_data.length < 1 || all_hist_data[0].indexOf(chartWrapperChart.fund.indexCode) < 0)) {
+            request.getHistoryData(chartWrapperChart.fund.indexCode, 'index', function(){
                 fundSummary.chartWrapper.daysOpt.selectDefault();
             });
         }
@@ -712,26 +713,26 @@ class ChartWrapper {
     }
 
     redrawHistoryGraphs(days) {
-        if (this.chart) {
-            this.chart.drawChart(days);
+        if (chartWrapperChart) {
+            chartWrapperChart.drawChart(days);
             this.leftBtn.disabled = false;
             this.rightBtn.disabled = true;
         }
     }
 
     leftShiftChart() {
-        if (this.chart) {
-            this.chart.leftShift();
-            this.leftBtn.disabled = !this.chart.canShiftLeft();
-            this.rightBtn.disabled = !this.chart.canShiftRight();
+        if (chartWrapperChart) {
+            chartWrapperChart.leftShift();
+            this.leftBtn.disabled = !chartWrapperChart.canShiftLeft();
+            this.rightBtn.disabled = !chartWrapperChart.canShiftRight();
         };
     }
 
     rightShiftChart() {
-        if (this.chart) {
-            this.chart.rightShift();
-            this.leftBtn.disabled = !this.chart.canShiftLeft();
-            this.rightBtn.disabled = !this.chart.canShiftRight();
+        if (chartWrapperChart) {
+            chartWrapperChart.rightShift();
+            this.leftBtn.disabled = !chartWrapperChart.canShiftLeft();
+            this.rightBtn.disabled = !chartWrapperChart.canShiftRight();
         };
     }
 
@@ -741,10 +742,10 @@ class ChartWrapper {
     }
 
     onChartPointSelected() {
-        var selectedItem = this.chart.getSelectedItem();
+        var selectedItem = chartWrapperChart.getSelectedItem();
         if (selectedItem) {
-            var date = this.chart.data.getValue(selectedItem.row, 0);
-            var val = this.chart.data.getValue(selectedItem.row, 1);
+            var date = chartWrapperChart.data.getValue(selectedItem.row, 0);
+            var val = chartWrapperChart.data.getValue(selectedItem.row, 1);
             var code = this.code;
             this.interactionDiv.style.display = "block";
             if (!ftjson[code] || (!ftjson[code].buy_table && !ftjson[code].sell_table)) {
