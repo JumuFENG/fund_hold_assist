@@ -21,6 +21,24 @@ class FundLine {
         this.maxIndex = null;
         this.minIndex = null;
     }
+
+    updateMinMaxVal(val) {
+        if (!this.maxValue || val > this.maxValue) {
+            this.maxValue = val;
+        };
+        if (!this.minValue || val < this.minValue) {
+            this.minValue = val;
+        };
+    }
+
+    updateMinMaxIdxVal(val) {
+        if (!this.maxIndex || val > this.maxIndex || (this.maxIndex == '' && val)) {
+            this.maxIndex = val;
+        };
+        if (!this.minIndex || val < this.minIndex || (this.minIndex == '' && val)) {
+            this.minIndex = val;
+        };
+    }
 };
 
 class FundChart {
@@ -125,7 +143,7 @@ class FundChart {
                 }
             }
         };
-        if (this.fund.indexCode) {
+        if (this.fund.indexCode && fundSummary.chartWrapper.showTrackedIndexChart()) {
             var v1ticks = [];
             var minTick1 = Math.round(this.fund.minIndex - 1);
             var maxTick1 = Math.round(this.fund.maxIndex + 1);
@@ -161,12 +179,7 @@ class FundChart {
             }
         };
         r.push(val);
-        if (val > this.fund.maxValue) {
-            this.fund.maxValue = val;
-        };
-        if (val < this.fund.minValue) {
-            this.fund.minValue = val;
-        };
+        this.fund.updateMinMaxVal(val);
         var ptstyle = 'point {visible: false }';
         var pttooltip = strDate + "\n" + val + ": " + all_hist_data[histIdx][valIdx + 1] + "%";
         if (ftjson[this.fund.code] !== undefined) {
@@ -202,7 +215,7 @@ class FundChart {
         }
         r.push(ptstyle);
         r.push(pttooltip);
-        if (this.fund.indexCode) {
+        if (this.fund.indexCode && fundSummary.chartWrapper.showTrackedIndexChart()) {
             var valIdx = all_hist_data[0].indexOf(this.fund.indexCode) * 2 - 1;
             var val = all_hist_data[histIdx][valIdx];
             if (val == '') {
@@ -219,16 +232,7 @@ class FundChart {
                 val = null;
             };
             r.push(val);
-            if (val > this.fund.maxIndex) {
-                this.fund.maxIndex = val;
-            };
-
-            if (this.fund.minIndex == '' && val) {
-                this.fund.minIndex = val;
-            };
-            if (val < this.fund.minIndex) {
-                this.fund.minIndex = val;
-            };
+            this.fund.updateMinMaxIdxVal(val);
         };
 
         return r;
@@ -280,7 +284,7 @@ class FundChart {
         data.addColumn('number', this.fund.code);
         data.addColumn({type: 'string', role: 'style'});
         data.addColumn({type: 'string', role: 'tooltip'});
-        if (this.fund.indexCode) {
+        if (this.fund.indexCode && fundSummary.chartWrapper.showTrackedIndexChart()) {
             data.addColumn('number', this.fund.indexName);
         };
 
@@ -289,14 +293,16 @@ class FundChart {
         if (this.fund.code) {
             var valIdx = all_hist_data[0].indexOf(this.fund.code) * 2 - 1;
             var val = all_hist_data[len - showLen + 1][valIdx];
-            this.fund.maxValue = val;
-            this.fund.minValue = val;
+            this.fund.minValue = null;
+            this.fund.maxValue = null;
+            this.fund.updateMinMaxVal(val);
         };
-        if (this.fund.indexCode) {
+        if (this.fund.indexCode && fundSummary.chartWrapper.showTrackedIndexChart()) {
             var valIdx = all_hist_data[0].indexOf(this.fund.indexCode) * 2 - 1;
             var val = all_hist_data[len - showLen + 1][valIdx];
-            this.fund.maxIndex = val;
-            this.fund.minIndex = val;
+            this.fund.maxIndex = null;
+            this.fund.minIndex = null;
+            this.fund.updateMinMaxIdxVal(val);
         };
         for (var i = 1; i < showLen; i++) {
             var r = this.createDataRow(len - showLen + i);
@@ -319,28 +325,30 @@ class FundChart {
                 r.push(parseFloat(gz));
                 r.push('point {visible: false }');
                 r.push("最新估值:" + funddata.rtgz.gsz); // tooltip
-                if (gz > this.fund.maxValue) {
-                    this.fund.maxValue = gz;
-                };
-                if (gz < this.fund.minValue) {
-                    this.fund.minValue = gz;
-                };
+                this.fund.updateMinMaxVal(gz);
             }
-            if (this.fund.indexCode) {
+            if (this.fund.indexCode && fundSummary.chartWrapper.showTrackedIndexChart()) {
                 var icode = this.fund.indexCode;
                 if(irjson[icode] && irjson[icode].rtgz) {
                     r.push(irjson[icode].rtgz);
-                    if (irjson[icode].rtgz > this.fund.maxIndex) {
-                        this.fund.maxIndex = irjson[icode].rtgz;
-                    };
-                    if (irjson[icode].rtgz < this.fund.minIndex) {
-                        this.fund.minIndex = irjson[icode].rtgz;
-                    };
+                    this.fund.updateMinMaxIdxVal(irjson[icode].rtgz);
                 } else {
                     r.push(null);
                 }
             }
             rows.push(r);
+        };
+
+        if (ftjson[this.fund.code].isIndex) {
+            var icode = this.fund.code;
+            if(irjson[icode] && irjson[icode].rtgz) {
+                var r = [irjson[icode].date];
+                r.push(irjson[icode].rtgz);
+                r.push('point {visible: false }');
+                r.push("最新估值:" + irjson[icode].rtgz + '\n日期:' + irjson[icode].date + '\n涨幅:' + parseFloat((irjson[icode].percent * 100).toFixed(4)) + '%');
+                this.fund.updateMinMaxVal(irjson[icode].rtgz);
+                rows.push(r);
+            }
         };
 
         data.addRows(rows);
@@ -610,6 +618,7 @@ class ChartWrapper {
         this.googleChartDiv = null;
         this.leftBtn = null;
         this.rightBtn = null;
+        this.checkboxShowIdx = null;
     }
 
     createChartsDiv(parentDiv) {
@@ -648,18 +657,30 @@ class ChartWrapper {
             fundSummary.chartWrapper.redrawHistoryGraphs(-1);
         });
 
+        this.daysOpt.container.appendChild(document.createElement('br'));
+        var chartControlDiv = document.createElement('div');
         this.leftBtn = document.createElement('button');
         this.leftBtn.textContent = '<-';
-        this.daysOpt.container.appendChild(this.leftBtn);
+        chartControlDiv.appendChild(this.leftBtn);
         this.leftBtn.onclick = function(e) {
             fundSummary.chartWrapper.leftShiftChart();
         }
         this.rightBtn = document.createElement('button');
         this.rightBtn.textContent = '->'
-        this.daysOpt.container.appendChild(this.rightBtn);
+        chartControlDiv.appendChild(this.rightBtn);
         this.rightBtn.onclick = function(e) {
             fundSummary.chartWrapper.rightShiftChart();
         }
+
+        this.checkboxShowIdx = document.createElement('input');
+        this.checkboxShowIdx.type = 'checkbox';
+        this.checkboxShowIdx.onclick = function(e) {
+            fundSummary.chartWrapper.drawFundHistory();
+        }
+        chartControlDiv.appendChild(this.checkboxShowIdx);
+        chartControlDiv.appendChild(document.createTextNode('隐藏指数'));
+        this.daysOpt.container.appendChild(chartControlDiv);
+
         this.googleChartDiv = document.createElement('div');
         this.chartDiv.appendChild(this.googleChartDiv);
 
@@ -683,6 +704,10 @@ class ChartWrapper {
 
     initGoogleChart() {
         
+    }
+
+    showTrackedIndexChart() {
+        return !this.checkboxShowIdx.checked;
     }
 
     drawFundHistory() {
