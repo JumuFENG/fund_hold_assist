@@ -43,10 +43,6 @@ class FundDetail {
         this.container.appendChild(document.createElement("hr"));
         this.container.appendChild(this.contentDiv);
         
-        this.addNav('概况', function(c) {
-            detailpage.showBasicInfo(c);
-        });
-    
         this.addNav('买入记录', function(c){
             if (!detailpage.buydetail) {
                 detailpage.buydetail = new FundBuyDetail(c);
@@ -63,6 +59,10 @@ class FundDetail {
 
         this.addNav('累计收益', function(c){
             detailpage.showSingleTotalEarned(c);
+        });
+    
+        this.addNav('概况', function(c) {
+            detailpage.showBasicInfo(c);
         });
     }
 

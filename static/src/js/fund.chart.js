@@ -1,12 +1,11 @@
+var googleChartLoaded = false;
 // Load the Visualization API and the piechart package.
 google.charts.load('current', {'packages':['corechart']});
 
 // Set a callback to run when the Google Visualization API is loaded.
 google.charts.setOnLoadCallback(function(){
-    chartWrapperChart = new FundChart();
+    googleChartLoaded = true;
 });
-
-var chartWrapperChart = null;
 
 class FundLine {
     constructor(code, name, indexCode = null, indexName = null) {
@@ -42,21 +41,17 @@ class FundLine {
 };
 
 class FundChart {
-    constructor() {
+    constructor(chart_div) {
         // Instantiate and draw our chart, passing in some options.
-        this.chartDiv = null;
-        this.chart = null;
-        this.data = null;
-        this.fund = null;
-        this.ticks = [];
-        this.marks = [];
-    }
-
-    setChartDiv(chart_div) {
         this.chartDiv = chart_div;
         this.chart = new google.visualization.LineChart(chart_div);
         google.visualization.events.addListener(this.chart, 'ready', this.drawVticks);
         google.visualization.events.addListener(this.chart, 'select', this.selectChartPoint);
+
+        this.data = null;
+        this.fund = null;
+        this.ticks = [];
+        this.marks = [];
     }
 
     createChartOption() {
@@ -356,7 +351,7 @@ class FundChart {
     }
 
     drawVticks() {
-        chartWrapperChart.onDrawVticks();
+        fundSummary.chartWrapper.googleChart.onDrawVticks();
     }
 
     selectChartPoint() {
@@ -616,6 +611,7 @@ class ChartWrapper {
         this.daysOpt = null;
         this.tradeOption = null;
         this.googleChartDiv = null;
+        this.googleChart = null;
         this.leftBtn = null;
         this.rightBtn = null;
         this.checkboxShowIdx = null;
@@ -702,28 +698,24 @@ class ChartWrapper {
         this.chartDiv.style.display = 'block';
     }
 
-    initGoogleChart() {
-        
-    }
-
     showTrackedIndexChart() {
         return !this.checkboxShowIdx.checked;
     }
 
     drawFundHistory() {
-        if (!chartWrapperChart) {
+        if (!googleChartLoaded) {
             utils.logInfo('google chart not initialized!');
             return;
         };
 
         this.interactionDiv.style.display = "none";
-        if (!chartWrapperChart.chartDiv) {
-            chartWrapperChart.setChartDiv(this.googleChartDiv);
+        if (!this.googleChart) {
+            this.googleChart = new FundChart(this.googleChartDiv);
         };
-        chartWrapperChart.fund = new FundLine(this.code, ftjson[this.code].name, ftjson[this.code].ic, ftjson[this.code].in);
+        this.googleChart.fund = new FundLine(this.code, ftjson[this.code].name, ftjson[this.code].ic, ftjson[this.code].in);
 
-        if (chartWrapperChart.fund.indexCode && ( all_hist_data.length < 1 || all_hist_data[0].indexOf(chartWrapperChart.fund.indexCode) < 0)) {
-            request.getHistoryData(chartWrapperChart.fund.indexCode, 'index', function(){
+        if (this.googleChart.fund.indexCode && ( all_hist_data.length < 1 || all_hist_data[0].indexOf(this.googleChart.fund.indexCode) < 0)) {
+            request.getHistoryData(this.googleChart.fund.indexCode, 'index', function(){
                 fundSummary.chartWrapper.daysOpt.selectDefault();
             });
         }
@@ -738,26 +730,26 @@ class ChartWrapper {
     }
 
     redrawHistoryGraphs(days) {
-        if (chartWrapperChart) {
-            chartWrapperChart.drawChart(days);
+        if (this.googleChart) {
+            this.googleChart.drawChart(days);
             this.leftBtn.disabled = false;
             this.rightBtn.disabled = true;
         }
     }
 
     leftShiftChart() {
-        if (chartWrapperChart) {
-            chartWrapperChart.leftShift();
-            this.leftBtn.disabled = !chartWrapperChart.canShiftLeft();
-            this.rightBtn.disabled = !chartWrapperChart.canShiftRight();
+        if (this.googleChart) {
+            this.googleChart.leftShift();
+            this.leftBtn.disabled = !this.googleChart.canShiftLeft();
+            this.rightBtn.disabled = !this.googleChart.canShiftRight();
         };
     }
 
     rightShiftChart() {
-        if (chartWrapperChart) {
-            chartWrapperChart.rightShift();
-            this.leftBtn.disabled = !chartWrapperChart.canShiftLeft();
-            this.rightBtn.disabled = !chartWrapperChart.canShiftRight();
+        if (this.googleChart) {
+            this.googleChart.rightShift();
+            this.leftBtn.disabled = !this.googleChart.canShiftLeft();
+            this.rightBtn.disabled = !this.googleChart.canShiftRight();
         };
     }
 
@@ -767,10 +759,10 @@ class ChartWrapper {
     }
 
     onChartPointSelected() {
-        var selectedItem = chartWrapperChart.getSelectedItem();
+        var selectedItem = this.googleChart.getSelectedItem();
         if (selectedItem) {
-            var date = chartWrapperChart.data.getValue(selectedItem.row, 0);
-            var val = chartWrapperChart.data.getValue(selectedItem.row, 1);
+            var date = this.googleChart.data.getValue(selectedItem.row, 0);
+            var val = this.googleChart.data.getValue(selectedItem.row, 1);
             var code = this.code;
             this.interactionDiv.style.display = "block";
             if (!ftjson[code] || (!ftjson[code].buy_table && !ftjson[code].sell_table)) {
