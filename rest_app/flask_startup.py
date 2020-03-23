@@ -272,6 +272,19 @@ def fundmisc():
             return json.dumps(usermodel.get_bind_users_fundstats(user))
         return "Not implement yet", 403
 
+@app.route('/stocksummary', methods=['GET'])
+def stock():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    gen_db = SqlHelper(password = db_pwd, database = "general")
+    usermodel = UserModel(gen_db)
+    user = usermodel.user_by_email(session['useremail'])
+    return render_template('/stock.html',  
+        title = "股记行"
+        )
+
+
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
     if not session.get('logged_in'):

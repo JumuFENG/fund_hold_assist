@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+
+{% block additionalscripts %}
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='src/js/stock.js') }}"></script>
+{% endblock %}
+
+{% block pagestyles %}
+  <link href="{{ url_for('static', filename='src/css/fund.css') }}" rel="stylesheet" type="text/css">
+{% endblock %}
+
+{% block content %}
+    {% if session['logged_in'] %}
+        <div id="top_container">
+            <button onclick="location.reload()">Reload</button>
+        </div>
+    {% else %}
+        <div class="loginsignup">
+            <span>Already have an account? <a href="{{ url_for('login') }}">Log in.</a><span>
+            <a href="{{ url_for('guest') }}">Visit as guest.</a>
+        </div>
+    {% endif %}
+    
+{% endblock %}
