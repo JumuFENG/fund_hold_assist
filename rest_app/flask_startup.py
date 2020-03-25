@@ -302,6 +302,7 @@ def stock():
     else:
         actype = request.args.get("act", type=str, default=None)
         code = request.args.get("code", type=str, default=None)
+        return "Not implement yet", 403
 
 def stock_buy(user, form):
     code = form.get("code", type=str, default=None)
