@@ -16,6 +16,7 @@ apiUrl_jijinhao_today = "https://api.jijinhao.com/sQuoteCenter/todayMin.htm"
 apiUrl_jijinhao_realtime = "https://api.jijinhao.com/sQuoteCenter/realTime.htm"
 
 gl_all_funds_info_table = "all_funds"
+gl_all_stocks_info_table = "all_stocks"
 gl_fund_info_table = "funds"
 gl_index_info_table = "index_info"
 gl_gold_info_table = "gold_info"

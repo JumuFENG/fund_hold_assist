@@ -273,7 +273,7 @@ def fundmisc():
         return "Not implement yet", 403
 
 @app.route('/stocksummary', methods=['GET'])
-def stock():
+def stocksummary():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
@@ -281,9 +281,52 @@ def stock():
     usermodel = UserModel(gen_db)
     user = usermodel.user_by_email(session['useremail'])
     return render_template('/stock.html',  
-        title = "股记行"
+        title = "股记盈"
         )
 
+@app.route('/stock', methods=['GET', 'POST'])
+def stock():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    gen_db = SqlHelper(password = db_pwd, database = "general")
+    usermodel = UserModel(gen_db)
+    user = usermodel.user_by_email(session['useremail'])
+    actype = None
+    if request.method == 'POST':
+        actype = request.form.get("act", type=str, default=None)
+        if actype == 'buy':
+            return stock_buy(user, request.form)
+        if actype == 'sell':
+            return stock_sell(user, request.form)
+    else:
+        actype = request.args.get("act", type=str, default=None)
+        code = request.args.get("code", type=str, default=None)
+
+def stock_buy(user, form):
+    code = form.get("code", type=str, default=None)
+    code = code.upper()
+    date = form.get('date', type=str, default=None)
+    price = float(form.get('price', type=str, default=None))
+    portion = int(form.get('ptn', type=str, default=None))
+    rollins = form.get('rid', type=str, default=None)
+    if rollins:
+        rollins = rollins.strip('_').split('_')
+    us = UserStock(user, code)
+    us.buy(date, price, portion, rollins)
+    return "OK", 200
+
+def stock_sell(user, form):
+    code = form.get("code", type=str, default=None)
+    code = code.upper()
+    date = form.get('date', type=str, default=None)
+    price = float(form.get('price', type=str, default=None))
+    buyids = int(form.get('id', type=str, default=None))
+    if buyids:
+        buyids = buyids.strip('_').split('_')
+    us = UserStock(user, code)
+    us.sell(date, price, buyids)
+    return "OK", 200
 
 @app.route('/dashboard', methods=['GET'])
 def dashboard():

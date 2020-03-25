@@ -17,17 +17,26 @@ class User():
         self.sub_table = st
         self.parent = parent
         self.funddb = None
+        self.stockdb = None
 
     def fund_center_db(self):
         if not self.funddb:
             self.funddb = SqlHelper(password = db_pwd, database = "fund_center")
         return self.funddb
 
+    def stock_center_db(self):
+        if not self.stockdb:
+            self.stockdb = SqlHelper(password = db_pwd, database = "stock_center")
+        return self.stockdb
+
     def is_admin(self):
         return self.id == 11
 
     def funds_info_table(self):
-        return "u"+ str(self.id) + "_" + gl_fund_info_table
+        return "u" + str(self.id) + "_" + gl_fund_info_table
+
+    def stocks_info_table(self):
+        return "u" + str(self.id) + "_stocks";
 
     def to_string(self):
         return 'id: ' + str(self.id) + ' name: ' + self.name + ' email: ' + self.email;

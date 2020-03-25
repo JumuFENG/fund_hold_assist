@@ -21,42 +21,29 @@ class AllFunds():
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(gl_all_funds_info_table, attrs, constraint)
 
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_type):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_type, 'varchar(20) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_risk_level):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_risk_level, 'varchar(20) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_amount):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_amount, 'varchar(20) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_setup_date):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_setup_date, 'varchar(20) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_star_level):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_star_level, 'varchar(20) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_summary_url):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_summary_url, 'varchar(255) DEFAULT NULL')
+        self.check_table_column(column_type, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(column_risk_level, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(column_amount, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(column_setup_date, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(column_star_level, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(column_summary_url, 'varchar(255) DEFAULT NULL')
 
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_fee):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_fee, 'varchar(20) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_rating_shzq):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_rating_shzq, 'varchar(20) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_rating_zszq):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_rating_zszq, 'varchar(20) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_rating_jazq):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_rating_jazq, 'varchar(20) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_5star_num):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_5star_num, 'varchar(10) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_rating_cx3):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_rating_cx3, 'varchar(10) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_rating_cx5):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_rating_cx5, 'varchar(10) DEFAULT NULL')
+        self.check_table_column(column_fee, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(column_rating_shzq, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(column_rating_zszq, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(column_rating_jazq, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(column_5star_num, 'varchar(10) DEFAULT NULL')
+        self.check_table_column(column_rating_cx3, 'varchar(10) DEFAULT NULL')
+        self.check_table_column(column_rating_cx5, 'varchar(10) DEFAULT NULL')
 
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_shortterm_rate):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_shortterm_rate, 'varchar(10) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_table_history):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_table_history, 'varchar(20) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_qdii):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_qdii, 'tinyint(1) DEFAULT 0')
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, column_tracking_index):
-            self.sqldb.addColumn(gl_all_funds_info_table, column_tracking_index, 'varchar(10) DEFAULT NULL')
+        self.check_table_column(column_shortterm_rate, 'varchar(10) DEFAULT NULL')
+        self.check_table_column(column_table_history, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(column_qdii, 'tinyint(1) DEFAULT 0')
+        self.check_table_column(column_tracking_index, 'varchar(10) DEFAULT NULL')
+        
+    def check_table_column(self, col, tp):
+        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, col):
+            self.sqldb.addColumn(gl_all_funds_info_table, col, tp)
 
     def set_pre_buy_fee(self, code, fee):
         self.sqldb.update(gl_all_funds_info_table, {column_fee:str(fee)}, {column_code: code})

@@ -227,7 +227,7 @@ class SqlHelper():
         attrs_list = []
         consql = ' '
         for tmpkey, tmpvalue in attrs_dict.items():
-            attrs_list.append("`" + tmpkey + "`" + "=" +"\'" + tmpvalue + "\'")
+            attrs_list.append("`" + tmpkey + "`" + "=" +"\'" + str(tmpvalue) + "\'")
         attrs_sql = ",".join(attrs_list)
         #print("attrs_sql:", attrs_sql)
         if cond_dict!='':
