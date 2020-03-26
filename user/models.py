@@ -7,6 +7,7 @@ import sys
 sys.path.append("../..")
 from utils import *
 from user.user_fund import *
+from user.user_stock import *
 
 class User():
     def __init__(self, id, name, email, password=None, st = None, parent = None):

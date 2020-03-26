@@ -14,7 +14,7 @@ class StockGeneral():
 
         generals = self.sqldb.select(gl_all_stocks_info_table, "*", "%s = '%s'" % (column_code, code))
         if generals:
-            (id, self.name, self.code, self.short_term_rate), = generals
+            (id, self.code, self.name, self.short_term_rate), = generals
         if not self.short_term_rate:
             self.short_term_rate = 0.02
 
