@@ -1,14 +1,15 @@
 {% extends "layout.html" %}
 
 {% block content %}
+    <table>
     {% if session['logged_in'] %}
-        <a href="home/baby_photo/main.html" style="font-size:16px;">Baby photo</a> </br>
-        <a href="{{ url_for('fundsummary') }}" style="font-size:16px;">基账本</a> </br>
-        <a href="{{ url_for('stocksummary') }}"  style="font-size:16px;">股记盈</a> </br>
+        <tr><td><a href="{{ url_for('fundsummary') }}">基账本</a></td></tr>
+        <tr><td><a href="{{ url_for('stocksummary') }}">股记盈</a></td></tr>
     {% endif %}
-    
-    <a href="home/start.html">Start</a> </br>
-    <a href="home/puzzle/puzzle.html">拼图小游戏</a> </br>
+
+        <tr><td><a href="home/start.html">Start</a></td></tr>
+        <tr><td><a href="home/puzzle/puzzle.html">拼图小游戏</a></td></tr>
+    </table>
 
 {% endblock %}
  

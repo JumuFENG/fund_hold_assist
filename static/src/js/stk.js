@@ -41,7 +41,15 @@ class StockHub {
         var buyNewBtn = document.createElement('button');
         buyNewBtn.textContent = '确定';
         buyNewBtn.onclick = function(){
-            trade.buyStock(buyNewDate.value, buyNewCode.value, parseFloat(buyNewPrice.value), parseInt(buyNewShare.value));
+            trade.buyStock(buyNewDate.value, buyNewCode.value, parseFloat(buyNewPrice.value), parseInt(buyNewShare.value), cb = function(){
+                trade.fetchStockSummary(cb = function(c){
+                    if (c) {
+                        console.log('update for:' + c);
+                    } else {
+                        console.log('update all');
+                    }
+                });
+            });
             buyNewShare.value = '';
             buyNewPrice.value = '';
             buyNewCode.value = '';

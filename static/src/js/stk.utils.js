@@ -44,11 +44,31 @@ class Utils {
             } 
         }
     }
+
+    mergeJsonDict(s, a) {
+        for(var c in a) {
+            s[c] = a[c];
+        }
+    }
 }
 
 var utils = new Utils();
+var all_stocks = {};
 
 class StockTrade {
+    fetchStockSummary(code, cb) {
+        var querystr = 'act=summary';
+        if (code) {
+            querystr += '&code=' + code;
+        };
+        utils.get('stock', querystr, function(rsp){
+            utils.mergeJsonDict(all_stocks, JSON.parse(rsp));
+            if (typeof(cb) === 'function') {
+                cb(code);
+            }
+        });
+    }
+
     buyStock(date, code, price, amount, rids, cb) {
         var fd = new FormData();
         fd.append("act", 'buy')

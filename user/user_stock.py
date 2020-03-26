@@ -226,3 +226,25 @@ class UserStock():
         ns[column_return_percentage] = float(ns[column_earned]) / float(ns[column_cost_sold])
 
         self.sqldb.update(self.sell_table, ns, {'id':str(id)})
+
+    def still_hold(self):
+        if self.cost_hold and self.average:
+            return True
+
+        if not self.sqldb.isExistTable(self.buy_table):
+            return False
+
+        self.fix_cost_portion_hold()
+        return True
+
+    def get_stock_summary(self):
+        stock_json_obj = {}
+        sg = StockGeneral(self.sqldb, self.code)
+
+        stock_json_obj["name"] = sg.name
+        stock_json_obj["str"] = sg.short_term_rate # short_term_rate
+        stock_json_obj["cost"] = self.cost_hold
+        stock_json_obj["ptn"] = self.portion_hold # portion
+        stock_json_obj["avp"] = self.average # average price
+
+        return stock_json_obj

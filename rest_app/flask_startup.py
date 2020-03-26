@@ -277,9 +277,6 @@ def stocksummary():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    gen_db = SqlHelper(password = db_pwd, database = "general")
-    usermodel = UserModel(gen_db)
-    user = usermodel.user_by_email(session['useremail'])
     return render_template('/stock.html',  
         title = "股记盈"
         )
@@ -302,6 +299,12 @@ def stock():
     else:
         actype = request.args.get("act", type=str, default=None)
         code = request.args.get("code", type=str, default=None)
+        if actype == 'summary':
+            if code:
+                us = UserStock(user, code)
+                return json.dumps({code: us.get_stock_summary()})
+            else:
+                return json.dumps(user.get_holding_stocks_summary())
         return "Not implement yet", 403
 
 def stock_buy(user, form):

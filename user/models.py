@@ -282,6 +282,26 @@ class User():
 
         return fund_stats
 
+    def get_holding_stocks_summary(self):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_info_table()):
+            print("can not find stock info DB.")
+            return {}
+
+        codes = sqldb.select(self.stocks_info_table(), [column_code])
+
+        stocks_json = {}
+        for (c, ) in codes:
+            us = UserStock(self, c)
+            stock_json_obj = None
+            if us.still_hold() and us.keep_eye_on:
+                stock_json_obj = us.get_stock_summary()
+
+            if stock_json_obj:
+                stocks_json[c] = stock_json_obj
+
+        return stocks_json
+
 class UserModel():
     def __init__(self, sqldb):
         self.tablename = 'users'
