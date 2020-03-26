@@ -305,6 +305,11 @@ def stock():
                 return json.dumps({code: us.get_stock_summary()})
             else:
                 return json.dumps(user.get_holding_stocks_summary())
+        us = UserStock(user, code)
+        if actype == 'buy':
+            return json.dumps(us.get_buy_arr())
+        if actype == 'sell':
+            return json.dumps(us.get_sell_arr())
         return "Not implement yet", 403
 
 def stock_buy(user, form):

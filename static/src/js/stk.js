@@ -12,26 +12,55 @@ class StockSummay {
     initialize(hdclick) {
         this.container = document.createElement('div');
         var header = document.createElement('div');
+        header.className = 'fund_header';
         header.onclick = function(e) {
             if (typeof(hdclick) === 'function') {
                 hdclick();
             };
         }
+
         this.container.appendChild(header);
         this.hdname = document.createTextNode('');
         header.appendChild(this.hdname);
         this.hdearned = document.createElement('label');
         header.appendChild(this.hdearned);
+        var hddiv = document.createElement('div');
+        hddiv.className = 'general_earned';
+        header.appendChild(hddiv);
+        hddiv.appendChild(document.createTextNode('成本:'));
+        this.hdcost = document.createTextNode('');
+        hddiv.appendChild(this.hdcost);
+        hddiv.appendChild(document.createTextNode('<'));
+        this.hdaverage = document.createTextNode('');
+        hddiv.appendChild(this.hdaverage);
+        hddiv.appendChild(document.createTextNode('>  份额: '));
+        this.hdportion = document.createTextNode('');
+        hddiv.appendChild(this.hdportion);
+        hddiv.appendChild(document.createElement('br'));
+        hddiv.appendChild(document.createTextNode('市值:'));
+        this.hdmoney = document.createTextNode('');
+        hddiv.appendChild(this.hdmoney);
+        this.hdlatestval = document.createElement('label');
+        hddiv.appendChild(this.hdlatestval);
+        this.hdpercentage = document.createElement('label');
+        hddiv.appendChild(this.hdpercentage);
 
         this.detail = document.createElement('div');
         this.detail.style.display = 'none';
         this.container.appendChild(this.detail);
         this.container.appendChild(document.createElement('hr'));
+
+        var detailLnk = document.createElement('a');
+        detailLnk.textContent = '';
+        detailLnk.href = 'javascript:stockHub.showStockDetailPage(' + this.code + ')';
+        this.detail.appendChild(detailLnk);
+
     }
 
     toggleDetails() {
         if (this.detail.style.display == "none") {
             this.detail.style.display = 'block';
+            this.refreshHoldDetail();
         } else {
             this.detail.style.display = 'none';
         }
@@ -46,10 +75,37 @@ class StockSummay {
     update() {
         var stockData = all_stocks[this.code];
         if (stockData) {
+            var latestVal = 3.001;
+            var earned = parseFloat(((latestVal - stockData.avp) * stockData.ptn).toFixed(2));
+            var clsnm = utils.incdec_lbl_classname(earned);
             this.hdname.textContent = stockData.name? stockData.name: this.code;
-            this.hdearned.textContent = 1;
-            this.hdearned.className = 'increase';
+            this.hdearned.textContent = earned;
+            this.hdearned.className = clsnm;
+            this.hdportion.textContent = stockData.ptn;
+            this.hdaverage.textContent = stockData.avp;
+            this.hdcost.textContent = parseFloat((stockData.ptn * stockData.avp).toFixed(2));
+            this.hdmoney.textContent = parseFloat((stockData.ptn * latestVal).toFixed(2));
+            this.hdlatestval.textContent = latestVal;
+            this.hdlatestval.className = clsnm;
+            this.hdpercentage.textContent = parseFloat(((latestVal - stockData.avp) * 100 / stockData.avp).toFixed(2)) + '%';
+            this.hdpercentage.className = clsnm;
+        };
+
+        if (all_stocks[this.code].buy_table) {
             this.detail.textContent = this.code + ' ' + stockData.ptn + ' ' + stockData.avp;
+        };
+    }
+
+    refreshHoldDetail() {
+        if (!all_stocks[this.code].buy_table) {
+            trade.fetchBuyData(this.code, function(c){
+                stockHub.updateStockSummary(c);
+            });
+        };
+        if (!all_stocks[this.code].sell_table) {
+            trade.fetchSellData(this.code, function(c){
+                stockHub.updateStockSummary(c);
+            });
         };
     }
 }
@@ -149,6 +205,10 @@ class StockHub {
         for(var c in all_stocks) {
             this.updateStockSummary(c);
         }
+    }
+
+    showStockDetailPage(code) {
+        alert('not implemented yet!');
     }
 }
 

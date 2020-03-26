@@ -41,7 +41,7 @@ class Utils {
                 if (typeof(cb) === 'function') {
                     cb();
                 };
-            } 
+            };
         }
     }
 
@@ -49,6 +49,23 @@ class Utils {
         for(var c in a) {
             s[c] = a[c];
         }
+    }
+
+    combineid(ids) {
+        if (ids instanceof Array) {
+            return ids.join('_');
+        };
+        return '' + ids;
+    }
+
+    incdec_lbl_classname(val) {
+        var lbl_class = "increase";
+        if (val < 0) {
+            lbl_class = "decrease";
+        } else if (val == 0) {
+            lbl_class = "keepsame";
+        };
+        return lbl_class;
     }
 }
 
@@ -65,7 +82,7 @@ class StockTrade {
             utils.mergeJsonDict(all_stocks, JSON.parse(rsp));
             if (typeof(cb) === 'function') {
                 cb(code);
-            }
+            };
         });
     }
 
@@ -76,14 +93,49 @@ class StockTrade {
         fd.append("date", date);
         fd.append("price", price);
         fd.append("ptn", amount);
-        // if (rids) {
-        //     fd.append("ptn", rids);
-        // };
+        if (rids) {
+            fd.append("rid", utils.combineid(rids));
+        };
         utils.post('stock', fd, function(){
             if (typeof(cb) === 'function') {
                 cb();
-            }
+            };
         });
+    }
+
+    fetchBuyData(code, cb) {
+        var querystr = 'act=buy&code=' + code;
+        utils.get('stock', querystr, function(rsp){
+            all_stocks[code].buy_table = JSON.parse(rsp);
+            if (typeof(cb) === 'function') {
+                cb(code);
+            };
+        });
+    }
+
+    sellStock(date, code, price, ids, cb) {
+        var fd = new FormData();
+        fd.append('act', 'sell');
+        fd.append('code', code);
+        fd.append('date', date);
+        fd.append('price', price);
+        fd.append('id', utils.combineid(ids));
+
+        utils.post('stock', fd, function() {
+            if (typeof(cb) === 'function') {
+                cb();
+            };
+        })
+    }
+
+    fetchSellData(code, cb) {
+        var querystr = 'act=sell&code=' + code;
+        utils.get('stock', querystr, function(rsp){
+            all_stocks[code].sell_table = JSON.parse(rsp);
+            if (typeof(cb) === 'function') {
+                cb(code);
+            };
+        })
     }
 }
 
