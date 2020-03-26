@@ -253,10 +253,11 @@ class UserStock():
         if not self.buy_table or not self.sqldb.isExistTable(self.buy_table):
             return []
 
-        buy_rec = self.sqldb.select(self.buy_table, '*')
+        buy_rec = self.sqldb.select(self.buy_table, '*', "%s = 0" % column_soldout)
         values = []
-        for (i,d,p,pr,c,s) in dcp_not_sell:
-            values.append({'id':i, 'date':self.date_conv.days_since_2000(d), 'price':pr, 'cost':c, 'ptn': p, 'sold':s})
+        date_conv = DateConverter()
+        for (i,d,p,pr,c,s) in buy_rec:
+            values.append({'id':i, 'date': date_conv.days_since_2000(d), 'price':pr, 'cost':c, 'ptn': p})
         return values
 
     def get_sell_arr(self):
@@ -266,13 +267,14 @@ class UserStock():
         values = []
         sg = StockGeneral(self.sqldb, self.code)
         sell_rec = self.sqldb.select(self.sell_table, '*')
+        date_conv = DateConverter()
         for (i, d, p, pr, m, c, e, per, r, np) in sell_rec:
             if not r:
                 r = 0
-            to_rollin = p - r;
+            to_rollin = p - r
             max_price_to_buy = np if np else None
             if to_rollin > 0 and not max_price_to_buy:
                 max_price_to_buy = round(pr * (1 - sg.short_term_rate), 4)
-            values.append({'id':i, 'date': self.date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'cost': c, 'tri': to_rollin, 'mptb': max_price_to_buy})
+            values.append({'id':i, 'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'cost': c, 'tri': to_rollin, 'mptb': max_price_to_buy})
         return values
 
