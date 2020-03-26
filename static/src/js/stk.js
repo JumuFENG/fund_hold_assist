@@ -51,16 +51,22 @@ class StockSummay {
         this.container.appendChild(document.createElement('hr'));
 
         var detailLnk = document.createElement('a');
-        detailLnk.textContent = '';
-        detailLnk.href = 'javascript:stockHub.showStockDetailPage(' + this.code + ')';
+        detailLnk.textContent = '详情';
+        detailLnk.href = 'javascript:stockHub.showStockDetailPage("' + this.code + '")';
         this.detail.appendChild(detailLnk);
-
+        this.dtrtable = document.createElement('table');
+        this.detail.appendChild(this.dtrtable);
+        this.dtbtable = document.createElement('table');
+        this.detail.appendChild(this.dtbtable);
     }
 
     toggleDetails() {
         if (this.detail.style.display == "none") {
             this.detail.style.display = 'block';
             this.refreshHoldDetail();
+            stockHub.chartWrapper.setParent(this.detail);
+            stockHub.chartWrapper.show();
+            stockHub.chartWrapper.code = code;
         } else {
             this.detail.style.display = 'none';
         }
@@ -75,7 +81,7 @@ class StockSummay {
     update() {
         var stockData = all_stocks[this.code];
         if (stockData) {
-            var latestVal = 3.001;
+            var latestVal = 3.601;
             var earned = parseFloat(((latestVal - stockData.avp) * stockData.ptn).toFixed(2));
             var clsnm = utils.incdec_lbl_classname(earned);
             this.hdname.textContent = stockData.name? stockData.name: this.code;
@@ -91,8 +97,46 @@ class StockSummay {
             this.hdpercentage.className = clsnm;
         };
 
-        if (all_stocks[this.code].buy_table) {
-            this.detail.textContent = this.code + ' ' + stockData.ptn + ' ' + stockData.avp;
+        this.updateRollinTable();
+        this.updateBuyTable();
+    }
+
+    updateRollinTable() {
+        if (!this.dtrtable) {
+            return;
+        };
+
+        utils.deleteAllRows(this.dtrtable);
+        var sell_table = all_stocks[this.code].sell_table;
+        if (sell_table && sell_table.length > 0) {
+            this.dtrtable.appendChild(utils.createSingleRow('roll in', 3));
+            for (var i = 0; i < sell_table.length; i++) {
+                this.dtrtable.appendChild(utils.createColsRow(utils.date_by_delta(sell_table.date), sell_table[i].ptn, sell_table[i].price));
+            };
+        };
+    }
+
+    updateBuyTable() {
+        if (!this.dtbtable) {
+            return;
+        };
+
+        utils.deleteAllRows(this.dtbtable);
+        var buy_table = all_stocks[this.code].buy_table;
+        if (buy_table && buy_table.length > 0) {
+            this.dtbtable.appendChild(utils.createSingleRow('sell'));
+            var rname = 'to_sell_radio_' + this.code;
+            var dpall = utils.getIdsPortionMoreThan(buy_table, 0);
+            this.dtbtable.appendChild(utils.createRadioRow(rname, dpall.ids, '全部', dpall.portion));
+            var dp1 = utils.getIdsPortionMoreThan(buy_table, 1);
+            this.dtbtable.appendChild(utils.createRadioRow(rname, dp1.ids, '>1天', dp1.portion));
+            var latestVal = 3.801;
+            if (latestVal) {
+                var dp_short = utils.getShortTermIdsPortion(buy_table, latestVal, all_stocks[this.code].str);
+                if (dp_short.portion <= dp1.portion && dp_short.portion > 0) {
+                    this.dtbtable.appendChild(utils.createRadioRow(rname, dp_short.ids, '>' + all_stocks[this.code].str * 100 + '%', dp_short.portion, true));
+                };
+            };
         };
     }
 
@@ -127,6 +171,9 @@ class StockHub {
         trade.fetchStockSummary(null, function(c){
             stockHub.reloadAllStocks();
         });
+        this.chartWrapper = new ChartWrapper(this.container);
+        this.chartWrapper.initialize();
+        this.chartWrapper.hide();
         this.createBuyNewArea();
     }
 

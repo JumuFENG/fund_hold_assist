@@ -8,9 +8,16 @@ class Utils {
         return dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
     }
 
-    getCurrentTime() {
-        var dt = new Date();
-        return ('' + dt.getHours()).padStart(2, '0') + ':' + ('' + dt.getMinutes()).padStart(2, '0');
+    days_since_2000(date) {
+        var d = new Date("2000-01-01");
+        var dt = new Date(date);
+        return (dt - d) / (24 * 60 * 60 * 1000);
+    }
+
+    date_by_delta(days) {
+        var dt = new Date("2000-01-01");
+        dt.setTime(dt.getTime() + days * 24 * 60 * 60 * 1000);
+        return dt.getFullYear() + "-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
     }
 
     get(path, queries, cb) {
@@ -66,6 +73,146 @@ class Utils {
             lbl_class = "keepsame";
         };
         return lbl_class;
+    }
+
+    createSingleRow(c, span = 2) {
+        var row = document.createElement("tr");
+        var col = document.createElement("td");
+        col.setAttribute("colspan", span);
+        col.appendChild(document.createTextNode(c))
+        row.appendChild(col);
+        return row;
+    }
+
+    createColsRow(...c){
+        var row = document.createElement("tr");
+        for (var i = 0; i < c.length; i++) {
+            var col = document.createElement("td");
+            if ('object' != typeof(c[i]) || !c[i]) {
+                col.appendChild(document.createTextNode(c[i]));
+            } else {
+                col.appendChild(c[i]);
+            }
+            row.appendChild(col);
+        };
+        return row;
+    }
+
+    createInputRow(name, inputType, value, c1, c2, checked = false) {
+        var row = document.createElement("tr");
+        var col1 = document.createElement("td");
+        var radio = document.createElement("input");
+        radio.type = inputType;
+        radio.name = name;
+        radio.value = value;
+        if (checked) {
+            radio.checked = true;
+        };
+        col1.appendChild(radio);
+        col1.appendChild(document.createTextNode(c1));
+        var col2 = document.createElement("tr");
+        col2.appendChild(document.createTextNode(c2));
+        row.appendChild(col1);
+        row.appendChild(col2);
+        return row;
+    }
+
+    createRadioRow(name, value, c1, c2, checked = false) {
+        return this.createInputRow(name, "radio", value, c1, c2, checked);
+    }
+
+    deleteAllRows(tbl) {
+        for (var idx = tbl.rows.length - 1; idx >= 0; idx--) {
+            tbl.deleteRow(idx);
+        }
+    }
+
+    getIdsPortionMoreThan(buytable, days = 0) {
+        var datestart = this.days_since_2000(this.getTodayDate()) - days;
+        var portionInDays = 0;
+        var tids = [];
+        for (var i = 0; i < buytable.length; i++) {
+            if (buytable[i].date <= datestart) {
+                tids.push(buytable[i].id);
+                portionInDays += buytable[i].ptn;
+            }
+        };
+        return {ids: tids.join('_'), portion: portionInDays}
+    }
+
+    getShortTermIdsPortion(buytable, latest_val, short_term_rate) {
+        var sids = [];
+        var portion = 0;
+        var max_price = (parseFloat(latest_val) * (1.0 - parseFloat(short_term_rate)));
+
+        for (var i = 0; i < buytable.length; i++) {
+            if(buytable[i].nv < max_price) {
+                portion += buytable[i].ptn;
+                sids.push(buytable[i].id);
+            }
+        };
+
+        return {ids:sids.join('_'), portion:portion};
+    }
+
+}
+
+class RadioAnchorBar {
+    constructor(text = '') {
+        this.container = document.createElement('div');
+        this.container.className = 'radio_anchor_div';
+        if (text.length > 0) {
+            this.container.appendChild(document.createTextNode(text));
+        };
+        this.radioAchors = [];
+    }
+
+    addRadio(text, cb) {
+        var ra = document.createElement('a');
+        ra.href = 'javascript:void(0)';
+        ra.anchorBar = this;
+        ra.textContent = text;
+        ra.onclick = function(e) {
+            e.target.anchorBar.setHightlight(e.target, cb);
+        }
+        this.container.appendChild(ra);
+        this.radioAchors.push(ra);
+    }
+
+    setHightlight(r, cb) {
+        if (!cb) {
+            r.className = '';
+            r.click();
+            return;
+        };
+        
+        for (var i = 0; i < this.radioAchors.length; i++) {
+            if (this.radioAchors[i] == r) {
+                if (this.radioAchors[i].className == 'highlight') {
+                    return;
+                };
+                this.radioAchors[i].className = 'highlight';
+                if (typeof(cb) === 'function') {
+                    cb();
+                };
+            } else {
+                this.radioAchors[i].className = '';
+            }
+        };
+    }
+
+    selectDefault() {
+        var defaultItem = this.radioAchors[this.getHighlighted()];
+        this.setHightlight(defaultItem);
+    }
+
+    getHighlighted() {
+        for (var i = 0; i < this.radioAchors.length; i++) {
+            if (this.radioAchors[i].className == 'highlight') {
+                return i;
+            }
+        };
+        return 0;
     }
 }
 
