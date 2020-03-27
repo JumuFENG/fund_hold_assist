@@ -253,11 +253,12 @@ class UserStock():
         if not self.buy_table or not self.sqldb.isExistTable(self.buy_table):
             return []
 
-        buy_rec = self.sqldb.select(self.buy_table, '*', "%s = 0" % column_soldout)
+        buy_rec = self.sqldb.select(self.buy_table, '*')
         values = []
         date_conv = DateConverter()
         for (i,d,p,pr,c,s) in buy_rec:
-            values.append({'id':i, 'date': date_conv.days_since_2000(d), 'price':pr, 'cost':c, 'ptn': p})
+            if d == or s == 0:
+                values.append({'id':i, 'date': date_conv.days_since_2000(d), 'price':pr, 'cost':c, 'ptn': p, 'sold': s})
         return values
 
     def get_sell_arr(self):

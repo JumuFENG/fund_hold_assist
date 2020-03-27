@@ -66,7 +66,7 @@ class StockSummay {
             this.refreshHoldDetail();
             stockHub.chartWrapper.setParent(this.detail);
             stockHub.chartWrapper.show();
-            stockHub.chartWrapper.code = code;
+            stockHub.chartWrapper.code = this.code;
         } else {
             this.detail.style.display = 'none';
         }
@@ -132,7 +132,7 @@ class StockSummay {
             this.dtbtable.appendChild(utils.createRadioRow(rname, dp1.ids, '>1天', dp1.portion));
             var latestVal = 3.801;
             if (latestVal) {
-                var dp_short = utils.getShortTermIdsPortion(buy_table, latestVal, all_stocks[this.code].str);
+                var dp_short = utils.getShortTermIdsPortionMoreThan(buy_table, latestVal, all_stocks[this.code].str);
                 if (dp_short.portion <= dp1.portion && dp_short.portion > 0) {
                     this.dtbtable.appendChild(utils.createRadioRow(rname, dp_short.ids, '>' + all_stocks[this.code].str * 100 + '%', dp_short.portion, true));
                 };

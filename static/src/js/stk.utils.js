@@ -132,7 +132,7 @@ class Utils {
         var portionInDays = 0;
         var tids = [];
         for (var i = 0; i < buytable.length; i++) {
-            if (buytable[i].date <= datestart) {
+            if (buytable[i].date <= datestart && buytable[i].sold == 0) {
                 tids.push(buytable[i].id);
                 portionInDays += buytable[i].ptn;
             }
@@ -140,21 +140,44 @@ class Utils {
         return {ids: tids.join('_'), portion: portionInDays}
     }
 
-    getShortTermIdsPortion(buytable, latest_val, short_term_rate) {
-        var sids = [];
-        var portion = 0;
-        var max_price = (parseFloat(latest_val) * (1.0 - parseFloat(short_term_rate)));
-
+    getShortTermIdsPortionMoreThan(buytable, latest_val, short_term_rate, days = 1) {
+        var portionLatest = 0;
+        var portionAll = 0;
+        var datestart = this.days_since_2000(this.getTodayDate()) - days;
         for (var i = 0; i < buytable.length; i++) {
-            if(buytable[i].nv < max_price) {
+            if (buytable[i].date > datestart) {
+                portionLatest += buytable[i].ptn;
+            };
+            if (buytable[i].sold == 0) {
+                portionAll += buytable[i].ptn;
+            };
+        };
+
+        var portionAvailable = portionAll - portionLatest;
+        var max_price = (parseFloat(latest_val) * (1.0 - parseFloat(short_term_rate)));
+        var buyrecs = [];
+        var portion = 0;
+        for (var i = 0; i < buytable.length; i++) {
+            if(buytable[i].sold == 0 && buytable[i].price < max_value) {
+                buyrecs.push(buytable[i]);
                 portion += buytable[i].ptn;
-                sids.push(buytable[i].id);
             }
         };
 
-        return {ids:sids.join('_'), portion:portion};
-    }
+        for (var i = buyrecs.length - 1; i >= 0; i--) {
+            if (portion <= portionAvailable) {
+                break;
+            }
+            portion -= buyrecs[i].ptn;
+            buyrecs.pop();
+        };
 
+        var aids = '';
+        for (var i = 0; i < buyrecs.length; i++) {
+            aids += (buyrecs[i].id) + '_';
+        };
+        return {ids: aids.slice(0, aids.length - 1), portion: portion};
+    }
 }
 
 class RadioAnchorBar {
