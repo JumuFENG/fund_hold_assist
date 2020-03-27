@@ -71,6 +71,18 @@ class TradeOption {
         var ids = null;
         if (this.tradeType == TradeType.Buy) {
             var portion = parseInt(this.portionInput.value);
+            var idRadios = document.getElementsByName('to_rollin_check_' + code);
+            var checkedId = [];
+            for (var i = 0; i < idRadios.length; i++) {
+                if (idRadios[i].checked) {
+                    idRadios.push(idRadios[i].value);
+                };
+            };
+
+            if (checkedId.length > 0) {
+                ids = checkedId.join('_');
+            };
+            
             trade.buyStock(date, code, price, portion, ids, function(){
                 trade.fetchStockSummary(code, function() {
                     trade.fetchBuyData(code, function(c) {

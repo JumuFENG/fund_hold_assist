@@ -112,7 +112,7 @@ class Utils {
         return row;
     }
 
-    createInputRow(name, inputType, value, c1, c2, checked = false) {
+    createInputRow(name, inputType, value, c1, c2, c3, checked = false) {
         var row = document.createElement("tr");
         var col1 = document.createElement("td");
         var radio = document.createElement("input");
@@ -124,15 +124,24 @@ class Utils {
         };
         col1.appendChild(radio);
         col1.appendChild(document.createTextNode(c1));
+        row.appendChild(col1);
         var col2 = document.createElement("tr");
         col2.appendChild(document.createTextNode(c2));
-        row.appendChild(col1);
         row.appendChild(col2);
+        if (c3) {
+            var col3 = document.createElement('tr');
+            col3.appendChild(document.createTextNode(c3));
+            row.appendChild(col3);
+        };
         return row;
     }
 
     createRadioRow(name, value, c1, c2, checked = false) {
-        return this.createInputRow(name, "radio", value, c1, c2, checked);
+        return this.createInputRow(name, "radio", value, c1, c2, null, checked);
+    }
+
+    createCheckboxRow(name, value, c1, c2, c3, checked = false) {
+        return this.createInputRow(name, "checkbox", value, c1, c2, c3, checked);
     }
 
     deleteAllRows(tbl) {

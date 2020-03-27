@@ -110,8 +110,9 @@ class StockSummay {
         var sell_table = all_stocks[this.code].sell_table;
         if (sell_table && sell_table.length > 0) {
             this.dtrtable.appendChild(utils.createSingleRow('roll in', 3));
+            var rname = 'to_rollin_check_' + this.code;
             for (var i = 0; i < sell_table.length; i++) {
-                this.dtrtable.appendChild(utils.createColsRow(utils.date_by_delta(sell_table.date), sell_table[i].ptn, sell_table[i].price));
+                this.dtrtable.appendChild(utils.createCheckboxRow(rname, sell_table[i].id, utils.date_by_delta(sell_table[i].date), sell_table[i].ptn, sell_table[i].price));//
             };
         };
     }
