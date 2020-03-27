@@ -330,7 +330,7 @@ def stock_sell(user, form):
     code = code.upper()
     date = form.get('date', type=str, default=None)
     price = float(form.get('price', type=str, default=None))
-    buyids = int(form.get('id', type=str, default=None))
+    buyids = form.get('id', type=str, default=None)
     if buyids:
         buyids = buyids.strip('_').split('_')
     us = UserStock(user, code)

@@ -57,9 +57,9 @@ class UserStock():
             self.sqldb.creatTable(self.sell_table, attrs, constraint)
 
         if not self.sqldb.isExistTableColumn(self.sell_table, column_rolled_in):
-            self.sqldb.addColumn(self.sell_table, column_rolled_in, 'varchar(20) DEFAULT NULL')
+            self.sqldb.addColumn(self.sell_table, column_rolled_in, 'int DEFAULT NULL')
         if not self.sqldb.isExistTableColumn(self.sell_table, column_roll_in_value):
-            self.sqldb.addColumn(self.sell_table, column_roll_in_value, 'varchar(20) DEFAULT NULL')
+            self.sqldb.addColumn(self.sell_table, column_roll_in_value, 'double(16,4) DEFAULT NULL')
 
     def check_exist_in_allstocks(self):
         sg = None
@@ -256,8 +256,9 @@ class UserStock():
         buy_rec = self.sqldb.select(self.buy_table, '*')
         values = []
         date_conv = DateConverter()
+        dtoday = datetime.now().strftime("%Y-%m-%d")
         for (i,d,p,pr,c,s) in buy_rec:
-            if d == or s == 0:
+            if d == dtoday or s == 0:
                 values.append({'id':i, 'date': date_conv.days_since_2000(d), 'price':pr, 'cost':c, 'ptn': p, 'sold': s})
         return values
 

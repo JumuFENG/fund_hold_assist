@@ -52,9 +52,23 @@ class Utils {
         }
     }
 
-    mergeJsonDict(s, a) {
+    mergeStockSummaryJson(s, a) {
         for(var c in a) {
+            var buy_table = null;
+            var sell_table = null;
+            if (s[c] && s[c].buy_table) {
+                buy_table = s[c].buy_table;
+            };
+            if (s[c] && s[c].sell_table) {
+                sell_table = s[c].sell_table;
+            };
             s[c] = a[c];
+            if (buy_table) {
+                s[c].buy_table = buy_table;
+            };
+            if (sell_table) {
+                s[c].sell_table = sell_table;
+            };
         }
     }
 
@@ -158,7 +172,7 @@ class Utils {
         var buyrecs = [];
         var portion = 0;
         for (var i = 0; i < buytable.length; i++) {
-            if(buytable[i].sold == 0 && buytable[i].price < max_value) {
+            if(buytable[i].sold == 0 && buytable[i].price < max_price) {
                 buyrecs.push(buytable[i]);
                 portion += buytable[i].ptn;
             }
@@ -249,7 +263,7 @@ class StockTrade {
             querystr += '&code=' + code;
         };
         utils.get('stock', querystr, function(rsp){
-            utils.mergeJsonDict(all_stocks, JSON.parse(rsp));
+            utils.mergeStockSummaryJson(all_stocks, JSON.parse(rsp));
             if (typeof(cb) === 'function') {
                 cb(code);
             };
