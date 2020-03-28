@@ -80,20 +80,23 @@ class StockSummay {
 
     update() {
         var stockData = all_stocks[this.code];
+        var latestVal = null;
+        if (stockRtData[this.code] && stockRtData[this.code].rtprice) {
+            latestVal = stockRtData[this.code].rtprice;
+        };
         if (stockData) {
-            var latestVal = 3.601;
-            var earned = parseFloat(((latestVal - stockData.avp) * stockData.ptn).toFixed(2));
-            var clsnm = utils.incdec_lbl_classname(earned);
+            var earned = latestVal ? parseFloat(((latestVal - stockData.avp) * stockData.ptn).toFixed(2)) : '-';
+            var clsnm = utils.incdec_lbl_classname(latestVal ? earned : null);
             this.hdname.textContent = stockData.name? stockData.name: this.code;
             this.hdearned.textContent = earned;
             this.hdearned.className = clsnm;
             this.hdportion.textContent = stockData.ptn;
             this.hdaverage.textContent = stockData.avp;
             this.hdcost.textContent = parseFloat((stockData.ptn * stockData.avp).toFixed(2));
-            this.hdmoney.textContent = parseFloat((stockData.ptn * latestVal).toFixed(2));
-            this.hdlatestval.textContent = latestVal;
+            this.hdmoney.textContent = latestVal ? parseFloat((stockData.ptn * latestVal).toFixed(2)) : '-';
+            this.hdlatestval.textContent = latestVal ? latestVal : '-';
             this.hdlatestval.className = clsnm;
-            this.hdpercentage.textContent = parseFloat(((latestVal - stockData.avp) * 100 / stockData.avp).toFixed(2)) + '%';
+            this.hdpercentage.textContent = latestVal ? parseFloat(((latestVal - stockData.avp) * 100 / stockData.avp).toFixed(2)) + '%' : '-';
             this.hdpercentage.className = clsnm;
         };
 
@@ -131,7 +134,10 @@ class StockSummay {
             this.dtbtable.appendChild(utils.createRadioRow(rname, dpall.ids, '全部', dpall.portion));
             var dp1 = utils.getIdsPortionMoreThan(buy_table, 1);
             this.dtbtable.appendChild(utils.createRadioRow(rname, dp1.ids, '>1天', dp1.portion));
-            var latestVal = 3.801;
+            var latestVal = null;
+            if (stockRtData[this.code] && stockRtData[this.code].rtprice) {
+                latestVal = stockRtData[this.code].rtprice;
+            };
             if (latestVal) {
                 var dp_short = utils.getShortTermIdsPortionMoreThan(buy_table, latestVal, all_stocks[this.code].str);
                 if (dp_short.portion <= dp1.portion && dp_short.portion > 0) {
@@ -152,6 +158,9 @@ class StockSummay {
                 stockHub.updateStockSummary(c);
             });
         };
+        rtHelper.fetchStockRtDataActually(function() {
+            stockHub.reloadAllStocks();
+        });
     }
 }
 

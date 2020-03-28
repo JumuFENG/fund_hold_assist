@@ -280,7 +280,7 @@ class StockBuyDetail {
                         e.target.bindPortion.readonly();
                         e.target.bindPrice.readonly();
                         if (e.target.bindPortion.textChanged() || e.target.bindPrice.textChanged()) {
-                            trade.fixBuyRec(stockHub.detailPage.selldetail.code, e.target.bindId, e.target.bindPortion.text(), e.target.bindPrice.text(), function() {
+                            trade.fixBuyRec(stockHub.detailPage.buydetail.code, e.target.bindId, e.target.bindPortion.text(), e.target.bindPrice.text(), function() {
                                 stockHub.detailPage.buydetail.updateSingleBuyTable();
                             });
                         };

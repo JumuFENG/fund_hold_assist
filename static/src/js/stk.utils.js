@@ -80,11 +80,14 @@ class Utils {
     }
 
     incdec_lbl_classname(val) {
-        var lbl_class = "increase";
+        if (!val) {
+            return "keepsame";
+        };
+        var lbl_class = "keepsame";
         if (val < 0) {
             lbl_class = "decrease";
-        } else if (val == 0) {
-            lbl_class = "keepsame";
+        } else if (val < 0) {
+            lbl_class = "increase";
         };
         return lbl_class;
     }
@@ -327,7 +330,11 @@ class StockTrade {
             querystr += '&code=' + code;
         };
         utils.get('stock', querystr, function(rsp){
-            utils.mergeStockSummaryJson(all_stocks, JSON.parse(rsp));
+            var ss = JSON.parse(rsp);
+            utils.mergeStockSummaryJson(all_stocks, ss);
+            for (var c in ss) {
+                rtHelper.pushStockCode(c);
+            }
             if (typeof(cb) === 'function') {
                 cb(code);
             };
@@ -373,7 +380,7 @@ class StockTrade {
         fd.append('price', price);
 
         utils.post('stock', fd, function() {
-            trade.fetchSellData(code, cb);
+            trade.fetchBuyData(code, cb);
         });
     }
 
@@ -420,3 +427,89 @@ class StockTrade {
 }
 
 var trade = new StockTrade();
+
+var stockRtData = {};
+function _sr_cb(rtdata) {
+    for (var code in irtdata) {
+        var idata = irtdata[code];
+        var icode = irtdata.type + idata.symbol;
+        stockRtData[icode] = {
+            rtprice: idata.price,
+            percent: idata.percent,
+            time: idata.time
+        };
+    }
+}
+
+class RealTimeHelper {
+    timeFitToFetch() {
+        var nowDate=new Date();
+        var day_of_week = nowDate.getDay();
+        if (day_of_week < 1 || day_of_week > 5) {
+            return false;
+        };
+        var hour_of_day = nowDate.getHours();
+        if (hour_of_day < 9 || hour_of_day > 16) {
+            return false;
+        }
+        return true;
+    }
+
+    dispatchUrlToGet(url) {
+        let urlEvt = new CustomEvent(UrlToGetEvent, {
+            detail: {
+                url: url
+            }
+        });
+        document.dispatchEvent(urlEvt);
+    }
+
+    pushStockCode(code) {
+        if (!stockRtData[code]) {
+            stockRtData[code] = {};
+        };
+    }
+
+    get126StocksUrl() {
+        var i126codes = '';
+        for (var c in stockRtData) {
+            if (c.startsWith('SH')) {
+                i126codes += c.replace('SH', c[2] == '0' ? '0' : '1') + ',';
+            } else if (c.startsWith('SZ')) {
+                i126codes += c.replace('SZ', c[2] == '0' ? '0' : '1') + ',';
+            } else {
+                utils.logInfo('index code not start with SH or SZ', c);
+            }
+        };
+
+        if (i126codes.length > 0) {
+            return 'http://api.money.126.net/data/feed/' + i126codes + 'money.api?callback=_sr_cb';
+        };
+    }
+
+    fetchStockRtDataActually(cb) {
+        var url = this.get126StocksUrl();
+        if (!url) {
+            return;
+        };
+
+        if (extensionLoaded) {
+            this.dispatchUrlToGet(url);
+        } else {
+            request.getRealTimeData(url, function(rsp){
+                eval(rsp);
+                if (typeof(cb) === 'function') {
+                    cb();
+                };
+            });
+        }
+    }
+
+    fetchStockRtData(cb) {
+        if (this.timeFitToFetch()) {
+            this.fetchStockRtDataActually(cb);
+        };
+    }
+}
+
+var rtHelper = new RealTimeHelper();
