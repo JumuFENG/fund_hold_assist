@@ -125,11 +125,11 @@ class Utils {
         col1.appendChild(radio);
         col1.appendChild(document.createTextNode(c1));
         row.appendChild(col1);
-        var col2 = document.createElement("tr");
+        var col2 = document.createElement("td");
         col2.appendChild(document.createTextNode(c2));
         row.appendChild(col2);
         if (c3) {
-            var col3 = document.createElement('tr');
+            var col3 = document.createElement('td');
             col3.appendChild(document.createTextNode(c3));
             row.appendChild(col3);
         };

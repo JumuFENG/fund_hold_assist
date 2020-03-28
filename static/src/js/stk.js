@@ -255,8 +255,29 @@ class StockHub {
         }
     }
 
+    hide() {
+        this.container.style.display = 'none';
+    }
+
+    show() {
+        this.container.style.display = 'block';
+    }
+
     showStockDetailPage(code) {
-        alert('not implemented yet!');
+        if (!code) {
+            return;
+        };
+
+        if (!this.detailPage) {
+            this.detailPage = new StockDetails();
+            this.detailPage.createStockDetailFramework();
+        };
+        this.hide();
+        this.detailPage.container.style.display = 'block';
+        this.detailPage.container.scrollIntoView();
+        this.detailPage.code = code;
+        this.detailPage.setDetailPageName();
+        this.detailPage.navUl.firstChild.click();
     }
 }
 

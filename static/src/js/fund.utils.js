@@ -359,10 +359,10 @@ class Utils {
         };
 
         for (var i = buyrecs.length - 1; i >= 0; i--) {
-            portion -= buyrecs[i].ptn;
             if (portion <= portion_7day) {
                 break;
             }
+            portion -= buyrecs[i].ptn;
             buyrecs.pop();
         };
 
