@@ -81,7 +81,7 @@ class StockDetail {
     }
 };
 
-class FundBuyDetail {
+class StockBuyDetail {
     constructor(buy_detail_div) {
         this.container = buy_detail_div;
         this.code = null;
@@ -156,30 +156,49 @@ class FundBuyDetail {
     buyDateCheckClicked(checkname) {
         var checkedboxes = document.getElementsByName(checkname);
         var portion = 0;
-        var dates = '';
+        var cost = 0;
+        var ids = [];
         var days = 0;
         checkedboxes.forEach(function(d){
             if (d.checked) {
                 portion += parseFloat(d.value);
-                dates += d.nextSibling.data;
+                cost += parseFloat(d.cost);
+                ids.push(d.index);
                 days ++;
             }
         });
 
         var sellBtn = document.getElementById('detail_sell_btn_' + this.code);
         sellBtn.style.display = Number.isNaN(portion) ? 'none' : 'inline';
+        var sellInfo = '' + days + '项, 共：' + portion + '份';
+        var aver = portion > 0 ? cost / portion : 0;
+        if (aver > 0) {
+            sellInfo += '均价:' + parseFloat(aver.toFixed(4));
+        };
+        var suggestPrice = 0;
+        if (aver > 0) {
+            suggestPrice = aver * (1 + all_stocks[this.code].str);
+            sellInfo += '建议售出价:' + parseFloat(suggestPrice.toFixed(4));
+        };
+
         var sellContent = document.getElementById('detail_sell_div_' + this.code);
-        sellContent.textContent = '' + days + '天, 共：' + portion.toFixed(4);
-        sellContent.value = dates;
+        sellContent.textContent = sellInfo;
+        sellContent.value = ids.join('_');
     }
     
     onSellBtnClicked() {
         var sellContent = document.getElementById('detail_sell_div_' + this.code);
         var sellDatePicker = document.getElementById('detail_sell_datepick_' + this.code);
-        if (sellContent.value != '') {
-            trade.sellStock(this.code, sellDatePicker.value, sellContent.value, function(){
-                trade.fetchBuyData(stockHub.detailPage.code, function(){
-                    stockHub.detailPage.buydetail.updateSingleBuyTable();                    
+        var sellPrice = document.getElementById('detail_sell_price_' + this.code);
+        var price = parseFloat(sellPrice.value);
+        if (sellContent.value != '' && price > 0) {
+            trade.sellStock(sellDatePicker.value, this.code, price, sellContent.value, function(){
+                trade.fetchStockSummary(stockHub.detailPage.code, function() {
+                    trade.fetchBuyData(stockHub.detailPage.code, function(c) {
+                        stockHub.updateStockSummary(c);
+                        stockHub.detailPage.buydetail.updateSingleBuyTable();
+                    });
+                    trade.fetchSellData(stockHub.detailPage.code);
                 });
             });
         }
@@ -196,7 +215,7 @@ class FundBuyDetail {
         this.radioBar.addRadio('按日期', function(){
             stockHub.detailPage.buydetail.sortBuyTable(true);
         });
-        this.radioBar.addRadio('按净值', function(){
+        this.radioBar.addRadio('按成交价', function(){
             stockHub.detailPage.buydetail.sortBuyTable(false);
         });
 
@@ -222,16 +241,19 @@ class FundBuyDetail {
         }
 
         this.container.appendChild(this.buyTable);
-        this.buyTable.appendChild(utils.createHeaders(checkAllDiv, '金额', '净值'));
+        this.buyTable.appendChild(utils.createHeaders(checkAllDiv, '序号', '份额', '金额', '成交价'));
  
         var buyrecs = all_stocks[stockHub.detailPage.code].buy_table;
         var sum_cost = 0;
+        var sum_portion = 0;
         for (var i = 0; i < buyrecs.length; i++) {
             if (buyrecs[i].sold == 0) {
                 var checkDate = document.createElement('input');
                 checkDate.type = 'checkbox';
                 checkDate.name = 'detail_buy_row_' + this.code;
                 checkDate.value = buyrecs[i].ptn;
+                checkDate.index = buyrecs[i].id;
+                checkDate.cost = buyrecs[i].cost;
                 checkDate.checked = false;
                 checkDate.onclick = function(e) {
                     stockHub.detailPage.buydetail.buyDateCheckClicked(e.target.name);
@@ -240,12 +262,13 @@ class FundBuyDetail {
                 checkDiv.appendChild(checkDate);
                 checkDiv.appendChild(document.createTextNode(utils.date_by_delta(buyrecs[i].date)));
 
-                this.buyTable.appendChild(utils.createColsRow(checkDiv, buyrecs[i].cost, buyrecs[i].nv ? buyrecs[i].nv : 'null'));
+                this.buyTable.appendChild(utils.createColsRow(checkDiv, buyrecs[i].id, buyrecs[i].ptn, buyrecs[i].cost, buyrecs[i].price ? buyrecs[i].price : 'null'));
                 sum_cost += buyrecs[i].cost;
+                sum_portion += buyrecs[i].ptn;
             };
         };
 
-        this.buyTable.appendChild(utils.createColsRow('总计', sum_cost, ''));
+        this.buyTable.appendChild(utils.createColsRow('总计', '', sum_portion, sum_cost, parseFloat((sum_cost/sum_portion).toFixed(4))));
         this.radioBar.selectDefault();
         
         var sellPanel = document.createElement('div');
@@ -257,9 +280,16 @@ class FundBuyDetail {
         sellDatepicker.id = 'detail_sell_datepick_' + stockHub.detailPage.code;
         sellDatepicker.value = utils.getTodayDate();
         sellPanel.appendChild(sellDatepicker);
+        var sellPrice = document.createElement('input');
+        sellPrice.id = 'detail_sell_price_' + this.code;
+        sellPrice.placeholder = '成交价';
+        sellPrice.onchange = function(e) {
+            var btn = document.getElementById('detail_sell_btn_' + stockHub.detailPage.buydetail.code);
+            btn.enabled = parseFloat(e.target.value) > 0;
+        }
         var sellBtn = document.createElement('button');
         sellBtn.textContent = '卖出';
-        sellBtn.id = 'detail_sell_btn_' + stockHub.detailPage.code;
+        sellBtn.id = 'detail_sell_btn_' + this.code;
         sellBtn.onclick = function(e) {
             stockHub.detailPage.buydetail.onSellBtnClicked();
         }
@@ -414,19 +444,17 @@ class StockSellDetail {
             this.container.appendChild(this.bonusContainer);
         };
         
-        this.sellTable.appendChild(utils.createHeaders('卖出日期','成本', '金额', '实收', '剩余成本'));
+        this.sellTable.appendChild(utils.createHeaders('卖出日期', '序号', '份额', '金额', '成交价', '剩余份额'));
         var sellrecs = all_stocks[this.code].sell_table;
-        var sum_cost = 0, sum_ms = 0, sum_acs = 0;
+        var sum_cost = 0, sum_portion = 0;
         for (var i = 0; i < sellrecs.length; i++) {
             sum_cost += sellrecs[i].cost;
-            sum_ms += sellrecs[i].ms;
-            sum_acs += parseFloat(sellrecs[i].acs);
+            sum_portion += sellrecs[i].ptn;
             var selldate = utils.date_by_delta(sellrecs[i].date);
-            var actual_sold_cell = this.createActualSoldCell(sellrecs[i].acs, selldate);
-            var rollin_cell = this.createRollinCell(sellrecs[i].tri, sellrecs[i].cost, selldate);
-            this.sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].cost == 0 ? '分红' : sellrecs[i].cost, sellrecs[i].ms, actual_sold_cell, rollin_cell));
+            var rollin_cell = this.createRollinCell(sellrecs[i].tri, sellrecs[i].ptn, selldate);
+            this.sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].id, sellrecs[i].ptn == 0 ? '分红' : sellrecs[i].ptn, sellrecs[i].cost, sellrecs[i].price, rollin_cell));
         };
-        this.sellTable.appendChild(utils.createColsRow('总计', sum_cost, sum_ms.toFixed(2), sum_acs.toFixed(2), '实收' + (sum_acs - sum_cost).toFixed(2)));
+        this.sellTable.appendChild(utils.createColsRow('总计', '', sum_portion, sum_cost, parseFloat((sum_cost/sum_portion).toFixed(4))));
     }
 
     reloadBonusArea() {

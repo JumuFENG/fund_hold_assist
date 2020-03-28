@@ -98,6 +98,20 @@ class Utils {
         return row;
     }
 
+    createHeaders(...hs) {
+        var tr = document.createElement('tr');
+        for (var i = 0; i < hs.length; i++) {
+            var th = document.createElement('th');
+            if ('object' != typeof(hs[i])) {
+                th.appendChild(document.createTextNode(hs[i]));
+            } else {
+                th.appendChild(hs[i]);
+            }
+            tr.appendChild(th);
+        };
+        return tr;
+    }
+
     createColsRow(...c){
         var row = document.createElement("tr");
         for (var i = 0; i < c.length; i++) {
@@ -147,6 +161,12 @@ class Utils {
     deleteAllRows(tbl) {
         for (var idx = tbl.rows.length - 1; idx >= 0; idx--) {
             tbl.deleteRow(idx);
+        }
+    }
+
+    removeAllChild(ele) {
+        while(ele.hasChildNodes()) {
+            ele.removeChild(ele.lastChild);
         }
     }
 
@@ -300,6 +320,9 @@ class StockTrade {
         var querystr = 'act=buy&code=' + code;
         utils.get('stock', querystr, function(rsp){
             all_stocks[code].buy_table = JSON.parse(rsp);
+            if (stockHub.detailPage && stockHub.detailPage.buydetail) {
+                stockHub.detailPage.buydetail.code = null;
+            };
             if (typeof(cb) === 'function') {
                 cb(code);
             };
@@ -325,6 +348,9 @@ class StockTrade {
         var querystr = 'act=sell&code=' + code;
         utils.get('stock', querystr, function(rsp){
             all_stocks[code].sell_table = JSON.parse(rsp);
+            if (stockHub.detailPage && stockHub.detailPage.selldetail) {
+                stockHub.detailPage.selldetail.code = null;
+            };
             if (typeof(cb) === 'function') {
                 cb(code);
             };

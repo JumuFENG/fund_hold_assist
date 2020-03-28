@@ -269,7 +269,7 @@ class StockHub {
         };
 
         if (!this.detailPage) {
-            this.detailPage = new StockDetails();
+            this.detailPage = new StockDetail();
             this.detailPage.createStockDetailFramework();
         };
         this.hide();
