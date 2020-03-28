@@ -158,7 +158,7 @@ class StockSummay {
                 stockHub.updateStockSummary(c);
             });
         };
-        rtHelper.fetchStockRtDataActually(function() {
+        rtHelper.fetchStockRtData(function() {
             stockHub.reloadAllStocks();
         });
     }
@@ -178,8 +178,10 @@ class StockHub {
         this.stockListTable = document.createElement('table');
         this.stockListTable.appendChild(document.createElement('hr'));
         this.container.appendChild(this.stockListTable);
-        trade.fetchStockSummary(null, function(c){
-            stockHub.reloadAllStocks();
+        trade.fetchStockSummary(null, function(c) {
+            rtHelper.fetchStockRtDataActually(function() {
+                stockHub.reloadAllStocks();
+            });
         });
         this.chartWrapper = new ChartWrapper(this.container);
         this.chartWrapper.initialize();

@@ -1,3 +1,5 @@
+let extensionLoaded = false;
+
 class Utils {
     logInfo(...args) {
         //console.log(args);
@@ -86,7 +88,7 @@ class Utils {
         var lbl_class = "keepsame";
         if (val < 0) {
             lbl_class = "decrease";
-        } else if (val < 0) {
+        } else if (val > 0) {
             lbl_class = "increase";
         };
         return lbl_class;
@@ -430,13 +432,13 @@ var trade = new StockTrade();
 
 var stockRtData = {};
 function _sr_cb(rtdata) {
-    for (var code in irtdata) {
-        var idata = irtdata[code];
-        var icode = irtdata.type + idata.symbol;
-        stockRtData[icode] = {
-            rtprice: idata.price,
-            percent: idata.percent,
-            time: idata.time
+    for (var code in rtdata) {
+        var sdata = rtdata[code];
+        var scode = sdata.type + sdata.symbol;
+        stockRtData[scode] = {
+            rtprice: sdata.price,
+            percent: sdata.percent,
+            time: sdata.time
         };
     }
 }
@@ -474,9 +476,9 @@ class RealTimeHelper {
         var i126codes = '';
         for (var c in stockRtData) {
             if (c.startsWith('SH')) {
-                i126codes += c.replace('SH', c[2] == '0' ? '0' : '1') + ',';
+                i126codes += c.replace('SH', '0') + ',';
             } else if (c.startsWith('SZ')) {
-                i126codes += c.replace('SZ', c[2] == '0' ? '0' : '1') + ',';
+                i126codes += c.replace('SZ', '1') + ',';
             } else {
                 utils.logInfo('index code not start with SH or SZ', c);
             }
@@ -496,7 +498,8 @@ class RealTimeHelper {
         if (extensionLoaded) {
             this.dispatchUrlToGet(url);
         } else {
-            request.getRealTimeData(url, function(rsp){
+            var enUrl = encodeURIComponent(url);
+            utils.get('api/get', 'url=' + enUrl, function(rsp){
                 eval(rsp);
                 if (typeof(cb) === 'function') {
                     cb();
