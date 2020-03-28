@@ -282,6 +282,41 @@ class RadioAnchorBar {
     }
 }
 
+class EditableCell {
+    constructor(text) {
+        this.otext = text;
+        this.container = document.createElement('div');
+        this.lblText = document.createTextNode(text);
+        this.container.appendChild(this.lblText);
+        this.inputBox = document.createElement('input');
+        this.inputBox.style.maxWidth = '80px';
+        this.inputBox.style.display = 'none';
+        this.inputBox.value = text;
+        this.container.appendChild(this.inputBox);
+        this.editable = false;
+    }
+
+    edit() {
+        this.lblText.textContent = '';
+        this.inputBox.style.display = 'inline';
+        this.editable = true;
+    }
+
+    readonly() {
+        this.lblText.textContent = this.inputBox.value;
+        this.inputBox.style.display = 'none';
+        this.editable = false;
+    }
+
+    textChanged() {
+        return this.otext != this.inputBox.value;
+    }
+
+    text() {
+        return this.inputBox.value;
+    }
+}
+
 var utils = new Utils();
 var all_stocks = {};
 
@@ -329,6 +364,19 @@ class StockTrade {
         });
     }
 
+    fixBuyRec(code, id, portion, price, cb) {
+        var fd = new FormData();
+        fd.append('act', 'fixbuy');
+        fd.append('code', code);
+        fd.append('id', id);
+        fd.append('ptn', portion);
+        fd.append('price', price);
+
+        utils.post('stock', fd, function() {
+            trade.fetchSellData(code, cb);
+        });
+    }
+
     sellStock(date, code, price, ids, cb) {
         var fd = new FormData();
         fd.append('act', 'sell');
@@ -341,7 +389,7 @@ class StockTrade {
             if (typeof(cb) === 'function') {
                 cb();
             };
-        })
+        });
     }
 
     fetchSellData(code, cb) {
@@ -354,7 +402,20 @@ class StockTrade {
             if (typeof(cb) === 'function') {
                 cb(code);
             };
-        })
+        });
+    }
+
+    fixSellRec(code, id, portion, price, cb) {
+        var fd = new FormData();
+        fd.append('act', 'fixsell');
+        fd.append('code', code);
+        fd.append('id', id);
+        fd.append('ptn', portion);
+        fd.append('price', price);
+
+        utils.post('stock', fd, function() {
+            trade.fetchSellData(code, cb);
+        });
     }
 }
 

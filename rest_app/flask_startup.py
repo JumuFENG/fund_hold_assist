@@ -298,6 +298,10 @@ def stock():
             return stock_sell(user, request.form)
         if actype == 'fixrollin':
             return stock_fix_rollin(user, request.form)
+        if actype == 'fixbuy':
+            return stock_fix_buy(user, request.form)
+        if actype == 'fixsell':
+            return stock_fix_sell(user, request.form)
     else:
         actype = request.args.get("act", type=str, default=None)
         code = request.args.get("code", type=str, default=None)
@@ -327,6 +331,16 @@ def stock_buy(user, form):
     us.buy(date, price, portion, rollins)
     return "OK", 200
 
+def stock_fix_buy(user, form):
+    code = form.get("code", type=str, default=None)
+    code = code.upper()
+    buyid = int(form.get('id', type=int, default=0))
+    price = float(form.get('price', type=str, default=None))
+    portion = int(form.get('ptn', type=str, default=None))
+    us = UserStock(user, code)
+    us.fix_buy(buyid, price, portion)
+    return "OK", 200
+
 def stock_sell(user, form):
     code = form.get("code", type=str, default=None)
     code = code.upper()
@@ -339,14 +353,26 @@ def stock_sell(user, form):
     us.sell(date, price, buyids)
     return "OK", 200
 
+def stock_fix_sell(user, form):
+    code = form.get("code", type=str, default=None)
+    code = code.upper()
+    sellid = int(form.get('id', type=int, default=0))
+    price = float(form.get('price', type=str, default=None))
+    portion = int(form.get('ptn', type=str, default=None))
+    us = UserStock(user, code)
+    us.fix_sell(sellid, price, portion)
+    return "OK", 200
+
 def stock_fix_rollin(user, form):
     code = form.get("code", type=str, default=None)
     code = code.upper()
     sellid = form.get('id', type=str, default=None)
-    rolledin = request.form.get('rolledin', type=str, default='0')
+    rolledin = request.form.get('rolledin', type=int, default=0)
     if sellid:
+        us = UserStock(user, code)
         us.update_rollin(rolledin, sellid)
     return "OK", 200
+
 
 @app.route('/dashboard', methods=['GET'])
 def dashboard():

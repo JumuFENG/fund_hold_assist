@@ -243,7 +243,7 @@ class StockBuyDetail {
         }
 
         this.container.appendChild(this.buyTable);
-        this.buyTable.appendChild(utils.createHeaders(checkAllDiv, '序号', '份额', '金额', '成交价'));
+        this.buyTable.appendChild(utils.createHeaders(checkAllDiv, '序号', '份额', '金额', '成交价', ''));
  
         var buyrecs = all_stocks[stockHub.detailPage.code].buy_table;
         var sum_cost = 0;
@@ -264,7 +264,30 @@ class StockBuyDetail {
                 checkDiv.appendChild(checkDate);
                 checkDiv.appendChild(document.createTextNode(utils.date_by_delta(buyrecs[i].date)));
 
-                this.buyTable.appendChild(utils.createColsRow(checkDiv, buyrecs[i].id, buyrecs[i].ptn, buyrecs[i].cost, buyrecs[i].price ? buyrecs[i].price : 'null'));
+                var portion_cell = new EditableCell(buyrecs[i].ptn);
+                var price_cell = new EditableCell(buyrecs[i].price);
+                var op_cell = document.createElement('button');
+                op_cell.textContent = '修改';
+                op_cell.bindPortion = portion_cell;
+                op_cell.bindPrice = price_cell;
+                op_cell.bindId = buyrecs[i].id;
+                op_cell.onclick = function(e) {
+                    if (e.target.textContent == '修改') {
+                        e.target.bindPortion.edit();
+                        e.target.bindPrice.edit();
+                        e.target.textContent = '确定';
+                    } else {
+                        e.target.bindPortion.readonly();
+                        e.target.bindPrice.readonly();
+                        if (e.target.bindPortion.textChanged() || e.target.bindPrice.textChanged()) {
+                            trade.fixBuyRec(stockHub.detailPage.selldetail.code, e.target.bindId, e.target.bindPortion.text(), e.target.bindPrice.text(), function() {
+                                stockHub.detailPage.buydetail.updateSingleBuyTable();
+                            });
+                        };
+                        e.target.textContent = '修改';
+                    }
+                }
+                this.buyTable.appendChild(utils.createColsRow(checkDiv, buyrecs[i].id, portion_cell.container, buyrecs[i].cost, buyrecs[i].price ? price_cell.container : 'null', op_cell));
                 sum_cost += buyrecs[i].cost;
                 sum_portion += buyrecs[i].ptn;
             };
@@ -323,77 +346,20 @@ class StockSellDetail {
         this.bonusArea = null;
     }
 
-    editActualSold(editId) {
-        var actualBox = document.getElementById(editId);
-        var textNode = actualBox.firstChild;
-        var editBox = actualBox.getElementsByTagName('input')[0];
-        var editBtn = actualBox.getElementsByTagName('a')[0];
-        if (editBox.style.display == 'none') {
-            editBox.value = textNode.textContent;
-            editBox.style.display = 'inline';
-            textNode.textContent = '';
-            editBtn.textContent = '确定';
-        } else {
-            editBox.style.display = 'none';
-            textNode.textContent = editBox.value;
-            editBtn.textContent = '修改';
-            var queries = new FormData();
-            var fundcode = this.code;
-            var date = actualBox.getAttribute('date');
-            var acs = editBox.value;
-            queries.append("code", fundcode);
-            queries.append("date", date);
-            queries.append("action", 'setsold');
-            queries.append('actual_sold', acs);
-            utils.post('fundsell', queries, function(){
-                var sell_table = all_stocks[fundcode].sell_table;
-                if (sell_table) {
-                    var daysince2000 = utils.days_since_2000(date);
-                    var sellrec = sell_table.find(function(curVal){
-                        return curVal.date == daysince2000;
-                    });
-                    if (sellrec) {
-                        sellrec.acs = acs;
-                    };
-                    stockHub.detailPage.selldetail.reloadSingleSellTable();
-                };
-            });
-        }
-    }
-    
-    createActualSoldCell(acs, selldate) {
-        var actual_sold_cell = document.createElement('div');
-        var acsNode = document.createTextNode(acs);
-        actual_sold_cell.appendChild(acsNode);
-        if (acs == 0) {
-            var edit_btn = document.createElement("a");
-            edit_btn.textContent = '修改';
-            var editId = 'actual_sold_' + this.code + '_' + selldate;
-            edit_btn.href = 'javascript:stockHub.detailPage.selldetail.editActualSold("' + editId + '")';
-            var edit_box = document.createElement('input');
-            edit_box.style.maxWidth = '80px';
-            edit_box.style.display = 'none';
-            actual_sold_cell.id = editId;
-            actual_sold_cell.appendChild(edit_box);
-            actual_sold_cell.appendChild(edit_btn);
-        }
-        actual_sold_cell.setAttribute('date', selldate);
-        return actual_sold_cell
-    }
-    
     deleteRollin(deleteId) {
         var rollinBox = document.getElementById(deleteId);
         var queries = new FormData();
-        var date = rollinBox.getAttribute('date');
+        var index = rollinBox.getAttribute('index');
         queries.append("code", this.code);
-        queries.append("index", date);
+        queries.append("id", index);
         queries.append("act", 'fixrollin');
         queries.append('rolledin', rollinBox.getAttribute('total'));
         utils.post('stock', queries, function(){
-
+            trade.fetchSellData(stockHub.detailPage.selldetail.code, function(){
+                stockHub.updateStockSummary();
+                stockHub.detailPage.selldetail.updateSingleSellDetails();
+            });
         });
-
-        rollinBox.innerText = 0;
     }
     
     createRollinCell(to_rollin, total, val) {
@@ -404,7 +370,7 @@ class StockSellDetail {
         var rollinBox = document.createElement('div');
         var deleteBtn = document.createElement("a");
         deleteBtn.textContent = '删除';
-        var deleteId = 'delete_rollin_' + this.code + '_' + selldate;
+        var deleteId = 'delete_rollin_' + this.code + '_' + val;
         deleteBtn.href = 'javascript:stockHub.detailPage.selldetail.deleteRollin("' + deleteId + '")';
         
         rollinBox.id = deleteId;
@@ -438,17 +404,40 @@ class StockSellDetail {
             this.container.appendChild(this.bonusContainer);
         };
         
-        this.sellTable.appendChild(utils.createHeaders('卖出日期', '序号', '份额', '金额', '成交价', '剩余份额'));
+        this.sellTable.appendChild(utils.createHeaders('卖出日期', '序号', '份额', '金额', '成交价', '剩余份额', ''));
         var sellrecs = all_stocks[this.code].sell_table;
         var sum_cost = 0, sum_portion = 0;
         for (var i = 0; i < sellrecs.length; i++) {
             sum_cost += sellrecs[i].cost;
             sum_portion += sellrecs[i].ptn;
             var selldate = utils.date_by_delta(sellrecs[i].date);
+            var portion_cell = new EditableCell(sellrecs[i].ptn);
+            var price_cell = new EditableCell(sellrecs[i].price);
             var rollin_cell = this.createRollinCell(sellrecs[i].tri, sellrecs[i].ptn, sellrecs[i].id);
-            this.sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].id, sellrecs[i].ptn == 0 ? '分红' : sellrecs[i].ptn, sellrecs[i].cost, sellrecs[i].price, rollin_cell));
+            var op_cell = document.createElement('button');
+            op_cell.textContent = '修改';
+            op_cell.bindPortion = portion_cell;
+            op_cell.bindPrice = price_cell;
+            op_cell.bindId = sellrecs[i].id;
+            op_cell.onclick = function(e) {
+                if (e.target.textContent == '修改') {
+                    e.target.bindPortion.edit();
+                    e.target.bindPrice.edit();
+                    e.target.textContent = '确定';
+                } else {
+                    e.target.bindPortion.readonly();
+                    e.target.bindPrice.readonly();
+                    if (e.target.bindPortion.textChanged() || e.target.bindPrice.textChanged()) {
+                        trade.fixSellRec(stockHub.detailPage.selldetail.code, e.target.bindId, e.target.bindPortion.text(), e.target.bindPrice.text(), function() {
+                            stockHub.detailPage.selldetail.updateSingleSellDetails();
+                        });
+                    };
+                    e.target.textContent = '修改';
+                }
+            }
+            this.sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].id, sellrecs[i].ptn == 0 ? '分红' : portion_cell.container, sellrecs[i].cost, price_cell.container, rollin_cell, op_cell));
         };
-        this.sellTable.appendChild(utils.createColsRow('总计', '', sum_portion, sum_cost, parseFloat((sum_cost/sum_portion).toFixed(4))));
+        this.sellTable.appendChild(utils.createColsRow('总计', '', sum_portion, sum_cost, parseFloat((sum_cost/sum_portion).toFixed(4)), ''));
     }
 
     reloadBonusArea() {
@@ -496,6 +485,8 @@ class StockSellDetail {
         queries.append("date", dpicker.value);
         queries.append("action", 'divident');
         queries.append('bonus', bonusInput.value);
+        alert('not implemented!');
+        return;
         utils.post('fundsell', queries, function(){
             request.fetchSellData(fundcode, function(){
                 stockHub.detailPage.selldetail.updateSingleSellDetails();
