@@ -296,6 +296,8 @@ def stock():
             return stock_buy(user, request.form)
         if actype == 'sell':
             return stock_sell(user, request.form)
+        if actype == 'fixrollin':
+            return stock_fix_rollin(user, request.form)
     else:
         actype = request.args.get("act", type=str, default=None)
         code = request.args.get("code", type=str, default=None)
@@ -335,6 +337,15 @@ def stock_sell(user, form):
         buyids = buyids.strip('_').split('_')
     us = UserStock(user, code)
     us.sell(date, price, buyids)
+    return "OK", 200
+
+def stock_fix_rollin(user, form):
+    code = form.get("code", type=str, default=None)
+    code = code.upper()
+    sellid = form.get('id', type=str, default=None)
+    rolledin = request.form.get('rolledin', type=str, default='0')
+    if sellid:
+        us.update_rollin(rolledin, sellid)
     return "OK", 200
 
 @app.route('/dashboard', methods=['GET'])

@@ -111,22 +111,18 @@ class StockBuyDetail {
         return true;
     }
 
-    sortBuyTable(byDate) {
-        if (this.buyTable.sortByDate === undefined) {
-            this.buyTable.sortByDate = false;
+    sortBuyTable(colId) {
+        if (this.buyTable.sortById === undefined) {
+            this.buyTable.sortById = 0;
         };
 
-        if (this.buyTable.sortByDate == byDate) {
+        if (this.buyTable.sortById == colId) {
             return;
         };
 
-        this.buyTable.sortByDate = !this.buyTable.sortByDate;
+        this.buyTable.sortById = colId;
 
-        var n = 0;
-        if (!byDate) {
-            n = 2;
-        };
-
+        var n = colId;
         var table = this.buyTable;
         var decsort = false;
         if (this.checkRowsIncreasing(table.rows, n, 1, table.rows.length - 2)) {
@@ -213,10 +209,16 @@ class StockBuyDetail {
         
         this.radioBar = new RadioAnchorBar('卖出');
         this.radioBar.addRadio('按日期', function(){
-            stockHub.detailPage.buydetail.sortBuyTable(true);
+            stockHub.detailPage.buydetail.sortBuyTable(0);
+        });
+        this.radioBar.addRadio('按顺序', function(){
+            stockHub.detailPage.buydetail.sortBuyTable(1);
+        });
+        this.radioBar.addRadio('按份额', function(){
+            stockHub.detailPage.buydetail.sortBuyTable(2);
         });
         this.radioBar.addRadio('按成交价', function(){
-            stockHub.detailPage.buydetail.sortBuyTable(false);
+            stockHub.detailPage.buydetail.sortBuyTable(4);
         });
 
         this.container.appendChild(this.radioBar.container);
@@ -285,11 +287,13 @@ class StockBuyDetail {
         sellPrice.placeholder = '成交价';
         sellPrice.onchange = function(e) {
             var btn = document.getElementById('detail_sell_btn_' + stockHub.detailPage.buydetail.code);
-            btn.enabled = parseFloat(e.target.value) > 0;
+            btn.disabled = !(parseFloat(e.target.value) > 0);
         }
+        sellPanel.appendChild(sellPrice);
         var sellBtn = document.createElement('button');
         sellBtn.textContent = '卖出';
         sellBtn.id = 'detail_sell_btn_' + this.code;
+        sellBtn.disabled = true;
         sellBtn.onclick = function(e) {
             stockHub.detailPage.buydetail.onSellBtnClicked();
         }
@@ -382,27 +386,17 @@ class StockSellDetail {
         var queries = new FormData();
         var date = rollinBox.getAttribute('date');
         queries.append("code", this.code);
-        queries.append("date", date);
-        queries.append("action", 'fixrollin');
-        queries.append('rolledin', rollinBox.getAttribute('cost'));
-        utils.post('fundsell', queries, function(){
-            var sell_table = all_stocks[stockHub.detailPage.selldetail.code].sell_table;
-            if (sell_table) {
-                var daysince2000 = utils.days_since_2000(date);
-                var sellrec = sell_table.find(function(curVal){
-                    return curVal.date == daysince2000;
-                });
-                if (sellrec) {
-                    sellrec.tri = 0;
-                };
-                stockHub.detailPage.selldetail.reloadSingleSellTable();
-            };
+        queries.append("index", date);
+        queries.append("act", 'fixrollin');
+        queries.append('rolledin', rollinBox.getAttribute('total'));
+        utils.post('stock', queries, function(){
+
         });
 
         rollinBox.innerText = 0;
     }
     
-    createRollinCell(to_rollin, cost, selldate) {
+    createRollinCell(to_rollin, total, val) {
         if (to_rollin == 0) {
             return 0;
         }
@@ -414,8 +408,8 @@ class StockSellDetail {
         deleteBtn.href = 'javascript:stockHub.detailPage.selldetail.deleteRollin("' + deleteId + '")';
         
         rollinBox.id = deleteId;
-        rollinBox.setAttribute('date', selldate);
-        rollinBox.setAttribute('cost', cost);
+        rollinBox.setAttribute('index', val);
+        rollinBox.setAttribute('total', total);
         rollinBox.appendChild(document.createTextNode(to_rollin));
         rollinBox.appendChild(deleteBtn);
         return rollinBox;
@@ -451,7 +445,7 @@ class StockSellDetail {
             sum_cost += sellrecs[i].cost;
             sum_portion += sellrecs[i].ptn;
             var selldate = utils.date_by_delta(sellrecs[i].date);
-            var rollin_cell = this.createRollinCell(sellrecs[i].tri, sellrecs[i].ptn, selldate);
+            var rollin_cell = this.createRollinCell(sellrecs[i].tri, sellrecs[i].ptn, sellrecs[i].id);
             this.sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].id, sellrecs[i].ptn == 0 ? '分红' : sellrecs[i].ptn, sellrecs[i].cost, sellrecs[i].price, rollin_cell));
         };
         this.sellTable.appendChild(utils.createColsRow('总计', '', sum_portion, sum_cost, parseFloat((sum_cost/sum_portion).toFixed(4))));
