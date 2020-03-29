@@ -131,38 +131,6 @@ class Utils {
         return row;
     }
 
-    createInputRow(name, inputType, value, c1, c2, c3, checked = false) {
-        var row = document.createElement("tr");
-        var col1 = document.createElement("td");
-        var radio = document.createElement("input");
-        radio.type = inputType;
-        radio.name = name;
-        radio.value = value;
-        if (checked) {
-            radio.checked = true;
-        };
-        col1.appendChild(radio);
-        col1.appendChild(document.createTextNode(c1));
-        row.appendChild(col1);
-        var col2 = document.createElement("td");
-        col2.appendChild(document.createTextNode(c2));
-        row.appendChild(col2);
-        if (c3) {
-            var col3 = document.createElement('td');
-            col3.appendChild(document.createTextNode(c3));
-            row.appendChild(col3);
-        };
-        return row;
-    }
-
-    createRadioRow(name, value, c1, c2, checked = false) {
-        return this.createInputRow(name, "radio", value, c1, c2, null, checked);
-    }
-
-    createCheckboxRow(name, value, c1, c2, c3, checked = false) {
-        return this.createInputRow(name, "checkbox", value, c1, c2, c3, checked);
-    }
-
     deleteAllRows(tbl) {
         for (var idx = tbl.rows.length - 1; idx >= 0; idx--) {
             tbl.deleteRow(idx);
@@ -175,17 +143,23 @@ class Utils {
         }
     }
 
-    getIdsPortionMoreThan(buytable, days = 0) {
+    getIdsPortionMoreThan(buytable, short_term_rate, days = 0) {
         var datestart = this.days_since_2000(this.getTodayDate()) - days;
         var portionInDays = 0;
+        var cost = 0;
         var tids = [];
         for (var i = 0; i < buytable.length; i++) {
             if (buytable[i].date <= datestart && buytable[i].sold == 0) {
                 tids.push(buytable[i].id);
                 portionInDays += buytable[i].ptn;
+                cost += buytable[i].cost;
             }
         };
-        return {ids: tids.join('_'), portion: portionInDays}
+        return {
+            ids: tids.join('_'),
+            portion: portionInDays,
+            minSellPrice:parseFloat(((1 + short_term_rate) * cost / portionInDays).toFixed(4))
+        }
     }
 
     getShortTermIdsPortionMoreThan(buytable, latest_val, short_term_rate, days = 1) {
@@ -221,10 +195,16 @@ class Utils {
         };
 
         var aids = '';
+        var cost = 0;
         for (var i = 0; i < buyrecs.length; i++) {
             aids += (buyrecs[i].id) + '_';
+            cost += buyrecs[i].cost;
         };
-        return {ids: aids.slice(0, aids.length - 1), portion: portion};
+        return {
+            ids: aids.slice(0, aids.length - 1), 
+            portion: portion, 
+            minSellPrice: parseFloat(((1 + short_term_rate) * cost / portion).toFixed(4))
+        };
     }
 }
 

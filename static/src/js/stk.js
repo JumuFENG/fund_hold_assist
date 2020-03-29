@@ -64,7 +64,7 @@ class StockSummay {
         if (this.detail.style.display == "none") {
             this.detail.style.display = 'block';
             this.refreshHoldDetail();
-            stockHub.chartWrapper.setParent(this.detail);
+            stockHub.chartWrapper.setParent(this.detail, this.dtrtable, this.dtbtable);
             stockHub.chartWrapper.show();
             stockHub.chartWrapper.code = this.code;
         } else {
@@ -102,6 +102,7 @@ class StockSummay {
 
         this.updateRollinTable();
         this.updateBuyTable();
+        stockHub.chartWrapper.tradeOption.updateTradePanel();
     }
 
     updateRollinTable() {
@@ -113,11 +114,30 @@ class StockSummay {
         var sell_table = all_stocks[this.code].sell_table;
         if (sell_table && sell_table.length > 0) {
             this.dtrtable.appendChild(utils.createSingleRow('roll in', 3));
-            var rname = 'to_rollin_check_' + this.code;
             for (var i = 0; i < sell_table.length; i++) {
-                this.dtrtable.appendChild(utils.createCheckboxRow(rname, sell_table[i].id, utils.date_by_delta(sell_table[i].date), sell_table[i].ptn, sell_table[i].price));//
+                var checkDate = document.createElement('input');
+                checkDate.type = 'checkbox';
+                checkDate.name = 'to_rollin_check_' + this.code;
+                checkDate.value = sell_table[i].id;
+                checkDate.checked = false;
+                var checkDiv = document.createElement('div');
+                checkDiv.appendChild(checkDate);
+                checkDiv.appendChild(document.createTextNode(utils.date_by_delta(sell_table[i].date)));
+                this.dtrtable.appendChild(utils.createColsRow(checkDiv, sell_table[i].ptn, sell_table[i].price));
             };
         };
+    }
+
+    createBuyRow(rText, dp, checked) {
+        var radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'to_sell_radio_' + this.code;
+        radio.value = dp.ids;
+        radio.checked = checked;
+        var radioDiv = document.createElement('div');
+        radioDiv.appendChild(radio);
+        radioDiv.appendChild(document.createTextNode(rText));
+        return utils.createColsRow(radioDiv, dp.portion, dp.minSellPrice);
     }
 
     updateBuyTable() {
@@ -128,12 +148,11 @@ class StockSummay {
         utils.deleteAllRows(this.dtbtable);
         var buy_table = all_stocks[this.code].buy_table;
         if (buy_table && buy_table.length > 0) {
-            this.dtbtable.appendChild(utils.createSingleRow('sell'));
-            var rname = 'to_sell_radio_' + this.code;
-            var dpall = utils.getIdsPortionMoreThan(buy_table, 0);
-            this.dtbtable.appendChild(utils.createRadioRow(rname, dpall.ids, '全部', dpall.portion));
-            var dp1 = utils.getIdsPortionMoreThan(buy_table, 1);
-            this.dtbtable.appendChild(utils.createRadioRow(rname, dp1.ids, '>1天', dp1.portion));
+            this.dtbtable.appendChild(utils.createSingleRow('sell', 3));
+            var dpall = utils.getIdsPortionMoreThan(buy_table, all_stocks[this.code].str, 0);
+            this.dtbtable.appendChild(this.createBuyRow('全部', dpall, false));
+            var dp1 = utils.getIdsPortionMoreThan(buy_table, all_stocks[this.code].str, 1);
+            this.dtbtable.appendChild(this.createBuyRow('>1天', dp1, false));
             var latestVal = null;
             if (stockRtData[this.code] && stockRtData[this.code].rtprice) {
                 latestVal = stockRtData[this.code].rtprice;
@@ -141,7 +160,7 @@ class StockSummay {
             if (latestVal) {
                 var dp_short = utils.getShortTermIdsPortionMoreThan(buy_table, latestVal, all_stocks[this.code].str);
                 if (dp_short.portion <= dp1.portion && dp_short.portion > 0) {
-                    this.dtbtable.appendChild(utils.createRadioRow(rname, dp_short.ids, '>' + all_stocks[this.code].str * 100 + '%', dp_short.portion, true));
+                    this.dtbtable.appendChild(this.createBuyRow('>' + all_stocks[this.code].str * 100 + '%', dp_short, true));
                 };
             };
         };

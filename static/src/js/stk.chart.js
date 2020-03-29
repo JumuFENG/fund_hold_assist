@@ -51,16 +51,28 @@ class TradeOption {
 
     setTradeOption(tradeTp) {
         this.tradeType = tradeTp;
-        this.changeTradePanel(tradeTp == TradeType.Sell);
+        this.updateTradePanel();
     }
 
-    changeTradePanel(bSell) {
-        if (bSell) {
+    updateTradePanel() {
+        if (this.tradeType == TradeType.Sell) {
             this.portionInput.style.display = "none";
             this.submitBtn.textContent = "卖出";
+            if (stockHub.chartWrapper.bindingRollinTable) {
+                stockHub.chartWrapper.bindingRollinTable.style.display = 'none';
+            };
+            if (stockHub.chartWrapper.bindingBuyTable) {
+                stockHub.chartWrapper.bindingBuyTable.style.display = 'block';
+            };
         } else {
             this.portionInput.style.display = "inline";
             this.submitBtn.textContent = "确定";
+            if (stockHub.chartWrapper.bindingRollinTable) {
+                stockHub.chartWrapper.bindingRollinTable.style.display = 'block';
+            };
+            if (stockHub.chartWrapper.bindingBuyTable) {
+                stockHub.chartWrapper.bindingBuyTable.style.display = 'none';
+            };
         }
     }
 
@@ -68,6 +80,10 @@ class TradeOption {
         var code = stockHub.chartWrapper.code;
         var date = this.datePicker.value;
         var price = parseFloat(this.priceInput.value);
+        if (Number.isNaN(price)) {
+            return;
+        };
+
         var ids = null;
         if (this.tradeType == TradeType.Buy) {
             var portion = parseInt(this.portionInput.value);
@@ -75,12 +91,15 @@ class TradeOption {
             var checkedId = [];
             for (var i = 0; i < idRadios.length; i++) {
                 if (idRadios[i].checked) {
-                    idRadios.push(idRadios[i].value);
+                    checkedId.push(idRadios[i].value);
                 };
             };
 
             if (checkedId.length > 0) {
                 ids = checkedId.join('_');
+            };
+            if (Number.isNaN(portion)) {
+                return;
             };
             
             trade.buyStock(date, code, price, portion, ids, function(){
@@ -100,6 +119,11 @@ class TradeOption {
                     break;
                 };
             };
+
+            if (!ids) {
+                return;
+            };
+
             trade.sellStock(date, code, price, ids, function(){
                 trade.fetchStockSummary(code, function() {
                     trade.fetchSellData(code, function(c) {
@@ -116,6 +140,8 @@ class ChartWrapper {
     constructor(p) {
         this.container = document.createElement('div');
         p.appendChild(this.container);
+        this.bindingRollinTable = null;
+        this.bindingBuyTable = null;
     }
 
     initialize() {
@@ -123,9 +149,11 @@ class ChartWrapper {
         this.tradeOption.initialize();
     }
 
-    setParent(p) {
+    setParent(p, rtbl, btbl) {
         this.container.parentElement.removeChild(this.container);
         p.appendChild(this.container);
+        this.bindingRollinTable = rtbl;
+        this.bindingBuyTable = btbl;
     }
 
     hide() {
