@@ -95,7 +95,9 @@ class FundChart {
             this.ticks.push(v);
         };
 
-        this.ticks.sort();
+        this.ticks.sort(function(l,g) {
+            return l - g;
+        });
 
         if (this.marks.length > 0) {
             for (var i = this.ticks.length - 1; i > 0; i--) {

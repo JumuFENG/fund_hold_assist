@@ -222,7 +222,9 @@ class PlanChart {
 
         if (this.latestPrice != null) {
             ticks.push(this.latestPrice);
-            ticks.sort();
+            ticks.sort(function(l,g) {
+                return l - g;
+            });
         };
 
         this.ticks = ticks;
