@@ -65,8 +65,8 @@ class StockSummay {
             this.detail.style.display = 'block';
             this.refreshHoldDetail();
             stockHub.chartWrapper.setParent(this.detail, this.dtrtable, this.dtbtable);
-            stockHub.chartWrapper.show();
             stockHub.chartWrapper.code = this.code;
+            stockHub.chartWrapper.show();
         } else {
             this.detail.style.display = 'none';
         }
@@ -113,7 +113,7 @@ class StockSummay {
         utils.deleteAllRows(this.dtrtable);
         var sell_table = all_stocks[this.code].sell_table;
         if (sell_table && sell_table.length > 0) {
-            this.dtrtable.appendChild(utils.createSingleRow('roll in', 3));
+            this.dtrtable.appendChild(utils.createHeaders('roll in', '份额', '最高成交价'));
             for (var i = 0; i < sell_table.length; i++) {
                 var checkDate = document.createElement('input');
                 checkDate.type = 'checkbox';
@@ -148,7 +148,7 @@ class StockSummay {
         utils.deleteAllRows(this.dtbtable);
         var buy_table = all_stocks[this.code].buy_table;
         if (buy_table && buy_table.length > 0) {
-            this.dtbtable.appendChild(utils.createSingleRow('sell', 3));
+            this.dtbtable.appendChild(utils.createHeaders('sell', '份额', '最低成交价'));
             var dpall = utils.getIdsPortionMoreThan(buy_table, all_stocks[this.code].str, 0);
             this.dtbtable.appendChild(this.createBuyRow('全部', dpall, false));
             var dp1 = utils.getIdsPortionMoreThan(buy_table, all_stocks[this.code].str, 1);
@@ -164,6 +164,7 @@ class StockSummay {
                 };
             };
         };
+        stockHub.chartWrapper.show();
     }
 
     refreshHoldDetail() {

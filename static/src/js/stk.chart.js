@@ -136,6 +136,182 @@ class TradeOption {
     }
 }
 
+var googleChartLoaded = false;
+// Load the Visualization API and the piechart package.
+google.charts.load('current', {'packages':['corechart']});
+
+// Set a callback to run when the Google Visualization API is loaded.
+google.charts.setOnLoadCallback(function(){
+    googleChartLoaded = true;
+});
+
+class PlanChart {
+    constructor(chartDiv) {
+        this.container = chartDiv;
+        this.chart = new google.visualization.ScatterChart(this.container);
+        google.visualization.events.addListener(this.chart, 'ready', this.drawVticks);
+    }
+
+    setCode(code) {
+        this.buytable = all_stocks[code].buy_table;
+        this.code = code;
+    }
+
+    initTicks() {
+        this.buy0price = 0;
+        for (var i = 0; i < this.buytable.length; i++) {
+            if (this.buytable[i].sold == 0) {
+                this.buy0price = this.buytable[i].price;
+                this.buy0Cost = this.buytable[i].cost;
+                break;
+            }
+        };
+        var gridBuyRate = 0.05;
+        var gridSellRate = 0.08;
+        if (all_stocks[this.code].bgr) {
+            gridBuyRate = all_stocks[this.code].bgr;
+        };
+        if (all_stocks[this.code].sgr) {
+            gridSellRate = all_stocks[this.code].sgr;
+        };
+        var ticks = [this.buy0price];
+        for (var i = 0; i < 5; i++) {
+            ticks.push(parseFloat((ticks[i] * (1 - gridBuyRate)).toFixed(3)));
+        };
+
+        this.latestPrice = null;
+        if (stockRtData[this.code] && stockRtData[this.code].rtprice) {
+            this.latestPrice = stockRtData[this.code].rtprice;
+        };
+
+        this.availableBuyRec = [];
+        if (this.latestPrice != null) {
+            var max_price = this.latestPrice * (1 - gridSellRate);
+            for (var i = 0; i < this.buytable.length; i++) {
+                if (this.buytable[i].price <= max_price) {
+                    this.availableBuyRec.push(this.buytable[i]);
+                };
+            };
+        };
+
+        var minPrice = this.buytable[0].price;
+        if (this.availableBuyRec.length == 0) {
+            for (var i = 0; i < this.buytable.length; i++) {
+                if (this.buytable[i].price < minPrice) {
+                    minPrice = this.buytable[i].price;
+                };
+            };
+            for (var i = 0; i < this.buytable.length; i++) {
+                if (this.buytable[i].price == minPrice) {
+                    this.availableBuyRec.push(this.buytable[i]);
+                };
+            };
+        };
+        this.maxPrice = minPrice * (1 + gridSellRate);
+        if (this.latestPrice != null) {
+            this.maxPrice = this.latestPrice > this.maxPrice ? this.latestPrice : this.maxPrice;
+        };
+
+        for (var i = 0; i < 5; i++) {
+            var sTick = parseFloat((ticks[0] * (1 + gridSellRate)).toFixed(3));
+            ticks.splice(0, 0, sTick);
+            if (sTick > this.maxPrice) {
+                break;
+            };
+        };
+
+        if (this.latestPrice != null) {
+            ticks.push(this.latestPrice);
+            ticks.sort();
+        };
+
+        this.ticks = ticks;
+    }
+
+    createChartOption() {
+        this.options = {
+            legend: { position: 'top' },
+            width: '100%',
+            height: '100%',
+            vAxes: {
+                0: {
+                    ticks: this.ticks
+                },
+                1: {
+                }
+            },
+            series: {
+                0: {
+                    targetAxisIndex: 0,
+                    pointSize: 2
+                }
+            }
+        };
+    }
+
+    drawVticks() {
+        stockHub.chartWrapper.planChart.onDrawVticks();
+    }
+
+    onDrawVticks() {
+        if (this.latestPrice != null) {
+            var tRects = this.container.getElementsByTagName('rect');
+            var tickRects = [];
+            for (var i = 0; i < tRects.length; i++) {
+                if (tRects[i].getAttribute('height') === '1') {
+                    tickRects.push(tRects[i]);
+                }
+            };
+            tickRects[this.ticks.indexOf(this.latestPrice)].setAttribute('fill', '#ff0000');
+        };
+    }
+
+    createDataTable() {
+        if (!this.buytable) {
+            return;
+        };
+        this.initTicks();
+
+        // Create the data table.
+        var data = new google.visualization.DataTable();
+        data.addColumn('number', '份额');
+        data.addColumn('number', '网格法');
+        data.addColumn({type: 'string', role: 'style'});
+
+        var rows = [];
+        for (var i = 0; i < this.buytable.length; i++) {
+            rows.push([this.buytable[i].ptn, this.buytable[i].price, '']);
+        };
+
+        if (this.buy0Cost) {
+            for (var i = 0; i < this.ticks.length; i++) {
+                if (this.ticks[i] >= this.buy0price) {
+                    continue;
+                };
+                rows.push([100 * parseInt(this.buy0Cost/(100 * this.ticks[i])), this.ticks[i], 'point {fill-color: #FFD39B;}']);
+            };
+        };
+
+        var portion = 0;
+        for (var i = 0; i < this.availableBuyRec.length; i++) {
+            portion += this.availableBuyRec[i].ptn;
+        };
+        rows.push([portion, this.maxPrice, 'point {fill-color: #FF4500}']);
+
+        data.addRows(rows);
+        this.data = data;
+    }
+
+    drawChart() {
+        this.createDataTable();
+        this.createChartOption();
+
+        if (this.data) {
+            this.chart.draw(this.data, this.options);
+        };
+    }
+}
+
 class ChartWrapper {
     constructor(p) {
         this.container = document.createElement('div');
@@ -145,6 +321,9 @@ class ChartWrapper {
     }
 
     initialize() {
+        var planBuyDiv = document.createElement('div');
+        this.planChart = new PlanChart(planBuyDiv);
+        this.container.appendChild(planBuyDiv);
         this.tradeOption = new TradeOption(this.container);
         this.tradeOption.initialize();
     }
@@ -162,5 +341,13 @@ class ChartWrapper {
 
     show() {
         this.container.style.display = 'block';
+        if (!this.code) {
+            return;
+        };
+
+        if (all_stocks[this.code] && all_stocks[this.code].buy_table) {
+            this.planChart.setCode(this.code);
+            this.planChart.drawChart();
+        };
     }
 }
