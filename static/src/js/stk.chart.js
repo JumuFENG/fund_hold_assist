@@ -105,7 +105,13 @@ class TradeOption {
             trade.buyStock(date, code, price, portion, ids, function(){
                 trade.fetchStockSummary(code, function() {
                     trade.fetchBuyData(code, function(c) {
-                        stockHub.updateStockSummary(c);
+                        if (ids != null) {
+                            trade.fetchSellData(c, function(cc) {
+                                stockHub.updateStockSummary(cc);
+                            })
+                        } else {
+                            stockHub.updateStockSummary(c);
+                        }
                     });
                 });
                 stockHub.chartWrapper.tradeOption.portionInput.value = '';
@@ -127,7 +133,9 @@ class TradeOption {
             trade.sellStock(date, code, price, ids, function(){
                 trade.fetchStockSummary(code, function() {
                     trade.fetchSellData(code, function(c) {
-                        stockHub.updateStockSummary(c);
+                        trade.fetchBuyData(c, function(cc) {
+                            stockHub.updateStockSummary(cc);
+                        });
                     });
                 });
                 stockHub.chartWrapper.tradeOption.priceInput.value = '';
@@ -157,15 +165,39 @@ class PlanChart {
         this.code = code;
     }
 
-    initTicks() {
-        this.buy0price = 0;
-        for (var i = 0; i < this.buytable.length; i++) {
-            if (this.buytable[i].sold == 0) {
-                this.buy0price = this.buytable[i].price;
-                this.buy0Cost = this.buytable[i].cost;
-                break;
-            }
+    initD0Price() {
+        this.latestPrice = null;
+        if (stockRtData[this.code] && stockRtData[this.code].rtprice) {
+            this.latestPrice = stockRtData[this.code].rtprice;
         };
+
+        this.buy0price = this.latestPrice;
+        this.buy0Cost = null;
+        if (this.buytable && this.buytable.length > 0) {
+            for (var i = 0; i < this.buytable.length; i++) {
+                if (this.buytable[i].sold == 0) {
+                    this.buy0price = this.buytable[i].price;
+                    this.buy0Cost = this.buytable[i].cost;
+                    break;
+                }
+            };
+        } else if (all_stocks[this.code].sell_table && all_stocks[this.code].sell_table.length > 0) {
+            this.buy0price = all_stocks[this.code].sell_table[all_stocks[this.code].sell_table.length - 1].price;
+        };
+
+        if (this.buy0Cost == null && this.buy0price != null) {
+            this.buy0Cost = 100 * this.buy0price;
+        };
+    }
+
+    initTicks() {
+        this.initD0Price();
+        this.ticks = [];
+        this.availableBuyRec = [];
+        if (this.buy0price == null || this.buy0Cost == null) {
+            return;
+        };
+
         var gridBuyRate = 0.05;
         var gridSellRate = 0.08;
         if (all_stocks[this.code].bgr) {
@@ -179,12 +211,6 @@ class PlanChart {
             ticks.push(parseFloat((ticks[i] * (1 - gridBuyRate)).toFixed(3)));
         };
 
-        this.latestPrice = null;
-        if (stockRtData[this.code] && stockRtData[this.code].rtprice) {
-            this.latestPrice = stockRtData[this.code].rtprice;
-        };
-
-        this.availableBuyRec = [];
         if (this.latestPrice != null) {
             var max_price = this.latestPrice * (1 - gridSellRate);
             for (var i = 0; i < this.buytable.length; i++) {
@@ -194,7 +220,7 @@ class PlanChart {
             };
         };
 
-        var minPrice = this.buytable[0].price;
+        var minPrice = this.buytable.length > 0 ? this.buytable[0].price : this.buy0price;
         if (this.availableBuyRec.length == 0) {
             for (var i = 0; i < this.buytable.length; i++) {
                 if (this.buytable[i].price < minPrice) {
@@ -264,7 +290,8 @@ class PlanChart {
                     tickRects.push(tRects[i]);
                 }
             };
-            tickRects[this.ticks.indexOf(this.latestPrice)].setAttribute('fill', '#ff0000');
+            var priceIndex = this.ticks.indexOf(this.latestPrice);
+            tickRects[tickRects.length - this.ticks.length + priceIndex].setAttribute('fill', '#ff0000');
         };
     }
 
@@ -273,6 +300,10 @@ class PlanChart {
             return;
         };
         this.initTicks();
+        this.data = null;
+        if (this.buy0price == null || this.buy0Cost == null) {
+            return;
+        };
 
         // Create the data table.
         var data = new google.visualization.DataTable();

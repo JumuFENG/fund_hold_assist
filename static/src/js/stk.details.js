@@ -293,7 +293,9 @@ class StockBuyDetail {
             };
         };
 
-        this.buyTable.appendChild(utils.createColsRow('总计', '', sum_portion, sum_cost, parseFloat((sum_cost/sum_portion).toFixed(4))));
+        if (buyrecs.length > 0) {
+            this.buyTable.appendChild(utils.createColsRow('总计', '', sum_portion, sum_cost, parseFloat((sum_cost/sum_portion).toFixed(4))));
+        };
         this.radioBar.selectDefault();
         
         var sellPanel = document.createElement('div');
@@ -404,12 +406,14 @@ class StockSellDetail {
             this.container.appendChild(this.bonusContainer);
         };
         
-        this.sellTable.appendChild(utils.createHeaders('卖出日期', '序号', '份额', '金额', '成交价', '剩余份额', ''));
+        this.sellTable.appendChild(utils.createHeaders('卖出日期', '序号', '成本', '份额', '成交价', '收益', '剩余份额', ''));
         var sellrecs = all_stocks[this.code].sell_table;
-        var sum_cost = 0, sum_portion = 0;
+        var sum_cost = 0, sum_portion = 0, sum_earned = 0;
         for (var i = 0; i < sellrecs.length; i++) {
             sum_cost += sellrecs[i].cost;
             sum_portion += sellrecs[i].ptn;
+            var earned = parseFloat((sellrecs[i].ptn * sellrecs[i].price - sellrecs[i].cost).toFixed(3));
+            sum_earned += earned;
             var selldate = utils.date_by_delta(sellrecs[i].date);
             var portion_cell = new EditableCell(sellrecs[i].ptn);
             var price_cell = new EditableCell(sellrecs[i].price);
@@ -435,9 +439,11 @@ class StockSellDetail {
                     e.target.textContent = '修改';
                 }
             }
-            this.sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].id, sellrecs[i].ptn == 0 ? '分红' : portion_cell.container, sellrecs[i].cost, price_cell.container, rollin_cell, op_cell));
+            this.sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].id, sellrecs[i].cost, sellrecs[i].ptn == 0 ? '分红' : portion_cell.container, price_cell.container, earned, rollin_cell, op_cell));
         };
-        this.sellTable.appendChild(utils.createColsRow('总计', '', sum_portion, sum_cost, parseFloat((sum_cost/sum_portion).toFixed(4)), ''));
+        if (sellrecs.length > 0) {
+            this.sellTable.appendChild(utils.createColsRow('总计', '', sum_cost, sum_portion, parseFloat((sum_cost/sum_portion).toFixed(4)), sum_earned, '', ''));
+        };
     }
 
     reloadBonusArea() {
