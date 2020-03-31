@@ -574,15 +574,15 @@ class BasicDetails {
                     };
                     trade.setRates(stockHub.detailPage.basicdetail.code, sellRate, buyRate, buyRate);
                     if (sellRate != null) {
-                        all_stocks[this.code].sgr = sellRate;
+                        all_stocks[e.target.code].sgr = sellRate;
                     };
                     if (buyRate != null) {
-                        all_stocks[this.code].bgr = buyRate;
+                        all_stocks[e.target.code].bgr = buyRate;
                     };
                     if (buyRate != null) {
-                        all_stocks[this.code].str = buyRate;
+                        all_stocks[e.target.code].str = buyRate;
                     };
-                    stockHub.updateStockSummary();
+                    stockHub.updateStockSummary(e.target.code);
                     e.target.textContent = '修改';
                 }
             }
@@ -594,6 +594,7 @@ class BasicDetails {
         var buyRate = 100 * all_stocks[this.code].bgr;
         this.btnOK.bindBuyRate.update(buyRate);
         this.btnOK.textContent = '修改';
+        this.btnOK.code = this.code;
 
         this.container.appendChild(this.ratesDiv);
     }

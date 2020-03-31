@@ -254,9 +254,9 @@ class UserStock():
         sg = StockGeneral(self.sqldb, self.code)
 
         stock_json_obj["name"] = sg.name
-        stock_json_obj["str"] = sg.short_term_rate if self.short_term_rate == 0 else self.short_term_rate # short_term_rate
-        stock_json_obj["bgr"] = self.buy_rate if self.buy_rate > 0 else stock_json_obj["str"]
-        stock_json_obj["sgr"] = self.sell_rate if self.sell_rate > 0 else stock_json_obj["str"]
+        stock_json_obj["str"] = sg.short_term_rate if float(self.short_term_rate) == 0 else self.short_term_rate # short_term_rate
+        stock_json_obj["bgr"] = self.buy_rate if float(self.buy_rate) > 0 else stock_json_obj["str"]
+        stock_json_obj["sgr"] = self.sell_rate if float(self.sell_rate) > 0 else stock_json_obj["str"]
         stock_json_obj["cost"] = self.cost_hold
         stock_json_obj["ptn"] = self.portion_hold # portion
         stock_json_obj["avp"] = self.average # average price
