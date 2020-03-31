@@ -302,6 +302,8 @@ def stock():
             return stock_fix_buy(user, request.form)
         if actype == 'fixsell':
             return stock_fix_sell(user, request.form)
+        if actype == 'setrate':
+            return stock_set_rates(user, request.form)
     else:
         actype = request.args.get("act", type=str, default=None)
         code = request.args.get("code", type=str, default=None)
@@ -361,6 +363,16 @@ def stock_fix_sell(user, form):
     portion = int(form.get('ptn', type=str, default=None))
     us = UserStock(user, code)
     us.fix_sell(sellid, price, portion)
+    return "OK", 200
+
+def stock_set_rates(user, form):
+    code = form.get("code", type=str, default=None)
+    code = code.upper()
+    buyrate = form.get('buy', type=float, default=None)
+    sellrate = form.get('sell', type=float, default=None)
+    short_term = form.get('str', type=float, default=None)
+    us = UserStock(user, code)
+    us.set_rates(buyrate, sellrate, short_term)
     return "OK", 200
 
 def stock_fix_rollin(user, form):

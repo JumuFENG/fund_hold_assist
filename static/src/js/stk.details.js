@@ -56,6 +56,13 @@ class StockDetail {
             };
             stockHub.detailPage.selldetail.showSingleSellDetails();
         });
+
+        this.addNav('概况', function(c) {
+            if (!stockHub.detailPage.basicdetail) {
+                stockHub.detailPage.basicdetail = new BasicDetails(c);
+            };
+            stockHub.detailPage.basicdetail.showBasicInfo();
+        });
     }
 
     backToList() {
@@ -173,7 +180,7 @@ class StockBuyDetail {
         };
         var suggestPrice = 0;
         if (aver > 0) {
-            suggestPrice = aver * (1 + all_stocks[this.code].str);
+            suggestPrice = aver * (1 + all_stocks[this.code].sgr > 0 ? all_stocks[this.code].sgr : all_stocks[this.code].str);
             sellInfo += '建议售出价:' + parseFloat(suggestPrice.toFixed(4));
         };
 
@@ -519,5 +526,102 @@ class StockSellDetail {
         };
 
         this.updateSingleSellDetails();
+    }
+}
+
+class BasicDetails {
+    constructor(basic_detail_div) {
+        this.container = basic_detail_div;
+        this.code = null;
+    }
+
+    reloadRates() {
+        if (!this.ratesDiv) {
+            this.ratesDiv = document.createElement('div');
+            var expectSellRateDiv = document.createElement('div');
+            expectSellRateDiv.appendChild(document.createTextNode('预期收益率:'));
+            var sellRateEdit = new EditableCell(8);
+            expectSellRateDiv.appendChild(sellRateEdit.container);
+            expectSellRateDiv.appendChild(document.createTextNode('%'));
+            this.ratesDiv.appendChild(expectSellRateDiv);
+
+            var expectBuyRateDiv = document.createElement('div');
+            expectBuyRateDiv.appendChild(document.createTextNode('加仓亏损率:'));
+            var buyRateEdit = new EditableCell(5);
+            expectBuyRateDiv.appendChild(buyRateEdit.container);
+            expectBuyRateDiv.appendChild(document.createTextNode('%'));
+            this.ratesDiv.appendChild(expectBuyRateDiv);
+
+            this.btnOK = document.createElement('button');
+            this.btnOK.textContent = '修改';
+            this.btnOK.bindSellRate = sellRateEdit;
+            this.btnOK.bindBuyRate = buyRateEdit;
+            this.btnOK.onclick = function(e) {
+                if (e.target.textContent == '修改') {
+                    e.target.bindSellRate.edit();
+                    e.target.bindBuyRate.edit();
+                    e.target.textContent = '确定';
+                } else {
+                    e.target.bindSellRate.readonly();
+                    e.target.bindBuyRate.readonly();
+                    var sellRate = null;
+                    if (e.target.bindSellRate.textChanged()) {
+                        sellRate = parseFloat(e.target.bindSellRate.text()) / 100;
+                    };
+                    var buyRate = null;
+                    if (e.target.bindBuyRate.textChanged()) {
+                        buyRate = parseFloat(e.target.bindBuyRate.text()) / 100;
+                    };
+                    trade.setRates(stockHub.detailPage.basicdetail.code, sellRate, buyRate, buyRate);
+                    if (sellRate != null) {
+                        all_stocks[this.code].sgr = sellRate;
+                    };
+                    if (buyRate != null) {
+                        all_stocks[this.code].bgr = buyRate;
+                    };
+                    if (buyRate != null) {
+                        all_stocks[this.code].str = buyRate;
+                    };
+                    stockHub.updateStockSummary();
+                    e.target.textContent = '修改';
+                }
+            }
+            this.ratesDiv.appendChild(this.btnOK);
+        };
+
+        var sellRate = 8;
+        if (all_stocks[this.code].sgr && all_stocks[this.code].sgr > 0) {
+            sellRate = 100 * all_stocks[this.code].sgr;
+        };
+        this.btnOK.bindSellRate.update(sellRate);
+        var buyRate = 5;
+        if (all_stocks[this.code].bgr && all_stocks[this.code].bgr > 0) {
+            buyRate = 100 * all_stocks[this.code].bgr;
+        };
+        this.btnOK.bindBuyRate.update(buyRate);
+        this.btnOK.textContent = '修改';
+
+        this.container.appendChild(this.ratesDiv);
+    }
+
+    updateBasicInfo() {
+        utils.removeAllChild(this.container);
+        if (!stockHub.detailPage.code) {
+            return;
+        };
+
+        this.code = stockHub.detailPage.code;
+        this.reloadRates();
+    }
+
+    showBasicInfo() {
+        if (this.code == null && stockHub.detailPage.code == null) {
+            return;
+        };
+        if (this.code == stockHub.detailPage.code) {
+            return;
+        };
+
+        this.updateBasicInfo();
     }
 }

@@ -271,6 +271,7 @@ class EditableCell {
     constructor(text) {
         this.otext = text;
         this.container = document.createElement('div');
+        this.container.style.display = 'inline';
         this.lblText = document.createTextNode(text);
         this.container.appendChild(this.lblText);
         this.inputBox = document.createElement('input');
@@ -295,6 +296,12 @@ class EditableCell {
 
     textChanged() {
         return this.otext != this.inputBox.value;
+    }
+
+    update(text) {
+        this.otext = text;
+        this.inputBox.value = text;
+        this.readonly();
     }
 
     text() {
@@ -405,6 +412,23 @@ class StockTrade {
         utils.post('stock', fd, function() {
             trade.fetchSellData(code, cb);
         });
+    }
+
+    setRates(code, sellrate, buyrate, short_term_rate) {
+        var fd = new FormData();
+        fd.append('act', 'setrate');
+        fd.append('code', code);
+        if (buyrate != null) {
+            fd.append('buy', buyrate);
+        };
+        if (sellrate != null) {
+            fd.append('sell', sellrate);
+        };
+        if (short_term_rate != null) {
+            fd.append('str', short_term_rate);
+        };
+
+        utils.post('stock', fd);
     }
 }
 

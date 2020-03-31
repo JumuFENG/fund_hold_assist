@@ -25,8 +25,8 @@ class UserStock():
             if not details:
                 self.sqldb.insert(self.stocks_table, {column_code: self.code})
                 self.init_user_stock_in_db()
-            elif len(details) == 6:
-                (i, self.code, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on), = details
+            elif len(details) == 9:
+                (i, self.code, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on, self.short_term_rate, self.buy_rate, self.sell_rate), = details
             else:
                 self.init_user_stock_in_db()
         pre_uid = "u" + str(user.id) + "_"
@@ -39,7 +39,10 @@ class UserStock():
         self.portion_hold = tbl_mgr.GetTableColumnInfo(column_portion_hold, "0", "int DEFAULT NULL")
         self.average = tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
         self.keep_eye_on = tbl_mgr.GetTableColumnInfo(column_keepeyeon, "1", 'tinyint(1) DEFAULT 1')
-        self.sqldb.update(self.stocks_table, {column_cost_hold: str(self.cost_hold), column_portion_hold: str(self.portion_hold), column_averagae_price: str(self.average)}, {column_code : self.code})
+        self.short_term_rate = tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
+        self.buy_rate = tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
+        self.sell_rate = tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
+        self.sqldb.update(self.stocks_table, {column_cost_hold: str(self.cost_hold), column_portion_hold: str(self.portion_hold), column_averagae_price: str(self.average), column_shortterm_rate: str(self.short_term_rate), column_buy_decrease_rate: str(self.buy_rate), column_sell_increase_rate: str(self.sell_rate)}, {column_code : self.code})
 
     def setup_buytable(self):
         if not self.sqldb.isExistTable(self.buy_table) :
@@ -237,12 +240,23 @@ class UserStock():
         self.fix_cost_portion_hold()
         return True
 
+    def set_rates(self, buyrate, sellrate, short_term_rate):
+        if buyrate:
+            self.buy_rate = buyrate
+        if sellrate:
+            self.sell_rate = sellrate
+        if short_term_rate:
+            self.short_term_rate = short_term_rate
+        self.sqldb.update(self.stocks_table, {column_shortterm_rate: str(self.short_term_rate), column_buy_decrease_rate: str(self.buy_rate), column_sell_increase_rate: str(self.sell_rate)}, {column_code : self.code})
+
     def get_stock_summary(self):
         stock_json_obj = {}
         sg = StockGeneral(self.sqldb, self.code)
 
         stock_json_obj["name"] = sg.name
-        stock_json_obj["str"] = sg.short_term_rate # short_term_rate
+        stock_json_obj["str"] = sg.short_term_rate if self.short_term_rate == 0 else self.short_term_rate # short_term_rate
+        stock_json_obj["bgr"] = self.buy_rate
+        stock_json_obj["sgr"] = self.sell_rate
         stock_json_obj["cost"] = self.cost_hold
         stock_json_obj["ptn"] = self.portion_hold # portion
         stock_json_obj["avp"] = self.average # average price

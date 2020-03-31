@@ -89,6 +89,9 @@ column_v_ma20 = "v_ma20"
 column_budget = "budget"
 column_consumed = "consumed"
 
+column_buy_decrease_rate = 'buy_decrease_rate'
+column_sell_increase_rate = 'sell_increase_rate'
+
 ppgram = {"000217":270,"002611":285,"002963":285}
 index_code_name = {"000001":"上证指数","000002":"Ａ股指数","000003":"Ｂ股指数","000004":"工业指数",
 "000005":"商业指数","000006":"地产指数","000007":"公用指数","000008":"综合指数","000010":"上证180",

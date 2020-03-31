@@ -200,10 +200,10 @@ class PlanChart {
 
         var gridBuyRate = 0.05;
         var gridSellRate = 0.08;
-        if (all_stocks[this.code].bgr) {
+        if (all_stocks[this.code].bgr && all_stocks[this.code].bgr > 0) {
             gridBuyRate = all_stocks[this.code].bgr;
         };
-        if (all_stocks[this.code].sgr) {
+        if (all_stocks[this.code].sgr && all_stocks[this.code].sgr > 0) {
             gridSellRate = all_stocks[this.code].sgr;
         };
         var ticks = [this.buy0price];
