@@ -148,7 +148,7 @@ class StockSummay {
         utils.deleteAllRows(this.dtbtable);
         var buy_table = all_stocks[this.code].buy_table;
         if (buy_table && buy_table.length > 0) {
-            var sell_rate = all_stocks[this.code].sgr > 0? all_stocks[this.code].sgr : all_stocks[this.code].str;
+            var sell_rate = all_stocks[this.code].sgr;
             this.dtbtable.appendChild(utils.createHeaders('sell', '份额', '最低成交价'));
             var dpall = utils.getIdsPortionMoreThan(buy_table, sell_rate, 0);
             this.dtbtable.appendChild(this.createBuyRow('全部', dpall, false));

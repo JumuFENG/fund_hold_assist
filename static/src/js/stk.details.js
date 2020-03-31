@@ -180,7 +180,7 @@ class StockBuyDetail {
         };
         var suggestPrice = 0;
         if (aver > 0) {
-            suggestPrice = aver * (1 + all_stocks[this.code].sgr > 0 ? all_stocks[this.code].sgr : all_stocks[this.code].str);
+            suggestPrice = aver * (1 + all_stocks[this.code].sgr);
             sellInfo += '建议售出价:' + parseFloat(suggestPrice.toFixed(4));
         };
 
@@ -540,14 +540,14 @@ class BasicDetails {
             this.ratesDiv = document.createElement('div');
             var expectSellRateDiv = document.createElement('div');
             expectSellRateDiv.appendChild(document.createTextNode('预期收益率:'));
-            var sellRateEdit = new EditableCell(8);
+            var sellRateEdit = new EditableCell(0);
             expectSellRateDiv.appendChild(sellRateEdit.container);
             expectSellRateDiv.appendChild(document.createTextNode('%'));
             this.ratesDiv.appendChild(expectSellRateDiv);
 
             var expectBuyRateDiv = document.createElement('div');
             expectBuyRateDiv.appendChild(document.createTextNode('加仓亏损率:'));
-            var buyRateEdit = new EditableCell(5);
+            var buyRateEdit = new EditableCell(0);
             expectBuyRateDiv.appendChild(buyRateEdit.container);
             expectBuyRateDiv.appendChild(document.createTextNode('%'));
             this.ratesDiv.appendChild(expectBuyRateDiv);
@@ -589,15 +589,9 @@ class BasicDetails {
             this.ratesDiv.appendChild(this.btnOK);
         };
 
-        var sellRate = 8;
-        if (all_stocks[this.code].sgr && all_stocks[this.code].sgr > 0) {
-            sellRate = 100 * all_stocks[this.code].sgr;
-        };
+        var sellRate = 100 * all_stocks[this.code].sgr;
         this.btnOK.bindSellRate.update(sellRate);
-        var buyRate = 5;
-        if (all_stocks[this.code].bgr && all_stocks[this.code].bgr > 0) {
-            buyRate = 100 * all_stocks[this.code].bgr;
-        };
+        var buyRate = 100 * all_stocks[this.code].bgr;
         this.btnOK.bindBuyRate.update(buyRate);
         this.btnOK.textContent = '修改';
 

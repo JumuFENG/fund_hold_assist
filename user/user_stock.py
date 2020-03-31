@@ -39,9 +39,9 @@ class UserStock():
         self.portion_hold = tbl_mgr.GetTableColumnInfo(column_portion_hold, "0", "int DEFAULT NULL")
         self.average = tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
         self.keep_eye_on = tbl_mgr.GetTableColumnInfo(column_keepeyeon, "1", 'tinyint(1) DEFAULT 1')
-        self.short_term_rate = tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
-        self.buy_rate = tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
-        self.sell_rate = tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
+        self.short_term_rate = tbl_mgr.GetTableColumnInfo(column_shortterm_rate, "0", "double(16,4) DEFAULT NULL")
+        self.buy_rate = tbl_mgr.GetTableColumnInfo(column_buy_decrease_rate, "0", "double(16,4) DEFAULT NULL")
+        self.sell_rate = tbl_mgr.GetTableColumnInfo(column_sell_increase_rate, "0", "double(16,4) DEFAULT NULL")
         self.sqldb.update(self.stocks_table, {column_cost_hold: str(self.cost_hold), column_portion_hold: str(self.portion_hold), column_averagae_price: str(self.average), column_shortterm_rate: str(self.short_term_rate), column_buy_decrease_rate: str(self.buy_rate), column_sell_increase_rate: str(self.sell_rate)}, {column_code : self.code})
 
     def setup_buytable(self):
@@ -255,8 +255,8 @@ class UserStock():
 
         stock_json_obj["name"] = sg.name
         stock_json_obj["str"] = sg.short_term_rate if self.short_term_rate == 0 else self.short_term_rate # short_term_rate
-        stock_json_obj["bgr"] = self.buy_rate
-        stock_json_obj["sgr"] = self.sell_rate
+        stock_json_obj["bgr"] = self.buy_rate if self.buy_rate > 0 else stock_json_obj["str"]
+        stock_json_obj["sgr"] = self.sell_rate if self.sell_rate > 0 else stock_json_obj["str"]
         stock_json_obj["cost"] = self.cost_hold
         stock_json_obj["ptn"] = self.portion_hold # portion
         stock_json_obj["avp"] = self.average # average price
