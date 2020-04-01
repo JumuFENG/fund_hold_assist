@@ -430,6 +430,16 @@ class StockTrade {
 
         utils.post('stock', fd);
     }
+
+    setFee(code, fee) {
+        if (fee != null) {
+            var fd = new FormData();
+            fd.append('act', 'setfee');
+            fd.append('code', code);
+            fd.append('fee', fee);
+            utils.post('stock', fd);
+        };
+    }
 }
 
 var trade = new StockTrade();

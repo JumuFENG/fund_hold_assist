@@ -572,7 +572,7 @@ class BasicDetails {
                     if (e.target.bindBuyRate.textChanged()) {
                         buyRate = parseFloat(e.target.bindBuyRate.text()) / 100;
                     };
-                    trade.setRates(stockHub.detailPage.basicdetail.code, sellRate, buyRate, buyRate);
+                    trade.setRates(e.target.code, sellRate, buyRate, buyRate);
                     if (sellRate != null) {
                         all_stocks[e.target.code].sgr = sellRate;
                     };
@@ -587,6 +587,34 @@ class BasicDetails {
                 }
             }
             this.ratesDiv.appendChild(this.btnOK);
+
+            var feeDiv = document.createElement('div');
+            feeDiv.appendChild(document.createTextNode('佣金(万分之):'))
+            var feeEdit = new EditableCell(0);
+            feeDiv.appendChild(feeEdit.container);
+            this.ratesDiv.appendChild(feeDiv);
+
+            this.feeBtn = document.createElement('button');
+            this.feeBtn.textContent = '修改';
+            this.feeBtn.bindFee = feeEdit;
+            this.feeBtn.onclick = function(e) {
+                if (e.target.textContent == '修改') {
+                    e.target.bindFee.edit();
+                    e.target.textContent = '确定';
+                } else {
+                    e.target.bindFee.readonly();
+                    var fee = null;
+                    if (e.target.bindFee.textChanged()) {
+                        fee = parseFloat(e.target.bindFee.text()) / 10000;
+                    };
+                    trade.setFee(e.target.code, fee);
+                    if (fee != null) {
+                        all_stocks[e.target.code].fee = fee;
+                    };
+                    e.target.textContent = '修改';
+                }
+            }
+            this.ratesDiv.appendChild(this.feeBtn);
         };
 
         var sellRate = 100 * all_stocks[this.code].sgr;
@@ -595,6 +623,10 @@ class BasicDetails {
         this.btnOK.bindBuyRate.update(buyRate);
         this.btnOK.textContent = '修改';
         this.btnOK.code = this.code;
+        var fee = 10000 * all_stocks[this.code].fee;
+        this.feeBtn.bindFee.update(fee);
+        this.feeBtn.textContent = '修改';
+        this.feeBtn.code = this.code;
 
         this.container.appendChild(this.ratesDiv);
     }

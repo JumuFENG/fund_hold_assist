@@ -25,8 +25,8 @@ class UserStock():
             if not details:
                 self.sqldb.insert(self.stocks_table, {column_code: self.code})
                 self.init_user_stock_in_db()
-            elif len(details) == 9:
-                (i, self.code, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on, self.short_term_rate, self.buy_rate, self.sell_rate), = details
+            elif len(details) == 10:
+                (i, self.code, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on, self.short_term_rate, self.buy_rate, self.sell_rate, self.fee), = details
             else:
                 self.init_user_stock_in_db()
         pre_uid = "u" + str(user.id) + "_"
@@ -42,7 +42,8 @@ class UserStock():
         self.short_term_rate = tbl_mgr.GetTableColumnInfo(column_shortterm_rate, "0", "double(16,4) DEFAULT NULL")
         self.buy_rate = tbl_mgr.GetTableColumnInfo(column_buy_decrease_rate, "0", "double(16,4) DEFAULT NULL")
         self.sell_rate = tbl_mgr.GetTableColumnInfo(column_sell_increase_rate, "0", "double(16,4) DEFAULT NULL")
-        self.sqldb.update(self.stocks_table, {column_cost_hold: str(self.cost_hold), column_portion_hold: str(self.portion_hold), column_averagae_price: str(self.average), column_shortterm_rate: str(self.short_term_rate), column_buy_decrease_rate: str(self.buy_rate), column_sell_increase_rate: str(self.sell_rate)}, {column_code : self.code})
+        self.fee = tbl_mgr.GetTableColumnInfo(column_fee, '0', "double(16,6) DEFAULT NULL")
+        self.sqldb.update(self.stocks_table, {column_cost_hold: str(self.cost_hold), column_portion_hold: str(self.portion_hold), column_averagae_price: str(self.average), column_shortterm_rate: str(self.short_term_rate), column_buy_decrease_rate: str(self.buy_rate), column_sell_increase_rate: str(self.sell_rate), column_fee: str(self.fee)}, {column_code : self.code})
 
     def setup_buytable(self):
         if not self.sqldb.isExistTable(self.buy_table) :
@@ -129,11 +130,12 @@ class UserStock():
             self.setup_buytable()
             self.check_exist_in_allstocks()
 
+        fixedPrice = price * (1 + float(self.fee)) if float(self.fee) > 0 else price
         self.sqldb.insert(self.buy_table, {
             column_date: date,
-            column_price: str(price),
+            column_price: str(fixedPrice),
             column_portion: str(portion),
-            column_cost: str(price * portion),
+            column_cost: str(fixedPrice * portion),
             column_soldout:'0'})
 
         self.rollin_sold(portion, rollins)
@@ -248,6 +250,11 @@ class UserStock():
         if short_term_rate:
             self.short_term_rate = short_term_rate
         self.sqldb.update(self.stocks_table, {column_shortterm_rate: str(self.short_term_rate), column_buy_decrease_rate: str(self.buy_rate), column_sell_increase_rate: str(self.sell_rate)}, {column_code : self.code})
+
+    def set_fee(self, fee):
+        if fee:
+            self.fee = fee
+        self.sqldb.update(self.stocks_table, {column_fee: str(self.fee)}, {column_code: self.code})
 
     def get_stock_summary(self):
         stock_json_obj = {}

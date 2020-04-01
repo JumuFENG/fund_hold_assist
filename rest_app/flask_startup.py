@@ -304,6 +304,8 @@ def stock():
             return stock_fix_sell(user, request.form)
         if actype == 'setrate':
             return stock_set_rates(user, request.form)
+        if actype == 'setfee':
+            return stock_set_fee(user, request.form)
     else:
         actype = request.args.get("act", type=str, default=None)
         code = request.args.get("code", type=str, default=None)
@@ -365,6 +367,16 @@ def stock_fix_sell(user, form):
     us.fix_sell(sellid, price, portion)
     return "OK", 200
 
+def stock_fix_rollin(user, form):
+    code = form.get("code", type=str, default=None)
+    code = code.upper()
+    sellid = form.get('id', type=str, default=None)
+    rolledin = request.form.get('rolledin', type=int, default=0)
+    if sellid:
+        us = UserStock(user, code)
+        us.update_rollin(rolledin, sellid)
+    return "OK", 200
+
 def stock_set_rates(user, form):
     code = form.get("code", type=str, default=None)
     code = code.upper()
@@ -375,14 +387,12 @@ def stock_set_rates(user, form):
     us.set_rates(buyrate, sellrate, short_term)
     return "OK", 200
 
-def stock_fix_rollin(user, form):
+def stock_set_fee(user, form):
     code = form.get("code", type=str, default=None)
     code = code.upper()
-    sellid = form.get('id', type=str, default=None)
-    rolledin = request.form.get('rolledin', type=int, default=0)
-    if sellid:
-        us = UserStock(user, code)
-        us.update_rollin(rolledin, sellid)
+    fee = form.get('fee', type=float, default=None)
+    us = UserStock(user, code)
+    us.set_fee(fee)
     return "OK", 200
 
 
