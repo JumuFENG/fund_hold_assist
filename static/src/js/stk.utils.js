@@ -440,6 +440,13 @@ class StockTrade {
             utils.post('stock', fd);
         };
     }
+
+    forget(code) {
+        var fd = new FormData();
+        fd.append('act', 'forget');
+        fd.append('code', code);
+        utils.post('stock', fd);
+    }
 }
 
 var trade = new StockTrade();

@@ -303,6 +303,13 @@ class User():
 
         return stocks_json
 
+    def forget_stock(self, code):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_info_table()) or not sqldb.isExistTableColumn(self.stocks_info_table(), column_keepeyeon):
+            return
+
+        sqldb.update(self.stocks_info_table(), {column_keepeyeon:str(0)}, {column_code: str(code)})
+
 class UserModel():
     def __init__(self, sqldb):
         self.tablename = 'users'

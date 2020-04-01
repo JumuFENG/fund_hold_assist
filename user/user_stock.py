@@ -267,6 +267,7 @@ class UserStock():
         stock_json_obj["cost"] = self.cost_hold
         stock_json_obj["ptn"] = self.portion_hold # portion
         stock_json_obj["avp"] = self.average # average price
+        stock_json_obj["fee"] = self.fee
 
         return stock_json_obj
 
