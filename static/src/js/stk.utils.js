@@ -445,7 +445,9 @@ class StockTrade {
         var fd = new FormData();
         fd.append('act', 'forget');
         fd.append('code', code);
-        utils.post('stock', fd);
+        utils.post('stock', fd, function() {
+            location.reload();
+        });
     }
 }
 

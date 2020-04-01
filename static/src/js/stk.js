@@ -58,15 +58,15 @@ class StockSummay {
         this.detail.appendChild(this.dtrtable);
         this.dtbtable = document.createElement('table');
         this.detail.appendChild(this.dtbtable);
-        if (all_stocks[this.code].ptn == 0 && all_stocks[this.code].buy_table.length == 0) {
-            var forgetBtn = document.createElement('button');
-            forgetBtn.textContent = "不再关注";
-            forgetBtn.code = this.code;
-            forgetBtn.onclick = function(e) {
-                trade.forget(e.trade.code);
-            }
-            thid.detail.appendChild(forgetBtn);
-        };
+
+        this.forgetBtn = document.createElement('button');
+        this.forgetBtn.textContent = "不再关注";
+        this.forgetBtn.style.display = 'none';
+        this.forgetBtn.code = this.code;
+        this.forgetBtn.onclick = function(e) {
+            trade.forget(e.target.code);
+        }
+        this.detail.appendChild(this.forgetBtn);
     }
 
     toggleDetails() {
@@ -174,7 +174,17 @@ class StockSummay {
                 };
             };
         };
+        if (buy_table && buy_table.length == 0 && all_stocks[this.code].ptn == 0) {
+            this.showForgetButton();
+        };
+
         stockHub.chartWrapper.show();
+    }
+
+    showForgetButton() {
+        if (this.forgetBtn) {
+            this.forgetBtn.style.display = 'block';
+        };
     }
 
     refreshHoldDetail() {
