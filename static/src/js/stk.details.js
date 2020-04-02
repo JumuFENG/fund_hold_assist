@@ -301,7 +301,7 @@ class StockBuyDetail {
         };
 
         if (buyrecs.length > 0) {
-            this.buyTable.appendChild(utils.createColsRow('总计', '', sum_portion, sum_cost, parseFloat((sum_cost/sum_portion).toFixed(4))));
+            this.buyTable.appendChild(utils.createColsRow('总计', '', sum_portion, parseFloat(sum_cost.toFixed(2)), parseFloat((sum_cost/sum_portion).toFixed(4))));
         };
         this.radioBar.selectDefault();
         

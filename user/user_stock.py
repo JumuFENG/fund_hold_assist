@@ -25,7 +25,7 @@ class UserStock():
             if not details:
                 self.sqldb.insert(self.stocks_table, {column_code: self.code})
                 self.init_user_stock_in_db()
-            elif len(details) == 10:
+            elif len(details[0]) == 10:
                 (i, self.code, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on, self.short_term_rate, self.buy_rate, self.sell_rate, self.fee), = details
             else:
                 self.init_user_stock_in_db()
@@ -66,14 +66,10 @@ class UserStock():
             self.sqldb.addColumn(self.sell_table, column_roll_in_value, 'double(16,4) DEFAULT NULL')
 
     def check_exist_in_allstocks(self):
-        sg = None
-        if not self.sqldb.isExistTable(gl_all_stocks_info_table):
-            stocks = AllStocks(self.sqldb)
-        else:
-            sg = self.sqldb.select(gl_all_stocks_info_table, "*", "%s = '%s'" % (column_code, self.code))
-
-        if not sg:
-            self.sqldb.insert(gl_all_stocks_info_table, {column_code: self.code})
+        stocks = AllStocks(self.sqldb)
+        sg = StockGeneral(self.sqldb, self.code)
+        if not sg.name:
+            stocks.loadInfo(self.code)
 
     def fix_cost_portion_hold(self):
         if not self.sqldb.isExistTable(self.buy_table):
