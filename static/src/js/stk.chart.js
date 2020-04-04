@@ -353,11 +353,13 @@ class ChartWrapper {
         this.container.appendChild(planBuyDiv);
         this.tradeOption = new TradeOption(this.container);
         this.tradeOption.initialize();
+        this.tradeOption.hide();
     }
 
     setParent(p, rtbl, btbl) {
         this.container.parentElement.removeChild(this.container);
         p.appendChild(this.container);
+        this.tradeOption.show();
         this.bindingRollinTable = rtbl;
         this.bindingBuyTable = btbl;
     }
