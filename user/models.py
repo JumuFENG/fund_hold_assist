@@ -310,6 +310,26 @@ class User():
 
         sqldb.update(self.stocks_info_table(), {column_keepeyeon:str(0)}, {column_code: str(code)})
 
+    def get_stocks_stats(self):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_info_table()):
+            print("can not find stock info DB.")
+            return {}
+
+        stock_codes = sqldb.select(self.stocks_info_table(), [column_code])
+
+        stock_stats = {}
+        for (c, ) in stock_codes:
+            us = UserStock(self, c)
+            stock_stats_obj = None
+            if us.ever_hold():
+                stock_stats_obj = us.get_holding_stats()
+
+            if stock_stats_obj:
+                stock_stats[c] = stock_stats_obj
+
+        return stock_stats
+
 class UserModel():
     def __init__(self, sqldb):
         self.tablename = 'users'

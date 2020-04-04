@@ -199,6 +199,7 @@ class StockSummay {
             });
         };
         rtHelper.fetchStockRtData(function() {
+            stockHub.refreshEarned();
             stockHub.reloadAllStocks();
         });
     }
@@ -215,11 +216,28 @@ class StockHub {
         this.container = document.createElement('div');
         document.body.appendChild(this.container);
         this.topContainer = document.getElementById('top_container');
+        var topDiv = document.createElement('div');
+        topDiv.appendChild(document.createTextNode('总成本:'));
+        this.totalCost = document.createTextNode('');
+        topDiv.appendChild(this.totalCost);
+        topDiv.appendChild(document.createTextNode('总收益:'));
+        this.totalEarned = document.createElement('label');
+        topDiv.appendChild(this.totalEarned);
+        this.totalPercent = document.createElement('label');
+        topDiv.appendChild(this.totalPercent);
+        this.container.appendChild(topDiv);
+
+        var aStats = document.createElement('a');
+        aStats.textContent = '详细统计表';
+        aStats.href = 'javascript:stockHub.showStockStats()';
+        this.container.appendChild(aStats);
+
         this.stockListTable = document.createElement('table');
         this.stockListTable.appendChild(document.createElement('hr'));
         this.container.appendChild(this.stockListTable);
         trade.fetchStockSummary(null, function(c) {
             rtHelper.fetchStockRtDataActually(function() {
+                stockHub.refreshEarned();
                 stockHub.reloadAllStocks();
             });
         });
@@ -297,7 +315,19 @@ class StockHub {
             this.stockListTable.appendChild(row);
             this.stockSummaryList.push(stockSummary);
         };
+
         stockSummary.update();
+        var sum_cost = 0, sum_earned = 0;
+        for (var c in all_stocks) {
+            sum_cost += all_stocks[c].cost;
+            sum_earned += all_stocks[c].earned;
+        };
+
+        this.totalCost.textContent = parseFloat(sum_cost.toFixed(2));
+        this.totalEarned.textContent = parseFloat(sum_earned.toFixed(2));
+        this.totalEarned.className = utils.incdec_lbl_classname(sum_earned);
+        this.totalPercent.textContent = parseFloat((100 * sum_earned / sum_cost).toFixed(2)) + '%';
+        this.totalPercent.className = utils.incdec_lbl_classname(sum_earned);
     }
 
     reloadAllStocks() {
@@ -310,6 +340,12 @@ class StockHub {
         });
         for (var i in code_cost) {
             this.updateStockSummary(code_cost[i][0]);
+        };
+    }
+
+    refreshEarned() {
+        for (var c in all_stocks) {
+            all_stocks[c].earned = (stockRtData[c].rtprice - all_stocks[c].avp) * all_stocks[c].ptn;
         };
     }
 
@@ -336,6 +372,17 @@ class StockHub {
         this.detailPage.code = code;
         this.detailPage.setDetailPageName();
         this.detailPage.navUl.firstChild.click();
+    }
+
+    showStockStats() {
+        if (!this.stockStats) {
+            this.stockStats = new StockStats();
+            this.stockStats.createStatsPage();
+            this.stockStats.getFundStats();
+        };
+
+        this.hide();
+        this.stockStats.container.style.display = 'block';
     }
 }
 

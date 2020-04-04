@@ -84,7 +84,7 @@ class StockDetail {
     }
 
     setDetailPageName() {
-        this.nameDiv.innerText = all_stocks[this.code].name;
+        this.nameDiv.innerText = all_stocks[this.code].name + '(' + this.code + ')';
     }
 };
 

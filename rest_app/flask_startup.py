@@ -320,6 +320,8 @@ def stock():
                 return json.dumps({code: us.get_stock_summary()})
             else:
                 return json.dumps(user.get_holding_stocks_summary())
+        if actype == 'stats':
+            return json.dumps(user.get_stocks_stats())
         us = UserStock(user, code)
         if actype == 'buy':
             return json.dumps(us.get_buy_arr())

@@ -32,9 +32,9 @@ class TableManager():
         col_val = None
         if col_info:
             ((col_val,),) = col_info
-        if not col_val:
+        if col_val is None:
             col_val = defval
-            self.sqldb.update(self.tablename, {col:col_val}, {column_code:"%s" % self.code})
+            self.sqldb.update(self.tablename, {col:str(col_val)}, {column_code:"%s" % self.code})
 
         return col_val
 
