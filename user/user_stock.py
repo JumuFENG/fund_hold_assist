@@ -308,12 +308,21 @@ class UserStock():
         return values
 
     def get_cost_sold_stats(self, sell_recs):
-        if not sell_recs:
+        if sell_recs is None or len(sell_recs) == 0:
             return 0
+            
         cost_sold = 0
-        for (p, c) in sell_recs:
+        for (m, c) in sell_recs:
             cost_sold += c
         return cost_sold
+
+    def get_money_sold_stats(self, sell_recs):
+        if sell_recs is None or len(sell_recs) == 0:
+            return 0
+        m_s = 0
+        for (m, c) in sell_recs:
+            m_s += m
+        return m_s
 
     def get_holding_stats(self):
         stock_stats_obj = {}
@@ -322,8 +331,9 @@ class UserStock():
         stock_stats_obj["name"] = sg.name
         stock_stats_obj["cost"] = self.cost_hold
         
-        sell_recs = self.sqldb.select(self.sell_table, [column_portion, column_cost_sold])
+        sell_recs = self.sqldb.select(self.sell_table, [column_money_sold, column_cost_sold])
         stock_stats_obj["cs"] = self.get_cost_sold_stats(sell_recs)
+        stock_stats_obj["ms"] = self.get_money_sold_stats(sell_recs)
         stock_stats_obj['srct'] = (len(sell_recs) if sell_recs else 0) + (1 if self.cost_hold > 0 else 0) # sell record count
 
         return stock_stats_obj

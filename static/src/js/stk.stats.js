@@ -46,7 +46,7 @@ class StockStats {
         return tr;
     }
 
-    getStockStats(curAccount = true) {
+    getStockStats() {
         utils.get('stock', 'act=stats', function(rsp){
             stockHub.stockStats.statsJson = JSON.parse(rsp);
             stockHub.stockStats.showStockStats();
@@ -58,18 +58,22 @@ class StockStats {
             return;
         };
 
-        var cost = 0, ewh = 0, cs = 0, acs = 0, earned = 0;
+        var cost = 0, ewh = 0, cs = 0, ms = 0, earned = 0;
         for (var i in this.statsJson) {
+            var code = i;
+            if (stockRtData[code] && stockRtData[code].rtprice) {
+                this.statsJson[i].ewh = parseFloat((all_stocks[code].ptn * (stockRtData[code].rtprice - all_stocks[code].avp)).toFixed(2));
+            } else {
+                this.statsJson[i].ewh = 0;
+            }
             cost += this.statsJson[i].cost;
             ewh += this.statsJson[i].ewh;
             cs += this.statsJson[i].cs;
-            acs += this.statsJson[i].acs;
-            this.statsJson[i].earned = this.statsJson[i].acs - this.statsJson[i].cs + this.statsJson[i].ewh;
-            this.statsJson[i].perDayEarned = this.statsJson[i].earned / this.statsJson[i].hds;
+            ms += this.statsJson[i].ms;
+            this.statsJson[i].earned = this.statsJson[i].ms - this.statsJson[i].cs + this.statsJson[i].ewh;
             earned += this.statsJson[i].earned;
             this.statsJson[i].perTimeCostSold = (this.statsJson[i].cost + this.statsJson[i].cs) / this.statsJson[i].srct
             this.statsJson[i].earnedRate = this.statsJson[i].earned / (this.statsJson[i].cost + this.statsJson[i].cs);
-            this.statsJson[i].perDayEarnedRate = this.statsJson[i].earnedRate / this.statsJson[i].hds;
         };
         
         if (!this.statsTable) {
@@ -80,25 +84,22 @@ class StockStats {
         
         utils.deleteAllRows(this.statsTable)
 
-        this.statsTable.appendChild(this.createSpanHeaders({'name':'名称', row:2}, {'name':'持有信息', col:3}, {'name':'售出信息', col:4}, {'name':'收益', col:2}, {'name':'收益率', col:3}));
-        this.statsTable.appendChild(this.createHeaders('成本', '收益', '天数', '总成本', '总额', '次数', '次均', '总', '日均', '次均(%)', '标准(%)', '日均(‱)'));
+        this.statsTable.appendChild(this.createSpanHeaders({'name':'名称', row:2}, {'name':'持有信息', col:2}, {'name':'售出信息', col:4}, {'name':'收益'}, {'name':'收益率', col:2}));
+        this.statsTable.appendChild(this.createHeaders('成本', '收益', '总成本', '总额', '次数', '次均', '总', '次均(%)', '标准(%)'));
         for (var i in this.statsJson) {
             this.statsTable.appendChild(utils.createColsRow(
                 this.statsJson[i].name,
                 this.statsJson[i].cost,
                 this.statsJson[i].ewh,
-                this.statsJson[i].hds,
                 this.statsJson[i].cs,
-                parseFloat(this.statsJson[i].acs.toFixed(2)),
+                parseFloat(this.statsJson[i].ms.toFixed(2)),
                 this.statsJson[i].srct,
                 parseFloat(this.statsJson[i].perTimeCostSold.toFixed(2)),
                 parseFloat(this.statsJson[i].earned.toFixed(2)),
-                parseFloat(this.statsJson[i].perDayEarned.toFixed(2)),
                 parseFloat((this.statsJson[i].earnedRate * 100).toFixed(2)),
-                parseFloat((this.statsJson[i].earnedRate * this.statsJson[i].srct * 100).toFixed(2)),
-                parseFloat((this.statsJson[i].perDayEarnedRate * 10000).toFixed(2))));
+                parseFloat((this.statsJson[i].earnedRate * this.statsJson[i].srct * 100).toFixed(2))));
         };
-        this.lastRow = utils.createColsRow('总计', cost, ewh.toFixed(2), '-', cs, acs.toFixed(2), '-', '-', earned.toFixed(2), '-', (100 * earned / (cost + cs)).toFixed(2), '-', '-');
+        this.lastRow = utils.createColsRow('总计', cost, ewh.toFixed(2), cs, ms.toFixed(2), '-', '-', earned.toFixed(2), (100 * earned / (cost + cs)).toFixed(2), '-');
         this.statsTable.appendChild(this.lastRow);
     }
 

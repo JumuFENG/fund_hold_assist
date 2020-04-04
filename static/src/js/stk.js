@@ -378,7 +378,7 @@ class StockHub {
         if (!this.stockStats) {
             this.stockStats = new StockStats();
             this.stockStats.createStatsPage();
-            this.stockStats.getFundStats();
+            this.stockStats.getStockStats();
         };
 
         this.hide();
