@@ -174,11 +174,12 @@ class PlanChart {
         this.buy0price = this.latestPrice;
         this.buy0Cost = null;
         if (this.buytable && this.buytable.length > 0) {
+            var maxPrice = 0;
             for (var i = 0; i < this.buytable.length; i++) {
-                if (this.buytable[i].sold == 0) {
+                if (this.buytable[i].sold == 0 && this.buytable[i].price > maxPrice) {
+                    maxPrice = this.buytable[i].price;
                     this.buy0price = this.buytable[i].price;
                     this.buy0Cost = this.buytable[i].cost;
-                    break;
                 }
             };
         } else if (all_stocks[this.code].sell_table && all_stocks[this.code].sell_table.length > 0) {
@@ -241,11 +242,29 @@ class PlanChart {
         };
 
         if (this.latestPrice != null) {
-            ticks.push(this.latestPrice);
-            ticks.sort(function(l,g) {
-                return l - g;
-            });
+            var delta = this.buy0price * gridBuyRate * 0.1;
+            var added = false;
+            for (var i = 0; i < ticks.length; i++) {
+                if (this.latestPrice > ticks[i]) {
+                    ticks.splice(i, 0, this.latestPrice);
+                    added = true;
+                    break;
+                };
+            };
+            if (!added) {
+                ticks.push(this.latestPrice);
+            };
+
+            for (var i = 0; i < ticks.length - 1; i++) {
+                if (ticks[i] - ticks[i + 1] < delta) {
+                    ticks.splice(ticks[i] == this.latestPrice ? i + 1 : i, 1);
+                };
+            };
         };
+
+        ticks.sort(function(l,g) {
+            return l - g;
+        });
 
         this.ticks = ticks;
     }
@@ -312,7 +331,7 @@ class PlanChart {
 
         if (this.buy0Cost) {
             for (var i = 0; i < this.ticks.length; i++) {
-                if (this.ticks[i] >= this.buy0price) {
+                if (this.ticks[i] >= this.buy0price || this.ticks[i] == this.latestPrice) {
                     continue;
                 };
                 rows.push([100 * parseInt(this.buy0Cost/(100 * this.ticks[i])), this.ticks[i], 'point {fill-color: #FFD39B;}']);

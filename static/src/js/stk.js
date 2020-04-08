@@ -122,7 +122,7 @@ class StockSummay {
         utils.deleteAllRows(this.dtrtable);
         var sell_table = all_stocks[this.code].sell_table;
         if (sell_table && sell_table.length > 0) {
-            this.dtrtable.appendChild(utils.createHeaders('roll in', '份额', '最高成交价'));
+            this.dtrtable.appendChild(utils.createHeaders('roll in', '份额', '成交价'));
             for (var i = 0; i < sell_table.length; i++) {
                 var checkDate = document.createElement('input');
                 checkDate.type = 'checkbox';
