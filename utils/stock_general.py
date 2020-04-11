@@ -11,11 +11,12 @@ class StockGeneral():
         self.sqldb = sqldb
         self.code = None
         self.name = None
+        self.short_term_rate = None
 
         generals = self.sqldb.select(gl_all_stocks_info_table, "*", "%s = '%s'" % (column_code, code))
         if generals:
             (id, self.code, self.name, self.short_term_rate), = generals
-        if not self.short_term_rate:
+        if self.short_term_rate is None:
             self.short_term_rate = 0.02
 
     def get_stock_hist_data(self):
