@@ -39,6 +39,8 @@ column_rating_cx3 = "晨星3年"
 column_rating_cx5 = "晨星5年"
 column_qdii = "qdii"
 column_tracking_index = "track_index"
+column_short_name = '简称'
+column_assets_scale = '资产规模'
 
 column_table_history = "history_db_table"
 column_table_history_realtime = "history_rt_table"

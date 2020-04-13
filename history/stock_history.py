@@ -7,6 +7,7 @@ import html
 import os
 import re
 import time
+import json
 from datetime import datetime, timedelta
 from decimal import Decimal
 from bs4 import BeautifulSoup
@@ -44,7 +45,7 @@ class AllStocks():
     def loadInfo(self, code):
         url = "http://quote.eastmoney.com/" + code.lower() + ".html"
         c = self.getRequest(url)
-        if not c:
+        if c is None:
             print("getRequest", url, "failed")
             return
 
@@ -55,8 +56,89 @@ class AllStocks():
 
         code = code.upper()
         name = hdr2.get_text()
-        stockinfo = self.sqldb.select(gl_all_stocks_info_table, "*", "%s = '%s'" % (column_code, code))
-        if stockinfo:
-            self.sqldb.update(gl_all_stocks_info_table, {column_name: name}, {column_code: code})
+        self.updateStockCol(code, column_name, name)
+
+    def updateStockCol(self, code, col, val):
+        stockinfo = self.sqldb.select(gl_all_stocks_info_table, [column_code, col], "%s = '%s'" % (column_code, code))
+        if stockinfo is None or len(stockinfo) == 0:
+            self.sqldb.insert(gl_all_stocks_info_table, {col: val, column_code: code})
         else:
-            self.sqldb.insert(gl_all_stocks_info_table, {column_name: name, column_code: code})
+            (c, l), = stockinfo
+            if l == val:
+                return
+            self.sqldb.update(gl_all_stocks_info_table, {col: val}, {column_code: code})
+
+    def getTimeStamp(self):
+        curTime = datetime.now()
+        stamp = time.mktime(curTime.timetuple()) * 1000 + curTime.microsecond
+        return int(stamp)
+
+    def requsetEtfListData(self, pz):
+        # data src: http://quote.eastmoney.com/center/gridlist.html#fund_etf
+        timestamp = self.getTimeStamp()
+        cbstr = 'etfcb_' + str(timestamp)
+        etfListUrl = 'http://36.push2.eastmoney.com/api/qt/clist/get?cb=' + cbstr + '&pn=1&pz=' + str(pz) + '&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:MK0021,b:MK0022,b:MK0023,b:MK0024&fields=f12,f13,f14&_=' + str(timestamp + 1)
+        c = self.getRequest(etfListUrl)
+        if c is None:
+            print("get etf list failed")
+            return
+
+        etflist = json.loads(c[len(cbstr) + 1 : -2])
+        if etflist is None:
+            print('load ETF Data wrong!')
+            return
+
+        if etflist['data']['total'] > pz:
+            print('total more than', pz, 'retry')
+            return requsetEtfListData(etflist['data']['total'])
+
+        return etflist['data']['diff']
+
+    def loadAllETFFunds(self):
+        self.check_table_column(column_type, 'varchar(20) DEFAULT NULL')
+
+        etflist = self.requsetEtfListData(1000)
+        if etflist is None:
+            return
+
+        etfFundCodes = []
+        for e in etflist:
+            tp = e['f13']
+            code = ('SH' if e['f13'] == 1 else 'SZ') + e['f12']
+            name = e['f14']
+            etfFundCodes.append(code)
+            self.updateStockCol(code, column_name, name)
+            self.updateStockCol(code, column_type, 'ETF')
+
+        self.check_table_column(column_short_name, 'varchar(255) DEFAULT NULL')
+        self.check_table_column(column_assets_scale, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(column_setup_date, 'varchar(20) DEFAULT NULL')
+        for c in etfFundCodes:
+            self.loadEtfInfo(c)
+
+    def loadEtfInfo(self, code):
+        ucode = code
+        if ucode.startswith('SZ') or ucode.startswith('SH'):
+            ucode = ucode[2:]
+        url = 'http://fund.eastmoney.com/f10/' + ucode + '.html'
+
+        c = self.getRequest(url)
+        if c is None:
+            print("getRequest", url, "failed")
+            return
+
+        soup = BeautifulSoup(c, 'html.parser')
+        infoTable = soup.find('table', {'class':'info'})
+        if infoTable is None:
+            return
+
+        rows = infoTable.find_all('tr')
+        tr0 = rows[0].find_all('td')
+        short_name = tr0[1].get_text()
+        tr2 = rows[2].find_all('td')
+        setup_date = tr2[1].get_text().split()[0]
+        tr3 = rows[3].find_all('td')
+        assets_scale = tr3[0].get_text().split('（')[0]
+        self.updateStockCol(code, column_setup_date, setup_date)
+        self.updateStockCol(code, column_assets_scale, assets_scale)
+        self.updateStockCol(code, column_short_name, short_name)

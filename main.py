@@ -87,3 +87,5 @@ if __name__ == '__main__':
     #af.loadMorningStarRatingInfo()
     #af.get_fund_name("000001")
     #print(af.get_fund_url("960042"))
+    astk = AllStocks(user.stock_center_db())
+    astk.loadAllETFFunds()
