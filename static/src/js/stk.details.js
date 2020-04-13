@@ -355,41 +355,6 @@ class StockSellDetail {
         this.bonusArea = null;
     }
 
-    deleteRollin(deleteId) {
-        var rollinBox = document.getElementById(deleteId);
-        var queries = new FormData();
-        var index = rollinBox.getAttribute('index');
-        queries.append("code", this.code);
-        queries.append("id", index);
-        queries.append("act", 'fixrollin');
-        queries.append('rolledin', rollinBox.getAttribute('total'));
-        utils.post('stock', queries, function(){
-            trade.fetchSellData(stockHub.detailPage.selldetail.code, function(){
-                stockHub.updateStockSummary();
-                stockHub.detailPage.selldetail.updateSingleSellDetails();
-            });
-        });
-    }
-    
-    createRollinCell(to_rollin, total, val) {
-        if (to_rollin == 0) {
-            return 0;
-        }
-        
-        var rollinBox = document.createElement('div');
-        var deleteBtn = document.createElement("a");
-        deleteBtn.textContent = '删除';
-        var deleteId = 'delete_rollin_' + this.code + '_' + val;
-        deleteBtn.href = 'javascript:stockHub.detailPage.selldetail.deleteRollin("' + deleteId + '")';
-        
-        rollinBox.id = deleteId;
-        rollinBox.setAttribute('index', val);
-        rollinBox.setAttribute('total', total);
-        rollinBox.appendChild(document.createTextNode(to_rollin));
-        rollinBox.appendChild(deleteBtn);
-        return rollinBox;
-    }
-
     reloadSingleSellTable() {
         if (!stockHub.detailPage.code) {
             return;
@@ -413,7 +378,7 @@ class StockSellDetail {
             this.container.appendChild(this.bonusContainer);
         };
         
-        this.sellTable.appendChild(utils.createHeaders('卖出日期', '序号', '成本', '份额', '成交价', '收益', '剩余份额', ''));
+        this.sellTable.appendChild(utils.createHeaders('卖出日期', '序号', '成本', '份额', '成交价', '收益', ''));
         var sellrecs = all_stocks[this.code].sell_table;
         var sum_cost = 0, sum_portion = 0, sum_earned = 0;
         for (var i = 0; i < sellrecs.length; i++) {
@@ -424,7 +389,6 @@ class StockSellDetail {
             var selldate = utils.date_by_delta(sellrecs[i].date);
             var portion_cell = new EditableCell(sellrecs[i].ptn);
             var price_cell = new EditableCell(sellrecs[i].price);
-            var rollin_cell = this.createRollinCell(sellrecs[i].tri, sellrecs[i].ptn, sellrecs[i].id);
             var op_cell = document.createElement('button');
             op_cell.textContent = '修改';
             op_cell.bindPortion = portion_cell;
@@ -446,10 +410,10 @@ class StockSellDetail {
                     e.target.textContent = '修改';
                 }
             }
-            this.sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].id, sellrecs[i].cost, sellrecs[i].ptn == 0 ? '分红' : portion_cell.container, price_cell.container, earned, rollin_cell, op_cell));
+            this.sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].id, sellrecs[i].cost, sellrecs[i].ptn == 0 ? '分红' : portion_cell.container, price_cell.container, earned, op_cell));
         };
         if (sellrecs.length > 0) {
-            this.sellTable.appendChild(utils.createColsRow('总计', '', sum_cost, sum_portion, parseFloat((sum_cost/sum_portion).toFixed(4)), sum_earned, '', ''));
+            this.sellTable.appendChild(utils.createColsRow('总计', '', sum_cost, sum_portion, parseFloat((sum_cost/sum_portion).toFixed(4)), sum_earned, ''));
         };
     }
 

@@ -73,7 +73,7 @@ class StockSummay {
         if (this.detail.style.display == "none") {
             this.detail.style.display = 'block';
             this.refreshHoldDetail();
-            stockHub.chartWrapper.setParent(this.detail, this.dtrtable, this.dtbtable);
+            stockHub.chartWrapper.setParent(this.detail, this.dtbtable);
             stockHub.chartWrapper.code = this.code;
             stockHub.chartWrapper.show();
         } else {
@@ -109,32 +109,8 @@ class StockSummay {
             this.hdpercentage.className = clsnm;
         };
 
-        this.updateRollinTable();
         this.updateBuyTable();
         stockHub.chartWrapper.tradeOption.updateTradePanel();
-    }
-
-    updateRollinTable() {
-        if (!this.dtrtable) {
-            return;
-        };
-
-        utils.deleteAllRows(this.dtrtable);
-        var sell_table = all_stocks[this.code].sell_table;
-        if (sell_table && sell_table.length > 0) {
-            this.dtrtable.appendChild(utils.createHeaders('roll in', '份额', '成交价'));
-            for (var i = 0; i < sell_table.length; i++) {
-                var checkDate = document.createElement('input');
-                checkDate.type = 'checkbox';
-                checkDate.name = 'to_rollin_check_' + this.code;
-                checkDate.value = sell_table[i].id;
-                checkDate.checked = false;
-                var checkDiv = document.createElement('div');
-                checkDiv.appendChild(checkDate);
-                checkDiv.appendChild(document.createTextNode(utils.date_by_delta(sell_table[i].date)));
-                this.dtrtable.appendChild(utils.createColsRow(checkDiv, sell_table[i].ptn, sell_table[i].price));
-            };
-        };
     }
 
     createBuyRow(rText, dp, checked) {
