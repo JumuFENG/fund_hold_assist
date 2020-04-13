@@ -304,7 +304,7 @@ class UserStock():
             max_price_to_buy = np if np else None
             if to_rollin > 0 and not max_price_to_buy:
                 max_price_to_buy = round(pr * (1 - sg.short_term_rate), 4)
-            values.append({'id':i, 'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'cost': c, 'tri': to_rollin, 'mptb': max_price_to_buy})
+            values.append({'id':i, 'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'cost': c})
         return values
 
     def get_cost_sold_stats(self, sell_recs):
