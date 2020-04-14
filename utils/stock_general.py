@@ -9,13 +9,13 @@ class StockGeneral():
     """
     def __init__(self, sqldb, code):
         self.sqldb = sqldb
-        self.code = None
+        self.code = code
         self.name = None
         self.short_term_rate = None
 
-        generals = self.sqldb.select(gl_all_stocks_info_table, "*", "%s = '%s'" % (column_code, code))
+        generals = self.sqldb.select(gl_all_stocks_info_table, [column_name, column_shortterm_rate], "%s = '%s'" % (column_code, code))
         if generals:
-            (id, self.code, self.name, self.short_term_rate), = generals
+            (self.name, self.short_term_rate), = generals
         if self.short_term_rate is None:
             self.short_term_rate = 0.02
 

@@ -111,13 +111,13 @@ class AllStocks():
             tp = e['f13']
             code = ('SH' if e['f13'] == 1 else 'SZ') + e['f12']
             name = e['f14']
-            etfInfo = self.getEtfInfo(c)
+            etfInfo = self.getEtfInfo(code)
             if etfInfo is None:
                 self.updateStockCol(code, column_name, name)
                 self.updateStockCol(code, column_type, 'ETF')
                 continue
             (short_name, setup_date, assets_scale) = etfInfo
-            allEtfInfo.append([name, 'ETF', short_name, setup_date, assets_scale, c])
+            allEtfInfo.append([name, 'ETF', short_name, setup_date, assets_scale, code])
         self.sqldb.insertUpdateMany(gl_all_stocks_info_table, attrs, conds, allEtfInfo)
 
     def getEtfInfo(self, code):
