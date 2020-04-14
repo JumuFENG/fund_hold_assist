@@ -96,27 +96,31 @@ class AllStocks():
 
     def loadAllETFFunds(self):
         self.check_table_column(column_type, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(column_short_name, 'varchar(255) DEFAULT NULL')
+        self.check_table_column(column_assets_scale, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(column_setup_date, 'varchar(20) DEFAULT NULL')
 
         etflist = self.requsetEtfListData(1000)
         if etflist is None:
             return
 
-        etfFundCodes = []
+        attrs = [column_name, column_type, column_short_name, column_setup_date, column_assets_scale]
+        conds = [column_code]
+        allEtfInfo = []
         for e in etflist:
             tp = e['f13']
             code = ('SH' if e['f13'] == 1 else 'SZ') + e['f12']
             name = e['f14']
-            etfFundCodes.append(code)
-            self.updateStockCol(code, column_name, name)
-            self.updateStockCol(code, column_type, 'ETF')
+            etfInfo = self.getEtfInfo(c)
+            if etfInfo is None:
+                self.updateStockCol(code, column_name, name)
+                self.updateStockCol(code, column_type, 'ETF')
+                continue
+            (short_name, setup_date, assets_scale) = etfInfo
+            allEtfInfo.append([name, 'ETF', short_name, setup_date, assets_scale, c])
+        self.sqldb.insertUpdateMany(gl_all_stocks_info_table, attrs, conds, allEtfInfo)
 
-        self.check_table_column(column_short_name, 'varchar(255) DEFAULT NULL')
-        self.check_table_column(column_assets_scale, 'varchar(20) DEFAULT NULL')
-        self.check_table_column(column_setup_date, 'varchar(20) DEFAULT NULL')
-        for c in etfFundCodes:
-            self.loadEtfInfo(c)
-
-    def loadEtfInfo(self, code):
+    def getEtfInfo(self, code):
         ucode = code
         if ucode.startswith('SZ') or ucode.startswith('SH'):
             ucode = ucode[2:]
@@ -139,6 +143,14 @@ class AllStocks():
         setup_date = tr2[1].get_text().split()[0]
         tr3 = rows[3].find_all('td')
         assets_scale = tr3[0].get_text().split('（')[0]
+        return (short_name, setup_date, assets_scale)
+
+    def loadEtfInfo(self, code):
+        etfInfo = self.getEtfInfo(code)
+        if etfInfo is None:
+            return
+
+        (short_name, setup_date, assets_scale) = etfInfo
         self.updateStockCol(code, column_setup_date, setup_date)
         self.updateStockCol(code, column_assets_scale, assets_scale)
         self.updateStockCol(code, column_short_name, short_name)

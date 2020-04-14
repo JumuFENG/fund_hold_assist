@@ -240,6 +240,58 @@ class SqlHelper():
         #print(sql)
         return self.executeCommit(sql)
 
+    def updateMany(self, table, attrs, conkeys, values):
+        """更新多条数据, 有重复则
+            args：
+                tablename  ：表名字
+                attrs      ：属性键
+                conkeys      : 条件属性键
+                values     ：所有属性值
+
+            example：
+                table='test_mysqldb'
+                keys = ["name", "age"]
+                conkeys = ["id"]
+                values = [["liuqiao", "25", 101], ["liuqiao1", "26", 102], ["liuqiao2", "27", 103], ["liuqiao3", "28", 104]]
+                mydb.updateMany(table, conkeys, keys, values)
+        """
+        attrs_list = [a + '=(%s)' for a in attrs]
+        attrs_sql = ','.join(attrs_list)
+        cond_list = [c + '=(%s)' for c in conkeys]
+        cond_sql = ' and '.join(cond_list)
+        sql = "UPDATE %s SET %s where %s" % (table, attrs_sql, cond_sql)
+        #print(sql)
+        try:
+            for i in range(0,len(values),20000):
+                self.cur.executemany(sql, values[i:i+20000])
+                self.con.commit()
+        except pymysql.Error as e:
+            self.con.rollback()
+            error = 'insertUpdateMany executemany failed! ERROR (%s): %s' %(e.args[0],e.args[1])
+            print(error)
+
+    def insertUpdateMany(self, table, attrs, conkeys, values):
+        """插入多条数据, 有重复则更新
+        """
+        values_new = []
+        values_exist = []
+        for v in values:
+            cond_list = []
+            for i in range(0, len(conkeys)):
+                cond_list.append('%s = \'%s\'' % (conkeys[i], str(v[len(attrs) + i])))
+            cond_sql = ' or '.join(cond_list)
+            selectrows = self.select(table, conkeys, conds = cond_sql)
+            if selectrows is None or len(selectrows) == 0:
+                values_new.append(v)
+            else:
+                values_exist.append(v)
+
+        if len(values_new) > 0:
+            self.insertMany(table, attrs + conkeys, values_new)
+
+        if len(values_exist) > 0:
+            self.updateMany(table, attrs, conkeys, values_exist)
+
     def dropTable(self, tablename):
         """删除数据库表
 
