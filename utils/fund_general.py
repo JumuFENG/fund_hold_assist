@@ -9,6 +9,7 @@ class FundGeneral():
     """
     def __init__(self, sqldb, code):
         self.sqldb = sqldb
+        self.histdb = None
 
         fgs = self.sqldb.select(gl_all_funds_info_table, "*", "%s = '%s'" % (column_code, code))
         fgs, = fgs
@@ -36,21 +37,29 @@ class FundGeneral():
     def netvalue_by_date(self, date):
         if not date:
             return
-        netvalue = self.sqldb.select(self.history_table, column_net_value, "%s = '%s'" % (column_date, date))
+        sqldb = self.get_hist_db()
+        netvalue = sqldb.select(self.history_table, column_net_value, "%s = '%s'" % (column_date, date))
         if netvalue:
             (netvalue,), = netvalue
             return netvalue
 
     def latest_netvalue(self):
-        history_dvs = self.sqldb.select(self.history_table, [column_date, column_net_value], order = " ORDER BY %s ASC" % column_date)
+        sqldb = self.get_hist_db()
+        history_dvs = sqldb.select(self.history_table, [column_date, column_net_value], order = " ORDER BY %s ASC" % column_date)
         if not history_dvs:
             return 0;
 
         (d, netvalue) = history_dvs[-1]
         return netvalue
 
+    def get_hist_db(self):
+        if self.histdb is None:
+            self.histdb = SqlHelper(password = db_pwd, database = "history_db")
+        return self.histdb
+
     def get_fund_hist_data(self):
-        fund_his = self.sqldb.select(self.history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date)
+        sqldb = self.get_hist_db()
+        fund_his = sqldb.select(self.history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date)
         if not fund_his:
             return
         fund_his_data = ('date', self.code),

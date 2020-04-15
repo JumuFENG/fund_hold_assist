@@ -80,8 +80,9 @@ class UserFund():
         if not fg:
             self.sqldb.insert(gl_all_funds_info_table, {column_code: self.code})
 
-    def last_day_earned(self, history_table):
-        history_dvs = self.sqldb.select(history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date);
+    def last_day_earned(self, fg):
+        sqldb = fg.get_hist_db()
+        history_dvs = sqldb.select(history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date);
         if not history_dvs:
             return 0
 
@@ -398,7 +399,7 @@ class UserFund():
                     self.confirm_sell_rec(d)
 
     def update_history(self):
-        fh = FundHistoryDataDownloader(self.sqldb)
+        fh = FundHistoryDataDownloader()
         fh.fundHistoryTillToday(self.code)
         self.confirm_buy_sell()
 
@@ -426,7 +427,7 @@ class UserFund():
         fund_json_obj["cost"] = self.cost_hold
         fund_json_obj["avp"] = self.average # average price
         fund_json_obj["lnv"] = fg.latest_netvalue() # latest_netvalue
-        fund_json_obj["lde"] = self.last_day_earned(fg.history_table) # last_day_earned
+        fund_json_obj["lde"] = self.last_day_earned(fg) # last_day_earned
         fund_json_obj["ewh"] = round((float(fg.latest_netvalue()) - float(self.average)) * float(self.portion_hold), 2) # earned_while_holding
 
         if fg.index_code:

@@ -57,7 +57,7 @@ class DailyUpdater():
 
     def download_all_fund_history(self, code):
         print("try to update fund history for:", code)
-        fh = FundHistoryDataDownloader(self.sqldb)
+        fh = FundHistoryDataDownloader()
         fh.fundHistoryTillToday(code)
 
     def download_all_gold_history(self, code):
