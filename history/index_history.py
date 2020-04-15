@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 from utils import *
+from history import *
 import requests
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -15,8 +16,12 @@ class AllIndexes():
     """
     manage index info table
     """
-    def __init__(self, sqldb):
-        self.sqldb = sqldb
+    def __init__(self):
+        self.sqldb = SqlHelper(password = db_pwd, database = "fund_center")
+        if not self.sqldb.isExistTable(gl_index_info_table):
+            attrs = {column_code:'varchar(20) DEFAULT NULL', column_name:"varchar(255) DEFAULT NULL"}
+            constraint = 'PRIMARY KEY(`id`)'
+            self.sqldb.creatTable(gl_index_info_table, attrs, constraint)
 
     def getRequest(self, url):
         headers = {'Host': 'fund.eastmoney.com',
@@ -47,23 +52,19 @@ class AllIndexes():
 
         name = hdr2.get_text()
         idxinfo = self.sqldb.select(gl_index_info_table, "*", "%s = '%s'" % (column_code, code))
-        if idxinfo:
+        if idxinfo is not None and len(idxinfo) > 0:
             self.sqldb.update(gl_index_info_table, {column_name: name}, {column_code: code})
         else:
-            self.sqldb.insert(gl_index_info_table, {column_name: name, column_code: code, column_table_history: "i_his_" + self.code, column_table_full_history: "i_ful_his_" + self.code})
-        
+            self.sqldb.insert(gl_index_info_table, {column_name: name, column_code: code,})
 
-class Index_history():
+class Index_history(HistoryDowloaderBase):
     """
     get index history data
     """
-    def __init__(self, sqldb):
-        self.sqldb = sqldb
-
     def setIndexCode(self, code):
         self.code = code
-
-        ig = IndexGeneral(self.sqldb, self.code)
+        allindex = AllIndexes()
+        ig = IndexGeneral(allindex.sqldb, self.code)
         self.name = ig.name
         self.index_db_table = ig.histable
         self.index_full_his_db = ig.fullhistable

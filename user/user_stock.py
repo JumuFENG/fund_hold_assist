@@ -72,7 +72,7 @@ class UserStock():
             self.sqldb.addColumn(self.sell_table, column_roll_in_value, 'double(16,4) DEFAULT NULL')
 
     def check_exist_in_allstocks(self):
-        stocks = AllStocks(self.sqldb)
+        stocks = AllStocks()
         sg = StockGeneral(self.sqldb, self.code)
         if not sg.name:
             stocks.loadInfo(self.code)

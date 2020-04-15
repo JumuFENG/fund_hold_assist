@@ -62,13 +62,13 @@ class DailyUpdater():
 
     def download_all_gold_history(self, code):
         print("try to update gold history for:", code)
-        gh = Gold_history(self.sqldb)
+        gh = Gold_history()
         gh.getJijinhaoHistory(code)
         gh.getJijinhaoRtHistory(code)
 
     def download_all_index_history(self, code):
         print("try to update index history for:", code)
-        ih = Index_history(self.sqldb)
+        ih = Index_history()
         ih.indexHistoryTillToday(code)
         ih.getHistoryFrom163(code)
         ih.getHistoryFromSohu(code)

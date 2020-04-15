@@ -2,19 +2,30 @@
 # -*- coding:utf-8 -*-
 
 from utils import *
+from history import *
 import requests
 from datetime import datetime, timedelta
 import time
 from decimal import Decimal
 import json
 
-class Gold_history():
+class AllGolds():
+    def __init__(self):
+        self.sqldb = SqlHelper(password = db_pwd, database = "fund_center")
+        if not self.sqldb.isExistTable(gl_gold_info_table):
+            attrs = {column_code:'varchar(20) DEFAULT NULL', column_name:"varchar(255) DEFAULT NULL"}
+            constraint = 'PRIMARY KEY(`id`)'
+            self.sqldb.creatTable(gl_gold_info_table, attrs, constraint)
+
+    def check_table_column(self, col, tp):
+        if not self.sqldb.isExistTableColumn(gl_gold_info_table, col):
+            self.sqldb.addColumn(gl_gold_info_table, col, tp)
+
+
+class Gold_history(HistoryDowloaderBase):
     """
     get gold history from dyhjw
     """
-    def __init__(self, sqldb):
-        self.sqldb = sqldb
-
     def getRequest(self, url, params=None, proxies=None):
         rsp = requests.get(url, params=params, proxies=proxies)
         rsp.raise_for_status()
@@ -34,16 +45,17 @@ class Gold_history():
 
     def setGoldCode(self, code):
         self.code = code
-        tbl_mgr = TableManager(self.sqldb, gl_gold_info_table, self.code)
+        allgold = AllGolds()
 
-        self.name = tbl_mgr.GetTableColumnInfo(column_name, gold_code_instid[self.code])
-        self.gold_history_table = tbl_mgr.GetTableColumnInfo(column_table_history, "g_his_" + self.code)
-        self.gold_history_table_30 = self.gold_history_table + "_30"
-        self.gold_rt_history_table = tbl_mgr.GetTableColumnInfo(column_table_history_realtime, "g_rt_his_" + self.code)
-        self.goldk_history_table = tbl_mgr.GetTableColumnInfo(column_table_history_goldk, "g_k_his_" + self.code)
-        self.goldkweek_history_table = tbl_mgr.GetTableColumnInfo(column_table_history_goldkweek, "g_kweek_his_" + self.code)
-        self.goldkmonth_history_table = tbl_mgr.GetTableColumnInfo(column_table_history_goldkmonth, "g_kmonth_his_" + self.code)
-        
+        gg = GoldGeneral(allgold.sqldb, self.code)
+        self.name = gg.name
+        self.gold_history_table = gg.gold_history_table
+        self.gold_history_table_30 = gg.gold_history_table_30
+        self.gold_rt_history_table = gg.gold_rt_history_table
+        self.goldk_history_table = gg.goldk_history_table
+        self.goldkweek_history_table = gg.goldkweek_history_table
+        self.goldkmonth_history_table = gg.goldkmonth_history_table
+
     def getDataRowsNeedUpdate(self, code, table, rowsPerDay):
         if not self.sqldb.isExistTable(table):
             print("history db table not set for", self.code, self.name)

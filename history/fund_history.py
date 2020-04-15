@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 from utils import *
+from history import *
 import requests
 import html
 import os
@@ -14,8 +15,8 @@ from selenium import webdriver
 
 class AllFunds():
     """get all funds' general info and save to db table allfund"""
-    def __init__(self, sqldb):
-        self.sqldb = sqldb
+    def __init__(self):
+        self.sqldb = SqlHelper(password = db_pwd, database = "fund_center")
         if not self.sqldb.isExistTable(gl_all_funds_info_table):
             attrs = {column_code:'varchar(20) DEFAULT NULL', column_name:"varchar(255) DEFAULT NULL",  column_url:"varchar(255) DEFAULT NULL"}
             constraint = 'PRIMARY KEY(`id`)'
@@ -300,17 +301,14 @@ class AllFunds():
     def updateTrackIndex(self, code, index):
         self.sqldb.update(gl_all_funds_info_table, {column_tracking_index: index}, {column_code: code})
 
-class FundHistoryDataDownloader():
+class FundHistoryDataDownloader(HistoryDowloaderBase):
     """
     get all the history data a fund, or update the data.
     """
-    def __init__(self, sqldb):
-        self.sqldb = sqldb
-        
     def setFundCode(self, code):
         self.code = code
         
-        allfund = AllFunds(self.sqldb)
+        allfund = AllFunds()
         self.name = allfund.get_fund_name(self.code)
         self.fund_db_table = allfund.get_fund_history_table(self.code)
 
@@ -373,7 +371,7 @@ class FundHistoryDataDownloader():
             self.addFundData()
 
         if sDate == "" and eDate == "":
-            af = AllFunds(self.sqldb)
+            af = AllFunds()
             af.loadInfo(code)
 
 

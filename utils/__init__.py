@@ -8,3 +8,4 @@ from utils.holiday_helper import *
 from utils.fund_general import *
 from utils.index_general import *
 from utils.stock_general import *
+from utils.gold_general import *

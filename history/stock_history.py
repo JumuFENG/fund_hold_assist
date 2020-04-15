@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 from utils import *
+from history import *
 import requests
 import html
 import os
@@ -14,8 +15,8 @@ from bs4 import BeautifulSoup
 
 class AllStocks():
     """get all stocks' general info and save to db table allstoks"""
-    def __init__(self, sqldb):
-        self.sqldb = sqldb
+    def __init__(self):
+        self.sqldb = SqlHelper(password = db_pwd, database = "stock_center")
 
         if not self.sqldb.isExistTable(gl_all_stocks_info_table):
             attrs = {column_code:'varchar(20) DEFAULT NULL', column_name:"varchar(255) DEFAULT NULL"}

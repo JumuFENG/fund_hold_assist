@@ -437,14 +437,14 @@ class UserFund():
         return fund_json_obj
 
     def update_tracking_index(self, index_code):
-        af = AllFunds(self.sqldb)
+        af = AllFunds()
         af.updateTrackIndex(self.code, index_code)
 
         ig = IndexGeneral(self.sqldb, index_code)
         if not ig.name:
-            ai = AllIndexes(self.sqldb)
+            ai = AllIndexes()
             ai.loadInfo(index_code)
-            ih = Index_history(self.sqldb)
+            ih = Index_history()
             ih.indexHistoryTillToday(index_code)
             ih.getHistoryFromSohu(index_code)
 

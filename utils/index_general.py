@@ -9,12 +9,14 @@ class IndexGeneral():
     """
     def __init__(self, sqldb, code):
         self.sqldb = sqldb
-        self.code = None
+        self.code = code
         self.name = None
 
         generals = self.sqldb.select(gl_index_info_table, "*", "%s = '%s'" % (column_code, code))
-        if generals:
-            (id, self.name, self.code, self.histable, self.fullhistable), = generals
+        if generals is not None and len(generals) > 0:
+            (id, self.code, self.name), = generals
+        self.fullhistable = "i_ful_his_" + self.code
+        self.histable = "i_his_" + self.code
 
     def get_index_hist_data(self):
         index_hist_data = ("date", "sz" + self.code),
