@@ -50,13 +50,13 @@ class TableCopy():
             print(totable, "already exists.")
             return
 
-        result = fromDb.select("information_schema.columns", ["column_name","column_type"], ["table_name = '%s'" % fromtable, "table_schema = '%s'" % fromDb.database], order=" ORDER BY ordinal_position ASC")
+        result = fromDb.select("information_schema.columns", ["column_name", "column_type", "column_default"], ["table_name = '%s'" % fromtable, "table_schema = '%s'" % fromDb.database], order=" ORDER BY ordinal_position ASC")
         headers = []
         attrs = {}
-        for (cnm, ctp) in result:
+        for (cnm, ctp, cdef) in result:
             if not cnm == 'id':
                 headers.append(cnm)
-                attrs[cnm] = ctp + ' DEFAULT NULL'
+                attrs[cnm] = ctp + ' DEFAULT ' + ('NULL' if cdef is None else cdef)
 
         constraint = 'PRIMARY KEY(`id`)'
         toDb.creatTable(totable, attrs, constraint)
@@ -72,38 +72,20 @@ class TableCopy():
             print(totable, "not exists. call CopyTo()")
             return
 
-        result = fromDb.select("information_schema.columns", ["column_name","column_type"], ["table_name = '%s'" % fromtable, "table_schema = '%s'" % fromDb.database], order=" ORDER BY ordinal_position ASC")
+        result = fromDb.select("information_schema.columns", ["column_name", "column_type", "column_default"], ["table_name = '%s'" % fromtable, "table_schema = '%s'" % fromDb.database], order=" ORDER BY ordinal_position ASC")
         colAdded = False
         headers = []
-        for (cnm, ctp) in result:
+        condkeys = []
+        for (cnm, ctp, cdef) in result:
             if not cnm == 'id':
                 headers.append(cnm)
                 if not toDb.isExistTableColumn(totable, cnm):
-                    toDb.addColumn(totable, cnm, ctp + ' DEFAULT NULL')
-                    colAdded = True
-        colAdded = True
-        if colAdded:
-            toIds = toDb.select(totable, 'id', order=" ORDER BY id ASC")
-            for x in toIds:
-                x, = x
-                val = fromDb.select(fromtable, headers, ["id = '%s'" % x])
-                if not val:
-                    continue
-                val, = val
-                if not val:
-                    continue
-                valObj = {}
-                for i in range(len(headers)):
-                    valObj[headers[i]] = str(val[i])
-                toDb.update(totable, valObj, {'id':str(x)})
+                    toDb.addColumn(totable, cnm, ctp + ' DEFAULT ' + ('NULL' if cdef is None else cdef))
+            else:
+                condkeys.append(cnm)
 
-        startId = toDb.select(totable, "max(id)")
-        if startId:
-            (startId,), = startId
-        if not startId:
-            startId = 0
-        valuesMore = fromDb.select(fromtable, headers, ["id > %d" % startId], order=" ORDER BY id ASC")
-        toDb.insertMany(totable, headers, valuesMore)
+        valuesMore = fromDb.select(fromtable, headers + condkeys, order=" ORDER BY id ASC")
+        toDb.insertUpdateMany(totable, headers, condkeys, valuesMore)
 
     def getTableHeaders(self, sqldb, tablename):
         result = sqldb.select("information_schema.columns", "column_name", ["table_name = '%s'" % tablename, "table_schema = '%s'" % sqldb.database], order=" ORDER BY ordinal_position ASC")
