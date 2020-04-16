@@ -373,13 +373,16 @@ class StockTrade {
         });
     }
 
-    sellStock(date, code, price, ids, cb) {
+    sellStock(date, code, price, ids, portion, cb) {
         var fd = new FormData();
         fd.append('act', 'sell');
         fd.append('code', code);
         fd.append('date', date);
         fd.append('price', price);
         fd.append('id', utils.combineid(ids));
+        if (portion != null) {
+            fd.append('ptn', portion);
+        };
 
         utils.post('stock', fd, function() {
             if (typeof(cb) === 'function') {

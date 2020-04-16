@@ -63,6 +63,7 @@ column_growth_rate = "growth_rate"
 column_cost = "cost"
 column_portion = "portion"
 column_soldout = "soldout"
+column_sold_portion = "soldptn"
 
 column_money_sold = "money_sold"
 column_cost_sold = "cost_sold"

@@ -20,31 +20,39 @@ class UserFund():
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.funds_table, attrs, constraint)
             self.sqldb.insert(self.funds_table, {column_code: self.code})
-            self.init_user_fund_in_db(user.id, self.funds_table)
-        else:
-            details = self.sqldb.select(self.funds_table, "*", "%s = '%s'" % (column_code, code))
-            if details:
-                if len(details[0]) == 9:
-                    (i, self.code, self.buy_table, self.sell_table, self.budget_table, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on), = details
-                else:
-                    self.init_user_fund_in_db(user.id, self.funds_table)
-            else:
-                self.sqldb.insert(self.funds_table, {column_code: self.code})
-                self.init_user_fund_in_db(user.id, self.funds_table)
 
-    def init_user_fund_in_db(self, id, tablename):
+        self.init_user_fund_in_db(user.id)
+
+    def check_table_column(self, tablename, col, tp):
+        if not self.sqldb.isExistTableColumn(tablename, col):
+            self.sqldb.addColumn(tablename, col, tp)
+
+    def init_user_fund_in_db(self, id):
+        self.check_table_column(self.funds_table, column_buy_table, 'varchar(64) DEFAULT NULL')
+        self.check_table_column(self.funds_table, column_sell_table, 'varchar(64) DEFAULT NULL')
+        self.check_table_column(self.funds_table, column_budget_table, 'varchar(64) DEFAULT NULL')
+        self.check_table_column(self.funds_table, column_cost_hold, 'double(16,2) DEFAULT NULL')
+        self.check_table_column(self.funds_table, column_portion_hold, 'double(16,4) DEFAULT NULL')
+        self.check_table_column(self.funds_table, column_averagae_price, 'double(16,4) DEFAULT NULL')
+        self.check_table_column(self.funds_table, column_keepeyeon, 'tinyint(1) DEFAULT 1')
+
+        details = self.sqldb.select(self.funds_table, "*", "%s = '%s'" % (column_code, self.code))
+        (i, self.code, self.buy_table, self.sell_table, self.budget_table, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on), = details
+
         pre_uid = "u" + str(id) + "_"
-        buy_table = pre_uid + self.code + "_buy"
-        sell_table = pre_uid + self.code + "_sell"
-        budget_table = pre_uid + self.code + "_inv_budget"
-        tbl_mgr = TableManager(self.sqldb, tablename, self.code)
-        self.buy_table = tbl_mgr.GetTableColumnInfo(column_buy_table, buy_table)
-        self.sell_table = tbl_mgr.GetTableColumnInfo(column_sell_table, sell_table)
-        self.budget_table = tbl_mgr.GetTableColumnInfo(column_budget_table, budget_table)
-        self.cost_hold = tbl_mgr.GetTableColumnInfo(column_cost_hold, "0", "double(16,2) DEFAULT NULL")
-        self.portion_hold = tbl_mgr.GetTableColumnInfo(column_portion_hold, "0", "double(16,4) DEFAULT NULL")
-        self.average = tbl_mgr.GetTableColumnInfo(column_averagae_price, "0", "double(16,4) DEFAULT NULL")
-        self.keep_eye_on = tbl_mgr.GetTableColumnInfo(column_keepeyeon, "1", 'tinyint(1) DEFAULT 1')
+        if self.buy_table is None:
+            self.buy_table = pre_uid + self.code + "_buy"
+        if self.sell_table is None:
+            self.sell_table = pre_uid + self.code + "_sell"
+        if self.budget_table is None:
+            self.budget_table = pre_uid + self.code + "_inv_budget"
+        if self.cost_hold is None:
+            self.cost_sold = 0
+        if self.portion_hold is None:
+            self.portion_hold = 0
+        if self.average is None:
+            self.average = 0
+
         self.sqldb.update(tablename, {column_buy_table:self.buy_table, column_sell_table: self.sell_table, column_budget_table: self.budget_table, column_cost_hold: str(self.cost_hold), column_portion_hold: str(self.portion_hold), column_averagae_price: str(self.average)}, {column_code : self.code})
 
     def setup_buytable(self):
@@ -52,9 +60,8 @@ class UserFund():
             attrs = {column_date:'varchar(20) DEFAULT NULL',column_cost:'double(16,4) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL',column_soldout:'tinyint(1) DEFAULT 0'}
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.buy_table, attrs, constraint)
-            
-        if not self.sqldb.isExistTableColumn(self.buy_table, column_soldout):
-            self.sqldb.addColumn(self.buy_table, column_soldout, 'tinyint(1) DEFAULT 0')
+
+        self.check_table_column(self.buy_table, column_soldout, 'tinyint(1) DEFAULT 0')
 
     def setup_selltable(self):
         if not self.sqldb.isExistTable(self.sell_table):
@@ -62,12 +69,9 @@ class UserFund():
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.sell_table, attrs, constraint)
 
-        if not self.sqldb.isExistTableColumn(self.sell_table, column_rolled_in):
-            self.sqldb.addColumn(self.sell_table, column_rolled_in, 'varchar(20) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(self.sell_table, column_roll_in_value):
-            self.sqldb.addColumn(self.sell_table, column_roll_in_value, 'varchar(20) DEFAULT NULL')
-        if not self.sqldb.isExistTableColumn(self.sell_table, column_actual_sold):
-            self.sqldb.addColumn(self.sell_table, column_actual_sold, 'varchar(20) DEFAULT 0')
+        self.check_table_column(self.sell_table, column_rolled_in, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(self.sell_table, column_roll_in_value, 'varchar(20) DEFAULT NULL')
+        self.check_table_column(self.sell_table, column_actual_sold, 'varchar(20) DEFAULT 0')
 
     def setup_budgettable(self):
         if not self.sqldb.isExistTable(self.budget_table):
@@ -82,7 +86,7 @@ class UserFund():
 
     def last_day_earned(self, fg):
         sqldb = fg.get_hist_db()
-        history_dvs = sqldb.select(history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date);
+        history_dvs = sqldb.select(fg.history_table, [column_date, column_net_value, column_growth_rate], order = " ORDER BY %s ASC" % column_date);
         if not history_dvs:
             return 0
 

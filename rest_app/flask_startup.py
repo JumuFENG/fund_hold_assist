@@ -358,10 +358,13 @@ def stock_sell(user, form):
     date = form.get('date', type=str, default=None)
     price = float(form.get('price', type=str, default=None))
     buyids = form.get('id', type=str, default=None)
-    if buyids:
+    portion = form.get('ptn', type=str, default=None)
+    if portion is not None:
+        portion = int(portion)
+    if buyids is not None:
         buyids = buyids.strip('_').split('_')
     us = UserStock(user, code)
-    us.sell(date, price, buyids)
+    us.sell(date, price, buyids, portion)
     return "OK", 200
 
 def stock_fix_sell(user, form):

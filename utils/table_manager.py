@@ -3,41 +3,6 @@
 
 from utils import *
 
-class TableManager():
-    """
-    the basic class to manage info tables
-    """
-    def __init__(self, sqldb, tablename, code):
-        self.sqldb = sqldb
-        self.tablename = tablename
-        self.code = code
-        if not self.sqldb.isExistTable(self.tablename):
-            attrs = {column_code:'varchar(20) DEFAULT NULL'}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.tablename, attrs, constraint)
-        
-        if not self.sqldb.select(self.tablename, [column_code], "%s = '%s'" %(column_code, self.code)):
-            params = {column_code:self.code}
-            self.sqldb.insert(self.tablename, params)
-        
-    def GetTableColumnInfo(self, col, defval, tp = 'varchar(64) DEFAULT NULL'):
-        if not self.sqldb.isExistTable(self.tablename):
-            print(self.tablename, "table not exists!")
-            return
-
-        if not self.sqldb.isExistTableColumn(self.tablename, col):
-            self.sqldb.addColumn(self.tablename, col, tp)
-        col_info = self.sqldb.select(self.tablename, fields=[col], conds = "%s = '%s'" % (column_code, self.code))
-        
-        col_val = None
-        if col_info:
-            ((col_val,),) = col_info
-        if col_val is None:
-            col_val = defval
-            self.sqldb.update(self.tablename, {col:str(col_val)}, {column_code:"%s" % self.code})
-
-        return col_val
-
 class TableCopy():
     """
     to copy a table from on schema to another
@@ -73,7 +38,6 @@ class TableCopy():
             return
 
         result = fromDb.select("information_schema.columns", ["column_name", "column_type", "column_default"], ["table_name = '%s'" % fromtable, "table_schema = '%s'" % fromDb.database], order=" ORDER BY ordinal_position ASC")
-        colAdded = False
         headers = []
         condkeys = []
         for (cnm, ctp, cdef) in result:

@@ -195,7 +195,7 @@ class StockBuyDetail {
         var sellPrice = document.getElementById('detail_sell_price_' + this.code);
         var price = parseFloat(sellPrice.value);
         if (sellContent.value != '' && price > 0) {
-            trade.sellStock(sellDatePicker.value, this.code, price, sellContent.value, function(){
+            trade.sellStock(sellDatePicker.value, this.code, price, sellContent.value, null, function(){
                 trade.fetchStockSummary(stockHub.detailPage.code, function() {
                     trade.fetchBuyData(stockHub.detailPage.code, function(c) {
                         stockHub.updateStockSummary(c);

@@ -56,13 +56,11 @@ class TradeOption {
 
     updateTradePanel() {
         if (this.tradeType == TradeType.Sell) {
-            this.portionInput.style.display = "none";
             this.submitBtn.textContent = "卖出";
             if (stockHub.chartWrapper.bindingBuyTable) {
                 stockHub.chartWrapper.bindingBuyTable.style.display = 'block';
             };
         } else {
-            this.portionInput.style.display = "inline";
             this.submitBtn.textContent = "确定";
             if (stockHub.chartWrapper.bindingBuyTable) {
                 stockHub.chartWrapper.bindingBuyTable.style.display = 'none';
@@ -107,7 +105,12 @@ class TradeOption {
                 return;
             };
 
-            trade.sellStock(date, code, price, ids, function(){
+            var portion = parseInt(this.portionInput.value);
+            if (Number.isNaN(portion)) {
+                portion = null;
+            };
+
+            trade.sellStock(date, code, price, ids, portion, function(){
                 trade.fetchStockSummary(code, function() {
                     trade.fetchSellData(code, function(c) {
                         trade.fetchBuyData(c, function(cc) {
