@@ -118,6 +118,9 @@ class AllStocks(InfoList):
         short_name = tr0[1].get_text()
         tr2 = rows[2].find_all('td')
         setup_date = tr2[1].get_text().split()[0]
+        setup_date = setup_date.replace('年', '-')
+        setup_date = setup_date.replace('月', '-')
+        setup_date = setup_date.replace('日', '')
         tr3 = rows[3].find_all('td')
         assets_scale = tr3[0].get_text().split('（')[0]
         return (short_name, setup_date, assets_scale)
@@ -131,3 +134,91 @@ class AllStocks(InfoList):
         self.updateStockCol(code, column_setup_date, setup_date)
         self.updateStockCol(code, column_assets_scale, assets_scale)
         self.updateStockCol(code, column_short_name, short_name)
+
+class Stock_history(HistoryDowloaderBase):
+    """
+    get stock history data
+    """
+    def setCode(self, code):
+        self.code = code
+        allstocks = AllStocks()
+        self.sg = StockGeneral(allstocks.sqldb, self.code)
+
+    def getRequest(self, url, params=None, proxies=None):
+        rsp = requests.get(url, params=params, proxies=proxies)
+        rsp.raise_for_status()
+        return rsp.text
+
+    def getStartEnd(self, ktable):
+        eDate = datetime.now().strftime("%Y%m%d")
+        sDate = None
+        if not self.sqldb.isExistTable(ktable):
+            return (sDate, eDate)
+
+        maxDate = self.sqldb.select(ktable, "max(%s)" % column_date)
+        if maxDate is None or not len(maxDate) == 1:
+            return (sDate, eDate)
+
+        (maxDate,), = maxDate
+        if maxDate is None:
+            return (sDate, eDate)
+
+        sDate = (datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
+        if sDate > eDate:
+            print("Already updated to %s" % maxDate)
+            return
+
+        if datetime.strptime(eDate, "%Y%m%d") - datetime.strptime(sDate, "%Y%m%d") <= timedelta(days = 1) and datetime.strptime(sDate, "%Y%m%d").weekday() >= 5:
+            print("it is weekend, no data to update.")
+            return
+
+        return (sDate, eDate)
+
+    def getHistoryFromSohu(self, code, sDate, eDate, period = None):
+        # get fund k history from sohu
+        parans = {'code': code, 'start': sDate, 'end': eDate}
+        if period is not None:
+            parans['period'] = period
+        response = json.loads(self.getRequest(sohuApiUrl, parans))
+        if response is None or response[0]['status'] == 2:
+            print('getHistoryFromSohu error, response: ', response)
+            return
+
+        response = response[0]['hq']
+        response.reverse()
+        return response
+
+    def saveSohuData(self, ktable, data):
+        headers = [column_date, column_close, column_high, column_low, column_open, column_price_change, column_p_change, column_volume, column_amount]
+        if not self.sqldb.isExistTable(ktable):
+            attrs = {}
+            for c in headers:
+                attrs[c] = 'varchar(20) DEFAULT NULL'
+            constraint = 'PRIMARY KEY(`id`)'
+            self.sqldb.creatTable(ktable, attrs, constraint)
+
+        values = []
+        for (d,o,c,pr,p,l,h,v,a,x) in data:
+            values.append([d,c,h,l,o,pr,p.strip('%'),v,a])
+        self.sqldb.insertMany(ktable, headers, values)
+
+    def getKHistoryFromSohu(self, ktable, period):
+        se = self.getStartEnd(ktable)
+        if se is None:
+            return
+        (s, e) = se
+        if s is None:
+            s = (datetime.strptime(self.sg.setupdate, "%Y-%m-%d")).strftime("%Y%m%d")
+
+        sohudata = self.getHistoryFromSohu(self.sg.sohucode, s, e, period)
+        if sohudata is None:
+            return
+
+        self.saveSohuData(ktable, sohudata)
+
+    def getKHistoryTillToday(self, code):
+        # get fund k history from sohu
+        self.setCode(code)
+        self.getKHistoryFromSohu(self.sg.stockKtable, 'd')
+        self.getKHistoryFromSohu(self.sg.stockKwtable, 'w')
+        self.getKHistoryFromSohu(self.sg.stockKmtable, 'm')

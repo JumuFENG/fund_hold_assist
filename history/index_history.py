@@ -135,17 +135,20 @@ class Index_history(HistoryDowloaderBase):
 
         sDate = ""
         eDate = ""
-        if self.sqldb.isExistTable(self.index_full_his_db):
-            ((maxDate,),) = self.sqldb.select(self.index_full_his_db, "max(%s)" % column_date)
-            if maxDate:
-                sDate = (datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
-                eDate = datetime.now().strftime("%Y%m%d")
-                if sDate > eDate:
-                    print("Already updated to %s" % maxDate)
-                    return
-                if datetime.strptime(eDate, "%Y%m%d") - datetime.strptime(sDate, "%Y%m%d") <= timedelta(days = 1) and datetime.strptime(sDate, "%Y%m%d").weekday() >= 5:
-                    print("it is weekend, no data to update.")
-                    return
+        maxDate = self.sqldb.select(self.index_full_his_db, "max(%s)" % column_date)
+        if maxDate is None or not len(maxDate) == 1:
+            maxDate = None
+        else:
+            (maxDate,), = maxDate
+        if maxDate is not None:
+            sDate = (datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
+            eDate = datetime.now().strftime("%Y%m%d")
+            if sDate > eDate:
+                print("Already updated to %s" % maxDate)
+                return
+            if datetime.strptime(eDate, "%Y%m%d") - datetime.strptime(sDate, "%Y%m%d") <= timedelta(days = 1) and datetime.strptime(sDate, "%Y%m%d").weekday() >= 5:
+                print("it is weekend, no data to update.")
+                return
         return (sDate, eDate)
 
     def getHistoryFromSohu(self, code):

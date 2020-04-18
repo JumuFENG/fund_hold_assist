@@ -278,8 +278,7 @@ def stock():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    gen_db = SqlHelper(password = db_pwd, database = general_db_name)
-    usermodel = UserModel(gen_db)
+    usermodel = UserModel()
     user = usermodel.user_by_email(session['useremail'])
     actype = None
     if request.method == 'POST':
