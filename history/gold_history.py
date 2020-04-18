@@ -9,17 +9,9 @@ import time
 from decimal import Decimal
 import json
 
-class AllGolds():
+class AllGolds(InfoList):
     def __init__(self):
-        self.sqldb = SqlHelper(password = db_pwd, database = "fund_center")
-        if not self.sqldb.isExistTable(gl_gold_info_table):
-            attrs = {column_code:'varchar(20) DEFAULT NULL', column_name:"varchar(255) DEFAULT NULL"}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(gl_gold_info_table, attrs, constraint)
-
-    def check_table_column(self, col, tp):
-        if not self.sqldb.isExistTableColumn(gl_gold_info_table, col):
-            self.sqldb.addColumn(gl_gold_info_table, col, tp)
+        self.checkInfoTable(fund_db_name, gl_gold_info_table)
 
 
 class Gold_history(HistoryDowloaderBase):

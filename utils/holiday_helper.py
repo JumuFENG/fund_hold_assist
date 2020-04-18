@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 class Holiday():
     """check if is Holiday"""
     def __init__(self):
-        self.sqldb = SqlHelper(password = db_pwd, database = "general")
+        self.sqldb = SqlHelper(password = db_pwd, database = general_db_name)
         self.tablename = "Holidays"
 
     def isholiday(self, date):

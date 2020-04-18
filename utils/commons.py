@@ -15,6 +15,11 @@ apiUrl_jijinhao_fourDays = "https://api.jijinhao.com/sQuoteCenter/fourDaysMin.ht
 apiUrl_jijinhao_today = "https://api.jijinhao.com/sQuoteCenter/todayMin.htm"
 apiUrl_jijinhao_realtime = "https://api.jijinhao.com/sQuoteCenter/realTime.htm"
 
+fund_db_name = 'fund_center'
+stock_db_name = 'stock_center'
+history_db_name = 'history_db'
+general_db_name = 'general'
+
 gl_all_funds_info_table = "all_funds"
 gl_all_stocks_info_table = "all_stocks"
 gl_fund_info_table = "funds"

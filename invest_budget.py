@@ -53,7 +53,7 @@ class InvestBudget():
         ftp.quit()
 
 if __name__ == '__main__':
-    dbname = "fund_center"
+    dbname = fund_db_name
     #dbname = "testdb"
     sqldb = SqlHelper(password = db_pwd, database = dbname)
     ib = InvestBudget(sqldb)
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     #ib.add_budget("005633",100,"2019-07-01")
     #ib.add_budget("161725",200,"2019-07-20")
     #ib.add_budget("260108",100,"2019-07-01")
-    usermodel = UserModel(SqlHelper(password = db_pwd, database = "general"))
+    usermodel = UserModel()
     user = usermodel.user_by_id(1)
     #ib.add_budget(user, "000217", 10, "2019-09-06")
     #ib.get_budgets_json(user)

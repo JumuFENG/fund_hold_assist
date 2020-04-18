@@ -10,7 +10,7 @@ from user import *
 from painter import *
 
 if __name__ == "__main__":
-    testdb = "fund_center"
+    testdb = fund_db_name
     #testdb = "testdb"
     sqldb = SqlHelper(password = db_pwd, database = testdb)
     #painter = GoldHistoryGraph(sqldb, "AU9999", True)
@@ -19,8 +19,7 @@ if __name__ == "__main__":
     #painter.show_graph()
     #painter = IndexHistoryGraph(sqldb, "000001", True)
     #painter.show_graph()
-    gendb = SqlHelper(password = db_pwd, database = "general")
-    usermodel = UserModel(gendb)
+    usermodel = UserModel()
     user = usermodel.user_by_id(1)
     uf = UserFund(user.funds_info_table(), "000217")
     painter = FundTradeHistoryGraph(sqldb, uf)

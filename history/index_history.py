@@ -12,31 +12,12 @@ from pandas import *
 import json
 import os
 
-class AllIndexes():
+class AllIndexes(InfoList):
     """
     manage index info table
     """
     def __init__(self):
-        self.sqldb = SqlHelper(password = db_pwd, database = "fund_center")
-        if not self.sqldb.isExistTable(gl_index_info_table):
-            attrs = {column_code:'varchar(20) DEFAULT NULL', column_name:"varchar(255) DEFAULT NULL"}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(gl_index_info_table, attrs, constraint)
-
-    def getRequest(self, url):
-        headers = {'Host': 'fund.eastmoney.com',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:68.0) Gecko/20100101 Firefox/68.0',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate',
-        'Connection': 'keep-alive'}
-        
-        proxies=None
-
-        #print(url)
-        rsp = requests.get(url, params=headers, proxies=proxies)
-        rsp.raise_for_status()
-        return rsp.content.decode('utf-8')
+        self.checkInfoTable(fund_db_name, gl_index_info_table)
 
     def loadInfo(self, code):
         url = "http://quote.eastmoney.com/zs" + code + ".html"

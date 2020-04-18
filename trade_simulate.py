@@ -3,7 +3,6 @@
 
 from utils import *
 from datetime import datetime, timedelta
-from fund_trade import TradeFund
 from decimal import *
 from simulators import *
 
@@ -18,35 +17,36 @@ class SimulatorHost():
         self.dbpws = dbpws
 
     def sim(self, sDate, eDate, simulator):
-        trade = TradeFund(self.user, self.fund_code, self.dbname, self.dbpws)
-        self.sqldb = trade.sqldb
-        allData = self.sqldb.select(trade.fund_history_table, [column_date, column_net_value], order = " ORDER BY %s ASC" % column_date)
-        self.allDays = [x[0] for x in allData]
-        self.allValues = [x[1] for x in allData]
+        pass
+        # trade = TradeFund(self.user, self.fund_code, self.dbname, self.dbpws)
+        # self.sqldb = trade.sqldb
+        # allData = self.sqldb.select(trade.fund_history_table, [column_date, column_net_value], order = " ORDER BY %s ASC" % column_date)
+        # self.allDays = [x[0] for x in allData]
+        # self.allValues = [x[1] for x in allData]
 
-        sIdx = self.allDays.index(sDate)
-        eIdx = self.allDays.index(eDate)
-        simulator.setup(self, trade)
-        simulator.simulate(sIdx, eIdx)
+        # sIdx = self.allDays.index(sDate)
+        # eIdx = self.allDays.index(eDate)
+        # simulator.setup(self, trade)
+        # simulator.simulate(sIdx, eIdx)
 
-        trade.print_summery()
-        trade.reset_trade_data()
+        # trade.print_summery()
+        # trade.reset_trade_data()
 
 def continuely_buy(user, dbname, fund_code, sDate, eDate, cost_per_day):
-    trade = TradeFund(user, fund_code, dbname, db_pwd)
-    dateBegin = datetime.strptime(sDate, "%Y-%m-%d")
-    dateEnd = datetime.strptime(eDate, "%Y-%m-%d")
-    while True:
-        trade.buy(cost_per_day, dateBegin.strftime("%Y-%m-%d"))
-        dateBegin += timedelta(days=1)
-        if dateBegin > dateEnd:
-            break
+    pass
+    # trade = TradeFund(user, fund_code, dbname, db_pwd)
+    # dateBegin = datetime.strptime(sDate, "%Y-%m-%d")
+    # dateEnd = datetime.strptime(eDate, "%Y-%m-%d")
+    # while True:
+    #     trade.buy(cost_per_day, dateBegin.strftime("%Y-%m-%d"))
+    #     dateBegin += timedelta(days=1)
+    #     if dateBegin > dateEnd:
+    #         break
 
 if __name__ == "__main__":
-    testdb = "fund_center"
+    testdb = fund_db_name
     testdb = "testdb"
-    gendb = SqlHelper(password = db_pwd, database = "general")
-    usermodel = UserModel(gendb)
+    usermodel = UserModel()
     user = usermodel.user_by_id(1)
     sim = SimulatorHost(user, "000217", dbname = testdb)
     #sDate = "2016-07-20"

@@ -30,8 +30,7 @@ def logout():
 
 @app.route('/login', methods=['GET','POST'])
 def login():
-    gen_db = SqlHelper(password = db_pwd, database = "general")
-    usermodel = UserModel(gen_db)
+    usermodel = UserModel()
     if request.method == 'GET':
         if not session.get('logged_in'):
             return render_template('login.html', loginsignup = True)
@@ -61,8 +60,7 @@ def signup():
         email = request.form['email']
         password = request.form['password']
 
-        gen_db = SqlHelper(password = db_pwd, database = "general")
-        usermodel = UserModel(gen_db)
+        usermodel = UserModel()
         existing_user = usermodel.user_by_email(email)
 
         if password == request.form['confirm']:
@@ -95,8 +93,7 @@ def fundbuy():
     if not session.get('logged_in'):
         return "Please login."
 
-    gen_db = SqlHelper(password = db_pwd, database = "general")
-    usermodel = UserModel(gen_db)
+    usermodel = UserModel()
     user = usermodel.user_by_email(session['useremail'])
     if request.method == 'POST':
         code = request.form.get("code", type=str,default=None)
@@ -126,8 +123,7 @@ def fundsell():
     if not session.get('logged_in'):
         return "Please login."
 
-    gen_db = SqlHelper(password = db_pwd, database = "general")
-    usermodel = UserModel(gen_db)
+    usermodel = UserModel()
     user = usermodel.user_by_email(session['useremail'])
     if request.method == 'POST':
         code = request.form.get("code", type=str, default=None)
@@ -169,8 +165,7 @@ def fundbudget():
     if not session.get('logged_in'):
         return "Please login."
 
-    gen_db = SqlHelper(password = db_pwd, database = "general")
-    usermodel = UserModel(gen_db)
+    usermodel = UserModel()
     user = usermodel.user_by_email(session['useremail'])
     if request.method == 'POST':
         code = request.form.get("code", type=str, default=None)
@@ -193,8 +188,7 @@ def fundsummary():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    gen_db = SqlHelper(password = db_pwd, database = "general")
-    usermodel = UserModel(gen_db)
+    usermodel = UserModel()
     user = usermodel.user_by_email(session['useremail'])
     code = request.args.get("code", type=str, default=None)
     if not code:
@@ -212,8 +206,7 @@ def fundsummary():
         return json.dumps(uf.get_fund_summary())
 
 def update_history(code, email):
-    gen_db = SqlHelper(password = db_pwd, database = "general")
-    usermodel = UserModel(gen_db)
+    usermodel = UserModel()
     user = usermodel.user_by_email(email)
     uf = UserFund(user, code)
     uf.update_history()
@@ -224,7 +217,7 @@ def fund_hist_data():
         print("fundhist GET")
         code = request.args.get("code", type=str, default=None)
         ftype = request.args.get("type", type=str, default="fund")
-        sqldb = SqlHelper(password = db_pwd, database = "fund_center")
+        sqldb = SqlHelper(password = db_pwd, database = fund_db_name)
         if ftype == "fund":
             fg = FundGeneral(sqldb, code)
             hist_data = fg.get_fund_hist_data()
@@ -244,8 +237,7 @@ def fundmisc():
     if not session.get('logged_in'):
         return "Please login."
 
-    gen_db = SqlHelper(password = db_pwd, database = "general")
-    usermodel = UserModel(gen_db)
+    usermodel = UserModel()
     user = usermodel.user_by_email(session['useremail'])
     if request.method == 'POST':
         code = request.form.get("code", type=str, default=None)
@@ -286,7 +278,7 @@ def stock():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    gen_db = SqlHelper(password = db_pwd, database = "general")
+    gen_db = SqlHelper(password = db_pwd, database = general_db_name)
     usermodel = UserModel(gen_db)
     user = usermodel.user_by_email(session['useremail'])
     actype = None
@@ -416,8 +408,7 @@ def dashboard():
 def userbind():
     if not session.get('logged_in'):
         return "Please login."
-    gen_db = SqlHelper(password = db_pwd, database = "general")
-    usermodel = UserModel(gen_db)
+    usermodel = UserModel()
     if request.method == 'GET':
         parent = request.args.get("type", type=str, default=None)
         if parent == 'parent':

@@ -22,12 +22,12 @@ class User():
 
     def fund_center_db(self):
         if not self.funddb:
-            self.funddb = SqlHelper(password = db_pwd, database = "fund_center")
+            self.funddb = SqlHelper(password = db_pwd, database = fund_db_name)
         return self.funddb
 
     def stock_center_db(self):
         if not self.stockdb:
-            self.stockdb = SqlHelper(password = db_pwd, database = "stock_center")
+            self.stockdb = SqlHelper(password = db_pwd, database = stock_db_name)
         return self.stockdb
 
     def is_admin(self):
@@ -331,9 +331,9 @@ class User():
         return stock_stats
 
 class UserModel():
-    def __init__(self, sqldb):
+    def __init__(self):
         self.tablename = 'users'
-        self.sqldb = sqldb
+        self.sqldb = SqlHelper(password = db_pwd, database = general_db_name)
         if self.sqldb.isExistTable(self.tablename):
             self.check_column('sub_table', "varchar(255) DEFAULT NULL")
             self.check_column('parent_account', "varchar(16) DEFAULT NULL")

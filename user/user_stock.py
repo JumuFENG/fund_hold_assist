@@ -67,7 +67,7 @@ class UserStock():
             self.sqldb.creatTable(self.buy_table, attrs, constraint)
             
         self.check_table_column(self.buy_table, column_soldout, 'tinyint(1) DEFAULT 0')
-        self.check_table_column(self.buy_table, column_sold_portion, 'int DEFAULT NULL')
+        self.check_table_column(self.buy_table, column_sold_portion, 'int DEFAULT 0')
 
     def setup_selltable(self):
         if not self.sqldb.isExistTable(self.sell_table):
@@ -136,9 +136,6 @@ class UserStock():
         if not self.sqldb.isExistTable(self.buy_table):
             self.setup_buytable()
             self.check_exist_in_allstocks()
-
-        self.check_table_column(self.buy_table, column_soldout, 'tinyint(1) DEFAULT 0')
-        self.check_table_column(self.buy_table, column_sold_portion, 'int DEFAULT NULL')
 
         fixedPrice = price * (1 + float(self.fee)) if float(self.fee) > 0 else price
         self.sqldb.insert(self.buy_table, {

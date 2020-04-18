@@ -54,7 +54,7 @@ class FundGeneral():
 
     def get_hist_db(self):
         if self.histdb is None:
-            self.histdb = SqlHelper(password = db_pwd, database = "history_db")
+            self.histdb = SqlHelper(password = db_pwd, database = history_db_name)
         return self.histdb
 
     def get_fund_hist_data(self):

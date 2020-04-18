@@ -10,8 +10,8 @@ from history import *
 
 class DailyUpdater():
     """for daily update"""
-    def __init__(self, sqldb):
-        self.sqldb = sqldb
+    def __init__(self):
+        self.sqldb = SqlHelper(password = db_pwd, database = fund_db_name)
 
     def update_all(self):
         print("")
@@ -87,7 +87,6 @@ class DailyUpdater():
         return True
 
 if __name__ == '__main__':
-    sqldb = SqlHelper(password = db_pwd, database = "fund_center")
-    du = DailyUpdater(sqldb)
+    du = DailyUpdater()
     du.update_all()
 

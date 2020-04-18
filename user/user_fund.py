@@ -53,7 +53,7 @@ class UserFund():
         if self.average is None:
             self.average = 0
 
-        self.sqldb.update(tablename, {column_buy_table:self.buy_table, column_sell_table: self.sell_table, column_budget_table: self.budget_table, column_cost_hold: str(self.cost_hold), column_portion_hold: str(self.portion_hold), column_averagae_price: str(self.average)}, {column_code : self.code})
+        self.sqldb.update(self.funds_table, {column_buy_table:self.buy_table, column_sell_table: self.sell_table, column_budget_table: self.budget_table, column_cost_hold: str(self.cost_hold), column_portion_hold: str(self.portion_hold), column_averagae_price: str(self.average)}, {column_code : self.code})
 
     def setup_buytable(self):
         if not self.sqldb.isExistTable(self.buy_table) :

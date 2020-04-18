@@ -28,7 +28,7 @@ class Select_Fund():
         self.show_funds("混合型")
 
 if __name__ == '__main__':
-    dbname = "fund_center"
+    dbname = fund_db_name
     sqldb = SqlHelper(password = db_pwd, database = dbname)
     sf = Select_Fund(sqldb)
     sf.show_bond_funds()

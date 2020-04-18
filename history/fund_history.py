@@ -13,15 +13,12 @@ from decimal import Decimal
 from bs4 import BeautifulSoup 
 from selenium import webdriver
 
-class AllFunds():
+class AllFunds(InfoList):
     """get all funds' general info and save to db table allfund"""
     def __init__(self):
-        self.sqldb = SqlHelper(password = db_pwd, database = "fund_center")
-        if not self.sqldb.isExistTable(gl_all_funds_info_table):
-            attrs = {column_code:'varchar(20) DEFAULT NULL', column_name:"varchar(255) DEFAULT NULL",  column_url:"varchar(255) DEFAULT NULL"}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(gl_all_funds_info_table, attrs, constraint)
+        self.checkInfoTable(fund_db_name, gl_all_funds_info_table)
 
+        self.check_table_column(column_url, 'varchar(255) DEFAULT NULL')
         self.check_table_column(column_type, 'varchar(20) DEFAULT NULL')
         self.check_table_column(column_risk_level, 'varchar(20) DEFAULT NULL')
         self.check_table_column(column_amount, 'varchar(20) DEFAULT NULL')
@@ -41,10 +38,6 @@ class AllFunds():
         self.check_table_column(column_table_history, 'varchar(20) DEFAULT NULL')
         self.check_table_column(column_qdii, 'tinyint(1) DEFAULT 0')
         self.check_table_column(column_tracking_index, 'varchar(10) DEFAULT NULL')
-        
-    def check_table_column(self, col, tp):
-        if not self.sqldb.isExistTableColumn(gl_all_funds_info_table, col):
-            self.sqldb.addColumn(gl_all_funds_info_table, col, tp)
 
     def set_pre_buy_fee(self, code, fee):
         self.sqldb.update(gl_all_funds_info_table, {column_fee:str(fee)}, {column_code: code})
@@ -104,21 +97,6 @@ class AllFunds():
             return
 
         self.sqldb.update(gl_all_funds_info_table, {column_rating_cx3:str(lv3), column_rating_cx5:str(lv5)}, {column_code: code})
-
-    def getRequest(self, url):
-        headers = {'Host': 'fund.eastmoney.com',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:68.0) Gecko/20100101 Firefox/68.0',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate',
-        'Connection': 'keep-alive'}
-        
-        proxies=None
-
-        #print(url)
-        rsp = requests.get(url, params=headers, proxies=proxies)
-        rsp.raise_for_status()
-        return rsp.content.decode('utf-8')
 
     def getInfoOfFund(self, code):
         if not self.sqldb.isExistTable(gl_all_funds_info_table):
