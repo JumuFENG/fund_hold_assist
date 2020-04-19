@@ -137,3 +137,7 @@ div.total_earned label {
 .radio_anchor_div a.highlight:link, .radio_anchor_div a.highlight:visited {
     color: white;
 }
+
+ul.ulTable {
+    padding-left: 0;
+}

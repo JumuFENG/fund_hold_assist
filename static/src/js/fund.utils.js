@@ -627,3 +627,45 @@ class SortableTable {
         }
     }
 }
+
+class EditableCell {
+    constructor(text) {
+        this.otext = text;
+        this.container = document.createElement('div');
+        this.container.style.display = 'inline';
+        this.lblText = document.createTextNode(text);
+        this.container.appendChild(this.lblText);
+        this.inputBox = document.createElement('input');
+        this.inputBox.style.maxWidth = '80px';
+        this.inputBox.style.display = 'none';
+        this.inputBox.value = text;
+        this.container.appendChild(this.inputBox);
+        this.editable = false;
+    }
+
+    edit() {
+        this.lblText.textContent = '';
+        this.inputBox.style.display = 'inline';
+        this.editable = true;
+    }
+
+    readonly() {
+        this.lblText.textContent = this.inputBox.value;
+        this.inputBox.style.display = 'none';
+        this.editable = false;
+    }
+
+    textChanged() {
+        return this.otext != this.inputBox.value;
+    }
+
+    update(text) {
+        this.otext = text;
+        this.inputBox.value = text;
+        this.readonly();
+    }
+
+    text() {
+        return this.inputBox.value;
+    }
+}
