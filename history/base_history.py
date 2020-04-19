@@ -15,6 +15,9 @@ class InfoList():
     def check_table_column(self, col, tp):
         if not self.sqldb.isExistTableColumn(self.infoTable, col):
             self.sqldb.addColumn(self.infoTable, col, tp)
+            
+    def readAll(self):
+        return self.sqldb.select(self.infoTable)
 
     def getRequest(self, url):
         headers = {'Host': 'fund.eastmoney.com',

@@ -222,3 +222,6 @@ class Stock_history(HistoryDowloaderBase):
         self.getKHistoryFromSohu(self.sg.stockKtable, 'd')
         self.getKHistoryFromSohu(self.sg.stockKwtable, 'w')
         self.getKHistoryFromSohu(self.sg.stockKmtable, 'm')
+
+    def readKHistoryData(self, ktable):
+        return self.sqldb.select(ktable)
