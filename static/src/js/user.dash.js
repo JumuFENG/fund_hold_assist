@@ -1,3 +1,4 @@
+var utils = new Utils();
 window.onload = function() {
     if (!userDash) {
         userDash = new UserDashboard(document.getElementsByClassName('container')[0]);

@@ -55,5 +55,5 @@ class StockDumps():
             all_stock_obj[c] = stock_obj
 
         f = open("summary/json/etf_history_data.json", 'w')
-        f.write("var all_stocks = " + json.dumps(all_stock_obj) + ";")
+        f.write("var all_candidate_stocks = " + json.dumps(all_stock_obj) + ";")
         f.close()

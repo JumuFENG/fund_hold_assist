@@ -1,7 +1,3 @@
-window.onload = function () {
-    etfFrm.initialize();
-}
-
 class EtfFilter {
     constructor(f, b, m, s) {
         this.minFluct = f;
@@ -12,20 +8,18 @@ class EtfFilter {
 }
 
 class ETF_Frame {
-    constructor() {
-        this.container = null;
+    constructor(container) {
+        this.container = container;
         this.etfFilter = new EtfFilter(0, 0, 0, 0);
     }
 
     initialize() {
-        this.container = document.createElement('div');
-        document.body.appendChild(this.container);
         this.filterArea = document.createElement('div');
         this.container.appendChild(this.filterArea);
         this.allEtfTable = new SortableTable();
         this.container.appendChild(this.allEtfTable.container);
         this.showAllEtfTable();
-        if (Object.keys(all_stocks).length > 0) {
+        if (Object.keys(all_candidate_stocks).length > 0) {
             this.showFilterArea();
         };
     }
@@ -33,8 +27,8 @@ class ETF_Frame {
     showAllEtfTable() {
         this.allEtfTable.reset();
         this.allEtfTable.setClickableHeader('名称', '代码', '类型', '波动(%)', '月数', '最新值', '最新回撤(%)', '规模(亿)');
-        for (var i in all_stocks) {
-            var di = all_stocks[i];
+        for (var i in all_candidate_stocks) {
+            var di = all_candidate_stocks[i];
             if (this.checkEtfData(di)) {
                 this.allEtfTable.addRow(di.name, i, di.type, di.maver_fluct, di.mlen, di.last_close, di.mback, di.sc);
             };
@@ -105,5 +99,3 @@ class ETF_Frame {
         return e.maver_fluct >= this.etfFilter.minFluct && e.mlen >= this.etfFilter.minMonths && e.mback >= this.etfFilter.minBack && e.sc >= this.etfFilter.minScale;
     }
 };
-
-var etfFrm = new ETF_Frame();
