@@ -9,7 +9,7 @@ class StockGeneral():
     """
     def __init__(self, sqldb, code):
         self.sqldb = sqldb
-        self.code = code
+        self.code = code.upper()
         self.name = None
         self.short_term_rate = None
         self.setupdate = None

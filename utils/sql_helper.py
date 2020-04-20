@@ -232,9 +232,8 @@ class SqlHelper():
         #print("attrs_sql:", attrs_sql)
         if cond_dict!='':
             for k, v in cond_dict.items():
-                if isinstance(v, str):
-                    v = "\'" + v + "\'"
-                consql = consql + "`" + tablename +"`." + "`" + k + "`" + '=' + v + ' and '
+                v = "\'" + str(v) + "\'"
+                consql = consql + "`" + tablename +"`." + "`" + str(k) + "`" + '=' + v + ' and '
         consql = consql + ' 1=1 '
         sql = "UPDATE %s SET %s where%s" % (tablename, attrs_sql, consql)
         #print(sql)
