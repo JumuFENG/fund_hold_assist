@@ -68,21 +68,9 @@ if __name__ == '__main__':
     # aidx.loadInfo(x)
     astk = AllStocks()
     codes = astk.sqldb.select(astk.infoTable, '*')
-    newSt = []
+    sh = Stock_history()
     for (i, c, n, s, t, sn, m, st) in codes:
-        if st is None:
-            print('getEtfInfo')
-            astk.loadEtfInfo(c)
-            continue
-        setup_date = st.replace('年', '-')
-        setup_date = setup_date.replace('月', '-')
-        setup_date = setup_date.replace('日', '')
-        if st == setup_date:
-            continue
-        newSt.append([setup_date, c])
-
-    if len(newSt) > 0:
-        astk.sqldb.updateMany(astk.infoTable, [column_setup_date], [column_code], newSt)
-
-    # sh = Stock_history()
-    # sh.getKHistoryTillToday('SH511880')
+        sh.getKmHistoryTillToday(c)
+    # sd = StockDumps()
+    # sd.get_all_stock_his()
+    
