@@ -51,6 +51,7 @@ class StockStats {
         
         if (!this.statsTable) {
             this.statsTable = new SortableTable(2, 1);
+            this.container.appendChild(this.statsTable.container);
         };
         
         this.statsTable.reset();

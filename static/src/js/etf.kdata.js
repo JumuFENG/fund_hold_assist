@@ -36,9 +36,9 @@ class ETF_Frame {
     }
 
     getAllCandidateStocks() {
-        if (all_candidate_stocks !== undefined) {
+        if (typeof(all_candidate_stocks) !== 'undefined') {
             this.stocks_array = all_candidate_stocks;
-            showAllEtfTable();
+            this.showAllEtfTable();
             return;
         };
 
@@ -59,7 +59,7 @@ class ETF_Frame {
         };
     }
 
-    createFilterRow(conds, symbol, val, cb) {
+    createFilterRow(conds, symbol, val, that,cb) {
         var d = document.createElement('li');
 
         var check = document.createElement('input');
@@ -78,7 +78,7 @@ class ETF_Frame {
         ec.value = val;
         ec.onchange = function(e) {
             if (typeof(cb) === 'function') {
-                cb(parseFloat(e.target.value))
+                cb(that, parseFloat(e.target.value))
             };
         }
         d.appendChild(ec);
@@ -86,7 +86,7 @@ class ETF_Frame {
         check.onclick = function(e) {
             e.target.bindInput.disabled = !e.target.checked;
             if (typeof(cb) === 'function') {
-                cb(e.target.checked ? parseFloat(e.target.bindInput.value) : 0);
+                cb(that, e.target.checked ? parseFloat(e.target.bindInput.value) : 0);
             };
         }
         return d;
@@ -97,21 +97,21 @@ class ETF_Frame {
         table.className = 'ulTable';
         this.filterArea.appendChild(document.createTextNode('过滤条件'));
         this.filterArea.appendChild(table);
-        table.appendChild(this.createFilterRow('平均波动幅度(%)', '>', 10, function(f) {
-            etfFrm.etfFilter.minFluct = f;
-            etfFrm.showAllEtfTable();
+        table.appendChild(this.createFilterRow('平均波动幅度(%)', '>', 10, this, function(that, f) {
+            that.etfFilter.minFluct = f;
+            that.showAllEtfTable();
         }));
-        table.appendChild(this.createFilterRow('当前回撤(%)', '>', 10, function(f) {
-            etfFrm.etfFilter.minBack = f;
-            etfFrm.showAllEtfTable();
+        table.appendChild(this.createFilterRow('当前回撤(%)', '>', 10, this, function(that, f) {
+            that.etfFilter.minBack = f;
+            that.showAllEtfTable();
         }));
-        table.appendChild(this.createFilterRow('资金规模(亿元)', '>', 1, function(f) {
-            etfFrm.etfFilter.minScale = f;
-            etfFrm.showAllEtfTable();
+        table.appendChild(this.createFilterRow('资金规模(亿元)', '>', 1, this, function(that, f) {
+            that.etfFilter.minScale = f;
+            that.showAllEtfTable();
         }));
-        table.appendChild(this.createFilterRow('月K期数', '>', 20, function(f) {
-            etfFrm.etfFilter.minMonths = f;
-            etfFrm.showAllEtfTable();
+        table.appendChild(this.createFilterRow('月K期数', '>', 20, this, function(that, f) {
+            that.etfFilter.minMonths = f;
+            that.showAllEtfTable();
         }));
     }
 

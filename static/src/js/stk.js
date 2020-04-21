@@ -192,10 +192,6 @@ class StockHub {
         this.container = document.createElement('div');
         document.body.appendChild(this.container);
         this.topContainer = document.getElementById('top_container');
-        var aCandidate = document.createElement('a');
-        aCandidate.textContent = '查看所有';
-        aCandidate.href = 'javascript:stockHub.showCandidateStocksPage()';
-        this.topContainer.appendChild(aCandidate);
         var topDiv = document.createElement('div');
         topDiv.appendChild(document.createTextNode('总成本:'));
         this.totalCost = document.createTextNode('');
@@ -211,6 +207,10 @@ class StockHub {
         aStats.textContent = '详细统计表';
         aStats.href = 'javascript:stockHub.showStockStats()';
         this.container.appendChild(aStats);
+        var aCandidate = document.createElement('a');
+        aCandidate.textContent = '查看所有';
+        aCandidate.href = 'javascript:stockHub.showCandidateStocksPage()';
+        this.container.appendChild(aCandidate);
 
         this.stockListTable = document.createElement('table');
         this.stockListTable.appendChild(document.createElement('hr'));
