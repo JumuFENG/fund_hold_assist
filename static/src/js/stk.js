@@ -192,6 +192,10 @@ class StockHub {
         this.container = document.createElement('div');
         document.body.appendChild(this.container);
         this.topContainer = document.getElementById('top_container');
+        var aCandidate = document.createElement('a');
+        aCandidate.textContent = '查看所有';
+        aCandidate.href = 'javascript:stockHub.showCandidateStocksPage()';
+        this.topContainer.appendChild(aCandidate);
         var topDiv = document.createElement('div');
         topDiv.appendChild(document.createTextNode('总成本:'));
         this.totalCost = document.createTextNode('');
@@ -359,6 +363,16 @@ class StockHub {
 
         this.hide();
         this.stockStats.container.style.display = 'block';
+    }
+
+    showCandidateStocksPage() {
+        if (!this.stkCandidatePage) {
+            this.stkCandidatePage = new ETF_Frame();
+            this.stkCandidatePage.createPage();
+            this.stkCandidatePage.getAllCandidateStocks();
+        };
+        this.hide();
+        this.stkCandidatePage.container.style.display = 'block';
     }
 }
 

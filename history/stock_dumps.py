@@ -62,6 +62,10 @@ class StockDumps():
             stock_obj['last_close'] = mdata['last_close']
             all_stock_obj[c] = stock_obj
 
+        return all_stock_obj
+
+    def dump_all_stock_his(self):
+        all_stock_obj = self.get_all_stock_his()
         f = open("summary/json/etf_history_data.json", 'w')
         f.write("var all_candidate_stocks = " + json.dumps(all_stock_obj) + ";")
         f.close()

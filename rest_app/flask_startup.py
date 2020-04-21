@@ -313,6 +313,9 @@ def stock():
                 return json.dumps(user.get_holding_stocks_summary())
         if actype == 'stats':
             return json.dumps(user.get_stocks_stats())
+        if actype == 'allstks':
+            sd = StockDumps()
+            return json.dumps(sd.get_all_stock_his())
         us = UserStock(user, code)
         if actype == 'buy':
             return json.dumps(us.get_buy_arr())

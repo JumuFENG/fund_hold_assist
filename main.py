@@ -72,5 +72,5 @@ if __name__ == '__main__':
     for (i, c, n, s, t, sn, m, st) in codes:
         sh.getKmHistoryTillToday(c)
     # sd = StockDumps()
-    # sd.get_all_stock_his()
+    # sd.dump_all_stock_his()
     

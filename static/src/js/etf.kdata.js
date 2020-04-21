@@ -8,27 +8,51 @@ class EtfFilter {
 }
 
 class ETF_Frame {
-    constructor(container) {
-        this.container = container;
+    constructor() {
         this.etfFilter = new EtfFilter(0, 0, 0, 0);
+        this.stocks_array = null;
     }
 
-    initialize() {
+    createPage(showBacklnk = true) {
+        this.container = document.createElement('div');
+        document.body.appendChild(this.container);
+        if (showBacklnk) {
+            var backLink = document.createElement('a');
+            backLink.textContent = '返回';
+            backLink.href = 'javascript:stockHub.stkCandidatePage.backToList()';
+            this.container.appendChild(backLink);
+        };
         this.filterArea = document.createElement('div');
         this.container.appendChild(this.filterArea);
+        this.createFilterArea();
+
         this.allEtfTable = new SortableTable();
         this.container.appendChild(this.allEtfTable.container);
-        this.showAllEtfTable();
-        if (Object.keys(all_candidate_stocks).length > 0) {
-            this.showFilterArea();
+    }
+
+    backToList() {
+        this.container.style.display = 'none';
+        stockHub.show();
+    }
+
+    getAllCandidateStocks() {
+        if (all_candidate_stocks !== undefined) {
+            this.stocks_array = all_candidate_stocks;
+            showAllEtfTable();
+            return;
         };
+
+        utils.get('stock', 'act=allstks', function(rsp) {
+            stockHub.stkCandidatePage.stocks_array = JSON.parse(rsp);
+            stockHub.stkCandidatePage.showAllEtfTable();
+        });
     }
 
     showAllEtfTable() {
         this.allEtfTable.reset();
         this.allEtfTable.setClickableHeader('名称', '代码', '类型', '跌幅(%)', '涨幅(%)', '月数', '最新值', '最新回撤(%)', '规模(亿)');
-        for (var i in all_candidate_stocks) {
-            var di = all_candidate_stocks[i];
+        for (var i in this.stocks_array) {
+            var di = this.stocks_array[i];
             if (this.checkEtfData(di)) {
                 this.allEtfTable.addRow(di.name, i, di.type, di.mfluct_down, di.mfluct_up, di.mlen, di.last_close, di.mback, di.sc);
             };
@@ -68,7 +92,7 @@ class ETF_Frame {
         return d;
     }
 
-    showFilterArea() {
+    createFilterArea() {
         var table = document.createElement('ul');
         table.className = 'ulTable';
         this.filterArea.appendChild(document.createTextNode('过滤条件'));
