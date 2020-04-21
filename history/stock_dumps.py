@@ -22,11 +22,18 @@ class StockDumps():
 
     def process_kdata(self, kdata):
         proc_obj = {}
-        delta_all = []
+        dhl = []
         for (i, d, c, h, l, o, pr, p, v, a) in kdata:
-            delta = float(h) - float(l)
-            delta_all.append(delta / float(h))
-        proc_obj['aver_fluct'] = round(100 * sum(delta_all)/len(delta_all), 2)
+            dhl.append((d,float(h), float(l)))
+        down_all = []
+        up_all = []
+        for i in range(0, len(dhl) - 1):
+            (d1, h1, l1) = dhl[i]
+            (d2, h2, l2) = dhl[i + 1]
+            down_all.append((h1 - l2) / h1)
+            up_all.append((h2 - l1) / l1)
+        proc_obj['fluct_down'] = round(100 * sum(down_all)/len(down_all), 2)
+        proc_obj['fluct_up'] = round(100 * sum(up_all)/len(up_all), 2)
         proc_obj['data_len'] = len(kdata)
         proc_obj['last_close'] = kdata[-1][2]
         lastHigh = float(kdata[-1][3]) if float(kdata[-1][3]) > float(kdata[-2][3]) else float(kdata[-2][3])
@@ -47,7 +54,8 @@ class StockDumps():
             if len(mdata) < 10:
                 continue
             mdata = self.process_kdata(mdata)
-            stock_obj['maver_fluct'] = mdata['aver_fluct']
+            stock_obj['mfluct_down'] = mdata['fluct_down']
+            stock_obj['mfluct_up'] = mdata['fluct_up']
             stock_obj['mlen'] = mdata['data_len']
             stock_obj['mlasthigh'] = mdata['last_high']
             stock_obj['mback'] = mdata['latest_back']

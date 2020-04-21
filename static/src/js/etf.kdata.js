@@ -26,11 +26,11 @@ class ETF_Frame {
 
     showAllEtfTable() {
         this.allEtfTable.reset();
-        this.allEtfTable.setClickableHeader('名称', '代码', '类型', '波动(%)', '月数', '最新值', '最新回撤(%)', '规模(亿)');
+        this.allEtfTable.setClickableHeader('名称', '代码', '类型', '跌幅(%)', '涨幅(%)', '月数', '最新值', '最新回撤(%)', '规模(亿)');
         for (var i in all_candidate_stocks) {
             var di = all_candidate_stocks[i];
             if (this.checkEtfData(di)) {
-                this.allEtfTable.addRow(di.name, i, di.type, di.maver_fluct, di.mlen, di.last_close, di.mback, di.sc);
+                this.allEtfTable.addRow(di.name, i, di.type, di.mfluct_down, di.mfluct_up, di.mlen, di.last_close, di.mback, di.sc);
             };
         };
     }
@@ -96,6 +96,6 @@ class ETF_Frame {
             return true;
         };
 
-        return e.maver_fluct >= this.etfFilter.minFluct && e.mlen >= this.etfFilter.minMonths && e.mback >= this.etfFilter.minBack && e.sc >= this.etfFilter.minScale;
+        return e.mfluct_down >= this.etfFilter.minFluct && e.mlen >= this.etfFilter.minMonths && e.mback >= this.etfFilter.minBack && e.sc >= this.etfFilter.minScale;
     }
 };
