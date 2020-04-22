@@ -228,6 +228,7 @@ class StockHub {
         aInterested.onclick = function(e) {
             e.target.that.showCandidateStocksPage(true);
         }
+        this.container.appendChild(aInterested);
 
         this.stockListTable = document.createElement('table');
         this.stockListTable.appendChild(document.createElement('hr'));

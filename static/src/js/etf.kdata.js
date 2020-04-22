@@ -163,7 +163,7 @@ class ETF_Frame {
         ec.value = val;
         ec.onchange = function(e) {
             if (typeof(cb) === 'function') {
-                cb(that, parseFloat(e.target.value))
+                cb(that, e.target.value, false)
             };
         }
         d.appendChild(ec);
@@ -171,7 +171,7 @@ class ETF_Frame {
         check.onclick = function(e) {
             e.target.bindInput.disabled = !e.target.checked;
             if (typeof(cb) === 'function') {
-                cb(that, e.target.checked ? parseFloat(e.target.bindInput.value) : 0);
+                cb(that, e.target.bindInput.value, !e.target.checked);
             };
         }
         return d;
@@ -182,28 +182,28 @@ class ETF_Frame {
         table.className = 'ulTable';
         this.filterArea.appendChild(document.createTextNode('过滤条件'));
         this.filterArea.appendChild(table);
-        table.appendChild(this.createFilterRow('关键词包含', '：', 10, this, function(that, f) {
-            that.etfFilter.nameKey = f;
+        table.appendChild(this.createFilterRow('关键词包含', '：', '', this, function(that, f, ud) {
+            that.etfFilter.nameKey = ud ? null : f;
             that.reloadStocksTable();
         }));
-        table.appendChild(this.createFilterRow('平均跌幅(%)', '>', 10, this, function(that, f) {
-            that.etfFilter.minDownFluct = f;
+        table.appendChild(this.createFilterRow('平均跌幅(%)', '>', 10, this, function(that, f, ud) {
+            that.etfFilter.minDownFluct = ud ? 0 : f;
             that.reloadStocksTable();
         }));
-        table.appendChild(this.createFilterRow('平均涨幅(%)', '>', 10, this, function(that, f) {
-            that.etfFilter.minUpFluct = f;
+        table.appendChild(this.createFilterRow('平均涨幅(%)', '>', 10, this, function(that, f, ud) {
+            that.etfFilter.minUpFluct = ud ? 0 : f;
             that.reloadStocksTable();
         }));
-        table.appendChild(this.createFilterRow('当前回撤(%)', '>', 10, this, function(that, f) {
-            that.etfFilter.minBack = f;
+        table.appendChild(this.createFilterRow('当前回撤(%)', '>', 10, this, function(that, f, ud) {
+            that.etfFilter.minBack = ud ? 0 : f;
             that.reloadStocksTable();
         }));
-        table.appendChild(this.createFilterRow('资金规模(亿元)', '>', 1, this, function(that, f) {
-            that.etfFilter.minScale = f;
+        table.appendChild(this.createFilterRow('资金规模(亿元)', '>', 1, this, function(that, f, ud) {
+            that.etfFilter.minScale = ud ? 0 : f;
             that.reloadStocksTable();
         }));
-        table.appendChild(this.createFilterRow('月K期数', '>', 20, this, function(that, f) {
-            that.etfFilter.minMonths = f;
+        table.appendChild(this.createFilterRow('月K期数', '>', 20, this, function(that, f, ud) {
+            that.etfFilter.minMonths = ud ? 0 : f;
             that.reloadStocksTable();
         }));
     }

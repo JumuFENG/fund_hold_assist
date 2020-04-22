@@ -41,10 +41,11 @@ class StockDumps():
         return proc_obj
 
     def get_all_stock_his(self):
-        self.get_stocks_his()
+        return self.get_stocks_his()
 
     def get_stocks_his(self, codes = None):
         all_stock_obj = {}
+        
         for (i,c,n,s,t,sn,sc,sd) in self.infoList:
             if codes is not None and not c in codes:
                 continue
