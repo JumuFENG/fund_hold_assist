@@ -36,14 +36,12 @@ class DailyUpdater():
         if fundcodes :
             for (c, h, qd) in fundcodes:
                 if (morningOnetime and qd) or not morningOnetime:
-                    if self.should_update(h):
-                        self.download_all_fund_history(c)
+                    self.download_all_fund_history(c)
 
-        indexcodes = self.sqldb.select(gl_index_info_table, fields=[column_code, column_table_history])
+        indexcodes = self.sqldb.select(gl_index_info_table, fields=[column_code])
         if indexcodes:
-            for (c, h) in indexcodes:
-                if self.should_update(h):
-                    self.download_all_index_history(c)
+            for (c,) in indexcodes:
+                self.download_all_index_history(c)
 
         if not morningOnetime:
             print("gold only update in the morning")
@@ -52,8 +50,7 @@ class DailyUpdater():
         goldcodes = self.sqldb.select(gl_gold_info_table, fields=[column_code, column_table_history])
         if goldcodes:
             for (c, h) in goldcodes:
-                if self.should_update(h):
-                    self.download_all_gold_history(c)
+                self.download_all_gold_history(c)
 
     def download_all_fund_history(self, code):
         print("try to update fund history for:", code)
@@ -67,24 +64,11 @@ class DailyUpdater():
         gh.getJijinhaoRtHistory(code)
 
     def download_all_index_history(self, code):
-        print("try to update index history for:", code)
         ih = Index_history()
+        print("try to update index history for:", code)
         ih.indexHistoryTillToday(code)
         ih.getHistoryFrom163(code)
         ih.getHistoryFromSohu(code)
-
-    def should_update(self, historytable):
-        if not self.sqldb.isExistTable(historytable):
-            print("history table", historytable, "not exist")
-            return True
-
-        maxDate = self.sqldb.select(historytable, "max(%s)" % column_date)
-        if maxDate:
-            (maxDate,), = maxDate
-        if maxDate == datetime.now().strftime("%Y-%m-%d"):
-            print(historytable, "already updated.")
-            return False
-        return True
 
 if __name__ == '__main__':
     du = DailyUpdater()
