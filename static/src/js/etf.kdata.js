@@ -19,9 +19,30 @@ class ETF_Frame {
         if (showBacklnk) {
             var backLink = document.createElement('a');
             backLink.textContent = '返回';
-            backLink.href = 'javascript:stockHub.stkCandidatePage.backToList()';
+            backLink.href = 'javascript:void(0)';
+            backLink.that = this;
+            backLink.onclick = function (e) {
+                e.target.that.backToList();
+            }
             this.container.appendChild(backLink);
         };
+
+        var addInterestsArea = document.createElement('div');
+        this.container.appendChild(addInterestsArea);
+        addInterestsArea.appendChild(document.createTextNode('添加自选:'));
+        var interestInput = document.createElement('input');
+        interestInput.placeholder = '股票代码';
+        addInterestsArea.appendChild(interestInput);
+        var btnOK = document.createElement('button');
+        btnOK.textContent = 'OK';
+        btnOK.bindInput = interestInput;
+        btnOK.that = this;
+        btnOK.onclick = function(e) {
+            e.target.that.addInterested(e.target.bindInput.value);
+            e.target.bindInput.value = '';
+        }
+        addInterestsArea.appendChild(btnOK);
+
         this.filterArea = document.createElement('div');
         this.container.appendChild(this.filterArea);
         this.createFilterArea();
@@ -48,14 +69,28 @@ class ETF_Frame {
             if (typeof(rtHelper) !== 'undefined') {
                 for (var i in stocks_array) {
                     rtHelper.pushStockCode(i);
-                    rtHelper.fetchStockRtDataActually(function() {
-                        stockHub.stkCandidatePage.showAllEtfTable();
-                    });
                 };
+                rtHelper.fetchStockRtDataActually(function() {
+                    stockHub.stkCandidatePage.showAllEtfTable();
+                });
             } else {
                 stockHub.stkCandidatePage.showAllEtfTable();
             }
         });
+    }
+
+    createNameCell(name, code) {
+        var cell = document.createElement('div');
+        cell.appendChild(document.createTextNode(name));
+        var addLink = document.createElement('a');
+        addLink.className = 'rectBtnAnchor';
+        addLink.textContent = '+';
+        addLink.that = this;
+        addLink.onclick = function (e) {
+            e.target.that.addInterested(code);
+        }
+        cell.appendChild(addLink);
+        return cell;
     }
 
     showAllEtfTable() {
@@ -71,11 +106,12 @@ class ETF_Frame {
             this.stocks_array[i] = di;
         };
         this.allEtfTable.reset();
-        this.allEtfTable.setClickableHeader('名称', '代码', '类型', '跌幅(%)', '涨幅(%)', '月数', '最新值', '最新回撤(%)', '回撤比例(%)', '规模(亿)');
+        this.allEtfTable.setClickableHeader('名称', '类型', '跌幅(%)', '涨幅(%)', '月数', '最新值', '最新回撤(%)', '回撤比例(%)', '规模(亿)');
         for (var i in this.stocks_array) {
             var di = this.stocks_array[i];
             if (this.checkEtfData(di)) {
-                this.allEtfTable.addRow(di.name, i, di.type, di.mfluct_down, di.mfluct_up, di.mlen, di.last_close, di.mback, di.mperBack, di.sc);
+                var nameCell = this.createNameCell(di.name, i);
+                this.allEtfTable.addRow(nameCell, di.type, di.mfluct_down, di.mfluct_up, di.mlen, di.last_close, di.mback, di.mperBack, di.sc);
             };
         };
     }
@@ -134,6 +170,18 @@ class ETF_Frame {
             that.etfFilter.minMonths = f;
             that.showAllEtfTable();
         }));
+    }
+
+    getInterestedStocks() {
+
+    }
+
+    addInterested(code) {
+        alert('');
+    }
+
+    showInterestedStocksPage() {
+
     }
 
     checkEtfData(e) {

@@ -141,3 +141,15 @@ div.total_earned label {
 ul.ulTable {
     padding-left: 0;
 }
+
+a {
+    margin: 3px 5px;
+}
+
+a.rectBtnAnchor {
+    color: blue;
+    margin: 5px;
+    padding: 0px 2px 1px 2px;
+    border: 1px solid blue;
+    font-size: 12px;
+}

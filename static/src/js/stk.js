@@ -204,13 +204,30 @@ class StockHub {
         this.container.appendChild(topDiv);
 
         var aStats = document.createElement('a');
-        aStats.textContent = '详细统计表';
-        aStats.href = 'javascript:stockHub.showStockStats()';
+        aStats.textContent = '盈亏表';
+        aStats.href = 'javascript:void(0)';
+        aStats.that = this;
+        aStats.onclick = function(e) {
+            e.target.that.showStockStats();
+        }
         this.container.appendChild(aStats);
+
         var aCandidate = document.createElement('a');
         aCandidate.textContent = '查看所有';
-        aCandidate.href = 'javascript:stockHub.showCandidateStocksPage()';
+        aCandidate.href = 'javascript:void(0)';
+        aCandidate.that = this;
+        aCandidate.onclick = function(e) {
+            e.target.that.showCandidateStocksPage();
+        }
         this.container.appendChild(aCandidate);
+
+        var aInterested = document.createElement('a');
+        aInterested.textContent = '自选列表';
+        aInterested.href = 'javascript:void(0)';
+        aInterested.that = this;
+        aInterested.onclick = function(e) {
+            e.target.that.showInterestedStocksPage();
+        }
 
         this.stockListTable = document.createElement('table');
         this.stockListTable.appendChild(document.createElement('hr'));

@@ -581,13 +581,13 @@ class BasicDetails {
             this.ratesDiv.appendChild(this.feeBtn);
         };
 
-        var sellRate = 100 * all_stocks[this.code].sgr;
+        var sellRate = parseFloat((100 * all_stocks[this.code].sgr).toFixed(2));
         this.btnOK.bindSellRate.update(sellRate);
-        var buyRate = 100 * all_stocks[this.code].bgr;
+        var buyRate = parseFloat((100 * all_stocks[this.code].bgr).toFixed(2));
         this.btnOK.bindBuyRate.update(buyRate);
         this.btnOK.textContent = '修改';
         this.btnOK.code = this.code;
-        var fee = 10000 * all_stocks[this.code].fee;
+        var fee = parseFloat((10000 * all_stocks[this.code].fee).toFixed(2));
         this.feeBtn.bindFee.update(fee);
         this.feeBtn.textContent = '修改';
         this.feeBtn.code = this.code;
