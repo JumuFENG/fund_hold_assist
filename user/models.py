@@ -6,6 +6,7 @@ from decimal import Decimal
 import sys
 sys.path.append("../..")
 from utils import *
+from history import *
 from user.user_fund import *
 from user.user_stock import *
 
@@ -303,6 +304,17 @@ class User():
 
         return stocks_json
 
+    def interest_stock(self, code):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_info_table()) or not sqldb.isExistTableColumn(self.stocks_info_table(), column_keepeyeon):
+            return
+
+        stk = sqldb.select(self.stocks_info_table(), '*', "%s = '%s'" % (column_code, str(code)))
+        if stk is None or len(stk) == 0:
+            sqldb.insert(self.stocks_info_table(), {column_code: str(code), column_keepeyeon: str(1)})
+        else:
+            sqldb.update(self.stocks_info_table(), {column_keepeyeon: str(1)}, {column_code: str(code)})
+
     def forget_stock(self, code):
         sqldb = self.stock_center_db()
         if not sqldb.isExistTable(self.stocks_info_table()) or not sqldb.isExistTableColumn(self.stocks_info_table(), column_keepeyeon):
@@ -329,6 +341,23 @@ class User():
                 stock_stats[c] = stock_stats_obj
 
         return stock_stats
+
+    def get_interested_stocks_code(self):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_info_table()):
+            print("can not find stock info DB.")
+            return None
+
+        codes = sqldb.select(self.stocks_info_table(), [column_code], "%s = '%s'" % (column_keepeyeon, str(1)))
+
+        keo_codes = []
+        for (c, ) in codes:
+            keo_codes.append(c)
+        return keo_codes
+
+    def get_interested_stocks_his(self):
+        sd = StockDumps()
+        return sd.get_stocks_his(self.get_interested_stocks_code())
 
 class UserModel():
     def __init__(self):

@@ -302,6 +302,11 @@ def stock():
             code = code.upper()
             user.forget_stock(code)
             return 'OK', 200
+        if actype == 'interest':
+            code = request.form.get("code", type=str, default=None)
+            code = code.upper()
+            user.interest_stock(code)
+            return 'OK', 200
     else:
         actype = request.args.get("act", type=str, default=None)
         code = request.args.get("code", type=str, default=None)
@@ -313,9 +318,15 @@ def stock():
                 return json.dumps(user.get_holding_stocks_summary())
         if actype == 'stats':
             return json.dumps(user.get_stocks_stats())
+        if actype == 'interstedstks':
+            return json.dumps(user.get_interested_stocks_code())
         if actype == 'allstks':
-            sd = StockDumps()
-            return json.dumps(sd.get_all_stock_his())
+            interested = request.args.get('interested', type=str, default=None)
+            if interested is not None and interested == '1':
+                return json.dumps(user.get_interested_stocks_his())
+            else:
+                sd = StockDumps()
+                return json.dumps(sd.get_all_stock_his())
         us = UserStock(user, code)
         if actype == 'buy':
             return json.dumps(us.get_buy_arr())

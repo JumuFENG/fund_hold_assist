@@ -20,10 +20,10 @@ class StockStats {
     }
 
     getStockStats() {
-        utils.get('stock', 'act=stats', function(rsp){
-            stockHub.stockStats.statsJson = JSON.parse(rsp);
-            stockHub.stockStats.showStockStats();
-        });
+        utils.get('stock', 'act=stats', function(that, rsp){
+            that.statsJson = JSON.parse(rsp);
+            that.showStockStats();
+        }, this);
     }
 
     showStockStats() {

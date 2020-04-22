@@ -1,6 +1,8 @@
 class EtfFilter {
-    constructor(f, b, m, s) {
-        this.minFluct = f;
+    constructor(df, uf,b, m, s) {
+        this.nameKey = null;
+        this.minDownFluct = df;
+        this.minUpFluct = uf;
         this.minBack = b;
         this.minMonths = m;
         this.minScale = s;
@@ -9,8 +11,10 @@ class EtfFilter {
 
 class ETF_Frame {
     constructor() {
-        this.etfFilter = new EtfFilter(0, 0, 0, 0);
+        this.etfFilter = new EtfFilter(0, 0, 0, 0, 0);
         this.stocks_array = null;
+        this.interested_array = null;
+        this.showOnlyInterested = false;
     }
 
     createPage(showBacklnk = true) {
@@ -59,24 +63,35 @@ class ETF_Frame {
     getAllCandidateStocks() {
         if (typeof(all_candidate_stocks) !== 'undefined') {
             this.stocks_array = all_candidate_stocks;
-            this.showAllEtfTable();
+            this.showOnlyInterested = false;
+            this.reloadStocksTable();
             return;
         };
 
-        utils.get('stock', 'act=allstks', function(rsp) {
+        if (this.showOnlyInterested && this.interested_array.length == Object.keys(this.stocks_array).length) {
+            this.reloadStocksTable();
+            return;
+        };
+
+        var queryStr = 'act=allstks';
+        if (this.showOnlyInterested) {
+            queryStr += '&interested=1';
+        };
+
+        utils.get('stock', queryStr, function(that, rsp) {
             var stocks_array = JSON.parse(rsp);
-            stockHub.stkCandidatePage.stocks_array = stocks_array;
+            that.stocks_array = stocks_array;
             if (typeof(rtHelper) !== 'undefined') {
                 for (var i in stocks_array) {
                     rtHelper.pushStockCode(i);
                 };
                 rtHelper.fetchStockRtDataActually(function() {
-                    stockHub.stkCandidatePage.showAllEtfTable();
+                    that.reloadStocksTable();
                 });
             } else {
-                stockHub.stkCandidatePage.showAllEtfTable();
+                that.reloadStocksTable();
             }
-        });
+        }, this);
     }
 
     createNameCell(name, code) {
@@ -84,16 +99,24 @@ class ETF_Frame {
         cell.appendChild(document.createTextNode(name));
         var addLink = document.createElement('a');
         addLink.className = 'rectBtnAnchor';
-        addLink.textContent = '+';
+        addLink.textContent = this.isInterested(code) ? '-' : '+';
         addLink.that = this;
         addLink.onclick = function (e) {
-            e.target.that.addInterested(code);
+            if (!e.target.that.isInterested(code)) {
+                e.target.that.addInterested(code);
+            } else {
+                e.target.that.removeInterested(code);
+            }
         }
         cell.appendChild(addLink);
         return cell;
     }
 
-    showAllEtfTable() {
+    reloadStocksTable() {
+        if (!this.stocks_array || Object.keys(this.stocks_array).length == 0) {
+            this.getAllCandidateStocks();
+            return;
+        };
         for (var i in this.stocks_array) {
             var di = this.stocks_array[i];
             var latestPrice = di.last_close;
@@ -108,6 +131,11 @@ class ETF_Frame {
         this.allEtfTable.reset();
         this.allEtfTable.setClickableHeader('名称', '类型', '跌幅(%)', '涨幅(%)', '月数', '最新值', '最新回撤(%)', '回撤比例(%)', '规模(亿)');
         for (var i in this.stocks_array) {
+            if (this.showOnlyInterested) {
+                if (!this.isInterested(i)) {
+                    continue;
+                };
+            };
             var di = this.stocks_array[i];
             if (this.checkEtfData(di)) {
                 var nameCell = this.createNameCell(di.name, i);
@@ -116,7 +144,7 @@ class ETF_Frame {
         };
     }
 
-    createFilterRow(conds, symbol, val, that,cb) {
+    createFilterRow(conds, symbol, val, that, cb) {
         var d = document.createElement('li');
 
         var check = document.createElement('input');
@@ -154,34 +182,70 @@ class ETF_Frame {
         table.className = 'ulTable';
         this.filterArea.appendChild(document.createTextNode('过滤条件'));
         this.filterArea.appendChild(table);
-        table.appendChild(this.createFilterRow('平均波动幅度(%)', '>', 10, this, function(that, f) {
-            that.etfFilter.minFluct = f;
-            that.showAllEtfTable();
+        table.appendChild(this.createFilterRow('关键词包含', '：', 10, this, function(that, f) {
+            that.etfFilter.nameKey = f;
+            that.reloadStocksTable();
+        }));
+        table.appendChild(this.createFilterRow('平均跌幅(%)', '>', 10, this, function(that, f) {
+            that.etfFilter.minDownFluct = f;
+            that.reloadStocksTable();
+        }));
+        table.appendChild(this.createFilterRow('平均涨幅(%)', '>', 10, this, function(that, f) {
+            that.etfFilter.minUpFluct = f;
+            that.reloadStocksTable();
         }));
         table.appendChild(this.createFilterRow('当前回撤(%)', '>', 10, this, function(that, f) {
             that.etfFilter.minBack = f;
-            that.showAllEtfTable();
+            that.reloadStocksTable();
         }));
         table.appendChild(this.createFilterRow('资金规模(亿元)', '>', 1, this, function(that, f) {
             that.etfFilter.minScale = f;
-            that.showAllEtfTable();
+            that.reloadStocksTable();
         }));
         table.appendChild(this.createFilterRow('月K期数', '>', 20, this, function(that, f) {
             that.etfFilter.minMonths = f;
-            that.showAllEtfTable();
+            that.reloadStocksTable();
         }));
     }
 
-    getInterestedStocks() {
+    isInterested(code) {
+        return this.interested_array && this.interested_array.includes(code);
+    }
 
+    getInterestedStocks() {
+        if (typeof(all_candidate_stocks) !== 'undefined') {
+            this.stocks_array = all_candidate_stocks;
+            this.showOnlyInterested = false;
+            this.reloadStocksTable();
+            return;
+        };
+
+        if (this.interested_array && this.interested_array.length > 0) {
+            this.getAllCandidateStocks();
+            return;
+        };
+
+        utils.get('stock', 'act=interstedstks', function(that, rsp) {
+            that.interested_array = JSON.parse(rsp);
+            that.getAllCandidateStocks();
+        }, this);
     }
 
     addInterested(code) {
-        alert('');
+        trade.interest(code, function(that) {
+            that.interested_array.append(code);
+            that.reloadStocksTable();
+        }, this);
     }
 
-    showInterestedStocksPage() {
-
+    removeInterested(code) {
+        trade.forget(code, function(that) {
+            var idx = that.interested_array.indexOf(code);
+            if (idx >= 0) {
+                that.interested_array.splice(idx, 1);
+            };
+            that.reloadStocksTable();
+        }, this);
     }
 
     checkEtfData(e) {
@@ -189,6 +253,13 @@ class ETF_Frame {
             return true;
         };
 
-        return e.mfluct_down >= this.etfFilter.minFluct && e.mlen >= this.etfFilter.minMonths && e.mback >= this.etfFilter.minBack && e.sc >= this.etfFilter.minScale;
+        var flt = this.etfFilter;
+        var nameMatch = true;
+        if (flt.nameKey) {
+            nameMatch = e.name.includes(flt.nameKey);
+        };
+        var condMatch = e.mfluct_down >= flt.minDownFluct && e.mfluct_up >= flt.minUpFluct && e.mlen >= flt.minMonths && e.mback >= flt.minBack && e.sc >= flt.minScale;
+
+        return nameMatch && condMatch;
     }
 };

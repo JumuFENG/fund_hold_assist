@@ -217,7 +217,7 @@ class StockHub {
         aCandidate.href = 'javascript:void(0)';
         aCandidate.that = this;
         aCandidate.onclick = function(e) {
-            e.target.that.showCandidateStocksPage();
+            e.target.that.showCandidateStocksPage(false);
         }
         this.container.appendChild(aCandidate);
 
@@ -226,7 +226,7 @@ class StockHub {
         aInterested.href = 'javascript:void(0)';
         aInterested.that = this;
         aInterested.onclick = function(e) {
-            e.target.that.showInterestedStocksPage();
+            e.target.that.showCandidateStocksPage(true);
         }
 
         this.stockListTable = document.createElement('table');
@@ -382,12 +382,13 @@ class StockHub {
         this.stockStats.container.style.display = 'block';
     }
 
-    showCandidateStocksPage() {
+    showCandidateStocksPage(onlyInterested) {
         if (!this.stkCandidatePage) {
             this.stkCandidatePage = new ETF_Frame();
             this.stkCandidatePage.createPage();
-            this.stkCandidatePage.getAllCandidateStocks();
         };
+        this.stkCandidatePage.showOnlyInterested = onlyInterested;
+        this.stkCandidatePage.getInterestedStocks();
         this.hide();
         this.stkCandidatePage.container.style.display = 'block';
     }

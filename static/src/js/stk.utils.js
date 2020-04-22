@@ -228,12 +228,27 @@ class StockTrade {
         };
     }
 
-    forget(code) {
+    forget(code, cb, that) {
         var fd = new FormData();
         fd.append('act', 'forget');
         fd.append('code', code);
         utils.post('stock', fd, function() {
-            location.reload();
+            if (typeof(cb) === 'function') {
+                cb(that);
+            } else {
+                location.reload();
+            }
+        });
+    }
+
+    interest(code, cb, that) {
+        var fd = new FormData();
+        fd.append("act", 'interest');
+        fd.append("code", code);
+        utils.post('stock', fd, function(that) {
+            if (typeof(cb) === 'function') {
+                cb(that);
+            };
         });
     }
 }

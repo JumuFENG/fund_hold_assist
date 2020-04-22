@@ -251,7 +251,7 @@ class Utils {
         return dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
     }
 
-    get(path, queries, cb) {
+    get(path, queries, cb, that) {
         var httpRequest = new XMLHttpRequest();
         var lnk = '../../' + path;
         if (queries && queries.length > 0) {
@@ -263,13 +263,17 @@ class Utils {
         httpRequest.onreadystatechange = function() {
             if (httpRequest.readyState == 4 && httpRequest.status == 200) {
                 if (typeof(cb === 'function')) {
-                    cb(httpRequest.responseText);
+                    if (that) {
+                        cb(that, httpRequest.responseText);
+                    } else {
+                        cb(httpRequest.responseText);
+                    }
                 };
             };
         }
     }
 
-    post(querystr, form, cb) {
+    post(querystr, form, cb, that) {
         var httpRequest = new XMLHttpRequest();
         httpRequest.open('POST', '../../' + querystr);
         httpRequest.send(form);
@@ -277,7 +281,7 @@ class Utils {
         httpRequest.onreadystatechange = function () {
             if (httpRequest.readyState == 4 && httpRequest.status == 200) {
                 if (typeof(cb) === 'function') {
-                    cb();
+                    cb(that);
                 };
             };
         }
