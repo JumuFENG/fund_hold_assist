@@ -38,7 +38,6 @@ class StockDumps():
         proc_obj['last_close'] = kdata[-1][2]
         lastHigh = float(kdata[-1][3]) if float(kdata[-1][3]) > float(kdata[-2][3]) else float(kdata[-2][3])
         proc_obj['last_high'] = lastHigh
-        proc_obj['latest_back'] = round(100 * (lastHigh - float(kdata[-1][2])) / lastHigh, 2)
         return proc_obj
 
     def get_all_stock_his(self):
@@ -58,7 +57,6 @@ class StockDumps():
             stock_obj['mfluct_up'] = mdata['fluct_up']
             stock_obj['mlen'] = mdata['data_len']
             stock_obj['mlasthigh'] = mdata['last_high']
-            stock_obj['mback'] = mdata['latest_back']
             stock_obj['last_close'] = mdata['last_close']
             all_stock_obj[c] = stock_obj
 

@@ -43,18 +43,39 @@ class ETF_Frame {
         };
 
         utils.get('stock', 'act=allstks', function(rsp) {
-            stockHub.stkCandidatePage.stocks_array = JSON.parse(rsp);
-            stockHub.stkCandidatePage.showAllEtfTable();
+            var stocks_array = JSON.parse(rsp);
+            stockHub.stkCandidatePage.stocks_array = stocks_array;
+            if (typeof(rtHelper) !== 'undefined') {
+                for (var i in stocks_array) {
+                    rtHelper.pushStockCode(i);
+                    rtHelper.fetchStockRtDataActually(function() {
+                        stockHub.stkCandidatePage.showAllEtfTable();
+                    });
+                };
+            } else {
+                stockHub.stkCandidatePage.showAllEtfTable();
+            }
         });
     }
 
     showAllEtfTable() {
+        for (var i in this.stocks_array) {
+            var di = this.stocks_array[i];
+            var latestPrice = di.last_close;
+            if (typeof(stockRtData) !== 'undefined' && !stockRtData[i].rtprice) {
+                latestPrice = stockRtData[i].rtprice;
+            };
+            di.last_close = latestPrice;
+            di.mback = parseFloat((100 * (di.mlasthigh - latestPrice) / di.mlasthigh).toFixed(2));
+            di.mperBack = parseFloat((100 * di.mback / di.mfluct_down).toFixed(2));
+            this.stocks_array[i] = di;
+        };
         this.allEtfTable.reset();
-        this.allEtfTable.setClickableHeader('名称', '代码', '类型', '跌幅(%)', '涨幅(%)', '月数', '最新值', '最新回撤(%)', '规模(亿)');
+        this.allEtfTable.setClickableHeader('名称', '代码', '类型', '跌幅(%)', '涨幅(%)', '月数', '最新值', '最新回撤(%)', '回撤比例(%)', '规模(亿)');
         for (var i in this.stocks_array) {
             var di = this.stocks_array[i];
             if (this.checkEtfData(di)) {
-                this.allEtfTable.addRow(di.name, i, di.type, di.mfluct_down, di.mfluct_up, di.mlen, di.last_close, di.mback, di.sc);
+                this.allEtfTable.addRow(di.name, i, di.type, di.mfluct_down, di.mfluct_up, di.mlen, di.last_close, di.mback, di.mperBack, di.sc);
             };
         };
     }
