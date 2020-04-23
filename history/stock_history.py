@@ -50,7 +50,7 @@ class AllStocks(InfoList):
         stamp = time.mktime(curTime.timetuple()) * 1000 + curTime.microsecond
         return int(stamp)
 
-    def requsetEtfListData(self, pz):
+    def requestEtfListData(self, pz):
         # data src: http://quote.eastmoney.com/center/gridlist.html#fund_etf
         timestamp = self.getTimeStamp()
         cbstr = 'etfcb_' + str(timestamp)
@@ -67,37 +67,41 @@ class AllStocks(InfoList):
 
         if etflist['data']['total'] > pz:
             print('total more than', pz, 'retry')
-            return requsetEtfListData(etflist['data']['total'])
+            return requestEtfListData(etflist['data']['total'])
 
         return etflist['data']['diff']
 
-    def loadAllETFFunds(self):
+    def loadAllFunds(self, ftype):
         self.check_table_column(column_type, 'varchar(20) DEFAULT NULL')
         self.check_table_column(column_short_name, 'varchar(255) DEFAULT NULL')
         self.check_table_column(column_assets_scale, 'varchar(20) DEFAULT NULL')
         self.check_table_column(column_setup_date, 'varchar(20) DEFAULT NULL')
 
-        etflist = self.requsetEtfListData(1000)
-        if etflist is None:
+        fundList = None
+        if ftype == 'ETF':
+            fundList = self.requestEtfListData(1000)
+        elif ftype == 'LOF':
+            fundList = self.requestLofListData(1000)
+        if fundList is None:
             return
 
         attrs = [column_name, column_type, column_short_name, column_setup_date, column_assets_scale]
         conds = [column_code]
-        allEtfInfo = []
-        for e in etflist:
+        allFundInfo = []
+        for e in fundList:
             tp = e['f13']
             code = ('SH' if e['f13'] == 1 else 'SZ') + e['f12']
             name = e['f14']
-            etfInfo = self.getEtfInfo(code)
-            if etfInfo is None:
+            fundInfo = self.getFundInfo(code)
+            if fundInfo is None:
                 self.updateStockCol(code, column_name, name)
-                self.updateStockCol(code, column_type, 'ETF')
+                self.updateStockCol(code, column_type, ftype)
                 continue
-            (short_name, setup_date, assets_scale) = etfInfo
-            allEtfInfo.append([name, 'ETF', short_name, setup_date, assets_scale, code])
-        self.sqldb.insertUpdateMany(gl_all_stocks_info_table, attrs, conds, allEtfInfo)
+            (short_name, setup_date, assets_scale) = fundInfo                
+            allFundInfo.append([name, ftype, short_name, setup_date, assets_scale, code])
+        self.sqldb.insertUpdateMany(gl_all_stocks_info_table, attrs, conds, allFundInfo)
 
-    def getEtfInfo(self, code):
+    def getFundInfo(self, code):
         ucode = code
         if ucode.startswith('SZ') or ucode.startswith('SH'):
             ucode = ucode[2:]
@@ -125,15 +129,36 @@ class AllStocks(InfoList):
         assets_scale = tr3[0].get_text().split('（')[0]
         return (short_name, setup_date, assets_scale)
 
-    def loadEtfInfo(self, code):
-        etfInfo = self.getEtfInfo(code)
-        if etfInfo is None:
+    def loadFundInfo(self, code):
+        fundInfo = self.getFundInfo(code)
+        if fundInfo is None:
             return
 
-        (short_name, setup_date, assets_scale) = etfInfo
+        (short_name, setup_date, assets_scale) = fundInfo
         self.updateStockCol(code, column_setup_date, setup_date)
         self.updateStockCol(code, column_assets_scale, assets_scale)
         self.updateStockCol(code, column_short_name, short_name)
+
+    def requestLofListData(self, pz):
+        # data src: http://quote.eastmoney.com/center/gridlist.html#fund_lof
+        timestamp = self.getTimeStamp()
+        cbstr = 'lofcb_' + str(timestamp)
+        lofListUrl = 'http://40.push2.eastmoney.com/api/qt/clist/get?cb=' + cbstr + '&pn=1&pz=' + str(pz) + '&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:MK0404,b:MK0405,b:MK0406,b:MK0407&fields=f12,f13,f14&_=' + str(timestamp + 1)
+        c = self.getRequest(lofListUrl)
+        if c is None:
+            print("get lof list failed")
+            return
+
+        loflist = json.loads(c[len(cbstr) + 1 : -2])
+        if loflist is None:
+            print('load LOF Data wrong!')
+            return
+
+        if loflist['data']['total'] > pz:
+            print('total more than', pz, 'retry')
+            return requestLofListData(loflist['data']['total'])
+
+        return loflist['data']['diff']
 
 class Stock_history(HistoryDowloaderBase):
     """
@@ -258,5 +283,10 @@ class Stock_history(HistoryDowloaderBase):
         self.setCode(code)
         self.getKHistoryFromSohu(self.sg.stockKmtable, 'm')
 
+    def checkKtable(self, ktable):
+        return self.sqldb.isExistTable(ktable)
+
     def readKHistoryData(self, ktable):
+        if not self.checkKtable(ktable):
+            return
         return self.sqldb.select(ktable)

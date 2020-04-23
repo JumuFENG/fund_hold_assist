@@ -16,9 +16,17 @@ from bs4 import BeautifulSoup
 class StockDumps():
     def __init__(self):
         self.history = Stock_history()
-        astk = AllStocks()
-        self.sqldb = astk.sqldb
-        self.infoList = astk.readAll()
+        self.allstk = AllStocks()
+        self.sqldb = self.allstk.sqldb
+        self.infoList = self.allstk.readAll()
+
+    def fetchAllEtf(self):
+        self.allstk.loadAllFunds('ETF')
+        self.infoList = self.allstk.readAll()
+
+    def fetchAllLof(self):
+        self.allstk.loadAllFunds('LOF')
+        self.infoList = self.allstk.readAll()
 
     def process_kdata(self, kdata):
         proc_obj = {}
@@ -59,7 +67,7 @@ class StockDumps():
             stock_obj['sc'] = sc.replace('亿元', '')
             #stock_obj['sd'] = sd
             mdata = self.history.readKHistoryData(sg.stockKmtable)
-            if len(mdata) < 10:
+            if mdata is None or len(mdata) < 10:
                 continue
             mdata = self.process_kdata(mdata)
             stock_obj['mfluct_down'] = mdata['fluct_down']
@@ -71,6 +79,18 @@ class StockDumps():
             all_stock_obj[c] = stock_obj
 
         return all_stock_obj
+
+    def check_khistory_table_exists(self):
+        cnt = 0
+        ocnt = 0
+        for (i,c,n,s,t,sn,sc,sd) in self.infoList:
+            sg = StockGeneral(self.sqldb, c)
+            if not self.history.checkKtable(sg.stockKmtable):
+                cnt += 1
+                print(c, t, n, sn)
+            else:
+                ocnt += 1
+        print(cnt, ocnt)
 
     def dump_all_stock_his(self):
         all_stock_obj = self.get_all_stock_his()
