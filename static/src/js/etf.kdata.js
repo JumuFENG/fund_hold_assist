@@ -68,7 +68,7 @@ class ETF_Frame {
             return;
         };
 
-        if (this.showOnlyInterested && this.interested_array.length == Object.keys(this.stocks_array).length) {
+        if (this.showOnlyInterested && this.stocks_array && this.interested_array.length == Object.keys(this.stocks_array).length) {
             this.reloadStocksTable();
             return;
         };
@@ -126,10 +126,12 @@ class ETF_Frame {
             di.last_close = latestPrice;
             di.mback = parseFloat((100 * (di.mlasthigh - latestPrice) / di.mlasthigh).toFixed(2));
             di.mperBack = parseFloat((100 * di.mback / di.mfluct_down).toFixed(2));
+            di.mpop = parseFloat((100 * (latestPrice - di.mlastlow) / di.mlastlow).toFixed(2));
+            di.mperPop = parseFloat((100 * di.mpop / di.mfluct_up).toFixed(2));
             this.stocks_array[i] = di;
         };
         this.allEtfTable.reset();
-        this.allEtfTable.setClickableHeader('名称', '类型', '跌幅(%)', '涨幅(%)', '月数', '最新值', '最新回撤(%)', '回撤比例(%)', '规模(亿)');
+        this.allEtfTable.setClickableHeader('名称', '类型', '跌幅(%)', '涨幅(%)', '月数', '最新值', '最新回撤(%)', '回撤比例(%)', '反弹(%)', '反弹比例(%)', '规模(亿)');
         for (var i in this.stocks_array) {
             if (this.showOnlyInterested) {
                 if (!this.isInterested(i)) {
@@ -139,7 +141,7 @@ class ETF_Frame {
             var di = this.stocks_array[i];
             if (this.checkEtfData(di)) {
                 var nameCell = this.createNameCell(di.name, i);
-                this.allEtfTable.addRow(nameCell, di.type, di.mfluct_down, di.mfluct_up, di.mlen, di.last_close, di.mback, di.mperBack, di.sc);
+                this.allEtfTable.addRow(nameCell, di.type, di.mfluct_down, di.mfluct_up, di.mlen, di.last_close, di.mback, di.mperBack, di.mpop, di.mperPop, di.sc);
             };
         };
     }
