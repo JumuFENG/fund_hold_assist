@@ -1,5 +1,5 @@
 class EtfFilter {
-    constructor(df, uf,b, m, s) {
+    constructor(df, uf, b, m, s) {
         this.nameKey = null;
         this.minDownFluct = df;
         this.minUpFluct = uf;
@@ -11,7 +11,7 @@ class EtfFilter {
 
 class ETF_Frame {
     constructor() {
-        this.etfFilter = new EtfFilter(0, 0, 0, 0, 0);
+        this.etfFilter = new EtfFilter(4, 4, 0, 0, 0);
         this.stocks_array = null;
         this.interested_array = null;
         this.showOnlyInterested = false;
@@ -97,6 +97,7 @@ class ETF_Frame {
     createNameCell(name, code) {
         var cell = document.createElement('div');
         cell.appendChild(document.createTextNode(name));
+        cell.title = code;
         var addLink = document.createElement('a');
         addLink.className = 'rectBtnAnchor';
         addLink.textContent = this.isInterested(code) ? '-' : '+';
@@ -235,7 +236,7 @@ class ETF_Frame {
 
     addInterested(code) {
         trade.interest(code, function(that) {
-            that.interested_array.append(code);
+            that.interested_array.push(code);
             that.reloadStocksTable();
         }, this);
     }

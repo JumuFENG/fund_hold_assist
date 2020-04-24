@@ -245,7 +245,7 @@ class StockTrade {
         var fd = new FormData();
         fd.append("act", 'interest');
         fd.append("code", code);
-        utils.post('stock', fd, function(that) {
+        utils.post('stock', fd, function() {
             if (typeof(cb) === 'function') {
                 cb(that);
             };
