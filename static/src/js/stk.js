@@ -174,6 +174,11 @@ class StockSummay {
                 stockHub.updateStockSummary(c);
             });
         };
+        if (!all_stocks[this.code].khl_m_his) {
+            trade.fetchKhlData(this.code, function(c) {
+                stockHub.updateStockSummary(c);
+            });
+        };
         rtHelper.fetchStockRtData(function() {
             stockHub.refreshEarned();
             stockHub.reloadAllStocks();

@@ -188,6 +188,16 @@ class StockTrade {
         });
     }
 
+    fetchKhlData(code, cb) {
+        var querystr = 'act=khl_m&code=' + code;
+        utils.get('stock', querystr, function(rsp) {
+            all_stocks[code].khl_m_his = JSON.parse(rsp);
+            if (typeof(cb) === 'function') {
+                cb(code);
+            };
+        });
+    }
+
     fixSellRec(code, id, portion, price, cb) {
         var fd = new FormData();
         fd.append('act', 'fixsell');

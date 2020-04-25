@@ -80,6 +80,15 @@ class StockDumps():
 
         return all_stock_obj
 
+    def get_stock_khl_m_his(self, code):
+        sg = StockGeneral(self.sqldb, code)
+        mdata = self.history.readKHistoryData(sg.stockKmtable)
+        khl_m = []
+        date_conv = DateConverter()
+        for (i, d, c, h, l, o, pr, p, v, a) in mdata:
+            khl_m.append([date_conv.days_since_2000(d), h, l])
+        return khl_m
+
     def check_khistory_table_exists(self):
         cnt = 0
         ocnt = 0
