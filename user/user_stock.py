@@ -98,7 +98,10 @@ class UserStock():
                 cost += Decimal(pr) * (Decimal(str(p)) - Decimal(str(sp)))
 
             average = (cost/portion).quantize(Decimal("0.0000")) if not portion == 0 else 0
-            self.sqldb.update(self.stocks_table, {column_cost_hold:str(cost), column_portion_hold:str(portion), column_averagae_price:str(average)}, {column_code: self.code})
+            newinfo = {column_cost_hold:str(cost), column_portion_hold:str(portion), column_averagae_price:str(average)}
+            if portion > 0:
+                newinfo[column_keepeyeon] = '1'
+            self.sqldb.update(self.stocks_table, newinfo, {column_code: self.code})
 
     def update_rollin(self, portion, rid):
         rolled_in = self.sqldb.select(self.sell_table, [column_portion, column_rolled_in, column_roll_in_value], "id = '%s'" % str(rid))
