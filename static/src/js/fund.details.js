@@ -319,12 +319,12 @@ class FundBuyDetail {
         };
         
         this.radioBar = new RadioAnchorBar('卖出');
-        this.radioBar.addRadio('按日期', function(){
-            detailpage.buydetail.sortBuyTable(true);
-        });
-        this.radioBar.addRadio('按净值', function(){
-            detailpage.buydetail.sortBuyTable(false);
-        });
+        this.radioBar.addRadio('按日期', function(that) {
+            that.sortBuyTable(true);
+        }, this);
+        this.radioBar.addRadio('按净值', function(that) {
+            that.sortBuyTable(false);
+        }, this);
 
         this.container.appendChild(this.radioBar.container);
         

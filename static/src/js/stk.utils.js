@@ -188,12 +188,32 @@ class StockTrade {
         });
     }
 
-    fetchKhlData(code, cb) {
+    fetchKhlData(code, cb, that) {
         var querystr = 'act=khl_m&code=' + code;
         utils.get('stock', querystr, function(rsp) {
-            all_stocks[code].khl_m_his = JSON.parse(rsp);
+            if (!all_stocks[code]) {
+                all_stocks[code] = {};
+                var khl_m_his = JSON.parse(rsp);
+                var down_all = [];
+                var up_all = [];
+                for (var i = 0; i < khl_m_his.length - 1; i++) {
+                    down_all.push(1 - parseFloat(khl_m_his[i+1][2]) / parseFloat(khl_m_his[i][1]));
+                    up_all.push(parseFloat(khl_m_his[i+1][1]) / parseFloat(khl_m_his[i][2]) - 1);
+                };
+                var downFluct = down_all.reduce((acc, c) => acc + c, 0);
+                downFluct = parseFloat((downFluct / down_all.length).toFixed(4));
+                var upFluct = up_all.reduce((acc, c) => acc + c, 0);
+                upFluct = parseFloat((upFluct / up_all.length).toFixed(4));
+                all_stocks[code] = {
+                    khl_m_his: khl_m_his,
+                    sgr: upFluct,
+                    bgr: parseFloat((downFluct * 0.2).toFixed(4))
+                }
+            } else {
+                all_stocks[code].khl_m_his = JSON.parse(rsp);
+            }
             if (typeof(cb) === 'function') {
-                cb(code);
+                cb(code, that);
             };
         });
     }

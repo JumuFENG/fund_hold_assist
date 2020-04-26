@@ -215,18 +215,18 @@ class StockBuyDetail {
         };
         
         this.radioBar = new RadioAnchorBar('卖出');
-        this.radioBar.addRadio('按日期', function(){
-            stockHub.detailPage.buydetail.sortBuyTable(0);
-        });
-        this.radioBar.addRadio('按顺序', function(){
-            stockHub.detailPage.buydetail.sortBuyTable(1);
-        });
-        this.radioBar.addRadio('按份额', function(){
-            stockHub.detailPage.buydetail.sortBuyTable(2);
-        });
-        this.radioBar.addRadio('按成交价', function(){
-            stockHub.detailPage.buydetail.sortBuyTable(4);
-        });
+        this.radioBar.addRadio('按日期', function(that){
+            that.sortBuyTable(0);
+        }, this);
+        this.radioBar.addRadio('按顺序', function(that){
+            that.sortBuyTable(1);
+        }, this);
+        this.radioBar.addRadio('按份额', function(that){
+            that.sortBuyTable(2);
+        }, this);
+        this.radioBar.addRadio('按成交价', function(that){
+            that.sortBuyTable(4);
+        }, this);
 
         this.container.appendChild(this.radioBar.container);
         

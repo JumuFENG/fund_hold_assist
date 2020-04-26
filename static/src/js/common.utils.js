@@ -8,19 +8,19 @@ class RadioAnchorBar {
         this.radioAchors = [];
     }
 
-    addRadio(text, cb) {
+    addRadio(text, cb, that) {
         var ra = document.createElement('a');
         ra.href = 'javascript:void(0)';
         ra.anchorBar = this;
         ra.textContent = text;
         ra.onclick = function(e) {
-            e.target.anchorBar.setHightlight(e.target, cb);
+            e.target.anchorBar.setHightlight(e.target, cb, that);
         }
         this.container.appendChild(ra);
         this.radioAchors.push(ra);
     }
 
-    setHightlight(r, cb) {
+    setHightlight(r, cb, that) {
         if (!cb) {
             r.className = '';
             r.click();
@@ -34,7 +34,7 @@ class RadioAnchorBar {
                 };
                 this.radioAchors[i].className = 'highlight';
                 if (typeof(cb) === 'function') {
-                    cb();
+                    cb(that);
                 };
             } else {
                 this.radioAchors[i].className = '';
@@ -249,6 +249,12 @@ class Utils {
         var dt = new Date("2000-01-01");
         dt.setTime(dt.getTime() + days * 24 * 60 * 60 * 1000);
         return dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
+    }
+
+    ym_by_delta(days) {
+        var dt = new Date("2000-01-01");
+        dt.setTime(dt.getTime() + days * 24 * 60 * 60 * 1000);
+        return dt.getFullYear() + "-" + ('' + (dt.getMonth() + 1)).padStart(2, '0');
     }
 
     get(path, queries, cb, that) {

@@ -11,12 +11,12 @@ class TradeOption {
 
     initialize() {
         this.tradeOptBar = new RadioAnchorBar();
-        this.tradeOptBar.addRadio('买入', function(){
-            stockHub.chartWrapper.tradeOption.setTradeOption(TradeType.Buy);
-        });
-        this.tradeOptBar.addRadio('卖出', function(){
-            stockHub.chartWrapper.tradeOption.setTradeOption(TradeType.Sell);
-        });
+        this.tradeOptBar.addRadio('买入', function(that){
+            that.setTradeOption(TradeType.Buy);
+        }, this);
+        this.tradeOptBar.addRadio('卖出', function(that){
+            that.setTradeOption(TradeType.Sell);
+        }, this);
         this.tradeDiv.appendChild(this.tradeOptBar.container);
 
         var tradePanel = document.createElement('div');
@@ -136,117 +136,44 @@ google.charts.setOnLoadCallback(function(){
 class PlanChart {
     constructor(chartDiv) {
         this.container = chartDiv;
-        this.chart = new google.visualization.ScatterChart(this.container);
-        google.visualization.events.addListener(this.chart, 'ready', this.drawVticks);
+        this.chartOptions = new RadioAnchorBar();
+        this.chartLen = -1;
+        this.container.appendChild(this.chartOptions.container);
+        var chartArea = document.createElement('div');
+        this.container.appendChild(chartArea);
+        this.chart = new google.visualization.LineChart(chartArea);
     }
 
     setCode(code) {
+        if (this.chartOptions.radioAchors.length == 0) {
+            this.chartOptions.addRadio('5', function(that) {
+                that.chartLen = 5;
+                that.drawChart();
+            }, this);
+            this.chartOptions.addRadio('10', function(that) {
+                that.chartLen = 10;
+                that.drawChart();
+            }, this);
+            this.chartOptions.addRadio('20', function(that) {
+                that.chartLen = 20;
+                that.drawChart();
+            }, this);
+            this.chartOptions.addRadio('30', function(that) {
+                that.chartLen = 30;
+                that.drawChart();
+            }, this);
+            this.chartOptions.addRadio('全部', function(that) {
+                that.chartLen = 0;
+                that.drawChart();
+            }, this);
+        };
         this.buytable = all_stocks[code].buy_table;
-        this.code = code;
-    }
-
-    initD0Price() {
+        this.mkhl = all_stocks[code].khl_m_his;
         this.latestPrice = null;
-        if (stockRtData[this.code] && stockRtData[this.code].rtprice) {
-            this.latestPrice = stockRtData[this.code].rtprice;
+        if (stockRtData[code] && stockRtData[code].rtprice) {
+            this.latestPrice = stockRtData[code].rtprice;
         };
-
-        this.buy0price = this.latestPrice;
-        this.buy0Cost = null;
-        if (this.buytable && this.buytable.length > 0) {
-            var maxPrice = 0;
-            for (var i = 0; i < this.buytable.length; i++) {
-                if (this.buytable[i].sold == 0 && this.buytable[i].price > maxPrice) {
-                    maxPrice = this.buytable[i].price;
-                    this.buy0price = this.buytable[i].price;
-                    this.buy0Cost = this.buytable[i].cost;
-                }
-            };
-        } else if (all_stocks[this.code].sell_table && all_stocks[this.code].sell_table.length > 0) {
-            this.buy0price = all_stocks[this.code].sell_table[all_stocks[this.code].sell_table.length - 1].price;
-        };
-
-        if (this.buy0Cost == null && this.buy0price != null) {
-            this.buy0Cost = 100 * this.buy0price;
-        };
-    }
-
-    initTicks() {
-        this.initD0Price();
-        this.ticks = [];
-        this.availableBuyRec = [];
-        if (this.buy0price == null || this.buy0Cost == null) {
-            return;
-        };
-
-        var gridBuyRate = all_stocks[this.code].bgr;
-        var gridSellRate = all_stocks[this.code].sgr;
-        var ticks = [this.buy0price];
-        for (var i = 0; i < 5; i++) {
-            ticks.push(parseFloat((ticks[i] * (1 - gridBuyRate)).toFixed(3)));
-        };
-
-        if (this.latestPrice != null) {
-            var max_price = this.latestPrice * (1 - gridSellRate);
-            for (var i = 0; i < this.buytable.length; i++) {
-                if (this.buytable[i].price <= max_price) {
-                    this.availableBuyRec.push(this.buytable[i]);
-                };
-            };
-        };
-
-        var minPrice = this.buytable.length > 0 ? this.buytable[0].price : this.buy0price;
-        if (this.availableBuyRec.length == 0) {
-            for (var i = 0; i < this.buytable.length; i++) {
-                if (this.buytable[i].price < minPrice) {
-                    minPrice = this.buytable[i].price;
-                };
-            };
-            for (var i = 0; i < this.buytable.length; i++) {
-                if (this.buytable[i].price == minPrice) {
-                    this.availableBuyRec.push(this.buytable[i]);
-                };
-            };
-        };
-        this.maxPrice = minPrice * (1 + gridSellRate);
-        if (this.latestPrice != null) {
-            this.maxPrice = this.latestPrice > this.maxPrice ? this.latestPrice : this.maxPrice;
-        };
-
-        for (var i = 0; i < 5; i++) {
-            var sTick = parseFloat((ticks[0] * (1 + gridSellRate)).toFixed(3));
-            ticks.splice(0, 0, sTick);
-            if (sTick > this.maxPrice) {
-                break;
-            };
-        };
-
-        if (this.latestPrice != null) {
-            var delta = this.buy0price * gridBuyRate * 0.1;
-            var added = false;
-            for (var i = 0; i < ticks.length; i++) {
-                if (this.latestPrice > ticks[i]) {
-                    ticks.splice(i, 0, this.latestPrice);
-                    added = true;
-                    break;
-                };
-            };
-            if (!added) {
-                ticks.push(this.latestPrice);
-            };
-
-            for (var i = 0; i < ticks.length - 1; i++) {
-                if (ticks[i] - ticks[i + 1] < delta) {
-                    ticks.splice(ticks[i] == this.latestPrice ? i + 1 : i, 1);
-                };
-            };
-        };
-
-        ticks.sort(function(l,g) {
-            return l - g;
-        });
-
-        this.ticks = ticks;
+        this.code = code;
     }
 
     createChartOption() {
@@ -254,81 +181,153 @@ class PlanChart {
             legend: { position: 'top' },
             width: '100%',
             height: '100%',
-            vAxes: {
-                0: {
-                    ticks: this.ticks
-                },
-                1: {
-                }
-            },
             series: {
                 0: {
-                    targetAxisIndex: 0,
-                    pointSize: 2
+                    pointSize: 0,
+                    lineWidth: 1
+                },
+                1: {
+                    pointSize: 0,
+                    lineWidth: 1
+                },
+                2: {
+                    pointSize: 0,
+                    lineWidth: 0.5
+                },
+                3: {
+                    pointSize: 2,
+                    lineWidth: 0
+                },
+                4: {
+                    pointSize: 1,
+                    lineWidth: 0
+                },
+                5: {
+                    pointSize: 2,
+                    lineWidth: 0
                 }
             }
         };
     }
 
-    drawVticks() {
-        stockHub.chartWrapper.planChart.onDrawVticks();
+    get_to_prices_to_buy() {
+        var maxIdx = this.mkhl.length - 1;
+        var lastHigh = parseFloat(this.mkhl[maxIdx][1]);
+        if (lastHigh < parseFloat(this.mkhl[maxIdx - 1][1])) {
+            lastHigh = parseFloat(this.mkhl[maxIdx - 1][1]);
+        };
+        var topBuy = parseFloat((lastHigh * (1 - all_stocks[this.code].bgr * 5)).toFixed(3));
+        if (this.buytable && this.buytable.length > 0) {
+            var minBuyPrice = this.buytable[0].price;
+            for (var i = 0; i < this.buytable.length; i++) {
+                if (minBuyPrice > this.buytable[i].price) {
+                    minBuyPrice = this.buytable[i].price;
+                }; 
+            };
+            while (topBuy * (1 - all_stocks[this.code].bgr) > minBuyPrice) {
+                topBuy = topBuy * (1 - all_stocks[this.code].bgr);
+            };
+        };
+        var nextBuy = parseFloat((topBuy * (1 - all_stocks[this.code].bgr)).toFixed(3));
+        return [{price:parseFloat(topBuy.toFixed(3)),tooltip:topBuy.toFixed(3) + ' 可买'}, {price:nextBuy, tooltip:nextBuy.toFixed(3) + ' 可买'}];
     }
 
-    onDrawVticks() {
-        if (this.latestPrice != null) {
-            var tRects = this.container.getElementsByTagName('rect');
-            var tickRects = [];
-            for (var i = 0; i < tRects.length; i++) {
-                if (tRects[i].getAttribute('height') === '1') {
-                    tickRects.push(tRects[i]);
-                }
-            };
-            var priceIndex = this.ticks.indexOf(this.latestPrice);
-            tickRects[tickRects.length - this.ticks.length + priceIndex].setAttribute('fill', '#ff0000');
+    get_to_sell_price() {
+        if (!this.buytable || this.buytable.length <= 0) {
+            return {price:null, tooltip:null};
         };
+        var minBuyPrice = this.buytable[0].price;
+        var minPtn = this.buytable[0].ptn;
+        var sumCost = 0;
+        var sumPtn = 0;
+        for (var i = 0; i < this.buytable.length; i++) {
+            sumCost += this.buytable[i].cost;
+            sumPtn += this.buytable[i].ptn;
+            if (minBuyPrice > this.buytable[i].price) {
+                minBuyPrice = this.buytable[i].price;
+                minPtn = this.buytable[i].ptn;
+            };
+        };
+        var averPrice = sumCost / sumPtn;
+        if (this.latestPrice > averPrice) {
+            return {price: this.latestPrice, tooltip: '卖出点:' + this.latestPrice + '\n份额:' + sumPtn };
+        };
+        var sellPrice = parseFloat((minBuyPrice * (1 + all_stocks[this.code].bgr)).toFixed(3));
+        return {price: sellPrice, tooltip: '卖出点:' + sellPrice + '\n份额:' + minPtn };
     }
 
     createDataTable() {
-        if (!this.buytable) {
+        if (!this.mkhl) {
             return;
         };
-        this.initTicks();
+
         this.data = null;
-        if (this.buy0price == null || this.buy0Cost == null) {
-            return;
-        };
 
         // Create the data table.
         var data = new google.visualization.DataTable();
-        data.addColumn('number', '份额');
-        data.addColumn('number', '网格法');
-        data.addColumn({type: 'string', role: 'style'});
+        data.addColumn('string', '时间');
+        data.addColumn('number', 'High');
+        data.addColumn('number', 'Low');
+        data.addColumn('number', '新值');
+        data.addColumn({type: 'string', role: 'tooltip'});
+        data.addColumn('number', '已买');
+        data.addColumn({type: 'string', role: 'tooltip'});
+        data.addColumn('number', '可买');
+        data.addColumn({type: 'string', role: 'tooltip'});
+        data.addColumn('number', '卖点');
+        data.addColumn({type: 'string', role: 'tooltip'});
 
         var rows = [];
-        for (var i = 0; i < this.buytable.length; i++) {
-            rows.push([this.buytable[i].ptn, this.buytable[i].price, '']);
+        var len = this.chartLen;
+        if (len > this.mkhl.length || len == 0) {
+            len = this.mkhl.length;
+        };
+        for (var i = this.mkhl.length - len; i < this.mkhl.length; i++) {
+            rows.push([utils.ym_by_delta(this.mkhl[i][0]), parseFloat(this.mkhl[i][1]), parseFloat(this.mkhl[i][2]), this.latestPrice, '最新值:' + this.latestPrice, null, null, null, null, null, null]);
         };
 
-        if (this.buy0Cost) {
-            for (var i = 0; i < this.ticks.length; i++) {
-                if (this.ticks[i] >= this.buy0price || this.ticks[i] == this.latestPrice) {
-                    continue;
-                };
-                rows.push([100 * parseInt(this.buy0Cost/(100 * this.ticks[i])), this.ticks[i], 'point {fill-color: #FFD39B;}']);
+        var maxIdx = this.mkhl.length - 1;
+        var lastHigh = parseFloat(this.mkhl[maxIdx][1]);
+        if (lastHigh < parseFloat(this.mkhl[maxIdx - 1][1])) {
+            lastHigh = parseFloat(this.mkhl[maxIdx - 1][1]);
+        };
+        console.log('lastHigh', lastHigh);
+        var topBuy = parseFloat((lastHigh * (1 - all_stocks[this.code].bgr * 5)).toFixed(3));
+        console.log('topBuy', topBuy);
+        var lastLow = parseFloat(this.mkhl[maxIdx][2]);
+        if (lastLow > parseFloat(this.mkhl[maxIdx - 1][2])) {
+            lastLow = parseFloat(this.mkhl[maxIdx - 1][2]);
+        };
+        console.log('lastLow', lastLow);
+        var bottomSell = parseFloat((lastLow * (1 + all_stocks[this.code].sgr)).toFixed(3))
+        console.log('bottomSell', bottomSell);
+        var lastDate = utils.ym_by_delta(this.mkhl[this.mkhl.length - 1][0]);
+        if (this.buytable) {
+            for (var i = 0; i < this.buytable.length; i++) {
+                rows.push([lastDate, bottomSell, topBuy, this.latestPrice, '最新值:' + this.latestPrice, 
+                    this.buytable[i].price, '买入价:' + this.buytable[i].price + '\n份额:' + this.buytable[i].ptn,
+                    null, null, null, null]);
             };
         };
 
-        var portion = 0;
-        for (var i = 0; i < this.availableBuyRec.length; i++) {
-            portion += this.availableBuyRec[i].ptn;
+        var to_buy = this.get_to_prices_to_buy();
+
+        for (var i = 0; i < to_buy.length; i++) {
+            rows.push([lastDate, bottomSell, topBuy, this.latestPrice, '最新值:' + this.latestPrice, null, null, to_buy[i].price, to_buy[i].tooltip, null, null]);
         };
-        rows.push([portion, this.maxPrice, 'point {fill-color: #FF4500}']);
+
+        var to_sell = this.get_to_sell_price();
+        rows.push([lastDate, bottomSell, topBuy, null, null, null, null, null, null, to_sell.price, to_sell.tooltip]);
 
         data.addRows(rows);
         this.data = data;
     }
 
     drawChart() {
+        if (this.chartLen == -1) {
+            this.chartOptions.selectDefault();
+            return;
+        };
         this.createDataTable();
         this.createChartOption();
 

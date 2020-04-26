@@ -53,6 +53,9 @@ class ETF_Frame {
 
         this.allEtfTable = new SortableTable();
         this.container.appendChild(this.allEtfTable.container);
+        var chartdiv = document.createElement('div');
+        this.gridChart = new PlanChart(chartdiv);
+        this.container.appendChild(chartdiv);
     }
 
     backToList() {
@@ -96,7 +99,14 @@ class ETF_Frame {
 
     createNameCell(name, code) {
         var cell = document.createElement('div');
-        cell.appendChild(document.createTextNode(name));
+        var nameLnk = document.createElement('a');
+        nameLnk.textContent = name;
+        cell.appendChild(nameLnk);
+        nameLnk.href = 'javascript:void(0);';
+        nameLnk.that = this;
+        nameLnk.onclick = function (e) {
+            e.target.that.showGridChart(code);
+        }
         cell.title = code;
         var addLink = document.createElement('a');
         addLink.className = 'rectBtnAnchor';
@@ -264,5 +274,22 @@ class ETF_Frame {
         var condMatch = e.mfluct_down >= flt.minDownFluct && e.mfluct_up >= flt.minUpFluct && e.mlen >= flt.minMonths && e.mback >= flt.minBack && e.sc >= flt.minScale;
 
         return nameMatch && condMatch;
+    }
+
+    showGridChart(code) {
+        if (!this.gridChart) {
+            return;
+        };
+        if (!all_stocks[code] || !all_stocks[code].khl_m_his) {
+            if (typeof(trade) !== 'undefined') {
+                trade.fetchKhlData(code, function(c, that) {
+                    that.gridChart.setCode(c);
+                    that.gridChart.drawChart();
+                }, this);
+            };
+        } else {
+            this.gridChart.setCode(code);
+            this.gridChart.drawChart();
+        }
     }
 };

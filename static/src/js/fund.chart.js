@@ -514,15 +514,15 @@ class TradeOption {
 
     createTradeOptions() {
         this.tradeOptBar = new RadioAnchorBar();
-        this.tradeOptBar.addRadio('买入', function(){
-            fundSummary.chartWrapper.tradeOption.setTradeOption(TradeType.Buy);
-        });
-        this.tradeOptBar.addRadio('卖出', function(){
-            fundSummary.chartWrapper.tradeOption.setTradeOption(TradeType.Sell);
-        });
-        this.tradeOptBar.addRadio('加预算', function(){
-            fundSummary.chartWrapper.tradeOption.setTradeOption(TradeType.Budget);
-        });
+        this.tradeOptBar.addRadio('买入', function(that){
+            that.setTradeOption(TradeType.Buy);
+        }, this);
+        this.tradeOptBar.addRadio('卖出', function(that){
+            that.setTradeOption(TradeType.Sell);
+        }, this);
+        this.tradeOptBar.addRadio('加预算', function(that){
+            that.setTradeOption(TradeType.Budget);
+        }, this);
         this.tradeDiv.appendChild(this.tradeOptBar.container);
 
         var tradePanel = document.createElement('div');
@@ -633,27 +633,27 @@ class ChartWrapper {
 
         this.daysOpt = new RadioAnchorBar();
         this.chartDiv.appendChild(this.daysOpt.container);
-        this.daysOpt.addRadio('默认', function(){
-            fundSummary.chartWrapper.redrawHistoryGraphs(0);
-        });
-        this.daysOpt.addRadio('30', function(){
-            fundSummary.chartWrapper.redrawHistoryGraphs(30);
-        });
-        this.daysOpt.addRadio('60', function(){
-            fundSummary.chartWrapper.redrawHistoryGraphs(60);
-        });
-        this.daysOpt.addRadio('100', function(){
-            fundSummary.chartWrapper.redrawHistoryGraphs(100);
-        });
-        this.daysOpt.addRadio('300', function(){
-            fundSummary.chartWrapper.redrawHistoryGraphs(300);
-        });
-        this.daysOpt.addRadio('1000', function(){
-            fundSummary.chartWrapper.redrawHistoryGraphs(1000);
-        });
-        this.daysOpt.addRadio('最大', function(){
-            fundSummary.chartWrapper.redrawHistoryGraphs(-1);
-        });
+        this.daysOpt.addRadio('默认', function(that) {
+            that.redrawHistoryGraphs(0);
+        }, this);
+        this.daysOpt.addRadio('30', function(that) {
+            that.redrawHistoryGraphs(30);
+        }, this);
+        this.daysOpt.addRadio('60', function(that) {
+            that.redrawHistoryGraphs(60);
+        }, this);
+        this.daysOpt.addRadio('100', function(that) {
+            that.redrawHistoryGraphs(100);
+        }, this);
+        this.daysOpt.addRadio('300', function(that) {
+            that.redrawHistoryGraphs(300);
+        }, this);
+        this.daysOpt.addRadio('1000', function(that) {
+            that.redrawHistoryGraphs(1000);
+        }, this);
+        this.daysOpt.addRadio('最大', function(that) {
+            that.redrawHistoryGraphs(-1);
+        }, this);
 
         this.daysOpt.container.appendChild(document.createElement('br'));
         var chartControlDiv = document.createElement('div');
