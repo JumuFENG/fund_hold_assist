@@ -139,9 +139,13 @@ class PlanChart {
         this.chartOptions = new RadioAnchorBar();
         this.chartLen = -1;
         this.container.appendChild(this.chartOptions.container);
-        var chartArea = document.createElement('div');
-        this.container.appendChild(chartArea);
-        this.chart = new google.visualization.LineChart(chartArea);
+        this.chart_container = document.createElement('div');
+        this.container.appendChild(this.chart_container);
+        this.chart = new google.visualization.LineChart(this.chart_container);
+        var that = this;
+        google.visualization.events.addListener(this.chart, 'ready', function() {
+            that.drawVticks();
+        });
     }
 
     setCode(code) {
@@ -176,11 +180,61 @@ class PlanChart {
         this.code = code;
     }
 
+    initTicks(maxValue, minValue) {
+        var minTick = Math.round(minValue * 100 - 1) / 100;
+        var maxTick = Math.round(maxValue * 100 + 1) / 100;
+        var delta = (maxTick - minTick) / 6;
+
+        var ticks = [maxTick];
+        for (var i = 1; ; i++) {
+            var nextVal = parseFloat((ticks[i - 1] - delta).toFixed(3));
+            if (this.latestPrice < ticks[i - 1] && this.latestPrice > nextVal) {
+                if (ticks[i - 1] - this.latestPrice < 0.2 * delta) {
+                    ticks.splice(i - 1,10, this.latestPrice);
+                    ticks.push(nextVal);
+                } else if (this.latestPrice - nextVal < 0.2 * delta) {
+                    ticks.push(this.latestPrice);
+                } else {
+                    ticks.push(this.latestPrice);
+                    ticks.push(nextVal);
+                    i++;
+                };
+            } else {
+                ticks.push(nextVal);
+            };
+
+            if (ticks[ticks.length - 1] <= minTick) {
+                break;
+            };
+        };
+
+        this.ticks = ticks;
+    }
+
+    drawVticks() {
+        if (this.latestPrice != null) {
+            var tRects = this.chart_container.getElementsByTagName('rect');
+            var tickRects = [];
+            for (var i = 0; i < tRects.length; i++) {
+                if (tRects[i].getAttribute('height') === '1') {
+                    tickRects.push(tRects[i]);
+                };
+            };
+            var priceIndex = this.ticks.indexOf(this.latestPrice);
+            tickRects[tickRects.length - priceIndex - 1].setAttribute('fill', '#ff0000');
+        };
+    }
+
     createChartOption() {
         this.options = {
             legend: { position: 'top' },
             width: '100%',
             height: '100%',
+            vAxes: {
+                0: {
+                    ticks: this.ticks
+                }
+            },
             series: {
                 0: {
                     pointSize: 0,
@@ -226,7 +280,8 @@ class PlanChart {
             };
         };
         var nextBuy = topBuy - delta;
-        return [{price:parseFloat(topBuy.toFixed(3)),tooltip:topBuy.toFixed(3) + ' 可买'}, {price:nextBuy, tooltip:nextBuy.toFixed(3) + ' 可买'}];
+        var nnextBuy = nextBuy - delta;
+        return [{price:parseFloat(topBuy.toFixed(3)),tooltip:topBuy.toFixed(3) + ' 可买'}, {price:nextBuy, tooltip:nextBuy.toFixed(3) + ' 可买'}, {price:parseFloat(nnextBuy.toFixed(3)), tooltip:nnextBuy.toFixed(3) + ' 可买'}];
     }
 
     get_to_sell_price() {
@@ -277,10 +332,6 @@ class PlanChart {
         if (len > this.mkhl.length || len == 0) {
             len = this.mkhl.length;
         };
-        for (var i = this.mkhl.length - len; i < this.mkhl.length; i++) {
-            rows.push([utils.ym_by_delta(this.mkhl[i][0]), parseFloat(this.mkhl[i][1]), parseFloat(this.mkhl[i][2]), null, null, null, null, null, null]);
-        };
-
         var maxIdx = this.mkhl.length - 1;
         var lastHigh = parseFloat(this.mkhl[maxIdx][1]);
         if (lastHigh < parseFloat(this.mkhl[maxIdx - 1][1])) {
@@ -290,29 +341,56 @@ class PlanChart {
         if (lastLow > parseFloat(this.mkhl[maxIdx - 1][2])) {
             lastLow = parseFloat(this.mkhl[maxIdx - 1][2]);
         };
+        var maxTick = lastHigh;
+        var minTick = lastLow;
+        for (var i = this.mkhl.length - len; i < this.mkhl.length; i++) {
+            var h = parseFloat(this.mkhl[i][1]);
+            var l = parseFloat(this.mkhl[i][2]);
+            rows.push([utils.ym_by_delta(this.mkhl[i][0]), h, l, null, null, null, null, null, null]);
+            if (maxTick < h) {
+                maxTick = h;
+            };
+            if (minTick > l) {
+                minTick = l;
+            };
+        };
+
         var delta = lastHigh - lastLow;
         var topBuy = parseFloat((lastLow + 0.2 * delta).toFixed(3));
         var bottomSell = parseFloat((lastHigh - 0.2 * delta).toFixed(3));
-        var lastDate = utils.ym_by_delta(this.mkhl[this.mkhl.length - 1][0]);
         if (this.buytable) {
             for (var i = 0; i < this.buytable.length; i++) {
-                rows.push([lastDate, bottomSell, topBuy, 
-                    this.buytable[i].price, '买入价:' + this.buytable[i].price + '\n份额:' + this.buytable[i].ptn,
+                var price = this.buytable[i].price;
+                rows.push(['', bottomSell, topBuy, price
+                    , '买入价:' + price + '\n份额:' + this.buytable[i].ptn,
                     null, null, null, null]);
+                if (maxTick < price) {
+                    maxTick = price;
+                };
+                if (minTick > price) {
+                    minTick = price;
+                };
             };
         };
 
         var to_buy = this.get_to_prices_to_buy();
 
         for (var i = 0; i < to_buy.length; i++) {
-            rows.push([lastDate, bottomSell, topBuy, null, null, to_buy[i].price, to_buy[i].tooltip, null, null]);
+            rows.push(['', bottomSell, topBuy, null, null, to_buy[i].price, to_buy[i].tooltip, null, null]);
+            if (minTick > to_buy[i].price) {
+                minTick = to_buy[i].price;
+            };
         };
 
         var to_sell = this.get_to_sell_price();
-        rows.push([lastDate, bottomSell, topBuy, null, null, null, null, to_sell.price, to_sell.tooltip]);
+        rows.push(['', bottomSell, topBuy, null, null, null, null, to_sell.price, to_sell.tooltip]);
+        if (to_sell.price != null && maxTick < to_sell.price) {
+            maxTick = to_sell.price;
+        };
 
         data.addRows(rows);
         this.data = data;
+        this.initTicks(maxTick, minTick);
     }
 
     drawChart() {
