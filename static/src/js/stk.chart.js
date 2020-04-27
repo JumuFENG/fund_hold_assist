@@ -191,18 +191,14 @@ class PlanChart {
                     lineWidth: 1
                 },
                 2: {
-                    pointSize: 0,
-                    lineWidth: 0.5
-                },
-                3: {
                     pointSize: 2,
                     lineWidth: 0
                 },
-                4: {
+                3: {
                     pointSize: 1,
                     lineWidth: 0
                 },
-                5: {
+                4: {
                     pointSize: 2,
                     lineWidth: 0
                 }
@@ -216,7 +212,8 @@ class PlanChart {
         if (lastHigh < parseFloat(this.mkhl[maxIdx - 1][1])) {
             lastHigh = parseFloat(this.mkhl[maxIdx - 1][1]);
         };
-        var topBuy = parseFloat((lastHigh * (1 - all_stocks[this.code].bgr * 5)).toFixed(3));
+        var topBuy = lastHigh;
+        var delta = parseFloat((lastHigh * all_stocks[this.code].bgr).toFixed(3));
         if (this.buytable && this.buytable.length > 0) {
             var minBuyPrice = this.buytable[0].price;
             for (var i = 0; i < this.buytable.length; i++) {
@@ -224,11 +221,11 @@ class PlanChart {
                     minBuyPrice = this.buytable[i].price;
                 }; 
             };
-            while (topBuy * (1 - all_stocks[this.code].bgr) > minBuyPrice) {
-                topBuy = topBuy * (1 - all_stocks[this.code].bgr);
+            while (topBuy - delta > minBuyPrice) {
+                topBuy = topBuy - delta;
             };
         };
-        var nextBuy = parseFloat((topBuy * (1 - all_stocks[this.code].bgr)).toFixed(3));
+        var nextBuy = topBuy - delta;
         return [{price:parseFloat(topBuy.toFixed(3)),tooltip:topBuy.toFixed(3) + ' 可买'}, {price:nextBuy, tooltip:nextBuy.toFixed(3) + ' 可买'}];
     }
 
@@ -268,8 +265,6 @@ class PlanChart {
         data.addColumn('string', '时间');
         data.addColumn('number', 'High');
         data.addColumn('number', 'Low');
-        data.addColumn('number', '新值');
-        data.addColumn({type: 'string', role: 'tooltip'});
         data.addColumn('number', '已买');
         data.addColumn({type: 'string', role: 'tooltip'});
         data.addColumn('number', '可买');
@@ -283,7 +278,7 @@ class PlanChart {
             len = this.mkhl.length;
         };
         for (var i = this.mkhl.length - len; i < this.mkhl.length; i++) {
-            rows.push([utils.ym_by_delta(this.mkhl[i][0]), parseFloat(this.mkhl[i][1]), parseFloat(this.mkhl[i][2]), this.latestPrice, '最新值:' + this.latestPrice, null, null, null, null, null, null]);
+            rows.push([utils.ym_by_delta(this.mkhl[i][0]), parseFloat(this.mkhl[i][1]), parseFloat(this.mkhl[i][2]), null, null, null, null, null, null]);
         };
 
         var maxIdx = this.mkhl.length - 1;
@@ -291,20 +286,17 @@ class PlanChart {
         if (lastHigh < parseFloat(this.mkhl[maxIdx - 1][1])) {
             lastHigh = parseFloat(this.mkhl[maxIdx - 1][1]);
         };
-        console.log('lastHigh', lastHigh);
-        var topBuy = parseFloat((lastHigh * (1 - all_stocks[this.code].bgr * 5)).toFixed(3));
-        console.log('topBuy', topBuy);
         var lastLow = parseFloat(this.mkhl[maxIdx][2]);
         if (lastLow > parseFloat(this.mkhl[maxIdx - 1][2])) {
             lastLow = parseFloat(this.mkhl[maxIdx - 1][2]);
         };
-        console.log('lastLow', lastLow);
-        var bottomSell = parseFloat((lastLow * (1 + all_stocks[this.code].sgr)).toFixed(3))
-        console.log('bottomSell', bottomSell);
+        var delta = lastHigh - lastLow;
+        var topBuy = parseFloat((lastLow + 0.2 * delta).toFixed(3));
+        var bottomSell = parseFloat((lastHigh - 0.2 * delta).toFixed(3));
         var lastDate = utils.ym_by_delta(this.mkhl[this.mkhl.length - 1][0]);
         if (this.buytable) {
             for (var i = 0; i < this.buytable.length; i++) {
-                rows.push([lastDate, bottomSell, topBuy, this.latestPrice, '最新值:' + this.latestPrice, 
+                rows.push([lastDate, bottomSell, topBuy, 
                     this.buytable[i].price, '买入价:' + this.buytable[i].price + '\n份额:' + this.buytable[i].ptn,
                     null, null, null, null]);
             };
@@ -313,11 +305,11 @@ class PlanChart {
         var to_buy = this.get_to_prices_to_buy();
 
         for (var i = 0; i < to_buy.length; i++) {
-            rows.push([lastDate, bottomSell, topBuy, this.latestPrice, '最新值:' + this.latestPrice, null, null, to_buy[i].price, to_buy[i].tooltip, null, null]);
+            rows.push([lastDate, bottomSell, topBuy, null, null, to_buy[i].price, to_buy[i].tooltip, null, null]);
         };
 
         var to_sell = this.get_to_sell_price();
-        rows.push([lastDate, bottomSell, topBuy, null, null, null, null, null, null, to_sell.price, to_sell.tooltip]);
+        rows.push([lastDate, bottomSell, topBuy, null, null, null, null, to_sell.price, to_sell.tooltip]);
 
         data.addRows(rows);
         this.data = data;
