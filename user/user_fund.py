@@ -20,8 +20,20 @@ class UserFund():
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.funds_table, attrs, constraint)
             self.sqldb.insert(self.funds_table, {column_code: self.code})
+            self.init_user_fund_in_db(user.id)
+        elif not self.check_code_exists():
+            self.init_user_fund_in_db(user.id)
 
-        self.init_user_fund_in_db(user.id)
+    def check_code_exists(self):
+        details = self.sqldb.select(self.funds_table, "*", "%s = '%s'" % (column_code, self.code))
+        if details is None or len(details) == 0:
+            self.sqldb.insert(self.funds_table, {column_code: self.code})
+            return False
+        elif not len(details[0]) == 9:
+            return False
+            
+        (i, self.code, self.buy_table, self.sell_table, self.budget_table, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on), = details
+        return True
 
     def check_table_column(self, tablename, col, tp):
         if not self.sqldb.isExistTableColumn(tablename, col):

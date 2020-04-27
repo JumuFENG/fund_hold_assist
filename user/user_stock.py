@@ -19,11 +19,23 @@ class UserStock():
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.creatTable(self.stocks_table, attrs, constraint)
             self.sqldb.insert(self.stocks_table, {column_code: self.code})
+            self.init_user_stock_in_db()
+        elif not self.check_code_exists():
+            self.init_user_stock_in_db()
 
-        self.init_user_stock_in_db()
         pre_uid = "u" + str(user.id) + "_"
         self.buy_table = pre_uid + self.code + "_buy"
         self.sell_table = pre_uid + self.code + "_sell"
+
+    def check_code_exists(self):
+        details = self.sqldb.select(self.stocks_table, "*", "%s = '%s'" % (column_code, self.code))
+        if details is None or len(details) == 0:
+            self.sqldb.insert(self.stocks_table, {column_code: self.code})
+            return False
+        elif not len(details[0]) == 10:
+            return False
+        (i, self.code, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on, self.short_term_rate, self.buy_rate, self.sell_rate, self.fee), = details
+        return True
 
     def check_table_column(self, tablename, col, tp):
         if not self.sqldb.isExistTableColumn(tablename, col):
