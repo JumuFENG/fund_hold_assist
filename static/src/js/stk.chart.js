@@ -262,14 +262,20 @@ class PlanChart {
 
     get_to_prices_to_buy() {
         var maxIdx = this.mkhl.length - 1;
+        var lastLow = parseFloat(this.mkhl[maxIdx][2]);
+        if (lastLow > parseFloat(this.mkhl[maxIdx - 1][2])) {
+            lastLow = parseFloat(this.mkhl[maxIdx - 1][2]);
+        };
+        var topBuy = lastLow;
+
         var lastHigh = parseFloat(this.mkhl[maxIdx][1]);
         if (lastHigh < parseFloat(this.mkhl[maxIdx - 1][1])) {
             lastHigh = parseFloat(this.mkhl[maxIdx - 1][1]);
         };
-        var topBuy = lastHigh;
         var delta = parseFloat((lastHigh * all_stocks[this.code].bgr).toFixed(3));
         if (this.buytable && this.buytable.length > 0) {
             var minBuyPrice = this.buytable[0].price;
+            var topBuy = lastHigh;
             for (var i = 0; i < this.buytable.length; i++) {
                 if (minBuyPrice > this.buytable[i].price) {
                     minBuyPrice = this.buytable[i].price;
@@ -286,7 +292,7 @@ class PlanChart {
 
     get_to_sell_price() {
         if (!this.buytable || this.buytable.length <= 0) {
-            return {price:null, tooltip:null};
+            return null;
         };
         var minBuyPrice = this.buytable[0].price;
         var minPtn = this.buytable[0].ptn;
@@ -301,10 +307,12 @@ class PlanChart {
             };
         };
         var averPrice = sumCost / sumPtn;
-        if (this.latestPrice > averPrice) {
-            return {price: this.latestPrice, tooltip: '卖出点:' + this.latestPrice + '\n份额:' + sumPtn };
-        };
         var sellPrice = parseFloat((minBuyPrice * (1 + all_stocks[this.code].bgr)).toFixed(3));
+        var sellPtn = minPtn;
+        if (this.latestPrice > averPrice) {
+            sellPrice = parseFloat((this.latestPrice * (1 + all_stocks[this.code].bgr)).toFixed(3));
+            sellPtn = sumPtn;
+        };
         return {price: sellPrice, tooltip: '卖出点:' + sellPrice + '\n份额:' + minPtn };
     }
 
@@ -383,9 +391,11 @@ class PlanChart {
         };
 
         var to_sell = this.get_to_sell_price();
-        rows.push(['', bottomSell, topBuy, null, null, null, null, to_sell.price, to_sell.tooltip]);
-        if (to_sell.price != null && maxTick < to_sell.price) {
-            maxTick = to_sell.price;
+        if (to_sell != null) {
+            rows.push(['', bottomSell, topBuy, null, null, null, null, to_sell.price, to_sell.tooltip]);
+            if (to_sell.price != null && maxTick < to_sell.price) {
+                maxTick = to_sell.price;
+            };
         };
 
         data.addRows(rows);
