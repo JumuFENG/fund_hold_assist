@@ -52,6 +52,8 @@ class DailyUpdater():
             for (c, h) in goldcodes:
                 self.download_all_gold_history(c)
 
+        self.dowload_all_interested_stocks_khistory()
+
     def download_all_fund_history(self, code):
         print("try to update fund history for:", code)
         fh = FundHistoryDataDownloader()
@@ -67,10 +69,23 @@ class DailyUpdater():
         ih = Index_history()
         print("try to update index history for:", code)
         ih.indexHistoryTillToday(code)
+        ih.getKdHistoryFromSohuTillToday(code)
         ih.getHistoryFrom163(code)
-        ih.getHistoryFromSohu(code)
+
+    def dowload_all_interested_stocks_khistory(self):
+        print("update interested stocks' history")
+        usermodel = UserModel()
+        all_users = usermodel.all_users()
+        stocks = []
+        for u in all_users:
+            ustks = u.get_interested_stocks_code()
+            if ustks is not None:
+                stocks = stocks + ustks
+
+        sh = Stock_history()
+        for s in stocks:
+            sh.getKdHistoryFromSohuTillToday()
 
 if __name__ == '__main__':
     du = DailyUpdater()
     du.update_all()
-

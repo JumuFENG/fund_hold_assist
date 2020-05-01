@@ -38,22 +38,26 @@ class AllIndexes(InfoList):
         else:
             self.sqldb.insert(gl_index_info_table, {column_name: name, column_code: code,})
 
-class Index_history(HistoryDowloaderBase):
+class Index_history(HistoryFromSohu):
     """
     get index history data
     """
-    def setIndexCode(self, code):
-        self.code = code
+    def setCode(self, code):
+        super().setCode(code)
         allindex = AllIndexes()
         ig = IndexGeneral(allindex.sqldb, self.code)
         self.name = ig.name
         self.index_db_table = ig.histable
-        self.index_full_his_db = ig.fullhistable
+        self.index_full_his_db = ig.khistable
+        self.k_histable = ig.khistable
+        self.kw_histable = ig.kwhistable
+        self.km_histable = ig.kmhistable
 
-    def getRequest(self, url, params=None, proxies=None):
-        rsp = requests.get(url, params=params, proxies=proxies)
-        rsp.raise_for_status()
-        return rsp.text
+    def getSetupDate(self):
+        return None
+
+    def getSohuCode(self):
+        return "zs_" + self.code
 
     def downloadFile(self, url, fname, params = None, proxies = None):
         rsp = requests.get(url,params=params, proxies=proxies,stream = True)
@@ -83,7 +87,7 @@ class Index_history(HistoryDowloaderBase):
         self.sqldb.insertMany(self.index_db_table, headers, values)
 
     def indexHistoryTillToday(self, code):
-        self.setIndexCode(code)
+        self.setCode(code)
         sDate = ""
         eDate = ""
         if self.sqldb.isExistTable(self.index_db_table):
@@ -127,62 +131,16 @@ class Index_history(HistoryDowloaderBase):
         values.reverse()
         self.saveIndexHistoryData(values)
 
-    def getStartEnd(self, code):
-        self.setIndexCode(code)
-        if not self.sqldb.isExistTable(self.index_full_his_db):
-            print("full history db table not set for", self.code, self.name)
-            return ("", "")
-
-        sDate = ""
-        eDate = ""
-        maxDate = self.sqldb.select(self.index_full_his_db, "max(%s)" % column_date)
-        if maxDate is None or not len(maxDate) == 1:
-            maxDate = None
-        else:
-            (maxDate,), = maxDate
-        if maxDate is not None:
-            sDate = (datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
-            eDate = datetime.now().strftime("%Y%m%d")
-            if sDate > eDate:
-                print("Already updated to %s" % maxDate)
-                return
-            if datetime.strptime(eDate, "%Y%m%d") - datetime.strptime(sDate, "%Y%m%d") <= timedelta(days = 1) and datetime.strptime(sDate, "%Y%m%d").weekday() >= 5:
-                print("it is weekend, no data to update.")
-                return
-        return (sDate, eDate)
-
-    def getHistoryFromSohu(self, code):
-        se = self.getStartEnd(code)
-        if not se:
-            return
-
-        (sDate,eDate) = se
-        sohu_code = "zs_" + self.code
-        params = {'code':sohu_code}
-        if not sDate == "":
-            params['start'] = sDate
-            params['end'] = eDate
-        response = self.getRequest(sohuApiUrl, params)
-        jresp = json.loads(response)
-        if not jresp or jresp[0]['status'] == 2:
-            print('getHistoryFromSohu get response: ', response)
-            return
-        jresp = jresp[0]["hq"]
-        jresp.reverse()
-        values = []
-        for (d,o,c,pr,p,l,h,v,a,x) in jresp:
-            values.append([d,c,h,l,o,pr,p.strip('%'),v,a])
-        self.saveIndexHistoryData(values)
-
     def getHistoryFrom163(self, code):
-        se = self.getStartEnd(code)
+        self.setCode(code)
+        se = self.getStartEnd(self.index_full_his_db)
         if not se:
             return
 
         (sDate,eDate) = se
         code_163 = "0" + self.code if self.code[0] == '0' else "1" + self.code
         params = {'code':code_163}
-        if not sDate == "":
+        if sDate is not None:
             params['start'] = sDate
             params['end'] = eDate
         params['fields'] = 'TCLOSE;HIGH;LOW;TOPEN;LCLOSE;CHG;PCHG;VOTURNOVER;VATURNOVER'

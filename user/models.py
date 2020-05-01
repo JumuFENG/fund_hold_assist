@@ -399,6 +399,13 @@ class UserModel():
         (id, name, password, email, st, parent), = result
         return User(id, name, email, password, st, parent)
 
+    def all_users(self):
+        result = self.sqldb.select(self.tablename, ['id'])
+        users = []
+        for i, in result:
+            users.append(self.user_by_id(i))
+        return users
+
     def set_password(self, user, password):
         user.password = password
         self.sqldb.update(self.tablename, {'password':password}, {'id' : str(user.id)})
