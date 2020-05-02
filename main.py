@@ -64,17 +64,19 @@ if __name__ == '__main__':
     #af.loadMorningStarRatingInfo()
     #af.get_fund_name("000001")
     #print(af.get_fund_url("960042"))
-    aidx = AllIndexes()
-    codes = aidx.sqldb.select(aidx.infoTable, '*')
-    ih = Index_history()
-    for (i, c, n) in codes:
-        ih.getKHistoryFromSohuTillToday(c)
-        ih.getHistoryFrom163(c)
+    # aidx = AllIndexes()
+    # codes = aidx.sqldb.select(aidx.infoTable, '*')
+    # ih = Index_history()
+    # for (i, c, n) in codes:
+    #     ih.getKHistoryFromSohuTillToday(c)
+    #     ih.getHistoryFrom163(c)
     # astk = AllStocks()
     # codes = astk.sqldb.select(astk.infoTable, '*')
     # sh = Stock_history()
     # for (i, c, n, s, t, sn, m, st) in codes:
     #     sh.getKmHistoryFromSohuTillToday(c)
     # sd = StockDumps()
-    # sd.get_stock_khl_m_his('sh511880')
-    
+    # sd.get_khl_m_his('sh511880')
+    idxd = IndexDumps()
+    idhis = idxd.get_his()
+    print(idhis)

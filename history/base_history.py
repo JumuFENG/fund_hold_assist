@@ -38,6 +38,13 @@ class HistoryDowloaderBase():
     def __init__(self):
         self.sqldb = SqlHelper(password = db_pwd, database = history_db_name)
         
+    def checkKtable(self, ktable):
+        return self.sqldb.isExistTable(ktable)
+
+    def readKHistoryData(self, ktable):
+        if not self.checkKtable(ktable):
+            return
+        return self.sqldb.select(ktable)
 
 class HistoryFromSohu(HistoryDowloaderBase):
     """get history data from sohu api."""

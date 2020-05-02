@@ -357,7 +357,7 @@ class User():
 
     def get_interested_stocks_his(self):
         sd = StockDumps()
-        return sd.get_stocks_his(self.get_interested_stocks_code())
+        return sd.get_his(self.get_interested_stocks_code())
 
 class UserModel():
     def __init__(self):

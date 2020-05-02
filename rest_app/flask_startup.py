@@ -326,10 +326,10 @@ def stock():
                 return json.dumps(user.get_interested_stocks_his())
             else:
                 sd = StockDumps()
-                return json.dumps(sd.get_all_stock_his())
+                return json.dumps(sd.get_all_his())
         if actype == 'khl_m':
             sd = StockDumps()
-            return json.dumps(sd.get_stock_khl_m_his(code))
+            return json.dumps(sd.get_khl_m_his(code))
         us = UserStock(user, code)
         if actype == 'buy':
             return json.dumps(us.get_buy_arr())

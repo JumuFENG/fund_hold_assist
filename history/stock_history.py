@@ -177,11 +177,3 @@ class Stock_history(HistoryFromSohu):
 
     def getSohuCode(self):
         return self.sg.sohucode
-
-    def checkKtable(self, ktable):
-        return self.sqldb.isExistTable(ktable)
-
-    def readKHistoryData(self, ktable):
-        if not self.checkKtable(ktable):
-            return
-        return self.sqldb.select(ktable)
