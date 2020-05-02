@@ -71,9 +71,9 @@ class KdataDumps():
             mv = 0
             ma = 0
             for (i, d, c, h, l, o, pr, p, v, a) in alldmdata[k]:
-                if h > mh:
+                if float(h) > float(mh):
                     mh = h
-                if l < ml:
+                if float(l) < float(ml):
                     ml = l
                 mv += Decimal(v)
                 ma += Decimal(a)

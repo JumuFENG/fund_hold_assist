@@ -262,6 +262,12 @@ def fundmisc():
             return json.dumps(user.get_holding_funds_stats())
         elif actype == 'allfundstats':
             return json.dumps(usermodel.get_bind_users_fundstats(user))
+        elif actype == 'khl_m'
+            idxd = IndexDumps()
+            return json.dumps(idxd.get_khl_m_his(code))
+        elif actype == 'allidxs':
+            idxd = IndexDumps()
+            return json.dumps(idxd.get_all_his())
         return "Not implement yet", 403
 
 @app.route('/stocksummary', methods=['GET'])
