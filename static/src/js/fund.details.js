@@ -160,6 +160,12 @@ class FundDetail {
                 }
                 this.historyChart.clearChart();
             }
+
+            if (this.indexKmhlChart) {
+                if (this.indexKmhlChart.code == this.code) {
+                    return;
+                };
+            };
         };
         
         if (this.code && all_hist_data[0].indexOf(this.code) != -1) {
@@ -172,6 +178,16 @@ class FundDetail {
             }
             this.historyChart.drawChart();
         }
+
+        if (this.code && ftjson[this.code].khl_m_his) {
+            if (!this.indexKmhlChart) {
+                var chart_div = document.createElement('div');
+                basicDiv.appendChild(chart_div);
+                this.indexKmhlChart = new IndexKmhlChart(chart_div);
+            }
+            this.indexKmhlChart.setCode(this.code);
+            this.indexKmhlChart.drawChart();
+        };
     }
 
     showSingleTotalEarned(totalChart) {
@@ -924,6 +940,20 @@ class HistoryStatisticChart {
         if (this.grTable) {
             utils.deleteAllRows(this.grTable);
         };
+    }
+};
+
+class IndexKmhlChart extends KmhlChart {
+    setCode(code) {
+        this.initOptions();
+        this.mkhl = ftjson[code].khl_m_his;
+        this.buy_down_rate = ftjson[code].downFluct;
+        this.sell_up_rate = ftjson[code].upFluct;
+        this.latestPrice = null;
+        if (irjson[ftjson[code].ic] && irjson[ftjson[code].ic].rtgz) {
+            this.latestPrice = irjson[ftjson[code].ic].rtgz;
+        };
+        this.code = code;
     }
 };
 
