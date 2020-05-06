@@ -953,6 +953,12 @@ class IndexKmhlChart extends KmhlChart {
         if (irjson[ftjson[code].ic] && irjson[ftjson[code].ic].rtgz) {
             this.latestPrice = irjson[ftjson[code].ic].rtgz;
         };
+        if (this.latestPrice == null && all_hist_data.length > 0) {
+            var valIdx = all_hist_data[0].indexOf(ftjson[code].ic) * 2 - 1;
+            if (valIdx > 0 && valIdx < all_hist_data[all_hist_data.length - 1].length) {
+                this.latestPrice = all_hist_data[all_hist_data.length - 1][valIdx];
+            };
+        };
         this.code = code;
     }
 };

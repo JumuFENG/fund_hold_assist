@@ -413,7 +413,7 @@ class StockSellDetail {
             this.sellTable.appendChild(utils.createColsRow(utils.date_by_delta(sellrecs[i].date), sellrecs[i].id, sellrecs[i].cost, sellrecs[i].ptn == 0 ? '分红' : portion_cell.container, price_cell.container, earned, op_cell));
         };
         if (sellrecs.length > 0) {
-            this.sellTable.appendChild(utils.createColsRow('总计', '', sum_cost, sum_portion, parseFloat((sum_cost/sum_portion).toFixed(4)), parseFloat(sum_earned.toFixed(2)), ''));
+            this.sellTable.appendChild(utils.createColsRow('总计', '', parseFloat(sum_cost.toFixed(2)), sum_portion, parseFloat((sum_cost/sum_portion).toFixed(4)), parseFloat(sum_earned.toFixed(2)), ''));
         };
     }
 
