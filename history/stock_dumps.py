@@ -53,7 +53,7 @@ class StockDumps(KdataDumps):
             stock_obj['sc'] = sc.replace('亿元', '')
             #stock_obj['sd'] = sd
             mdata = self.read_km_data(c)
-            if mdata is None or len(mdata) < 10:
+            if mdata is None or len(mdata) < 2:
                 continue
             mdata = self.process_kdata(mdata)
             stock_obj['mfluct_down'] = mdata['fluct_down']

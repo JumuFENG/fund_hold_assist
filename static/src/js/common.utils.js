@@ -310,6 +310,7 @@ class KmhlChart {
             legend: { position: 'top' },
             width: '100%',
             height: '100%',
+            title: this.code,
             vAxes: {
                 0: {
                     ticks: this.ticks
@@ -353,6 +354,7 @@ class KmhlChart {
             lastHigh = parseFloat(this.mkhl[maxIdx - 1][1]);
         };
         var delta = parseFloat((lastHigh * this.sell_up_rate).toFixed(3));
+        var result = [];
         if (this.buytable && this.buytable.length > 0) {
             var minBuyPrice = this.buytable[0].price;
             var topBuy = lastHigh;
@@ -364,10 +366,15 @@ class KmhlChart {
             while (topBuy - delta > minBuyPrice) {
                 topBuy = topBuy - delta;
             };
+            result.push({price:parseFloat(topBuy.toFixed(3)),tooltip:topBuy.toFixed(3) + ' 可买'});
+            var nextBuy = topBuy - delta;
+            result.push({price:nextBuy, tooltip:nextBuy.toFixed(3) + ' 可买'});
+            if (minBuyPrice - nextBuy < 0.4 * delta) {
+                var nnextBuy = nextBuy - delta;
+                result.push({price:parseFloat(nnextBuy.toFixed(3)), tooltip:nnextBuy.toFixed(3) + ' 可买'});
+            };
         };
-        var nextBuy = topBuy - delta;
-        var nnextBuy = nextBuy - delta;
-        return [{price:parseFloat(topBuy.toFixed(3)),tooltip:topBuy.toFixed(3) + ' 可买'}, {price:nextBuy, tooltip:nextBuy.toFixed(3) + ' 可买'}, {price:parseFloat(nnextBuy.toFixed(3)), tooltip:nnextBuy.toFixed(3) + ' 可买'}];
+        return result;
     }
 
     get_to_sell_price() {

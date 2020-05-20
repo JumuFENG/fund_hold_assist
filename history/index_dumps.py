@@ -35,7 +35,7 @@ class IndexDumps(KdataDumps):
                 continue
 
             mdata = self.read_km_data(c)
-            if mdata is None or len(mdata) < 10:
+            if mdata is None or len(mdata) < 2:
                 continue
 
             index_obj = {}
