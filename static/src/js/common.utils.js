@@ -353,7 +353,7 @@ class KmhlChart {
         if (lastHigh < parseFloat(this.mkhl[maxIdx - 1][1])) {
             lastHigh = parseFloat(this.mkhl[maxIdx - 1][1]);
         };
-        var delta = parseFloat((lastHigh * this.sell_up_rate).toFixed(3));
+        var delta = parseFloat((lastHigh * this.buy_down_rate).toFixed(3));
         var result = [];
         if (this.buytable && this.buytable.length > 0) {
             var minBuyPrice = this.buytable[0].price;
@@ -373,7 +373,12 @@ class KmhlChart {
                 var nnextBuy = nextBuy - delta;
                 result.push({price:parseFloat(nnextBuy.toFixed(3)), tooltip:nnextBuy.toFixed(3) + ' 可买'});
             };
-        };
+        } else {
+            var to_buy = (lastHigh + lastLow) / 2;
+            result.push({price:parseFloat(to_buy.toFixed(3)), tooltip: '中值:' + to_buy.toFixed(3)});
+            var nextBuy = to_buy - delta;
+            result.push({price:nextBuy, tooltip:nextBuy.toFixed(3) + ' 可买'});
+        }
         return result;
     }
 
@@ -394,10 +399,10 @@ class KmhlChart {
             };
         };
         var averPrice = sumCost / sumPtn;
-        var sellPrice = parseFloat((minBuyPrice * (1 + this.buy_down_rate)).toFixed(3));
+        var sellPrice = parseFloat((minBuyPrice * (1 + this.sell_up_rate)).toFixed(3));
         var sellPtn = minPtn;
         if (this.latestPrice > averPrice) {
-            sellPrice = parseFloat((this.latestPrice * (1 + this.buy_down_rate)).toFixed(3));
+            sellPrice = parseFloat((this.latestPrice * (1 + this.sell_up_rate)).toFixed(3));
             sellPtn = sumPtn;
         };
         return {price: sellPrice, tooltip: '卖出点:' + sellPrice + '\n份额:' + minPtn };
@@ -487,6 +492,12 @@ class KmhlChart {
 
         data.addRows(rows);
         this.data = data;
+        if (this.latestPrice > maxTick) {
+            maxTick = this.latestPrice;
+        };
+        if (this.latestPrice < minTick) {
+            minTick = this.latestPrice;
+        };
         this.initTicks(maxTick, minTick);
     }
 
