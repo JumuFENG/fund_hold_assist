@@ -832,7 +832,7 @@ class ChartWrapper {
             rateInput.placeholder = "期望收益率";
             rateInput.size = 5;
             rateInput.value = (ftjson[this.code].str * 50).toFixed(3); // *100/2
-            this.selectedData.rate = parseFloat(ftjson[this.code].str) / 2;
+            this.selectedData.rate = parseFloat(rateInput.value) / 100;
             rateInput.onchange = function(e) {
                 fundSummary.chartWrapper.selectedData.rate = parseFloat(rateInput.value) / 100;
             };

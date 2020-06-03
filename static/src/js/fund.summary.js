@@ -881,6 +881,9 @@ class RequestUtils {
 
     fetchIndexKhlData(code) {
         var icode = ftjson[code].isIndex ? code : ftjson[code].ic;
+        if (icode === undefined) {
+            return;
+        };
         icode = icode.replace('sz', '');
         utils.get('fundmisc', 'action=khl_m&code=' + icode, function(rsp) {
             var khl_m_his = JSON.parse(rsp);
