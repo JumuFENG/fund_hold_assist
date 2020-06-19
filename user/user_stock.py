@@ -35,7 +35,7 @@ class UserStock():
         elif not len(details[0]) == 10:
             return False
         (i, self.code, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on, self.short_term_rate, self.buy_rate, self.sell_rate, self.fee), = details
-        return True
+        return self.short_term_rate is not None and self.buy_rate is not None and self.sell_rate is not None and self.fee is not None
 
     def check_table_column(self, tablename, col, tp):
         if not self.sqldb.isExistTableColumn(tablename, col):
