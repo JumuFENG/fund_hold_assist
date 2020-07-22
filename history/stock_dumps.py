@@ -38,7 +38,7 @@ class StockDumps(KdataDumps):
 
     def get_kd_table(self, code):
         sg = StockGeneral(self.sqldb, code)
-        return sg.stockKdtable
+        return sg.stockKtable
 
     def get_his(self, codes = None):
         all_stock_obj = {}

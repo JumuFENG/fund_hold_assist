@@ -328,38 +328,52 @@ class RealTimeHelper {
     }
 
     get126StocksUrl() {
-        var i126codes = '';
+        var i126codes = [];
+        var stockcodes = '';
         for (var c in stockRtData) {
             if (c.startsWith('SH')) {
-                i126codes += c.replace('SH', '0') + ',';
+                stockcodes += c.replace('SH', '0') + ',';
             } else if (c.startsWith('SZ')) {
-                i126codes += c.replace('SZ', '1') + ',';
+                stockcodes += c.replace('SZ', '1') + ',';
             } else {
                 utils.logInfo('index code not start with SH or SZ', c);
             }
+            if (stockcodes.length > 3000) {
+                i126codes.push(stockcodes);
+                stockcodes = '';
+            };
         };
 
-        if (i126codes.length > 0) {
-            return 'http://api.money.126.net/data/feed/' + i126codes + 'money.api?callback=_sr_cb';
+        if (stockcodes.length > 0) {
+            i126codes.push(stockcodes);
+            stockcodes = '';
         };
+
+        var urls = [];
+        for (var i = 0; i < i126codes.length; i++) {
+            urls.push('http://api.money.126.net/data/feed/' + i126codes[i] + 'money.api?callback=_sr_cb');
+        };
+        return urls;
     }
 
     fetchStockRtDataActually(cb) {
-        var url = this.get126StocksUrl();
-        if (!url) {
+        var urls = this.get126StocksUrl();
+        if (urls.length <= 0) {
             return;
         };
 
-        if (extensionLoaded) {
-            this.dispatchUrlToGet(url);
-        } else {
-            var enUrl = encodeURIComponent(url);
-            utils.get('api/get', 'url=' + enUrl, function(rsp){
-                eval(rsp);
-                if (typeof(cb) === 'function') {
-                    cb();
-                };
-            });
+        for (var i = 0; i < urls.length; ++i) {
+            if (extensionLoaded) {
+                this.dispatchUrlToGet(urls[i]);
+            } else {
+                var enUrl = encodeURIComponent(urls[i]);
+                utils.get('api/get', 'url=' + enUrl, function(rsp){
+                    eval(rsp);
+                    if (typeof(cb) === 'function') {
+                        cb();
+                    };
+                });
+            }
         }
     }
 
