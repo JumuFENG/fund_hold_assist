@@ -362,6 +362,7 @@ class RealTimeHelper {
             return;
         };
 
+        var responseCount = 0;
         for (var i = 0; i < urls.length; ++i) {
             if (extensionLoaded) {
                 this.dispatchUrlToGet(urls[i]);
@@ -369,7 +370,8 @@ class RealTimeHelper {
                 var enUrl = encodeURIComponent(urls[i]);
                 utils.get('api/get', 'url=' + enUrl, function(rsp){
                     eval(rsp);
-                    if (typeof(cb) === 'function') {
+                    responseCount++;
+                    if (responseCount == urls.length && typeof(cb) === 'function') {
                         cb();
                     };
                 });
