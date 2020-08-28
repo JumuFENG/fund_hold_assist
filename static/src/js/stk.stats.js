@@ -63,7 +63,7 @@ class StockStats {
                 this.statsJson[i].name,
                 this.statsJson[i].cost,
                 this.statsJson[i].ewh,
-                this.statsJson[i].cs,
+                parseFloat(this.statsJson[i].cs.toFixed(2)),
                 parseFloat(this.statsJson[i].ms.toFixed(2)),
                 this.statsJson[i].srct,
                 parseFloat(this.statsJson[i].perTimeCostSold.toFixed(2)),
@@ -71,6 +71,6 @@ class StockStats {
                 parseFloat((this.statsJson[i].earnedRate * 100).toFixed(2)),
                 parseFloat((this.statsJson[i].earnedRate * this.statsJson[i].srct * 100).toFixed(2)));
         };
-        this.statsTable.addRow('总计', cost, ewh.toFixed(2), cs, ms.toFixed(2), '-', '-', earned.toFixed(2), (100 * earned / (cost + cs)).toFixed(2), '-');
+        this.statsTable.addRow('总计', cost, ewh.toFixed(2), cs.toFixed(2), ms.toFixed(2), '-', '-', earned.toFixed(2), (100 * earned / (cost + cs)).toFixed(2), '-');
     }
 }
