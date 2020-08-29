@@ -7,7 +7,7 @@ class EarnedChart {
     initialize() {
         this.chartDiv = document.createElement('div');
         this.container.appendChild(this.chartDiv);
-        this.chart = new google.visualization.LineChart(this.chartDiv);
+        this.chart = new google.visualization.ComboChart(this.chartDiv);
         this.createChartOption();
     }
 
@@ -24,7 +24,7 @@ class EarnedChart {
 
     createChartOption() {
         this.options = {
-            title: '累计收益',
+            title: '日收益 & 累计收益',
             legend: { position: 'top' },
             width: '100%',
             height: '100%',
@@ -40,10 +40,14 @@ class EarnedChart {
                 1: {
                 }
             },
+            seriesType: 'bars',
             series: {
                 0: {
-                    targetAxisIndex: 0,
-                    pointSize: 1
+                    targetAxisIndex: 0
+                },
+                1: {
+                    type: 'line',
+                    targetAxisIndex: 1
                 }
             }
         };
@@ -67,9 +71,8 @@ class EarnedChart {
                 total_earned += earnedArr[startIdx].ed;
             };
         }
-        rows.push([utils.date_by_delta(earnedArr[startIdx].dt), earnedArr[startIdx].ed, total_earned]);
-        for (var i = startIdx + 1; i < earnedArr.length; i++) {
-            rows.push([utils.date_by_delta(earnedArr[i].dt, earnedArr[i].ed, total_earned)]);
+        for (var i = startIdx; i < earnedArr.length; i++) {
+            rows.push([utils.date_by_delta(earnedArr[i].dt), earnedArr[i].ed, total_earned]);
             if (i + 1 < earnedArr.length) {
                 total_earned += earnedArr[i+1].ed;
             };
@@ -107,6 +110,7 @@ class StockStats {
         this.container = null;
         this.earningContainer = null;
         this.statsJson = null;
+        this.earnedJson = null;
     }
 
     backToList() {
@@ -128,8 +132,8 @@ class StockStats {
         fd.append('earned', m);
 
         utils.post('stock', fd, function(that){
-            if (this.earnedJson) {
-                this.earnedArr.push({dt:utils.days_since_2000(dt), ed:m});
+            if (that.earnedJson && !utils.isEmpty(that.earnedJson)) {
+                that.earnedJson.e_a.push({dt:utils.days_since_2000(dt), ed:parseFloat(m)});
             };
             that.updateEarnedChart();
         }, this);
@@ -259,9 +263,10 @@ class StockStats {
     }
 
     updateEarnedChart() {
-        if (!this.earnedJson) {
+        if (!this.earnedJson || utils.isEmpty(this.earnedJson)) {
             this.earnedDaysBar.selectDefault();
+        } else {
+            this.earnedChart.updateEarned(this.earnedJson, this.earnedDaysBar.days);
         };
-        this.earnedChart.updateEarned(this.earnedJson, this.earnedDaysBar.days);
     }
 }
