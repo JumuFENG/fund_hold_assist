@@ -543,13 +543,20 @@ class Utils {
     date_by_delta(days) {
         var dt = new Date("2000-01-01");
         dt.setTime(dt.getTime() + days * 24 * 60 * 60 * 1000);
-        return dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
+        return dt.getFullYear() + "-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
     }
 
     ym_by_delta(days) {
         var dt = new Date("2000-01-01");
         dt.setTime(dt.getTime() + days * 24 * 60 * 60 * 1000);
         return dt.getFullYear() + "-" + ('' + (dt.getMonth() + 1)).padStart(2, '0');
+    }
+
+    first_day_of_same_yr_by_delta(days) {
+        var dt = new Date("2000-01-01");
+        dt.setTime(dt.getTime() + days * 24 * 60 * 60 * 1000);
+        var fdt = new Date(dt.getFullYear() + "-01-01");
+        return (fdt - new Date("2000-01-01")) / (24 * 60 * 60 * 1000);
     }
 
     get(path, queries, cb, that) {

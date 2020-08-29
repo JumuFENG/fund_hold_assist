@@ -1,18 +1,103 @@
 class EarnedChart {
     constructor(chart_div) {
         this.container = chart_div;
+        this.data = null;
     }
 
     initialize() {
         this.chartDiv = document.createElement('div');
         this.container.appendChild(this.chartDiv);
         this.chart = new google.visualization.LineChart(this.chartDiv);
+        this.createChartOption();
+    }
+
+    days_of_latest_year(earnedArr) {
+        var firstDays = utils.first_day_of_same_yr_by_delta(earnedArr[earnedArr.length - 1].dt);
+        var days = 0;
+        for (var i = 0; i < earnedArr.length; i++) {
+            if (earnedArr[i].dt >= firstDays) {
+                days ++;
+            };
+        };
+        return days;
+    }
+
+    createChartOption() {
+        this.options = {
+            title: '累计收益',
+            legend: { position: 'top' },
+            width: '100%',
+            height: '100%',
+            crosshair: { trigger: 'both', opacity: 0.5},
+            hAxis: {
+                slantedText:true,
+                slantedTextAngle:-30
+            },
+            vAxes: {
+                0: {
+                    
+                },
+                1: {
+                }
+            },
+            series: {
+                0: {
+                    targetAxisIndex: 0,
+                    pointSize: 1
+                }
+            }
+        };
+    }
+
+    createDataTable(earnedJson, days = 0) {
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', '日期');
+        data.addColumn('number', '日收益');
+        data.addColumn('number', '累计');
+        var rows = [];
+        var total_earned = earnedJson.tot;
+        var startIdx = 0;
+        var earnedArr = earnedJson.e_a;
+        if (earnedArr.length > days) {
+            for (var i = 0; i < earnedArr.length; i++) {
+                startIdx++;
+                if (startIdx + days >= length) {
+                    break;
+                };
+                total_earned += earnedArr[startIdx].ed;
+            };
+        }
+        rows.push([utils.date_by_delta(earnedArr[startIdx].dt), earnedArr[startIdx].ed, total_earned]);
+        for (var i = startIdx + 1; i < earnedArr.length; i++) {
+            rows.push([utils.date_by_delta(earnedArr[i].dt, earnedArr[i].ed, total_earned)]);
+            if (i + 1 < earnedArr.length) {
+                total_earned += earnedArr[i+1].ed;
+            };
+        };
+        data.addRows(rows);
+        this.data = data;
     }
 
     updateEarned(earnedJson, days) {
         if (!googleChartLoaded) {
             utils.logInfo('google chart not initialized!');
             return;
+        };
+
+        if (earnedJson === undefined) {
+            return;
+        };
+
+        var dates = days;
+        if (days < 0) {
+            dates = earnedJson.e_a.length;
+        } else if (days == 0) {
+            dates = this.days_of_latest_year(earnedJson.e_a);
+        };
+
+        this.createDataTable(earnedJson, dates);
+        if (this.data) {
+            this.chart.draw(this.data, this.options);
         };
     }
 }
@@ -44,7 +129,7 @@ class StockStats {
 
         utils.post('stock', fd, function(that){
             if (this.earnedJson) {
-                this.earnedJson.e_a.push({dt:utils.days_since_2000(dt), ed:m});
+                this.earnedArr.push({dt:utils.days_since_2000(dt), ed:m});
             };
             that.updateEarnedChart();
         }, this);
