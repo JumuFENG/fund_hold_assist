@@ -413,7 +413,7 @@ class User():
 
         all_earned = sqldb.select(self.stocks_earned_table(), [column_date, column_earned, column_total_earned])
         earned_obj = {}
-        if days < 0:
+        if days < 0 or days >= len(all_earned):
             earned_obj['tot'] = all_earned[0][2]
             earned_obj['e_a'] = self.get_earned_arr(all_earned)
         elif days > 0:

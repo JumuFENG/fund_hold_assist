@@ -314,8 +314,8 @@ def stock():
             user.interest_stock(code)
             return 'OK', 200
         if actype == 'setearned':
-            date = form.get('date', type=str, default=None)
-            earned = float(form.get('earned', type=str, default=None))
+            date = request.form.get('date', type=str, default=None)
+            earned = float(request.form.get('earned', type=str, default=None))
             user.set_earned(date, earned)
             return 'OK', 200
     else:

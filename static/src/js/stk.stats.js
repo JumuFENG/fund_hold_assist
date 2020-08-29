@@ -89,27 +89,27 @@ class StockStats {
         this.earningContainer.appendChild(earningChartDiv);
 
         this.earnedDaysBar = new RadioAnchorBar();
-        this.earnedDaysBar.addRatio('30', function(that){
+        this.earnedDaysBar.addRadio('30', function(that){
             that.getEarnedJson(30);
             that.earnedDaysBar.days = 30;
         }, this);
-        this.earnedDaysBar.addRatio('60', function(that){
+        this.earnedDaysBar.addRadio('60', function(that){
             that.getEarnedJson(60);
             that.earnedDaysBar.days = 60;
         }, this);
-        this.earnedDaysBar.addRatio('90', function(that){
+        this.earnedDaysBar.addRadio('90', function(that){
             that.getEarnedJson(90);
             that.earnedDaysBar.days = 90;
         }, this);
-        this.earnedDaysBar.addRatio('200', function(that){
+        this.earnedDaysBar.addRadio('200', function(that){
             that.getEarnedJson(200);
             that.earnedDaysBar.days = 200;
         }, this);
-        this.earnedDaysBar.addRatio('当年', function(that){
+        this.earnedDaysBar.addRadio('当年', function(that){
             that.getEarnedJson(0);
             that.earnedDaysBar.days = 0;
         }, this);
-        this.earnedDaysBar.addRatio('全部', function(that){
+        this.earnedDaysBar.addRadio('全部', function(that){
             that.getEarnedJson(-1);
             that.earnedDaysBar.days = -1;
         }, this);
