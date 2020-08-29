@@ -17,7 +17,7 @@ class UserStock():
         if not self.sqldb.isExistTable(self.stocks_table):
             attrs = {column_code:'varchar(10) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.stocks_table, attrs, constraint)
+            self.sqldb.createTable(self.stocks_table, attrs, constraint)
             self.sqldb.insert(self.stocks_table, {column_code: self.code})
             self.init_user_stock_in_db()
         elif not self.check_code_exists():
@@ -76,7 +76,7 @@ class UserStock():
         if not self.sqldb.isExistTable(self.buy_table) :
             attrs = {column_date:'varchar(20) DEFAULT NULL',column_portion:'int DEFAULT NULL',column_price:'double(16,4) DEFAULT NULL', column_cost:'double(16,2) DEFAULT NULL',column_soldout:'tinyint(1) DEFAULT 0'}
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.buy_table, attrs, constraint)
+            self.sqldb.createTable(self.buy_table, attrs, constraint)
             
         self.check_table_column(self.buy_table, column_soldout, 'tinyint(1) DEFAULT 0')
         self.check_table_column(self.buy_table, column_sold_portion, 'int DEFAULT 0')
@@ -85,7 +85,7 @@ class UserStock():
         if not self.sqldb.isExistTable(self.sell_table):
             attrs = {column_date:'varchar(20) DEFAULT NULL',column_portion:'int DEFAULT NULL', column_price:'double(16,4) DEFAULT NULL', column_money_sold:'double(16,2) DEFAULT NULL', column_cost_sold:'double(16,2) DEFAULT NULL', column_earned:'double(16,2) DEFAULT NULL', column_return_percentage:'double(8,6) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.sell_table, attrs, constraint)
+            self.sqldb.createTable(self.sell_table, attrs, constraint)
 
         self.check_table_column(self.sell_table, column_rolled_in, 'int DEFAULT NULL')
         self.check_table_column(self.sell_table, column_roll_in_value, 'double(16,4) DEFAULT NULL')

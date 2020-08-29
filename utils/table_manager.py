@@ -24,7 +24,7 @@ class TableCopy():
                 attrs[cnm] = ctp + ' DEFAULT ' + ('NULL' if cdef is None else cdef)
 
         constraint = 'PRIMARY KEY(`id`)'
-        toDb.creatTable(totable, attrs, constraint)
+        toDb.createTable(totable, attrs, constraint)
         values = fromDb.select(fromtable, headers, order=" ORDER BY id ASC")
         toDb.insertMany(totable, headers, values)
 

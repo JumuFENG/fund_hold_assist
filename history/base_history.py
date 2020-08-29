@@ -11,7 +11,7 @@ class InfoList():
         if not self.sqldb.isExistTable(tablename):
             attrs = {column_code:'varchar(20) DEFAULT NULL', column_name:"varchar(255) DEFAULT NULL"}
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(tablename, attrs, constraint)
+            self.sqldb.createTable(tablename, attrs, constraint)
 
     def check_table_column(self, col, tp):
         if not self.sqldb.isExistTableColumn(self.infoTable, col):
@@ -137,7 +137,7 @@ class HistoryFromSohu(HistoryDowloaderBase):
             for c in headers:
                 attrs[c] = 'varchar(20) DEFAULT NULL'
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(ktable, attrs, constraint)
+            self.sqldb.createTable(ktable, attrs, constraint)
 
         if len(data) < 1:
             return

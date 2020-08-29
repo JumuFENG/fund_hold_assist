@@ -21,7 +21,7 @@ class Holiday():
         if not self.sqldb.isExistTable(self.tablename):
             attrs = {column_date:'varchar(20) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.tablename, attrs, constraint)
+            self.sqldb.createTable(self.tablename, attrs, constraint)
 
         if not self.isholiday(date):
             self.sqldb.insert(self.tablename, {column_date: date})

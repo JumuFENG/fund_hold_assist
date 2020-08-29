@@ -313,6 +313,11 @@ def stock():
             code = code.upper()
             user.interest_stock(code)
             return 'OK', 200
+        if actype == 'setearned':
+            date = form.get('date', type=str, default=None)
+            earned = float(form.get('earned', type=str, default=None))
+            user.set_earned(date, earned)
+            return 'OK', 200
     else:
         actype = request.args.get("act", type=str, default=None)
         code = request.args.get("code", type=str, default=None)
@@ -326,6 +331,9 @@ def stock():
             return json.dumps(user.get_stocks_stats())
         if actype == 'interstedstks':
             return json.dumps(user.get_interested_stocks_code())
+        if actype == 'getearned':
+            dates = int(request.args.get('days',type=str, default=None))
+            return json.dumps(user.get_earned(dates))
         if actype == 'allstks':
             interested = request.args.get('interested', type=str, default=None)
             if interested is not None and interested == '1':

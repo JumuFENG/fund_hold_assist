@@ -18,7 +18,7 @@ class UserFund():
         if not self.sqldb.isExistTable(self.funds_table):
             attrs = {column_code:'varchar(10) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.funds_table, attrs, constraint)
+            self.sqldb.createTable(self.funds_table, attrs, constraint)
             self.sqldb.insert(self.funds_table, {column_code: self.code})
             self.init_user_fund_in_db(user.id)
         elif not self.check_code_exists():
@@ -71,7 +71,7 @@ class UserFund():
         if not self.sqldb.isExistTable(self.buy_table) :
             attrs = {column_date:'varchar(20) DEFAULT NULL',column_cost:'double(16,4) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL',column_soldout:'tinyint(1) DEFAULT 0'}
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.buy_table, attrs, constraint)
+            self.sqldb.createTable(self.buy_table, attrs, constraint)
 
         self.check_table_column(self.buy_table, column_soldout, 'tinyint(1) DEFAULT 0')
 
@@ -79,7 +79,7 @@ class UserFund():
         if not self.sqldb.isExistTable(self.sell_table):
             attrs = {column_date:'varchar(20) DEFAULT NULL',column_portion:'double(16,4) DEFAULT NULL', column_money_sold:'double(16,4) DEFAULT NULL', column_cost_sold:'double(16,4) DEFAULT NULL', column_earned:'double(16,4) DEFAULT NULL', column_return_percentage:'double(8,6) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.sell_table, attrs, constraint)
+            self.sqldb.createTable(self.sell_table, attrs, constraint)
 
         self.check_table_column(self.sell_table, column_rolled_in, 'varchar(20) DEFAULT NULL')
         self.check_table_column(self.sell_table, column_roll_in_value, 'varchar(20) DEFAULT NULL')
@@ -89,7 +89,7 @@ class UserFund():
         if not self.sqldb.isExistTable(self.budget_table):
             attrs = {column_date:'varchar(20) DEFAULT NULL',column_net_value:'varchar(20) DEFAULT NULL',column_budget:'varchar(10) DEFAULT NULL', column_consumed:'tinyint(1) DEFAULT 0'}
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.budget_table, attrs, constraint)
+            self.sqldb.createTable(self.budget_table, attrs, constraint)
 
     def check_exist_in_allfunds(self):
         fg = self.sqldb.select(gl_all_funds_info_table, "*", "%s = '%s'" % (column_code, self.code))

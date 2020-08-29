@@ -1,17 +1,27 @@
+class EarnedChart {
+    constructor(chart_div) {
+        this.container = chart_div;
+    }
+
+    initialize() {
+        this.chartDiv = document.createElement('div');
+        this.container.appendChild(this.chartDiv);
+        this.chart = new google.visualization.LineChart(this.chartDiv);
+    }
+
+    updateEarned(earnedJson, days) {
+        if (!googleChartLoaded) {
+            utils.logInfo('google chart not initialized!');
+            return;
+        };
+    }
+}
+
 class StockStats {
     constructor() {
         this.container = null;
+        this.earningContainer = null;
         this.statsJson = null;
-    }
-
-    createStatsPage() {
-        this.container = document.createElement('div');
-        document.body.appendChild(this.container);
-
-        var backLink = document.createElement('a');
-        backLink.textContent = '返回';
-        backLink.href = 'javascript:stockHub.stockStats.backToList()';
-        this.container.appendChild(backLink);
     }
 
     backToList() {
@@ -24,6 +34,95 @@ class StockStats {
             that.statsJson = JSON.parse(rsp);
             that.showStockStats();
         }, this);
+    }
+
+    setEarnedByDate(dt, m) {
+        var fd = new FormData();
+        fd.append('act', 'setearned');
+        fd.append('date', dt);
+        fd.append('earned', m);
+
+        utils.post('stock', fd, function(that){
+            if (this.earnedJson) {
+                this.earnedJson.e_a.push({dt:utils.days_since_2000(dt), ed:m});
+            };
+            that.updateEarnedChart();
+        }, this);
+    }
+
+    getEarnedJson(days = 30) {
+        utils.get('stock', 'act=getearned&days=' + days, function(that, rsp){
+            that.earnedJson = JSON.parse(rsp);
+            that.updateEarnedChart();
+        }, this);
+    }
+
+    createStatsPage() {
+        this.container = document.createElement('div');
+        document.body.appendChild(this.container);
+
+        var backLink = document.createElement('a');
+        backLink.textContent = '返回';
+        backLink.href = 'javascript:stockHub.stockStats.backToList()';
+        this.container.appendChild(backLink);
+
+        this.earningContainer = document.createElement('div');
+        this.container.appendChild(this.earningContainer);
+        this.earningContainer.appendChild(document.createTextNode('当日盈亏:'));
+        var earningDate = document.createElement('input');
+        earningDate.type = 'date';
+        earningDate.value = utils.getTodayDate();
+        this.earningContainer.appendChild(earningDate);
+        var earningInput = document.createElement('input');
+        earningInput.placeholder = '金额';
+        this.earningContainer.appendChild(earningInput);
+
+        var okBtn = document.createElement('button');
+        okBtn.textContent = '确定';
+        okBtn.that = this;
+        okBtn.onclick = function(e) {
+            e.target.that.setEarnedByDate(earningDate.value, earningInput.value);
+        };
+        this.earningContainer.appendChild(okBtn);
+
+        var earningChartDiv = document.createElement('div');
+        this.earningContainer.appendChild(earningChartDiv);
+
+        this.earnedDaysBar = new RadioAnchorBar();
+        this.earnedDaysBar.addRatio('30', function(that){
+            that.getEarnedJson(30);
+            that.earnedDaysBar.days = 30;
+        }, this);
+        this.earnedDaysBar.addRatio('60', function(that){
+            that.getEarnedJson(60);
+            that.earnedDaysBar.days = 60;
+        }, this);
+        this.earnedDaysBar.addRatio('90', function(that){
+            that.getEarnedJson(90);
+            that.earnedDaysBar.days = 90;
+        }, this);
+        this.earnedDaysBar.addRatio('200', function(that){
+            that.getEarnedJson(200);
+            that.earnedDaysBar.days = 200;
+        }, this);
+        this.earnedDaysBar.addRatio('当年', function(that){
+            that.getEarnedJson(0);
+            that.earnedDaysBar.days = 0;
+        }, this);
+        this.earnedDaysBar.addRatio('全部', function(that){
+            that.getEarnedJson(-1);
+            that.earnedDaysBar.days = -1;
+        }, this);
+
+        earningChartDiv.appendChild(this.earnedDaysBar.container);
+
+        var chart_div = document.createElement('div');
+        earningChartDiv.appendChild(chart_div);
+        this.earnedChart = new EarnedChart(chart_div);
+        this.earnedChart.initialize();
+        if (!this.earnedJson) {
+            this.updateEarnedChart();
+        };
     }
 
     showStockStats() {
@@ -56,8 +155,8 @@ class StockStats {
         
         this.statsTable.reset();
         this.statsTable.setSpanHeader({'name':'名称', row:2}, {'name':'持有信息', col:2}, {'name':'售出信息', col:4}, {'name':'收益'}, {'name':'收益率', col:2});
-        this.statsTable.setClickableHeader('成本', '收益', '总成本', '总额', '次数', '次均', '总', '次均(%)', '标准(%)');
         this.statsTable.setColOffset(1);
+        this.statsTable.setClickableHeader('成本', '收益', '总成本', '总额', '次数', '次均', '总', '次均(%)', '标准(%)');
         for (var i in this.statsJson) {
             this.statsTable.addRow(
                 this.statsJson[i].name,
@@ -72,5 +171,12 @@ class StockStats {
                 parseFloat((this.statsJson[i].earnedRate * this.statsJson[i].srct * 100).toFixed(2)));
         };
         this.statsTable.addRow('总计', cost, ewh.toFixed(2), cs.toFixed(2), ms.toFixed(2), '-', '-', earned.toFixed(2), (100 * earned / (cost + cs)).toFixed(2), '-');
+    }
+
+    updateEarnedChart() {
+        if (!this.earnedJson) {
+            this.earnedDaysBar.selectDefault();
+        };
+        this.earnedChart.updateEarned(this.earnedJson, this.earnedDaysBar.days);
     }
 }

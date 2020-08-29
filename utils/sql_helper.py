@@ -55,7 +55,7 @@ class SqlHelper():
         self.executeCommit(sql)
         return self.cur.fetchone()
 
-    def creatTable(self, tablename, attrdict, constraint):
+    def createTable(self, tablename, attrdict, constraint):
         """创建数据库表
 
             args：
@@ -73,7 +73,7 @@ class SqlHelper():
         sql = sql + sql_mid
         sql = sql + constraint
         sql = sql + ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
-        #print('creatTable:' + sql)
+        #print('createTable:' + sql)
         self.executeCommit(sql)
 
     def executeSql(self,sql=''):

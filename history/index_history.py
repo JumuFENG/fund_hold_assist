@@ -71,7 +71,7 @@ class Index_history(HistoryFromSohu):
             for c in df.columns:
                 attrs[c] = 'varchar(20) DEFAULT NULL'
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.index_db_table, attrs, constraint)
+            self.sqldb.createTable(self.index_db_table, attrs, constraint)
 
         headers = [df.index.name]
         for c in df.columns:
@@ -118,7 +118,7 @@ class Index_history(HistoryFromSohu):
             for c in headers:
                 attrs[c] = 'varchar(20) DEFAULT NULL'
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.index_full_his_db, attrs, constraint)
+            self.sqldb.createTable(self.index_full_his_db, attrs, constraint)
 
         self.sqldb.insertMany(self.index_full_his_db, headers, values)
 

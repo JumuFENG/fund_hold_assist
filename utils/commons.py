@@ -77,6 +77,7 @@ column_actual_sold = "actual_sold"
 column_return_percentage = "return_percent"
 column_rolled_in = "rolled_in"
 column_roll_in_value = "rollin_netvalue"
+column_total_earned = "total_earned"
 
 column_open = "open"
 column_high = "high"

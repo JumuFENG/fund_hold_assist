@@ -90,7 +90,7 @@ class Gold_history(HistoryDowloaderBase):
             for c in headers:
                 attrs[c] = 'varchar(20) DEFAULT NULL'
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.gold_history_table, attrs, constraint)
+            self.sqldb.createTable(self.gold_history_table, attrs, constraint)
 
         self.sqldb.insertMany(self.gold_history_table, headers, values)
 
@@ -110,7 +110,7 @@ class Gold_history(HistoryDowloaderBase):
             for c in headers:
                 attrs[c] = 'varchar(20) DEFAULT NULL'
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.gold_history_table_30, attrs, constraint)
+            self.sqldb.createTable(self.gold_history_table_30, attrs, constraint)
 
         self.sqldb.insertMany(self.gold_history_table_30, headers, values)
         
@@ -137,7 +137,7 @@ class Gold_history(HistoryDowloaderBase):
             for c in headers:
                 attrs[c] = 'varchar(20) DEFAULT NULL'
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.goldk_history_table, attrs, constraint)
+            self.sqldb.createTable(self.goldk_history_table, attrs, constraint)
 
         self.sqldb.insertMany(self.goldk_history_table, headers, values)
 
@@ -148,7 +148,7 @@ class Gold_history(HistoryDowloaderBase):
             for c in headers:
                 attrs[c] = 'varchar(20) DEFAULT NULL'
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(table, attrs, constraint)
+            self.sqldb.createTable(table, attrs, constraint)
 
         maxDate = self.sqldb.select(table, "max(%s)" % column_date)
         if maxDate:
@@ -197,7 +197,7 @@ class Gold_history(HistoryDowloaderBase):
             for c in headers:
                 attrs[c] = 'varchar(20) DEFAULT NULL'
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.gold_rt_history_table, attrs, constraint)
+            self.sqldb.createTable(self.gold_rt_history_table, attrs, constraint)
 
         self.sqldb.insertMany(self.gold_rt_history_table, headers, values)
 
@@ -262,7 +262,7 @@ class Gold_history(HistoryDowloaderBase):
             for c in headers:
                 attrs[c] = 'varchar(20) DEFAULT NULL'
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.gold_history_table, attrs, constraint)
+            self.sqldb.createTable(self.gold_history_table, attrs, constraint)
         if not self.sqldb.isExistTableColumn(self.gold_history_table, column_close):
             self.sqldb.addColumn(self.gold_history_table, column_close, 'varchar(20) DEFAULT NULL')
         if not self.sqldb.isExistTableColumn(self.gold_history_table, column_price):

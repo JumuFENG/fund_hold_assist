@@ -40,6 +40,9 @@ class User():
     def stocks_info_table(self):
         return "u" + str(self.id) + "_stocks";
 
+    def stocks_earned_table(self):
+        return "u" + str(self.id) + "_earned";
+
     def to_string(self):
         return 'id: ' + str(self.id) + ' name: ' + self.name + ' email: ' + self.email;
 
@@ -355,6 +358,72 @@ class User():
             keo_codes.append(c)
         return keo_codes
 
+    def set_earned(self, date, earned):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_earned_table()):
+            attrs = {column_date:'varchar(20) DEFAULT NULL',column_earned:'double(8,2) DEFAULT NULL', column_total_earned:'double(16,2) DEFAULT NULL'}
+            constraint = 'PRIMARY KEY(`id`)'
+            sqldb.createTable(self.stocks_earned_table(), attrs, constraint)
+            sqldb.insert(self.stocks_earned_table(), {column_date: date, column_earned: str(earned), column_total_earned:str(earned)})
+        else:
+            totalEarned = 0
+            lastEarned = sqldb.select(self.stocks_earned_table(), [column_date, column_total_earned], order = ' ORDER BY %s DESC LIMIT 1' % column_date)
+            if lastEarned is None or len(lastEarned) == 0:
+                return
+            (dt, totalEarned), = lastEarned
+            if dt == date:
+                print("earned already set for", date)
+                return
+            totalEarned += earned
+            sqldb.insert(self.stocks_earned_table(), {column_date: date, column_earned: str(earned), column_total_earned: str(totalEarned)})
+
+    def get_earned_arr(self, all_earned, days = 0):
+        startIdx = 0
+        if days > 0:
+            startIdx = len(all_earned) - days
+
+        earr = []
+        date_conv = DateConverter()
+        for x in range(startIdx, len(all_earned)):
+            earr.append({'dt':date_conv.days_since_2000(all_earned[x][0]), 'ed':all_earned[x][1]})
+        return earr
+
+    def get_this_yr_earned(self, all_earned):
+        lastRow = all_earned[-1]
+        year = datetime.strptime(lastRow[0], "%Y-%m-%d").year
+        total = None
+        earned_obj = {}
+        earr = []
+        date_conv = DateConverter()
+        for (d, e, t) in all_earned:
+            if total is None and not datetime.strptime(d, "%Y-%m-%d").year == year:
+                continue
+            if total is None:
+                total = t
+                earned_obj['tot'] = total
+            earr.append({'dt':date_conv.days_since_2000(d), 'ed':e})
+        earned_obj['e_a'] = earr;
+        return earned_obj
+
+    def get_earned(self, days):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_earned_table()):
+            print('can not find earned table', self.stocks_earned_table())
+            return {}
+
+        all_earned = sqldb.select(self.stocks_earned_table(), [column_date, column_earned, column_total_earned])
+        earned_obj = {}
+        if days < 0:
+            earned_obj['tot'] = all_earned[0][2]
+            earned_obj['e_a'] = self.get_earned_arr(all_earned)
+        elif days > 0:
+            earned_obj['tot'] = all_earned[len(all_earned) - days][2]
+            earned_obj['e_a'] = self.get_earned_arr(all_earned, days)
+        else:
+            earned_obj = self.get_this_yr_earned(all_earned)
+
+        return earned_obj
+
     def get_interested_stocks_his(self):
         sd = StockDumps()
         return sd.get_his(self.get_interested_stocks_code())
@@ -371,7 +440,7 @@ class UserModel():
         if not self.sqldb.isExistTable(self.tablename):
             attrs = {'name':'varchar(255) DEFAULT NULL', 'password':"varchar(255) DEFAULT NULL",  'email':"varchar(255) DEFAULT NULL", 'sub_table':"varchar(255) DEFAULT NULL", 'parent_account':"varchar(16) DEFAULT NULL"}
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(self.tablename, attrs, constraint)
+            self.sqldb.createTable(self.tablename, attrs, constraint)
         (result,), = self.sqldb.select(self.tablename, 'count(*)', ["email = '%s'" % email])
         if result and result != 0:
             user = self.user_by_email(email)
@@ -466,7 +535,7 @@ class UserModel():
         if not self.sqldb.isExistTable(sub_table):
             attrs = {'subid':"varchar(16) DEFAULT NULL"}
             constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.creatTable(sub_table, attrs, constraint)
+            self.sqldb.createTable(sub_table, attrs, constraint)
 
         self.sqldb.insert(sub_table, {'subid':str(sub.id)})
         self.sqldb.update(self.tablename, {'parent_account': str(user.id)}, {'id' : str(sub.id)})
