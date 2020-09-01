@@ -15,7 +15,7 @@ class StockGeneral():
         self.setupdate = None
 
         generals = self.sqldb.select(gl_all_stocks_info_table, [column_name, column_shortterm_rate, column_setup_date], "%s = '%s'" % (column_code, code))
-        if generals is not None:
+        if generals is not None and len(generals) > 0:
             (self.name, self.short_term_rate, self.setupdate), = generals
         if self.short_term_rate is None:
             self.short_term_rate = 0.02
