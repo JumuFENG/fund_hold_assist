@@ -57,6 +57,7 @@ class EarnedChart {
         var data = new google.visualization.DataTable();
         data.addColumn('string', '日期');
         data.addColumn('number', '日收益');
+        data.addColumn({type: 'string', role: 'style'});
         data.addColumn('number', '累计');
         var rows = [];
         var total_earned = earnedJson.tot;
@@ -72,7 +73,11 @@ class EarnedChart {
             };
         }
         for (var i = startIdx; i < earnedArr.length; i++) {
-            rows.push([utils.date_by_delta(earnedArr[i].dt), earnedArr[i].ed, total_earned]);
+            var ptClr = '';
+            if (earnedArr[i].ed < 0) {
+                ptClr = 'green';
+            };
+            rows.push([utils.date_by_delta(earnedArr[i].dt), earnedArr[i].ed, ptClr, total_earned]);
             if (i + 1 < earnedArr.length) {
                 total_earned += earnedArr[i+1].ed;
             };

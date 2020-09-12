@@ -68,7 +68,7 @@ class UserStock():
         if self.sell_rate is None:
             self.sell_rate = 0
         if self.fee is None:
-            self.fee = 0
+            self.fee = 0.00025
 
         self.sqldb.update(self.stocks_table, {column_cost_hold: str(self.cost_hold), column_portion_hold: str(self.portion_hold), column_averagae_price: str(self.average), column_shortterm_rate: str(self.short_term_rate), column_buy_decrease_rate: str(self.buy_rate), column_sell_increase_rate: str(self.sell_rate), column_fee: str(self.fee)}, {column_code : self.code})
 
@@ -234,6 +234,8 @@ class UserStock():
         sg = StockGeneral(self.sqldb, self.code)
 
         money = portion_tosell * Decimal(price)
+        if float(self.fee) > 0:
+            money = money * (1 - float(self.fee))
         earned = money - cost_tosell
         return_percent = earned / cost_tosell
         max_value_to_sell = round(price, 4)
@@ -272,7 +274,7 @@ class UserStock():
             ns[column_cost_sold] = cost
         if date:
             ns[column_date] = date
-        ns[column_money_sold] = int(ns[column_portion]) * float(ns[column_price])
+        ns[column_money_sold] = int(ns[column_portion]) * float(ns[column_price]) * (1 - float(self.fee))
         ns[column_earned] = float(ns[column_money_sold]) - float(ns[column_cost_sold])
         ns[column_return_percentage] = float(ns[column_earned]) / float(ns[column_cost_sold])
 
