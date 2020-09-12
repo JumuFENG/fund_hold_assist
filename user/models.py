@@ -367,12 +367,18 @@ class User():
             sqldb.insert(self.stocks_earned_table(), {column_date: date, column_earned: str(earned), column_total_earned:str(earned)})
         else:
             totalEarned = 0
-            lastEarned = sqldb.select(self.stocks_earned_table(), [column_date, column_total_earned], order = ' ORDER BY %s DESC LIMIT 1' % column_date)
+            lastEarned = sqldb.select(self.stocks_earned_table(), [column_date, column_earned, column_total_earned], order = ' ORDER BY %s DESC LIMIT 1' % column_date)
             if lastEarned is None or len(lastEarned) == 0:
                 return
-            (dt, totalEarned), = lastEarned
+            (dt, ed, totalEarned), = lastEarned
+            if dt > date:
+                print('can not set earned for date earlier than', dt)
+                return
             if dt == date:
-                print("earned already set for", date)
+                print('earned already exists:', dt, ed, totalEarned)
+                totalEarned += earned - ed
+                print('update to:', earned, totalEarned)
+                sqldb.update(self.stocks_earned_table(), {column_earned: str(earned), column_total_earned: str(totalEarned)}, {column_date: date})
                 return
             totalEarned += earned
             sqldb.insert(self.stocks_earned_table(), {column_date: date, column_earned: str(earned), column_total_earned: str(totalEarned)})
