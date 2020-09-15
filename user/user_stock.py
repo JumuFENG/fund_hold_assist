@@ -235,7 +235,7 @@ class UserStock():
 
         money = portion_tosell * Decimal(price)
         if float(self.fee) > 0:
-            money = money * (1 - float(self.fee))
+            money = money * (1 - Decimal(self.fee))
         earned = money - cost_tosell
         return_percent = earned / cost_tosell
         max_value_to_sell = round(price, 4)
