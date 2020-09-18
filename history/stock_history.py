@@ -28,8 +28,12 @@ class AllStocks(InfoList):
 
         soup = BeautifulSoup(c, 'html.parser')
         hdr2 = soup.find('span',{'class':'quote_title_0 wryh'})
-        if not hdr2:
-            print("can not find html element with 'class':'header-title-h2 fl','id':'name'")
+        if hdr2 is None:
+            print("can not find html element with 'class':'quote_title_0 wryh'")
+            hdr2 = soup.find('h2', {'class':'header-title-h2 fl'})
+            if hdr2 is None:
+                print("can not find html element with 'class':'header-title-h2 fl','id':'name'")
+                return
 
         code = code.upper()
         name = hdr2.get_text()
