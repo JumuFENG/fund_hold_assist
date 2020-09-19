@@ -43,10 +43,10 @@ class EarnedChart {
             seriesType: 'bars',
             series: {
                 0: {
+                    type: 'line',
                     targetAxisIndex: 0
                 },
                 1: {
-                    type: 'line',
                     targetAxisIndex: 1
                 }
             }
@@ -56,9 +56,9 @@ class EarnedChart {
     createDataTable(earnedJson, days = 0) {
         var data = new google.visualization.DataTable();
         data.addColumn('string', '日期');
+        data.addColumn('number', '累计');
         data.addColumn('number', '日收益');
         data.addColumn({type: 'string', role: 'style'});
-        data.addColumn('number', '累计');
         var rows = [];
         var total_earned = earnedJson.tot;
         var startIdx = 0;
@@ -77,7 +77,7 @@ class EarnedChart {
             if (earnedArr[i].ed < 0) {
                 ptClr = 'green';
             };
-            rows.push([utils.date_by_delta(earnedArr[i].dt), earnedArr[i].ed, ptClr, total_earned]);
+            rows.push([utils.date_by_delta(earnedArr[i].dt), total_earned, earnedArr[i].ed, ptClr]);
             if (i + 1 < earnedArr.length) {
                 total_earned += earnedArr[i+1].ed;
             };

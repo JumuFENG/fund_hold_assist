@@ -11,7 +11,7 @@ from decimal import Decimal
 class KdataDumps():
     """dump kdata to json or some other tasks."""
     def __init__(self):
-        pass
+        pass        
 
     def get_km_table(self, code):
         pass
@@ -31,6 +31,12 @@ class KdataDumps():
     def get_khl_m_his(self, code):
         mdata = self.read_km_data(code)
         khl_m = []
+        if mdata is None or len(mdata) == 0:
+            self.history.getKHistoryFromSohuTillToday(code)
+            mdata = self.read_km_data(code)
+            if mdata is None or len(mdata) == 0:
+                return khl_m
+
         date_conv = DateConverter()
         for (i, d, c, h, l, o, pr, p, v, a) in mdata:
             khl_m.append([date_conv.days_since_2000(d), h, l])
