@@ -348,7 +348,7 @@ class User():
     def get_interested_stocks_code(self):
         sqldb = self.stock_center_db()
         if not sqldb.isExistTable(self.stocks_info_table()):
-            print("can not find stock info DB.")
+            print("can not find stock info DB.", self.stocks_info_table())
             return None
 
         codes = sqldb.select(self.stocks_info_table(), [column_code], "%s = '%s'" % (column_keepeyeon, str(1)))

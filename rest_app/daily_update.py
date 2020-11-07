@@ -68,7 +68,6 @@ class DailyUpdater():
     def download_all_index_history(self, code):
         ih = Index_history()
         print("try to update index history for:", code)
-        ih.indexHistoryTillToday(code)
         ih.getKdHistoryFromSohuTillToday(code)
         ih.getHistoryFrom163(code)
 
@@ -84,7 +83,7 @@ class DailyUpdater():
 
         sh = Stock_history()
         for s in stocks:
-            sh.getKdHistoryFromSohuTillToday()
+            sh.getKdHistoryFromSohuTillToday(s)
 
 if __name__ == '__main__':
     du = DailyUpdater()
