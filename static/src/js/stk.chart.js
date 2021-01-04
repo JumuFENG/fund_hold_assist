@@ -25,12 +25,12 @@ class TradeOption {
         this.datePicker.type = 'date';
         this.datePicker.value = utils.getTodayDate();
         tradePanel.appendChild(this.datePicker);
-        this.portionInput = document.createElement('input');
-        this.portionInput.placeholder = '份额';
-        tradePanel.appendChild(this.portionInput);
         this.priceInput =document.createElement('input');
         this.priceInput.placeholder = '成交价格';
         tradePanel.appendChild(this.priceInput);
+        this.portionInput = document.createElement('input');
+        this.portionInput.placeholder = '份额';
+        tradePanel.appendChild(this.portionInput);
         this.submitBtn = document.createElement('button');
         this.submitBtn.textContent = '确定';
         this.submitBtn.onclick = function(e) {
