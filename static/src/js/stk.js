@@ -119,6 +119,7 @@ class StockSummay {
         radio.name = 'to_sell_radio_' + this.code;
         radio.value = dp.ids;
         radio.checked = checked;
+        radio.portion = dp.portion;
         var radioDiv = document.createElement('div');
         radioDiv.appendChild(radio);
         radioDiv.appendChild(document.createTextNode(rText));

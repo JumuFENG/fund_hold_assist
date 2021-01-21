@@ -94,20 +94,22 @@ class TradeOption {
             });
         } else {
             var idRadios = document.getElementsByName('to_sell_radio_' + code);
+            var totalPortion = 0;
             for (var i = 0; i < idRadios.length; i++) {
                 if (idRadios[i].checked) {
                     ids = idRadios[i].value;
+                    totalPortion = idRadios[i].portion;
                     break;
                 };
-            };
-
-            if (!ids) {
-                return;
             };
 
             var portion = parseInt(this.portionInput.value);
             if (Number.isNaN(portion)) {
                 portion = null;
+            };
+
+            if (!ids || totalPortion < portion) {
+                return;
             };
 
             trade.sellStock(date, code, price, ids, portion, function(){
