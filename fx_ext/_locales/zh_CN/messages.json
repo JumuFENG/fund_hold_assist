@@ -22,5 +22,8 @@
     },
     "fund_growth_name": {
         "message": "估值涨幅:"
+    },
+    "btn_open_start_page": {
+        "message": "打开交易页"
     }
 }

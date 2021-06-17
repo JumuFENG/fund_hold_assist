@@ -22,5 +22,8 @@
     },
     "fund_growth_name": {
         "message": "Growth rate:"
+    },
+    "btn_open_start_page": {
+        "message": "Open start page"
     }
 }

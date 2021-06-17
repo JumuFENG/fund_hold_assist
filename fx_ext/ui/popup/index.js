@@ -11,6 +11,7 @@
         document.getElementById("fund_value_name").textContent = chrome.i18n.getMessage("fund_value_name");
         document.getElementById("fund_esti_name").textContent = chrome.i18n.getMessage("fund_esti_name");
         document.getElementById("fund_growth_name").textContent = chrome.i18n.getMessage("fund_growth_name");
+        document.getElementById('btn_open_start_page').textContent = chrome.i18n.getMessage("btn_open_start_page");
     }
 
     function getHttpRequest (code) {
@@ -49,4 +50,10 @@
             getHttpRequest(e.target.value);
         };
     };
+
+    document.getElementById('btn_open_start_page').onclick = function (e) {
+        var startPageUrl = 'https://jywg.18.cn/MarginTrade/Buy';
+        var accountCrAssets = 'https://jywg.18.cn/MarginSearch/MyAssets';
+        window.open(startPageUrl, '_blank');
+    }
 })();

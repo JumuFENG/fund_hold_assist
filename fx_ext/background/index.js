@@ -1,8 +1,10 @@
 (function () {
     'use strict';
 
+    let emjyBack = null;
+
     function logInfo(...args) {
-        //console.log(args);
+        console.log(args.join(' '));
     }
     
     function sendMessage(data) {
@@ -28,8 +30,19 @@
     }
 
     function notify(message) {
-        logInfo("background receive message: " + message.url);
-        getHttpRequest(message.url);
+        logInfo("background receive message: " + JSON.stringify(message));
+        if (message.command == 'REST.Get') {
+            getHttpRequest(message.url);
+        } else if (message.command == 'emjy.contentLoaded') {
+            if (!emjyBack) {
+                emjyBack = new EmjyBack();
+                emjyBack.Init(logInfo, sendMessage);
+            }
+            emjyBack.onContentLoaded(message.path, message.search);
+            logInfo('emjy.Loaded', message.path + message.search);
+        } else if (message.command.startsWith('emjy.') && emjyBack) {
+            emjyBack.onContentMessageReceived(message);
+        }
     }
 
     chrome.runtime.onMessage.addListener(notify);

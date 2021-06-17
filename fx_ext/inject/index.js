@@ -6,7 +6,7 @@
     let RealtimeInfoFetchedEvent = "RealtimeInfoReturned"
 
     function logInfo(...args) {
-        //console.log(args);
+        //console.log(args.join(' '));
     }
 
     function isFirefox() {
@@ -32,7 +32,7 @@
 
     document.addEventListener(UrlToGetEvent, e => {
         logInfo(e.detail.url);
-        chrome.runtime.sendMessage({"url": e.detail.url});
+        chrome.runtime.sendMessage({url: e.detail.url, command: 'REST.Get'});
     })
 
     document.dispatchEvent(new CustomEvent(ExtensionLoadedEvent, {

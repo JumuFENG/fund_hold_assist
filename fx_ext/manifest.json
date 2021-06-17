@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "__MSG_extension_name__",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "author": "JumuFENG",
     "description": "__MSG_extension_description__",
     "default_locale": "zh_CN",
@@ -34,11 +34,24 @@
             "run_at": "document_idle",
             "all_frames": true,
             "match_about_blank": false
+        },
+        {
+            "matches": [
+                "https://jywg.18.cn/*"
+            ],
+            "js": [
+                "inject/jywg_conditions.js",
+                "inject/jywg_timers.js"
+            ],
+            "run_at": "document_idle",
+            "all_frames": true,
+            "match_about_blank": false
         }
     ],
     "permissions": [
         "storage",
         "tabs",
+        "cookies",
         "<all_urls>"
     ],
     "commands": {
