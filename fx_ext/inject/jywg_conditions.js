@@ -10,41 +10,21 @@ class JywgUtils {
     }
 
     getAssetsCredit () {
-        var assetsPath = '/MarginSearch/MyAssets';
-        if (location.pathname != assetsPath)
-        {
-            location.pathname = assetsPath;
-            return;
-        }
-        alert('getAssetsCredit');
         var assetsTableRows = document.getElementById('myAssets_main').childNodes[0].childNodes;
-        this.totalAssets += float(assetsTableRows[0].childNodes[0].childNodes[1].textContent);
-        this.availableMoney += float(assetsTableRows[0].childNodes[2].childNodes[1].textContent);
-        this.pureAssets += float(assetsTableRows[1].childNodes[0].childNodes[1].textContent);
-        this.availableCreditMoney += float(assetsTableRows[1].childNodes[2].childNodes[1].textContent);
+        return {
+            totalAssets: assetsTableRows[0].childNodes[0].childNodes[1].textContent,
+            availableMoney: assetsTableRows[0].childNodes[2].childNodes[1].textContent,
+            pureAssets: assetsTableRows[1].childNodes[0].childNodes[1].textContent,
+            availableCreditMoney: assetsTableRows[1].childNodes[2].childNodes[1].textContent
+        };
     }
 
     getAssetsNor() {
-        var assetsPath = '/Search/Position';
-        if (location.pathname != assetsPath) {
-            location.pathname = assetsPath;
-            return;
-        }
-
-        alert('getAssetsNor');
         var assetsTableRows = document.getElementById('assest_cont').childNodes[0].childNodes[0].childNodes;
-        this.pureAssets += float(assetsTableRows[0].childNodes[0].childNodes[1].textContent);
-        this.availableMoney = float(assetsTableRows[1].childNodes[0].childNodes[1].textContent);
-    }
-
-    getAssets() {
-        this.totalAssets = 0.0
-        this.availableMoney = 0.0;
-        this.pureAssets = 0.0;
-        this.availableCreditMoney = 0.0;
-        getAssetsCredit();
-        getAssetsNor();
-        alert("totalAssets = " + this.totalAssets + " pureAssets = " + this.pureAssets + " availableMoney = " + this.availableMoney + " availableCreditMoney = " + this.availableCreditMoney);
+        return {
+            pureAssets: assetsTableRows[0].childNodes[0].childNodes[1].textContent,
+            availableMoney: assetsTableRows[1].childNodes[0].childNodes[1].textContent
+        };
     }
 
     getValidateKey() {
@@ -126,20 +106,87 @@ class JywgUtils {
 
 class EmjyFrontend {
     constructor() {
+        this.loginPath = '/Login';
+        this.normalAssetsPath = '/Search/Position';
+        this.creditAssetsPath = '/MarginSearch/MyAssets';
         this.jywgutils = null;
+        this.log = null;
     }
 
-    Init() {
+    Init(log) {
         this.jywgutils = new JywgUtils();
+        this.log = log;
+    }
+
+    sendMessageToBackground(message) {
+        chrome.runtime.sendMessage(message);
+    }
+
+    getAssets(assetsPath) {
+        this.log('getAssets', assetsPath, location.pathname);
+        if (location.pathname != assetsPath) {
+            location.pathname = assetsPath;
+            return;
+        }
+
+        var assetsMsg = {};
+        if (assetsPath == this.creditAssetsPath) {
+            assetsMsg = this.jywgutils.getAssetsCredit(assetsPath);
+        } else {
+            assetsMsg = this.jywgutils.getAssetsNor(assetsPath);
+        }
+
+        if (assetsMsg) {
+            assetsMsg.command = 'emjy.getAssets';
+            assetsMsg.assetsPath = assetsPath;
+        }
+        return assetsMsg;
+    }
+
+    onLoginPageLoaded() {
+        var btnConfirm = document.getElementsByClassName('btn-orange vbtn-confirm')[0];
+        if (btnConfirm) {
+            btnConfirm.click();
+        }
+        // document.getElementById('txtZjzh').value = '';
+        // document.getElementById('txtPwd').value = '';
+        document.getElementById('rdsc45').checked = true;
+        var inputValidate = document.getElementById('txtValidCode');
+        inputValidate.oninput = function (e) {
+            if (e.target.value.length == 4) {
+                document.getElementById('btnConfirm').click();
+            }
+        }
+    }
+
+    onPageLoaded() {
+        this.log('onPageLoaded begin');
+        var path = location.pathname;
+        if (path == this.loginPath) {
+            this.onLoginPageLoaded();
+        } else if (path == this.normalAssetsPath || path == this.creditAssetsPath) {
+            var assetsMsg = this.getAssets(path);
+            if (assetsMsg) {
+                this.sendMessageToBackground(assetsMsg);
+                this.log('sendMessageToBackground done');
+            }
+        }
+        this.log('onPageLoaded', path);
     }
 
     onBackMessageReceived(message) {
         if (message.command == 'emjy.getValidateKey') {
             var vkey = this.jywgutils.getValidateKey();
             if (vkey) {
-                chrome.runtime.sendMessage({command:'emjy.getValidateKey', key: vkey});
+                this.sendMessageToBackground({command:'emjy.getValidateKey', key: vkey});
             }
-        };
+        } else if (message.command == 'emjy.getAssets') {
+            var assetsMsg = this.getAssets(message.assetsPath);
+            if (assetsMsg) {
+                this.sendMessageToBackground(assetsMsg);
+                this.log('sendMessageToBackground done');
+            }
+        }
     }
 }
 
@@ -152,7 +199,7 @@ function onMessage(message) {
         logInfo('recieve command', message.command);
         if (!EmjyFront) {
             EmjyFront = new EmjyFrontend();
-            EmjyFront.Init();
+            EmjyFront.Init(logInfo);
         }
         EmjyFront.onBackMessageReceived(message);
         logInfo('onBackMessageReceived called!');
@@ -163,10 +210,18 @@ function onMessage(message) {
 
 if (location.host == 'jywg.18.cn') {
     // console.log('sendMessage to background');
-    chrome.runtime.onMessage.addListener(onMessage);
-    chrome.runtime.sendMessage({command:'emjy.contentLoaded', path: location.pathname, search: location.search});
-    logInfo('sendMessage Done!');
-    // var jywgutils = new JywgUtils();
-    // var vkey = jywgutils.clickBuy();
+    if (!EmjyFront) {
+        EmjyFront = new EmjyFrontend();
+        EmjyFront.Init(logInfo);
+    }
+    if (location.pathname != EmjyFront.loginPath) {
+        chrome.runtime.onMessage.addListener(onMessage);
+        chrome.runtime.sendMessage({command:'emjy.contentLoaded', path: location.pathname, search: location.search});
+        logInfo('sendMessage Done!');
+    }
+
+    setTimeout(function(){
+        EmjyFront.onPageLoaded();
+    }, 1000);
 }
 

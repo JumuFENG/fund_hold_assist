@@ -36,7 +36,7 @@
         } else if (message.command == 'emjy.contentLoaded') {
             if (!emjyBack) {
                 emjyBack = new EmjyBack();
-                emjyBack.Init(logInfo, sendMessage);
+                emjyBack.Init(logInfo);
             }
             emjyBack.onContentLoaded(message.path, message.search);
             logInfo('emjy.Loaded', message.path + message.search);
