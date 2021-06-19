@@ -2,28 +2,49 @@
 let EmjyFront = null;
 
 class JywgUtils {
-    constructor() {
-        this.totalAssets = 0.0
-        this.availableMoney = 0.0;
-        this.pureAssets = 0.0;
-        this.availableCreditMoney = 0.0;
+    constructor(log) {
+        this.log = log;
+    }
+
+    getStocks() {
+        var tableStocks = document.querySelector('#tabBody').childNodes;
+        var stocks = [];
+
+        for (var i = 0; i < tableStocks.length; ++i) {
+            var rowCells = tableStocks[i].childNodes;
+            if (rowCells.length == 11) {
+                var stockInfo = {
+                    code: rowCells[0].childNodes[0].textContent,
+                    name: rowCells[1].childNodes[0].textContent,
+                    holdCount: rowCells[2].childNodes[0].textContent,
+                    availableCount: rowCells[3].childNodes[0].textContent,
+                    market: rowCells[9].childNodes[0].textContent == '深圳A股' ? 'SZ' : "SH"
+                };
+                stocks.push(stockInfo);
+            }
+        }
+        return stocks;
     }
 
     getAssetsCredit () {
         var assetsTableRows = document.getElementById('myAssets_main').childNodes[0].childNodes;
+        
         return {
             totalAssets: assetsTableRows[0].childNodes[0].childNodes[1].textContent,
             availableMoney: assetsTableRows[0].childNodes[2].childNodes[1].textContent,
             pureAssets: assetsTableRows[1].childNodes[0].childNodes[1].textContent,
-            availableCreditMoney: assetsTableRows[1].childNodes[2].childNodes[1].textContent
+            availableCreditMoney: assetsTableRows[1].childNodes[2].childNodes[1].textContent,
+            stocks: this.getStocks()
         };
     }
 
     getAssetsNor() {
         var assetsTableRows = document.getElementById('assest_cont').childNodes[0].childNodes[0].childNodes;
+        
         return {
             pureAssets: assetsTableRows[0].childNodes[0].childNodes[1].textContent,
-            availableMoney: assetsTableRows[1].childNodes[0].childNodes[1].textContent
+            availableMoney: assetsTableRows[1].childNodes[0].childNodes[1].textContent,
+            stocks: this.getStocks()
         };
     }
 
@@ -114,7 +135,7 @@ class EmjyFrontend {
     }
 
     Init(log) {
-        this.jywgutils = new JywgUtils();
+        this.jywgutils = new JywgUtils(log);
         this.log = log;
     }
 

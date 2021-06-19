@@ -45,10 +45,8 @@ class EmjyBack {
             this.collateralAccount.initAccount('/MarginTrade/Buy', '/MarginTrade/Sale', '/MarginSearch/MyAssets');
             this.creditAccount = new AccountInfo();
             this.creditAccount.initAccount('/MarginTrade/MarginBuy', '/MarginTrade/FinanceSale', '/MarginSearch/MyAssets');
-            this.log('postMessage to worker');
-            this.mainWorker.postMessage({command: 'emjy.getAssets', assetsPath: this.normalAccount.assetsPath});
-            this.mainWorker.postMessage({command: 'emjy.getAssets', assetsPath: this.creditAccount.assetsPath});
-            this.log('postMessage to worker Done');
+            this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.normalAccount.assetsPath});
+            this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.creditAccount.assetsPath});
         }
         this.log('onContentLoaded');
     }
@@ -57,7 +55,7 @@ class EmjyBack {
         //console.log('sendMsgToContent', data);
         chrome.tabs.query({active:true, currentWindow:true}, function (tabs) {
             var url = new URL(tabs[0].url);
-            if (url.host == 'jywg.18.cn') {
+            if (url.host == 'jywg.18.cn' && url.pathname != '/Login') {
                 chrome.tabs.sendMessage(tabs[0].id, data);
                 //console.log('do sendMsgToContent', data);
                 emjyBack.mainWorker.postMessage({command: 'emjy.sent'});
@@ -75,16 +73,18 @@ class EmjyBack {
         if (message.command == 'emjy.getValidateKey') {
             this.log('getValidateKey =', message.key);
         } else if (message.command == 'emjy.getAssets') {
-            this.log('update assets', message.assetsPath);
+            this.log('update assets', JSON.stringify(message));
             if (message.assetsPath == this.normalAccount.assetsPath) {
                 this.normalAccount.pureAssets = parseFloat(message.pureAssets);
                 this.normalAccount.availableMoney = parseFloat(message.availableMoney);
+                this.normalAccount.stocks = this.parseStockInfoList(message.stocks);
             } else {
                 // this.collateralAccount.pureAssets = message.totalAssets - message.pureAssets;
                 this.creditAccount.pureAssets = 0.0;
                 this.creditAccount.availableMoney = parseFloat(message.availableCreditMoney);
                 this.collateralAccount.pureAssets = parseFloat(message.pureAssets);
                 this.collateralAccount.availableMoney = parseFloat(message.availableMoney);
+                this.collateralAccount.stocks = this.parseStockInfoList(message.stocks);
             }
             this.log(JSON.stringify(this.normalAccount));
             this.log(JSON.stringify(this.collateralAccount));
@@ -92,15 +92,36 @@ class EmjyBack {
             if (this.currentTask && this.currentTask.command == message.command) {
                 this.currentTask.state = 'done';
                 this.log('pop task');
-                this.mainWorker.postMessage(this.currentTask);
+                this.postWorkerTask(this.currentTask);
                 this.currentTask = null;
             }
         }
+    }
+
+    postWorkerTask(task) {
+        this.log('postMessage to worker');
+        this.mainWorker.postMessage(task);
     }
 
     onMainWorkerMessageReceived(message) {
         // this.log('mainworker', message.task, message.assetsPath);
         this.currentTask = message;
         this.sendMsgToContent(message);
+    }
+
+    parseStockInfoList(stocks) {
+        var stockList = [];
+        for (var i = 0; i < stocks.length; i++) {
+            var stockInfo = {};
+            stockInfo.code = stocks[i].code;
+            stockInfo.name = stocks[i].name;
+            stockInfo.holdCount = parseInt(stocks[i].holdCount);
+            stockInfo.availableCount = parseInt(stocks[i].availableCount);
+            stockInfo.market = stocks[i].market;
+            if (stockInfo.holdCount > 0 && stockInfo.availableCount > 0) {
+                stockList.push(stockInfo);
+            }
+        };
+        return stockList;
     }
 }

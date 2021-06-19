@@ -1,4 +1,4 @@
-tasks = [];
+let tasks = [];
 
 addEventListener('message', function(e) {
     if (e.data.command == 'emjy.sent') {
