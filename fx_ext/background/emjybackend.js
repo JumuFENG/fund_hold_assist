@@ -5,13 +5,13 @@ let emjyBack = null;
 class AccountInfo {
     constructor() {
         this.buyPath = null;
-        this.salePath = null;
+        this.sellPath = null;
         this.assetsPath = null;
     }
 
-    initAccount(buyPath, salePath, assetsPath) {
+    initAccount(buyPath, sellPath, assetsPath) {
         this.buyPath = buyPath;
-        this.salePath = salePath;
+        this.sellPath = sellPath;
         this.assetsPath = assetsPath;
     }
 }
@@ -26,6 +26,7 @@ class EmjyBack {
         this.normalAccount = null;
         this.collateralAccount = null;
         this.creditAccount = null;
+        this.currentTask = null;
     }
 
     Init(logger) {
@@ -51,14 +52,49 @@ class EmjyBack {
         this.log('onContentLoaded');
     }
 
+    // DON'T use this API directly, or it may break the task queue.
     sendMsgToContent(data) {
-        //console.log('sendMsgToContent', data);
+        //emjyBack.log('sendMsgToContent', data);
         chrome.tabs.query({active:true, currentWindow:true}, function (tabs) {
+            var doSendMsgToContent = function (tabid, data) {
+                chrome.tabs.sendMessage(tabid, data);
+                emjyBack.currentTask = data;
+                emjyBack.postWorkerTask({command: 'emjy.sent'});
+                emjyBack.log('do sendMsgToContent', data);
+            };
+
+            var sendNavigateToContent = function(tabid, url) {
+                chrome.tabs.sendMessage(tabid, {command: 'emjy.navigate', url: url.href});
+                emjyBack.log('do sendNavigateToContent', url.href);
+            };
+
             var url = new URL(tabs[0].url);
-            if (url.host == 'jywg.18.cn' && url.pathname != '/Login') {
-                chrome.tabs.sendMessage(tabs[0].id, data);
-                //console.log('do sendMsgToContent', data);
-                emjyBack.mainWorker.postMessage({command: 'emjy.sent'});
+            if (url.host == 'jywg.18.cn') {
+                if (url.pathname == '/Login') {
+                    return;
+                }
+                if (data.command == 'emjy.getAssets') {
+                    if (url.pathname == data.assetsPath) {
+                        doSendMsgToContent(tabs[0].id, data);
+                    } else {
+                        url.pathname = data.assetsPath;
+                        url.search = '';
+                        sendNavigateToContent(tabs[0].id, url);
+                    }
+                    return;
+                }
+                if (data.command == 'emjy.trade') {
+                    if (url.pathname == data.tradePath && url.search.includes('code=')) {
+                        doSendMsgToContent(tabs[0].id, data);
+                    } else {
+                        url.pathname = data.tradePath;
+                        url.search = '?code=' + data.stock.code;
+                        sendNavigateToContent(tabs[0].id, url);
+                    }
+                    return;
+                }
+                // chrome.tabs.sendMessage(tabs[0].id, data);
+                // emjyBack.log('do sendMsgToContent', data);
             }
         });
     }
@@ -90,10 +126,17 @@ class EmjyBack {
             this.log(JSON.stringify(this.collateralAccount));
             this.log(JSON.stringify(this.creditAccount));
             if (this.currentTask && this.currentTask.command == message.command) {
-                this.currentTask.state = 'done';
-                this.log('pop task');
-                this.postWorkerTask(this.currentTask);
-                this.currentTask = null;
+                this.popCurrentTask();
+            }
+        } else if (message.command == 'emjy.trade') {
+            if (message.result == 'success') {
+                this.popCurrentTask();
+            } else if (message.result == 'error') {
+                if (message.reason == 'pageNotLoaded') {
+                    this.revokeCurrentTask();
+                } else {
+                    this.popCurrentTask();
+                }
             }
         }
     }
@@ -103,10 +146,24 @@ class EmjyBack {
         this.mainWorker.postMessage(task);
     }
 
+    revokeCurrentTask() {
+        this.log('revoke task');
+        this.postWorkerTask({command: 'emjy.revoke'});
+        this.currentTask = null;
+    }
+
+    popCurrentTask() {
+        this.currentTask.state = 'done';
+        this.log('pop task');
+        this.postWorkerTask(this.currentTask);
+        this.currentTask = null;
+    }
+
     onMainWorkerMessageReceived(message) {
         // this.log('mainworker', message.task, message.assetsPath);
-        this.currentTask = message;
-        this.sendMsgToContent(message);
+        if (!this.currentTask) {
+            this.sendMsgToContent(message);
+        }
     }
 
     parseStockInfoList(stocks) {
@@ -123,5 +180,90 @@ class EmjyBack {
             }
         };
         return stockList;
+    }
+
+    trySellStock(code, price, count) {
+        var finalCount = count;
+        if (count <= 0) {
+            finalCount = parseInt(400 / price);
+            if (finalCount * price < 390) {
+                finalCount++;
+            }
+            finalCount *= 100;
+        }
+        for (var i = 0; i < this.normalAccount.stocks.length; i++) {
+            if (this.normalAccount.stocks[i].code == code) {
+                if (finalCount > this.normalAccount.stocks[i].availableCount) {
+                    finalCount = this.normalAccount.stocks[i].availableCount;
+                }
+                this.sendTradeMessage(this.normalAccount.sellPath, this.normalAccount.stocks[i], price, finalCount);
+                return;
+            }
+        };
+        for (var i = 0; i < this.collateralAccount.stocks.length; i++) {
+            if (this.collateralAccount.stocks[i].code == code) {
+                if (finalCount > this.collateralAccount.stocks[i].availableCount) {
+                    finalCount = this.collateralAccount.stocks[i].availableCount;
+                }
+                this.sendTradeMessage(this.collateralAccount.sellPath, this.collateralAccount.stocks[i], price, finalCount);
+                return;
+            }
+        };
+    }
+
+    tryBuyStock(code, price, count) {
+        var finalCount = count;
+        if (count <= 0) {
+            finalCount = parseInt(400 / price);
+            if (finalCount * price < 390) {
+                finalCount++;
+            }
+            finalCount *= 100;
+        }
+
+        var stockInfo = null;
+        for (var i = 0; i < this.normalAccount.stocks.length; i++) {
+            if (this.normalAccount.stocks[i].code == code) {
+                stockInfo = this.normalAccount.stocks[i];
+                break;
+            }
+        };
+        if (!stockInfo) {
+            for (var i = 0; i < this.collateralAccount.stocks.length; i++) {
+                if (this.collateralAccount.stocks[i].code == code) {
+                    stockInfo = this.collateralAccount.stocks[i];
+                    break;
+                }
+            };
+        }
+
+        if (!stockInfo) {
+            stockInfo = {code: code};
+        }
+
+        var moneyNeed = finalCount * price;
+        var moneyMax = Math.max(this.normalAccount.availableMoney, this.collateralAccount.availableMoney, this.creditAccount.availableMoney);
+        if (moneyMax < moneyNeed) {
+            finalCount = 100 * Math.floor(moneyMax / (100 * price));
+        }
+
+        moneyNeed = finalCount * price;
+        var buyAccount = this.normalAccount;
+        if (this.normalAccount.availableMoney < moneyNeed) {
+            buyAccount = this.collateralAccount;
+            if (this.collateralAccount.availableMoney < moneyNeed) {
+                buyAccount = this.creditAccount;
+            }
+        }
+
+        if (buyAccount.availableMoney < moneyNeed) {
+            this.log('No availableMoney match');
+            return;
+        }
+        this.sendTradeMessage(buyAccount.buyPath, stockInfo, price, finalCount);
+    }
+
+    sendTradeMessage(tradePath, stock, price, count) {
+        this.postWorkerTask({command: 'emjy.trade', tradePath: tradePath, stock: stock, price: price, count: count});
     }
 }

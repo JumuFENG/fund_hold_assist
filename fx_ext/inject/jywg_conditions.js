@@ -4,6 +4,7 @@ let EmjyFront = null;
 class JywgUtils {
     constructor(log) {
         this.log = log;
+        this.retry = 0;
     }
 
     getStocks() {
@@ -28,7 +29,7 @@ class JywgUtils {
 
     getAssetsCredit () {
         var assetsTableRows = document.getElementById('myAssets_main').childNodes[0].childNodes;
-        
+
         return {
             totalAssets: assetsTableRows[0].childNodes[0].childNodes[1].textContent,
             availableMoney: assetsTableRows[0].childNodes[2].childNodes[1].textContent,
@@ -104,24 +105,53 @@ class JywgUtils {
         });
     }
 
-    clickBuy() {
+    clickTrade(code, name, price, count, notifyDone) {
         var btnConfirm = document.getElementById('btnConfirm');
         if (!location.href.includes('code=') && btnConfirm.disabled) {
+            if (typeof(notifyDone) === 'function') {
+                notifyDone({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded'});
+            }
             return;
         }
 
         var inputCode = document.getElementById('stockCode');
-        inputCode.value = '002460';
+        inputCode.value = code;
         var inputName = document.getElementById('iptbdName');
-        inputName.value = '赣锋锂业';
+        inputName.value = name;
         var inputPrice = document.getElementById('iptPrice');
-        inputPrice.value = '100.0';
+        inputPrice.value = price;
         var inputCount = document.getElementById('iptCount');
-        inputCount.value = '500';
+        inputCount.value = count;
 
+        if (btnConfirm.disabled) {
+            this.log('cannot click the confirm button');
+            if (typeof(notifyDone) === 'function') {
+                notifyDone({command:'emjy.trade', result: 'error', reason: 'btnConfirmInvalid'});
+            }
+            return;
+        }
+        
         btnConfirm.click();
-        var confirmAgain = document.getElementsByClassName('btn_jh btnts cl btn btn-default-blue')[0];
-        confirmAgain.click();
+        
+        var clickConfirmAgain = function(that) {
+            var confirmAgain = document.getElementsByClassName('btn_jh btnts cl btn btn-default-blue')[0];
+            if (confirmAgain) {
+                confirmAgain.click();
+                if (typeof(notifyDone) === 'function') {
+                    notifyDone({command:'emjy.trade', result: 'success'});
+                }
+            } else if (that.retry < 100){
+                that.retry ++;
+                setTimeout(clickConfirmAgain(that), 100)
+            } else {
+                that.retry = 0;
+                if (typeof(notifyDone) === 'function') {
+                    notifyDone({command:'emjy.trade', result: 'error', reason: 'confirmAgainInvalid'});
+                }
+                that.log('retry more than 100');
+            }
+        }
+        setTimeout(clickConfirmAgain(this), 200);
     }
 }
 
@@ -132,10 +162,12 @@ class EmjyFrontend {
         this.creditAssetsPath = '/MarginSearch/MyAssets';
         this.jywgutils = null;
         this.log = null;
+        this.pageLoaded = null;
     }
 
     Init(log) {
         this.jywgutils = new JywgUtils(log);
+        this.pageLoaded = false;
         this.log = log;
     }
 
@@ -143,25 +175,23 @@ class EmjyFrontend {
         chrome.runtime.sendMessage(message);
     }
 
-    getAssets(assetsPath) {
-        this.log('getAssets', assetsPath, location.pathname);
-        if (location.pathname != assetsPath) {
-            location.pathname = assetsPath;
-            return;
+    onBackMessageReceived(message) {
+        if (message.command == 'emjy.navigate') {
+            location.href = message.url;
+        } else if (message.command == 'emjy.getValidateKey') {
+            var vkey = this.jywgutils.getValidateKey();
+            if (vkey) {
+                this.sendMessageToBackground({command:'emjy.getValidateKey', key: vkey});
+            }
+        } else if (message.command == 'emjy.getAssets') {
+            var assetsMsg = this.getAssets(message.assetsPath);
+            if (assetsMsg) {
+                this.sendMessageToBackground(assetsMsg);
+                this.log('sendMessageToBackground done');
+            }
+        } else if (message.command == 'emjy.trade') {
+            this.stockTrade(message);
         }
-
-        var assetsMsg = {};
-        if (assetsPath == this.creditAssetsPath) {
-            assetsMsg = this.jywgutils.getAssetsCredit(assetsPath);
-        } else {
-            assetsMsg = this.jywgutils.getAssetsNor(assetsPath);
-        }
-
-        if (assetsMsg) {
-            assetsMsg.command = 'emjy.getAssets';
-            assetsMsg.assetsPath = assetsPath;
-        }
-        return assetsMsg;
     }
 
     onLoginPageLoaded() {
@@ -192,22 +222,41 @@ class EmjyFrontend {
                 this.log('sendMessageToBackground done');
             }
         }
+        this.pageLoaded = true;
         this.log('onPageLoaded', path);
     }
 
-    onBackMessageReceived(message) {
-        if (message.command == 'emjy.getValidateKey') {
-            var vkey = this.jywgutils.getValidateKey();
-            if (vkey) {
-                this.sendMessageToBackground({command:'emjy.getValidateKey', key: vkey});
-            }
-        } else if (message.command == 'emjy.getAssets') {
-            var assetsMsg = this.getAssets(message.assetsPath);
-            if (assetsMsg) {
-                this.sendMessageToBackground(assetsMsg);
-                this.log('sendMessageToBackground done');
-            }
+    getAssets(assetsPath) {
+        this.log('getAssets', assetsPath, location.pathname);
+        if (location.pathname != assetsPath) {
+            return;
         }
+
+        var assetsMsg = {};
+        if (assetsPath == this.creditAssetsPath) {
+            assetsMsg = this.jywgutils.getAssetsCredit(assetsPath);
+        } else {
+            assetsMsg = this.jywgutils.getAssetsNor(assetsPath);
+        }
+
+        if (assetsMsg) {
+            assetsMsg.command = 'emjy.getAssets';
+            assetsMsg.assetsPath = assetsPath;
+        }
+        return assetsMsg;
+    }
+
+    stockTrade(message) {
+        if (location.pathname != message.tradePath) {
+            this.log('not in', message.tradePath);
+            return;
+        }
+        this.log('stockTrade', JSON.stringify(message));
+        var stockName = message.stock.name;
+        if (stockName === undefined) {
+            stockName = '';
+        }
+        this.jywgutils.clickTrade(message.stock.code, stockName, message.price, message.count, this.sendMessageToBackground);
     }
 }
 
@@ -222,8 +271,11 @@ function onMessage(message) {
             EmjyFront = new EmjyFrontend();
             EmjyFront.Init(logInfo);
         }
-        EmjyFront.onBackMessageReceived(message);
-        logInfo('onBackMessageReceived called!');
+        if (EmjyFront.pageLoaded) {
+            EmjyFront.onBackMessageReceived(message);
+        } else {
+            setTimeout(EmjyFront.onBackMessageReceived(message), 1100);
+        }
     } else {
         logInfo("command not recognized.");
     }

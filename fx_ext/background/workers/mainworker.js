@@ -7,6 +7,13 @@ addEventListener('message', function(e) {
         }
         return;
     }
+    
+    if (e.data.command == 'emjy.revoke') {
+        if (tasks.length > 0) {
+            tasks[0].state = 'queued';
+        }
+        return;
+    }
 
     if (!e.data.state || tasks[0].command != e.data.command) {
         e.data.state = 'queued';
