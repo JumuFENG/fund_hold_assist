@@ -40,8 +40,7 @@
                 "https://jywg.18.cn/*"
             ],
             "js": [
-                "inject/jywg_conditions.js",
-                "inject/jywg_timers.js"
+                "inject/jywg_conditions.js"
             ],
             "run_at": "document_idle",
             "all_frames": true,

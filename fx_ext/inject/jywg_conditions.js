@@ -215,12 +215,12 @@ class EmjyFrontend {
         var path = location.pathname;
         if (path == this.loginPath) {
             this.onLoginPageLoaded();
-        } else if (path == this.normalAssetsPath || path == this.creditAssetsPath) {
-            var assetsMsg = this.getAssets(path);
-            if (assetsMsg) {
-                this.sendMessageToBackground(assetsMsg);
-                this.log('sendMessageToBackground done');
-            }
+        // } else if (path == this.normalAssetsPath || path == this.creditAssetsPath) {
+        //     var assetsMsg = this.getAssets(path);
+        //     if (assetsMsg) {
+        //         this.sendMessageToBackground(assetsMsg);
+        //         this.log('sendMessageToBackground done');
+        //     }
         }
         this.pageLoaded = true;
         this.log('onPageLoaded', path);
