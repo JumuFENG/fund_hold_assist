@@ -44,6 +44,38 @@ class StockInfo {
     }
 }
 
+class ManagerBack {
+    constructor(log) {
+        this.log = log;
+        this.tabid = null;
+    }
+
+    isValid() {
+        return this.tabid != null;
+    }
+
+    onManagerMessage(message, tabid) {
+        this.log('ManagerBack ', JSON.stringify(message), tabid);
+        if (message.command == 'mngr.init') {
+            this.tabid = tabid;
+        } else if (message.command == 'mngr.closed') {
+            this.tabid = null;
+        }
+    }
+
+    sendManagerMessage(message) {
+        if (this.isValid()) {
+            chrome.tabs.sendMessage(this.tabid, message);
+        } else {
+            this.log('manager tab id is', this.tabid);
+        }
+    }
+
+    sendStocks(stocks) {
+        this.sendManagerMessage({command:'mngr.stocks', stocks: JSON.stringify(stocks)});
+    }
+}
+
 function onMainWorkerMessage(e) {
     emjyBack.onMainWorkerMessageReceived(e.data);
 }
@@ -55,26 +87,39 @@ function onQuoteWorkerMessage(e) {
 class EmjyBack {
     constructor() {
         this.log = null;
+        this.contentTabId = null;
+        this.navigating = false;
         this.normalAccount = null;
         this.collateralAccount = null;
         this.creditAccount = null;
         this.currentTask = null;
         this.stockGuard = null;
+        this.mainWorker = null;
         this.quoteWorker = null;
+        this.manager = null;
     }
 
     Init(logger) {
         this.log = logger;
-        this.mainWorker = new Worker('workers/mainworker.js');
-        this.mainWorker.onmessage = onMainWorkerMessage;
         this.stockGuard = [];
         emjyBack = this;
         this.log('EmjyBack initialized!');
     }
 
-    onContentLoaded(path, search) {
-        if (!this.normalAccount && !this.creditAccount) {
-            this.log('init accounts');
+    onContentLoaded(message, tabid) {
+        if (!this.contentTabId) {
+            this.log('init contentTabId and accounts');
+            this.contentTabId = tabid;
+            if (!this.mainWorker) {
+                this.mainWorker = new Worker('workers/mainworker.js');
+                this.mainWorker.onmessage = onMainWorkerMessage;
+            };
+            chrome.tabs.onRemoved.addListener(function(tabid, removeInfo) {
+                if (emjyBack.contentTabId == tabid) {
+                    emjyBack.contentTabId = null;
+                    emjyBack.contentUrl = '';
+                }
+            });
             this.normalAccount = new AccountInfo();
             this.normalAccount.initAccount('/Trade/Buy', '/Trade/Sale', '/Search/Position');
             this.collateralAccount = new AccountInfo();
@@ -84,54 +129,60 @@ class EmjyBack {
             this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.normalAccount.assetsPath});
             this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.creditAccount.assetsPath});
         }
+        if (tabid == this.contentTabId) {
+            this.contentUrl = message.url;
+        }
+        this.navigating = false;
         this.log('onContentLoaded');
     }
 
     // DON'T use this API directly, or it may break the task queue.
     sendMsgToContent(data) {
-        //emjyBack.log('sendMsgToContent', data);
-        chrome.tabs.query({active:true, currentWindow:true}, function (tabs) {
-            var doSendMsgToContent = function (tabid, data) {
-                chrome.tabs.sendMessage(tabid, data);
-                emjyBack.currentTask = data;
-                emjyBack.postWorkerTask({command: 'emjy.sent'});
-                emjyBack.log('do sendMsgToContent', JSON.stringify(data));
-            };
+        var url = new URL(this.contentUrl);
+        if (!this.contentTabId || url.host != 'jywg.18.cn') {
+            return;
+        }
 
-            var sendNavigateToContent = function(tabid, url) {
+        if (url.pathname == '/Login') {
+            return;
+        }
+
+        this.log('sendMsgToContent', JSON.stringify(data));
+        var doSendMsgToContent = function (tabid, data) {
+            chrome.tabs.sendMessage(tabid, data);
+            emjyBack.currentTask = data;
+            emjyBack.postWorkerTask({command: 'emjy.sent'});
+            //emjyBack.log('do sendMsgToContent', JSON.stringify(data));
+        };
+
+        var sendNavigateToContent = function(tabid, url) {
+            if (!emjyBack.navigating) {
+                emjyBack.navigating = true;
                 chrome.tabs.sendMessage(tabid, {command: 'emjy.navigate', url: url.href});
-                emjyBack.log('do sendNavigateToContent', url.href);
-            };
-
-            var url = new URL(tabs[0].url);
-            if (url.host == 'jywg.18.cn') {
-                if (url.pathname == '/Login') {
-                    return;
-                }
-                if (data.command == 'emjy.getAssets') {
-                    if (url.pathname == data.assetsPath) {
-                        doSendMsgToContent(tabs[0].id, data);
-                    } else {
-                        url.pathname = data.assetsPath;
-                        url.search = '';
-                        sendNavigateToContent(tabs[0].id, url);
-                    }
-                    return;
-                }
-                if (data.command == 'emjy.trade') {
-                    if (url.pathname == data.tradePath && url.search.includes('code=')) {
-                        doSendMsgToContent(tabs[0].id, data);
-                    } else {
-                        url.pathname = data.tradePath;
-                        url.search = '?code=' + data.stock.code;
-                        sendNavigateToContent(tabs[0].id, url);
-                    }
-                    return;
-                }
-                // chrome.tabs.sendMessage(tabs[0].id, data);
-                // emjyBack.log('do sendMsgToContent', data);
+                //emjyBack.log('do sendNavigateToContent', url.href);
             }
-        });
+        };
+
+        if (data.command == 'emjy.getAssets') {
+            if (url.pathname == data.assetsPath) {
+                doSendMsgToContent(this.contentTabId, data);
+            } else {
+                url.pathname = data.assetsPath;
+                url.search = '';
+                sendNavigateToContent(this.contentTabId, url);
+            }
+            return;
+        }
+        if (data.command == 'emjy.trade') {
+            if (url.pathname == data.tradePath && url.search.includes('code=')) {
+                doSendMsgToContent(tabs[0].id, data);
+            } else {
+                url.pathname = data.tradePath;
+                url.search = '?code=' + data.stock.code;
+                sendNavigateToContent(this.contentTabId, url);
+            }
+            return;
+        }
     }
 
     onContentMessageReceived(message) {
@@ -174,6 +225,21 @@ class EmjyBack {
                     this.popCurrentTask();
                 }
             }
+        }
+    }
+
+    onManagerMessageReceived(message, tabid) {
+        if (!this.manager) {
+            this.manager = new ManagerBack(this.log);
+        }
+
+        this.manager.onManagerMessage(message, tabid);
+        if (message.command == 'mngr.init') {
+            this.log('manager initialized!');
+            if (this.manager.isValid() && this.stockGuard.length > 0) {
+                this.manager.sendStocks(this.stockGuard);
+            }
+            this.log('manager sendStocks');
         }
     }
 
@@ -240,8 +306,10 @@ class EmjyBack {
             }
         };
         if (holdChanged) {
+            if (this.manager && this.manager.isValid()) {
+                this.manager.sendStocks(this.stockGuard);
+            }
             this.updateMonitor();
-            this.applyStrategies();
         }
     }
 

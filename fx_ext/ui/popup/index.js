@@ -52,8 +52,9 @@
     };
 
     document.getElementById('btn_open_start_page').onclick = function (e) {
-        var startPageUrl = 'https://jywg.18.cn/MarginTrade/Buy';
-        var accountCrAssets = 'https://jywg.18.cn/MarginSearch/MyAssets';
-        window.open(startPageUrl, '_blank');
+        // var startPageUrl = 'https://jywg.18.cn/MarginTrade/Buy';
+        // var accountCrAssets = 'https://jywg.18.cn/MarginSearch/MyAssets';
+        // window.open(startPageUrl, '_blank');
+        chrome.tabs.create({url:'/background/manage.html'});
     }
 })();

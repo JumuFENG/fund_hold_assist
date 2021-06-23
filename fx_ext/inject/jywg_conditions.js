@@ -222,7 +222,14 @@ class EmjyFrontend {
         //         this.log('sendMessageToBackground done');
         //     }
         }
+        var btnCxcConfirm = document.querySelector('#btnCxcConfirm');
+        if (btnCxcConfirm) {
+            btnCxcConfirm.click();
+            return;
+        }
+
         this.pageLoaded = true;
+        this.sendMessageToBackground({command:'emjy.contentLoaded', url: location.href});
         this.log('onPageLoaded', path);
     }
 
@@ -289,12 +296,9 @@ if (location.host == 'jywg.18.cn') {
     }
     if (location.pathname != EmjyFront.loginPath) {
         chrome.runtime.onMessage.addListener(onMessage);
-        chrome.runtime.sendMessage({command:'emjy.contentLoaded', path: location.pathname, search: location.search});
-        logInfo('sendMessage Done!');
     }
 
     setTimeout(function(){
         EmjyFront.onPageLoaded();
     }, 1000);
 }
-

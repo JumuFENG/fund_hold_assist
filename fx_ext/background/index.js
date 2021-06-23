@@ -29,7 +29,7 @@
         };
     }
 
-    function notify(message) {
+    function notify(message, sender) {
         logInfo("background receive message: " + JSON.stringify(message));
         if (message.command == 'REST.Get') {
             getHttpRequest(message.url);
@@ -38,10 +38,12 @@
                 emjyBack = new EmjyBack();
                 emjyBack.Init(logInfo);
             }
-            emjyBack.onContentLoaded(message.path, message.search);
-            logInfo('emjy.Loaded', message.path + message.search);
+            emjyBack.onContentLoaded(message, sender.tab.id);
+            logInfo('emjy.Loaded', message.url);
         } else if (message.command.startsWith('emjy.') && emjyBack) {
             emjyBack.onContentMessageReceived(message);
+        } else if (message.command.startsWith('mngr.') && emjyBack) {
+            emjyBack.onManagerMessageReceived(message, sender.tab.id);
         }
     }
 
