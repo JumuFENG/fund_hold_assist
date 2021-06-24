@@ -175,7 +175,7 @@ class EmjyBack {
         }
         if (data.command == 'emjy.trade') {
             if (url.pathname == data.tradePath && url.search.includes('code=')) {
-                doSendMsgToContent(tabs[0].id, data);
+                doSendMsgToContent(this.contentTabId, data);
             } else {
                 url.pathname = data.tradePath;
                 url.search = '?code=' + data.stock.code;
@@ -219,7 +219,7 @@ class EmjyBack {
             if (message.result == 'success') {
                 this.popCurrentTask();
             } else if (message.result == 'error') {
-                if (message.reason == 'pageNotLoaded') {
+                if (message.reason == 'pageNotLoaded' || message.reason == 'btnConfirmDisabled') {
                     this.revokeCurrentTask();
                 } else {
                     this.popCurrentTask();

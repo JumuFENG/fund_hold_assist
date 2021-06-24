@@ -123,16 +123,6 @@ class JywgUtils {
         var inputCount = document.getElementById('iptCount');
         inputCount.value = count;
 
-        if (btnConfirm.disabled) {
-            this.log('cannot click the confirm button');
-            if (typeof(notifyDone) === 'function') {
-                notifyDone({command:'emjy.trade', result: 'error', reason: 'btnConfirmInvalid'});
-            }
-            return;
-        }
-        
-        btnConfirm.click();
-        
         var clickConfirmAgain = function(that) {
             var confirmAgain = document.getElementsByClassName('btn_jh btnts cl btn btn-default-blue')[0];
             if (confirmAgain) {
@@ -151,6 +141,13 @@ class JywgUtils {
                 that.log('retry more than 100');
             }
         }
+
+        if (btnConfirm.disabled) {
+            notifyDone({command:'emjy.trade', result: 'error', reason: 'btnConfirmDisabled'});
+            return;
+        }
+        
+        btnConfirm.click();
         setTimeout(clickConfirmAgain(this), 200);
     }
 }
