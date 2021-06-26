@@ -1,0 +1,25 @@
+hr {
+    border:none;
+    border-top:2px dotted #535759;
+}
+
+.radio_anchor_div a {
+    display: inline-block;
+    padding: 2px 10px;
+    margin: 0;
+    line-height: 28px;
+    border: 1px solid lightgray;
+}
+
+.radio_anchor_div a:link, .radio_anchor_div a:visited {
+    color: black;
+    text-decoration: none;
+}
+
+.radio_anchor_div a.highlight {
+    background: #555;
+}
+
+.radio_anchor_div a.highlight:link, .radio_anchor_div a.highlight:visited {
+    color: white;
+}

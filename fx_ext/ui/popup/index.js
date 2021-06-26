@@ -56,5 +56,6 @@
         // var accountCrAssets = 'https://jywg.18.cn/MarginSearch/MyAssets';
         // window.open(startPageUrl, '_blank');
         chrome.tabs.create({url:'/background/manage.html'});
+        window.close();
     }
 })();

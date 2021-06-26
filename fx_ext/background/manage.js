@@ -4,15 +4,6 @@ function logInfo(...args) {
     console.log(args.join(' '));
 }
 
-class Utils {
-    removeAllChild(ele) {
-        while(ele.hasChildNodes()) {
-            ele.removeChild(ele.lastChild);
-        }
-    }
-
-}
-
 class Manager {
     constructor(log) {
         this.log = log;
@@ -62,7 +53,9 @@ class StockList {
         this.stocks = null;
         this.root = document.createElement('div');
         this.listContainer = document.createElement('div');
-        this.strategyContainer = new StrategyChooser();
+        this.strategyManager = new StrategyManager();
+        this.strategyContainer = new StrategyChooser(this.strategyManager);
+        this.selectedCode = null;
     }
 
     initUi(stocks) {
@@ -74,18 +67,27 @@ class StockList {
         utils.removeAllChild(this.listContainer);
         for (var i = 0; i < stocks.length; i++) {
             var divContainer = document.createElement('div');
-            divContainer.code = stocks[i].code;
-            divContainer.owner = this
+            divContainer.stock = stocks[i];
+            if (stocks[i].buyStrategy) {
+                divContainer.stock.buyStrategy = this.strategyManager.initStrategy(stocks[i].buyStrategy, this.log);
+            };
+            if (stocks[i].sellStrategy) {
+                divContainer.stock.sellStrategy = this.strategyManager.initStrategy(stocks[i].sellStrategy, this.log);
+            };
+            divContainer.owner = this;
             divContainer.onclick = function(e) {
-                var code = this.code;
+                var code = this.stock.code;
                 var owner = this.owner;
-                if (owner.strategyContainer) {
-                    if (owner.strategyContainer.code) {
+                if (owner.strategyContainer && code != owner.selectedCode) {
+                    if (owner.strategyContainer.stock) {
                         owner.strategyContainer.saveStrategy();
                     }
-                    owner.strategyContainer.root.parentElement.removeChild(owner.strategyContainer.root);
+                    if (owner.strategyContainer.root.parentElement) {
+                        owner.strategyContainer.root.parentElement.removeChild(owner.strategyContainer.root);
+                    }
                     this.appendChild(owner.strategyContainer.root);
-                    owner.strategyContainer.initUi(code);
+                    owner.selectedCode = code;
+                    owner.strategyContainer.initUi(this.stock);
                 }
             }
             var divTitle = document.createElement('div');
@@ -94,32 +96,109 @@ class StockList {
             var divDetails = document.createElement('div');
             divDetails.appendChild(document.createTextNode('最新价：' + stocks[i].latestPrice + '成本价：' + stocks[i].holdCost + '数量：' + stocks[i].holdCount));
             divContainer.appendChild(divDetails);
+            this.listContainer.appendChild(document.createElement('hr'));
             this.listContainer.appendChild(divContainer);
         };
+        
         this.root.appendChild(this.listContainer);
-        this.strategyContainer.initUi('');
-        this.root.appendChild(this.strategyContainer.root);
+        this.listContainer.lastElementChild.click();
     }
 }
 
 class StrategyChooser {
-    constructor() {
+    constructor(strategyManager) {
+        this.stock = null;
+        this.strategyManager = strategyManager
         this.root = document.createElement('div');
-        this.code = null;
+        this.radioBars = new RadioAnchorBar('');
+        this.radioBars.addRadio('买入策略', function(that) {
+            that.initOptions(true, that.stock.buyStrategy);
+        }, this);
+        this.radioBars.addRadio('卖出策略', function(that) {
+            that.initOptions(false, that.stock.sellStrategy);
+        }, this);
+        this.root.appendChild(this.radioBars.container);
+        this.strategySelector = document.createElement('select');
+        this.strategySelector.onchange = function() {
+            emjyManager.stockList.strategyContainer.onStrategyChanged();
+        }
+        this.root.appendChild(this.strategySelector);
+        this.strategyRoot = document.createElement('div');
+        this.root.appendChild(this.strategyRoot);
     }
 
-    initUi(code) {
-        utils.removeAllChild(this.root);
-        this.code = code;
-        this.root.appendChild(document.createTextNode('strategy div for: ' + this.code));
+    initUi(stock) {
+        utils.removeAllChild(this.strategyRoot);
+        this.stock = stock;
+        this.radioBars.selectDefault();
+    }
+
+    initOptions(isBuy, strategy) {
+        this.strategyBuy = isBuy;
+        if (isBuy) {
+            this.createStrategyOptions(this.strategyManager.buystrategies);
+        } else {
+            this.createStrategyOptions(this.strategyManager.sellstrategies);
+        }
+        
+        if (strategy) {
+            this.strategySelector.value = strategy.key;
+            this.onStrategyChanged();
+        };
+    }
+
+    createStrategyOptions(availableStrategies) {
+        utils.removeAllChild(this.strategySelector);
+        utils.removeAllChild(this.strategyRoot);
+        var opt0 = document.createElement('option');
+        opt0.textContent = '--请选择--';
+        opt0.selected = true;
+        opt0.disabled = true;
+        this.strategySelector.appendChild(opt0);
+        for (var i = 0; i < availableStrategies.length; i++) {
+            var opt = document.createElement('option');
+            opt.setAttribute('value', availableStrategies[i].key);
+            opt.textContent = availableStrategies[i].name;
+            this.strategySelector.appendChild(opt);
+        };
     }
 
     saveStrategy() {
+        if ((this.stock.buyStrategy && this.stock.buyStrategy.isChanged()) 
+            || (this.stock.sellStrategy && this.stock.sellStrategy.isChanged())) {
+            var message = {command:'mngr.strategy', code: this.stock.code};
+            if (this.stock.buyStrategy) {
+                message.buyStrategy = this.stock.buyStrategy.tostring();
+            };
+            if (this.stock.sellStrategy) {
+                message.sellStrategy = this.stock.sellStrategy.tostring();
+            };
 
+            emjyManager.sendExtensionMessage(message);
+        };
+    }
+
+    onStrategyChanged() {
+        if (this.strategyBuy) {
+            if (!this.stock.buyStrategy || this.stock.buyStrategy.key != this.strategySelector.value) {
+                this.stock.buyStrategy = this.strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
+                utils.removeAllChild(this.strategyRoot);
+            };
+        } else if (!this.stock.sellStrategy || this.stock.sellStrategy.key != this.strategySelector.value) {
+            this.stock.sellStrategy = this.strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
+            utils.removeAllChild(this.strategyRoot);
+        }
+
+        if (this.strategyBuy) {
+            this.strategyRoot.appendChild(this.stock.buyStrategy.createView());
+        } else {
+            this.strategyRoot.appendChild(this.stock.sellStrategy.createView());
+        }
     }
 }
 
 window.onunload = function() {
+    emjyManager.stockList.strategyContainer.saveStrategy();
     emjyManager.sendExtensionMessage({command: 'mngr.closed'});
 }
 
@@ -132,5 +211,4 @@ function onExtensionBackMessage(message) {
 chrome.runtime.onMessage.addListener(onExtensionBackMessage);
 
 let emjyManager = new Manager(logInfo);
-let utils = new Utils();
 emjyManager.sendExtensionMessage({command: 'mngr.init'});

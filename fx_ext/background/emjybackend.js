@@ -17,12 +17,12 @@ class AccountInfo {
 }
 
 class StockInfo {
-    constructor(code) {
-        this.code = code;
-        this.name = '';
-        this.market = '';
+    constructor(stock) {
+        this.code = stock.code;
+        this.name = stock.name;
+        this.market = stock.market;
         this.holdCost = null;
-        this.holdCount = 0;
+        this.holdCount = stock.holdCount;
         this.costDetail = [];
         this.latestPrice = null;
         this.buyStrategy = null;
@@ -48,6 +48,7 @@ class ManagerBack {
     constructor(log) {
         this.log = log;
         this.tabid = null;
+        this.strategyManager = new StrategyManager();
     }
 
     isValid() {
@@ -60,6 +61,17 @@ class ManagerBack {
             this.tabid = tabid;
         } else if (message.command == 'mngr.closed') {
             this.tabid = null;
+        } else if (message.command == 'mngr.strategy') {
+            var bstr = null;
+            if (message.buyStrategy) {
+                bstr = this.strategyManager.initStrategy(JSON.parse(message.buyStrategy), this.log);
+            };
+            var sstr = null;
+            if (message.sellStrategy) {
+                sstr = this.strategyManager.initStrategy(JSON.parse(message.sellStrategy), this.log);
+            };
+            
+            emjyBack.applyStrategy(message.code, bstr, sstr);
         }
     }
 
@@ -94,6 +106,7 @@ class EmjyBack {
         this.creditAccount = null;
         this.currentTask = null;
         this.stockGuard = null;
+        this.stockHash = {};
         this.mainWorker = null;
         this.quoteWorker = null;
         this.manager = null;
@@ -299,11 +312,12 @@ class EmjyBack {
     updateHoldStocks(stocks) {
         var holdChanged = false;
         for (var i = 0; i < stocks.length; i++) {
-            var stock = this.stockGuard.find(function(s) {return s.code == stocks[i].code;});
-            if (!stock) {
-                this.stockGuard.push(new StockInfo(stocks[i].code));
+            var stockIdx = this.stockHash[stocks[i].code];
+            if (stockIdx === undefined) {
+                this.stockHash[stocks[i].code] = this.stockGuard.length;
+                this.stockGuard.push(new StockInfo(stocks[i]));
                 holdChanged = true;
-            }
+            };
         };
         if (holdChanged) {
             if (this.manager && this.manager.isValid()) {
@@ -413,10 +427,13 @@ class EmjyBack {
     }
 
     getProperTimeInterval() {
+        var now = new Date();
+        if (now.getDay() == 0 || now.getDay() == 6) {
+            return -1;
+        }
         if (DEBUG) {
             return 0;
         }
-        var now = new Date();
         var hr = now.getHours();
         var mn = now.getMinutes();
         if (hr < 9 || hr > 15) {
@@ -439,9 +456,7 @@ class EmjyBack {
     }
 
     updateStockRtPrice(snapshot) {
-        var stock = this.stockGuard.find(function(s) {
-            return s.code == snapshot.code;
-        });
+        var stock = this.stockGuard[this.stockHash[snapshot.code]];
 
         if (stock) {
             if (!stock.name) {
@@ -455,14 +470,14 @@ class EmjyBack {
         }
     }
 
-    applyStrategies() {
+    applyStrategy(code, bstr, sstr) {
+        this.log('applyStrategy', code, JSON.stringify(bstr), JSON.stringify(sstr));
         for (var i = 0; i < this.stockGuard.length; i++) {
-            var bstrategy = new StrategyBuy(this.log);
-            bstrategy.setup(100, 0.01);
-            this.stockGuard[i].buyStrategy = bstrategy;
-            var sstrategy = new StrategySell(this.log);
-            sstrategy.setup(110, 0.01);
-            this.stockGuard[i].sellStrategy = sstrategy;
+            if (code != this.stockGuard[i].code) {
+                continue;
+            }
+            this.stockGuard[i].buyStrategy = bstr;
+            this.stockGuard[i].sellStrategy = sstr;
         };
     }
 }
