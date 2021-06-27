@@ -65,8 +65,7 @@ class StockList {
         this.stocks = null;
         this.root = document.createElement('div');
         this.listContainer = document.createElement('div');
-        this.strategyManager = new StrategyManager();
-        this.strategyContainer = new StrategyChooser(this.strategyManager);
+        this.strategyContainer = new StrategyChooser();
         this.selectedCode = null;
     }
 
@@ -81,10 +80,10 @@ class StockList {
             var divContainer = document.createElement('div');
             divContainer.stock = stocks[i];
             if (stocks[i].buyStrategy) {
-                divContainer.stock.buyStrategy = this.strategyManager.initStrategy(stocks[i].buyStrategy, this.log);
+                divContainer.stock.buyStrategy = strategyManager.initStrategy(stocks[i].acccode + '_buyStrategy', stocks[i].buyStrategy, this.log);
             };
             if (stocks[i].sellStrategy) {
-                divContainer.stock.sellStrategy = this.strategyManager.initStrategy(stocks[i].sellStrategy, this.log);
+                divContainer.stock.sellStrategy = strategyManager.initStrategy(stocks[i].acccode + '_sellStrategy', stocks[i].sellStrategy, this.log);
             };
             divContainer.owner = this;
             divContainer.onclick = function(e) {
@@ -118,9 +117,8 @@ class StockList {
 }
 
 class StrategyChooser {
-    constructor(strategyManager) {
+    constructor() {
         this.stock = null;
-        this.strategyManager = strategyManager
         this.root = document.createElement('div');
         this.radioBars = new RadioAnchorBar('');
         this.radioBars.addRadio('买入策略', function(that) {
@@ -148,9 +146,9 @@ class StrategyChooser {
     initOptions(isBuy, strategy) {
         this.strategyBuy = isBuy;
         if (isBuy) {
-            this.createStrategyOptions(this.strategyManager.buystrategies);
+            this.createStrategyOptions(strategyManager.buystrategies);
         } else {
-            this.createStrategyOptions(this.strategyManager.sellstrategies);
+            this.createStrategyOptions(strategyManager.sellstrategies);
         }
         
         if (strategy) {
@@ -179,15 +177,11 @@ class StrategyChooser {
         var message = {command:'mngr.strategy', code: this.stock.code};
         if (this.stock.buyStrategy && this.stock.buyStrategy.isChanged()) {
             message.buyStrategy = this.stock.buyStrategy.tostring();
-            var storageData = {};
-            storageData[this.stock.acccode + '_buyStrategy'] = message.buyStrategy;
-            chrome.storage.local.set(storageData);
+            strategyManager.flushStrategy(this.stock.buyStrategy);
         };
         if (this.stock.sellStrategy && this.stock.sellStrategy.isChanged()) {
             message.sellStrategy = this.stock.sellStrategy.tostring();
-            var storageData = {};
-            storageData[this.stock.acccode + '_sellStrategy'] = message.sellStrategy;
-            chrome.storage.local.set(storageData);
+            strategyManager.flushStrategy(this.stock.sellStrategy);
         };
         if (message.buyStrategy || message.sellStrategy) {
             emjyManager.sendExtensionMessage(message);
@@ -197,13 +191,15 @@ class StrategyChooser {
     onStrategyChanged() {
         if (this.strategyBuy) {
             if (!this.stock.buyStrategy || this.stock.buyStrategy.key != this.strategySelector.value) {
-                this.stock.buyStrategy = this.strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
+                this.stock.buyStrategy = strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
                 this.stock.buyStrategy.account = this.stock.account;
+                this.stock.buyStrategy.storeKey = this.stock.acccode + '_buyStrategy';
                 utils.removeAllChild(this.strategyRoot);
             };
         } else if (!this.stock.sellStrategy || this.stock.sellStrategy.key != this.strategySelector.value) {
-            this.stock.sellStrategy = this.strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
+            this.stock.sellStrategy = strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
             this.stock.sellStrategy.account = this.stock.account;
+            this.stock.sellStrategy.storeKey = this.stock.acccode + '_sellStrategy';
             utils.removeAllChild(this.strategyRoot);
         }
 
