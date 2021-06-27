@@ -4,15 +4,53 @@ let emjyBack = null;
 
 class AccountInfo {
     constructor() {
+        this.keyword = null;
         this.buyPath = null;
         this.sellPath = null;
         this.assetsPath = null;
+        this.stocks = null;
     }
 
-    initAccount(buyPath, sellPath, assetsPath) {
+    initAccount(key, buyPath, sellPath, assetsPath) {
+        this.keyword = key;
         this.buyPath = buyPath;
         this.sellPath = sellPath;
         this.assetsPath = assetsPath;
+    }
+
+    getAccountStocks() {
+        if (!this.stocks || this.stocks.length == 0) {
+            return null;
+        };
+
+        return {account: this.keyword, stocks: JSON.stringify(this.stocks)};
+    }
+
+    updateStockRtPrice(snapshot) {
+        var stock = this.stocks.find(function(s) { return s.code == snapshot.code});
+
+        if (stock) {
+            if (!stock.name) {
+                stock.name = snapshot.name;
+            }
+            stock.latestPrice = snapshot.realtimequote.currentPrice;
+            stock.buyPrices = [snapshot.fivequote.buy1, snapshot.fivequote.buy2, snapshot.fivequote.buy3, snapshot.fivequote.buy4, snapshot.fivequote.buy5];
+            stock.sellPrices = [snapshot.fivequote.sale1, snapshot.fivequote.sale2, snapshot.fivequote.sale3, snapshot.fivequote.sale4, snapshot.fivequote.sale5];
+            stock.checkStrategies();
+        }
+    }
+
+    applyStrategy(code, bstr, sstr) {
+        var stock = this.stocks.find(function(s) {return s.code == code; });
+        if (!stock) {
+            return;
+        };
+        if (bstr) {
+            stock.buyStrategy = bstr;
+        };
+        if (sstr) {
+            stock.sellStrategy = sstr;
+        };
     }
 }
 
@@ -21,8 +59,9 @@ class StockInfo {
         this.code = stock.code;
         this.name = stock.name;
         this.market = stock.market;
-        this.holdCost = null;
+        this.holdCost = stock.holdCost;
         this.holdCount = stock.holdCount;
+        this.availableCount = stock.availableCount;
         this.costDetail = [];
         this.latestPrice = null;
         this.buyStrategy = null;
@@ -30,13 +69,13 @@ class StockInfo {
     }
 
     checkStrategies() {
-        emjyBack.log('checkStrategies');
-        if (this.buyStrategy) {
+        emjyBack.log('checkStrategies', this.code, JSON.stringify(this.buyStrategy), JSON.stringify(this.sellStrategy));
+        if (this.buyStrategy && this.buyStrategy.enabled) {
             if (this.buyStrategy.check(this.latestPrice)) {
                 emjyBack.tryBuyStock(this.code, this.latestPrice);
             }
         }
-        if (this.sellStrategy) {
+        if (this.sellStrategy && this.sellStrategy.enabled) {
             if (this.sellStrategy.check(this.latestPrice)) {
                 emjyBack.trySellStock(this.code, this.latestPrice);
             }
@@ -48,7 +87,6 @@ class ManagerBack {
     constructor(log) {
         this.log = log;
         this.tabid = null;
-        this.strategyManager = new StrategyManager();
     }
 
     isValid() {
@@ -62,16 +100,7 @@ class ManagerBack {
         } else if (message.command == 'mngr.closed') {
             this.tabid = null;
         } else if (message.command == 'mngr.strategy') {
-            var bstr = null;
-            if (message.buyStrategy) {
-                bstr = this.strategyManager.initStrategy(JSON.parse(message.buyStrategy), this.log);
-            };
-            var sstr = null;
-            if (message.sellStrategy) {
-                sstr = this.strategyManager.initStrategy(JSON.parse(message.sellStrategy), this.log);
-            };
-            
-            emjyBack.applyStrategy(message.code, bstr, sstr);
+            emjyBack.applyStrategy(message.account, message.code, JSON.parse(message.buyStrategy), JSON.parse(message.sellStrategy));
         }
     }
 
@@ -83,8 +112,16 @@ class ManagerBack {
         }
     }
 
-    sendStocks(stocks) {
-        this.sendManagerMessage({command:'mngr.stocks', stocks: JSON.stringify(stocks)});
+    sendStocks(accounts) {
+        var accStocks = [];
+        for (var i = 0; i < accounts.length; i++) {
+            if (accounts[i].stocks && accounts[i].stocks.length > 0) {
+                accStocks.push(accounts[i].getAccountStocks());
+            };
+        };
+        if (accStocks.length > 0) {
+            this.sendManagerMessage({command:'mngr.stocks', stocks: accStocks});
+        };
     }
 }
 
@@ -106,7 +143,6 @@ class EmjyBack {
         this.creditAccount = null;
         this.currentTask = null;
         this.stockGuard = null;
-        this.stockHash = {};
         this.mainWorker = null;
         this.quoteWorker = null;
         this.manager = null;
@@ -114,7 +150,8 @@ class EmjyBack {
 
     Init(logger) {
         this.log = logger;
-        this.stockGuard = [];
+        this.stockGuard = new Set();
+        this.strategyManager = new StrategyManager();
         emjyBack = this;
         this.log('EmjyBack initialized!');
     }
@@ -134,11 +171,11 @@ class EmjyBack {
                 }
             });
             this.normalAccount = new AccountInfo();
-            this.normalAccount.initAccount('/Trade/Buy', '/Trade/Sale', '/Search/Position');
+            this.normalAccount.initAccount('normal', '/Trade/Buy', '/Trade/Sale', '/Search/Position');
             this.collateralAccount = new AccountInfo();
-            this.collateralAccount.initAccount('/MarginTrade/Buy', '/MarginTrade/Sale', '/MarginSearch/MyAssets');
+            this.collateralAccount.initAccount('collat', '/MarginTrade/Buy', '/MarginTrade/Sale', '/MarginSearch/MyAssets');
             this.creditAccount = new AccountInfo();
-            this.creditAccount.initAccount('/MarginTrade/MarginBuy', '/MarginTrade/FinanceSale', '/MarginSearch/MyAssets');
+            this.creditAccount.initAccount('credit', '/MarginTrade/MarginBuy', '/MarginTrade/FinanceSale', '/MarginSearch/MyAssets');
             this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.normalAccount.assetsPath});
             this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.creditAccount.assetsPath});
         }
@@ -213,13 +250,18 @@ class EmjyBack {
                 this.normalAccount.pureAssets = parseFloat(message.pureAssets);
                 this.normalAccount.availableMoney = parseFloat(message.availableMoney);
                 this.normalAccount.stocks = this.parseStockInfoList(message.stocks);
+                this.loadStrategies(this.normalAccount);
             } else {
-                // this.collateralAccount.pureAssets = message.totalAssets - message.pureAssets;
                 this.creditAccount.pureAssets = 0.0;
                 this.creditAccount.availableMoney = parseFloat(message.availableCreditMoney);
                 this.collateralAccount.pureAssets = parseFloat(message.pureAssets);
                 this.collateralAccount.availableMoney = parseFloat(message.availableMoney);
                 this.collateralAccount.stocks = this.parseStockInfoList(message.stocks);
+                this.loadStrategies(this.collateralAccount);
+            }
+
+            if (this.manager && this.manager.isValid()) {
+                this.manager.sendStocks([this.normalAccount, this.collateralAccount]);
             }
             this.updateHoldStocks(message.stocks);
             this.log(JSON.stringify(this.normalAccount));
@@ -249,8 +291,8 @@ class EmjyBack {
         this.manager.onManagerMessage(message, tabid);
         if (message.command == 'mngr.init') {
             this.log('manager initialized!');
-            if (this.manager.isValid() && this.stockGuard.length > 0) {
-                this.manager.sendStocks(this.stockGuard);
+            if (this.manager.isValid() && this.stockGuard.size > 0) {
+                this.manager.sendStocks([this.normalAccount, this.collateralAccount]);
             }
             this.log('manager sendStocks');
         }
@@ -296,49 +338,39 @@ class EmjyBack {
     parseStockInfoList(stocks) {
         var stockList = [];
         for (var i = 0; i < stocks.length; i++) {
-            var stockInfo = {};
+            var stockInfo = new StockInfo(stocks[i]);
             stockInfo.code = stocks[i].code;
             stockInfo.name = stocks[i].name;
             stockInfo.holdCount = parseInt(stocks[i].holdCount);
             stockInfo.availableCount = parseInt(stocks[i].availableCount);
             stockInfo.market = stocks[i].market;
-            if (stockInfo.holdCount > 0 && stockInfo.availableCount > 0) {
-                stockList.push(stockInfo);
-            }
+            stockList.push(stockInfo);
         };
+        this.log('parseStockInfoList', JSON.stringify(stockList));
         return stockList;
     }
 
     updateHoldStocks(stocks) {
         var holdChanged = false;
         for (var i = 0; i < stocks.length; i++) {
-            var stockIdx = this.stockHash[stocks[i].code];
-            if (stockIdx === undefined) {
-                this.stockHash[stocks[i].code] = this.stockGuard.length;
-                this.stockGuard.push(new StockInfo(stocks[i]));
+            if (!this.stockGuard.has(stocks[i].code)) {
+                this.stockGuard.add(stocks[i].code);
                 holdChanged = true;
             };
         };
+
         if (holdChanged) {
-            if (this.manager && this.manager.isValid()) {
-                this.manager.sendStocks(this.stockGuard);
-            }
             this.updateMonitor();
         }
     }
 
     updateMonitor() {
-        var stocks = [];
-        this.stockGuard.forEach(function(s) {
-            stocks.push(s.code);
-        });
-
         if (!this.quoteWorker) {
             this.quoteWorker = new Worker('workers/quoteworker.js');
             this.quoteWorker.onmessage = onQuoteWorkerMessage;
             this.postQuoteWorkerMessage({command: 'quote.refresh', time: this.getProperTimeInterval()});
         };
-        this.postQuoteWorkerMessage({command: 'quote.update.code', stocks: stocks});
+        this.postQuoteWorkerMessage({command: 'quote.update.code', stocks: this.stockGuard});
     }
 
     trySellStock(code, price, count) {
@@ -427,12 +459,12 @@ class EmjyBack {
     }
 
     getProperTimeInterval() {
+        if (DEBUG) {
+            return 0;
+        }
         var now = new Date();
         if (now.getDay() == 0 || now.getDay() == 6) {
             return -1;
-        }
-        if (DEBUG) {
-            return 0;
         }
         var hr = now.getHours();
         var mn = now.getMinutes();
@@ -456,28 +488,52 @@ class EmjyBack {
     }
 
     updateStockRtPrice(snapshot) {
-        var stock = this.stockGuard[this.stockHash[snapshot.code]];
-
-        if (stock) {
-            if (!stock.name) {
-                stock.name = snapshot.name;
-            }
-            stock.latestPrice = snapshot.realtimequote.currentPrice;
-            stock.buyPrices = [snapshot.fivequote.buy1, snapshot.fivequote.buy2, snapshot.fivequote.buy3, snapshot.fivequote.buy4, snapshot.fivequote.buy5];
-            stock.sellPrices = [snapshot.fivequote.sale1, snapshot.fivequote.sale2, snapshot.fivequote.sale3, snapshot.fivequote.sale4, snapshot.fivequote.sale5];
-            stock.checkStrategies();
-            this.log('updated', JSON.stringify(stock));
-        }
+        this.log('updateStockRtPrice', JSON.stringify(snapshot));
+        this.normalAccount.updateStockRtPrice(snapshot);
+        this.collateralAccount.updateStockRtPrice(snapshot);
     }
 
-    applyStrategy(code, bstr, sstr) {
-        this.log('applyStrategy', code, JSON.stringify(bstr), JSON.stringify(sstr));
-        for (var i = 0; i < this.stockGuard.length; i++) {
-            if (code != this.stockGuard[i].code) {
-                continue;
-            }
-            this.stockGuard[i].buyStrategy = bstr;
-            this.stockGuard[i].sellStrategy = sstr;
+    loadStrategies(account) {
+        account.stocks.forEach(function(s) {
+            var buyStorageKey = account.keyword + '_' + s.code + '_buyStrategy';
+            chrome.storage.local.get(buyStorageKey, function(item) {
+                if (item && item[buyStorageKey]) {
+                    emjyBack.applyStoredBuyStrategy(account.keyword, s.code, item[buyStorageKey]);
+                };
+            });
+            var sellStorageKey = account.keyword + '_' + s.code + '_sellStrategy';
+            chrome.storage.local.get(sellStorageKey, function(item) {
+                if (item && item[sellStorageKey]) {
+                    emjyBack.applyStoredSellStrategy(account.keyword, s.code, item[sellStorageKey]);
+                };
+            });
+        });
+    }
+
+    applyStoredBuyStrategy(account, code, bstr) {
+        this.applyStrategy(account, code, JSON.parse(bstr));
+    }
+
+    applyStoredSellStrategy(account, code, sstr) {
+        this.applyStrategy(account, code, null, JSON.parse(sstr));
+    }
+
+    applyStrategy(account, code, bstr, sstr) {
+        this.log('applyStrategy', account, code, JSON.stringify(bstr), JSON.stringify(sstr));
+        var buyStrategy = null;
+        if (bstr) {
+            buyStrategy = this.strategyManager.initStrategy(bstr, this.log);
+        };
+
+        var sellStrategy = null;
+        if (sstr) {
+            sellStrategy = this.strategyManager.initStrategy(sstr, this.log);
+        };
+        
+        if (account == this.normalAccount.keyword) {
+            this.normalAccount.applyStrategy(code, buyStrategy, sellStrategy);
+        } else if (account == this.collateralAccount.keyword) {
+            this.collateralAccount.applyStrategy(code, buyStrategy, sellStrategy);
         };
     }
 }

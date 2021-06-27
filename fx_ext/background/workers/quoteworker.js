@@ -1,15 +1,15 @@
 let quoteTimer = null;
-let stocks = []
+let stocks = null;
 
 let quoteUrl = 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot'
 // https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id=601012&callback=jQuery18304735019505463437_1624277312927&_=1624277415671
 
 function doWork() {
-    if (stocks.length > 0) {
-        for (var i = 0; i < stocks.length; i++) {
-            quoteSnapshot(stocks[i]);
-        };
-    }
+    if (stocks) {
+        stocks.forEach(function(s) {
+            quoteSnapshot(s);
+        });
+    };
 }
 
 function quoteSnapshot(code) {

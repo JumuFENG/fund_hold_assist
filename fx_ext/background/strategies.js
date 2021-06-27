@@ -36,13 +36,9 @@ class Strategy {
         this.guardPrice = null;
         this.backRate = null;
         this.count = null;
+        this.account = null;
         this.prePeekPrice = null;
         this.inCritical = false;
-    }
-
-    setup(guard, back) {
-        this.guardPrice = guard;
-        this.backRate = back;
     }
 
     check(price) {
@@ -74,6 +70,13 @@ class Strategy {
             changed = true;
             this.count = count;
         };
+        if (this.accountSelector) {
+            var account = this.accountSelector.value;
+            if (account != this.account) {
+                changed = true;
+                this.account = account;
+            };
+        };
         return changed;
     }
 
@@ -82,6 +85,7 @@ class Strategy {
         this.guardPrice = str.guardPrice;
         this.backRate = str.backRate;
         this.count = str.count;
+        this.account = str.account;
         this.prePeekPrice = str.prePeekPrice;
         this.inCritical = str.inCritical;
     }
@@ -93,6 +97,7 @@ class Strategy {
         str.guardPrice = this.guardPrice;
         str.backRate = this.backRate;
         str.count = this.count;
+        str.account = this.account;
         str.prePeekPrice = this.prePeekPrice;
         str.inCritical = this.inCritical;
         return JSON.stringify(str);
@@ -152,6 +157,18 @@ class StrategyBuy extends Strategy {
         ctDiv.appendChild(this.inputCount);
         ctDiv.appendChild(document.createTextNode('股'));
         view.appendChild(ctDiv);
+        var acctDiv = document.createElement('div');
+        acctDiv.appendChild(document.createTextNode('买入账户 '));
+        this.accountSelector = document.createElement('select');
+        for (var acc in emjyManager.accountNames) {
+            var opt = document.createElement('option');
+            opt.value = acc;
+            opt.textContent = emjyManager.accountNames[acc];
+            this.accountSelector.appendChild(opt);
+        }
+        acctDiv.appendChild(this.accountSelector);
+        this.accountSelector.value = this.account;
+        view.appendChild(acctDiv);
         return view;
     }
 }

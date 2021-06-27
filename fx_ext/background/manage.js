@@ -9,6 +9,7 @@ class Manager {
         this.log = log;
         this.page = null;
         this.stockList = null;
+        this.accountNames = {'normal':'普通账户', 'collat': '担保品', 'credit': '融资账户'};
     }
 
     sendExtensionMessage(message) {
@@ -17,7 +18,7 @@ class Manager {
 
     handleExtensionMessage(message) {
         if (message.command == 'mngr.stocks') {
-            this.initStocks(JSON.parse(message.stocks));
+            this.initStocks(message.stocks);
         }
     }
 
@@ -33,7 +34,18 @@ class Manager {
             this.stockList = new StockList(this.log);
             this.page.root.appendChild(this.stockList.root);
         };
-        this.stockList.initUi(stocks);
+
+        var accstocks = [];
+        for (var i = 0; i < stocks.length; i++) {
+            var tstocks = JSON.parse(stocks[i].stocks);
+            var account = stocks[i].account;
+            tstocks.forEach(function(ts) {
+                ts.acccode = account + '_' + ts.code;
+                ts.account = account;
+                accstocks.push(ts);
+            });
+        };
+        this.stockList.initUi(accstocks);
         //this.log(JSON.stringify(stocks));
     }
 }
@@ -76,7 +88,7 @@ class StockList {
             };
             divContainer.owner = this;
             divContainer.onclick = function(e) {
-                var code = this.stock.code;
+                var code = this.stock.acccode;
                 var owner = this.owner;
                 if (owner.strategyContainer && code != owner.selectedCode) {
                     if (owner.strategyContainer.stock) {
@@ -91,10 +103,10 @@ class StockList {
                 }
             }
             var divTitle = document.createElement('div');
-            divTitle.appendChild(document.createTextNode(stocks[i].name + '(' + stocks[i].code + ')'));
+            divTitle.appendChild(document.createTextNode(stocks[i].name + '(' + stocks[i].code + ') '+ emjyManager.accountNames[stocks[i].account] + '持有'));
             divContainer.appendChild(divTitle);
             var divDetails = document.createElement('div');
-            divDetails.appendChild(document.createTextNode('最新价：' + stocks[i].latestPrice + '成本价：' + stocks[i].holdCost + '数量：' + stocks[i].holdCount));
+            divDetails.appendChild(document.createTextNode('最新价：' + stocks[i].latestPrice + ' 成本价：' + stocks[i].holdCost + ' 数量：' + stocks[i].holdCount));
             divContainer.appendChild(divDetails);
             this.listContainer.appendChild(document.createElement('hr'));
             this.listContainer.appendChild(divContainer);
@@ -157,23 +169,27 @@ class StrategyChooser {
         this.strategySelector.appendChild(opt0);
         for (var i = 0; i < availableStrategies.length; i++) {
             var opt = document.createElement('option');
-            opt.setAttribute('value', availableStrategies[i].key);
+            opt.value = availableStrategies[i].key;
             opt.textContent = availableStrategies[i].name;
             this.strategySelector.appendChild(opt);
         };
     }
 
     saveStrategy() {
-        if ((this.stock.buyStrategy && this.stock.buyStrategy.isChanged()) 
-            || (this.stock.sellStrategy && this.stock.sellStrategy.isChanged())) {
-            var message = {command:'mngr.strategy', code: this.stock.code};
-            if (this.stock.buyStrategy) {
-                message.buyStrategy = this.stock.buyStrategy.tostring();
-            };
-            if (this.stock.sellStrategy) {
-                message.sellStrategy = this.stock.sellStrategy.tostring();
-            };
-
+        var message = {command:'mngr.strategy', code: this.stock.code};
+        if (this.stock.buyStrategy && this.stock.buyStrategy.isChanged()) {
+            message.buyStrategy = this.stock.buyStrategy.tostring();
+            var storageData = {};
+            storageData[this.stock.acccode + '_buyStrategy'] = message.buyStrategy;
+            chrome.storage.local.set(storageData);
+        };
+        if (this.stock.sellStrategy && this.stock.sellStrategy.isChanged()) {
+            message.sellStrategy = this.stock.sellStrategy.tostring();
+            var storageData = {};
+            storageData[this.stock.acccode + '_sellStrategy'] = message.sellStrategy;
+            chrome.storage.local.set(storageData);
+        };
+        if (message.buyStrategy || message.sellStrategy) {
             emjyManager.sendExtensionMessage(message);
         };
     }
@@ -182,10 +198,12 @@ class StrategyChooser {
         if (this.strategyBuy) {
             if (!this.stock.buyStrategy || this.stock.buyStrategy.key != this.strategySelector.value) {
                 this.stock.buyStrategy = this.strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
+                this.stock.buyStrategy.account = this.stock.account;
                 utils.removeAllChild(this.strategyRoot);
             };
         } else if (!this.stock.sellStrategy || this.stock.sellStrategy.key != this.strategySelector.value) {
             this.stock.sellStrategy = this.strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
+            this.stock.sellStrategy.account = this.stock.account;
             utils.removeAllChild(this.strategyRoot);
         }
 
