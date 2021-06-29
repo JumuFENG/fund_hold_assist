@@ -9,7 +9,8 @@ class Manager {
         this.log = log;
         this.page = null;
         this.stockList = null;
-        this.accountNames = {'normal':'普通账户', 'collat': '担保品', 'credit': '融资账户'};
+        this.watchingStocks = new Set();
+        this.accountNames = {'normal':'普通账户', 'collat': '担保品', 'credit': '融资账户', 'watch':'关注中'};
     }
 
     sendExtensionMessage(message) {
@@ -26,7 +27,6 @@ class Manager {
         this.log('initStocks');
         if (!this.page) {
             this.page = new ManagerPage();
-            this.page.initUi();
             document.body.appendChild(this.page.root);
         }
 
@@ -39,14 +39,55 @@ class Manager {
         for (var i = 0; i < stocks.length; i++) {
             var tstocks = JSON.parse(stocks[i].stocks);
             var account = stocks[i].account;
-            tstocks.forEach(function(ts) {
+            for (var j = 0; j < tstocks.length; j++) {
+                var ts = tstocks[j];
                 ts.acccode = account + '_' + ts.code;
                 ts.account = account;
+                if (account == 'watch') {
+                    this.watchingStocks.add(ts.code);
+                };
                 accstocks.push(ts);
-            });
+            };
         };
         this.stockList.initUi(accstocks);
         //this.log(JSON.stringify(stocks));
+    }
+
+    initUi() {
+        if (!this.page) {
+            this.page = new ManagerPage();
+            document.body.appendChild(this.page.root);
+        };
+
+        if (!this.stockList) {
+            this.stockList = new StockList(this.log);
+            this.page.root.appendChild(this.stockList.root);
+        };
+
+        this.page.addWatchArea();
+    }
+
+    addStock(code) {
+        if (!this.stockList) {
+            this.stockList = new StockList(this.log);
+            this.page.root.appendChild(this.stockList.root);
+        };
+        var stock = {code: code, name:'', account: 'watch', holdCount: 0, holdCost: 0};
+        stock.acccode = stock.account + '_' + code;
+        this.stockList.addStock(stock);
+    }
+
+    addWatchingStock(code) {
+        this.addStock(code);
+        this.watchingStocks.add(code);
+        this.saveWatchingStocks();
+    }
+
+    saveWatchingStocks() {
+        if (emjyManager.watchingStocks.size == 0) {
+            return;
+        };
+        chrome.storage.local.set({'watching_stocks': Array.from(emjyManager.watchingStocks)});
     }
 }
 
@@ -55,7 +96,18 @@ class ManagerPage {
         this.root = document.createElement('div');
     }
 
-    initUi() {
+    addWatchArea() {
+        var watchDiv = document.createElement('div');
+        this.inputCode = document.createElement('input');
+        watchDiv.appendChild(this.inputCode);
+        var btnOk = document.createElement('button');
+        btnOk.textContent = '新增观察股票';
+        btnOk.parentPage = this;
+        btnOk.onclick = function(e) {
+            emjyManager.addWatchingStock(e.target.parentPage.inputCode.value);
+        }
+        watchDiv.appendChild(btnOk);
+        this.root.appendChild(watchDiv);
     }
 }
 
@@ -65,6 +117,8 @@ class StockList {
         this.stocks = null;
         this.root = document.createElement('div');
         this.listContainer = document.createElement('div');
+        this.root.appendChild(this.listContainer);
+        this.root.appendChild(document.createElement('hr'));
         this.strategyContainer = new StrategyChooser();
         this.selectedCode = null;
     }
@@ -77,42 +131,49 @@ class StockList {
         }
         utils.removeAllChild(this.listContainer);
         for (var i = 0; i < stocks.length; i++) {
-            var divContainer = document.createElement('div');
-            divContainer.stock = stocks[i];
-            if (stocks[i].buyStrategy) {
-                divContainer.stock.buyStrategy = strategyManager.initStrategy(stocks[i].acccode + '_buyStrategy', stocks[i].buyStrategy, this.log);
-            };
-            if (stocks[i].sellStrategy) {
-                divContainer.stock.sellStrategy = strategyManager.initStrategy(stocks[i].acccode + '_sellStrategy', stocks[i].sellStrategy, this.log);
-            };
-            divContainer.owner = this;
-            divContainer.onclick = function(e) {
-                var code = this.stock.acccode;
-                var owner = this.owner;
-                if (owner.strategyContainer && code != owner.selectedCode) {
-                    if (owner.strategyContainer.stock) {
-                        owner.strategyContainer.saveStrategy();
-                    }
-                    if (owner.strategyContainer.root.parentElement) {
-                        owner.strategyContainer.root.parentElement.removeChild(owner.strategyContainer.root);
-                    }
-                    this.appendChild(owner.strategyContainer.root);
-                    owner.selectedCode = code;
-                    owner.strategyContainer.initUi(this.stock);
-                }
-            }
-            var divTitle = document.createElement('div');
-            divTitle.appendChild(document.createTextNode(stocks[i].name + '(' + stocks[i].code + ') '+ emjyManager.accountNames[stocks[i].account] + '持有'));
-            divContainer.appendChild(divTitle);
-            var divDetails = document.createElement('div');
-            divDetails.appendChild(document.createTextNode('最新价：' + stocks[i].latestPrice + ' 成本价：' + stocks[i].holdCost + ' 数量：' + stocks[i].holdCount));
-            divContainer.appendChild(divDetails);
-            this.listContainer.appendChild(document.createElement('hr'));
-            this.listContainer.appendChild(divContainer);
+            this.addStock(stocks[i]);
         };
         
-        this.root.appendChild(this.listContainer);
         this.listContainer.lastElementChild.click();
+    }
+
+    addStock(stock) {
+        var divContainer = document.createElement('div');
+        divContainer.stock = stock;
+        if (stock.buyStrategy) {
+            divContainer.stock.buyStrategy = strategyManager.initStrategy(stock.acccode + '_buyStrategy', stock.buyStrategy, this.log);
+        };
+        if (stock.sellStrategy) {
+            divContainer.stock.sellStrategy = strategyManager.initStrategy(stock.acccode + '_sellStrategy', stock.sellStrategy, this.log);
+        };
+        divContainer.owner = this;
+        divContainer.onclick = function(e) {
+            var code = this.stock.acccode;
+            var owner = this.owner;
+            if (owner.strategyContainer && code != owner.selectedCode) {
+                if (owner.strategyContainer.stock) {
+                    owner.strategyContainer.saveStrategy();
+                }
+                if (owner.strategyContainer.root.parentElement) {
+                    owner.strategyContainer.root.parentElement.removeChild(owner.strategyContainer.root);
+                }
+                this.appendChild(owner.strategyContainer.root);
+                owner.selectedCode = code;
+                owner.strategyContainer.initUi(this.stock);
+            }
+        }
+        var divTitle = document.createElement('div');
+        var titleText = stock.name + '(' + stock.code + ') '+ emjyManager.accountNames[stock.account];
+        if (stock.account != 'watch') {
+            titleText += '持有'
+        };
+        divTitle.appendChild(document.createTextNode(titleText));
+        divContainer.appendChild(divTitle);
+        var divDetails = document.createElement('div');
+        divDetails.appendChild(document.createTextNode('最新价：' + stock.latestPrice + ' 成本价：' + stock.holdCost + ' 数量：' + stock.holdCount));
+        divContainer.appendChild(divDetails);
+        this.listContainer.appendChild(document.createElement('hr'));
+        this.listContainer.appendChild(divContainer);
     }
 }
 
@@ -214,6 +275,10 @@ class StrategyChooser {
 window.onunload = function() {
     emjyManager.stockList.strategyContainer.saveStrategy();
     emjyManager.sendExtensionMessage({command: 'mngr.closed'});
+}
+
+window.onload = function() {
+    emjyManager.initUi();
 }
 
 function onExtensionBackMessage(message) {

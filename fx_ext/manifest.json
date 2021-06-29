@@ -51,6 +51,7 @@
         "storage",
         "tabs",
         "cookies",
+        "alarms",
         "<all_urls>"
     ],
     "commands": {

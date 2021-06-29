@@ -74,15 +74,25 @@ class StockInfo {
     }
 
     checkStrategies() {
-        emjyBack.log('checkStrategies', this.code, JSON.stringify(this.buyStrategy), JSON.stringify(this.sellStrategy));
+        // emjyBack.log('checkStrategies', this.code, JSON.stringify(this.buyStrategy), JSON.stringify(this.sellStrategy));
         if (this.buyStrategy && this.buyStrategy.enabled) {
             if (this.buyStrategy.check(this.rtInfo)) {
                 emjyBack.tryBuyStock(this.code, this.name, this.latestPrice, this.buyStrategy.count, this.buyStrategy.account);
+                emjyBack.log('checkStrategies', this.code, 'buy match', JSON.stringify(this.buyStrategy)));
+                this.buyStrategy.buyMatch();
+                if (this.sellStrategy) {
+                    this.sellStrategy.buyMatch();
+                };
             }
         }
         if (this.sellStrategy && this.sellStrategy.enabled) {
             if (this.sellStrategy.check(this.rtInfo)) {
                 emjyBack.trySellStock(this.code, this.latestPrice, this.sellStrategy.count, this.sellStrategy.account);
+                this.sellStrategy.sellMatch();
+                if (this.buyStrategy) {
+                    this.buyStrategy.sellMatch();
+                };
+                emjyBack.log('checkStrategies', 'sell match', this.code, JSON.stringify(this.sellStrategy));
             }
         }
     }
@@ -146,6 +156,7 @@ class EmjyBack {
         this.normalAccount = null;
         this.collateralAccount = null;
         this.creditAccount = null;
+        this.watchAccount = null;
         this.currentTask = null;
         this.stockGuard = null;
         this.mainWorker = null;
@@ -180,6 +191,15 @@ class EmjyBack {
             this.collateralAccount.initAccount('collat', '/MarginTrade/Buy', '/MarginTrade/Sale', '/MarginSearch/MyAssets');
             this.creditAccount = new AccountInfo();
             this.creditAccount.initAccount('credit', '/MarginTrade/MarginBuy', '/MarginTrade/FinanceSale', '/MarginSearch/MyAssets');
+            this.watchAccount = new AccountInfo();
+            this.watchAccount.initAccount('watch');
+            chrome.storage.local.get('watching_stocks', function(item) {
+                emjyBack.log('get watching_stocks', JSON.stringify(item));
+                if (item && item.watching_stocks) {
+                    emjyBack.initWatchList(item.watching_stocks);
+                };
+            });
+
             this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.normalAccount.assetsPath});
             this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.creditAccount.assetsPath});
         }
@@ -265,7 +285,7 @@ class EmjyBack {
             }
 
             if (this.manager && this.manager.isValid()) {
-                this.manager.sendStocks([this.normalAccount, this.collateralAccount]);
+                this.manager.sendStocks([this.normalAccount, this.collateralAccount, this.watchAccount]);
             }
             this.updateHoldStocks(message.stocks);
             this.log(JSON.stringify(this.normalAccount));
@@ -296,7 +316,7 @@ class EmjyBack {
         if (message.command == 'mngr.init') {
             this.log('manager initialized!');
             if (this.manager.isValid() && this.stockGuard.size > 0) {
-                this.manager.sendStocks([this.normalAccount, this.collateralAccount]);
+                this.manager.sendStocks([this.normalAccount, this.collateralAccount, this.watchAccount]);
             }
             this.log('manager sendStocks');
         }
@@ -372,7 +392,7 @@ class EmjyBack {
         if (!this.quoteWorker) {
             this.quoteWorker = new Worker('workers/quoteworker.js');
             this.quoteWorker.onmessage = onQuoteWorkerMessage;
-            this.postQuoteWorkerMessage({command: 'quote.refresh', time: this.getProperTimeInterval()});
+            this.setupQuoteAlarms();
         };
         this.postQuoteWorkerMessage({command: 'quote.update.code', stocks: this.stockGuard});
     }
@@ -394,6 +414,10 @@ class EmjyBack {
                     if (finalCount > stockInfo.availableCount) {
                         finalCount = stockInfo.availableCount;
                     }
+                    if (finalCount == 0) {
+                        this.log('error: availableCount is 0');
+                        return;
+                    };
                     this.sendTradeMessage(this.normalAccount.sellPath, {code: stockInfo.code, name: stockInfo.name}, price, finalCount);
                     return;
                 }
@@ -407,6 +431,10 @@ class EmjyBack {
                     if (finalCount > stockInfo.availableCount) {
                         finalCount = stockInfo.availableCount;
                     }
+                    if (finalCount == 0) {
+                        this.log('error: availableCount is 0');
+                        return;
+                    };
                     this.sendTradeMessage(this.collateralAccount.sellPath, {code: stockInfo.code, name: stockInfo.name}, price, finalCount);
                     return;
                 }
@@ -462,37 +490,37 @@ class EmjyBack {
         this.postWorkerTask({command: 'emjy.trade', tradePath: tradePath, stock: stock, price: price, count: count});
     }
 
-    getProperTimeInterval() {
+    setupQuoteAlarms() {
         if (DEBUG) {
-            return 0;
-        }
-        var now = new Date();
-        if (now.getDay() == 0 || now.getDay() == 6) {
-            return -1;
-        }
-        var hr = now.getHours();
-        var mn = now.getMinutes();
-        if (hr < 9 || hr > 15) {
-            return -1;
-        }
+            this.postQuoteWorkerMessage({command: 'quote.refresh', time: 0});
+        };
 
-        var minutes = (hr - 9) * 60 + mn;
-        if (minutes < 30) {
-            return -1;
-        } else if (minutes <= 60) {
-            return 1000;
-        } else if (minutes <= 150) {
-            return 60000;
-        } else if (minutes < 240) {
-            return -1;
-        } else if (minutes <= 365) {
-            return 60000;
-        }
-        return -1;
+        var now = new Date();
+        var alarms = [
+        {name:'morning-start', tick: new Date(now.toDateString() + ' 9:29:58').getTime()},
+        {name:'morning-middle', tick: new Date(now.toDateString() + ' 10:15:55').getTime()},
+        {name:'morning-end', tick: new Date(now.toDateString() + ' 11:30:7').getTime()},
+        {name:'afternoon', tick: new Date(now.toDateString() + ' 12:59:58').getTime()},
+        {name:'afternoon-end', tick: new Date(now.toDateString() + ' 15:0:2').getTime()}
+        ];
+
+        for (var i = 0; i < alarms.length; i++) {
+            if (i == alarms.length - 1) {
+                if (now < alarms[i].tick) {
+                    this.log('setupQuoteAlarms', alarms[i].name);
+                    chrome.alarms.create(alarms[i].name, {when: alarms[i].tick});
+                };
+                break;
+            };
+            if (i + 1 < alarms.length && now < alarms[i + 1].tick) {
+                this.log('setupQuoteAlarms', alarms[i].name);
+                chrome.alarms.create(alarms[i].name, {when: alarms[i].tick});
+            }; 
+        };
     }
 
     updateStockRtPrice(snapshot) {
-        this.log('updateStockRtPrice', JSON.stringify(snapshot));
+        //this.log('updateStockRtPrice', JSON.stringify(snapshot));
         this.normalAccount.updateStockRtPrice(snapshot);
         this.collateralAccount.updateStockRtPrice(snapshot);
     }
@@ -538,6 +566,48 @@ class EmjyBack {
             this.normalAccount.applyStrategy(code, buyStrategy, sellStrategy);
         } else if (account == this.collateralAccount.keyword) {
             this.collateralAccount.applyStrategy(code, buyStrategy, sellStrategy);
+        } else if (account == this.watchAccount.keyword) {
+            this.watchAccount.applyStrategy(code, buyStrategy, sellStrategy);
         };
     }
+
+    initWatchList(codes) {
+        this.log('initWatchList', codes);
+        var holdChanged = false;
+        this.watchAccount.stocks = [];
+        for (var i = 0; i < codes.length; i++) {
+            this.watchAccount.stocks.push(new StockInfo({ code: codes[i], name: '', holdCount: 0,availableCount: 0, market: ''}));
+            if (!this.stockGuard.has(codes[i])) {
+                this.stockGuard.add(codes[i]);
+                holdChanged = true;
+            };
+        };
+
+        this.loadStrategies(this.watchAccount);
+        if (holdChanged) {
+            this.updateMonitor();
+        }
+    }
 }
+
+chrome.alarms.onAlarm.addListener(function(alarmInfo) {
+    var interval = 0;
+    if (alarmInfo.name == 'morning-start') {
+        interval = 1000;
+    } else if (alarmInfo.name == 'morning-middle') {
+        interval = 30000;
+    } else if (alarmInfo.name == 'morning-end') {
+        interval = -1;
+    } else if (alarmInfo.name == 'afternoon') {
+        interval = 30000;
+    } else if (alarmInfo.name == 'afternoon-end') {
+        interval = -1;
+    };
+
+    var now = new Date();
+    if (DEBUG || now.getHours() > 9) {
+        interval = 0;
+    };
+    emjyBack.postQuoteWorkerMessage({command: 'quote.refresh', time: interval});
+    emjyBack.log(alarmInfo.name, now.toLocaleTimeString(), 'interval', interval);
+});

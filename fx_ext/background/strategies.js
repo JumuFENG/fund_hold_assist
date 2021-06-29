@@ -49,8 +49,18 @@ class Strategy {
         this.inCritical = false;
     }
 
-    check(price, key, strmgr) {
+    check(rtInfo) {
         this.log('check Strategy');
+    }
+
+    buyMatch() {
+        this.enabled = false;
+        this.inCritical = false;
+    }
+
+    sellMatch() {
+        this.enabled = false;
+        this.inCritical = false;
     }
 
     createView() {
@@ -167,21 +177,6 @@ class Strategy {
         ctDiv.appendChild(this.inputCount);
         ctDiv.appendChild(document.createTextNode('股'));
         return ctDiv;
-    }
-
-    createPopbackInput() {
-        var acctDiv = document.createElement('div');
-        acctDiv.appendChild(document.createTextNode('买入账户 '));
-        this.accountSelector = document.createElement('select');
-        for (var acc in emjyManager.accountNames) {
-            var opt = document.createElement('option');
-            opt.value = acc;
-            opt.textContent = emjyManager.accountNames[acc];
-            this.accountSelector.appendChild(opt);
-        }
-        acctDiv.appendChild(this.accountSelector);
-        this.accountSelector.value = this.account;
-        return acctDiv;
     }
 
     createBuyAccountSelector() {
