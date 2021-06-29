@@ -298,4 +298,8 @@ if (location.host == 'jywg.18.cn') {
     setTimeout(function(){
         EmjyFront.onPageLoaded();
     }, 1000);
+
+    setTimeout(function() {
+        location.reload();
+    }, 175 * 60 * 1000);  // less than 3 hrs
 }

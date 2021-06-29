@@ -27,8 +27,11 @@ class AccountInfo {
     }
 
     updateStockRtPrice(snapshot) {
-        var stock = this.stocks.find(function(s) { return s.code == snapshot.code});
+        if (!this.stocks) {
+            return;
+        };
 
+        var stock = this.stocks.find(function(s) { return s.code == snapshot.code});
         if (stock) {
             if (!stock.name) {
                 stock.name = snapshot.name;
@@ -57,6 +60,33 @@ class AccountInfo {
             stock.sellStrategy = sstr;
         };
     }
+
+    addStock(code) {
+        this.stocks.push(new StockInfo({ code, name: '', holdCount: 0, availableCount: 0, market: ''}));
+        if (!emjyBack.stockGuard.has(code)) {
+            emjyBack.stockGuard.add(code);
+            emjyBack.updateMonitor();
+        };
+    }
+
+    save() {
+        if (this.keyword == 'watch') {
+            var codes = [];
+            this.stocks.forEach(function(s) {
+                codes.push(s.code);
+            });
+            chrome.storage.local.set({'watching_stocks': codes});
+        };
+
+        this.stocks.forEach(function(s) {
+            if (s.buyStrategy) {
+                strategyManager.flushStrategy(s.buyStrategy);
+            };
+            if (s.sellStrategy) {
+                strategyManager.flushStrategy(s.sellStrategy);
+            };
+        });
+    }
 }
 
 class StockInfo {
@@ -78,7 +108,7 @@ class StockInfo {
         if (this.buyStrategy && this.buyStrategy.enabled) {
             if (this.buyStrategy.check(this.rtInfo)) {
                 emjyBack.tryBuyStock(this.code, this.name, this.latestPrice, this.buyStrategy.count, this.buyStrategy.account);
-                emjyBack.log('checkStrategies', this.code, 'buy match', JSON.stringify(this.buyStrategy)));
+                emjyBack.log('checkStrategies', this.code, 'buy match', JSON.stringify(this.buyStrategy));
                 this.buyStrategy.buyMatch();
                 if (this.sellStrategy) {
                     this.sellStrategy.buyMatch();
@@ -115,7 +145,9 @@ class ManagerBack {
         } else if (message.command == 'mngr.closed') {
             this.tabid = null;
         } else if (message.command == 'mngr.strategy') {
-            emjyBack.applyStrategy(message.account, message.code, JSON.parse(message.buyStrategy), JSON.parse(message.sellStrategy));
+            emjyBack.applyStrategy(message.account, message.code, message.buyStrategy, message.sellStrategy);
+        } else if (message.command == 'mngr.addwatch') {
+            emjyBack.watchAccount.addStock(message.code);
         }
     }
 
@@ -523,6 +555,7 @@ class EmjyBack {
         //this.log('updateStockRtPrice', JSON.stringify(snapshot));
         this.normalAccount.updateStockRtPrice(snapshot);
         this.collateralAccount.updateStockRtPrice(snapshot);
+        this.watchAccount.updateStockRtPrice(snapshot);
     }
 
     loadStrategies(account) {
@@ -543,23 +576,23 @@ class EmjyBack {
     }
 
     applyStoredBuyStrategy(account, code, bstr) {
-        this.applyStrategy(account, code, JSON.parse(bstr));
+        this.applyStrategy(account, code, bstr);
     }
 
     applyStoredSellStrategy(account, code, sstr) {
-        this.applyStrategy(account, code, null, JSON.parse(sstr));
+        this.applyStrategy(account, code, null, sstr);
     }
 
     applyStrategy(account, code, bstr, sstr) {
         this.log('applyStrategy', account, code, JSON.stringify(bstr), JSON.stringify(sstr));
         var buyStrategy = null;
         if (bstr) {
-            buyStrategy = strategyManager.initStrategy(account + '_' + code + '_buyStrategy', bstr, this.log);
+            buyStrategy = strategyManager.initStrategy(account + '_' + code + '_buyStrategy', JSON.parse(bstr), this.log);
         };
 
         var sellStrategy = null;
         if (sstr) {
-            sellStrategy = strategyManager.initStrategy(account + '_' + code + '_sellStrategy', sstr, this.log);
+            sellStrategy = strategyManager.initStrategy(account + '_' + code + '_sellStrategy', JSON.parse(sstr), this.log);
         };
         
         if (account == this.normalAccount.keyword) {
@@ -588,6 +621,12 @@ class EmjyBack {
             this.updateMonitor();
         }
     }
+
+    tradeClosed() {
+        this.normalAccount.save();
+        this.collateralAccount.save();
+        this.watchAccount.save();
+    }
 }
 
 chrome.alarms.onAlarm.addListener(function(alarmInfo) {
@@ -609,5 +648,8 @@ chrome.alarms.onAlarm.addListener(function(alarmInfo) {
         interval = 0;
     };
     emjyBack.postQuoteWorkerMessage({command: 'quote.refresh', time: interval});
+    if (alarmInfo.name == 'afternoon-end') {
+        emjyBack.tradeClosed();
+    };
     emjyBack.log(alarmInfo.name, now.toLocaleTimeString(), 'interval', interval);
 });

@@ -9,7 +9,6 @@ class Manager {
         this.log = log;
         this.page = null;
         this.stockList = null;
-        this.watchingStocks = new Set();
         this.accountNames = {'normal':'普通账户', 'collat': '担保品', 'credit': '融资账户', 'watch':'关注中'};
     }
 
@@ -43,9 +42,6 @@ class Manager {
                 var ts = tstocks[j];
                 ts.acccode = account + '_' + ts.code;
                 ts.account = account;
-                if (account == 'watch') {
-                    this.watchingStocks.add(ts.code);
-                };
                 accstocks.push(ts);
             };
         };
@@ -79,15 +75,7 @@ class Manager {
 
     addWatchingStock(code) {
         this.addStock(code);
-        this.watchingStocks.add(code);
-        this.saveWatchingStocks();
-    }
-
-    saveWatchingStocks() {
-        if (emjyManager.watchingStocks.size == 0) {
-            return;
-        };
-        chrome.storage.local.set({'watching_stocks': Array.from(emjyManager.watchingStocks)});
+        this.sendExtensionMessage({command:'mngr.addwatch', code});
     }
 }
 
@@ -205,6 +193,10 @@ class StrategyChooser {
     }
 
     initOptions(isBuy, strategy) {
+        if (this.strategyBuy !== undefined) {
+            this.saveStrategy();
+        };
+
         this.strategyBuy = isBuy;
         if (isBuy) {
             this.createStrategyOptions(strategyManager.buystrategies);
@@ -235,15 +227,14 @@ class StrategyChooser {
     }
 
     saveStrategy() {
-        var message = {command:'mngr.strategy', code: this.stock.code};
+        var message = {command:'mngr.strategy', code: this.stock.code, account: this.stock.account};
         if (this.stock.buyStrategy && this.stock.buyStrategy.isChanged()) {
             message.buyStrategy = this.stock.buyStrategy.tostring();
-            strategyManager.flushStrategy(this.stock.buyStrategy);
         };
         if (this.stock.sellStrategy && this.stock.sellStrategy.isChanged()) {
             message.sellStrategy = this.stock.sellStrategy.tostring();
-            strategyManager.flushStrategy(this.stock.sellStrategy);
         };
+
         if (message.buyStrategy || message.sellStrategy) {
             emjyManager.sendExtensionMessage(message);
         };
