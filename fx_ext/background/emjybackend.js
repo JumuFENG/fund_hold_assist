@@ -1,5 +1,5 @@
 'use strict';
-let DEBUG = true;
+let DEBUG = false;
 let emjyBack = null;
 
 class AccountInfo {
@@ -8,7 +8,7 @@ class AccountInfo {
         this.buyPath = null;
         this.sellPath = null;
         this.assetsPath = null;
-        this.stocks = null;
+        this.stocks = [];
     }
 
     initAccount(key, buyPath, sellPath, assetsPath) {
@@ -39,6 +39,7 @@ class AccountInfo {
             stock.latestPrice = snapshot.realtimequote.currentPrice;
             var rtInfo = {};
             rtInfo.latestPrice = stock.latestPrice;
+            rtInfo.openPrice = snapshot.fivequote.openPrice;
             rtInfo.buyPrices = [snapshot.fivequote.buy1, snapshot.fivequote.buy2, snapshot.fivequote.buy3, snapshot.fivequote.buy4, snapshot.fivequote.buy5];
             rtInfo.sellPrices = [snapshot.fivequote.sale1, snapshot.fivequote.sale2, snapshot.fivequote.sale3, snapshot.fivequote.sale4, snapshot.fivequote.sale5];
             rtInfo.topprice = snapshot.topprice;
@@ -65,6 +66,19 @@ class AccountInfo {
         this.stocks.push(new StockInfo({ code, name: '', holdCount: 0, availableCount: 0, market: ''}));
         if (!emjyBack.stockGuard.has(code)) {
             emjyBack.stockGuard.add(code);
+            emjyBack.updateMonitor();
+        };
+    }
+
+    removeStock(code) {
+        this.stocks.forEach(function(item, index, arr) {
+            if (item.code == code) {
+                arr.splice(index, 1);
+            };
+        });
+        chrome.storage.local.remove([this.keyword + '_' + code + '_buyStrategy', this.keyword + '_' + code + '_sellStrategy']);
+        if (emjyBack.stockGuard.has(code)) {
+            emjyBack.stockGuard.delete(code);
             emjyBack.updateMonitor();
         };
     }
@@ -106,23 +120,25 @@ class StockInfo {
     checkStrategies() {
         // emjyBack.log('checkStrategies', this.code, JSON.stringify(this.buyStrategy), JSON.stringify(this.sellStrategy));
         if (this.buyStrategy && this.buyStrategy.enabled) {
-            if (this.buyStrategy.check(this.rtInfo)) {
-                emjyBack.tryBuyStock(this.code, this.name, this.latestPrice, this.buyStrategy.count, this.buyStrategy.account);
+            var checkResult = this.buyStrategy.check(this.rtInfo);
+            if (checkResult.match) {
                 emjyBack.log('checkStrategies', this.code, 'buy match', JSON.stringify(this.buyStrategy));
-                this.buyStrategy.buyMatch();
+                emjyBack.tryBuyStock(this.code, this.name, checkResult.price, checkResult.count, checkResult.account);
+                this.buyStrategy.buyMatch(checkResult.price);
                 if (this.sellStrategy) {
-                    this.sellStrategy.buyMatch();
+                    this.sellStrategy.buyMatch(checkResult.price);
                 };
             }
         }
         if (this.sellStrategy && this.sellStrategy.enabled) {
-            if (this.sellStrategy.check(this.rtInfo)) {
-                emjyBack.trySellStock(this.code, this.latestPrice, this.sellStrategy.count, this.sellStrategy.account);
-                this.sellStrategy.sellMatch();
-                if (this.buyStrategy) {
-                    this.buyStrategy.sellMatch();
-                };
+            var checkResult = this.sellStrategy.check(this.rtInfo);
+            if (checkResult.match) {
                 emjyBack.log('checkStrategies', 'sell match', this.code, JSON.stringify(this.sellStrategy));
+                emjyBack.trySellStock(this.code, checkResult.price, checkResult.count, checkResult.account);
+                this.sellStrategy.sellMatch(checkResult.price);
+                if (this.buyStrategy) {
+                    this.buyStrategy.sellMatch(checkResult.price);
+                };
             }
         }
     }
@@ -143,12 +159,17 @@ class ManagerBack {
         if (message.command == 'mngr.init') {
             this.tabid = tabid;
         } else if (message.command == 'mngr.closed') {
+            emjyBack.normalAccount.save();
+            emjyBack.collateralAccount.save();
+            emjyBack.watchAccount.save();
             this.tabid = null;
         } else if (message.command == 'mngr.strategy') {
             emjyBack.applyStrategy(message.account, message.code, message.buyStrategy, message.sellStrategy);
         } else if (message.command == 'mngr.addwatch') {
             emjyBack.watchAccount.addStock(message.code);
-        }
+        } else if (message.command == 'mngr.rmwatch') {
+            emjyBack.watchAccount.removeStock(message.code);
+        };
     }
 
     sendManagerMessage(message) {
@@ -627,6 +648,10 @@ class EmjyBack {
         this.collateralAccount.save();
         this.watchAccount.save();
     }
+
+    clearStorage() {
+        chrome.storage.local.clear();
+    }
 }
 
 chrome.alarms.onAlarm.addListener(function(alarmInfo) {
@@ -644,9 +669,9 @@ chrome.alarms.onAlarm.addListener(function(alarmInfo) {
     };
 
     var now = new Date();
-    if (DEBUG || now.getHours() > 9) {
-        interval = 0;
-    };
+    // if (DEBUG || now.getHours() > 9) {
+    //     interval = 0;
+    // };
     emjyBack.postQuoteWorkerMessage({command: 'quote.refresh', time: interval});
     if (alarmInfo.name == 'afternoon-end') {
         emjyBack.tradeClosed();

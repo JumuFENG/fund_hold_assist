@@ -92,7 +92,12 @@ class ManagerPage {
         btnOk.textContent = '新增观察股票';
         btnOk.parentPage = this;
         btnOk.onclick = function(e) {
+            if (e.target.parentPage.inputCode.value.length != 6) {
+                alert('Wrong stock code');
+                return;
+            };
             emjyManager.addWatchingStock(e.target.parentPage.inputCode.value);
+            e.target.parentPage.inputCode.value = '';
         }
         watchDiv.appendChild(btnOk);
         this.root.appendChild(watchDiv);
@@ -153,9 +158,19 @@ class StockList {
         var divTitle = document.createElement('div');
         var titleText = stock.name + '(' + stock.code + ') '+ emjyManager.accountNames[stock.account];
         if (stock.account != 'watch') {
-            titleText += '持有'
+            titleText += '持有';
         };
         divTitle.appendChild(document.createTextNode(titleText));
+        if (stock.account == 'watch') {
+            var deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.code = stock.code;
+            deleteBtn.onclick = function(e) {
+                emjyManager.sendExtensionMessage({command:'mngr.rmwatch', code: e.target.code});
+                location.reload();
+            }
+            divTitle.appendChild(deleteBtn);
+        };
         divContainer.appendChild(divTitle);
         var divDetails = document.createElement('div');
         divDetails.appendChild(document.createTextNode('最新价：' + stock.latestPrice + ' 成本价：' + stock.holdCost + ' 数量：' + stock.holdCount));
