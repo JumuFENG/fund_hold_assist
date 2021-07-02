@@ -145,6 +145,20 @@ class Strategy {
         return JSON.stringify(str);
     }
 
+    matchResult(match, price) {
+        if (!match) {
+            return {match};
+        };
+        var result = {match, price};
+        result.account = this.account;
+        if (!this.count || this.count == 0) {
+            result.count = 100 * Math.ceil(400 / result.price);
+        } else {
+            result.count = this.count;
+        };
+        return result;
+    }
+
     createEnabledCheckbox() {
         var checkLbl = document.createElement('label');
         checkLbl.textContent = '启用';
@@ -234,7 +248,7 @@ class Strategy {
 
 class StrategyBuy extends Strategy {
     check(rtInfo) {
-        var result = {match: false};
+        var match = false;
         var price = rtInfo.latestPrice;
         if (!this.inCritical) {
             if (price <= this.guardPrice) {
@@ -242,24 +256,16 @@ class StrategyBuy extends Strategy {
                 this.prePeekPrice = price;
                 strategyManager.flushStrategy(this);
             }
-            return result;
+            return {match};
         }
         if (price >= this.prePeekPrice * (1 + this.backRate)) {
-            result.match = true;
-            result.price = rtInfo.sellPrices[0];
-            result.account = this.account;
-            if (!this.count || this.count == 0) {
-                count = 100 * Math.ceil(400 / result.price);
-            } else {
-                result.count = this.count;
-            };
-            return result;
+            return this.matchResult(true, rtInfo.sellPrices[0]);
         }
         if (price < this.prePeekPrice) {
             this.prePeekPrice = price;
             strategyManager.flushStrategy(this);
         }
-        return result;
+        return {match};
     }
 
     createView() {
@@ -276,31 +282,23 @@ class StrategyBuy extends Strategy {
 class StrategySell extends Strategy {
     check(rtInfo) {
         var price = rtInfo.latestPrice;
-        var result = {match: false};
+        var match = false;
         if (!this.inCritical) {
             if (price > this.guardPrice) {
                 this.inCritical = true;
                 this.prePeekPrice = price;
                 strategyManager.flushStrategy(this);
             }
-            return result;
+            return {match};
         }
         if (price <= this.prePeekPrice * (1 - this.backRate)) {
-            result.match = true;
-            result.price = rtInfo.buyPrices[0];
-            result.account = this.account;
-            if (!this.count || this.count == 0) {
-                count = 100 * Math.ceil(400 / result.price);
-            } else {
-                result.count = this.count;
-            };
-            return result;
+            return this.matchResult(true, rtInfo.buyPrices[0]);
         }
         if (price > this.prePeekPrice) {
             this.prePeekPrice = price;
             strategyManager.flushStrategy(this);
         }
-        return result;
+        return {match};
     }
 
     createView() {
@@ -418,7 +416,7 @@ class StrategySellRepeat extends StrategySell {
 
 class StrategyBuyIPO extends StrategyBuy {
     check(rtInfo) {
-        var result = {match: false};
+        var match = false;
         var price = rtInfo.latestPrice;
         var topprice = rtInfo.topprice;
         var bottomprice = rtInfo.bottomprice;
@@ -428,24 +426,16 @@ class StrategyBuyIPO extends StrategyBuy {
                 this.prePeekPrice = price;
                 strategyManager.flushStrategy(this);
             }
-            return result;
+            return {match};
         }
         if (price >= this.prePeekPrice * (1 + this.backRate)) {
-            result.match = true;
-            result.price = rtInfo.sellPrices[0];
-            result.account = this.account;
-            if (!this.count || this.count == 0) {
-                count = 100 * Math.ceil(400 / result.price);
-            } else {
-                result.count = this.count;
-            };
-            return result;
+            return this.matchResult(true, rtInfo.sellPrices[0]);
         }
         if (price < this.prePeekPrice) {
             this.prePeekPrice = price;
             strategyManager.flushStrategy(this);
         }
-        return result;
+        return {match};
     }
 
     createView() {
@@ -460,36 +450,34 @@ class StrategyBuyIPO extends StrategyBuy {
 
 class StrategySellIPO extends StrategySell {
     check(rtInfo) {
-        var result = {match: false};
+        var match = false;
         if (rtInfo.openPrice == rtInfo.topprice) {
-            result.match = rtInfo.latestPrice < rtInfo.topprice;
-            return result;
+            if (rtInfo.latestPrice < rtInfo.topprice) {
+                return this.matchResult(true, rtInfo.buyPrices[0]);
+            };
+            return {match};
+        };
+
+        if (rtInfo.openPrice == rtInfo.bottomprice) {
+            return this.matchResult(true, rtInfo.openPrice);
         };
         
         if (!this.inCritical) {
             this.guardPrice = rtInfo.latestPrice;
             this.inCritical = true;
             strategyManager.flushStrategy(this);
-            return result;
+            return {match};
         };
 
         if (rtInfo.latestPrice <= this.prePeekPrice * 0.99) {
-            result.match = true;
-            result.price = rtInfo.buyPrices[0];
-            result.account = this.account;
-            if (!this.count || this.count == 0) {
-                count = 100 * Math.ceil(400 / result.price);
-            } else {
-                result.count = this.count;
-            };
-            return result;
+            return this.matchResult(true, rtInfo.buyPrices[0]);
         }
 
         if (rtInfo.latestPrice > this.prePeekPrice) {
             this.prePeekPrice = rtInfo.latestPrice;
             strategyManager.flushStrategy(this);
         }
-        return result;
+        return {match};
     }
 
     createView() {
