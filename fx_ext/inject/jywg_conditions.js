@@ -114,14 +114,26 @@ class JywgUtils {
             return;
         }
 
-        var inputCode = document.getElementById('stockCode');
-        inputCode.value = code;
-        var inputName = document.getElementById('iptbdName');
-        inputName.value = name;
-        var inputPrice = document.getElementById('iptPrice');
-        inputPrice.value = price;
-        var inputCount = document.getElementById('iptCount');
-        inputCount.value = count;
+        document.querySelector('#stockCode').value = code;
+        document.querySelector('#iptbdName').value = name;
+        document.querySelector('#iptPrice').value = price;
+        if (document.querySelector('#lbMaxCount').textContent < count) {
+            if (typeof(notifyDone) === 'function') {
+                notifyDone({command:'emjy.trade', result: 'error', reason: 'maxCountInvalid', what: 'maxCount = ' + document.querySelector('#lbMaxCount').textContent + ', count = ' + count});
+            }
+            return;
+        };
+        if (count <= 4 && count >= 1) {
+            var radId = ['', '#radall', '#radtwo', '#radstree', '#radfour'][count];
+            document.querySelector(radId).click();
+        } else if (count < 100) {
+            if (typeof(notifyDone) === 'function') {
+                notifyDone({command:'emjy.trade', result: 'error', reason: 'countInvalid', what: 'count = ' + count});
+            }
+            return;
+        } else {
+            document.querySelector('#iptCount').value = count;
+        }
 
         var clickConfirmAgain = function(that) {
             var confirmAgain = document.getElementsByClassName('btn_jh btnts cl btn btn-default-blue')[0];

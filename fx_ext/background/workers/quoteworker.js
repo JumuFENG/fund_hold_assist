@@ -43,6 +43,8 @@ addEventListener('message', function(e) {
         }
     } else if (e.data.command == 'quote.update.code') {
         stocks = e.data.stocks;
+    } else if (e.data.command == 'quote.fetch.code') {
+        quoteSnapshot(e.data.code);
     }
 });
 
