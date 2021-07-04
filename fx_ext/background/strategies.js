@@ -483,7 +483,7 @@ class StrategySellIPO extends StrategySell {
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
-        view.appendChild(document.createTextNode('涨停板打开直接卖出,开盘不涨停则从高点反弹1%时卖出'));
+        view.appendChild(document.createTextNode('涨停板打开直接卖出,开盘不涨停则从高点反弹1%时卖出,跌停开盘直接卖出'));
         view.appendChild(this.createCountDiv('卖出数量 '));
         return view;
     }

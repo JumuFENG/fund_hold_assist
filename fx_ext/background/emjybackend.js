@@ -105,6 +105,65 @@ class AccountInfo {
         }
     }
 
+    buyStock(code, name, price, count) {
+        var finalCount = count;
+        if (count <= 0) {
+            finalCount = parseInt(400 / price);
+            if (finalCount * price < 390) {
+                finalCount++;
+            }
+            finalCount *= 100;
+        }
+
+        var stockInfo = {code, name};
+
+        if (count < 100) {
+            emjyBack.log('Buy', code, name, 'price:', price, 'count: 1/', finalCount);
+            emjyBack.sendTradeMessage(this.buyPath, stockInfo, price, finalCount);
+            return;
+        };
+
+        var moneyNeed = finalCount * price;
+        if (this.availableMoney < moneyNeed) {
+            finalCount = 100 * Math.floor(this.availableMoney / (100 * price));
+        }
+
+        moneyNeed = finalCount * price;
+
+        if (this.availableMoney < moneyNeed) {
+            emjyBack.log('No availableMoney match');
+            return;
+        }
+        emjyBack.sendTradeMessage(this.buyPath, stockInfo, price, finalCount);
+        this.availableMoney -= moneyNeed;
+    }
+
+    sellStock(code, price, count) {
+        var finalCount = count;
+        if (count <= 0) {
+            finalCount = parseInt(400 / price);
+            if (finalCount * price < 390) {
+                finalCount++;
+            }
+            finalCount *= 100;
+        }
+
+        var stockInfo = this.stocks.find(function(s) { return s.code == code; });
+        if (stockInfo) {
+            if (finalCount > stockInfo.availableCount) {
+                finalCount = stockInfo.availableCount;
+            }
+            if (finalCount == 0) {
+                emjyBack.log('error: availableCount is 0');
+                return;
+            };
+
+            emjyBack.sendTradeMessage(this.sellPath, {code: stockInfo.code, name: stockInfo.name}, price, finalCount);
+            stockInfo.availableCount -= finalCount;
+            this.availableMoney += finalCount * price;
+        };
+    }
+
     applyStrategy(code, bstr, sstr) {
         var stock = this.stocks.find(function(s) {return s.code == code; });
         if (!stock) {
@@ -314,8 +373,7 @@ class EmjyBack {
                 };
             });
 
-            this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.normalAccount.assetsPath});
-            this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.creditAccount.assetsPath});
+            this.refreshAssets();
         }
         if (tabid == this.contentTabId) {
             this.contentUrl = message.url;
@@ -474,6 +532,21 @@ class EmjyBack {
         }
     }
 
+    refreshAssets() {
+        if (this.normalAccount.stocks.length > 0) {
+            this.normalAccount.save();
+        };
+        if (this.collateralAccount.stocks.length > 0) {
+            this.collateralAccount.save();
+        };
+        if (this.watchAccount.stocks.length > 0) {
+            this.watchAccount.save();
+        };
+
+        this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.normalAccount.assetsPath});
+        this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.creditAccount.assetsPath});
+    }
+
     updateHoldStocks(stocks) {
         var holdChanged = false;
         for (var i = 0; i < stocks.length; i++) {
@@ -498,61 +571,21 @@ class EmjyBack {
     }
 
     trySellStock(code, price, count, account) {
-        var finalCount = count;
-        if (count <= 0) {
-            finalCount = parseInt(400 / price);
-            if (finalCount * price < 390) {
-                finalCount++;
-            }
-            finalCount *= 100;
-        }
-
-        if (!account || account == this.normalAccount.keyword) {
-            for (var i = 0; i < this.normalAccount.stocks.length; i++) {
-                if (this.normalAccount.stocks[i].code == code) {
-                    var stockInfo = this.normalAccount.stocks[i];
-                    if (finalCount > stockInfo.availableCount) {
-                        finalCount = stockInfo.availableCount;
-                    }
-                    if (finalCount == 0) {
-                        this.log('error: availableCount is 0');
-                        return;
-                    };
-                    this.sendTradeMessage(this.normalAccount.sellPath, {code: stockInfo.code, name: stockInfo.name}, price, finalCount);
-                    return;
-                }
+        var sellAccount = this.normalAccount;
+        if (account) {
+            if (account == this.normalAccount.keyword) {
+                sellAccount = this.normalAccount;
+            } else if (account == this.collateralAccount.keyword) {
+                sellAccount = this.collateralAccount;
+            } else if (account == this.creditAccount.keyword) {
+                sellAccount = this.creditAccount;
             };
         };
 
-        if (!account || this.collateralAccount.keyword == account) {
-            for (var i = 0; i < this.collateralAccount.stocks.length; i++) {
-                if (this.collateralAccount.stocks[i].code == code) {
-                    var stockInfo = this.collateralAccount.stocks[i];
-                    if (finalCount > stockInfo.availableCount) {
-                        finalCount = stockInfo.availableCount;
-                    }
-                    if (finalCount == 0) {
-                        this.log('error: availableCount is 0');
-                        return;
-                    };
-                    this.sendTradeMessage(this.collateralAccount.sellPath, {code: stockInfo.code, name: stockInfo.name}, price, finalCount);
-                    return;
-                }
-            };
-        };
+        sellAccount.sellStock(code, price, count);
     }
 
     tryBuyStock(code, name, price, count, account) {
-        var finalCount = count;
-        if (count <= 0) {
-            finalCount = parseInt(400 / price);
-            if (finalCount * price < 390) {
-                finalCount++;
-            }
-            finalCount *= 100;
-        }
-
-        var stockInfo = {code: code, name: name};
         var buyAccount = this.normalAccount;
         if (account) {
             if (account == this.normalAccount.keyword) {
@@ -564,24 +597,7 @@ class EmjyBack {
             };
         };
 
-        if (count < 100) {
-            this.log('Buy', code, name, 'price:', price, 'count: 1/', finalCount);
-            this.sendTradeMessage(buyAccount.buyPath, stockInfo, price, finalCount);
-            return;
-        };
-
-        var moneyNeed = finalCount * price;
-        if (buyAccount.availableMoney < moneyNeed) {
-            finalCount = 100 * Math.floor(buyAccount.availableMoney / (100 * price));
-        }
-
-        moneyNeed = finalCount * price;
-
-        if (buyAccount.availableMoney < moneyNeed) {
-            this.log('No availableMoney match');
-            return;
-        }
-        this.sendTradeMessage(buyAccount.buyPath, stockInfo, price, finalCount);
+        buyAccount.buyStock(code, name, price, count);
     }
 
     sendTradeMessage(tradePath, stock, price, count) {
@@ -598,7 +614,7 @@ class EmjyBack {
         {name:'morning-start', tick: new Date(now.toDateString() + ' 9:29:58').getTime()},
         {name:'morning-middle', tick: new Date(now.toDateString() + ' 10:15:55').getTime()},
         {name:'morning-end', tick: new Date(now.toDateString() + ' 11:30:7').getTime()},
-        {name:'afternoon', tick: new Date(now.toDateString() + ' 12:59:58').getTime()},
+        {name:'afternoon', tick: new Date(now.toDateString() + ' 12:59:55').getTime()},
         {name:'afternoon-preend', tick: new Date(now.toDateString() + ' 14:59:8').getTime()},
         {name:'afternoon-end', tick: new Date(now.toDateString() + ' 15:0:2').getTime()}
         ];
@@ -715,6 +731,7 @@ chrome.alarms.onAlarm.addListener(function(alarmInfo) {
         interval = -1;
     } else if (alarmInfo.name == 'afternoon') {
         interval = 30000;
+        emjyBack.refreshAssets();
     } else if (alarmInfo.name == 'afternoon-end') {
         interval = -1;
     } else if (alarmInfo.name == 'afternoon-preend') {

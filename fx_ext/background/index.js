@@ -43,7 +43,11 @@
         } else if (message.command.startsWith('emjy.') && emjyBack) {
             emjyBack.onContentMessageReceived(message);
         } else if (message.command.startsWith('mngr.') && emjyBack) {
-            emjyBack.onManagerMessageReceived(message, sender.tab.id);
+            if (sender.tab) {
+                emjyBack.onManagerMessageReceived(message, sender.tab.id);
+            } else {
+                emjyBack.onManagerMessageReceived(message, null);
+            }
         }
     }
 
