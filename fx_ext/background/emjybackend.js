@@ -25,7 +25,7 @@ class Wallet {
             emjyBack.tryBuyStock(this.fundcode, this.name, this.sell1Prices, 1, account);
         } else if (this.state == 'fetchSell') {
             this.state = 'none';
-            emjyBack.trySellStock(this.fundcode, this.buy1Prices, this.holdCount, account);
+            emjyBack.trySellStock(this.fundcode, this.buy1Prices, 1, account);
         }
     }
 }
@@ -50,7 +50,7 @@ class AccountInfo {
 
     parseStockInfoList(stocks) {
         for (var i = 0; i < stocks.length; i++) {
-            if (this.wallet && stocks[i].code == this.fundcode) {
+            if (this.wallet && stocks[i].code == this.wallet.fundcode) {
                 this.wallet.name = stocks[i].name;
                 this.wallet.holdCount = stocks[i].holdCount;
                 continue;
@@ -77,7 +77,7 @@ class AccountInfo {
     }
 
     updateStockRtPrice(snapshot) {
-        emjyBack.log('updateStockRtPrice', JSON.stringify(snapshot));
+        // emjyBack.log('updateStockRtPrice', JSON.stringify(snapshot));
         if (this.wallet && snapshot.code == this.wallet.fundcode) {
             this.wallet.updateFundPrice(snapshot, this.keyword);
             return;
@@ -102,6 +102,7 @@ class AccountInfo {
             rtInfo.bottomprice = snapshot.bottomprice;
             stock.rtInfo = rtInfo;
             stock.checkStrategies();
+            tradeAnalyzer.updateStockRtPrice(snapshot);
         }
     }
 
@@ -161,7 +162,11 @@ class AccountInfo {
             emjyBack.sendTradeMessage(this.sellPath, {code: stockInfo.code, name: stockInfo.name}, price, finalCount);
             stockInfo.availableCount -= finalCount;
             this.availableMoney += finalCount * price;
-        };
+        } else if (code == this.wallet.fundcode) {
+            emjyBack.sendTradeMessage(this.sellPath, {code}, price, finalCount);
+            this.availableMoney += this.wallet.holdCount * price;
+            this.wallet.holdCount = 0;
+        }
     }
 
     applyStrategy(code, bstr, sstr) {
@@ -191,11 +196,6 @@ class AccountInfo {
                 arr.splice(index, 1);
             };
         });
-        chrome.storage.local.remove([this.keyword + '_' + code + '_buyStrategy', this.keyword + '_' + code + '_sellStrategy']);
-        if (emjyBack.stockGuard.has(code)) {
-            emjyBack.stockGuard.delete(code);
-            emjyBack.updateMonitor();
-        };
     }
 
     save() {
@@ -218,8 +218,23 @@ class AccountInfo {
     }
 
     buyFundBeforeClose() {
-        emjyBack.postQuoteWorkerMessage({command:'quote.fetch.code', code:this.wallet.fundcode});
-        this.wallet.state = 'fetchBuy';
+        var anyCritial = this.stocks.find(function(s) {
+            return s.buyStrategy && s.buyStrategy.enabled && s.buyStrategy.inCritical
+        });
+
+        if (!anyCritial) {
+            emjyBack.postQuoteWorkerMessage({command:'quote.fetch.code', code:this.wallet.fundcode});
+            this.wallet.state = 'fetchBuy';
+        };
+    }
+
+    checkAvailableMoney(price) {
+        var count = 100 * Math.ceil(400 / price);
+        var moneyNeed = count * price;
+        if (moneyNeed > this.availableMoney && this.wallet.holdCount > 0) {
+            emjyBack.postQuoteWorkerMessage({command:'quote.fetch.code', code:this.wallet.fundcode});
+            this.wallet.state = 'fetchSell';
+        };
     }
 }
 
@@ -248,6 +263,8 @@ class StockInfo {
                 if (this.sellStrategy) {
                     this.sellStrategy.buyMatch(checkResult.price);
                 };
+            } else if (checkResult.stepInCritical) {
+                emjyBack.checkAvailableMoney(this.rtInfo.latestPrice, checkResult.account);
             }
         }
         if (this.sellStrategy && this.sellStrategy.enabled) {
@@ -288,7 +305,7 @@ class ManagerBack {
         } else if (message.command == 'mngr.addwatch') {
             emjyBack.watchAccount.addStock(message.code);
         } else if (message.command == 'mngr.rmwatch') {
-            emjyBack.watchAccount.removeStock(message.code);
+            emjyBack.removeStock(message.account, message.code);
         };
     }
 
@@ -547,6 +564,14 @@ class EmjyBack {
         this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.creditAccount.assetsPath});
     }
 
+    checkAvailableMoney(price, account) {
+        if (this.normalAccount.keyword == account) {
+            this.normalAccount.checkAvailableMoney(price);
+        } else if (this.collateralAccount.keyword == account) {
+            this.collateralAccount.checkAvailableMoney(price);
+        }
+    }
+
     updateHoldStocks(stocks) {
         var holdChanged = false;
         for (var i = 0; i < stocks.length; i++) {
@@ -611,7 +636,7 @@ class EmjyBack {
 
         var now = new Date();
         var alarms = [
-        {name:'morning-start', tick: new Date(now.toDateString() + ' 9:29:58').getTime()},
+        {name:'morning-start', tick: new Date(now.toDateString() + ' 9:29:51').getTime()},
         {name:'morning-middle', tick: new Date(now.toDateString() + ' 10:15:55').getTime()},
         {name:'morning-end', tick: new Date(now.toDateString() + ' 11:30:7').getTime()},
         {name:'afternoon', tick: new Date(now.toDateString() + ' 12:59:55').getTime()},
@@ -705,6 +730,22 @@ class EmjyBack {
         }
     }
 
+    removeStock(account, code) {
+        chrome.storage.local.remove([account + '_' + code + '_buyStrategy', account + '_' + code + '_sellStrategy']);
+        if (this.stockGuard.has(code)) {
+            this.stockGuard.delete(code);
+            this.updateMonitor();
+        };
+
+        if (account == this.normalAccount.keyword) {
+            this.normalAccount.removeStock(code);
+        } else if (account == this.collateralAccount.keyword) {
+            this.collateralAccount.removeStock(code);
+        } else if (account == this.watchAccount.keyword) {
+            emjyBack.watchAccount.removeStock(code);
+        };
+    }
+
     tradeBeforeClose() {
         this.normalAccount.buyFundBeforeClose();
         this.collateralAccount.buyFundBeforeClose();
@@ -721,16 +762,31 @@ class EmjyBack {
     }
 }
 
+class TradingData {
+    constructor() {
+        this.dayPriceAvg = {};
+    }
+
+    updateStockRtPrice(snapshot) {
+        if (!this.dayPriceAvg[snapshot.code]) {
+            this.dayPriceAvg[snapshot.code] = [];
+        };
+        this.dayPriceAvg[snapshot.code].push([snapshot.realtimequote.currentPrice, snapshot.realtimequote.avg]);
+    }
+}
+
+let tradeAnalyzer = new TradingData();
+
 chrome.alarms.onAlarm.addListener(function(alarmInfo) {
     var interval = 0;
     if (alarmInfo.name == 'morning-start') {
         interval = 1000;
     } else if (alarmInfo.name == 'morning-middle') {
-        interval = 30000;
+        interval = 10000;
     } else if (alarmInfo.name == 'morning-end') {
         interval = -1;
     } else if (alarmInfo.name == 'afternoon') {
-        interval = 30000;
+        interval = 10000;
         emjyBack.refreshAssets();
     } else if (alarmInfo.name == 'afternoon-end') {
         interval = -1;

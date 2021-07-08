@@ -161,12 +161,13 @@ class StockList {
             titleText += '持有';
         };
         divTitle.appendChild(document.createTextNode(titleText));
-        if (stock.account == 'watch') {
+        if (stock.account == 'watch' || stock.holdCount == 0) {
             var deleteBtn = document.createElement('button');
             deleteBtn.textContent = 'Delete';
             deleteBtn.code = stock.code;
+            deleteBtn.account = stock.account;
             deleteBtn.onclick = function(e) {
-                emjyManager.sendExtensionMessage({command:'mngr.rmwatch', code: e.target.code});
+                emjyManager.sendExtensionMessage({command:'mngr.rmwatch', code: e.target.code, account: e.target.account});
                 location.reload();
             }
             divTitle.appendChild(deleteBtn);

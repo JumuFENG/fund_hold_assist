@@ -106,16 +106,17 @@ class JywgUtils {
     }
 
     clickTrade(code, name, price, count, notifyDone) {
-        var btnConfirm = document.getElementById('btnConfirm');
-        if (!location.href.includes('code=') && btnConfirm.disabled) {
+        if (!location.href.includes('code=') && document.querySelector('#btnConfirm').disabled) {
             if (typeof(notifyDone) === 'function') {
                 notifyDone({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded'});
             }
             return;
         }
 
-        document.querySelector('#stockCode').value = code;
-        document.querySelector('#iptbdName').value = name;
+        if (document.querySelector('#stockCode').value != code) {
+            document.querySelector('#stockCode').value = code;
+            document.querySelector('#iptbdName').value = name;
+        };
         document.querySelector('#iptPrice').value = price;
         if (document.querySelector('#lbMaxCount').textContent < count) {
             if (typeof(notifyDone) === 'function') {
@@ -125,7 +126,10 @@ class JywgUtils {
         };
         if (count <= 4 && count >= 1) {
             var radId = ['', '#radall', '#radtwo', '#radstree', '#radfour'][count];
-            document.querySelector(radId).click();
+            var iptRad = document.querySelector(radId);
+            if (!iptRad.checked) {
+                document.querySelector(radId).click();
+            };
         } else if (count < 100) {
             if (typeof(notifyDone) === 'function') {
                 notifyDone({command:'emjy.trade', result: 'error', reason: 'countInvalid', what: 'count = ' + count});
@@ -144,7 +148,7 @@ class JywgUtils {
                 }
             } else if (that.retry < 100){
                 that.retry ++;
-                setTimeout(clickConfirmAgain(that), 100)
+                setTimeout(clickConfirmAgain(that), 100);
             } else {
                 that.retry = 0;
                 if (typeof(notifyDone) === 'function') {
@@ -154,12 +158,12 @@ class JywgUtils {
             }
         }
 
-        if (btnConfirm.disabled) {
+        if (document.querySelector('#btnConfirm').disabled) {
             notifyDone({command:'emjy.trade', result: 'error', reason: 'btnConfirmDisabled'});
             return;
         }
         
-        btnConfirm.click();
+        document.querySelector('#btnConfirm').click();
         setTimeout(clickConfirmAgain(this), 200);
     }
 }
@@ -311,7 +315,10 @@ if (location.host == 'jywg.18.cn') {
         EmjyFront.onPageLoaded();
     }, 1000);
 
-    setTimeout(function() {
-        location.reload();
-    }, 175 * 60 * 1000);  // less than 3 hrs
+    var now = new Date();
+    if (now.getHours() <= 12) {
+        setTimeout(function() {
+            location.reload();
+        }, 175 * 60 * 1000);  // less than 3 hrs
+    };
 }

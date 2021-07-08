@@ -249,14 +249,16 @@ class Strategy {
 class StrategyBuy extends Strategy {
     check(rtInfo) {
         var match = false;
+        var stepInCritical = false;
         var price = rtInfo.latestPrice;
         if (!this.inCritical) {
             if (price <= this.guardPrice) {
                 this.inCritical = true;
+                stepInCritical = true
                 this.prePeekPrice = price;
                 strategyManager.flushStrategy(this);
             }
-            return {match};
+            return {match, stepInCritical, account: this.account};
         }
         if (price >= this.prePeekPrice * (1 + this.backRate)) {
             return this.matchResult(true, rtInfo.sellPrices[0]);
@@ -265,7 +267,7 @@ class StrategyBuy extends Strategy {
             this.prePeekPrice = price;
             strategyManager.flushStrategy(this);
         }
-        return {match};
+        return {match, stepInCritical, account: this.account};
     }
 
     createView() {
@@ -283,13 +285,15 @@ class StrategySell extends Strategy {
     check(rtInfo) {
         var price = rtInfo.latestPrice;
         var match = false;
+        var stepInCritical = false;
         if (!this.inCritical) {
             if (price > this.guardPrice) {
                 this.inCritical = true;
                 this.prePeekPrice = price;
+                stepInCritical = true;
                 strategyManager.flushStrategy(this);
             }
-            return {match};
+            return {match, stepInCritical, account: this.account};
         }
         if (price <= this.prePeekPrice * (1 - this.backRate)) {
             return this.matchResult(true, rtInfo.buyPrices[0]);
@@ -298,7 +302,7 @@ class StrategySell extends Strategy {
             this.prePeekPrice = price;
             strategyManager.flushStrategy(this);
         }
-        return {match};
+        return {match, stepInCritical, account: this.account};
     }
 
     createView() {
@@ -417,6 +421,7 @@ class StrategySellRepeat extends StrategySell {
 class StrategyBuyIPO extends StrategyBuy {
     check(rtInfo) {
         var match = false;
+        var stepInCritical = false;
         var price = rtInfo.latestPrice;
         var topprice = rtInfo.topprice;
         var bottomprice = rtInfo.bottomprice;
@@ -424,9 +429,10 @@ class StrategyBuyIPO extends StrategyBuy {
             if (price < topprice) {
                 this.inCritical = true;
                 this.prePeekPrice = price;
+                stepInCritical = true;
                 strategyManager.flushStrategy(this);
             }
-            return {match};
+            return {match, stepInCritical, account: this.account};
         }
         if (price >= this.prePeekPrice * (1 + this.backRate)) {
             return this.matchResult(true, rtInfo.sellPrices[0]);
@@ -435,7 +441,7 @@ class StrategyBuyIPO extends StrategyBuy {
             this.prePeekPrice = price;
             strategyManager.flushStrategy(this);
         }
-        return {match};
+        return {match, stepInCritical, account: this.account};
     }
 
     createView() {
