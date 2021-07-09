@@ -52,6 +52,7 @@
         "tabs",
         "cookies",
         "alarms",
+        "downloads",
         "<all_urls>"
     ],
     "commands": {

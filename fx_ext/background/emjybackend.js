@@ -755,6 +755,7 @@ class EmjyBack {
         this.normalAccount.save();
         this.collateralAccount.save();
         this.watchAccount.save();
+        tradeAnalyzer.save();
     }
 
     clearStorage() {
@@ -772,6 +773,17 @@ class TradingData {
             this.dayPriceAvg[snapshot.code] = [];
         };
         this.dayPriceAvg[snapshot.code].push([snapshot.realtimequote.currentPrice, snapshot.realtimequote.avg]);
+    }
+
+    save() {
+        var now = new Date();
+        var fileDate = now.getFullYear() + '-' + now.getMonth() + '-' + now.getDate();
+        for (var c in this.dayPriceAvg) {
+            var blob = new Blob([JSON.stringify(this.dayPriceAvg[c])], {type: 'application/json'});
+            var url = URL.createObjectURL(blob);
+            var filename = 'StockDailyPrices/' + fileDate + '_' + c + '.json';
+            chrome.downloads.download({url, filename, saveAs:false});
+        }
     }
 }
 
