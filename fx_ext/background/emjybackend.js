@@ -775,9 +775,13 @@ class TradingData {
         this.dayPriceAvg[snapshot.code].push([snapshot.realtimequote.currentPrice, snapshot.realtimequote.avg]);
     }
 
-    save() {
+    getTodayDate() {
         var now = new Date();
-        var fileDate = now.getFullYear() + '-' + now.getMonth() + '-' + now.getDate();
+        return now.getFullYear() + ('' + (now.getMonth()+1)).padStart(2, '0') + ('' + now.getDate()).padStart(2, '0');
+    }
+
+    save() {
+        var fileDate = this.getTodayDate();
         for (var c in this.dayPriceAvg) {
             var blob = new Blob([JSON.stringify(this.dayPriceAvg[c])], {type: 'application/json'});
             var url = URL.createObjectURL(blob);

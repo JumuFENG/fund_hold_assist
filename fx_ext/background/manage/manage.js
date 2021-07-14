@@ -9,6 +9,7 @@ class Manager {
         this.log = log;
         this.page = null;
         this.stockList = null;
+        this.ztPool = null;
         this.accountNames = {'normal':'普通账户', 'collat': '担保品', 'credit': '融资账户', 'watch':'关注中'};
     }
 
@@ -61,6 +62,10 @@ class Manager {
         };
 
         this.page.addWatchArea();
+        if (!this.ztPool) {
+            this.ztPool = new ZtPool();
+        };
+        this.page.addPickUpArea(this.ztPool);
     }
 
     addStock(code) {
@@ -101,6 +106,11 @@ class ManagerPage {
         }
         watchDiv.appendChild(btnOk);
         this.root.appendChild(watchDiv);
+    }
+
+    addPickUpArea(ztPool) {
+        ztPool.createZtArea();
+        this.root.appendChild(ztPool.root);
     }
 }
 
