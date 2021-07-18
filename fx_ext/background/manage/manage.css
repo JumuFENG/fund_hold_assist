@@ -23,3 +23,15 @@ hr {
 .radio_anchor_div a.highlight:link, .radio_anchor_div a.highlight:visited {
     color: white;
 }
+
+.sortableTable, .sortableTable td, .sortableTable th {
+    border: 1px solid grey;
+}
+
+.sortableTable {
+    border-collapse: collapse;
+}
+
+.sortableTable th {
+    background-color: lightgray;
+}

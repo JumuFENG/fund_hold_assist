@@ -306,6 +306,8 @@ class ManagerBack {
             emjyBack.watchAccount.addStock(message.code);
         } else if (message.command == 'mngr.rmwatch') {
             emjyBack.removeStock(message.account, message.code);
+        } else if (message.command == 'mngr.getZTPool') {
+            emjyBack.postQuoteWorkerMessage({command:'quote.get.ZTPool', date: message.date});
         };
     }
 
@@ -546,7 +548,9 @@ class EmjyBack {
         // this.log('message from quoteWorker', JSON.stringify(message));
         if (message.command == 'quote.snapshot') {
             this.updateStockRtPrice(message.snapshot);
-        }
+        } else if (message.command == 'quote.get.ZTPool') {
+            this.manager.sendManagerMessage({command:'mngr.getZTPool', ztpool: message.ztpool});
+        };
     }
 
     refreshAssets() {
@@ -632,6 +636,7 @@ class EmjyBack {
     setupQuoteAlarms() {
         if (DEBUG) {
             this.postQuoteWorkerMessage({command: 'quote.refresh', time: 0});
+            return;
         };
 
         var now = new Date();

@@ -20,6 +20,10 @@ class Manager {
     handleExtensionMessage(message) {
         if (message.command == 'mngr.stocks') {
             this.initStocks(message.stocks);
+        } else if (message.command == 'mngr.getZTPool') {
+            if (this.ztPool) {
+                this.ztPool.onZTPoolback(message.ztpool);
+            };
         }
     }
 
@@ -63,7 +67,7 @@ class Manager {
 
         this.page.addWatchArea();
         if (!this.ztPool) {
-            this.ztPool = new ZtPool();
+            this.ztPool = new ZtPool(this.sendExtensionMessage);
         };
         this.page.addPickUpArea(this.ztPool);
     }
