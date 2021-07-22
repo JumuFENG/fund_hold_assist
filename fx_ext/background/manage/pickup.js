@@ -11,7 +11,7 @@ class ZtPool {
         this.gettingKline = new Set();
     }
 
-    dateToString(dt, sep) {
+    dateToString(dt, sep = '') {
         return dt.getFullYear() + sep + ('' + (dt.getMonth() + 1)).padStart(2, '0') + sep + ('' + dt.getDate()).padStart(2, '0');
     }
 
@@ -175,8 +175,7 @@ class ZtPool {
                 var len = ztpool[i].kline.length;
                 date = this.getNextDate(ztpool[i].kline[len - 1].date);
             };
-            var now = new Date();
-            if (date <= this.dateToString(now)) {
+            if (date <= this.dateToString(new Date())) {
                 this.sendExtensionMessage({command:'mngr.getkline', code, date, len: 20});
                 this.gettingKline.add(code);
             };
@@ -199,21 +198,28 @@ class ZtPool {
     }
 
     updateKline(kline) {
-        var stock = this.ztStocks.find(s => {return s.code == kline.data.code;});
+        var klines = this.parseKlines(kline.data.klines);
+        this.updateKlineTo(this.ztStocks.find(s => {return s.code == kline.data.code;}), klines, 1);
+        this.updateKlineTo(this.zt2Stocks.find(s => {return s.code == kline.data.code;}), klines, 2);
+        this.updateKlineTo(this.zt3Stocks.find(s => {return s.code == kline.data.code;}), klines, 3);
+        
         if (this.gettingKline.has(kline.data.code)) {
             this.gettingKline.delete(kline.data.code);
         };
+
+        if (this.gettingKline.size == 0) {
+            this.refreshZtPool();
+        };
+    }
+
+    updateKlineTo(stock, klines, zttype) {
         if (!stock) {
-            if (this.gettingKline.size == 0) {
-                this.refreshZtPool();
-            };
             return;
-        }
+        };
         if (!stock.name) {
             stock.name = kline.data.name;
         }
 
-        var klines = this.parseKlines(kline.data.klines);
         if (!stock.kline || stock.kline.length == 0) {
             stock.kline = klines;
         } else {
@@ -225,9 +231,6 @@ class ZtPool {
                 }
             };
         }
-        if (this.gettingKline.size == 0) {
-            this.refreshZtPool();
-        };
     }
 
     refreshZtPool() {
@@ -281,8 +284,7 @@ class ZtPool {
     }
 
     saveZtPool() {
-        var now = new Date();
-        var date = this.dateToString(now);
+        var date = this.dateToString(new Date());
         if (this.ztStocks.length > 0) {
             this.saveZtStocks(this.ztStocks, 'StockDailyPrices/首板统计/zt1pool' + date + '.json');
         };
