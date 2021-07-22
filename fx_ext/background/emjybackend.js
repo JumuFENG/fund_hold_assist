@@ -308,6 +308,10 @@ class ManagerBack {
             emjyBack.removeStock(message.account, message.code);
         } else if (message.command == 'mngr.getZTPool') {
             emjyBack.postQuoteWorkerMessage({command:'quote.get.ZTPool', date: message.date});
+        } else if (message.command == 'mngr.getkline') {
+            emjyBack.postQuoteWorkerMessage({command: 'quote.get.kline', code: message.code, date: message.date});
+        } else if (message.command == 'mngr.saveFile') {
+            emjyBack.saveToFile(message.blob, message.filename);
         };
     }
 
@@ -478,7 +482,7 @@ class EmjyBack {
             if (this.manager && this.manager.isValid()) {
                 this.manager.sendStocks([this.normalAccount, this.collateralAccount, this.watchAccount]);
             }
-            this.updateHoldStocks(message.stocks);
+            
             this.log(JSON.stringify(this.normalAccount));
             this.log(JSON.stringify(this.collateralAccount));
             this.log(JSON.stringify(this.creditAccount));
@@ -550,6 +554,8 @@ class EmjyBack {
             this.updateStockRtPrice(message.snapshot);
         } else if (message.command == 'quote.get.ZTPool') {
             this.manager.sendManagerMessage({command:'mngr.getZTPool', ztpool: message.ztpool});
+        } else if (message.command == 'quote.get.kline') {
+            this.manager.sendManagerMessage({command:'mngr.getkline', kline: message.kline});
         };
     }
 
@@ -576,18 +582,11 @@ class EmjyBack {
         }
     }
 
-    updateHoldStocks(stocks) {
-        var holdChanged = false;
-        for (var i = 0; i < stocks.length; i++) {
-            if (!this.stockGuard.has(stocks[i].code)) {
-                this.stockGuard.add(stocks[i].code);
-                holdChanged = true;
-            };
-        };
-
-        if (holdChanged) {
+    addToGuardStocks(code) {
+        if (!this.stockGuard.has(code)) {
+            this.stockGuard.add(code);
             this.updateMonitor();
-        }
+        };
     }
 
     updateMonitor() {
@@ -715,6 +714,10 @@ class EmjyBack {
         } else if (account == this.watchAccount.keyword) {
             this.watchAccount.applyStrategy(code, buyStrategy, sellStrategy);
         };
+
+        if (buyStrategy || sellStrategy) {
+            this.addToGuardStocks(code);
+        };
     }
 
     initWatchList(codes) {
@@ -765,6 +768,12 @@ class EmjyBack {
 
     clearStorage() {
         chrome.storage.local.clear();
+    }
+
+    saveToFile(blob, filename, conflictAction = 'overwrite') {
+        // conflictAction (uniquify, overwrite, prompt)
+        var url = URL.createObjectURL(blob);
+        chrome.downloads.download({url, filename, saveAs:false, conflictAction});
     }
 }
 

@@ -24,6 +24,10 @@ class Manager {
             if (this.ztPool) {
                 this.ztPool.onZTPoolback(message.ztpool);
             };
+        } else if (message.command == 'mngr.getkline') {
+            if (this.ztPool) {
+                this.ztPool.updateKline(message.kline);
+            };
         }
     }
 
@@ -114,6 +118,7 @@ class ManagerPage {
 
     addPickUpArea(ztPool) {
         ztPool.createZtArea();
+        this.root.appendChild(document.createElement('hr'));
         this.root.appendChild(ztPool.root);
     }
 }
