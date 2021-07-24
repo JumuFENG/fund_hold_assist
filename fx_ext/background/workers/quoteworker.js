@@ -61,6 +61,7 @@ function cbztPoolback(ztpool) {
 }
 
 function getKlineDailySince(code, date, len) {
+    // postLog('get ' + code + ' ' + date + ' len = ' + len);
     var secid = ((code.startsWith('00') || code.startsWith('30')) ? '0.' : '1.') + code;
     var end = '20500000';
     if (len > 0) {

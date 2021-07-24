@@ -25,5 +25,8 @@
     },
     "btn_open_start_page": {
         "message": "打开交易页"
+    },
+    "btn_open_dashbard": {
+        "message": "数据分析"
     }
 }

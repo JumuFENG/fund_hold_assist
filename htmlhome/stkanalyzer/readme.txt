@@ -1,0 +1,1 @@
+in this html page, will show the basic entry for analyzing the stocks.

@@ -25,5 +25,8 @@
     },
     "btn_open_start_page": {
         "message": "Open start page"
+    },
+    "btn_open_dashbard": {
+        "message": "Open dashboard"
     }
 }

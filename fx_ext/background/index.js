@@ -42,7 +42,11 @@
             logInfo('emjy.Loaded', message.url);
         } else if (message.command.startsWith('emjy.') && emjyBack) {
             emjyBack.onContentMessageReceived(message);
-        } else if (message.command.startsWith('mngr.') && emjyBack) {
+        } else if (message.command.startsWith('mngr.')) {
+            if (!emjyBack) {
+                emjyBack = new EmjyBack();
+                emjyBack.Init(logInfo);
+            };
             if (sender.tab) {
                 emjyBack.onManagerMessageReceived(message, sender.tab.id);
             } else {

@@ -1,13 +1,15 @@
 let futuStockUrl = 'https://www.futunn.com/stock/';
-// var startDate = new Date('2021-01-01');
+var startDate = new Date('2021-07-23');
+var endDate = new Date('2021-07-23');
+
 class ZtPool {
     constructor(sendMsg) {
         this.sendExtensionMessage = sendMsg;
         this.root = document.createElement('div');
         this.ztListDiv = null;
-        this.ztStocks = [];
-        this.zt2Stocks = []; // 连板
-        this.zt3Stocks = []; // 3连板
+        this.ztpool = [];
+        this.ztData = [{ztcount: 1, ztStocks: []}, {ztcount: 2, ztStocks:[]}, {ztcount: 3, ztStocks:[]}];
+        this.gettingDate = null;
         this.gettingKline = new Set();
     }
 
@@ -16,10 +18,6 @@ class ZtPool {
     }
 
     getLastTradingDate(sep = '') {
-        // if (sep == '') {
-        //     startDate.setDate(startDate.getDate() + 1);
-        // };
-        // return this.dateToString(startDate, sep);
         var now = new Date();
         var dateVal = now.getDate();
         if (now.getDay() == 0) {
@@ -28,6 +26,7 @@ class ZtPool {
             dateVal -= 1;
         };
         now.setDate(dateVal);
+        this.gettingDate = now;
         return this.dateToString(now, sep);
     }
 
@@ -41,42 +40,27 @@ class ZtPool {
         var fileIptDiv = document.createElement('div');
         var inputFile = document.createElement('input');
         inputFile.type = 'file';
+        inputFile.multiple = true;
         inputFile.owner = this;
         inputFile.addEventListener('change', (e) => {
+            if (e.target.files.length > 1) {
+                e.target.owner.onMergeZTPools(e.target.files);
+                return;
+            };
             e.target.files[0].text().then(text => {
                 e.target.owner.onSavedZTPoolLoaded(JSON.parse(text));
             });
         });
-        fileIptDiv.appendChild(document.createTextNode('首 板涨停文件 '));
+        fileIptDiv.appendChild(document.createTextNode('涨停板文件 '));
         fileIptDiv.appendChild(inputFile);
         fileIptDiv.appendChild(document.createElement('br'));
-        var inputFile2 = document.createElement('input');
-        inputFile2.type = 'file';
-        inputFile2.owner = this;
-        inputFile2.addEventListener('change', e => {
-            e.target.files[0].text().then(text => {
-                e.target.owner.onSavedZTPoolLoaded(JSON.parse(text), 2);
-            });
-        });
-        fileIptDiv.appendChild(document.createTextNode('二连板涨停文件 '));
-        fileIptDiv.appendChild(inputFile2);
-        fileIptDiv.appendChild(document.createElement('br'));
-        var inputFile3 = document.createElement('input');
-        inputFile3.type = 'file';
-        inputFile3.owner = this;
-        inputFile3.addEventListener('change', e => {
-            e.target.files[0].text().then(text => {
-                e.target.owner.onSavedZTPoolLoaded(JSON.parse(text), 3);
-            });
-        });
-        fileIptDiv.appendChild(document.createTextNode('三连板涨停文件 '));
-        fileIptDiv.appendChild(inputFile3);
         this.root.appendChild(fileIptDiv);
         var getZtBtn = document.createElement('button');
         getZtBtn.textContent = '获取最新涨停股池';
         getZtBtn.owner = this;
         getZtBtn.onclick = function(e) {
-            e.target.owner.sendExtensionMessage({command:'mngr.getZTPool', date: e.target.owner.getLastTradingDate()});
+            e.target.owner.getZTPool(owner.getLastTradingDate());
+            // e.target.owner.getHistZTPool();
         }
         this.root.appendChild(getZtBtn);
         var saveZtBtn = document.createElement('button');
@@ -88,11 +72,27 @@ class ZtPool {
         this.root.appendChild(saveZtBtn);
     }
 
+    getHistZTPool() {
+        this.getZTPool(this.dateToString(startDate));
+        this.gettingDate = startDate;
+    }
+
+    getZTPool(date) {
+        this.sendExtensionMessage({command:'mngr.getZTPool', date});
+    }
+
     onZTPoolback(ztpool) {
+        var ztdate = this.dateToString(this.gettingDate, '-');
+        this.gettingDate.setDate(this.gettingDate.getDate() + 1);
+        if (this.gettingDate < endDate) {
+            this.getZTPool(this.dateToString(this.gettingDate));
+        };
         if (!ztpool || !ztpool.data) {
             console.log('onZTPoolback', ztpool);
             return;
         };
+
+        this.ztpool.push({ztdate, pool: ztpool.data.pool});
         for (var i = 0; i < ztpool.data.pool.length; ++i) {
             var stock = ztpool.data.pool[i];
             if (stock.c.startsWith('68') || stock.c.startsWith('30')) {
@@ -115,72 +115,67 @@ class ZtPool {
             }
             var name = stock.n;
             var code = stock.c;
-            var url = futuStockUrl + code + (stock.m == '0' ? '-SZ' : '-SH');
+            var m = stock.m;
             var ltsz = stock.ltsz / 100000000; // 流通市值
             var zsz = stock.tshare / 100000000; // 总市值
             var hsl = stock.hs;  // 换手率 %
             var zbc = stock.zbc; // 炸板次数
             var price = stock.p / 1000; // 最新价
-            var ztdate = this.getLastTradingDate('-');
-            if (stock.lbc == 1) {
-                this.addToZtStocks(this.ztStocks, {name, code, url, ltsz, zsz, hsl, zbc, price, ztdate})
-            } else if (stock.lbc == 2) {
-                this.addToZtStocks(this.zt2Stocks, {name, code, url, ltsz, zsz, hsl, zbc, price, ztdate});
-            } else if (stock.lbc == 3) {
-                this.addToZtStocks(this.zt3Stocks, {name, code, url, ltsz, zsz, hsl, zbc, price, ztdate})
+            for (var j = 0; j < this.ztData.length; j++) {
+                if (this.ztData[j].ztcount == stock.lbc) {
+                    var stk = this.ztData[j].ztStocks.find(s => {return s.code == stock.c && s.ztdate == ztdate;});
+                    if (!stk) {
+                        this.ztData[j].ztStocks.push({name, code, m, ltsz, zsz, hsl, zbc, price, ztdate});
+                    };
+                };
             };
         }
 
         this.refreshZtPool();
     }
 
-    addToZtStocks(ztStocks, stock) {
-        var stk = ztStocks.find(s => {return s.code == stock.code && s.ztdate == stock.ztdate;});
-        if (!stk) {
-            ztStocks.push(stock);
-        }
-    }
-
-    onSavedZTPoolLoaded(ztpool, zttype = 1) {
-        if (zttype == 1) {
-            if (this.ztStocks.length == 0) {
-                this.ztStocks = ztpool;
-            } else {
-                for (var i = 0; i < ztpool.length; i++) {
-                    this.addToZtStocks(this.ztStocks, ztpool[i]);
+    onSavedZTPoolLoaded(ztpool) {
+        this.ztData = ztpool;
+        for (var i = 0; i < this.ztData.length; i++) {
+            for (var j = 0; j < this.ztData[i].ztStocks.length; j++) {
+                var stocki = this.ztData[i].ztStocks[j];
+                var code = stocki.code;
+                var date = this.getNextDate(stocki.ztdate);
+                if (stocki.kline && stocki.kline.length > 0) {
+                    var len = stocki.kline.length;
+                    if (len >= 20) {
+                        continue;
+                    };
+                    date = this.getNextDate(stocki.kline[len - 1].date);
                 };
-            };
-        } else if (zttype == 2) {
-            if (this.zt2Stocks.length == 0) {
-                this.zt2Stocks = ztpool;
-            } else {
-                for (var i = 0; i < ztpool.length; i++) {
-                    this.addToZtStocks(this.zt2Stocks, ztpool[i]);
+                if (date <= this.getLastTradingDate() && !this.gettingKline.has(code)) {
+                    this.sendExtensionMessage({command:'mngr.getkline', code, date, len: 20});
+                    this.gettingKline.add(code);
                 };
-            };
-        } else if (zttype == 3) {
-            if (this.zt3Stocks.length == 0) {
-                this.zt3Stocks = ztpool;
-            } else {
-                for (var i = 0; i < ztpool.length; i++) {
-                    this.addToZtStocks(this.zt3Stocks, ztpool[i]);
-                };
-            };
-        };
-
-        for (var i = 0; i < ztpool.length; i++) {
-            var code = ztpool[i].code;
-            var date = this.getNextDate(ztpool[i].ztdate);
-            if (ztpool[i].kline && ztpool[i].kline.length > 0) {
-                var len = ztpool[i].kline.length;
-                date = this.getNextDate(ztpool[i].kline[len - 1].date);
-            };
-            if (date <= this.dateToString(new Date())) {
-                this.sendExtensionMessage({command:'mngr.getkline', code, date, len: 20});
-                this.gettingKline.add(code);
             };
         };
         this.refreshZtPool();
+    }
+
+    onMergeZTPools(files) {
+        var ztpool = [];
+        var flen = files.length;
+        for (var i = 0; i < files.length; i++) {
+            files[i].text().then(text => {
+                (JSON.parse(text)).forEach(z => {
+                    if (!ztpool.find(d => {return d.ztdate == z.ztdate;})) {
+                        ztpool.push(z);
+                    };
+                });
+                flen--;
+                if (flen == 0 && ztpool.length > 0) {
+                    ztpool.sort((a, b) => {return a.ztdate > b .ztdate; });
+                    var blob = new Blob([JSON.stringify(ztpool)], {type: 'application/json'});
+                    var filename = 'StockDailyPrices/首板统计/ztdaily/' + ztpool[0].ztdate + '-' + ztpool[ztpool.length - 1].ztdate + '.json';
+                    this.sendExtensionMessage({command:'mngr.saveFile', blob, filename});
+                };
+            });
+        };
     }
 
     parseKlines(kline) {
@@ -199,9 +194,15 @@ class ZtPool {
 
     updateKline(kline) {
         var klines = this.parseKlines(kline.data.klines);
-        this.updateKlineTo(this.ztStocks.find(s => {return s.code == kline.data.code;}), klines, 1);
-        this.updateKlineTo(this.zt2Stocks.find(s => {return s.code == kline.data.code;}), klines, 2);
-        this.updateKlineTo(this.zt3Stocks.find(s => {return s.code == kline.data.code;}), klines, 3);
+        for (var i = 0; i < this.ztData.length; i++) {
+            this.ztData[i].ztStocks.forEach(s => {
+                if (s.code == kline.data.code) {
+                    if (!s.kline || s.kline.length < 20) {
+                        this.updateKlineTo(s, klines);
+                    };
+                };
+            });
+        };
         
         if (this.gettingKline.has(kline.data.code)) {
             this.gettingKline.delete(kline.data.code);
@@ -212,25 +213,24 @@ class ZtPool {
         };
     }
 
-    updateKlineTo(stock, klines, zttype) {
+    updateKlineTo(stock, klines) {
         if (!stock) {
             return;
         };
         if (!stock.name) {
             stock.name = kline.data.name;
-        }
+        };
 
-        if (!stock.kline || stock.kline.length == 0) {
-            stock.kline = klines;
-        } else {
-            var len = stock.kline.length;
-            var lastDate = stock.kline[len-1].date;
-            for (var i = 0; i < klines.length; i++) {
-                if (klines[i].date > lastDate) {
-                    stock.kline.push(klines[i]);
-                }
+        if (!stock.kline) {
+            stock.kline = [];
+        };
+        var len = stock.kline.length;
+        var lastDate = (len == 0 ? stock.ztdate : stock.kline[len-1].date);
+        for (var i = 0; i < klines.length; i++) {
+            if (klines[i].date > lastDate) {
+                stock.kline.push(klines[i]);
             };
-        }
+        };
     }
 
     refreshZtPool() {
@@ -244,9 +244,15 @@ class ZtPool {
             this.ztListDiv.appendChild(this.zt3Table.container);
             this.root.appendChild(this.ztListDiv);
         }
-        this.refreshZtTable(this.ztTable, this.ztStocks);
-        this.refreshZtTable(this.zt2Table, this.zt2Stocks);
-        this.refreshZtTable(this.zt3Table, this.zt3Stocks);
+        for (var i = 0; i < this.ztData.length; i++) {
+            if (this.ztData[i].ztcount == 1) {
+                this.refreshZtTable(this.ztTable, this.ztData[i].ztStocks);
+            } else if (this.ztData[i].ztcount == 2) {
+                this.refreshZtTable(this.zt2Table, this.ztData[i].ztStocks);
+            } else if (this.ztData[i].ztcount == 3) {
+                this.refreshZtTable(this.zt3Table, this.ztData[i].ztStocks);
+            };
+        };
     }
 
     refreshZtTable(ztTable, ztStocks) {
@@ -256,7 +262,11 @@ class ZtPool {
             var anchor = document.createElement('a');
             var stocki = ztStocks[i];
             anchor.textContent = stocki.name + '(' + stocki.code + ')';
-            anchor.href = stocki.url;
+            if (stocki.url !== undefined) {
+                anchor.href = stocki.url;
+            } else if (stocki.m !== undefined) {
+                anchor.href = futuStockUrl + stocki.code + (stocki.m == '0' ? '-SZ' : '-SH');
+            };
             anchor.target = '_blank';
             ztTable.addRow(
                 i + 1, anchor,
@@ -278,21 +288,17 @@ class ZtPool {
         };
     }
 
-    saveZtStocks(ztStocks, filename) {
-        var blob = new Blob([JSON.stringify(ztStocks)], {type: 'application/json'});
-        this.sendExtensionMessage({command:'mngr.saveFile', blob, filename});
-    }
-
     saveZtPool() {
         var date = this.dateToString(new Date());
-        if (this.ztStocks.length > 0) {
-            this.saveZtStocks(this.ztStocks, 'StockDailyPrices/首板统计/zt1pool' + date + '.json');
+        if (this.ztData[0].ztStocks.length > 0) {
+            var blob = new Blob([JSON.stringify(this.ztData)], {type: 'application/json'});
+            var filename = 'StockDailyPrices/首板统计/ztpool' + date + '.json';
+            this.sendExtensionMessage({command:'mngr.saveFile', blob, filename});
         };
-        if (this.zt2Stocks.length > 0) {
-            this.saveZtStocks(this.zt2Stocks, 'StockDailyPrices/首板统计/zt2pool' + date + '.json');
-        };
-        if (this.zt3Stocks.length > 0) {
-            this.saveZtStocks(this.zt3Stocks, 'StockDailyPrices/首板统计/zt3pool' + date + '.json');
+        if (this.ztpool.length > 0) {
+            var blob = new Blob([JSON.stringify(this.ztpool)], {type: 'application/json'});
+            var filename = 'StockDailyPrices/首板统计/ztdaily/' + this.ztpool[0].ztdate + '.json';
+            this.sendExtensionMessage({command:'mngr.saveFile', blob, filename});
         };
     }
 };

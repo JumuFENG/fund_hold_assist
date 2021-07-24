@@ -309,7 +309,7 @@ class ManagerBack {
         } else if (message.command == 'mngr.getZTPool') {
             emjyBack.postQuoteWorkerMessage({command:'quote.get.ZTPool', date: message.date});
         } else if (message.command == 'mngr.getkline') {
-            emjyBack.postQuoteWorkerMessage({command: 'quote.get.kline', code: message.code, date: message.date});
+            emjyBack.postQuoteWorkerMessage({command: 'quote.get.kline', code: message.code, date: message.date, len: message.len});
         } else if (message.command == 'mngr.saveFile') {
             emjyBack.saveToFile(message.blob, message.filename);
         };
@@ -364,6 +364,11 @@ class EmjyBack {
         this.log = logger;
         this.stockGuard = new Set();
         emjyBack = this;
+        if (!this.quoteWorker) {
+            this.quoteWorker = new Worker('workers/quoteworker.js');
+            this.quoteWorker.onmessage = onQuoteWorkerMessage;
+            this.setupQuoteAlarms();
+        };
         this.log('EmjyBack initialized!');
     }
 
@@ -550,7 +555,9 @@ class EmjyBack {
 
     onQuoteWorkerMessageReceived(message) {
         // this.log('message from quoteWorker', JSON.stringify(message));
-        if (message.command == 'quote.snapshot') {
+        if (message.command == 'quote.log') {
+            this.log('quote.log', message.log);
+        } else if (message.command == 'quote.snapshot') {
             this.updateStockRtPrice(message.snapshot);
         } else if (message.command == 'quote.get.ZTPool') {
             this.manager.sendManagerMessage({command:'mngr.getZTPool', ztpool: message.ztpool});
@@ -590,11 +597,6 @@ class EmjyBack {
     }
 
     updateMonitor() {
-        if (!this.quoteWorker) {
-            this.quoteWorker = new Worker('workers/quoteworker.js');
-            this.quoteWorker.onmessage = onQuoteWorkerMessage;
-            this.setupQuoteAlarms();
-        };
         this.postQuoteWorkerMessage({command: 'quote.update.code', stocks: this.stockGuard});
     }
 
@@ -633,12 +635,12 @@ class EmjyBack {
     }
 
     setupQuoteAlarms() {
-        if (DEBUG) {
+        var now = new Date();
+        if (DEBUG || now.getDay() == 0 || now.getDay() == 6) {
             this.postQuoteWorkerMessage({command: 'quote.refresh', time: 0});
             return;
         };
 
-        var now = new Date();
         var alarms = [
         {name:'morning-start', tick: new Date(now.toDateString() + ' 9:29:51').getTime()},
         {name:'morning-middle', tick: new Date(now.toDateString() + ' 10:15:55').getTime()},
