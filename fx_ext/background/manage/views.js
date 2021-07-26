@@ -86,6 +86,24 @@ class Utils {
             tbl.deleteRow(idx);
         }
     }
+
+    createSelector(opts, opt0 = null) {
+        var selector = document.createElement('select');
+        if (opt0) {
+            var opt = document.createElement('option');
+            opt.textContent = opt0;
+            opt.selected = true;
+            opt.disabled = true;
+            selector.appendChild(opt)
+        };
+        for (var i in opts) {
+            var opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = opts[i];
+            selector.appendChild(opt);
+        };
+        return selector;
+    }
 }
 
 class RadioAnchorBar {
