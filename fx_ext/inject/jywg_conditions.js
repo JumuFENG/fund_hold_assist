@@ -1,5 +1,6 @@
 'use strict';
 let EmjyFront = null;
+let BondRepurchasePath = '/BondRepurchase/SecuritiesLendingRepurchase';
 
 class JywgUtils {
     constructor(log) {
@@ -105,11 +106,46 @@ class JywgUtils {
         });
     }
 
-    clickTrade(code, name, price, count, notifyDone) {
-        if (!location.href.includes('code=') && document.querySelector('#btnConfirm').disabled) {
-            if (typeof(notifyDone) === 'function') {
-                notifyDone({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded'});
+    clickConfirmAgainBtn() {
+        var checkAgainInterval = setInterval(() => {
+            var confirmAgain = document.querySelector('.btn_jh', '.btnts', '.cl', '.btn', '.btn-default-blue');
+            if (confirmAgain) {
+                clearInterval(checkAgainInterval);
+                confirmAgain.click();
+                EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'success'});
+            } else if (this.retry < 100){
+                this.retry ++;
+            } else {
+                this.retry = 0;
+                clearInterval(checkAgainInterval);
+                EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'confirmAgainInvalid'});
+                this.log('retry more than 100');
             }
+        }, 200);
+    }
+
+    tradeBondRepurchase(code) {
+        document.querySelector('#iptZqdm').value = code;
+        document.querySelector('#iptZqdm').click();
+        setTimeout(() => {
+            document.querySelector('#quickSale').childNodes[0].childNodes[1].childNodes[0].click();
+            setTimeout(() => {
+                if (document.querySelector('#lblKrsl').textContent == 0) {
+                    this.log('可融数量: 0');
+                    EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'maxCountInvalid'});
+                    return;
+                };
+                document.querySelector('#iptRqsl').value = document.querySelector('#lblKrsl').textContent;
+                document.querySelector('#btnConfirm').disabled = false;
+                document.querySelector('#btnConfirm').click();
+                this.clickConfirmAgainBtn();
+            }, 1000);
+        }, 1000);
+    }
+
+    clickTrade(code, name, price, count) {
+        if (!location.href.includes('code=') && document.querySelector('#btnConfirm').disabled) {
+            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded'});
             return;
         }
 
@@ -119,9 +155,7 @@ class JywgUtils {
         };
         document.querySelector('#iptPrice').value = price;
         if (document.querySelector('#lbMaxCount').textContent < count) {
-            if (typeof(notifyDone) === 'function') {
-                notifyDone({command:'emjy.trade', result: 'error', reason: 'maxCountInvalid', what: 'maxCount = ' + document.querySelector('#lbMaxCount').textContent + ', count = ' + count});
-            }
+            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'maxCountInvalid', what: 'maxCount = ' + document.querySelector('#lbMaxCount').textContent + ', count = ' + count});
             return;
         };
         if (count <= 4 && count >= 1) {
@@ -131,40 +165,20 @@ class JywgUtils {
                 document.querySelector(radId).click();
             };
         } else if (count < 100) {
-            if (typeof(notifyDone) === 'function') {
-                notifyDone({command:'emjy.trade', result: 'error', reason: 'countInvalid', what: 'count = ' + count});
-            }
+            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'countInvalid', what: 'count = ' + count});
             return;
         } else {
             document.querySelector('#iptCount').value = count;
         }
 
-        var clickConfirmAgain = function(that) {
-            var confirmAgain = document.getElementsByClassName('btn_jh btnts cl btn btn-default-blue')[0];
-            if (confirmAgain) {
-                confirmAgain.click();
-                if (typeof(notifyDone) === 'function') {
-                    notifyDone({command:'emjy.trade', result: 'success'});
-                }
-            } else if (that.retry < 100){
-                that.retry ++;
-                setTimeout(clickConfirmAgain(that), 100);
-            } else {
-                that.retry = 0;
-                if (typeof(notifyDone) === 'function') {
-                    notifyDone({command:'emjy.trade', result: 'error', reason: 'confirmAgainInvalid'});
-                }
-                that.log('retry more than 100');
-            }
-        }
-
-        if (document.querySelector('#btnConfirm').disabled) {
-            notifyDone({command:'emjy.trade', result: 'error', reason: 'btnConfirmDisabled'});
-            return;
-        }
-        
-        document.querySelector('#btnConfirm').click();
-        setTimeout(clickConfirmAgain(this), 200);
+        var checkInterval = setInterval(() => {
+            if (document.querySelector('#btnConfirm').disabled) {
+                return;
+            };
+            clearInterval(checkInterval);
+            document.querySelector('#btnConfirm').click();
+            this.clickConfirmAgainBtn();
+        }, 200);
     }
 }
 
@@ -238,8 +252,7 @@ class EmjyFrontend {
         var btnCxcConfirm = document.querySelector('#btnCxcConfirm');
         if (btnCxcConfirm) {
             btnCxcConfirm.click();
-            return;
-        }
+        };
 
         this.pageLoaded = true;
         this.sendMessageToBackground({command:'emjy.contentLoaded', url: location.href});
@@ -267,16 +280,20 @@ class EmjyFrontend {
     }
 
     stockTrade(message) {
+        this.log('stockTrade', JSON.stringify(message));
         if (location.pathname != message.tradePath) {
             this.log('not in', message.tradePath);
             return;
         }
-        this.log('stockTrade', JSON.stringify(message));
+        if (message.tradePath == BondRepurchasePath) {
+            this.jywgutils.tradeBondRepurchase(message.stock.code);
+            return;
+        };
         var stockName = message.stock.name;
         if (stockName === undefined) {
             stockName = '';
         }
-        this.jywgutils.clickTrade(message.stock.code, stockName, message.price, message.count, this.sendMessageToBackground);
+        this.jywgutils.clickTrade(message.stock.code, stockName, message.price, message.count);
     }
 }
 

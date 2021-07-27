@@ -1,6 +1,7 @@
 'use strict';
 let DEBUG = false;
 let emjyBack = null;
+let BondRepurchasePath = '/BondRepurchase/SecuritiesLendingRepurchase';
 
 class Wallet {
     constructor() {
@@ -238,6 +239,22 @@ class AccountInfo {
     }
 }
 
+class WatchAccount extends AccountInfo {
+    constructor() {
+        super();
+        this.keyword = 'watch';
+        this.buyPath = BondRepurchasePath;
+    }
+
+    buyFundBeforeClose() {
+        var repCodes = ['204001', '131810'];
+        repCodes.forEach(code => {
+            emjyBack.log('Buy', code);
+            emjyBack.sendTradeMessage(this.buyPath, {code});
+        });
+    }
+}
+
 class StockInfo {
     constructor(stock) {
         this.code = stock.code;
@@ -392,8 +409,7 @@ class EmjyBack {
             this.collateralAccount.initAccount('collat', '/MarginTrade/Buy', '/MarginTrade/Sale', '/MarginSearch/MyAssets');
             this.creditAccount = new AccountInfo();
             this.creditAccount.initAccount('credit', '/MarginTrade/MarginBuy', '/MarginTrade/FinanceSale', '/MarginSearch/MyAssets');
-            this.watchAccount = new AccountInfo();
-            this.watchAccount.initAccount('watch');
+            this.watchAccount = new WatchAccount();
             chrome.storage.local.get('watching_stocks', function(item) {
                 emjyBack.log('get watching_stocks', JSON.stringify(item));
                 if (item && item.watching_stocks) {
@@ -448,11 +464,15 @@ class EmjyBack {
             return;
         }
         if (data.command == 'emjy.trade') {
-            if (url.pathname == data.tradePath && url.search.includes('code=')) {
+            if (url.pathname == data.tradePath && (url.search.includes('code=') || data.tradePath == BondRepurchasePath)) {
                 doSendMsgToContent(this.contentTabId, data);
             } else {
                 url.pathname = data.tradePath;
-                url.search = '?code=' + data.stock.code;
+                if (data.tradePath == BondRepurchasePath) {
+                    url.search = '';
+                } else {
+                    url.search = '?code=' + data.stock.code;
+                };
                 sendNavigateToContent(this.contentTabId, url);
             }
             return;
@@ -631,7 +651,7 @@ class EmjyBack {
     }
 
     sendTradeMessage(tradePath, stock, price, count) {
-        this.postWorkerTask({command: 'emjy.trade', tradePath: tradePath, stock: stock, price: price, count: count});
+        this.postWorkerTask({command: 'emjy.trade', tradePath, stock, price, count});
     }
 
     setupQuoteAlarms() {
@@ -757,8 +777,9 @@ class EmjyBack {
     }
 
     tradeBeforeClose() {
-        this.normalAccount.buyFundBeforeClose();
+        // this.normalAccount.buyFundBeforeClose();
         this.collateralAccount.buyFundBeforeClose();
+        this.watchAccount.buyFundBeforeClose();
     }
 
     tradeClosed() {
