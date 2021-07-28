@@ -49,7 +49,7 @@ class Strategy {
         this.enabled = true;
         this.guardPrice = null;
         this.backRate = null;
-        this.count = null;
+        this.amount = null;
         this.account = null;
         this.prePeekPrice = null;
         this.inCritical = false;
@@ -106,6 +106,14 @@ class Strategy {
             };
         };
 
+        if (this.inputAmount) {
+            var amount = parseInt(this.inputAmount.value);
+            if (!this.amount || this.amount != amount) {
+                changed = true;
+                this.amount = amount;
+            };
+        };
+
         if (this.accountSelector) {
             var account = this.accountSelector.value;
             if (account != this.account) {
@@ -122,6 +130,7 @@ class Strategy {
         this.guardPrice = str.guardPrice;
         this.backRate = str.backRate;
         this.count = str.count;
+        this.amount = str.amount;
         this.account = str.account;
         this.prePeekPrice = str.prePeekPrice;
         this.inCritical = str.inCritical;
@@ -134,6 +143,7 @@ class Strategy {
         str.guardPrice = this.guardPrice;
         str.backRate = this.backRate;
         str.count = this.count;
+        str.amount = this.amount;
         str.account = this.account;
         str.prePeekPrice = this.prePeekPrice;
         str.inCritical = this.inCritical;
@@ -145,16 +155,27 @@ class Strategy {
         return JSON.stringify(str);
     }
 
+    calcCount(amount, price) {
+        var ct = (amount / 100) / price;
+        var d = ct - Math.floor(ct);
+        if (d <= ct * 0.15) {
+            return 100 * Math.floor(ct);
+        };
+        return 100 * Math.ceil(ct);
+    }
+
     matchResult(match, price) {
         if (!match) {
             return {match};
         };
         var result = {match, price};
         result.account = this.account;
-        if (!this.count || this.count == 0) {
-            result.count = 100 * Math.ceil(400 / result.price);
+        if (this.count && this.count != 0) {
+            result.count = count;
+        } else if (this.amount && this.amount != 0) {
+            result.count = this.calcCount(this.amount);
         } else {
-            result.count = this.count;
+            result.count = this.calcCount(40000);
         };
         return result;
     }
@@ -216,18 +237,32 @@ class Strategy {
         return popDiv;
     }
 
-    createCountDiv(text, cnt = 0) {
+    createCountDiv(text = '卖出数量 ', cnt = 0) {
         var ctDiv = document.createElement('div');
         ctDiv.appendChild(document.createTextNode(text));
         this.inputCount = document.createElement('input');
         if (this.count) {
             this.inputCount.value = this.count;
         } else {
-            this.inputCount.value = '0';
-        }
+            this.inputCount.value = cnt;
+        };
         ctDiv.appendChild(this.inputCount);
         ctDiv.appendChild(document.createTextNode('股'));
         return ctDiv;
+    }
+
+    createAmountDiv(text = '买入金额 ', amt = 40000) {
+        var amtDiv = document.createElement('div');
+        amtDiv.appendChild(document.createTextNode(text));
+        this.inputAmount = document.createElement('input');
+        if (this.amount) {
+            this.inputAmount.value = this.amount;
+        } else {
+            this.inputAmount.value = amt;
+        };
+        amtDiv.appendChild(this.inputAmount);
+        amtDiv.appendChild(document.createTextNode('元'));
+        return amtDiv;
     }
 
     createBuyAccountSelector() {
@@ -275,7 +310,7 @@ class StrategyBuy extends Strategy {
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(this.createGuardInput('监控价格 <= '));
         view.appendChild(this.createPopbackInput('反弹幅度 '));
-        view.appendChild(this.createCountDiv('买入数量 '));
+        view.appendChild(this.createAmountDiv());
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }
@@ -310,7 +345,7 @@ class StrategySell extends Strategy {
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(this.createGuardInput('监控价格 >= '));
         view.appendChild(this.createPopbackInput('回撤幅度 '));
-        view.appendChild(this.createCountDiv('卖出数量 '));
+        view.appendChild(this.createCountDiv());
         return view;
     }
 }
@@ -322,6 +357,7 @@ class StrategyBuyRepeat extends StrategyBuy {
         view.appendChild(this.createReferedInput('参考价(前高) '));
         view.appendChild(this.createStepsInput('波段振幅 '));
         view.appendChild(this.createPopbackInput('反弹幅度 '));
+        view.appendChild(this.createAmountDiv());
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }
@@ -374,6 +410,7 @@ class StrategySellRepeat extends StrategySell {
         view.appendChild(this.createReferedInput('参考价(前低) '));
         view.appendChild(this.createStepsInput('波段振幅 ', 8));
         view.appendChild(this.createPopbackInput('回撤幅度 '));
+        view.appendChild(this.createCountDiv());
         return view;
     }
 
@@ -448,7 +485,7 @@ class StrategyBuyIPO extends StrategyBuy {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(this.createPopbackInput('反弹幅度 '));
-        view.appendChild(this.createCountDiv('买入数量 '));
+        view.appendChild(this.createAmountDiv());
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }
@@ -490,7 +527,7 @@ class StrategySellIPO extends StrategySell {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('涨停板打开直接卖出,开盘不涨停则从高点反弹1%时卖出,跌停开盘直接卖出'));
-        view.appendChild(this.createCountDiv('卖出数量 '));
+        view.appendChild(this.createCountDiv());
         return view;
     }
 }

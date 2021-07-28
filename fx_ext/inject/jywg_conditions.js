@@ -112,7 +112,15 @@ class JywgUtils {
             if (confirmAgain) {
                 clearInterval(checkAgainInterval);
                 confirmAgain.click();
-                EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'success'});
+                setTimeout(() => {
+                    var what = '';
+                    var responseAlert = document.querySelector('.cxc_bd', '.info');
+                    if (responseAlert) {
+                        what = responseAlert.textContent;
+                    };
+                    EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'success', what});
+                    document.querySelector('#btnCxcConfirm').click();
+                }, 200);
             } else if (this.retry < 100){
                 this.retry ++;
             } else {

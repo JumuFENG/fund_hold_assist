@@ -108,11 +108,29 @@ class ZtPool {
         };
         emulateDiv.appendChild(iptDays);
 
-        var sellSelector = utils.createSelector({0: 'N日开盘', 1: 'N日收盘', 2: 'N日最高', 3: 'N日高点回落', 4:'不创新高卖出'}, '--卖出时机--');
+        var sellSelector = utils.createSelector({0: 'N日开盘', 1: 'N日收盘', 2: 'N日最高', 3: 'N日高点回落', 4:'不创新高卖出',5:'止损止盈'}, '--卖出时机--');
         sellSelector.onchange = e => {
             this.emulator.setSellPoint(e.target.value);
+            this.sellExtraDiv.style.display = e.target.value == 5 ? 'inline' : 'none';
         };
         emulateDiv.appendChild(sellSelector);
+
+        this.sellExtraDiv = document.createElement('div');
+        emulateDiv.appendChild(this.sellExtraDiv);
+        var iptMaxEarn = document.createElement('input');
+        iptMaxEarn.placeholder = '止盈(%)';
+        iptMaxEarn.onchange = e => {
+            this.emulator.setMaxEarn(e.target.value);
+        };
+        this.sellExtraDiv.appendChild(iptMaxEarn);
+
+        var iptMaxLose = document.createElement('input');
+        iptMaxLose.placeholder = '止损(%)';
+        iptMaxLose.onchange = e => {
+            this.emulator.setMaxLose(e.target.value);
+        };
+        this.sellExtraDiv.appendChild(iptMaxLose);
+        this.sellExtraDiv.style.display = 'none';
 
         var confirmBtn = document.createElement('button');
         confirmBtn.textContent = '确定';
@@ -417,7 +435,9 @@ class TradeEmulate {
         this.fee2 = 0.00012; // 佣金
         this.minMV = 50;
         this.buyPoint = 0;  // 0: 开盘买入 
-        this.sellPoint = 0; // 0: 开盘卖出 1： 收盘卖出
+        this.sellPoint = 0; // 0: 'N日开盘', 1: 'N日收盘', 2: 'N日最高', 3: 'N日高点回落', 4:'不创新高卖出',5:'止损止盈'
+        this.maxEarn = 0.2;
+        this.maxLose = 0.15;
         this.holdDays = 1;
         this.ztStocks = [];
         this.emuStocks = [];
@@ -451,6 +471,14 @@ class TradeEmulate {
         this.sellPoint = pt;
     }
 
+    setMaxEarn(val) {
+        this.maxEarn = val / 100;
+    }
+
+    setMaxLose(val) {
+        this.maxLose = val / 100;
+    }
+
     calcCount(p) {
         return 100 * Math.ceil(400 / p);
     }
@@ -481,13 +509,14 @@ class TradeEmulate {
                 cost += cost2;
                 count += count2;
             };
+            buy = parseFloat((cost / count).toFixed(2));
             return {buy, count, cost};
         };
 
         return {buy: 0};
     }
 
-    getSellPrice(kline, sp) {
+    getSellPrice(kline, sp, price) {
         if (sp == 0) {
             return kline[this.holdDays].o;
         };
@@ -509,6 +538,19 @@ class TradeEmulate {
                 };
             };
             return kline[si].c;
+        };
+        if (sp == 5) {
+            var sellh = price * (1 + this.maxEarn);
+            var selll = price * (1 - this.maxLose);
+            for (var i = 1; i < kline.length; i++) {
+                if (kline[i].l <= selll) {
+                    return selll;
+                };
+                if (kline[i].h >= sellh) {
+                    return Math.max(kline[i].h * 0.99, sellh);
+                };
+            };
+            return kline[kline.length - 1].o;
         };
     }
 
@@ -544,7 +586,7 @@ class TradeEmulate {
             var buy = bi.buy;
             var count = bi.count;
             var cost = bi.cost;
-            var sell = this.getSellPrice(kline, this.sellPoint);
+            var sell = this.getSellPrice(kline, this.sellPoint, bi.buy);
             var sold = sell * count;
             sold -= sold * this.fee + (sold * this.fee2 < 5 ? 5 : sold * this.fee2)
             var earned = sold - cost;

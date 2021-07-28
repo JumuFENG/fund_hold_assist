@@ -516,6 +516,7 @@ class EmjyBack {
             }
         } else if (message.command == 'emjy.trade') {
             if (message.result == 'success') {
+                this.log('trade success', message.what);
                 this.popCurrentTask();
             } else if (message.result == 'error') {
                 this.log('trade error:', message.reason, message.what);
