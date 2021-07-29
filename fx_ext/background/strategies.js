@@ -2,8 +2,8 @@
 
 class StrategyManager {
     constructor() {
-        this.buystrategies = [{key: 'StrategyBuy', name: '反弹买入'}, {key: 'StrategyBuyR', name: '反弹(重复)买入'}, {key: 'StrategyBuyIPO', name: '开板反弹买入'}];
-        this.sellstrategies = [{key: 'StrategySell', name: '反弹卖出'}, {key: 'StrategySellR', name: '反弹(重复)卖出'}, {key: 'StrategySellIPO', name: '开板卖出'}];
+        this.buystrategies = [{key: 'StrategyBuy', name: '反弹买入'}, {key: 'StrategyBuyR', name: '反弹(重复)买入'}, {key: 'StrategyBuyIPO', name: '开板反弹买入'}, {key: 'StrategyBuyZT', name: '开盘买,低位补'}];
+        this.sellstrategies = [{key: 'StrategySell', name: '反弹卖出'}, {key: 'StrategySellR', name: '反弹(重复)卖出'}, {key: 'StrategySellIPO', name: '开板卖出'}, {key: 'StrategySellEL', name: '止损止盈'}];
     }
 
     createStrategy(key, log) {
@@ -24,6 +24,12 @@ class StrategyManager {
         };
         if (key == 'StrategySellR') {
             return new StrategySellRepeat(key, log);
+        };
+        if (key == 'StrategyBuyZT') {
+            return new StrategyBuyZT2(key, log);
+        };
+        if (key == 'StrategySellEL') {
+            return new StrategySellEL(key, log);
         };
     }
 
@@ -171,7 +177,7 @@ class Strategy {
         var result = {match, price};
         result.account = this.account;
         if (this.count && this.count != 0) {
-            result.count = count;
+            result.count = this.count;
         } else if (this.amount && this.amount != 0) {
             result.count = this.calcCount(this.amount);
         } else {
@@ -529,6 +535,76 @@ class StrategySellIPO extends StrategySell {
         view.appendChild(document.createTextNode('涨停板打开直接卖出,开盘不涨停则从高点反弹1%时卖出,跌停开盘直接卖出'));
         view.appendChild(this.createCountDiv());
         return view;
+    }
+}
+
+class StrategyBuyZT2 extends StrategyBuy {
+    buyMatch(refer) {
+        this.buyRound++;
+        this.guardPrice = refer * (1 - this.stepRate);
+        if (this.buyRound >= 2) {
+            this.enabled = false;
+        };
+    }
+
+    parse(str) {
+        super.parse(str);
+        this.buyRound = str.buyRound;
+    }
+
+    toDataObj() {
+        var str = super.toDataObj();
+        str.buyRound = this.buyRound;
+        return str;
+    }
+
+    check(rtInfo) {
+        var match = false;
+        var stepInCritical = false;
+        if (this.buyRound >= 2) {
+            return {match, stepInCritical, account: this.account};
+        };
+        if (this.buyRound == 0) {
+            return this.matchResult(true, rtInfo.sellPrices[0]);
+        };
+        if (this.buyRound == 1) {
+            var price = rtInfo.latestPrice;
+            var topprice = rtInfo.topprice;
+            var bottomprice = rtInfo.bottomprice;
+            if (!this.inCritical) {
+                if (price < this.guardPrice) {
+                    this.inCritical = true;
+                    stepInCritical = true;
+                    this.prePeekPrice = price;
+                    strategyManager.flushStrategy(this);
+                };
+                return {match, stepInCritical, account: this.account};
+            };
+            if (price >= this.prePeekPrice * (1 + this.backRate)) {
+                return this.matchResult(true, rtInfo.sellPrices[0]);
+            }
+            if (price < this.prePeekPrice) {
+                this.prePeekPrice = price;
+                strategyManager.flushStrategy(this);
+            }
+            return {match, stepInCritical, account: this.account};
+        };
+    }
+
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('开盘直接买入'));
+        view.appendChild(this.createStepsInput('盘中补仓跌幅 '));
+        view.appendChild(this.createPopbackInput('反弹幅度 '));
+        view.appendChild(this.createAmountDiv());
+        return view;
+    }
+}
+
+class StrategySellEL  extends StrategySell {
+    createView() {
+
     }
 }
 
