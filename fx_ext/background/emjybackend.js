@@ -1,7 +1,6 @@
 'use strict';
 let DEBUG = false;
 let emjyBack = null;
-let BondRepurchasePath = '/BondRepurchase/SecuritiesLendingRepurchase';
 
 class Wallet {
     constructor() {
@@ -224,7 +223,7 @@ class AccountInfo {
         });
 
         if (!anyCritial) {
-            emjyBack.postQuoteWorkerMessage({command:'quote.fetch.code', code:this.wallet.fundcode});
+            emjyBack.fetchStockSnapshot(this.wallet.fundcode);
             this.wallet.state = 'fetchBuy';
         };
     }
@@ -233,7 +232,7 @@ class AccountInfo {
         var count = 100 * Math.ceil(400 / price);
         var moneyNeed = count * price;
         if (moneyNeed > this.availableMoney && this.wallet.holdCount > 0) {
-            emjyBack.postQuoteWorkerMessage({command:'quote.fetch.code', code:this.wallet.fundcode});
+            emjyBack.fetchStockSnapshot(this.wallet.fundcode);
             this.wallet.state = 'fetchSell';
         };
     }
@@ -243,14 +242,13 @@ class WatchAccount extends AccountInfo {
     constructor() {
         super();
         this.keyword = 'watch';
-        this.buyPath = BondRepurchasePath;
     }
 
     buyFundBeforeClose() {
         var repCodes = ['204001', '131810'];
         repCodes.forEach(code => {
             emjyBack.log('Buy', code);
-            emjyBack.sendTradeMessage(this.buyPath, {code});
+            emjyBack.postWorkerTask({command: 'emjy.trade.bonds', code});
         });
     }
 }
@@ -437,14 +435,6 @@ class EmjyBack {
             return;
         }
 
-        this.log('sendMsgToContent', JSON.stringify(data));
-        var doSendMsgToContent = function (tabid, data) {
-            chrome.tabs.sendMessage(tabid, data);
-            emjyBack.currentTask = data;
-            emjyBack.postWorkerTask({command: 'emjy.sent'});
-            //emjyBack.log('do sendMsgToContent', JSON.stringify(data));
-        };
-
         var sendNavigateToContent = function(tabid, url) {
             if (!emjyBack.navigating) {
                 emjyBack.navigating = true;
@@ -453,30 +443,10 @@ class EmjyBack {
             }
         };
 
-        if (data.command == 'emjy.getAssets') {
-            if (url.pathname == data.assetsPath) {
-                doSendMsgToContent(this.contentTabId, data);
-            } else {
-                url.pathname = data.assetsPath;
-                url.search = '';
-                sendNavigateToContent(this.contentTabId, url);
-            }
-            return;
-        }
-        if (data.command == 'emjy.trade') {
-            if (url.pathname == data.tradePath && (url.search.includes('code=') || data.tradePath == BondRepurchasePath)) {
-                doSendMsgToContent(this.contentTabId, data);
-            } else {
-                url.pathname = data.tradePath;
-                if (data.tradePath == BondRepurchasePath) {
-                    url.search = '';
-                } else {
-                    url.search = '?code=' + data.stock.code;
-                };
-                sendNavigateToContent(this.contentTabId, url);
-            }
-            return;
-        }
+        chrome.tabs.sendMessage(this.contentTabId, data);
+        emjyBack.currentTask = data;
+        emjyBack.postWorkerTask({command: 'emjy.sent'});
+        this.log('sendMsgToContent', JSON.stringify(data));
     }
 
     onContentMessageReceived(message) {
@@ -520,8 +490,15 @@ class EmjyBack {
                 this.popCurrentTask();
             } else if (message.result == 'error') {
                 this.log('trade error:', message.reason, message.what);
-                if (message.reason == 'pageNotLoaded' || message.reason == 'btnConfirmDisabled') {
+                if (message.reason == 'btnConfirmDisabled') {
                     this.revokeCurrentTask();
+                } else if (message.reason == 'pageNotLoaded') {
+                    var loadingInterval = setInterval(()=>{
+                        if (this.contentUrl == message.expected) {
+                            clearInterval(loadingInterval);
+                            this.revokeCurrentTask();
+                        };
+                    }, 200);
                 } else {
                     this.popCurrentTask();
                 }
@@ -537,7 +514,7 @@ class EmjyBack {
         this.manager.onManagerMessage(message, tabid);
         if (message.command == 'mngr.init') {
             this.log('manager initialized!');
-            if (this.manager.isValid() && this.stockGuard.size > 0) {
+            if (this.manager.isValid()) {
                 this.manager.sendStocks([this.normalAccount, this.collateralAccount, this.watchAccount]);
             }
             this.log('manager sendStocks');
@@ -777,6 +754,15 @@ class EmjyBack {
         };
     }
 
+    fetchStockSnapshot(code) {
+        this.postQuoteWorkerMessage({command:'quote.fetch.code', code});
+    }
+
+    tradeDailyRoutineTasks() {
+        this.postWorkerTask({command:'emjy.trade.newstocks'});
+        this.postWorkerTask({command:'emjy.trade.newbonds'});
+    }
+
     tradeBeforeClose() {
         // this.normalAccount.buyFundBeforeClose();
         this.collateralAccount.buyFundBeforeClose();
@@ -836,6 +822,7 @@ chrome.alarms.onAlarm.addListener(function(alarmInfo) {
     if (alarmInfo.name == 'morning-start') {
         interval = 1000;
     } else if (alarmInfo.name == 'morning-middle') {
+        emjyBack.tradeDailyRoutineTasks();
         interval = 10000;
     } else if (alarmInfo.name == 'morning-end') {
         interval = -1;

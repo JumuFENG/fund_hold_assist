@@ -1,6 +1,8 @@
 'use strict';
 let EmjyFront = null;
 let BondRepurchasePath = '/BondRepurchase/SecuritiesLendingRepurchase';
+let NewStockPurchasePath = '/Trade/NewBatBuy';
+let NewBondsPurchasePath = '/Trade/XzsgBatPurchase';
 
 class JywgUtils {
     constructor(log) {
@@ -112,15 +114,7 @@ class JywgUtils {
             if (confirmAgain) {
                 clearInterval(checkAgainInterval);
                 confirmAgain.click();
-                setTimeout(() => {
-                    var what = '';
-                    var responseAlert = document.querySelector('.cxc_bd', '.info');
-                    if (responseAlert) {
-                        what = responseAlert.textContent;
-                    };
-                    EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'success', what});
-                    document.querySelector('#btnCxcConfirm').click();
-                }, 200);
+                this.clickTradeCompleteAlert();
             } else if (this.retry < 100){
                 this.retry ++;
             } else {
@@ -132,7 +126,27 @@ class JywgUtils {
         }, 200);
     }
 
+    clickTradeCompleteAlert() {
+        setTimeout(() => {
+            var what = '';
+            var responseAlert = document.querySelector('.cxc_bd', '.info');
+            if (responseAlert) {
+                what = responseAlert.textContent;
+            };
+            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'success', what});
+            document.querySelector('#btnCxcConfirm').click();
+        }, 200);
+    }
+
     tradeBondRepurchase(code) {
+        if (location.pathname != BondRepurchasePath) {
+            var url = new URL(location.href);
+            url.pathname = BondRepurchasePath;
+            url.search='';
+            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded', expected: url.href});
+            location.href = url;
+            return;
+        };
         document.querySelector('#iptZqdm').value = code;
         document.querySelector('#iptZqdm').click();
         setTimeout(() => {
@@ -151,9 +165,13 @@ class JywgUtils {
         }, 1000);
     }
 
-    clickTrade(code, name, price, count) {
-        if (!location.href.includes('code=') && document.querySelector('#btnConfirm').disabled) {
-            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded'});
+    clickTrade(path, code, name, price, count) {
+        if (location.pathname != path || (!location.href.includes('code=') && document.querySelector('#btnConfirm').disabled)) {
+            var url = new URL(location.href);
+            url.pathname = path;
+            url.search = '?code=' + code;
+            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded', expected: url.href});
+            location.href = url;
             return;
         }
 
@@ -188,6 +206,62 @@ class JywgUtils {
             this.clickConfirmAgainBtn();
         }, 200);
     }
+
+    newStockBondBatBuy() {
+        setTimeout(() => {
+            document.querySelector('#btnBatBuy').click();
+            var checkInterval = setInterval(() => {
+                if (!document.querySelector('#btnConfirm')) {
+                    return;
+                };
+                clearInterval(checkInterval);
+                document.querySelector('#btnConfirm').click();
+                this.clickTradeCompleteAlert();
+            }, 200);
+        }, 300);
+    }
+
+    tradeNewStockBuy() {
+        if (location.pathname != NewStockPurchasePath) {
+            var url = new URL(location.href);
+            url.pathname = NewStockPurchasePath;
+            url.search='';
+            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded', expected: url.href});
+            location.href = url;
+            return;
+        }
+
+        var seletedCount = 0;
+        document.querySelector('#tableBody').querySelectorAll('tr').forEach(r => {
+            var code = r.querySelectorAll('td')[2].textContent;
+            console.log(code);
+            if (code.startsWith('68') || code.startsWith('30')) {
+                return;
+            };
+            var chkbx = r.querySelector('input');
+            if (chkbx) {
+                chkbx.click();
+                seletedCount++;
+            };
+        });
+
+        if (seletedCount > 0) {
+            this.newStockBondBatBuy();
+        };
+    }
+
+    tradeNewBondsBuy() {
+        if (location.pathname != NewBondsPurchasePath) {
+            var url = new URL(location.href);
+            url.pathname = NewBondsPurchasePath;
+            url.search='';
+            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded', expected: url.href});
+            location.href = url;
+            return;
+        };
+        document.querySelector('#chk_all').click();
+        this.newStockBondBatBuy();
+    }
 }
 
 class EmjyFrontend {
@@ -219,14 +293,16 @@ class EmjyFrontend {
                 this.sendMessageToBackground({command:'emjy.getValidateKey', key: vkey});
             }
         } else if (message.command == 'emjy.getAssets') {
-            var assetsMsg = this.getAssets(message.assetsPath);
-            if (assetsMsg) {
-                this.sendMessageToBackground(assetsMsg);
-                this.log('sendMessageToBackground done');
-            }
+            this.getAssets(message.assetsPath);
         } else if (message.command == 'emjy.trade') {
             this.stockTrade(message);
-        }
+        } else if (message.command == 'emjy.trade.bonds') {
+            this.jywgutils.tradeBondRepurchase(message.code);
+        } else if (message.command == 'emjy.trade.newbonds') {
+            this.jywgutils.tradeNewBondsBuy();
+        } else if (message.command == 'emjy.trade.newstocks') {
+            this.jywgutils.tradeNewStockBuy();
+        };
     }
 
     onLoginPageLoaded() {
@@ -270,38 +346,35 @@ class EmjyFrontend {
     getAssets(assetsPath) {
         this.log('getAssets', assetsPath, location.pathname);
         if (location.pathname != assetsPath) {
+            var url = new URL(location.href);
+            url.pathname = assetsPath;
+            url.search='';
+            this.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded', expected: url.href});
+            location.href = url;
             return;
-        }
+        };
 
         var assetsMsg = {};
         if (assetsPath == this.creditAssetsPath) {
-            assetsMsg = this.jywgutils.getAssetsCredit(assetsPath);
+            assetsMsg = this.jywgutils.getAssetsCredit();
         } else {
-            assetsMsg = this.jywgutils.getAssetsNor(assetsPath);
+            assetsMsg = this.jywgutils.getAssetsNor();
         }
 
         if (assetsMsg) {
             assetsMsg.command = 'emjy.getAssets';
             assetsMsg.assetsPath = assetsPath;
+            this.sendMessageToBackground(assetsMsg);
         }
-        return assetsMsg;
     }
 
     stockTrade(message) {
         this.log('stockTrade', JSON.stringify(message));
-        if (location.pathname != message.tradePath) {
-            this.log('not in', message.tradePath);
-            return;
-        }
-        if (message.tradePath == BondRepurchasePath) {
-            this.jywgutils.tradeBondRepurchase(message.stock.code);
-            return;
-        };
         var stockName = message.stock.name;
         if (stockName === undefined) {
             stockName = '';
         }
-        this.jywgutils.clickTrade(message.stock.code, stockName, message.price, message.count);
+        this.jywgutils.clickTrade(message.tradePath, message.stock.code, stockName, message.price, message.count);
     }
 }
 

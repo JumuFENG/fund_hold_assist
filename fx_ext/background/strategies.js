@@ -179,9 +179,9 @@ class Strategy {
         if (this.count && this.count != 0) {
             result.count = this.count;
         } else if (this.amount && this.amount != 0) {
-            result.count = this.calcCount(this.amount);
+            result.count = this.calcCount(this.amount, price);
         } else {
-            result.count = this.calcCount(40000);
+            result.count = this.calcCount(40000, price);
         };
         return result;
     }
@@ -549,7 +549,7 @@ class StrategyBuyZT2 extends StrategyBuy {
 
     parse(str) {
         super.parse(str);
-        this.buyRound = str.buyRound;
+        this.buyRound = str.buyRound === undefined ? 0 : str.buyRound;
     }
 
     toDataObj() {
@@ -595,7 +595,7 @@ class StrategyBuyZT2 extends StrategyBuy {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('开盘直接买入'));
-        view.appendChild(this.createStepsInput('盘中补仓跌幅 '));
+        view.appendChild(this.createStepsInput('盘中补仓跌幅 ', 8));
         view.appendChild(this.createPopbackInput('反弹幅度 '));
         view.appendChild(this.createAmountDiv());
         return view;
@@ -603,8 +603,55 @@ class StrategyBuyZT2 extends StrategyBuy {
 }
 
 class StrategySellEL  extends StrategySell {
-    createView() {
+    buyMatch(refer) {
+        if (!this.guardPrice || this.guardPrice == 0) {
+            this.guardPrice = refer;
+        } else {
+            this.guardPrice = (this.guardPrice + refer) / 2;
+        };
+        this.enabled = true;
+    }
 
+    sellMatch(refer) {
+        this.enabled = false;
+    }
+
+    check(rtInfo) {
+        var match = false;
+        var stepInCritical = false;
+        var price = rtInfo.latestPrice;
+        if (this.guardPrice * (1 - this.backRate) >= price) {
+            return this.matchResult(true, rtInfo.buyPrices[0]);
+        };
+
+        if (!this.inCritical) {
+            if (this.guardPrice * (1 + this.stepRate) <= price) {
+                this.inCritical = true;
+                this.prePeekPrice = price;
+                stepInCritical = true;
+                strategyManager.flushStrategy(this);
+            }
+            return {match, stepInCritical, account: this.account};
+        };
+
+        var dynPeek = this.prePeekPrice - (this.prePeekPrice - this.guardPrice) * 0.2;
+        if (price <= dynPeek) {
+            return this.matchResult(true, rtInfo.buyPrices[0]);
+        };
+        if (price > this.prePeekPrice) {
+            this.prePeekPrice = price;
+            strategyManager.flushStrategy(this);
+        };
+        return {match, stepInCritical, account: this.account};
+    }
+
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('止损止盈,满足条件时全部卖出'));
+        view.appendChild(this.createStepsInput('止盈 ', 20));
+        view.appendChild(this.createPopbackInput('止损 ', 15));
+        return view;
     }
 }
 
