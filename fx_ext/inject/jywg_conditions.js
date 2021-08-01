@@ -11,18 +11,19 @@ class JywgUtils {
     }
 
     getStocks() {
-        var tableStocks = document.querySelector('#tabBody').childNodes;
         var stocks = [];
 
+        var tableStocks = document.querySelector('#tabBody').querySelectorAll('tr');
         for (var i = 0; i < tableStocks.length; ++i) {
-            var rowCells = tableStocks[i].childNodes;
+            var rowCells = tableStocks[i].querySelectorAll('td');
             if (rowCells.length == 11) {
                 var stockInfo = {
-                    code: rowCells[0].childNodes[0].textContent,
-                    name: rowCells[1].childNodes[0].textContent,
-                    holdCount: rowCells[2].childNodes[0].textContent,
-                    availableCount: rowCells[3].childNodes[0].textContent,
-                    market: rowCells[9].childNodes[0].textContent == '深圳A股' ? 'SZ' : "SH"
+                    code: rowCells[0].textContent,
+                    name: rowCells[1].textContent,
+                    holdCount: rowCells[2].textContent,
+                    availableCount: rowCells[3].textContent,
+                    holdCost: rowCells[4].textContent,
+                    market: rowCells[9].textContent == '深圳A股' ? 'SZ' : "SH"
                 };
                 stocks.push(stockInfo);
             }

@@ -603,11 +603,15 @@ class StrategyBuyZT2 extends StrategyBuy {
 }
 
 class StrategySellEL  extends StrategySell {
+    setHoldCost(price) {
+        this.averPrice = price;
+    }
+
     buyMatch(refer) {
-        if (!this.guardPrice || this.guardPrice == 0) {
-            this.guardPrice = refer;
+        if (!this.averPrice || this.averPrice == 0) {
+            this.averPrice = refer;
         } else {
-            this.guardPrice = (this.guardPrice + refer) / 2;
+            this.averPrice = (this.averPrice + refer) / 2;
         };
         this.enabled = true;
     }
@@ -620,12 +624,18 @@ class StrategySellEL  extends StrategySell {
         var match = false;
         var stepInCritical = false;
         var price = rtInfo.latestPrice;
-        if (this.guardPrice * (1 - this.backRate) >= price) {
+        if (this.averPrice * (1 - this.backRate) >= price) {
             return this.matchResult(true, rtInfo.buyPrices[0]);
         };
 
+        if (this.guardPrice && this.guardPrice > 0) {
+            if (price <= this.guardPrice) {
+                return this.matchResult(true, rtInfo.buyPrices[0]);
+            };
+        };
+
         if (!this.inCritical) {
-            if (this.guardPrice * (1 + this.stepRate) <= price) {
+            if (this.averPrice * (1 + this.stepRate) <= price) {
                 this.inCritical = true;
                 this.prePeekPrice = price;
                 stepInCritical = true;
@@ -634,8 +644,8 @@ class StrategySellEL  extends StrategySell {
             return {match, stepInCritical, account: this.account};
         };
 
-        var dynPeek = this.prePeekPrice - (this.prePeekPrice - this.guardPrice) * 0.2;
-        if (price <= dynPeek) {
+        var dynPeek = this.prePeekPrice - (this.prePeekPrice - this.averPrice) * 0.2;        
+        if (price <= dynPeek && (!this.guardPrice || this.guardPrice == 0)) {
             return this.matchResult(true, rtInfo.buyPrices[0]);
         };
         if (price > this.prePeekPrice) {
@@ -651,6 +661,7 @@ class StrategySellEL  extends StrategySell {
         view.appendChild(document.createTextNode('止损止盈,满足条件时全部卖出'));
         view.appendChild(this.createStepsInput('止盈 ', 20));
         view.appendChild(this.createPopbackInput('止损 ', 15));
+        view.appendChild(this.createGuardInput('动态止盈点 '));
         return view;
     }
 }

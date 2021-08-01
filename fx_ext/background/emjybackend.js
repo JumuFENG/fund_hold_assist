@@ -64,6 +64,7 @@ class AccountInfo {
             stockInfo.name = stocks[i].name;
             stockInfo.holdCount = parseInt(stocks[i].holdCount);
             stockInfo.availableCount = parseInt(stocks[i].availableCount);
+            stockInfo.holdCost = stocks[i].holdCost;
             stockInfo.market = stocks[i].market;
         };
     }
@@ -178,6 +179,9 @@ class AccountInfo {
             stock.buyStrategy = bstr;
         };
         if (sstr) {
+            if (sstr.key == 'StrategySellEL' && stock.holdCost) {
+                sstr.setHoldCost(stock.holdCost);
+            };
             stock.sellStrategy = sstr;
         };
     }
