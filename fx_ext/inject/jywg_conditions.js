@@ -248,6 +248,8 @@ class JywgUtils {
 
         if (seletedCount > 0) {
             this.newStockBondBatBuy();
+        } else {
+            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'maxCountInvalid', what: 'no new stocks to buy.'});
         };
     }
 

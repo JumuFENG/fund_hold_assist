@@ -97,8 +97,26 @@ class AccountInfo {
             var rtInfo = {};
             rtInfo.latestPrice = stock.latestPrice;
             rtInfo.openPrice = snapshot.fivequote.openPrice;
-            rtInfo.buyPrices = [snapshot.fivequote.buy1, snapshot.fivequote.buy2, snapshot.fivequote.buy3, snapshot.fivequote.buy4, snapshot.fivequote.buy5];
-            rtInfo.sellPrices = [snapshot.fivequote.sale1, snapshot.fivequote.sale2, snapshot.fivequote.sale3, snapshot.fivequote.sale4, snapshot.fivequote.sale5];
+            var buyPrices = [snapshot.fivequote.buy1, snapshot.fivequote.buy2, snapshot.fivequote.buy3, snapshot.fivequote.buy4, snapshot.fivequote.buy5];
+            if (buyPrices[0] == '-') {
+                buyPrices[0] = stock.latestPrice;
+            };
+            for (var i = 1; i < buyPrices.length; i++) {
+                if (buyPrices[i] == '-') {
+                    buyPrices[i] = buyPrices[i - 1];
+                };
+            };
+            rtInfo.buyPrices = buyPrices;
+            var sellPrices = [snapshot.fivequote.sale1, snapshot.fivequote.sale2, snapshot.fivequote.sale3, snapshot.fivequote.sale4, snapshot.fivequote.sale5];
+            if (sellPrices[0] == '-') {
+                sellPrices[0] = stock.latestPrice;
+            };
+            for (var i = 1; i < sellPrices.length; i++) {
+                if (sellPrices[i]) {
+                    sellPrices[i] = sellPrices[i - 1];
+                };
+            };
+            rtInfo.sellPrices = sellPrices;
             rtInfo.topprice = snapshot.topprice;
             rtInfo.bottomprice = snapshot.bottomprice;
             stock.rtInfo = rtInfo;
@@ -367,12 +385,13 @@ class EmjyBack {
     constructor() {
         this.log = null;
         this.contentTabId = null;
-        this.navigating = false;
+        this.authencated = true;
         this.normalAccount = null;
         this.collateralAccount = null;
         this.creditAccount = null;
         this.watchAccount = null;
         this.currentTask = null;
+        this.taskTimeoutTimer = null;
         this.stockGuard = null;
         this.mainWorker = null;
         this.quoteWorker = null;
@@ -424,8 +443,13 @@ class EmjyBack {
         if (tabid == this.contentTabId) {
             this.contentUrl = message.url;
         }
-        this.navigating = false;
-        this.log('onContentLoaded');
+        var url = new URL(this.contentUrl);
+        this.authencated = url.pathname != '/Login';
+        if (this.currentTask && url.pathname == '/Login') {
+            this.authencated = false;
+            this.revokeCurrentTask();
+        };
+        this.log('onContentLoaded', this.contentUrl);
     }
 
     // DON'T use this API directly, or it may break the task queue.
@@ -435,21 +459,22 @@ class EmjyBack {
             return;
         }
 
-        if (url.pathname == '/Login') {
+        if (url.pathname == '/Login' || !this.authencated) {
+            this.log('not sendMsgToContent', url.pathname, this.authencated);
+            // this.revokeCurrentTask();
             return;
         }
 
-        var sendNavigateToContent = function(tabid, url) {
-            if (!emjyBack.navigating) {
-                emjyBack.navigating = true;
-                chrome.tabs.sendMessage(tabid, {command: 'emjy.navigate', url: url.href});
-                //emjyBack.log('do sendNavigateToContent', url.href);
-            }
-        };
+        //chrome.tabs.sendMessage(tabid, {command: 'emjy.navigate', url: url.href});
 
         chrome.tabs.sendMessage(this.contentTabId, data);
-        emjyBack.currentTask = data;
-        emjyBack.postWorkerTask({command: 'emjy.sent'});
+        this.taskTimeoutTimer = setTimeout(() => {
+            this.log('currentTask pending 1 min:', JSON.stringify(this.currentTask));
+            this.popCurrentTask();
+            this.taskTimeoutTimer = null;
+        }, 60000);
+        this.currentTask = data;
+        this.postWorkerTask({command: 'emjy.sent'});
         this.log('sendMsgToContent', JSON.stringify(data));
     }
 
@@ -486,11 +511,13 @@ class EmjyBack {
             this.log(JSON.stringify(this.collateralAccount));
             this.log(JSON.stringify(this.creditAccount));
             if (this.currentTask && this.currentTask.command == message.command) {
+                this.clearTaskTimeoutTimer();
                 this.popCurrentTask();
             }
         } else if (message.command == 'emjy.trade') {
             if (message.result == 'success') {
                 this.log('trade success', message.what);
+                this.clearTaskTimeoutTimer();
                 this.popCurrentTask();
             } else if (message.result == 'error') {
                 this.log('trade error:', message.reason, message.what);
@@ -498,12 +525,13 @@ class EmjyBack {
                     this.revokeCurrentTask();
                 } else if (message.reason == 'pageNotLoaded') {
                     var loadingInterval = setInterval(()=>{
-                        if (this.contentUrl == message.expected) {
+                        if (this.contentUrl == message.expected && this.authencated) {
                             clearInterval(loadingInterval);
                             this.revokeCurrentTask();
                         };
                     }, 200);
                 } else {
+                    this.clearTaskTimeoutTimer();
                     this.popCurrentTask();
                 }
             }
@@ -533,6 +561,7 @@ class EmjyBack {
     revokeCurrentTask() {
         this.log('revoke task');
         this.postWorkerTask({command: 'emjy.revoke'});
+        this.clearTaskTimeoutTimer();
         this.currentTask = null;
     }
 
@@ -541,6 +570,13 @@ class EmjyBack {
         this.log('pop task');
         this.postWorkerTask(this.currentTask);
         this.currentTask = null;
+    }
+
+    clearTaskTimeoutTimer() {
+        if (this.taskTimeoutTimer) {
+            clearTimeout(this.taskTimeoutTimer);
+            this.taskTimeoutTimer = null;
+        };
     }
 
     onMainWorkerMessageReceived(message) {
@@ -770,10 +806,10 @@ class EmjyBack {
     tradeBeforeClose() {
         // this.normalAccount.buyFundBeforeClose();
         this.collateralAccount.buyFundBeforeClose();
-        this.watchAccount.buyFundBeforeClose();
     }
 
     tradeClosed() {
+        this.watchAccount.buyFundBeforeClose();
         this.normalAccount.save();
         this.collateralAccount.save();
         this.watchAccount.save();

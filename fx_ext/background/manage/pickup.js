@@ -562,7 +562,7 @@ class TradeEmulate {
         this.emuStocks = [];
         for (var i = 0; i < this.ztStocks.length; i++) {
             var stocki = this.ztStocks[i];
-            if (stocki.kline.length <= this.holdDays) {
+            if (!stocki.kline || stocki.kline.length <= this.holdDays) {
                 continue;
             };
             if (stocki.ltsz < this.minMV) {

@@ -598,6 +598,7 @@ class StrategyBuyZT2 extends StrategyBuy {
         view.appendChild(this.createStepsInput('盘中补仓跌幅 ', 8));
         view.appendChild(this.createPopbackInput('反弹幅度 '));
         view.appendChild(this.createAmountDiv());
+        view.appendChild(this.createBuyAccountSelector());
         return view;
     }
 }
