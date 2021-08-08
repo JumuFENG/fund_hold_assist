@@ -6,11 +6,15 @@ let quoteUrl = 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot'
 let ztPoolUrl = 'http://push2ex.eastmoney.com/getTopicZTPool?ut=7eea3edcaed734bea9cbfc24409ed989&sort=fbt%3Aasc&Pageindex=0&dpt=wz.ztzt&cb=cbztPoolback&date=';
 
 let hisKlineUrl = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&klt=101&fqt=1&fields1=f1%2Cf3&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55';
+
+let hisKlineHourly = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&klt=60&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55&beg=0&end=20500000'
+
 // fields 
-// f1 : code  f2 : market f3 : name
-// f51: date  f52: open   f53: close f54: high f55: low
+// f1 : code  f2 : market f3 : name f4 : decimal f5 : dktotal  f6 : preKPrice f7 : prePrice f8 : qtMiscType 
+// f51: date/time,f52:开盘,f53:收盘,f54:最高, f55:最低, f56: 成交量, f57: 成交额 ,f58: 振幅(%),f59:涨跌幅(%),f60:涨跌额,f61:换手率(%)
 // secid: 1 = sh, 0 = sz
-// klt: k line type 101: 日k
+// klt: k line type 101: 日k 102: 周k 103: 月k 104: 年k 60: 小时
+// fqt: 复权 1: 前复权 2: 后复权 0: 不复权
 
 function postLog(log) {
     postMessage({command: 'quote.log', log});
@@ -42,6 +46,10 @@ function xmlHttpGet(url, cb) {
     };
 }
 
+function codeToSecid (code) {
+    return ((code.startsWith('00') || code.startsWith('30')) ? '0.' : '1.') + code;
+}
+
 function quoteSnapshot(code) {
     var url = quoteUrl + '?id=' + code + '&callback=jSnapshotBack&_=' + Date.now();
     xmlHttpGet(url);
@@ -62,7 +70,7 @@ function cbztPoolback(ztpool) {
 
 function getKlineDailySince(code, date, len) {
     // postLog('get ' + code + ' ' + date + ' len = ' + len);
-    var secid = ((code.startsWith('00') || code.startsWith('30')) ? '0.' : '1.') + code;
+    var secid = codeToSecid(code);
     var end = '20500000';
     if (len > 0) {
         var sdate = new Date(date.slice(0, 4) + "-" + date.slice(4, 6) + "-" + date.slice(6, 8));
@@ -75,6 +83,16 @@ function getKlineDailySince(code, date, len) {
 
 function klineback(kline) {
     postMessage({command: 'quote.get.kline', kline});
+}
+
+function getKlineHourly(code) {
+    var secid = codeToSecid(code);
+    var url = hisKlineHourly + '&cb=klineHourlyBack&secid=' + secid;
+    xmlHttpGet(url);
+}
+
+function klineHourlyBack (kline) {
+    postMessage({command: 'quote.get.kline.hourly', kline});
 }
 
 addEventListener('message', function(e) {
@@ -95,6 +113,8 @@ addEventListener('message', function(e) {
         getTopicZTPool(e.data.date);
     } else if (e.data.command == 'quote.get.kline') {
         getKlineDailySince(e.data.code, e.data.date, e.data.len);
+    } else if (e.data.command == 'quote.get.kline.hourly') {
+        getKlineHourly(e.data.code);
     } else {
         postLog('unknown command ' + e.data.command);
     }

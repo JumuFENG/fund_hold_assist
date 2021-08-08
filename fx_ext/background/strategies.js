@@ -2,8 +2,8 @@
 
 class StrategyManager {
     constructor() {
-        this.buystrategies = [{key: 'StrategyBuy', name: '反弹买入'}, {key: 'StrategyBuyR', name: '反弹(重复)买入'}, {key: 'StrategyBuyIPO', name: '开板反弹买入'}, {key: 'StrategyBuyZT', name: '开盘买,低位补'}];
-        this.sellstrategies = [{key: 'StrategySell', name: '反弹卖出'}, {key: 'StrategySellR', name: '反弹(重复)卖出'}, {key: 'StrategySellIPO', name: '开板卖出'}, {key: 'StrategySellEL', name: '止损止盈'}];
+        this.buystrategies = [{key: 'StrategyBuy', name: '反弹买入'}, {key: 'StrategyBuyR', name: '反弹(重复)买入'}, {key: 'StrategyBuyIPO', name: '开板反弹买入'}, {key: 'StrategyBuyZT', name: '开盘买,低位补'}, {key: 'StrategyBuyMA', name: 'MA突破买入'}];
+        this.sellstrategies = [{key: 'StrategySell', name: '反弹卖出'}, {key: 'StrategySellR', name: '反弹(重复)卖出'}, {key: 'StrategySellIPO', name: '开板卖出'}, {key: 'StrategySellEL', name: '止损止盈'}, {key: 'StrategySellMA', name: 'MA突破卖出'}];
     }
 
     createStrategy(key, log) {
@@ -30,6 +30,12 @@ class StrategyManager {
         };
         if (key == 'StrategySellEL') {
             return new StrategySellEL(key, log);
+        };
+        if (key == 'StrategyBuyMA') {
+            return new StrategyBuyMA(key, log);
+        };
+        if (key == 'StrategySellMA') {
+            return new StrategySellMA(key, log);
         };
     }
 
@@ -125,6 +131,14 @@ class Strategy {
             if (account != this.account) {
                 changed = true;
                 this.account = account;
+            };
+        };
+
+        if (this.klineSelector) {
+            var kltype = this.klineSelector.value;
+            if (kltype != this.kltype) {
+                changed = true;
+                this.kltype = kltype;
             };
         };
 
@@ -284,6 +298,22 @@ class Strategy {
         acctDiv.appendChild(this.accountSelector);
         this.accountSelector.value = this.account;
         return acctDiv;
+    }
+
+    createKlineTypeSelector() {
+        var kltDiv = document.createElement('div');
+        kltDiv.appendChild(document.createTextNode('K线类型 '));
+        this.klineSelector = document.createElement('select');
+        var kltypes = [{klt:'60', text:'小时线'}, {ktl: '101', text: '日线'}];
+        for (var i = 0; i < kltypes.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = kltypes[i].klt;
+            opt.textContent = kltypes[i].text;
+            this.klineSelector.appendChild(opt);
+        };
+        kltDiv.appendChild(this.klineSelector);
+        this.klineSelector.value = this.kltype ? this.kltype : '60';
+        return kltDiv;
     }
 }
 
@@ -663,6 +693,91 @@ class StrategySellEL  extends StrategySell {
         view.appendChild(this.createStepsInput('止盈 ', 20));
         view.appendChild(this.createPopbackInput('止损 ', 15));
         view.appendChild(this.createGuardInput('动态止盈点 '));
+        return view;
+    }
+}
+
+class StrategyBuyMA extends StrategyBuy {
+    buyMatch(refer) {
+        this.enabled = false;
+        this.inCritical = false;
+    }
+
+    sellMatch(refer) {
+        this.enabled = true;
+        this.inCritical = false;
+        this.klines = [];
+    }
+
+    check(rtInfo) {
+        if (this.inCritical) {
+            return this.matchResult(true, rtInfo.sellPrices[0]);
+        };
+        return {match:false};
+    }
+
+    parse(str) {
+        super.parse(str);
+        this.kltype = str.kltype;
+        this.klines = str.klines;
+    }
+
+    toDataObj() {
+        var str = super.toDataObj();
+        str.kltype = this.kltype;
+        str.klines = this.klines;
+        return str;
+    }
+
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('连续2根K线>18周期均线, 以第3根K线开盘时买入'));
+        view.appendChild(this.createKlineTypeSelector());
+        view.appendChild(this.createAmountDiv());
+        view.appendChild(this.createBuyAccountSelector());
+        return view;
+    }
+}
+
+class StrategySellMA extends StrategySell {
+    setHoldCount(count) {
+        this.count = count;
+    }
+
+    buyMatch(refer) {
+        this.enabled = true;
+        this.inCritical = false;
+        this.klines = [];
+    }
+
+    sellMatch(refer) {
+        this.enabled = false;
+        this.inCritical = false;
+    }
+    
+    parse(str) {
+        super.parse(str);
+        this.kltype = str.kltype;
+        this.klines = str.klines;
+    }
+
+    toDataObj() {
+        var str = super.toDataObj();
+        str.kltype = this.kltype;
+        str.klines = this.klines;
+        return str;
+    }
+
+    check(rtInfo) {
+
+    }
+
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('连续2根K线<18周期均线,且第3根K线仍低于18周期均线(全部)卖出'));
+        view.appendChild(this.createKlineTypeSelector());
         return view;
     }
 }

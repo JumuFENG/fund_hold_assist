@@ -279,7 +279,11 @@ class StrategyChooser {
         if (this.strategyBuy) {
             if (!this.stock.buyStrategy || this.stock.buyStrategy.key != this.strategySelector.value) {
                 this.stock.buyStrategy = strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
-                this.stock.buyStrategy.account = this.stock.account;
+                if (this.stock.account == 'watch') {
+                    this.stock.buyStrategy.account = 'normal';
+                } else {
+                    this.stock.buyStrategy.account = this.stock.account;
+                };
                 this.stock.buyStrategy.storeKey = this.stock.acccode + '_buyStrategy';
                 utils.removeAllChild(this.strategyRoot);
             };
