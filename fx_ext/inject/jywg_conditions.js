@@ -135,7 +135,7 @@ class JywgUtils {
                 what = responseAlert.textContent;
             };
             EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'success', what});
-            document.querySelector('#btnCxcConfirm').click();
+            // document.querySelector('#btnCxcConfirm').click();
         }, 200);
     }
 

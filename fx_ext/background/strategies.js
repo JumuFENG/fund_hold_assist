@@ -110,6 +110,14 @@ class Strategy {
             };
         };
 
+        if (this.inputStep) {
+            var stepRate = parseFloat(this.inputStep.value) / 100;
+            if (!this.stepRate || this.stepRate != stepRate) {
+                this.stepRate = stepRate;
+                changed = true;
+            };
+        };
+
         if (this.inputCount) {
             var count = parseInt(this.inputCount.value);
             if (!this.count || this.count != count) {
@@ -148,6 +156,9 @@ class Strategy {
     parse(str) {
         this.enabled = str.enabled;
         this.guardPrice = str.guardPrice;
+        if (str.stepRate !== undefined) {
+            this.stepRate = str.stepRate;
+        };
         this.backRate = str.backRate;
         this.count = str.count;
         this.amount = str.amount;
@@ -161,6 +172,9 @@ class Strategy {
         str.key = this.key;
         str.enabled = this.enabled;
         str.guardPrice = this.guardPrice;
+        if (this.stepRate !== undefined) {
+            str.stepRate = this.stepRate;
+        };
         str.backRate = this.backRate;
         str.count = this.count;
         str.amount = this.amount;
@@ -173,6 +187,14 @@ class Strategy {
     tostring() {
         var str = this.toDataObj();
         return JSON.stringify(str);
+    }
+
+    shouldGetKline() {
+        return false;
+    }
+
+    guardRtPrices() {
+        return this.enabled;
     }
 
     calcCount(amount, price) {
@@ -407,13 +429,6 @@ class StrategyBuyRepeat extends StrategyBuy {
                 changed = true;
             };
         };
-        if (this.inputStep) {
-            var stepRate = parseFloat(this.inputStep.value) / 100;
-            if (!this.stepRate || this.stepRate != stepRate) {
-                this.stepRate = stepRate;
-                changed = true;
-            };
-        };
         return changed;
     }
 
@@ -425,17 +440,6 @@ class StrategyBuyRepeat extends StrategyBuy {
     sellMatch(refer) {
         this.inCritical = false;
         this.guardPrice = refer * (1 - this.stepRate);
-    }
-
-    parse(str) {
-        super.parse(str);
-        this.stepRate = str.stepRate;
-    }
-
-    toDataObj() {
-        var str = super.toDataObj();
-        str.stepRate = this.stepRate;
-        return str;
     }
 }
 
@@ -459,13 +463,6 @@ class StrategySellRepeat extends StrategySell {
                 changed = true;
             };
         };
-        if (this.inputStep) {
-            var stepRate = parseFloat(this.inputStep.value) / 100;
-            if (!this.stepRate || this.stepRate != stepRate) {
-                this.stepRate = stepRate;
-                changed = true;
-            };
-        };
         return changed;
     }
 
@@ -477,17 +474,6 @@ class StrategySellRepeat extends StrategySell {
     sellMatch(refer) {
         this.inCritical = false;
         this.guardPrice = refer * (1 + this.stepRate);
-    }
-
-    parse(str) {
-        super.parse(str);
-        this.stepRate = str.stepRate;
-    }
-
-    toDataObj() {
-        var str = super.toDataObj();
-        str.stepRate = this.stepRate;
-        return str;
     }
 }
 
@@ -572,6 +558,7 @@ class StrategyBuyZT2 extends StrategyBuy {
     buyMatch(refer) {
         this.buyRound++;
         this.guardPrice = refer * (1 - this.stepRate);
+        console.log(refer, this.guardPrice);
         if (this.buyRound >= 2) {
             this.enabled = false;
         };
@@ -709,6 +696,31 @@ class StrategyBuyMA extends StrategyBuy {
         this.klines = [];
     }
 
+    parse(str) {
+        super.parse(str);
+        this.kltype = str.kltype;
+        if (str.klines !== undefined) {
+            this.klines = str.klines;
+        };
+    }
+
+    toDataObj() {
+        var str = super.toDataObj();
+        str.kltype = this.kltype;
+        if (this.klines !== undefined) {
+            str.klines = this.klines;
+        };
+        return str;
+    }
+
+    shouldGetKline() {
+        return true;
+    }
+
+    guardRtPrices() {
+        return this.enabled && this.inCritical;
+    }
+
     check(rtInfo) {
         if (this.inCritical) {
             return this.matchResult(true, rtInfo.sellPrices[0]);
@@ -716,17 +728,18 @@ class StrategyBuyMA extends StrategyBuy {
         return {match:false};
     }
 
-    parse(str) {
-        super.parse(str);
-        this.kltype = str.kltype;
-        this.klines = str.klines;
-    }
-
-    toDataObj() {
-        var str = super.toDataObj();
-        str.kltype = this.kltype;
-        str.klines = this.klines;
-        return str;
+    checkKlines() {
+        if (this.klines === undefined) {
+            return;
+        };
+        if (this.klines.length < 2) {
+            return;
+        };
+        var kl1 = this.klines[this.klines.length - 1];
+        var kl2 = this.klines[this.klines.length - 2];
+        if (kl1.l > kl1.ma18 && kl2.l > kl2.ma18) {
+            this.inCritical = true;
+        };
     }
 
     createView() {
@@ -755,22 +768,52 @@ class StrategySellMA extends StrategySell {
         this.enabled = false;
         this.inCritical = false;
     }
-    
+
     parse(str) {
         super.parse(str);
         this.kltype = str.kltype;
-        this.klines = str.klines;
+        if (str.klines !== undefined) {
+            this.klines = str.klines;
+        };
     }
 
     toDataObj() {
         var str = super.toDataObj();
         str.kltype = this.kltype;
-        str.klines = this.klines;
+        if (this.klines !== undefined) {
+            str.klines = this.klines;
+        };
         return str;
     }
 
-    check(rtInfo) {
+    shouldGetKline() {
+        return true;
+    }
 
+    guardRtPrices() {
+        return this.enabled && this.inCritical;
+    }
+
+    check(rtInfo) {
+        if (this.inCritical) {
+            return this.matchResult(true, rtInfo.buyPrices[0]);
+        };
+        return {match:false};
+    }
+
+    checkKlines() {
+        if (this.klines === undefined) {
+            return;
+        };
+        if (this.klines.length < 3) {
+            return;
+        };
+        var kl1 = this.klines[this.klines.length - 1];
+        var kl2 = this.klines[this.klines.length - 2];
+        var kl3 = this.klines[this.klines.length - 3];
+        if (kl1.h < kl1.ma18 && kl2.h < kl2.ma18 && kl3.h < kl3.ma18) {
+            this.inCritical = true;
+        };
     }
 
     createView() {

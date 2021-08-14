@@ -92,7 +92,20 @@ function getKlineHourly(code) {
 }
 
 function klineHourlyBack (kline) {
-    postMessage({command: 'quote.get.kline.hourly', kline});
+    postMessage({command: 'quote.kline.rt', kltype:'60', kline});
+}
+
+function getKlineDaily(code) {
+    var secid = codeToSecid(code);
+    var edate = new Date();
+    var sdate = new Date(edate.setDate(edate.getDate() - 30));
+    var beg = sdate.getFullYear() + ('' + (sdate.getMonth() + 1)).padStart(2, '0') + ('' + sdate.getDate()).padStart(2, '0');
+    var url = hisKlineUrl + '&cb=klineDailyBack&secid=' + secid + '&beg=' + beg + '&end=20500000&_=' + Date.now();
+    xmlHttpGet(url);
+}
+
+function klineDailyBack(kline) {
+    postMessage({command: 'quote.kline.rt', kltype:'101', kline});
 }
 
 addEventListener('message', function(e) {
@@ -113,8 +126,12 @@ addEventListener('message', function(e) {
         getTopicZTPool(e.data.date);
     } else if (e.data.command == 'quote.get.kline') {
         getKlineDailySince(e.data.code, e.data.date, e.data.len);
-    } else if (e.data.command == 'quote.get.kline.hourly') {
-        getKlineHourly(e.data.code);
+    } else if (e.data.command == 'quote.kline.rt') {
+        if (e.data.kltype == '60') {
+            getKlineHourly(e.data.code);
+        } else if (e.data.kltype == '101') {
+            getKlineDaily(e.data.code);
+        };
     } else {
         postLog('unknown command ' + e.data.command);
     }
