@@ -728,6 +728,16 @@ class StrategyBuyMA extends StrategyBuy {
         return {match:false};
     }
 
+    klineApproximatelyAboveMa18(kl) {
+        if (kl.l > kl.ma18) {
+            return true;
+        };
+        if (5 * (kl.ma18 - kl.l) <= kl.h - kl.ma18) {
+            return true;
+        };
+        return false;
+    }
+
     checkKlines() {
         if (this.klines === undefined) {
             return;
@@ -737,7 +747,7 @@ class StrategyBuyMA extends StrategyBuy {
         };
         var kl1 = this.klines[this.klines.length - 1];
         var kl2 = this.klines[this.klines.length - 2];
-        if (kl1.l > kl1.ma18 && kl2.l > kl2.ma18) {
+        if (kl1.l > kl1.ma18 && this.klineApproximatelyAboveMa18(kl2)) {
             this.inCritical = true;
         };
     }
@@ -801,6 +811,17 @@ class StrategySellMA extends StrategySell {
         return {match:false};
     }
 
+    klineApproximatelyBellowMa18(kl) {
+        if (kl.h < kl.ma18) {
+            return true;
+        };
+
+        if ((kl.ma18 - kl.l) >= 5 * (kl.h - kl.ma18)) {
+            return true;
+        };
+        return false;
+    }
+
     checkKlines() {
         if (this.klines === undefined) {
             return;
@@ -811,7 +832,7 @@ class StrategySellMA extends StrategySell {
         var kl1 = this.klines[this.klines.length - 1];
         var kl2 = this.klines[this.klines.length - 2];
         var kl3 = this.klines[this.klines.length - 3];
-        if (kl1.h < kl1.ma18 && kl2.h < kl2.ma18 && kl3.h < kl3.ma18) {
+        if (kl1.h < kl1.ma18 && kl2.h < kl2.ma18 && this.klineApproximatelyBellowMa18(kl3)) {
             this.inCritical = true;
         };
     }
