@@ -305,7 +305,6 @@ class StrategyChooser {
 window.onunload = function() {
     if (emjyManager.stockList.strategyContainer.stock) {
         emjyManager.stockList.strategyContainer.saveStrategy();
-        emjyManager.sendExtensionMessage({command: 'mngr.closed'});
     };
 }
 

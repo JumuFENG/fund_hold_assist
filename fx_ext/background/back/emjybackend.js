@@ -101,7 +101,7 @@ class EmjyBack {
             this.mainTab = new TradeProxy();
             this.mainTab.tabid = tabid;
             this.mainTab.url = message.url;
-            chrome.tabs.onRemoved.addListener(function(tabid, removeInfo) {
+            chrome.tabs.onRemoved.addListener((tabid, removeInfo) => {
                 if (emjyBack.mainTab.tabid == tabid) {
                     emjyBack.mainTab = null;
                 }
@@ -236,7 +236,9 @@ class EmjyBack {
             if (this.manager.isValid()) {
                 this.manager.sendStocks([this.normalAccount, this.collateralAccount, this.watchAccount]);
             }
-            this.log('manager sendStocks');
+            chrome.tabs.onRemoved.addListener((tid, removeInfo) => {
+                this.manager.onManagerMessage({command: 'mngr.closed'}, tid);
+            });
         }
     }
 
