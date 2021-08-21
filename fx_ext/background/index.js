@@ -41,7 +41,7 @@
             emjyBack.onContentLoaded(message, sender.tab.id);
             logInfo('emjy.Loaded', message.url);
         } else if (message.command.startsWith('emjy.') && emjyBack) {
-            emjyBack.onContentMessageReceived(message);
+            emjyBack.onContentMessageReceived(message, sender.tab.id);
         } else if (message.command.startsWith('mngr.')) {
             if (!emjyBack) {
                 emjyBack = new EmjyBack();

@@ -139,7 +139,7 @@ class JywgUtils {
         }, 200);
     }
 
-    tradeBondRepurchase(code) {
+    tradeBondRepurchase(code, command, sendResponse) {
         if (location.pathname != BondRepurchasePath) {
             var url = new URL(location.href);
             url.pathname = BondRepurchasePath;
@@ -148,10 +148,18 @@ class JywgUtils {
             location.href = url;
             return;
         };
+        if (sendResponse) {
+            sendResponse({command, status: 'success', result:'unknown'});
+        };
         document.querySelector('#iptZqdm').value = code;
         document.querySelector('#iptZqdm').click();
-        setTimeout(() => {
-            document.querySelector('#quickSale').childNodes[0].childNodes[1].childNodes[0].click();
+        var quickSaleInterval = setInterval(() => {
+            var quickSale = document.querySelector('#quickSale');
+            if (!quickSale) {
+                return;
+            };
+            quickSale.childNodes[0].childNodes[1].childNodes[0].click();
+            clearInterval(quickSaleInterval);
             setTimeout(() => {
                 if (document.querySelector('#lblKrsl').textContent == 0) {
                     this.log('可融数量: 0');
@@ -163,10 +171,10 @@ class JywgUtils {
                 document.querySelector('#btnConfirm').click();
                 this.clickConfirmAgainBtn();
             }, 1000);
-        }, 1000);
+        }, 300);
     }
 
-    clickTrade(path, code, name, price, count) {
+    clickTrade(path, code, name, price, count, sendResponse) {
         if (location.pathname != path || (!location.href.includes('code=') && document.querySelector('#btnConfirm').disabled)) {
             var url = new URL(location.href);
             url.pathname = path;
@@ -182,7 +190,9 @@ class JywgUtils {
         };
         document.querySelector('#iptPrice').value = price;
         if (document.querySelector('#lbMaxCount').textContent < count) {
-            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'maxCountInvalid', what: 'maxCount = ' + document.querySelector('#lbMaxCount').textContent + ', count = ' + count});
+            if (sendResponse) {
+                sendResponse({command:'emjy.trade', status: 'success', result: 'error', reason: 'maxCountInvalid', what: 'maxCount = ' + document.querySelector('#lbMaxCount').textContent + ', count = ' + count})
+            };
             return;
         };
         if (count <= 4 && count >= 1) {
@@ -192,12 +202,17 @@ class JywgUtils {
                 document.querySelector(radId).click();
             };
         } else if (count < 100) {
-            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'countInvalid', what: 'count = ' + count});
+            if (sendResponse) {
+                sendResponse({command:'emjy.trade', status: 'success', result: 'error', reason: 'countInvalid', what: 'count = ' + count});
+            };
             return;
         } else {
             document.querySelector('#iptCount').value = count;
         }
 
+        if (sendResponse) {
+            sendResponse({command:'emjy.trade', status: 'success', result: 'unknown'});
+        };
         var checkInterval = setInterval(() => {
             if (document.querySelector('#btnConfirm').disabled) {
                 return;
@@ -222,7 +237,7 @@ class JywgUtils {
         }, 300);
     }
 
-    tradeNewStockBuy() {
+    tradeNewStockBuy(command, sendResponse) {
         if (location.pathname != NewStockPurchasePath) {
             var url = new URL(location.href);
             url.pathname = NewStockPurchasePath;
@@ -234,7 +249,11 @@ class JywgUtils {
 
         var seletedCount = 0;
         document.querySelector('#tableBody').querySelectorAll('tr').forEach(r => {
-            var code = r.querySelectorAll('td')[2].textContent;
+            var tds = r.querySelectorAll('td');
+            if (tds.length < 2) {
+                return;
+            };
+            var code = tds[2].textContent;
             console.log(code);
             if (code.startsWith('68') || code.startsWith('30')) {
                 return;
@@ -248,12 +267,18 @@ class JywgUtils {
 
         if (seletedCount > 0) {
             this.newStockBondBatBuy();
+            if (sendResponse) {
+                sendResponse({command, status: 'success', result:'unknown'});
+            };
         } else {
-            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'maxCountInvalid', what: 'no new stocks to buy.'});
+            if (sendResponse) {
+                console.log('maxCountInvalid', sendResponse);
+                sendResponse({command, status: 'success', result: 'error', reason: 'maxCountInvalid', what: 'no new stocks to buy.'});
+            };
         };
     }
 
-    tradeNewBondsBuy() {
+    tradeNewBondsBuy(command, sendResponse) {
         if (location.pathname != NewBondsPurchasePath) {
             var url = new URL(location.href);
             url.pathname = NewBondsPurchasePath;
@@ -264,6 +289,9 @@ class JywgUtils {
         };
         document.querySelector('#chk_all').click();
         this.newStockBondBatBuy();
+        if (sendResponse) {
+            sendResponse({command, status: 'success', result:'unknown'});
+        };
     }
 }
 
@@ -287,7 +315,7 @@ class EmjyFrontend {
         chrome.runtime.sendMessage(message);
     }
 
-    onBackMessageReceived(message) {
+    onBackMessageReceived(message, sender, sendResponse) {
         if (message.command == 'emjy.navigate') {
             location.href = message.url;
         } else if (message.command == 'emjy.getValidateKey') {
@@ -296,15 +324,15 @@ class EmjyFrontend {
                 this.sendMessageToBackground({command:'emjy.getValidateKey', key: vkey});
             }
         } else if (message.command == 'emjy.getAssets') {
-            this.getAssets(message.assetsPath);
+            this.getAssets(message.path, sendResponse);
         } else if (message.command == 'emjy.trade') {
-            this.stockTrade(message);
+            this.stockTrade(message, sendResponse);
         } else if (message.command == 'emjy.trade.bonds') {
-            this.jywgutils.tradeBondRepurchase(message.code);
+            this.jywgutils.tradeBondRepurchase(message.code, message.command, sendResponse);
         } else if (message.command == 'emjy.trade.newbonds') {
-            this.jywgutils.tradeNewBondsBuy();
+            this.jywgutils.tradeNewBondsBuy(message.command, sendResponse);
         } else if (message.command == 'emjy.trade.newstocks') {
-            this.jywgutils.tradeNewStockBuy();
+            this.jywgutils.tradeNewStockBuy(message.command, sendResponse);
         };
     }
 
@@ -346,7 +374,7 @@ class EmjyFrontend {
         this.log('onPageLoaded', path);
     }
 
-    getAssets(assetsPath) {
+    getAssets(assetsPath, sendResponse) {
         this.log('getAssets', assetsPath, location.pathname);
         if (location.pathname != assetsPath) {
             var url = new URL(location.href);
@@ -363,21 +391,25 @@ class EmjyFrontend {
         } else {
             assetsMsg = this.jywgutils.getAssetsNor();
         }
-
+        
         if (assetsMsg) {
             assetsMsg.command = 'emjy.getAssets';
             assetsMsg.assetsPath = assetsPath;
-            this.sendMessageToBackground(assetsMsg);
+            assetsMsg.status = 'success';
+            assetsMsg.result = 'success';
+            if (sendResponse) {
+                sendResponse(assetsMsg);
+            };
         }
     }
 
-    stockTrade(message) {
+    stockTrade(message, sendResponse) {
         this.log('stockTrade', JSON.stringify(message));
         var stockName = message.stock.name;
         if (stockName === undefined) {
             stockName = '';
         }
-        this.jywgutils.clickTrade(message.tradePath, message.stock.code, stockName, message.price, message.count);
+        this.jywgutils.clickTrade(message.path, message.stock.code, stockName, message.price, message.count, sendResponse);
     }
 }
 
@@ -385,7 +417,7 @@ function logInfo(...args) {
     console.log(args.join(' '));
 }
 
-function onMessage(message) {
+function onMessage(message, sender, sendResponse) {
     if (message.command.startsWith('emjy.')) {
         logInfo('recieve command', message.command);
         if (!EmjyFront) {
@@ -393,9 +425,9 @@ function onMessage(message) {
             EmjyFront.Init(logInfo);
         }
         if (EmjyFront.pageLoaded) {
-            EmjyFront.onBackMessageReceived(message);
+            EmjyFront.onBackMessageReceived(message, sender, sendResponse);
         } else {
-            setTimeout(EmjyFront.onBackMessageReceived(message), 1100);
+            setTimeout(EmjyFront.onBackMessageReceived(message, sender, sendResponse), 1100);
         }
     } else {
         logInfo("command not recognized.");
@@ -412,14 +444,5 @@ if (location.host == 'jywg.18.cn') {
         chrome.runtime.onMessage.addListener(onMessage);
     }
 
-    setTimeout(function(){
-        EmjyFront.onPageLoaded();
-    }, 1000);
-
-    var now = new Date();
-    if (now.getHours() <= 12) {
-        setTimeout(function() {
-            location.reload();
-        }, 175 * 60 * 1000);  // less than 3 hrs
-    };
+    EmjyFront.onPageLoaded();
 }

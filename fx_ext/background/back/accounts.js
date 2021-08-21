@@ -1,4 +1,5 @@
 'use strict';
+let BondRepurchasePath = '/BondRepurchase/SecuritiesLendingRepurchase';
 
 class Wallet {
     constructor() {
@@ -397,10 +398,10 @@ class WatchAccount extends AccountInfo {
     }
 
     buyFundBeforeClose() {
-        var repCodes = ['204001', '131810'];
-        repCodes.forEach(code => {
-            this.log('Buy', code);
-            emjyBack.postWorkerTask({command: 'emjy.trade.bonds', code});
+        var repCodes = [{code: '204001', active: true}, {code:'131810', active: false}];
+        repCodes.forEach(r => {
+            this.log('Buy', r.code);
+            emjyBack.scheduleTaskInNewTab({command: 'emjy.trade.bonds', code: r.code, path: BondRepurchasePath}, r.active);
         });
     }
 

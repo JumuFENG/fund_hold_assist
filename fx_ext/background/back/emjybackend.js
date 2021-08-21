@@ -1,6 +1,8 @@
 'use strict';
 let DEBUG = false;
 let emjyBack = null;
+let NewStockPurchasePath = '/Trade/NewBatBuy';
+let NewBondsPurchasePath = '/Trade/XzsgBatPurchase';
 
 class ManagerBack {
     constructor(log) {
@@ -68,13 +70,14 @@ function onQuoteWorkerMessage(e) {
 class EmjyBack {
     constructor() {
         this.log = null;
-        this.contentTabId = null;
-        this.authencated = true;
+        this.mainTab = null;
+        this.authencated = false;
         this.normalAccount = null;
         this.collateralAccount = null;
         this.creditAccount = null;
         this.watchAccount = null;
         this.currentTask = null;
+        this.contentProxies = [];
         this.taskTimeoutTimer = null;
         this.stockGuard = null;
         this.klineAlarms = null;
@@ -100,19 +103,29 @@ class EmjyBack {
     }
 
     onContentLoaded(message, tabid) {
-        if (!this.contentTabId) {
-            this.log('init contentTabId and accounts');
-            this.contentTabId = tabid;
+        if (!this.mainTab) {
+            this.log('init mainTabId and accounts');
+            this.mainTab = new TradeProxy();
+            this.mainTab.tabid = tabid;
+            this.mainTab.url = message.url;
             if (!this.mainWorker) {
                 this.mainWorker = new Worker('workers/mainworker.js');
                 this.mainWorker.onmessage = onMainWorkerMessage;
             };
             chrome.tabs.onRemoved.addListener(function(tabid, removeInfo) {
-                if (emjyBack.contentTabId == tabid) {
-                    emjyBack.contentTabId = null;
-                    emjyBack.contentUrl = '';
+                if (emjyBack.mainTab.tabid == tabid) {
+                    emjyBack.mainTab = null;
                 }
             });
+
+            chrome.tabs.reload(this.mainTab.tabid, () => {
+                chrome.tabs.get(this.mainTab.tabid, t => {
+                    this.mainTab.url = t.url;
+                    var url = new URL(t.url);
+                    this.authencated = url.pathname != '/Login';
+                });
+            });
+
             this.normalAccount = new AccountInfo();
             this.normalAccount.initAccount('normal', '/Trade/Buy', '/Trade/Sale', '/Search/Position');
             this.collateralAccount = new AccountInfo();
@@ -128,23 +141,33 @@ class EmjyBack {
             });
 
             this.refreshAssets();
-        }
-        if (tabid == this.contentTabId) {
-            this.contentUrl = message.url;
-        }
-        var url = new URL(this.contentUrl);
-        this.authencated = url.pathname != '/Login';
-        if (this.currentTask && url.pathname == '/Login') {
-            this.authencated = false;
-            this.revokeCurrentTask();
+        } else {
+            this.contentProxies.forEach(c => {
+                if (c.tabid == tabid) {
+                    c.pageLoaded();
+                };
+            });
         };
-        this.log('onContentLoaded', this.contentUrl);
+
+        if (tabid == this.mainTab.tabid) {
+            this.mainTab.url = message.url;
+            chrome.tabs.executeScript(this.mainTab.tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
+            var url = new URL(this.mainTab.url);
+            this.authencated = url.pathname != '/Login';
+            if (this.contentProxies.length > 0 && this.authencated) {
+                this.contentProxies.forEach(p => {
+                    p.triggerTask();
+                });
+            };
+        };
+
+        this.log('onContentLoaded', this.mainTab.url);
     }
 
     // DON'T use this API directly, or it may break the task queue.
     sendMsgToContent(data) {
-        var url = new URL(this.contentUrl);
-        if (!this.contentTabId || url.host != 'jywg.18.cn') {
+        var url = new URL(this.mainTab.url);
+        if (!this.mainTab.tabid || url.host != 'jywg.18.cn') {
             return;
         }
 
@@ -156,7 +179,7 @@ class EmjyBack {
 
         //chrome.tabs.sendMessage(tabid, {command: 'emjy.navigate', url: url.href});
 
-        chrome.tabs.sendMessage(this.contentTabId, data);
+        chrome.tabs.sendMessage(this.mainTab.tabid, data);
         this.taskTimeoutTimer = setTimeout(() => {
             this.log('currentTask pending 1 min:', JSON.stringify(this.currentTask));
             this.popCurrentTask();
@@ -167,13 +190,23 @@ class EmjyBack {
         this.log('sendMsgToContent', JSON.stringify(data));
     }
 
-    onContentMessageReceived(message) {
+    remvoeProxy(tabid) {
+        this.log('remvoeProxy', tabid);
+        this.contentProxies.forEach(c => {
+            if (c.tabid == tabid) {
+                c.closeTab();
+                this.contentProxies.splice(this.contentProxies.indexOf(c), 1);
+            };
+        });
+    }
+
+    onContentMessageReceived(message, tabid) {
         if (!this.normalAccount && !this.creditAccount) {
             this.log('background not initialized');
             return;
         }
 
-        this.log('onContentMessageReceived');
+        this.log('onContentMessageReceived', tabid);
         if (message.command == 'emjy.getValidateKey') {
             this.log('getValidateKey =', message.key);
         } else if (message.command == 'emjy.getAssets') {
@@ -199,30 +232,26 @@ class EmjyBack {
             this.log(JSON.stringify(this.normalAccount));
             this.log(JSON.stringify(this.collateralAccount));
             this.log(JSON.stringify(this.creditAccount));
-            if (this.currentTask && this.currentTask.command == message.command) {
-                this.clearTaskTimeoutTimer();
-                this.popCurrentTask();
-            }
+            this.remvoeProxy(tabid);
         } else if (message.command == 'emjy.trade') {
             if (message.result == 'success') {
                 this.log('trade success', message.what);
-                this.clearTaskTimeoutTimer();
-                this.popCurrentTask();
+                this.remvoeProxy(tabid);
             } else if (message.result == 'error') {
                 this.log('trade error:', message.reason, message.what);
-                if (message.reason == 'btnConfirmDisabled') {
-                    this.revokeCurrentTask();
-                } else if (message.reason == 'pageNotLoaded') {
-                    var loadingInterval = setInterval(()=>{
-                        if (this.contentUrl == message.expected && this.authencated) {
-                            clearInterval(loadingInterval);
-                            this.revokeCurrentTask();
-                        };
-                    }, 200);
-                } else {
-                    this.clearTaskTimeoutTimer();
-                    this.popCurrentTask();
-                }
+                // if (message.reason == 'btnConfirmDisabled') {
+                //     this.revokeCurrentTask();
+                // } else if (message.reason == 'pageNotLoaded') {
+                //     var loadingInterval = setInterval(()=>{
+                //         if (this.mainTab.url == message.expected && this.authencated) {
+                //             clearInterval(loadingInterval);
+                //             this.revokeCurrentTask();
+                //         };
+                //     }, 200);
+                // } else {
+                //     this.clearTaskTimeoutTimer();
+                //     this.popCurrentTask();
+                // }
             }
         }
     }
@@ -306,8 +335,8 @@ class EmjyBack {
             this.watchAccount.save();
         };
 
-        this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.normalAccount.assetsPath});
-        this.postWorkerTask({command: 'emjy.getAssets', assetsPath: this.creditAccount.assetsPath});
+        this.scheduleTaskInNewTab({command: 'emjy.getAssets', path: this.normalAccount.assetsPath});
+        this.scheduleTaskInNewTab({command: 'emjy.getAssets', path: this.creditAccount.assetsPath});
     }
 
     checkAvailableMoney(price, account) {
@@ -360,7 +389,7 @@ class EmjyBack {
     }
 
     sendTradeMessage(tradePath, stock, price, count) {
-        this.postWorkerTask({command: 'emjy.trade', tradePath, stock, price, count});
+        this.scheduleTaskInNewTab({command: 'emjy.trade', path: tradePath, stock, price, count});
     }
 
     setupQuoteAlarms() {
@@ -497,8 +526,24 @@ class EmjyBack {
     }
 
     tradeDailyRoutineTasks() {
-        this.postWorkerTask({command:'emjy.trade.newstocks'});
-        this.postWorkerTask({command:'emjy.trade.newbonds'});
+        this.scheduleTaskInNewTab({command:'emjy.trade.newstocks', path: NewStockPurchasePath});
+        this.scheduleTaskInNewTab({command:'emjy.trade.newbonds', path: NewBondsPurchasePath});
+    }
+
+    scheduleTaskInNewTab(task, active = true) {
+        var proxy = new TradeProxy();
+        proxy.task = task;
+        proxy.active = active;
+        if (task.path) {
+            proxy.url = 'https://jywg.18.cn' + task.path;
+        };
+        if (task.command == 'emjy.trade') {
+            proxy.url += '?' + task.stock.code;
+        };
+        if (this.authencated) {
+            proxy.triggerTask();
+        };
+        this.contentProxies.push(proxy);
     }
 
     tradeBeforeClose() {
