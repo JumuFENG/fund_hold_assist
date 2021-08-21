@@ -59,10 +59,6 @@ class ManagerBack {
     }
 }
 
-function onMainWorkerMessage(e) {
-    emjyBack.onMainWorkerMessageReceived(e.data);
-}
-
 function onQuoteWorkerMessage(e) {
     emjyBack.onQuoteWorkerMessageReceived(e.data);
 }
@@ -76,12 +72,9 @@ class EmjyBack {
         this.collateralAccount = null;
         this.creditAccount = null;
         this.watchAccount = null;
-        this.currentTask = null;
         this.contentProxies = [];
-        this.taskTimeoutTimer = null;
         this.stockGuard = null;
         this.klineAlarms = null;
-        this.mainWorker = null;
         this.quoteWorker = null;
         this.manager = null;
     }
@@ -108,10 +101,6 @@ class EmjyBack {
             this.mainTab = new TradeProxy();
             this.mainTab.tabid = tabid;
             this.mainTab.url = message.url;
-            if (!this.mainWorker) {
-                this.mainWorker = new Worker('workers/mainworker.js');
-                this.mainWorker.onmessage = onMainWorkerMessage;
-            };
             chrome.tabs.onRemoved.addListener(function(tabid, removeInfo) {
                 if (emjyBack.mainTab.tabid == tabid) {
                     emjyBack.mainTab = null;
@@ -180,13 +169,6 @@ class EmjyBack {
         //chrome.tabs.sendMessage(tabid, {command: 'emjy.navigate', url: url.href});
 
         chrome.tabs.sendMessage(this.mainTab.tabid, data);
-        this.taskTimeoutTimer = setTimeout(() => {
-            this.log('currentTask pending 1 min:', JSON.stringify(this.currentTask));
-            this.popCurrentTask();
-            this.taskTimeoutTimer = null;
-        }, 60000);
-        this.currentTask = data;
-        this.postWorkerTask({command: 'emjy.sent'});
         this.log('sendMsgToContent', JSON.stringify(data));
     }
 
@@ -239,19 +221,6 @@ class EmjyBack {
                 this.remvoeProxy(tabid);
             } else if (message.result == 'error') {
                 this.log('trade error:', message.reason, message.what);
-                // if (message.reason == 'btnConfirmDisabled') {
-                //     this.revokeCurrentTask();
-                // } else if (message.reason == 'pageNotLoaded') {
-                //     var loadingInterval = setInterval(()=>{
-                //         if (this.mainTab.url == message.expected && this.authencated) {
-                //             clearInterval(loadingInterval);
-                //             this.revokeCurrentTask();
-                //         };
-                //     }, 200);
-                // } else {
-                //     this.clearTaskTimeoutTimer();
-                //     this.popCurrentTask();
-                // }
             }
         }
     }
@@ -268,39 +237,6 @@ class EmjyBack {
                 this.manager.sendStocks([this.normalAccount, this.collateralAccount, this.watchAccount]);
             }
             this.log('manager sendStocks');
-        }
-    }
-
-    postWorkerTask(task) {
-        this.log('postMessage to worker');
-        this.mainWorker.postMessage(task);
-    }
-
-    revokeCurrentTask() {
-        this.log('revoke task');
-        this.postWorkerTask({command: 'emjy.revoke'});
-        this.clearTaskTimeoutTimer();
-        this.currentTask = null;
-    }
-
-    popCurrentTask() {
-        this.currentTask.state = 'done';
-        this.log('pop task');
-        this.postWorkerTask(this.currentTask);
-        this.currentTask = null;
-    }
-
-    clearTaskTimeoutTimer() {
-        if (this.taskTimeoutTimer) {
-            clearTimeout(this.taskTimeoutTimer);
-            this.taskTimeoutTimer = null;
-        };
-    }
-
-    onMainWorkerMessageReceived(message) {
-        // this.log('mainworker', message.task, message.assetsPath);
-        if (!this.currentTask) {
-            this.sendMsgToContent(message);
         }
     }
 
