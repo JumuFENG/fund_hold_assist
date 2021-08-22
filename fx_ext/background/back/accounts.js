@@ -66,6 +66,7 @@ class AccountInfo {
             stockInfo.availableCount = parseInt(stocks[i].availableCount);
             stockInfo.holdCost = stocks[i].holdCost;
             stockInfo.market = stocks[i].market;
+            emjyBack.stockMarket[stocks[i].code] = stocks[i].market;
         };
     }
 
@@ -75,6 +76,25 @@ class AccountInfo {
         };
 
         return {account: this.keyword, stocks: JSON.stringify(this.stocks)};
+    }
+
+    queryStockMarketInfo() {
+        this.stocks.forEach(s => {
+            emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code: s.code});
+        });
+    }
+
+    updateStockMarketInfo(sdata) {
+        if (!this.stocks || this.stocks.length == 0) {
+            return;
+        };
+        var stock = this.stocks.find(s => { return s.code == sdata.code});
+        if (stock) {
+            if (!stock.name) {
+                stock.name = sdata.name;
+            }
+            stock.market = sdata.market;
+        };
     }
 
     updateStockRtPrice(snapshot) {
@@ -349,6 +369,7 @@ class AccountInfo {
             emjyBack.stockGuard.add(code);
             emjyBack.updateMonitor();
         };
+        emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code});
     }
 
     removeStock(code) {

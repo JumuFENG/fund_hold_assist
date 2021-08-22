@@ -1,19 +1,21 @@
 let quoteTimer = null;
 let stocks = null;
-
-let quoteUrl = 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot'
+let SHSZQueryUrl = 'https://hsmarketwg.eastmoney.com/api/SHSZQuery?count=10&callback=sData&id=';
+let quoteUrl = 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot';
 // https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id=601012&callback=jQuery18304735019505463437_1624277312927&_=1624277415671
 let ztPoolUrl = 'http://push2ex.eastmoney.com/getTopicZTPool?ut=7eea3edcaed734bea9cbfc24409ed989&sort=fbt%3Aasc&Pageindex=0&dpt=wz.ztzt&cb=cbztPoolback&date=';
 
 let hisKlineUrl = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&klt=101&fqt=1&fields1=f1%2Cf3&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55';
 
-let hisKlineHourly = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&klt=60&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55&beg=0&end=20500000'
+let hisKlineRt = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55&beg=0&end=20500000'
+
+var kltBack = {'1':'klineMinBack', '5':'kline5MinBack', '15':'kline15MinBack', '30':'klineHalfHrBack', '60':'klineHourlyBack', '120':'kline2HrBack', '101':'klineDailyBack', '102':'klineWeeklyBack', '103':'klineMonthlyBack', '104':'klineQuarterlyBack','105':'klineHalfYrBack','106':'klineYearBack'};
 
 // fields 
 // f1 : code  f2 : market f3 : name f4 : decimal f5 : dktotal  f6 : preKPrice f7 : prePrice f8 : qtMiscType 
 // f51: date/time,f52:开盘,f53:收盘,f54:最高, f55:最低, f56: 成交量, f57: 成交额 ,f58: 振幅(%),f59:涨跌幅(%),f60:涨跌额,f61:换手率(%)
 // secid: 1 = sh, 0 = sz
-// klt: k line type 101: 日k 102: 周k 103: 月k 104: 年k 60: 小时
+// klt: k line type 101: 日k 102: 周k 103: 月k 104: 季k 105: 半年k 106:年k 60: 小时, 1, 5, 15,30,60,120,
 // fqt: 复权 1: 前复权 2: 后复权 0: 不复权
 
 function postLog(log) {
@@ -46,7 +48,22 @@ function xmlHttpGet(url, cb) {
     };
 }
 
-function codeToSecid (code) {
+function queryStockInfo(code) {
+    var url = SHSZQueryUrl + code;
+    xmlHttpGet(url, (response) => {
+        eval(response);
+        var items = sData.split(',');
+        var name = items[4];
+        var market = (items[5] == 1 ? 'SH' : 'SZ');
+        var sdata = {name, code, market};
+        postMessage({command: 'quote.query.stock', sdata});
+    });
+}
+
+function codeToSecid(code, market) {
+    if (market !== undefined) {
+        return (market == 'SH' ? '1.' : '0.') + code;
+    };
     return ((code.startsWith('00') || code.startsWith('30')) ? '0.' : '1.') + code;
 }
 
@@ -68,9 +85,9 @@ function cbztPoolback(ztpool) {
     postMessage({command: 'quote.get.ZTPool', ztpool});
 }
 
-function getKlineDailySince(code, date, len) {
+function getKlineDailySince(code, date, len, market) {
     // postLog('get ' + code + ' ' + date + ' len = ' + len);
-    var secid = codeToSecid(code);
+    var secid = codeToSecid(code, market);
     var end = '20500000';
     if (len > 0) {
         var sdate = new Date(date.slice(0, 4) + "-" + date.slice(4, 6) + "-" + date.slice(6, 8));
@@ -85,18 +102,14 @@ function klineback(kline) {
     postMessage({command: 'quote.get.kline', kline});
 }
 
-function getKlineHourly(code) {
-    var secid = codeToSecid(code);
-    var url = hisKlineHourly + '&cb=klineHourlyBack&secid=' + secid;
+function getKlineRt(code, klt, market) {
+    var secid = codeToSecid(code, market);
+    var url = hisKlineRt + '&klt=' + klt + '&cb=' + kltBack[klt] + '&secid=' + secid;
     xmlHttpGet(url);
 }
 
-function klineHourlyBack (kline) {
-    postMessage({command: 'quote.kline.rt', kltype:'60', kline});
-}
-
-function getKlineDaily(code) {
-    var secid = codeToSecid(code);
+function getKlineDaily(code, market) {
+    var secid = codeToSecid(code, market);
     var edate = new Date();
     var sdate = new Date(edate.setDate(edate.getDate() - 30));
     var beg = sdate.getFullYear() + ('' + (sdate.getMonth() + 1)).padStart(2, '0') + ('' + sdate.getDate()).padStart(2, '0');
@@ -104,8 +117,52 @@ function getKlineDaily(code) {
     xmlHttpGet(url);
 }
 
+function klineMinBack(kline) {
+    postMessage({command: 'quote.kline.rt', kltype:'1', kline});
+}
+
+function kline5MinBack(kline) {
+    postMessage({command: 'quote.kline.rt', kltype:'5', kline});
+}
+
+function kline15MinBack(kline) {
+    postMessage({command: 'quote.kline.rt', kltype:'15', kline});
+}
+
+function klineHalfHrBack(kline) {
+    postMessage({command: 'quote.kline.rt', kltype:'30', kline});
+}
+
+function klineHourlyBack(kline) {
+    postMessage({command: 'quote.kline.rt', kltype:'60', kline});
+}
+
+function kline2HrBack(kline) {
+    postMessage({command: 'quote.kline.rt', kltype:'120', kline});
+}
+
 function klineDailyBack(kline) {
     postMessage({command: 'quote.kline.rt', kltype:'101', kline});
+}
+
+function klineWeeklyBack(kline) {
+    postMessage({command: 'quote.kline.rt', kltype:'102', kline});
+}
+
+function klineMonthlyBack(kline) {
+    postMessage({command: 'quote.kline.rt', kltype:'103', kline});
+}
+
+function klineQuarterlyBack(kline) {
+    postMessage({command: 'quote.kline.rt', kltype:'104', kline});
+}
+
+function klineHalfYrBack(kline) {
+    postMessage({command: 'quote.kline.rt', kltype:'105', kline});
+}
+
+function klineYearBack(kline) {
+    postMessage({command: 'quote.kline.rt', kltype:'106', kline});
 }
 
 addEventListener('message', function(e) {
@@ -120,17 +177,19 @@ addEventListener('message', function(e) {
         }
     } else if (e.data.command == 'quote.update.code') {
         stocks = e.data.stocks;
+    } else if (e.data.command == 'quote.query.stock') {
+        queryStockInfo(e.data.code);
     } else if (e.data.command == 'quote.fetch.code') {
         quoteSnapshot(e.data.code);
     } else if (e.data.command == 'quote.get.ZTPool') {
         getTopicZTPool(e.data.date);
     } else if (e.data.command == 'quote.get.kline') {
-        getKlineDailySince(e.data.code, e.data.date, e.data.len);
+        getKlineDailySince(e.data.code, e.data.date, e.data.len, e.data.market);
     } else if (e.data.command == 'quote.kline.rt') {
-        if (e.data.kltype == '60') {
-            getKlineHourly(e.data.code);
-        } else if (e.data.kltype == '101') {
-            getKlineDaily(e.data.code);
+        if (e.data.kltype == '101') {
+            getKlineDaily(e.data.code, e.data.market);
+        } else {
+            getKlineRt(e.data.code, e.data.kltype, e.data.market);
         };
     } else {
         postLog('unknown command ' + e.data.command);

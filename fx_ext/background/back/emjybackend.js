@@ -32,7 +32,7 @@ class ManagerBack {
         } else if (message.command == 'mngr.getZTPool') {
             emjyBack.postQuoteWorkerMessage({command:'quote.get.ZTPool', date: message.date});
         } else if (message.command == 'mngr.getkline') {
-            emjyBack.postQuoteWorkerMessage({command: 'quote.get.kline', code: message.code, date: message.date, len: message.len});
+            emjyBack.postQuoteWorkerMessage({command: 'quote.get.kline', code: message.code, date: message.date, len: message.len, market: emjyBack.stockMarket[message.code]});
         } else if (message.command == 'mngr.saveFile') {
             emjyBack.saveToFile(message.blob, message.filename);
         };
@@ -74,6 +74,7 @@ class EmjyBack {
         this.watchAccount = null;
         this.contentProxies = [];
         this.stockGuard = null;
+        this.stockMarket = {};
         this.klineAlarms = null;
         this.quoteWorker = null;
         this.manager = null;
@@ -129,7 +130,6 @@ class EmjyBack {
                     emjyBack.initWatchList(item.watching_stocks);
                 };
             });
-
         } else {
             this.contentProxies.forEach(c => {
                 if (c.tabid == tabid) {
@@ -253,6 +253,8 @@ class EmjyBack {
             this.log('quote.log', message.log);
         } else if (message.command == 'quote.snapshot') {
             this.updateStockRtPrice(message.snapshot);
+        } else if (message.command == 'quote.query.stock') {
+            this.updateStockMarketInfo(message.sdata);
         } else if (message.command == 'quote.get.ZTPool') {
             this.manager.sendManagerMessage({command:'mngr.getZTPool', ztpool: message.ztpool});
         } else if (message.command == 'quote.get.kline') {
@@ -361,6 +363,13 @@ class EmjyBack {
         };
     }
 
+    updateStockMarketInfo(sdata) {
+        this.normalAccount.updateStockMarketInfo(sdata);
+        this.collateralAccount.updateStockMarketInfo(sdata);
+        this.watchAccount.updateStockMarketInfo(sdata);
+        this.stockMarket[sdata.code] = sdata.market;
+    }
+
     updateStockRtPrice(snapshot) {
         //this.log('updateStockRtPrice', JSON.stringify(snapshot));
         this.normalAccount.updateStockRtPrice(snapshot);
@@ -436,6 +445,7 @@ class EmjyBack {
             this.watchAccount.stocks.push(new StockInfo({ code: codes[i], name: '', holdCount: 0,availableCount: 0, market: ''}));
         };
 
+        this.watchAccount.queryStockMarketInfo();
         this.loadStrategies(this.watchAccount);
     }
 
@@ -460,7 +470,8 @@ class EmjyBack {
     }
 
     fetchStockKline(code, kltype) {
-        this.postQuoteWorkerMessage({command:'quote.kline.rt', code, kltype});
+        var market = this.stockMarket[code];
+        this.postQuoteWorkerMessage({command:'quote.kline.rt', code, kltype, market});
     }
 
     tradeDailyRoutineTasks() {
