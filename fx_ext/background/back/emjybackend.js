@@ -112,6 +112,7 @@ class EmjyBack {
                     this.mainTab.url = t.url;
                     var url = new URL(t.url);
                     this.authencated = url.pathname != '/Login';
+                    this.refreshAssets();
                 });
             });
 
@@ -129,7 +130,6 @@ class EmjyBack {
                 };
             });
 
-            this.refreshAssets();
         } else {
             this.contentProxies.forEach(c => {
                 if (c.tabid == tabid) {
