@@ -20,6 +20,9 @@ class StockInfo {
             if (checkResult.match) {
                 emjyBack.log('checkStrategies', this.code, 'buy match', JSON.stringify(this.buyStrategy));
                 emjyBack.tryBuyStock(this.code, this.name, checkResult.price, checkResult.count, checkResult.account);
+                if (this.buyStrategy.guardZtBoard()) {
+                    emjyBack.ztBoardTimer.removeStock(this.code);
+                };
                 this.buyStrategy.buyMatch(checkResult.price);
                 if (this.sellStrategy) {
                     this.sellStrategy.buyMatch(checkResult.price);

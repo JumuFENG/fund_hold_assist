@@ -118,24 +118,8 @@ class AccountInfo {
             rtInfo.latestPrice = stock.latestPrice;
             rtInfo.openPrice = snapshot.fivequote.openPrice;
             var buyPrices = [snapshot.fivequote.buy1, snapshot.fivequote.buy2, snapshot.fivequote.buy3, snapshot.fivequote.buy4, snapshot.fivequote.buy5];
-            if (buyPrices[0] == '-') {
-                buyPrices[0] = stock.latestPrice;
-            };
-            for (var i = 1; i < buyPrices.length; i++) {
-                if (buyPrices[i] == '-') {
-                    buyPrices[i] = buyPrices[i - 1];
-                };
-            };
             rtInfo.buyPrices = buyPrices;
             var sellPrices = [snapshot.fivequote.sale1, snapshot.fivequote.sale2, snapshot.fivequote.sale3, snapshot.fivequote.sale4, snapshot.fivequote.sale5];
-            if (sellPrices[0] == '-') {
-                sellPrices[0] = stock.latestPrice;
-            };
-            for (var i = 1; i < sellPrices.length; i++) {
-                if (sellPrices[i]) {
-                    sellPrices[i] = sellPrices[i - 1];
-                };
-            };
             rtInfo.sellPrices = sellPrices;
             rtInfo.topprice = snapshot.topprice;
             rtInfo.bottomprice = snapshot.bottomprice;
@@ -163,12 +147,6 @@ class AccountInfo {
     }
 
     applyStockKlines(klines, fecthed) {
-        if (klines.length == 0) {
-            klines = fecthed;
-            this.calcKlineMA(klines);
-            return;
-        };
-
         var sum5 = 0;
         for (var i = 1; i <= 5 && i <= klines.length; i++) {
             sum5 += parseFloat(klines[klines.length - i].c);
@@ -240,41 +218,24 @@ class AccountInfo {
         var klines = this.parseKlines(message.kline.data.klines);
         var stock = this.stocks.find((s) => { return s.code == code});
         if (stock && stock.buyStrategy && stock.buyStrategy.shouldGetKline() && stock.buyStrategy.kltype == kltype) {
-            if (kltype == '60') {
-                if (stock.buyStrategy.klines === undefined) {
-                    stock.buyStrategy.klines = klines;
-                    this.calcKlineMA(stock.buyStrategy.klines);
-                } else {
-                    this.applyStockKlines(stock.buyStrategy.klines, klines);
-                };
-            } else if (kltype == '101') {
-                if (stock.buyStrategy.klines === undefined) {
-                    stock.buyStrategy.klines = klines;
-                    this.calcKlineMA(stock.buyStrategy.klines);
-                } else {
-                    this.applyStockKlines(stock.buyStrategy.klines, klines);
-                };
+            if (stock.buyStrategy.klines === undefined || stock.buyStrategy.klines.length == 0) {
+                stock.buyStrategy.klines = klines;
+                this.calcKlineMA(stock.buyStrategy.klines);
+            } else {
+                this.applyStockKlines(stock.buyStrategy.klines, klines);
             };
             stock.buyStrategy.checkKlines();
             strategyManager.flushStrategy(stock.buyStrategy);
             if (stock.buyStrategy.inCritical && (new Date()).getHours() < 15) {
                 emjyBack.fetchStockSnapshot(stock.code);
             };
-        } else if (stock && stock.sellStrategy && stock.sellStrategy.shouldGetKline() && stock.sellStrategy.kltype == kltype) {
-            if (kltype == '60') {
-                if (stock.sellStrategy.klines === undefined) {
-                    stock.sellStrategy.klines = klines;
-                    this.calcKlineMA(stock.sellStrategy.klines);
-                } else {
-                    this.applyStockKlines(stock.sellStrategy.klines, klines);
-                };
-            } else if (kltype == '101') {
-                if (stock.sellStrategy.klines === undefined) {
-                    stock.sellStrategy.klines = klines;
-                    this.calcKlineMA(stock.sellStrategy.klines);
-                } else {
-                    this.applyStockKlines(stock.sellStrategy.klines, klines);
-                };
+        };
+        if (stock && stock.sellStrategy && stock.sellStrategy.shouldGetKline() && stock.sellStrategy.kltype == kltype) {
+            if (stock.sellStrategy.klines === undefined || stock.sellStrategy.klines.length == 0) {
+                stock.sellStrategy.klines = klines;
+                this.calcKlineMA(stock.sellStrategy.klines);
+            } else {
+                this.applyStockKlines(stock.sellStrategy.klines, klines);
             };
             strategyManager.flushStrategy(stock.sellStrategy);
             stock.sellStrategy.checkKlines();
@@ -419,11 +380,10 @@ class WatchAccount extends AccountInfo {
     }
 
     buyFundBeforeClose() {
-        var repCodes = [{code: '204001', active: true}, {code:'131810', active: false}];
-        repCodes.forEach(r => {
-            this.log('Buy', r.code);
-            emjyBack.scheduleTaskInNewTab({command: 'emjy.trade.bonds', code: r.code, path: BondRepurchasePath}, r.active);
-        });
+        emjyBack.scheduleTaskInNewTab({command: 'emjy.trade.bonds', code: '204001', path: BondRepurchasePath}, true);
+        setTimeout(() => {
+            emjyBack.scheduleTaskInNewTab({command: 'emjy.trade.bonds', code: '131810', path: BondRepurchasePath}, false);
+        }, 2000);
     }
 
     save() {

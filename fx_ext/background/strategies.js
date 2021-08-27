@@ -2,8 +2,8 @@
 
 class StrategyManager {
     constructor() {
-        this.buystrategies = [{key: 'StrategyBuy', name: '反弹买入'}, {key: 'StrategyBuyR', name: '反弹(重复)买入'}, {key: 'StrategyBuyIPO', name: '开板反弹买入'}, {key: 'StrategyBuyZT', name: '开盘买,低位补'}, {key: 'StrategyBuyMA', name: 'MA突破买入'}];
-        this.sellstrategies = [{key: 'StrategySell', name: '反弹卖出'}, {key: 'StrategySellR', name: '反弹(重复)卖出'}, {key: 'StrategySellIPO', name: '开板卖出'}, {key: 'StrategySellEL', name: '止损止盈'}, {key: 'StrategySellMA', name: 'MA突破卖出'}];
+        this.buystrategies = [{key: 'StrategyBuy', name: '反弹买入'}, {key: 'StrategyBuyR', name: '反弹(重复)买入'}, {key: 'StrategyBuyIPO', name: '开板反弹买入'}, {key: 'StrategyBuyZT', name: '开盘买,低位补'}, {key: 'StrategyBuyZTBoard', name: '打板买入'}, {key: 'StrategyBuyMA', name: 'MA突破买入'}, {key:'StrategyBuyMAR', name: 'MA突破买入(日内)'}];
+        this.sellstrategies = [{key: 'StrategySell', name: '反弹卖出'}, {key: 'StrategySellR', name: '反弹(重复)卖出'}, {key: 'StrategySellIPO', name: '开板卖出'}, {key: 'StrategySellEL', name: '止损止盈'}, {key: 'StrategySellMA', name: 'MA突破卖出'}, {key:'StrategySellMAR', name:'MA突破卖出(日内)'}];
     }
 
     createStrategy(key, log) {
@@ -28,6 +28,9 @@ class StrategyManager {
         if (key == 'StrategyBuyZT') {
             return new StrategyBuyZT2(key, log);
         };
+        if (key == 'StrategyBuyZTBoard') {
+            return new StrategyBuyZTBoard(key, log);
+        };
         if (key == 'StrategySellEL') {
             return new StrategySellEL(key, log);
         };
@@ -36,6 +39,12 @@ class StrategyManager {
         };
         if (key == 'StrategySellMA') {
             return new StrategySellMA(key, log);
+        };
+        if (key == 'StrategyBuyMAR') {
+            return new StrategyBuyMARepeat(key, log);
+        };
+        if (key == 'StrategySellMAR') {
+            return new StrategySellMARepeat(key, log);
         };
     }
 
@@ -193,6 +202,10 @@ class Strategy {
         return false;
     }
 
+    guardZtBoard() {
+        return false;
+    }
+
     guardRtPrices() {
         return this.enabled;
     }
@@ -206,10 +219,11 @@ class Strategy {
         return 100 * Math.ceil(ct);
     }
 
-    matchResult(match, price) {
+    matchResult(match, price0, pricebk) {
         if (!match) {
             return {match};
         };
+        var price = (price0 == '-' ? pricebk : price0);
         var result = {match, price};
         result.account = this.account;
         if (this.count && this.count != 0) {
@@ -326,7 +340,8 @@ class Strategy {
         var kltDiv = document.createElement('div');
         kltDiv.appendChild(document.createTextNode('K线类型 '));
         this.klineSelector = document.createElement('select');
-        var kltypes = [{klt:'60', text:'小时线'}, {ktl: '101', text: '日线'}];
+        var kltypes = [{klt:'1', text:'1分钟'}, {klt:'5', text:'5分钟'}, {klt:'15', text:'15分钟'}, {klt:'30', text:'30分钟'}, {klt:'60', text:'1小时'}, {klt:'120', text:'2小时'}, {klt:'101', text:'1日'}, {klt:'102', text:'1周'}, {klt:'103', text:'1月'}, {klt:'104', text:'1季度'}, {klt:'105', text:'半年'}, {klt:'106', text:'年'}];
+
         for (var i = 0; i < kltypes.length; i++) {
             var opt = document.createElement('option');
             opt.value = kltypes[i].klt;
@@ -334,7 +349,6 @@ class Strategy {
             this.klineSelector.appendChild(opt);
         };
         kltDiv.appendChild(this.klineSelector);
-        this.klineSelector.value = this.kltype ? this.kltype : '60';
         return kltDiv;
     }
 }
@@ -354,7 +368,7 @@ class StrategyBuy extends Strategy {
             return {match, stepInCritical, account: this.account};
         }
         if (price >= this.prePeekPrice * (1 + this.backRate)) {
-            return this.matchResult(true, rtInfo.sellPrices[0]);
+            return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
         }
         if (price < this.prePeekPrice) {
             this.prePeekPrice = price;
@@ -389,7 +403,7 @@ class StrategySell extends Strategy {
             return {match, stepInCritical, account: this.account};
         }
         if (price <= this.prePeekPrice * (1 - this.backRate)) {
-            return this.matchResult(true, rtInfo.buyPrices[0]);
+            return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
         }
         if (price > this.prePeekPrice) {
             this.prePeekPrice = price;
@@ -494,7 +508,7 @@ class StrategyBuyIPO extends StrategyBuy {
             return {match, stepInCritical, account: this.account};
         }
         if (price >= this.prePeekPrice * (1 + this.backRate)) {
-            return this.matchResult(true, rtInfo.sellPrices[0]);
+            return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
         }
         if (price < this.prePeekPrice) {
             this.prePeekPrice = price;
@@ -518,13 +532,13 @@ class StrategySellIPO extends StrategySell {
         var match = false;
         if (rtInfo.openPrice == rtInfo.topprice) {
             if (rtInfo.latestPrice < rtInfo.topprice) {
-                return this.matchResult(true, rtInfo.buyPrices[0]);
+                return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
             };
             return {match};
         };
 
         if (rtInfo.openPrice == rtInfo.bottomprice) {
-            return this.matchResult(true, rtInfo.openPrice);
+            return this.matchResult(true, rtInfo.openPrice, rtInfo.bottomprice);
         };
         
         if (!this.inCritical) {
@@ -535,7 +549,7 @@ class StrategySellIPO extends StrategySell {
         };
 
         if (rtInfo.latestPrice <= this.prePeekPrice * 0.99) {
-            return this.matchResult(true, rtInfo.buyPrices[0]);
+            return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
         }
 
         if (rtInfo.latestPrice > this.prePeekPrice) {
@@ -582,7 +596,7 @@ class StrategyBuyZT2 extends StrategyBuy {
             return {match, stepInCritical, account: this.account};
         };
         if (this.buyRound == 0) {
-            return this.matchResult(true, rtInfo.sellPrices[0]);
+            return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
         };
         if (this.buyRound == 1) {
             var price = rtInfo.latestPrice;
@@ -598,7 +612,7 @@ class StrategyBuyZT2 extends StrategyBuy {
                 return {match, stepInCritical, account: this.account};
             };
             if (price >= this.prePeekPrice * (1 + this.backRate)) {
-                return this.matchResult(true, rtInfo.sellPrices[0]);
+                return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
             }
             if (price < this.prePeekPrice) {
                 this.prePeekPrice = price;
@@ -614,6 +628,37 @@ class StrategyBuyZT2 extends StrategyBuy {
         view.appendChild(document.createTextNode('开盘直接买入'));
         view.appendChild(this.createStepsInput('盘中补仓跌幅 ', 8));
         view.appendChild(this.createPopbackInput('反弹幅度 '));
+        view.appendChild(this.createAmountDiv());
+        view.appendChild(this.createBuyAccountSelector());
+        return view;
+    }
+}
+
+class StrategyBuyZTBoard extends StrategyBuy {
+    guardRtPrices() {
+        return false;
+    }
+
+    guardZtBoard() {
+        return true;
+    }
+
+    check(rtInfo) {
+        if (rtInfo.sellPrices[1] == '-' && rtInfo.sellPrices[0] == rtInfo.topprice) {
+            console.log(rtInfo);
+            return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
+        };
+        if (rtInfo.latestPrice == rtInfo.topprice) {
+            console.log(rtInfo);
+            return this.matchResult(true, rtInfo.topprice, rtInfo.topprice);
+        };
+        return {match: false, stepInCritical: false, account: this.account};
+    }
+
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('打板买入'));
         view.appendChild(this.createAmountDiv());
         view.appendChild(this.createBuyAccountSelector());
         return view;
@@ -643,12 +688,12 @@ class StrategySellEL  extends StrategySell {
         var stepInCritical = false;
         var price = rtInfo.latestPrice;
         if (this.averPrice * (1 - this.backRate) >= price) {
-            return this.matchResult(true, rtInfo.buyPrices[0]);
+            return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
         };
 
         if (this.guardPrice && this.guardPrice > 0) {
             if (price <= this.guardPrice) {
-                return this.matchResult(true, rtInfo.buyPrices[0]);
+                return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
             };
         };
 
@@ -664,7 +709,7 @@ class StrategySellEL  extends StrategySell {
 
         var dynPeek = this.prePeekPrice - (this.prePeekPrice - this.averPrice) * 0.2;        
         if (price <= dynPeek && (!this.guardPrice || this.guardPrice == 0)) {
-            return this.matchResult(true, rtInfo.buyPrices[0]);
+            return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
         };
         if (price > this.prePeekPrice) {
             this.prePeekPrice = price;
@@ -723,7 +768,7 @@ class StrategyBuyMA extends StrategyBuy {
 
     check(rtInfo) {
         if (this.inCritical) {
-            return this.matchResult(true, rtInfo.sellPrices[0]);
+            return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
         };
         return {match:false};
     }
@@ -752,11 +797,18 @@ class StrategyBuyMA extends StrategyBuy {
         };
     }
 
+    setDefaultKltype() {
+        if (this.klineSelector) {
+            this.klineSelector.value = this.kltype ? this.kltype : '60';
+        };
+    }
+
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('连续2根K线>18周期均线, 以第3根K线开盘时买入'));
         view.appendChild(this.createKlineTypeSelector());
+        this.setDefaultKltype();
         view.appendChild(this.createAmountDiv());
         view.appendChild(this.createBuyAccountSelector());
         return view;
@@ -806,7 +858,7 @@ class StrategySellMA extends StrategySell {
 
     check(rtInfo) {
         if (this.inCritical) {
-            return this.matchResult(true, rtInfo.buyPrices[0]);
+            return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
         };
         return {match:false};
     }
@@ -837,12 +889,35 @@ class StrategySellMA extends StrategySell {
         };
     }
 
+    setDefaultKltype() {
+        if (this.klineSelector) {
+            this.klineSelector.value = this.kltype ? this.kltype : '60';
+        };
+    }
+
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('连续2根K线<18周期均线,且第3根K线仍低于18周期均线(全部)卖出'));
         view.appendChild(this.createKlineTypeSelector());
+        this.setDefaultKltype();
         return view;
+    }
+}
+
+class StrategyBuyMARepeat extends StrategyBuyMA {
+    setDefaultKltype() {
+        if (this.klineSelector) {
+            this.klineSelector.value = this.kltype ? this.kltype : '5';
+        };
+    }
+}
+
+class StrategySellMARepeat extends StrategySellMA {
+    setDefaultKltype() {
+        if (this.klineSelector) {
+            this.klineSelector.value = this.kltype ? this.kltype : '1';
+        };
     }
 }
 

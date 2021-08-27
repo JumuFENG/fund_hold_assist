@@ -163,7 +163,7 @@ class JywgUtils {
             setTimeout(() => {
                 if (document.querySelector('#lblKrsl').textContent == 0) {
                     this.log('可融数量: 0');
-                    EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'maxCountInvalid'});
+                    EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'success', reason: 'maxCountInvalid'});
                     return;
                 };
                 document.querySelector('#iptRqsl').value = document.querySelector('#lblKrsl').textContent;
@@ -272,7 +272,7 @@ class JywgUtils {
             };
         } else {
             if (sendResponse) {
-                console.log('maxCountInvalid', sendResponse);
+                console.log('maxCountInvalid', seletedCount, sendResponse);
                 sendResponse({command, status: 'success', result: 'error', reason: 'maxCountInvalid', what: 'no new stocks to buy.'});
             };
         };

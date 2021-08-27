@@ -3,68 +3,98 @@
 class KlineAlarms {
     constructor() {
         this.log = console.log;
-        this.hourlyGuard = new Set();
-        this.dailyGuard = new Set();
+        this.klineInterval = null;
+        this.hitCount = 0;
+        this.klineStocks = {};
     }
 
     addStock(code, kltype) {
-        if (kltype == '60') {
-            this.hourlyGuard.add(code);
+        if (this.klineStocks[kltype] === undefined) {
+            this.klineStocks[kltype] = new Set();
         };
-        if (kltype == '101') {
-            this.dailyGuard.add(code);
+        this.klineStocks[kltype].add(code);
+    }
+
+    startTimer() {
+        this.klineInterval = setInterval(() => {
+            this.onTimer();
+        }, 60000);
+    }
+
+    stopTimer() {
+        if (this.klineInterval) {
+            clearInterval(this.klineInterval);
+            this.klineInterval = null;
+            this.hitCount = 0;
         };
     }
 
-    setupAlarms() {
-        var now = new Date();
-        if (DEBUG || now.getDay() == 0 || now.getDay() == 6) {
-            this.log('no kline alarms set');
-            return;
-        };
-
-        var alarms = [
-        {name:'kline-hourly1', tick: new Date(now.toDateString() + ' 10:30:01').getTime()},
-        {name:'kline-hourly2', tick: new Date(now.toDateString() + ' 11:30:02').getTime()},
-        {name:'kline-hourly3', tick: new Date(now.toDateString() + ' 14:00:03').getTime()},
-        {name:'kline-hourly4', tick: new Date(now.toDateString() + ' 15:00:04').getTime()},
-        {name:'kline-daily', tick: new Date(now.toDateString() + ' 15:00:05').getTime()}
-        ];
-
-        for (var i = 0; i < alarms.length; i++) {
-            if (i == alarms.length - 1) {
-                if (now < alarms[i].tick) {
-                    this.log('setupKlineAlarms', alarms[i].name);
-                    chrome.alarms.create(alarms[i].name, {when: alarms[i].tick});
-                };
-                break;
+    onTimer() {
+        this.hitCount++;
+        var kltypes = ['1', '5', '15', '30', '60', '120', '101', '102', '103', '104', '105', '106'];
+        var watchingKlt = [];
+        for (var i = 0; i < kltypes.length; i++) {
+            if (this.klineStocks[kltypes[i]] !== undefined) {
+                watchingKlt.push(kltypes[i]);
             };
-            if (i + 1 < alarms.length && now < alarms[i + 1].tick) {
-                this.log('setupKlineAlarms', alarms[i].name);
-                chrome.alarms.create(alarms[i].name, {when: alarms[i].tick});
-            }; 
         };
-    }
-
-    onAlarm(alarmInfo) {
-        console.log('KlineAlarms alarms hit: ', alarmInfo);
-        if (alarmInfo.name == 'kline-daily') {
-            this.dailyGuard.forEach(s => {
-                emjyBack.fetchStockKline(s, '101');
-            });
-            console.log('update daily kline for', this.dailyGuard);
-        } else if (alarmInfo.name.startsWith('kline-')) {
-            this.hourlyGuard.forEach(s => {
-                emjyBack.fetchStockKline(s, '60');
-            });
-            console.log('update hourly kline for', this.hourlyGuard);
+        for (var i = 0; i < watchingKlt.length; i++) {
+            var kltype = watchingKlt[i];
+            var fetch = false;
+            if (kltype > 100 && this.hitCount == 1) {
+                fetch = true;
+            } else if (kltype == '1') {
+                fetch = true;
+            } else if (this.hitCount % kltype == 0) {
+                fetch = true;
+            };
+            if (fetch) {
+                this.klineStocks[kltype].forEach(s => {
+                    emjyBack.fetchStockKline(s, kltype);
+                });
+            };
         };
     }
 }
 
-chrome.alarms.onAlarm.addListener(function(alarmInfo) {
-    console.log('kline alarms hit: ', alarmInfo.name);
-    if (emjyBack.klineAlarms) {
-        emjyBack.klineAlarms.onAlarm(alarmInfo);
-    };
-});
+class ZtBoardTimer {
+    constructor() {
+        this.boardInterval = null;
+        this.ztStocks = new Set();
+    }
+
+    addStock(code) {
+        this.ztStocks.add(code);
+    }
+
+    removeStock(code) {
+        if (this.ztStocks.has(code)) {
+            this.ztStocks.delete(code);
+        };
+        if (this.ztStocks.size == 0) {
+            this.stopTimer();
+        };
+    }
+
+    startTimer() {
+        if (this.ztStocks.size == 0) {
+            return;
+        };
+        this.boardInterval = setInterval(() => {
+            this.onTimer();
+        }, 10000);
+    }
+
+    stopTimer() {
+        if (this.boardInterval) {
+            clearInterval(this.boardInterval);
+            this.boardInterval = null;
+        };
+    }
+
+    onTimer() {
+        this.ztStocks.forEach(s => {
+            emjyBack.fetchStockSnapshot(s);
+        });
+    }
+}

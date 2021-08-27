@@ -76,6 +76,7 @@ class EmjyBack {
         this.stockGuard = null;
         this.stockMarket = {};
         this.klineAlarms = null;
+        this.ztBoardTimer = null;
         this.quoteWorker = null;
         this.manager = null;
     }
@@ -91,7 +92,9 @@ class EmjyBack {
         };
         if (!this.klineAlarms) {
             this.klineAlarms = new KlineAlarms();
-            this.klineAlarms.setupAlarms();
+        };
+        if (!this.ztBoardTimer) {
+            this.ztBoardTimer = new ZtBoardTimer();
         };
         this.log('EmjyBack initialized!');
     }
@@ -332,18 +335,25 @@ class EmjyBack {
         this.scheduleTaskInNewTab({command: 'emjy.trade', path: tradePath, stock, price, count});
     }
 
+    refreshQuoteWorkerInterval(time) {
+        emjyBack.postQuoteWorkerMessage({command: 'quote.refresh', time});
+    }
+
     setupQuoteAlarms() {
         var now = new Date();
         if (DEBUG || now.getDay() == 0 || now.getDay() == 6) {
-            this.postQuoteWorkerMessage({command: 'quote.refresh', time: 0});
+            this.refreshQuoteWorkerInterval(0);
             return;
         };
 
         var alarms = [
+        {name:'morning-prestart', tick: new Date(now.toDateString() + ' 9:24:45').getTime()},
         {name:'morning-start', tick: new Date(now.toDateString() + ' 9:29:51').getTime()},
+        {name:'morning-started', tick: new Date(now.toDateString() + ' 9:30:1').getTime()},
         {name:'morning-middle', tick: new Date(now.toDateString() + ' 10:15:55').getTime()},
-        {name:'morning-end', tick: new Date(now.toDateString() + ' 11:30:7').getTime()},
+        {name:'morning-end', tick: new Date(now.toDateString() + ' 11:30:3').getTime()},
         {name:'afternoon', tick: new Date(now.toDateString() + ' 12:59:55').getTime()},
+        {name:'afternoon-started', tick: new Date(now.toDateString() + ' 13:0:1').getTime()},
         {name:'afternoon-preend', tick: new Date(now.toDateString() + ' 14:59:8').getTime()},
         {name:'afternoon-end', tick: new Date(now.toDateString() + ' 15:0:2').getTime()}
         ];
@@ -433,6 +443,9 @@ class EmjyBack {
         } else if (sellStrategy && sellStrategy.shouldGetKline()) {
             this.klineAlarms.addStock(code, sellStrategy.kltype);
         }
+        if (buyStrategy && buyStrategy.guardZtBoard()) {
+            this.ztBoardTimer.addStock(code);
+        };
         if ((buyStrategy && buyStrategy.guardRtPrices()) || (sellStrategy && sellStrategy.guardRtPrices())) {
             this.addToGuardStocks(code);
         };
@@ -550,30 +563,34 @@ class TradingData {
 let tradeAnalyzer = new TradingData();
 
 chrome.alarms.onAlarm.addListener(function(alarmInfo) {
-    var interval = 0;
-    if (alarmInfo.name == 'morning-start') {
-        interval = 1000;
+    if (alarmInfo.name == 'morning-prestart') {
+        emjyBack.ztBoardTimer.startTimer();
+    } else if (alarmInfo.name == 'morning-start') {
+        emjyBack.refreshQuoteWorkerInterval(1000);
+    } else if (alarmInfo.name == 'morning-started') {
+        emjyBack.klineAlarms.startTimer();
     } else if (alarmInfo.name == 'morning-middle') {
         emjyBack.tradeDailyRoutineTasks();
-        interval = 10000;
+        emjyBack.refreshQuoteWorkerInterval(10000);
     } else if (alarmInfo.name == 'morning-end') {
-        interval = -1;
+        emjyBack.refreshQuoteWorkerInterval(-1);
+        emjyBack.klineAlarms.stopTimer();
+        emjyBack.ztBoardTimer.stopTimer();
     } else if (alarmInfo.name == 'afternoon') {
-        interval = 10000;
+        emjyBack.refreshQuoteWorkerInterval(10000);
         emjyBack.refreshAssets();
-    } else if (alarmInfo.name == 'afternoon-end') {
-        interval = -1;
+    } else if (alarmInfo.name == 'afternoon-started') {
+        emjyBack.klineAlarms.startTimer();
+        emjyBack.ztBoardTimer.startTimer();
     } else if (alarmInfo.name == 'afternoon-preend') {
         emjyBack.tradeBeforeClose();
+    } else if (alarmInfo.name == 'afternoon-end') {
+        emjyBack.refreshQuoteWorkerInterval(-1);
+        emjyBack.klineAlarms.stopTimer();
+        emjyBack.ztBoardTimer.stopTimer();
+        emjyBack.tradeClosed();
     };
 
     var now = new Date();
-    // if (DEBUG || now.getHours() > 9) {
-    //     interval = 0;
-    // };
-    emjyBack.postQuoteWorkerMessage({command: 'quote.refresh', time: interval});
-    if (alarmInfo.name == 'afternoon-end') {
-        emjyBack.tradeClosed();
-    };
-    emjyBack.log(alarmInfo.name, now.toLocaleTimeString(), 'interval', interval);
+    emjyBack.log(alarmInfo.name, now.toLocaleTimeString());
 });
