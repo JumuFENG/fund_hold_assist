@@ -863,7 +863,7 @@ class StrategySellMA extends StrategySell {
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
-        view.appendChild(document.createTextNode('连续2根K线<18周期均线,且第3根K线仍低于18周期均线(全部)卖出'));
+        view.appendChild(document.createTextNode('连续2根K线<18周期均线,以第3根K线开盘时(全部)卖出'));
         view.appendChild(this.createKlineTypeSelector());
         this.setDefaultKltype();
         return view;

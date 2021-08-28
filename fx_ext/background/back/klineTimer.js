@@ -60,7 +60,9 @@ class KlineAlarms {
 class ZtBoardTimer {
     constructor() {
         this.boardInterval = null;
+        this.lazyInterval = null;
         this.ztStocks = new Set();
+        this.lazyStocks = new Set();
     }
 
     addStock(code) {
@@ -71,18 +73,43 @@ class ZtBoardTimer {
         if (this.ztStocks.has(code)) {
             this.ztStocks.delete(code);
         };
-        if (this.ztStocks.size == 0) {
+        if (this.lazyStocks.has(code)) {
+            this.lazyStocks.delete(code);
+        };
+        if (this.ztStocks.size == 0 && this.lazyStocks.size == 0) {
             this.stopTimer();
         };
     }
 
-    startTimer() {
-        if (this.ztStocks.size == 0) {
+    updateStockRtPrice(snapshot) {
+        var code = snapshot.code;
+        if (!this.ztStocks.has(code) && !this.lazyStocks.has(code)) {
             return;
         };
+        var zdf = snapshot.realtimequote.zdf;
+        if (zdf.charAt(zdf.length - 1) == '%') {
+            zdf = zdf.substring(0, zdf.length - 1);
+        };
+        if (zdf > 8.5) {
+            if (this.lazyStocks.has(code)) {
+                this.lazyStocks.delete(code);
+                this.ztStocks.add(code);
+            };
+        } else {
+            if (this.ztStocks.has(code)) {
+                this.ztStocks.delete(code);
+                this.lazyStocks.add(code);
+            };
+        };
+    }
+
+    startTimer() {
         this.boardInterval = setInterval(() => {
             this.onTimer();
-        }, 10000);
+        }, 10000); // 10 s
+        this.lazyInterval = setInterval(() => {
+            this.onLazyTimer();
+        }, 300000); // 5 * 60 * 1000 (5 min)
     }
 
     stopTimer() {
@@ -90,10 +117,20 @@ class ZtBoardTimer {
             clearInterval(this.boardInterval);
             this.boardInterval = null;
         };
+        if (this.lazyInterval) {
+            clearInterval(this.lazyInterval);
+            this.lazyInterval = null;
+        };
     }
 
     onTimer() {
         this.ztStocks.forEach(s => {
+            emjyBack.fetchStockSnapshot(s);
+        });
+    }
+
+    onLazyTimer() {
+        this.lazyStocks.forEach(s => {
             emjyBack.fetchStockSnapshot(s);
         });
     }

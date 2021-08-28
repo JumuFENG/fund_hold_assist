@@ -391,6 +391,7 @@ class EmjyBack {
         this.normalAccount.updateStockRtPrice(snapshot);
         this.collateralAccount.updateStockRtPrice(snapshot);
         this.watchAccount.updateStockRtPrice(snapshot);
+        this.ztBoardTimer.updateStockRtPrice(snapshot);
     }
 
     updateStockRtKline(message) {
