@@ -112,12 +112,17 @@ class EmjyBack {
             });
 
             chrome.tabs.reload(this.mainTab.tabid, () => {
-                chrome.tabs.get(this.mainTab.tabid, t => {
-                    this.mainTab.url = t.url;
-                    var url = new URL(t.url);
-                    this.authencated = url.pathname != '/Login';
-                    this.refreshAssets();
-                });
+                var loadInterval = setInterval(() => {
+                    chrome.tabs.get(this.mainTab.tabid, t => {
+                        if (t.status == 'complete') {
+                            clearInterval(loadInterval);
+                            this.mainTab.url = t.url;
+                            var url = new URL(t.url);
+                            this.authencated = url.pathname != '/Login';
+                            this.refreshAssets();
+                        };
+                    });
+                }, 200);
             });
 
             this.normalAccount = new AccountInfo();
@@ -133,12 +138,7 @@ class EmjyBack {
                     emjyBack.initWatchList(item.watching_stocks);
                 };
             });
-        } else {
-            this.contentProxies.forEach(c => {
-                if (c.tabid == tabid) {
-                    c.pageLoaded();
-                };
-            });
+            return;
         };
 
         if (tabid == this.mainTab.tabid) {
@@ -151,6 +151,12 @@ class EmjyBack {
                     p.triggerTask();
                 });
             };
+        } else {
+            this.contentProxies.forEach(c => {
+                if (c.tabid == tabid) {
+                    c.pageLoaded();
+                };
+            });
         };
 
         this.log('onContentLoaded', this.mainTab.url);
