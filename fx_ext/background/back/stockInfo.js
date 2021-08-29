@@ -13,6 +13,7 @@ class StockInfo {
         this.latestPrice = null;
         this.buyStrategy = null;
         this.sellStrategy = null;
+        this.klines = null;
     }
 
     updateRtPrice(snapshot) {
@@ -111,9 +112,9 @@ class StockInfo {
     getBss18(kl1, kl2) {
         var bss18 = 'u';
         if (kl1.l > kl1.ma18 && this.klineApproximatelyAboveMa18(kl2)) {
-            bss18 = kl1.bss18 == 'h' ? 'h' : 'b';
+            bss18 = kl1.bss18 == 'w' ? 'b' : 'h';
         } else if (kl1.h < kl1.ma18 && this.klineApproximatelyBellowMa18(kl2)) {
-            bss18 = kl1.bss18 == 'w' ? 'w' : 's';
+            bss18 = kl1.bss18 == 'h' ? 's' : 'w';
         } else {
             bss18 = kl1.bss18;
             if (kl1.bss18 == 'b') {
@@ -165,28 +166,25 @@ class StockInfo {
     updateRtKline(message) {
         var kltype = message.kltype;
         var klines = this.parseKlines(message.kline.data.klines);
+        if (!this.klines) {
+            this.klines = {};
+        };
+        if (this.klines[kltype] === undefined || this.klines[kltype].length == 0) {
+            this.klines[kltype] = klines;
+            this.calcKlineMA(this.klines[kltype]);
+        } else {
+            this.applyStockKlines(this.klines[kltype], klines);
+        };
         if (this.buyStrategy && this.buyStrategy.shouldGetKline() && this.buyStrategy.kltype == kltype) {
-            if (this.buyStrategy.klines === undefined || this.buyStrategy.klines.length == 0) {
-                this.buyStrategy.klines = klines;
-                this.calcKlineMA(this.buyStrategy.klines);
-            } else {
-                this.applyStockKlines(this.buyStrategy.klines, klines);
-            };
-            this.buyStrategy.checkKlines();
+            this.buyStrategy.checkKlines(this.klines[this.buyStrategy.kltype]);
             strategyManager.flushStrategy(this.buyStrategy);
             if (this.buyStrategy.inCritical && (new Date()).getHours() < 15) {
                 emjyBack.fetchStockSnapshot(this.code);
             };
         };
         if (this.sellStrategy && this.sellStrategy.shouldGetKline() && this.sellStrategy.kltype == kltype) {
-            if (this.sellStrategy.klines === undefined || this.sellStrategy.klines.length == 0) {
-                this.sellStrategy.klines = klines;
-                this.calcKlineMA(this.sellStrategy.klines);
-            } else {
-                this.applyStockKlines(this.sellStrategy.klines, klines);
-            };
+            this.sellStrategy.checkKlines(this.klines[this.sellStrategy.kltype]);
             strategyManager.flushStrategy(this.sellStrategy);
-            this.sellStrategy.checkKlines();
             if (this.sellStrategy.inCritical && (new Date()).getHours() < 15) {
                 emjyBack.fetchStockSnapshot(this.code);
             };
@@ -221,5 +219,30 @@ class StockInfo {
                 };
             }
         }
+    }
+
+    klineStorageKey() {
+        return 'kline_' + this.code;
+    }
+
+    loadKlines() {
+        var klkey = this.klineStorageKey();
+        chrome.storage.local.get(klkey, item => {
+            if (item && item[klkey]) {
+                this.klines = item[klkey];
+            };
+        });
+    }
+
+    saveKlines() {
+        if (this.klines) {
+            var stockKlines = {};
+            stockKlines[this.klineStorageKey()] = this.klines;
+            chrome.storage.local.set(stockKlines);
+        };
+    }
+
+    deleteKlines() {
+        chrome.storage.local.remove(this.klineStorageKey());
     }
 }

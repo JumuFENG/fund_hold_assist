@@ -740,23 +740,16 @@ class StrategyBuyMA extends StrategyBuy {
     sellMatch(refer) {
         this.enabled = true;
         this.inCritical = false;
-        this.klines = [];
     }
 
     parse(str) {
         super.parse(str);
         this.kltype = str.kltype;
-        if (str.klines !== undefined) {
-            this.klines = str.klines;
-        };
     }
 
     toDataObj() {
         var str = super.toDataObj();
         str.kltype = this.kltype;
-        if (this.klines !== undefined) {
-            str.klines = this.klines;
-        };
         return str;
     }
 
@@ -775,11 +768,11 @@ class StrategyBuyMA extends StrategyBuy {
         return {match:false};
     }
 
-    checkKlines() {
-        if (this.klines === undefined || this.klines.length < 2) {
+    checkKlines(klines) {
+        if (klines === undefined || klines.length < 2) {
             return;
         };
-        this.inCritical = this.klines[this.klines.length - 1].bss18 == 'b';
+        this.inCritical = klines[klines.length - 1].bss18 == 'b';
     }
 
     setDefaultKltype() {
@@ -808,7 +801,6 @@ class StrategySellMA extends StrategySell {
     buyMatch(refer) {
         this.enabled = true;
         this.inCritical = false;
-        this.klines = [];
     }
 
     sellMatch(refer) {
@@ -819,17 +811,11 @@ class StrategySellMA extends StrategySell {
     parse(str) {
         super.parse(str);
         this.kltype = str.kltype;
-        if (str.klines !== undefined) {
-            this.klines = str.klines;
-        };
     }
 
     toDataObj() {
         var str = super.toDataObj();
         str.kltype = this.kltype;
-        if (this.klines !== undefined) {
-            str.klines = this.klines;
-        };
         return str;
     }
 
@@ -848,12 +834,12 @@ class StrategySellMA extends StrategySell {
         return {match:false};
     }
 
-    checkKlines() {
-        if (this.klines === undefined || this.klines.length < 2) {
+    checkKlines(klines) {
+        if (klines === undefined || klines.length < 2) {
             return;
         };
 
-        this.inCritical = this.klines[this.klines.length - 1].bss18 == 's';
+        this.inCritical = klines[klines.length - 1].bss18 == 's';
     }
 
     setDefaultKltype() {

@@ -435,7 +435,6 @@ class EmjyBack {
     }
 
     removeStock(account, code) {
-        chrome.storage.local.remove([account + '_' + code + '_buyStrategy', account + '_' + code + '_sellStrategy']);
         if (this.stockGuard.has(code)) {
             this.stockGuard.delete(code);
             this.updateMonitor();

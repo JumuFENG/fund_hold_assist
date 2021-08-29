@@ -62,6 +62,7 @@ class AccountInfo {
 
     loadStrategies() {
         this.stocks.forEach(s => {
+            s.loadKlines();
             var buyStorageKey = this.keyword + '_' + s.code + '_buyStrategy';
             chrome.storage.local.get(buyStorageKey, item => {
                 if (item && item[buyStorageKey]) {
@@ -243,19 +244,22 @@ class AccountInfo {
     }
 
     removeStock(code) {
-        this.stocks.forEach(function(item, index, arr) {
-            if (item.code == code) {
-                arr.splice(index, 1);
-            };
-        });
+        var ic = this.stocks.findIndex(s => {return s.code == code;});
+        if (ic == -1) {
+            return;
+        };
+        this.stocks[ic].deleteKlines();
+        chrome.storage.local.remove([this.keyword + '_' + code + '_buyStrategy', this.keyword + '_' + code + '_sellStrategy']);
+        this.stocks.splice(ic, 1);
     }
 
     save() {
         var stock_watching = [];
         this.stocks.forEach(s => {
-            if (s.watching || s.holdCount == 0) {
+            if (s.watching || (s.holdCount == 0 && (s.buyStrategy || s.sellStrategy))) {
                 stock_watching.push(s.code);
             };
+            s.saveKlines();
             if (s.buyStrategy) {
                 strategyManager.flushStrategy(s.buyStrategy);
             };
