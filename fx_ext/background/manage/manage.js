@@ -10,7 +10,8 @@ class Manager {
         this.page = null;
         this.stockList = null;
         this.ztPool = null;
-        this.accountNames = {'normal':'普通账户', 'collat': '担保品', 'credit': '融资账户', 'watch':'关注中'};
+        this.accountNames = {'normal':'普通账户', 'collat': '担保品账户', 'credit': '融资账户'};
+        this.accountsMap = {'normal': ['normal'], 'collat': ['credit', 'collat']};
     }
 
     sendExtensionMessage(message) {
@@ -76,19 +77,19 @@ class Manager {
         this.page.addPickUpArea(this.ztPool);
     }
 
-    addStock(code) {
+    addStock(code, account) {
         if (!this.stockList) {
             this.stockList = new StockList(this.log);
             this.page.root.appendChild(this.stockList.root);
         };
-        var stock = {code: code, name:'', account: 'watch', holdCount: 0, holdCost: 0};
-        stock.acccode = stock.account + '_' + code;
+        var stock = {code, name:'', account, holdCount: 0, holdCost: 0};
+        stock.acccode = account + '_' + code;
         this.stockList.addStock(stock);
     }
 
-    addWatchingStock(code) {
-        this.addStock(code);
-        this.sendExtensionMessage({command:'mngr.addwatch', code});
+    addWatchingStock(code, account) {
+        this.addStock(code, account);
+        this.sendExtensionMessage({command:'mngr.addwatch', code, account});
     }
 }
 
@@ -99,19 +100,28 @@ class ManagerPage {
 
     addWatchArea() {
         var watchDiv = document.createElement('div');
-        this.inputCode = document.createElement('input');
-        watchDiv.appendChild(this.inputCode);
+        var inputCode = document.createElement('input');
+        watchDiv.appendChild(inputCode);
+        var watchAccountSelector = document.createElement('select');
+        var accounts = ['normal', 'collat'];
+        for (var i in emjyManager.accountsMap) {
+            var opt = document.createElement('option');
+            opt.value = i
+            opt.textContent = emjyManager.accountNames[i];
+            watchAccountSelector.appendChild(opt);
+        };
+        watchDiv.appendChild(watchAccountSelector);
         var btnOk = document.createElement('button');
         btnOk.textContent = '新增观察股票';
         btnOk.parentPage = this;
-        btnOk.onclick = function(e) {
-            if (e.target.parentPage.inputCode.value.length != 6) {
+        btnOk.onclick = (e) => {
+            if (inputCode.value.length != 6) {
                 alert('Wrong stock code');
                 return;
             };
-            emjyManager.addWatchingStock(e.target.parentPage.inputCode.value);
-            e.target.parentPage.inputCode.value = '';
-        }
+            emjyManager.addWatchingStock(inputCode.value, watchAccountSelector.value);
+            inputCode.value = '';
+        };
         watchDiv.appendChild(btnOk);
         this.root.appendChild(watchDiv);
     }
@@ -154,6 +164,7 @@ class StockList {
         divContainer.stock = stock;
         if (stock.buyStrategy) {
             divContainer.stock.buyStrategy = strategyManager.initStrategy(stock.acccode + '_buyStrategy', stock.buyStrategy, this.log);
+            divContainer.stock.buyStrategy.ownerAccount = stock.account;
         };
         if (stock.sellStrategy) {
             divContainer.stock.sellStrategy = strategyManager.initStrategy(stock.acccode + '_sellStrategy', stock.sellStrategy, this.log);
@@ -176,11 +187,8 @@ class StockList {
         }
         var divTitle = document.createElement('div');
         var titleText = stock.name + '(' + stock.code + ') '+ emjyManager.accountNames[stock.account];
-        if (stock.account != 'watch') {
-            titleText += '持有';
-        };
         divTitle.appendChild(document.createTextNode(titleText));
-        if (stock.account == 'watch' || stock.holdCount == 0) {
+        if (stock.holdCount == 0) {
             var deleteBtn = document.createElement('button');
             deleteBtn.textContent = 'Delete';
             deleteBtn.code = stock.code;
@@ -279,11 +287,8 @@ class StrategyChooser {
         if (this.strategyBuy) {
             if (!this.stock.buyStrategy || this.stock.buyStrategy.key != this.strategySelector.value) {
                 this.stock.buyStrategy = strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
-                if (this.stock.account == 'watch') {
-                    this.stock.buyStrategy.account = 'normal';
-                } else {
-                    this.stock.buyStrategy.account = this.stock.account;
-                };
+                this.stock.buyStrategy.account = this.stock.account;
+                this.stock.buyStrategy.ownerAccount = this.stock.account;
                 this.stock.buyStrategy.storeKey = this.stock.acccode + '_buyStrategy';
                 utils.removeAllChild(this.strategyRoot);
             };

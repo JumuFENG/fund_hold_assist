@@ -323,16 +323,18 @@ class Strategy {
 
     createBuyAccountSelector() {
         var acctDiv = document.createElement('div');
-        acctDiv.appendChild(document.createTextNode('买入账户 '));
-        this.accountSelector = document.createElement('select');
-        for (var acc in emjyManager.accountNames) {
-            var opt = document.createElement('option');
-            opt.value = acc;
-            opt.textContent = emjyManager.accountNames[acc];
-            this.accountSelector.appendChild(opt);
-        }
-        acctDiv.appendChild(this.accountSelector);
-        this.accountSelector.value = this.account;
+        if (emjyManager.accountsMap[this.ownerAccount].length > 1) {
+            acctDiv.appendChild(document.createTextNode('买入账户 '));
+            this.accountSelector = document.createElement('select');
+            emjyManager.accountsMap[this.ownerAccount].forEach(acc => {
+                var opt = document.createElement('option');
+                opt.value = acc;
+                opt.textContent = emjyManager.accountNames[acc];
+                this.accountSelector.appendChild(opt);
+            });
+            acctDiv.appendChild(this.accountSelector);
+            this.accountSelector.value = this.account;
+        };
         return acctDiv;
     }
 

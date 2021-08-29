@@ -48,6 +48,35 @@ class AccountInfo {
         this.wallet = new Wallet();
     }
 
+    loadWatchings() {
+        var watchingStorageKey = this.keyword + '_watchings';
+        chrome.storage.local.get(watchingStorageKey, item => {
+            emjyBack.log('get watching_stocks', JSON.stringify(item));
+            if (item && item[watchingStorageKey]) {
+                item[watchingStorageKey].forEach(s => {
+                    this.addWatchStock(s);
+                });
+            };
+        });
+    }
+
+    loadStrategies() {
+        this.stocks.forEach(s => {
+            var buyStorageKey = this.keyword + '_' + s.code + '_buyStrategy';
+            chrome.storage.local.get(buyStorageKey, item => {
+                if (item && item[buyStorageKey]) {
+                    emjyBack.applyStoredBuyStrategy(this.keyword, s.code, item[buyStorageKey]);
+                };
+            });
+            var sellStorageKey = this.keyword + '_' + s.code + '_sellStrategy';
+            chrome.storage.local.get(sellStorageKey, item => {
+                if (item && item[sellStorageKey]) {
+                    emjyBack.applyStoredSellStrategy(this.keyword, s.code, item[sellStorageKey]);
+                };
+            });
+        });
+    }
+
     parseStockInfoList(stocks) {
         for (var i = 0; i < stocks.length; i++) {
             if (this.wallet && stocks[i].code == this.wallet.fundcode) {
@@ -204,12 +233,12 @@ class AccountInfo {
         };
     }
 
-    addStock(code) {
-        this.stocks.push(new StockInfo({ code, name: '', holdCount: 0, availableCount: 0, market: ''}));
-        if (!emjyBack.stockGuard.has(code)) {
-            emjyBack.stockGuard.add(code);
-            emjyBack.updateMonitor();
+    addWatchStock(code) {
+        var stock = this.stocks.find(s => {return s.code == code;});
+        if (stock) {
+            return;
         };
+        this.stocks.push(new StockInfo({ code, name: '', holdCount: 0, availableCount: 0, market: '', watching: true}));
         emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code});
     }
 
@@ -222,7 +251,11 @@ class AccountInfo {
     }
 
     save() {
-        this.stocks.forEach(function(s) {
+        var stock_watching = [];
+        this.stocks.forEach(s => {
+            if (s.watching || s.holdCount == 0) {
+                stock_watching.push(s.code);
+            };
             if (s.buyStrategy) {
                 strategyManager.flushStrategy(s.buyStrategy);
             };
@@ -230,6 +263,9 @@ class AccountInfo {
                 strategyManager.flushStrategy(s.sellStrategy);
             };
         });
+        var watchingStocks = {};
+        watchingStocks[this.keyword + '_watchings'] = stock_watching;
+        chrome.storage.local.set(watchingStocks);
     }
 
     buyFundBeforeClose() {
@@ -253,10 +289,9 @@ class AccountInfo {
     }
 }
 
-class WatchAccount extends AccountInfo {
+class NormalAccount extends AccountInfo {
     constructor() {
         super();
-        this.keyword = 'watch';
     }
 
     buyFundBeforeClose() {
@@ -264,15 +299,5 @@ class WatchAccount extends AccountInfo {
         setTimeout(() => {
             emjyBack.scheduleTaskInNewTab({command: 'emjy.trade.bonds', code: '131810', path: BondRepurchasePath}, false);
         }, 2000);
-    }
-
-    save() {
-        var codes = [];
-        this.stocks.forEach(function(s) {
-            codes.push(s.code);
-        });
-        chrome.storage.local.set({'watching_stocks': codes});
-
-        super.save();
     }
 }

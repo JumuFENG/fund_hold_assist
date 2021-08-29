@@ -21,12 +21,11 @@ class ManagerBack {
         } else if (message.command == 'mngr.closed') {
             emjyBack.normalAccount.save();
             emjyBack.collateralAccount.save();
-            emjyBack.watchAccount.save();
             this.tabid = null;
         } else if (message.command == 'mngr.strategy') {
             emjyBack.applyStrategy(message.account, message.code, message.buyStrategy, message.sellStrategy);
         } else if (message.command == 'mngr.addwatch') {
-            emjyBack.watchAccount.addStock(message.code);
+            emjyBack.addWatchStock(message.account, message.code);
         } else if (message.command == 'mngr.rmwatch') {
             emjyBack.removeStock(message.account, message.code);
         } else if (message.command == 'mngr.getZTPool') {
@@ -71,7 +70,6 @@ class EmjyBack {
         this.normalAccount = null;
         this.collateralAccount = null;
         this.creditAccount = null;
-        this.watchAccount = null;
         this.contentProxies = [];
         this.stockGuard = null;
         this.stockMarket = {};
@@ -125,19 +123,14 @@ class EmjyBack {
                 }, 200);
             });
 
-            this.normalAccount = new AccountInfo();
+            this.normalAccount = new NormalAccount();
             this.normalAccount.initAccount('normal', '/Trade/Buy', '/Trade/Sale', '/Search/Position');
+            this.normalAccount.loadWatchings();
             this.collateralAccount = new AccountInfo();
             this.collateralAccount.initAccount('collat', '/MarginTrade/Buy', '/MarginTrade/Sale', '/MarginSearch/MyAssets');
+            this.collateralAccount.loadWatchings();
             this.creditAccount = new AccountInfo();
             this.creditAccount.initAccount('credit', '/MarginTrade/MarginBuy', '/MarginTrade/FinanceSale', '/MarginSearch/MyAssets');
-            this.watchAccount = new WatchAccount();
-            chrome.storage.local.get('watching_stocks', function(item) {
-                emjyBack.log('get watching_stocks', JSON.stringify(item));
-                if (item && item.watching_stocks) {
-                    emjyBack.initWatchList(item.watching_stocks);
-                };
-            });
             return;
         };
 
@@ -206,18 +199,18 @@ class EmjyBack {
                 this.normalAccount.pureAssets = parseFloat(message.pureAssets);
                 this.normalAccount.availableMoney = parseFloat(message.availableMoney);
                 this.normalAccount.parseStockInfoList(message.stocks);
-                this.loadStrategies(this.normalAccount);
+                this.normalAccount.loadStrategies();
             } else {
                 this.creditAccount.pureAssets = 0.0;
                 this.creditAccount.availableMoney = parseFloat(message.availableCreditMoney);
                 this.collateralAccount.pureAssets = parseFloat(message.pureAssets);
                 this.collateralAccount.availableMoney = parseFloat(message.availableMoney);
                 this.collateralAccount.parseStockInfoList(message.stocks);
-                this.loadStrategies(this.collateralAccount);
+                this.collateralAccount.loadStrategies();
             }
 
             if (this.manager && this.manager.isValid()) {
-                this.manager.sendStocks([this.normalAccount, this.collateralAccount, this.watchAccount]);
+                this.manager.sendStocks([this.normalAccount, this.collateralAccount]);
             }
             
             this.log(JSON.stringify(this.normalAccount));
@@ -243,7 +236,7 @@ class EmjyBack {
         if (message.command == 'mngr.init') {
             this.log('manager initialized!');
             if (this.manager.isValid()) {
-                this.manager.sendStocks([this.normalAccount, this.collateralAccount, this.watchAccount]);
+                this.manager.sendStocks([this.normalAccount, this.collateralAccount]);
             }
             chrome.tabs.onRemoved.addListener((tid, removeInfo) => {
                 this.manager.onManagerMessage({command: 'mngr.closed'}, tid);
@@ -279,9 +272,6 @@ class EmjyBack {
         };
         if (this.collateralAccount.stocks.length > 0) {
             this.collateralAccount.save();
-        };
-        if (this.watchAccount.stocks.length > 0) {
-            this.watchAccount.save();
         };
 
         this.scheduleTaskInNewTab({command: 'emjy.getAssets', path: this.normalAccount.assetsPath});
@@ -382,7 +372,6 @@ class EmjyBack {
     updateStockMarketInfo(sdata) {
         this.normalAccount.updateStockMarketInfo(sdata);
         this.collateralAccount.updateStockMarketInfo(sdata);
-        this.watchAccount.updateStockMarketInfo(sdata);
         this.stockMarket[sdata.code] = sdata.market;
     }
 
@@ -390,31 +379,12 @@ class EmjyBack {
         //this.log('updateStockRtPrice', JSON.stringify(snapshot));
         this.normalAccount.updateStockRtPrice(snapshot);
         this.collateralAccount.updateStockRtPrice(snapshot);
-        this.watchAccount.updateStockRtPrice(snapshot);
         this.ztBoardTimer.updateStockRtPrice(snapshot);
     }
 
     updateStockRtKline(message) {
         this.normalAccount.updateStockRtKline(message);
         this.collateralAccount.updateStockRtKline(message);
-        this.watchAccount.updateStockRtKline(message);
-    }
-
-    loadStrategies(account) {
-        account.stocks.forEach((s) => {
-            var buyStorageKey = account.keyword + '_' + s.code + '_buyStrategy';
-            chrome.storage.local.get(buyStorageKey, function(item) {
-                if (item && item[buyStorageKey]) {
-                    emjyBack.applyStoredBuyStrategy(account.keyword, s.code, item[buyStorageKey]);
-                };
-            });
-            var sellStorageKey = account.keyword + '_' + s.code + '_sellStrategy';
-            chrome.storage.local.get(sellStorageKey, function(item) {
-                if (item && item[sellStorageKey]) {
-                    emjyBack.applyStoredSellStrategy(account.keyword, s.code, item[sellStorageKey]);
-                };
-            });
-        });
     }
 
     applyStoredBuyStrategy(account, code, bstr) {
@@ -441,8 +411,6 @@ class EmjyBack {
             this.normalAccount.applyStrategy(code, buyStrategy, sellStrategy);
         } else if (account == this.collateralAccount.keyword) {
             this.collateralAccount.applyStrategy(code, buyStrategy, sellStrategy);
-        } else if (account == this.watchAccount.keyword) {
-            this.watchAccount.applyStrategy(code, buyStrategy, sellStrategy);
         };
 
         if (buyStrategy && buyStrategy.shouldGetKline()) {
@@ -458,15 +426,12 @@ class EmjyBack {
         };
     }
 
-    initWatchList(codes) {
-        this.log('initWatchList', codes);
-        this.watchAccount.stocks = [];
-        for (var i = 0; i < codes.length; i++) {
-            this.watchAccount.stocks.push(new StockInfo({ code: codes[i], name: '', holdCount: 0,availableCount: 0, market: ''}));
+    addWatchStock(account, code) {
+        if (account == this.normalAccount.keyword) {
+            this.normalAccount.addWatchStock(code);
+        } else if (account == this.collateralAccount.keyword) {
+            this.collateralAccount.addWatchStock(code);
         };
-
-        this.watchAccount.queryStockMarketInfo();
-        this.loadStrategies(this.watchAccount);
     }
 
     removeStock(account, code) {
@@ -480,8 +445,6 @@ class EmjyBack {
             this.normalAccount.removeStock(code);
         } else if (account == this.collateralAccount.keyword) {
             this.collateralAccount.removeStock(code);
-        } else if (account == this.watchAccount.keyword) {
-            emjyBack.watchAccount.removeStock(code);
         };
     }
 
@@ -516,15 +479,13 @@ class EmjyBack {
     }
 
     tradeBeforeClose() {
-        // this.normalAccount.buyFundBeforeClose();
-        this.watchAccount.buyFundBeforeClose();
+        this.normalAccount.buyFundBeforeClose();
         this.collateralAccount.buyFundBeforeClose();
     }
 
     tradeClosed() {
         this.normalAccount.save();
         this.collateralAccount.save();
-        this.watchAccount.save();
         tradeAnalyzer.save();
     }
 

@@ -5,6 +5,7 @@ class StockInfo {
         this.code = stock.code;
         this.name = stock.name;
         this.market = stock.market;
+        this.watching = stock.watching === undefined ? false : stock.watching;
         this.holdCost = stock.holdCost;
         this.holdCount = stock.holdCount;
         this.availableCount = stock.availableCount;

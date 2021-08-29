@@ -90,7 +90,7 @@ class ZtBoardTimer {
         if (zdf.charAt(zdf.length - 1) == '%') {
             zdf = zdf.substring(0, zdf.length - 1);
         };
-        if (zdf > 8.5) {
+        if (zdf > 6.5) {
             if (this.lazyStocks.has(code)) {
                 this.lazyStocks.delete(code);
                 this.ztStocks.add(code);
@@ -109,7 +109,7 @@ class ZtBoardTimer {
         }, 10000); // 10 s
         this.lazyInterval = setInterval(() => {
             this.onLazyTimer();
-        }, 300000); // 5 * 60 * 1000 (5 min)
+        }, 180000); // 3 * 60 * 1000 (3 min)
     }
 
     stopTimer() {
