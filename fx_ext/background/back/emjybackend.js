@@ -97,6 +97,10 @@ class EmjyBack {
         this.log('EmjyBack initialized!');
     }
 
+    totalAssets() {
+        return this.normalAccount.pureAssets + this.collateralAccount.pureAssets;
+    }
+
     onContentLoaded(message, tabid) {
         if (!this.mainTab) {
             this.log('init mainTabId and accounts');
@@ -461,6 +465,17 @@ class EmjyBack {
         this.scheduleTaskInNewTab({command:'emjy.trade.newbonds', path: NewBondsPurchasePath});
     }
 
+    getHSMarketFlag(code) {
+        var market = this.stockMarket[code];
+        if (market == 'SH') {
+            return 'HA';
+        };
+        if (market == 'SZ') {
+            return 'SA';
+        };
+        return '';
+    }
+
     scheduleTaskInNewTab(task, active = true) {
         var proxy = new TradeProxy();
         proxy.task = task;
@@ -468,8 +483,13 @@ class EmjyBack {
         if (task.path) {
             proxy.url = 'https://jywg.18.cn' + task.path;
         };
+
         if (task.command == 'emjy.trade') {
             proxy.url += '?' + task.stock.code;
+            var market = this.getHSMarketFlag(task.stock.code);
+            if (market != '') {
+                proxy.url += '&market=' + market;
+            };
         };
         if (this.authencated) {
             proxy.triggerTask();

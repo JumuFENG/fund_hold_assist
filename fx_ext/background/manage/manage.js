@@ -77,18 +77,24 @@ class Manager {
         this.page.addPickUpArea(this.ztPool);
     }
 
-    addStock(code, account) {
+    addStock(code, account, buystrKey = null, sellstrKey = null) {
         if (!this.stockList) {
             this.stockList = new StockList(this.log);
             this.page.root.appendChild(this.stockList.root);
         };
         var stock = {code, name:'', account, holdCount: 0, holdCost: 0};
         stock.acccode = account + '_' + code;
+        if (buystrKey) {
+            stock.buyStrategy = strategyManager.createStrategy(buystrKey, this.log);
+        };
+        if (sellstrKey) {
+            stock.sellStrategy = strategyManager.createStrategy(sellstrKey, this.log);
+        };
         this.stockList.addStock(stock);
     }
 
-    addWatchingStock(code, account) {
-        this.addStock(code, account);
+    addWatchingStock(code, account, buystrKey = null, sellstrKey = null) {
+        this.addStock(code, account, buystrKey, sellstrKey);
         this.sendExtensionMessage({command:'mngr.addwatch', code, account});
     }
 }

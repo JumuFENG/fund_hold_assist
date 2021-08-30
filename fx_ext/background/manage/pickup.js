@@ -371,6 +371,7 @@ class ZtPool {
                 this.refreshZtTable(this.ztTable, this.ztData[i].ztStocks);
             } else if (this.ztData[i].ztcount == 2) {
                 this.refreshZtTable(this.zt2Table, this.ztData[i].ztStocks);
+                this.addToWatchList(this.ztData[i].ztStocks);
             } else if (this.ztData[i].ztcount == 3) {
                 this.refreshZtTable(this.zt3Table, this.ztData[i].ztStocks);
             };
@@ -425,6 +426,17 @@ class ZtPool {
             var blob = new Blob([JSON.stringify(this.ztpool)], {type: 'application/json'});
             var filename = 'StockDailyPrices/首板统计/ztdaily/' + this.ztpool[0].ztdate + '.json';
             this.sendExtensionMessage({command:'mngr.saveFile', blob, filename});
+        };
+    }
+
+    addToWatchList(ztStocks) {
+        var date = this.dateToString(new Date(), '-');
+        for (var i = 0; i < ztStocks.length; i++) {
+            var stocki = ztStocks[i];
+            if (stocki.ztdate != date) {
+                continue;
+            };
+            emjyManager.addWatchingStock(stocki.code, 'normal', 'StrategyBuyZTBoard', 'StrategySellMAR');
         };
     }
 };
