@@ -19,6 +19,7 @@ class KlineAlarms {
         this.klineInterval = setInterval(() => {
             this.onTimer();
         }, 60000);
+        this.onTimer();
     }
 
     stopTimer() {
@@ -30,7 +31,6 @@ class KlineAlarms {
     }
 
     onTimer() {
-        this.hitCount++;
         var kltypes = ['1', '5', '15', '30', '60', '120', '101', '102', '103', '104', '105', '106'];
         var watchingKlt = [];
         for (var i = 0; i < kltypes.length; i++) {
@@ -54,6 +54,7 @@ class KlineAlarms {
                 });
             };
         };
+        this.hitCount++;
     }
 }
 
@@ -107,9 +108,11 @@ class ZtBoardTimer {
         this.boardInterval = setInterval(() => {
             this.onTimer();
         }, 10000); // 10 s
+        this.onTimer();
         this.lazyInterval = setInterval(() => {
             this.onLazyTimer();
         }, 180000); // 3 * 60 * 1000 (3 min)
+        this.onLazyTimer();
     }
 
     stopTimer() {

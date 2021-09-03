@@ -77,24 +77,20 @@ class Manager {
         this.page.addPickUpArea(this.ztPool);
     }
 
-    addStock(code, account, buystrKey = null, sellstrKey = null) {
+    addStock(code, account, buystr = null, sellstr = null) {
         if (!this.stockList) {
             this.stockList = new StockList(this.log);
             this.page.root.appendChild(this.stockList.root);
         };
         var stock = {code, name:'', account, holdCount: 0, holdCost: 0};
         stock.acccode = account + '_' + code;
-        if (buystrKey) {
-            stock.buyStrategy = strategyManager.createStrategy(buystrKey, this.log);
-        };
-        if (sellstrKey) {
-            stock.sellStrategy = strategyManager.createStrategy(sellstrKey, this.log);
-        };
+        stock.buyStrategy = buystr;
+        stock.sellStrategy = sellstr;
         this.stockList.addStock(stock);
     }
 
-    addWatchingStock(code, account, buystrKey = null, sellstrKey = null) {
-        this.addStock(code, account, buystrKey, sellstrKey);
+    addWatchingStock(code, account, buystr = null, sellstr = null) {
+        this.addStock(code, account, buystr, sellstr);
         this.sendExtensionMessage({command:'mngr.addwatch', code, account});
     }
 }
@@ -194,6 +190,14 @@ class StockList {
         var divTitle = document.createElement('div');
         var titleText = stock.name + '(' + stock.code + ') '+ emjyManager.accountNames[stock.account];
         divTitle.appendChild(document.createTextNode(titleText));
+        var anchor = document.createElement('a');
+        anchor.textContent = '行情';
+        if (stock.market !== undefined) {
+            anchor.href = futuStockUrl + stock.code + '-' + stock.market;
+        };
+        anchor.target = '_blank';
+        divTitle.appendChild(anchor);
+        
         if (stock.holdCount == 0) {
             var deleteBtn = document.createElement('button');
             deleteBtn.textContent = 'Delete';
@@ -273,6 +277,10 @@ class StrategyChooser {
             opt.textContent = availableStrategies[i].name;
             this.strategySelector.appendChild(opt);
         };
+        var optDelete = document.createElement('option');
+        optDelete.value = 'invalid';
+        optDelete.textContent = '--删除--';
+        this.strategySelector.appendChild(optDelete);
     }
 
     saveStrategy() {
@@ -289,26 +297,44 @@ class StrategyChooser {
         };
     }
 
+    removeStrategy(stype) {
+        emjyManager.sendExtensionMessage({command:'mngr.strategy.rmv', code: this.stock.code, account: this.stock.account, stype});
+    }
+
     onStrategyChanged() {
         if (this.strategyBuy) {
             if (!this.stock.buyStrategy || this.stock.buyStrategy.key != this.strategySelector.value) {
-                this.stock.buyStrategy = strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
-                this.stock.buyStrategy.account = this.stock.account;
-                this.stock.buyStrategy.ownerAccount = this.stock.account;
-                this.stock.buyStrategy.storeKey = this.stock.acccode + '_buyStrategy';
+                if (this.strategySelector.value == 'invalid') {
+                    this.stock.buyStrategy = null;
+                    this.removeStrategy('buy');
+                } else {
+                    this.stock.buyStrategy = strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
+                    this.stock.buyStrategy.account = this.stock.account;
+                    this.stock.buyStrategy.ownerAccount = this.stock.account;
+                    this.stock.buyStrategy.storeKey = this.stock.acccode + '_buyStrategy';
+                };
                 utils.removeAllChild(this.strategyRoot);
             };
         } else if (!this.stock.sellStrategy || this.stock.sellStrategy.key != this.strategySelector.value) {
-            this.stock.sellStrategy = strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
-            this.stock.sellStrategy.account = this.stock.account;
-            this.stock.sellStrategy.storeKey = this.stock.acccode + '_sellStrategy';
+            if (this.strategySelector.value == 'invalid') {
+                this.stock.sellStrategy = null;
+                this.removeStrategy('sell');
+            } else {
+                this.stock.sellStrategy = strategyManager.createStrategy(this.strategySelector.value, emjyManager.log);
+                this.stock.sellStrategy.account = this.stock.account;
+                this.stock.sellStrategy.storeKey = this.stock.acccode + '_sellStrategy';
+            };
             utils.removeAllChild(this.strategyRoot);
         }
 
         if (this.strategyBuy) {
-            this.strategyRoot.appendChild(this.stock.buyStrategy.createView());
+            if (this.stock.buyStrategy) {
+                this.strategyRoot.appendChild(this.stock.buyStrategy.createView());
+            };
         } else {
-            this.strategyRoot.appendChild(this.stock.sellStrategy.createView());
+            if (this.stock.sellStrategy) {
+                this.strategyRoot.appendChild(this.stock.sellStrategy.createView());
+            };
         }
     }
 }

@@ -24,6 +24,8 @@ class ManagerBack {
             this.tabid = null;
         } else if (message.command == 'mngr.strategy') {
             emjyBack.applyStrategy(message.account, message.code, message.buyStrategy, message.sellStrategy);
+        } else if (message.command =='mngr.strategy.rmv') {
+            emjyBack.removeStockStrategy(message.account, message.code, message.stype);
         } else if (message.command == 'mngr.addwatch') {
             emjyBack.addWatchStock(message.account, message.code);
         } else if (message.command == 'mngr.rmwatch') {
@@ -427,6 +429,14 @@ class EmjyBack {
         };
         if ((buyStrategy && buyStrategy.guardRtPrices()) || (sellStrategy && sellStrategy.guardRtPrices())) {
             this.addToGuardStocks(code);
+        };
+    }
+
+    removeStockStrategy(account, code, stype) {
+        if (account == this.normalAccount.keyword) {
+            this.normalAccount.removeStrategy(code, stype);
+        } else if (account == this.collateralAccount.keyword) {
+            this.collateralAccount.removeStrategy(code, stype);
         };
     }
 

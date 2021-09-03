@@ -230,8 +230,27 @@ class AccountInfo {
             if (sstr.key == 'StrategySellEL' && stock.holdCost) {
                 sstr.setHoldCost(stock.holdCost);
             };
+            if (sstr.key == 'StrategySellMA' || sstr.key == 'StrategySellMAR') {
+                sstr.setHoldCount(stock.holdCount);
+            };
             stock.sellStrategy = sstr;
         };
+    }
+
+    removeStrategy(code, stype) {
+        var stock = this.stocks.find(function(s) {return s.code == code; });
+        if (!stock) {
+            return;
+        };
+        var storageKey = this.keyword + '_' + code;
+        if (stype == 'buy') {
+            stock.buyStrategy = null;
+            storageKey += '_buyStrategy';
+        } else {
+            stock.sellStrategy = null;
+            storageKey += '_sellStrategy';
+        };
+        chrome.storage.local.remove(storageKey);
     }
 
     addWatchStock(code) {

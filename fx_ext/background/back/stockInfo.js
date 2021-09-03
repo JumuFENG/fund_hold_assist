@@ -70,7 +70,7 @@ class StockInfo {
                 if (len5 < 5) {
                     len5 ++;
                 } else {
-                    sum5 -= klines[klines.length - 6].c;
+                    sum5 -= klines[klines.length - 5].c;
                 };
                 k.ma5 = (sum5 / len5).toFixed(3);
 
@@ -78,7 +78,7 @@ class StockInfo {
                 if (len18 < 18) {
                     len18 ++;
                 } else {
-                    sum18 -= klines[klines.length - 19].c;
+                    sum18 -= klines[klines.length - 18].c;
                 };
                 k.ma18 = (sum18 / len18).toFixed(3);
 

@@ -859,6 +859,15 @@ class StrategySellMA extends StrategySell {
 }
 
 class StrategyBuyMARepeat extends StrategyBuyMA {
+    buyMatch(refer) {
+        this.enabled = false;
+        this.inCritical = false;
+    }
+
+    sellMatch() {
+
+    }
+
     setDefaultKltype() {
         if (this.klineSelector) {
             this.klineSelector.value = this.kltype ? this.kltype : '5';
@@ -867,6 +876,15 @@ class StrategyBuyMARepeat extends StrategyBuyMA {
 }
 
 class StrategySellMARepeat extends StrategySellMA {
+    buyMatch(refer) {
+
+    }
+
+    sellMatch(refer) {
+        this.enabled = false;
+        this.inCritical = false;
+    }
+    
     setDefaultKltype() {
         if (this.klineSelector) {
             this.klineSelector.value = this.kltype ? this.kltype : '1';

@@ -436,7 +436,10 @@ class ZtPool {
             if (stocki.ztdate != date) {
                 continue;
             };
-            emjyManager.addWatchingStock(stocki.code, 'normal', 'StrategyBuyZTBoard', 'StrategySellMAR');
+            var buystr = strategyManager.createStrategy('StrategyBuyZTBoard', emjyManager.log);
+            buystr.amount = 10000;
+            var sellstr = strategyManager.createStrategy('StrategySellMAR', emjyManager.log);
+            emjyManager.addWatchingStock(stocki.code, 'normal', buystr, sellstr);
         };
     }
 };
