@@ -5,14 +5,14 @@ class KlineAlarms {
         this.log = console.log;
         this.klineInterval = null;
         this.hitCount = 0;
-        this.klineStocks = {};
+        this.stocks = {};
     }
 
     addStock(code, kltype) {
-        if (this.klineStocks[kltype] === undefined) {
-            this.klineStocks[kltype] = new Set();
+        if (this.stocks[kltype] === undefined) {
+            this.stocks[kltype] = new Set();
         };
-        this.klineStocks[kltype].add(code);
+        this.stocks[kltype].add(code);
     }
 
     startTimer() {
@@ -34,7 +34,7 @@ class KlineAlarms {
         var kltypes = ['1', '5', '15', '30', '60', '120', '101', '102', '103', '104', '105', '106'];
         var watchingKlt = [];
         for (var i = 0; i < kltypes.length; i++) {
-            if (this.klineStocks[kltypes[i]] !== undefined) {
+            if (this.stocks[kltypes[i]] !== undefined) {
                 watchingKlt.push(kltypes[i]);
             };
         };
@@ -49,7 +49,7 @@ class KlineAlarms {
                 fetch = true;
             };
             if (fetch) {
-                this.klineStocks[kltype].forEach(s => {
+                this.stocks[kltype].forEach(s => {
                     emjyBack.fetchStockKline(s, kltype);
                 });
             };
@@ -58,33 +58,77 @@ class KlineAlarms {
     }
 }
 
-class ZtBoardTimer {
+class RtpTimer {
     constructor() {
-        this.boardInterval = null;
-        this.lazyInterval = null;
-        this.ztStocks = new Set();
-        this.lazyStocks = new Set();
+        this.rtInterval = null;
+        this.ticks = 1000;
+        this.stocks = new Set();
     }
 
     addStock(code) {
-        this.ztStocks.add(code);
+        this.stocks.add(code);
     }
 
     removeStock(code) {
-        if (this.ztStocks.has(code)) {
-            this.ztStocks.delete(code);
+        if (this.stocks.has(code)) {
+            this.stocks.delete(code);
+        };
+        if (this.stocks.size == 0) {
+            this.stopTimer();
+        };
+    }
+
+    setTick(t) {
+        this.ticks = t;
+        if (this.rtInterval) {
+            this.stopTimer();
+            this.startTimer();
+        };
+    }
+
+    startTimer() {
+        this.rtInterval = setInterval(() => {
+            this.onTimer();
+        }, this.ticks);
+        this.onTimer();
+    }
+
+    stopTimer() {
+        if (this.rtInterval) {
+            clearInterval(this.rtInterval);
+            this.rtInterval = null;
+        };
+    }
+
+    onTimer() {
+        this.stocks.forEach(s => {
+            emjyBack.fetchStockSnapshot(s);
+        });
+    }
+}
+
+class ZtBoardTimer extends RtpTimer {
+    constructor() {
+        super();
+        this.lazyInterval = null;
+        this.lazyStocks = new Set();
+    }
+
+    removeStock(code) {
+        if (this.stocks.has(code)) {
+            this.stocks.delete(code);
         };
         if (this.lazyStocks.has(code)) {
             this.lazyStocks.delete(code);
         };
-        if (this.ztStocks.size == 0 && this.lazyStocks.size == 0) {
+        if (this.stocks.size == 0 && this.lazyStocks.size == 0) {
             this.stopTimer();
         };
     }
 
     updateStockRtPrice(snapshot) {
         var code = snapshot.code;
-        if (!this.ztStocks.has(code) && !this.lazyStocks.has(code)) {
+        if (!this.stocks.has(code) && !this.lazyStocks.has(code)) {
             return;
         };
         var zdf = snapshot.realtimequote.zdf;
@@ -94,21 +138,18 @@ class ZtBoardTimer {
         if (zdf > 6.5) {
             if (this.lazyStocks.has(code)) {
                 this.lazyStocks.delete(code);
-                this.ztStocks.add(code);
+                this.stocks.add(code);
             };
         } else {
-            if (this.ztStocks.has(code)) {
-                this.ztStocks.delete(code);
+            if (this.stocks.has(code)) {
+                this.stocks.delete(code);
                 this.lazyStocks.add(code);
             };
         };
     }
 
     startTimer() {
-        this.boardInterval = setInterval(() => {
-            this.onTimer();
-        }, 10000); // 10 s
-        this.onTimer();
+        super.startTimer();
         this.lazyInterval = setInterval(() => {
             this.onLazyTimer();
         }, 180000); // 3 * 60 * 1000 (3 min)
@@ -116,20 +157,11 @@ class ZtBoardTimer {
     }
 
     stopTimer() {
-        if (this.boardInterval) {
-            clearInterval(this.boardInterval);
-            this.boardInterval = null;
-        };
+        super.stopTimer();
         if (this.lazyInterval) {
             clearInterval(this.lazyInterval);
             this.lazyInterval = null;
         };
-    }
-
-    onTimer() {
-        this.ztStocks.forEach(s => {
-            emjyBack.fetchStockSnapshot(s);
-        });
     }
 
     onLazyTimer() {
@@ -138,3 +170,4 @@ class ZtBoardTimer {
         });
     }
 }
+

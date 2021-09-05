@@ -235,11 +235,14 @@ class AccountInfo {
     }
 
     applyGuardLevel(code, strategy) {
+        if (!strategy.data.enabled) {
+            return;
+        };
         var gl = strategy.guardLevel();
         if (gl == 'kline') {
             emjyBack.klineAlarms.addStock(code, strategy.data.kltype);
         } else if (gl == 'rtp') {
-            emjyBack.addToGuardStocks(code);
+            emjyBack.rtpTimer.addStock(code);
         } else if (gl == 'zt') {
             emjyBack.ztBoardTimer.addStock(code);
         };

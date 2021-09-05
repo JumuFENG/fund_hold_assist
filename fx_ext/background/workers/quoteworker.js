@@ -1,5 +1,3 @@
-let quoteTimer = null;
-let stocks = null;
 let SHSZQueryUrl = 'https://hsmarketwg.eastmoney.com/api/SHSZQuery?count=10&callback=sData&id=';
 let quoteUrl = 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot';
 // https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id=601012&callback=jQuery18304735019505463437_1624277312927&_=1624277415671
@@ -20,14 +18,6 @@ var kltBack = {'1':'klineMinBack', '5':'kline5MinBack', '15':'kline15MinBack', '
 
 function postLog(log) {
     postMessage({command: 'quote.log', log});
-}
-
-function doWork() {
-    if (stocks) {
-        stocks.forEach(function(s) {
-            quoteSnapshot(s);
-        });
-    };
 }
 
 function xmlHttpGet(url, cb) {
@@ -166,18 +156,7 @@ function klineYearBack(kline) {
 }
 
 addEventListener('message', function(e) {
-    if (e.data.command == 'quote.refresh') {
-        if (quoteTimer) {
-            clearInterval(quoteTimer);
-        }
-        if (e.data.time == 0) {
-            setTimeout(doWork, 5000);
-        } else if (e.data.time > 0) {
-            quoteTimer = setInterval(doWork, e.data.time);
-        }
-    } else if (e.data.command == 'quote.update.code') {
-        stocks = e.data.stocks;
-    } else if (e.data.command == 'quote.query.stock') {
+    if (e.data.command == 'quote.query.stock') {
         queryStockInfo(e.data.code);
     } else if (e.data.command == 'quote.fetch.code') {
         quoteSnapshot(e.data.code);

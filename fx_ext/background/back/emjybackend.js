@@ -1,5 +1,4 @@
 'use strict';
-let DEBUG = false;
 let emjyBack = null;
 let NewStockPurchasePath = '/Trade/NewBatBuy';
 let NewBondsPurchasePath = '/Trade/XzsgBatPurchase';
@@ -73,28 +72,30 @@ class EmjyBack {
         this.collateralAccount = null;
         this.creditAccount = null;
         this.contentProxies = [];
-        this.stockGuard = null;
         this.stockMarket = {};
         this.klineAlarms = null;
         this.ztBoardTimer = null;
+        this.rtpTimer = null;
         this.quoteWorker = null;
         this.manager = null;
     }
 
     Init(logger) {
         this.log = logger;
-        this.stockGuard = new Set();
         emjyBack = this;
         if (!this.quoteWorker) {
             this.quoteWorker = new Worker('workers/quoteworker.js');
             this.quoteWorker.onmessage = onQuoteWorkerMessage;
-            this.setupQuoteAlarms();
         };
+        this.setupQuoteAlarms();
         if (!this.klineAlarms) {
             this.klineAlarms = new KlineAlarms();
         };
         if (!this.ztBoardTimer) {
             this.ztBoardTimer = new ZtBoardTimer();
+        };
+        if (!this.rtpTimer) {
+            this.rtpTimer = new RtpTimer();
         };
         this.log('EmjyBack initialized!');
     }
@@ -292,17 +293,6 @@ class EmjyBack {
         }
     }
 
-    addToGuardStocks(code) {
-        if (!this.stockGuard.has(code)) {
-            this.stockGuard.add(code);
-            this.updateMonitor();
-        };
-    }
-
-    updateMonitor() {
-        this.postQuoteWorkerMessage({command: 'quote.update.code', stocks: this.stockGuard});
-    }
-
     trySellStock(code, price, count, account) {
         var sellAccount = this.normalAccount;
         if (account) {
@@ -337,14 +327,12 @@ class EmjyBack {
         this.scheduleTaskInNewTab({command: 'emjy.trade', path: tradePath, stock, price, count});
     }
 
-    refreshQuoteWorkerInterval(time) {
-        emjyBack.postQuoteWorkerMessage({command: 'quote.refresh', time});
-    }
-
     setupQuoteAlarms() {
+        chrome.alarms.onAlarm.addListener(alarmInfo =>  {
+            this.onAlarm(alarmInfo);
+        });
         var now = new Date();
-        if (DEBUG || now.getDay() == 0 || now.getDay() == 6) {
-            this.refreshQuoteWorkerInterval(0);
+        if (now.getDay() == 0 || now.getDay() == 6) {
             return;
         };
 
@@ -373,6 +361,39 @@ class EmjyBack {
                 chrome.alarms.create(alarms[i].name, {when: alarms[i].tick});
             }; 
         };
+    }
+
+    onAlarm(alarmInfo) {
+        if (alarmInfo.name == 'morning-prestart') {
+            this.ztBoardTimer.startTimer();
+        } else if (alarmInfo.name == 'morning-start') {
+            this.rtpTimer.startTimer();
+        } else if (alarmInfo.name == 'morning-started') {
+            this.klineAlarms.startTimer();
+        } else if (alarmInfo.name == 'morning-middle') {
+            this.tradeDailyRoutineTasks();
+            this.rtpTimer.setTick(10000);
+        } else if (alarmInfo.name == 'morning-end') {
+            this.rtpTimer.stopTimer();
+            this.klineAlarms.stopTimer();
+            this.ztBoardTimer.stopTimer();
+        } else if (alarmInfo.name == 'afternoon') {
+            this.refreshAssets();
+        } else if (alarmInfo.name == 'afternoon-started') {
+            this.rtpTimer.startTimer();
+            this.klineAlarms.startTimer();
+            this.ztBoardTimer.startTimer();
+        } else if (alarmInfo.name == 'afternoon-preend') {
+            this.tradeBeforeClose();
+        } else if (alarmInfo.name == 'afternoon-end') {
+            this.rtpTimer.stopTimer();
+            this.klineAlarms.stopTimer();
+            this.ztBoardTimer.stopTimer();
+            this.tradeClosed();
+        };
+
+        var now = new Date();
+        this.log(alarmInfo.name, now.toLocaleTimeString());
     }
 
     updateStockMarketInfo(sdata) {
@@ -421,11 +442,7 @@ class EmjyBack {
     }
 
     removeStock(account, code) {
-        if (this.stockGuard.has(code)) {
-            this.stockGuard.delete(code);
-            this.updateMonitor();
-        };
-
+        this.rtpTimer.removeStock(code);
         if (account == this.normalAccount.keyword) {
             this.normalAccount.removeStock(code);
         } else if (account == this.collateralAccount.keyword) {
@@ -450,10 +467,10 @@ class EmjyBack {
     getHSMarketFlag(code) {
         var market = this.stockMarket[code];
         if (market == 'SH') {
-            return 'HA';
+            return '1';// 'HA';
         };
         if (market == 'SZ') {
-            return 'SA';
+            return '2'; // 'SA';
         };
         return '';
     }
@@ -467,10 +484,10 @@ class EmjyBack {
         };
 
         if (task.command == 'emjy.trade') {
-            proxy.url += '?' + task.stock.code;
+            proxy.url += '?code=' + task.stock.code;
             var market = this.getHSMarketFlag(task.stock.code);
             if (market != '') {
-                proxy.url += '&market=' + market;
+                proxy.url += '&mt=' + market;
             };
         };
         if (this.authencated) {
@@ -530,36 +547,3 @@ class TradingData {
 }
 
 let tradeAnalyzer = new TradingData();
-
-chrome.alarms.onAlarm.addListener(function(alarmInfo) {
-    if (alarmInfo.name == 'morning-prestart') {
-        emjyBack.ztBoardTimer.startTimer();
-    } else if (alarmInfo.name == 'morning-start') {
-        emjyBack.refreshQuoteWorkerInterval(1000);
-    } else if (alarmInfo.name == 'morning-started') {
-        emjyBack.klineAlarms.startTimer();
-    } else if (alarmInfo.name == 'morning-middle') {
-        emjyBack.tradeDailyRoutineTasks();
-        emjyBack.refreshQuoteWorkerInterval(10000);
-    } else if (alarmInfo.name == 'morning-end') {
-        emjyBack.refreshQuoteWorkerInterval(-1);
-        emjyBack.klineAlarms.stopTimer();
-        emjyBack.ztBoardTimer.stopTimer();
-    } else if (alarmInfo.name == 'afternoon') {
-        emjyBack.refreshQuoteWorkerInterval(10000);
-        emjyBack.refreshAssets();
-    } else if (alarmInfo.name == 'afternoon-started') {
-        emjyBack.klineAlarms.startTimer();
-        emjyBack.ztBoardTimer.startTimer();
-    } else if (alarmInfo.name == 'afternoon-preend') {
-        emjyBack.tradeBeforeClose();
-    } else if (alarmInfo.name == 'afternoon-end') {
-        emjyBack.refreshQuoteWorkerInterval(-1);
-        emjyBack.klineAlarms.stopTimer();
-        emjyBack.ztBoardTimer.stopTimer();
-        emjyBack.tradeClosed();
-    };
-
-    var now = new Date();
-    emjyBack.log(alarmInfo.name, now.toLocaleTimeString());
-});
