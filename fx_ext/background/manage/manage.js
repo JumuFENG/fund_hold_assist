@@ -167,7 +167,7 @@ class StockList {
         divContainer.onclick = e => {
             var stk = e.currentTarget.stock;
             if (this.strategyContainer && (!this.currentStock || this.currentStock.code != stk.code)) {
-                if (this.strategyContainer.stock) {
+                if (this.strategyContainer) {
                     this.strategyContainer.saveStrategy();
                 };
                 if (this.strategyContainer.root.parentElement) {
@@ -314,7 +314,7 @@ class StrategyChooser {
                     this.buyView = null;
                     this.removeStrategy('buy');
                 } else {
-                    this.buyView = strategyViewManager.viewer({key: this.strategySelector.value, account: this.ownerAccount});
+                    this.buyView = strategyViewManager.viewer({key: this.strategySelector.value, enabled: true, account: this.ownerAccount});
                     this.buyView.ownerAccount = this.ownerAccount;
                 };
                 utils.removeAllChild(this.strategyRoot);
@@ -324,7 +324,7 @@ class StrategyChooser {
                 this.sellView = null;
                 this.removeStrategy('sell');
             } else {
-                this.sellView = strategyViewManager.viewer({key: this.strategySelector.value, account: this.ownerAccount});
+                this.sellView = strategyViewManager.viewer({key: this.strategySelector.value, enabled: true, account: this.ownerAccount});
             };
             utils.removeAllChild(this.strategyRoot);
         }

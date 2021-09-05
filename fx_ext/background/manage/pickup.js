@@ -430,15 +430,16 @@ class ZtPool {
     }
 
     addToWatchList(ztStocks) {
-        var date = this.dateToString(new Date(), '-');
+        var ztdate = this.dateToString(new Date(), '-');
+        var account = 'normal';
         for (var i = 0; i < ztStocks.length; i++) {
             var stocki = ztStocks[i];
-            if (stocki.ztdate != date) {
+            if (stocki.ztdate != ztdate) {
                 continue;
             };
-            var buystr = {key: 'StrategyBuyZTBoard', amount: 10000, enabled: true};
-            var sellstr = {key: 'StrategySellMAR', enabled: false};
-            emjyManager.addWatchingStock(stocki.code, 'normal', buystr, sellstr);
+            var buystr = {key: 'StrategyBuyZTBoard', amount: 10000, enabled: true, account, ztdate};
+            var sellstr = {key: 'StrategySellMAR', enabled: false, account};
+            emjyManager.addWatchingStock(stocki.code, account, buystr, sellstr);
         };
     }
 };
