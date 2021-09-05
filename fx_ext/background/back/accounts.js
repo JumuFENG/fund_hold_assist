@@ -66,13 +66,13 @@ class AccountInfo {
             var buyStorageKey = this.keyword + '_' + s.code + '_buyStrategy';
             chrome.storage.local.get(buyStorageKey, item => {
                 if (item && item[buyStorageKey]) {
-                    emjyBack.applyStoredBuyStrategy(this.keyword, s.code, item[buyStorageKey]);
+                    this.applyStrategy(s.code, JSON.parse(item[buyStorageKey]));
                 };
             });
             var sellStorageKey = this.keyword + '_' + s.code + '_sellStrategy';
             chrome.storage.local.get(sellStorageKey, item => {
                 if (item && item[sellStorageKey]) {
-                    emjyBack.applyStoredSellStrategy(this.keyword, s.code, item[sellStorageKey]);
+                    this.applyStrategy(s.code, null, JSON.parse(item[sellStorageKey]));
                 };
             });
         });
@@ -105,7 +105,23 @@ class AccountInfo {
             return null;
         };
 
-        return {account: this.keyword, stocks: JSON.stringify(this.stocks)};
+        var stocks = [];
+        for (var i = 0; i < this.stocks.length; i++) {
+            stocks.push({
+                code: this.stocks[i].code,
+                name: this.stocks[i].name,
+                market: this.stocks[i].market,
+                holdCost: this.stocks[i].holdCost,
+                holdCount: this.stocks[i].holdCount,
+                availableCount: this.stocks[i].availableCount,
+                latestPrice: this.stocks[i].latestPrice,
+                buyStrategy: this.stocks[i].buyStrategy ? this.stocks[i].buyStrategy.data : null,
+                sellStrategy: this.stocks[i].sellStrategy ? this.stocks[i].sellStrategy.data : null,
+                costDetail: this.stocks[i].costDetail
+            });
+        };
+
+        return {account: this.keyword, stocks};
     }
 
     queryStockMarketInfo() {
@@ -218,22 +234,37 @@ class AccountInfo {
         }
     }
 
+    applyGuardLevel(code, strategy) {
+        var gl = strategy.guardLevel();
+        if (gl == 'kline') {
+            emjyBack.klineAlarms.addStock(code, strategy.data.kltype);
+        } else if (gl == 'rtp') {
+            emjyBack.addToGuardStocks(code);
+        } else if (gl == 'zt') {
+            emjyBack.ztBoardTimer.addStock(code);
+        };
+    }
+
     applyStrategy(code, bstr, sstr) {
         var stock = this.stocks.find(function(s) {return s.code == code; });
         if (!stock) {
             return;
         };
         if (bstr) {
-            stock.buyStrategy = bstr;
+            var buyStrategy = strategyManager.create(bstr, this.keyword + '_' + code + '_buyStrategy');
+            stock.buyStrategy = buyStrategy;
+            this.applyGuardLevel(code, buyStrategy);
         };
         if (sstr) {
+            var sellStrategy = strategyManager.create(sstr, this.keyword + '_' + code + '_sellStrategy');
             if (sstr.key == 'StrategySellEL' && stock.holdCost) {
-                sstr.setHoldCost(stock.holdCost);
+                sellStrategy.setHoldCost(stock.holdCost);
             };
             if (sstr.key == 'StrategySellMA' || sstr.key == 'StrategySellMAR') {
-                sstr.setHoldCount(stock.holdCount);
+                sellStrategy.setHoldCount(stock.holdCount);
             };
-            stock.sellStrategy = sstr;
+            stock.sellStrategy = sellStrategy;
+            this.applyGuardLevel(code, sellStrategy);
         };
     }
 
@@ -280,10 +311,10 @@ class AccountInfo {
             };
             s.saveKlines();
             if (s.buyStrategy) {
-                strategyManager.flushStrategy(s.buyStrategy);
+                s.buyStrategy.flush();
             };
             if (s.sellStrategy) {
-                strategyManager.flushStrategy(s.sellStrategy);
+                s.sellStrategy.flush();
             };
         });
         var watchingStocks = {};
@@ -293,7 +324,7 @@ class AccountInfo {
 
     buyFundBeforeClose() {
         var anyCritial = this.stocks.find(function(s) {
-            return s.buyStrategy && s.buyStrategy.enabled && s.buyStrategy.inCritical
+            return s.buyStrategy && s.buyStrategy.data.enabled && s.buyStrategy.data.inCritical
         });
 
         if (!anyCritial) {

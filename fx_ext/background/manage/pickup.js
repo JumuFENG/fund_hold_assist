@@ -436,9 +436,8 @@ class ZtPool {
             if (stocki.ztdate != date) {
                 continue;
             };
-            var buystr = strategyManager.createStrategy('StrategyBuyZTBoard', emjyManager.log);
-            buystr.amount = 10000;
-            var sellstr = strategyManager.createStrategy('StrategySellMAR', emjyManager.log);
+            var buystr = {key: 'StrategyBuyZTBoard', amount: 10000, enabled: true};
+            var sellstr = {key: 'StrategySellMAR', enabled: false};
             emjyManager.addWatchingStock(stocki.code, 'normal', buystr, sellstr);
         };
     }

@@ -27,7 +27,7 @@ class ManagerBack {
         } else if (message.command =='mngr.strategy.rmv') {
             emjyBack.removeStockStrategy(message.account, message.code, message.stype);
         } else if (message.command == 'mngr.addwatch') {
-            emjyBack.addWatchStock(message.account, message.code);
+            emjyBack.addWatchStock(message.account, message.code, message.buyStrategy, message.sellStrategy);
         } else if (message.command == 'mngr.rmwatch') {
             emjyBack.removeStock(message.account, message.code);
         } else if (message.command == 'mngr.getZTPool') {
@@ -393,42 +393,12 @@ class EmjyBack {
         this.collateralAccount.updateStockRtKline(message);
     }
 
-    applyStoredBuyStrategy(account, code, bstr) {
-        this.applyStrategy(account, code, bstr);
-    }
-
-    applyStoredSellStrategy(account, code, sstr) {
-        this.applyStrategy(account, code, null, sstr);
-    }
-
     applyStrategy(account, code, bstr, sstr) {
         this.log('applyStrategy', account, code, JSON.stringify(bstr), JSON.stringify(sstr));
-        var buyStrategy = null;
-        if (bstr) {
-            buyStrategy = strategyManager.initStrategy(account + '_' + code + '_buyStrategy', JSON.parse(bstr), this.log);
-        };
-
-        var sellStrategy = null;
-        if (sstr) {
-            sellStrategy = strategyManager.initStrategy(account + '_' + code + '_sellStrategy', JSON.parse(sstr), this.log);
-        };
-        
         if (account == this.normalAccount.keyword) {
-            this.normalAccount.applyStrategy(code, buyStrategy, sellStrategy);
+            this.normalAccount.applyStrategy(code, bstr, sstr);
         } else if (account == this.collateralAccount.keyword) {
-            this.collateralAccount.applyStrategy(code, buyStrategy, sellStrategy);
-        };
-
-        if (buyStrategy && buyStrategy.shouldGetKline()) {
-            this.klineAlarms.addStock(code, buyStrategy.kltype);
-        } else if (sellStrategy && sellStrategy.shouldGetKline()) {
-            this.klineAlarms.addStock(code, sellStrategy.kltype);
-        }
-        if (buyStrategy && buyStrategy.guardZtBoard()) {
-            this.ztBoardTimer.addStock(code);
-        };
-        if ((buyStrategy && buyStrategy.guardRtPrices()) || (sellStrategy && sellStrategy.guardRtPrices())) {
-            this.addToGuardStocks(code);
+            this.collateralAccount.applyStrategy(code, bstr, sstr);
         };
     }
 
@@ -440,11 +410,13 @@ class EmjyBack {
         };
     }
 
-    addWatchStock(account, code) {
+    addWatchStock(account, code, buyStrategy, sellStrategy) {
         if (account == this.normalAccount.keyword) {
             this.normalAccount.addWatchStock(code);
+            this.normalAccount.applyStrategy(code, buyStrategy, sellStrategy);
         } else if (account == this.collateralAccount.keyword) {
             this.collateralAccount.addWatchStock(code);
+            this.collateralAccount.applyStrategy(code, buyStrategy, sellStrategy);
         };
     }
 
