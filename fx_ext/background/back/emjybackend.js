@@ -83,6 +83,7 @@ class EmjyBack {
     Init(logger) {
         this.log = logger;
         emjyBack = this;
+        this.stockMarket['511880'] = 'SH';
         if (!this.quoteWorker) {
             this.quoteWorker = new Worker('workers/quoteworker.js');
             this.quoteWorker.onmessage = onQuoteWorkerMessage;

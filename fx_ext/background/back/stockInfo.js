@@ -175,24 +175,24 @@ class StockInfo {
         } else {
             this.applyStockKlines(this.klines[kltype], klines);
         };
-        if (this.buyStrategy && this.buyStrategy.guardLevel() == 'kline' && this.buyStrategy.kltype == kltype) {
-            this.buyStrategy.checkKlines(this.klines[this.buyStrategy.kltype]);
+        if (this.buyStrategy && this.buyStrategy.guardLevel() == 'kline' && this.buyStrategy.kltype() == kltype) {
+            this.buyStrategy.checkKlines(this.klines[kltype]);
             this.buyStrategy.flush();
-            if (this.buyStrategy.inCritical && (new Date()).getHours() < 15) {
+            if (this.buyStrategy.inCritical() && (new Date()).getHours() < 15) {
                 emjyBack.fetchStockSnapshot(this.code);
             };
         };
-        if (this.sellStrategy && this.sellStrategy.guardLevel() == 'kline' && this.sellStrategy.kltype == kltype) {
-            this.sellStrategy.checkKlines(this.klines[this.sellStrategy.kltype]);
+        if (this.sellStrategy && this.sellStrategy.guardLevel() == 'kline' && this.sellStrategy.kltype() == kltype) {
+            this.sellStrategy.checkKlines(this.klines[kltype]);
             this.sellStrategy.flush();
-            if (this.sellStrategy.inCritical && (new Date()).getHours() < 15) {
+            if (this.sellStrategy.inCritical() && (new Date()).getHours() < 15) {
                 emjyBack.fetchStockSnapshot(this.code);
             };
         };
     }
 
     checkStrategies() {
-        if (this.buyStrategy && this.buyStrategy.data.enabled) {
+        if (this.buyStrategy && this.buyStrategy.enabled()) {
             var checkResult = this.buyStrategy.check(this.rtInfo);
             if (checkResult.match) {
                 emjyBack.log('checkStrategies', this.code, 'buy match', JSON.stringify(this.buyStrategy));
@@ -208,7 +208,7 @@ class StockInfo {
                 emjyBack.checkAvailableMoney(this.rtInfo.latestPrice, checkResult.account);
             }
         }
-        if (this.sellStrategy && this.sellStrategy.data.enabled) {
+        if (this.sellStrategy && this.sellStrategy.enabled()) {
             var checkResult = this.sellStrategy.check(this.rtInfo);
             if (checkResult.match) {
                 emjyBack.log('checkStrategies', 'sell match', this.code, JSON.stringify(this.sellStrategy));

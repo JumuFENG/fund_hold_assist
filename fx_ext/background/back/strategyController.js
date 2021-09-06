@@ -66,6 +66,18 @@ class Strategy {
 
     }
 
+    enabled() {
+        return this.data.enabled;
+    }
+
+    kltype() {
+        return this.data.kltype;
+    }
+
+    inCritical() {
+        return this.data.inCritical;
+    }
+
     buyMatch(peek) {
         this.data.enabled = false;
         this.data.inCritical = false;

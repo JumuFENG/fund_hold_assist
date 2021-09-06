@@ -235,12 +235,12 @@ class AccountInfo {
     }
 
     applyGuardLevel(code, strategy) {
-        if (!strategy.data.enabled) {
+        if (!strategy.enabled()) {
             return;
         };
         var gl = strategy.guardLevel();
         if (gl == 'kline') {
-            emjyBack.klineAlarms.addStock(code, strategy.data.kltype);
+            emjyBack.klineAlarms.addStock(code, strategy.kltype());
         } else if (gl == 'rtp') {
             emjyBack.rtpTimer.addStock(code);
         } else if (gl == 'zt') {
@@ -327,7 +327,7 @@ class AccountInfo {
 
     buyFundBeforeClose() {
         var anyCritial = this.stocks.find(function(s) {
-            return s.buyStrategy && s.buyStrategy.data.enabled && s.buyStrategy.data.inCritical
+            return s.buyStrategy && s.buyStrategy.enabled() && s.buyStrategy.inCritical();
         });
 
         if (!anyCritial) {

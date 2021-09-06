@@ -35,7 +35,7 @@ class TradeProxy {
                 if (r.command == this.task.command && r.status == 'success') {
                     console.log(this.tabid, r);
                     if (r.result == 'error' && r.reason == 'maxCountInvalid') {
-                        if (this.retry < 100) {
+                        if (this.retry < 10) {
                             this.retry++;
                             return;
                         };
