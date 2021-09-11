@@ -221,9 +221,6 @@ class EmjyBack {
                 this.manager.sendStocks([this.normalAccount, this.collateralAccount]);
             }
             
-            this.log(JSON.stringify(this.normalAccount));
-            this.log(JSON.stringify(this.collateralAccount));
-            this.log(JSON.stringify(this.creditAccount));
             this.remvoeProxy(tabid);
         } else if (message.command == 'emjy.trade') {
             if (message.result == 'success') {

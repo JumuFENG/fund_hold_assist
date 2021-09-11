@@ -89,21 +89,22 @@ class StockInfo {
     }
 
     klineApproximatelyAboveMa18(kl) {
-        if (kl.l > kl.ma18) {
+        if (kl.h - kl.ma18 > 0) {
             return true;
         };
-        if (kl.h - kl.l >= 0.02 * kl.o && 5 * (kl.ma18 - kl.l) <= kl.h - kl.ma18) {
+        
+        if (kl.h - kl.l >= 0.02 * kl.o && 5 * (kl.ma18 - kl.l) < kl.h - kl.ma18) {
             return true;
         };
         return false;
     }
 
     klineApproximatelyBellowMa18(kl) {
-        if (kl.h < kl.ma18) {
+        if (kl.h - kl.ma18 < 0) {
             return true;
         };
 
-        if (kl.h - kl.l >= 0.02 * kl.o && (kl.ma18 - kl.l) >= 5 * (kl.h - kl.ma18)) {
+        if (kl.h - kl.l >= 0.02 * kl.o && (kl.ma18 - kl.l) > 5 * (kl.h - kl.ma18)) {
             return true;
         };
         return false;

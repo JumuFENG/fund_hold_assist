@@ -438,7 +438,7 @@ class ZtPool {
                 continue;
             };
             var buystr = {key: 'StrategyBuyZTBoard', amount: 10000, enabled: true, account, ztdate};
-            var sellstr = {key: 'StrategySellMAR', enabled: false, account};
+            var sellstr = {key: 'StrategySellMAR', enabled: false, account, kltype:'5'};
             emjyManager.addWatchingStock(stocki.code, account, buystr, sellstr);
         };
     }

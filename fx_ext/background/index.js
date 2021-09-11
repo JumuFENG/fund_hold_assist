@@ -4,7 +4,8 @@
     let emjyBack = null;
 
     function logInfo(...args) {
-        console.log(args.join(' '));
+        var dt = new Date();
+        console.log('[' + dt.getHours() + ':' + dt.getMinutes() + ':' + dt.getSeconds()  + '] ' +  args.join(' '));
     }
     
     function sendMessage(data) {

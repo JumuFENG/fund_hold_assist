@@ -237,15 +237,15 @@ class JywgUtils {
         }, 300);
     }
 
-    tradeNewStockBuy(command, sendResponse) {
-        if (location.pathname != NewStockPurchasePath) {
+    tradeNewStockBond(command, tradePath, sendResponse) {
+        if (location.pathname != tradePath) {
             var url = new URL(location.href);
-            url.pathname = NewStockPurchasePath;
+            url.pathname = tradePath;
             url.search='';
             EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded', expected: url.href});
             location.href = url;
             return;
-        }
+        };
 
         var seletedCount = 0;
         document.querySelector('#tableBody').querySelectorAll('tr').forEach(r => {
@@ -273,25 +273,17 @@ class JywgUtils {
         } else {
             if (sendResponse) {
                 console.log('maxCountInvalid', seletedCount, sendResponse);
-                sendResponse({command, status: 'success', result: 'error', reason: 'maxCountInvalid', what: 'no new stocks to buy.'});
+                sendResponse({command, status: 'success', result: 'success', reason: 'maxCountInvalid', what: 'no new stocks to buy.'});
             };
         };
     }
 
+    tradeNewStockBuy(command, sendResponse) {
+        this.tradeNewStockBond(command, NewStockPurchasePath, sendResponse);
+    }
+
     tradeNewBondsBuy(command, sendResponse) {
-        if (location.pathname != NewBondsPurchasePath) {
-            var url = new URL(location.href);
-            url.pathname = NewBondsPurchasePath;
-            url.search='';
-            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded', expected: url.href});
-            location.href = url;
-            return;
-        };
-        document.querySelector('#chk_all').click();
-        this.newStockBondBatBuy();
-        if (sendResponse) {
-            sendResponse({command, status: 'success', result:'unknown'});
-        };
+        this.tradeNewStockBond(command, NewBondsPurchasePath, sendResponse);
     }
 }
 
