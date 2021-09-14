@@ -93,7 +93,7 @@ class StockInfo {
             return true;
         };
         
-        if (kl.h - kl.l >= 0.02 * kl.o && 5 * (kl.ma18 - kl.l) < kl.h - kl.ma18) {
+        if (Math.min(kl.o, kl.c) > kl.ma18 && (kl.h - kl.l) * 0.8 <= Math.abs(kl.o - kl.c)) {
             return true;
         };
         return false;
@@ -104,23 +104,23 @@ class StockInfo {
             return true;
         };
 
-        if (kl.h - kl.l >= 0.02 * kl.o && (kl.ma18 - kl.l) > 5 * (kl.h - kl.ma18)) {
+        if (Math.max(kl.o, kl.c) < kl.ma18 && (kl.h - kl.l) * 0.8 <= Math.abs(kl.o - kl.c)) {
             return true;
         };
         return false;
     }
 
-    getBss18(kl1, kl2) {
+    getBss18(klpre, klnew) {
         var bss18 = 'u';
-        if (kl1.l > kl1.ma18 && this.klineApproximatelyAboveMa18(kl2)) {
-            bss18 = kl1.bss18 == 'w' ? 'b' : 'h';
-        } else if (kl1.h < kl1.ma18 && this.klineApproximatelyBellowMa18(kl2)) {
-            bss18 = kl1.bss18 == 'h' ? 's' : 'w';
+        if (klnew.l > klnew.ma18 && this.klineApproximatelyAboveMa18(klpre)) {
+            bss18 = klpre.bss18 == 'w' ? 'b' : 'h';
+        } else if (klnew.h < klnew.ma18 && this.klineApproximatelyBellowMa18(klpre)) {
+            bss18 = klpre.bss18 == 'h' ? 's' : 'w';
         } else {
-            bss18 = kl1.bss18;
-            if (kl1.bss18 == 'b') {
+            bss18 = klpre.bss18;
+            if (klpre.bss18 == 'b') {
                 bss18 = 'h';
-            } else if (kl1.bss18 == 's') {
+            } else if (klpre.bss18 == 's') {
                 bss18 = 'w';
             };
         };

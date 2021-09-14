@@ -355,6 +355,6 @@ class NormalAccount extends AccountInfo {
         emjyBack.scheduleTaskInNewTab({command: 'emjy.trade.bonds', code: '204001', path: BondRepurchasePath}, true);
         setTimeout(() => {
             emjyBack.scheduleTaskInNewTab({command: 'emjy.trade.bonds', code: '131810', path: BondRepurchasePath}, false);
-        }, 2000);
+        }, 5000);
     }
 }
