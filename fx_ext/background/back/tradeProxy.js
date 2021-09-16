@@ -23,9 +23,16 @@ class TradeProxy {
     openTab(url, active) {
         chrome.tabs.create({url, active}, tab => {
             this.tabid = tab.id;
-            if (this.task) {
-                this.sendTaskMessage();
-            };
+            var loadInterval = setInterval(() => {
+                chrome.tabs.get(this.tabid, t => {
+                    if (t.status == 'complete' && t.url == this.url) {
+                        clearInterval(loadInterval);
+                        if (this.task) {
+                            this.sendTaskMessage();
+                        };
+                    };
+                });
+            }, 200);
         });
     }
 
@@ -48,7 +55,7 @@ class TradeProxy {
                     };
                 };
             });
-        }, 300);
+        }, 200);
     }
 
     pageLoaded() {
