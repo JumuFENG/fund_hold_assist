@@ -278,22 +278,20 @@ class StockInfo {
 
     updateRtKline(message) {
         var updatedKlt = this.klines.updateRtKline(message);
-        updatedKlt.forEach(kltype => {
-            if (this.buyStrategy && this.buyStrategy.guardLevel() == 'kline' && this.buyStrategy.kltype() == kltype) {
-                this.buyStrategy.checkKlines(this.klines.getKline(kltype));
-                this.buyStrategy.flush();
-                if (this.buyStrategy.inCritical() && (new Date()).getHours() < 15) {
-                    emjyBack.fetchStockSnapshot(this.code);
-                };
+        if (this.buyStrategy && this.buyStrategy.guardLevel() == 'kline') {
+            this.buyStrategy.checkKlines(this.klines, updatedKlt);
+            this.buyStrategy.flush();
+            if (this.buyStrategy.inCritical() && (new Date()).getHours() < 15) {
+                emjyBack.fetchStockSnapshot(this.code);
             };
-            if (this.sellStrategy && this.sellStrategy.guardLevel() == 'kline' && this.sellStrategy.kltype() == kltype) {
-                this.sellStrategy.checkKlines(this.klines.getKline(kltype));
-                this.sellStrategy.flush();
-                if (this.sellStrategy.inCritical() && (new Date()).getHours() < 15) {
-                    emjyBack.fetchStockSnapshot(this.code);
-                };
+        };
+        if (this.sellStrategy && this.sellStrategy.guardLevel() == 'kline') {
+            this.sellStrategy.checkKlines(this.klines, updatedKlt);
+            this.sellStrategy.flush();
+            if (this.sellStrategy.inCritical() && (new Date()).getHours() < 15) {
+                emjyBack.fetchStockSnapshot(this.code);
             };
-        });
+        };
     }
 
     checkStrategies() {

@@ -41,6 +41,12 @@ class StrategyViewManager {
         if (strategy.key == 'StrategySellMAR') {
             return new StrategySellMARepeatView(strategy);
         };
+        if (strategy.key == 'StrategyBuyMAD') {
+            return new StrategyBuyMADynamicView(strategy);
+        };
+        if (strategy.key == 'StrategySellMAD') {
+            return new StrategySellMADynamicView(strategy);
+        };
     }
 }
 
@@ -227,7 +233,8 @@ class StrategyBaseView {
         var kltDiv = document.createElement('div');
         kltDiv.appendChild(document.createTextNode('K线类型 '));
         this.klineSelector = document.createElement('select');
-        var kltypes = [{klt:'1', text:'1分钟'}, {klt:'5', text:'5分钟'}, {klt:'15', text:'15分钟'}, {klt:'30', text:'30分钟'}, {klt:'60', text:'1小时'}, {klt:'120', text:'2小时'}, {klt:'101', text:'1日'}, {klt:'102', text:'1周'}, {klt:'103', text:'1月'}, {klt:'104', text:'1季度'}, {klt:'105', text:'半年'}, {klt:'106', text:'年'}];
+        var kltypes = [{klt:'4', text:'4分钟'}, {klt:'8', text:'8分钟'}, {klt:'15', text:'15分钟'}, {klt:'30', text:'30分钟'}, {klt:'60', text:'1小时'}, {klt:'120', text:'2小时'}, {klt:'101', text:'1日'}, {klt:'202', text:'2日'}];
+        //{klt:'1', text:'1分钟'}, {klt:'2', text:'2分钟'}, , {klt:'404', text:'4日'}, {klt:'808', text:'8日'}, {klt:'102', text:'1周'}, {klt:'103', text:'1月'}, {klt:'104', text:'1季度'}, {klt:'105', text:'半年'}, {klt:'106', text:'年'}
 
         for (var i = 0; i < kltypes.length; i++) {
             var opt = document.createElement('option');
@@ -376,10 +383,14 @@ class StrategyBuyMAView extends StrategyBaseView {
         };
     }
 
+    maDescription() {
+        return '连续2根K线>18周期均线, 以第3根K线开盘时买入';
+    }
+
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
-        view.appendChild(document.createTextNode('连续2根K线>18周期均线, 以第3根K线开盘时买入'));
+        view.appendChild(document.createTextNode(this.maDescription()));
         view.appendChild(this.createKlineTypeSelector());
         this.setDefaultKltype();
         view.appendChild(this.createAmountDiv());
@@ -395,10 +406,14 @@ class StrategySellMAView extends StrategyBaseView {
         };
     }
 
+    maDescription() {
+        return '连续2根K线<18周期均线,以第3根K线开盘时(全部)卖出';
+    }
+
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
-        view.appendChild(document.createTextNode('连续2根K线<18周期均线,以第3根K线开盘时(全部)卖出'));
+        view.appendChild(document.createTextNode(this.maDescription()));
         view.appendChild(this.createKlineTypeSelector());
         this.setDefaultKltype();
         return view;
@@ -408,7 +423,7 @@ class StrategySellMAView extends StrategyBaseView {
 class StrategyBuyMARepeatView extends StrategyBuyMAView {
     setDefaultKltype() {
         if (this.klineSelector) {
-            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '5';
+            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '4';
         };
     }
 }
@@ -417,6 +432,30 @@ class StrategySellMARepeatView extends StrategySellMAView {
     setDefaultKltype() {
         if (this.klineSelector) {
             this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '1';
+        };
+    }
+}
+
+class StrategyBuyMADynamicView extends StrategyBuyMAView {
+    maDescription() {
+        return '连续2根K线>18周期均线, 以第3根K线开盘时买入, 动态调整K线类型';
+    }
+
+    setDefaultKltype() {
+        if (this.klineSelector) {
+            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '30';
+        };
+    }
+}
+
+class StrategySellMADynamicView extends StrategySellMAView {
+    maDescription() {
+        return '连续2根K线<18周期均线,以第3根K线开盘时(全部)卖出, 累计收益>20%或单日涨幅>8.5% 调整K线类型为4分钟';
+    }
+
+    setDefaultKltype() {
+        if (this.klineSelector) {
+            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '30';
         };
     }
 }
