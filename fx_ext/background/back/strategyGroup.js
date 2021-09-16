@@ -141,7 +141,7 @@ class StrategyGroup {
                     emjyBack.log('checkStrategies sell match', this.code, JSON.stringify(curStrategy));
                     emjyBack.trySellStock(this.code, checkResult.price, checkResult.count, checkResult.account);
                 };
-                this.onTradeMatch(checkResult.price);
+                this.onTradeMatch({price: checkResult.price});
                 // if (curStrategy.isBuyStrategy()) {
                 //     this.onBuyMatch(checkResult.price);
                 // } else {
@@ -155,6 +155,9 @@ class StrategyGroup {
 
     onTradeMatch(refer) {
         this.strategies[this.curId].setEnabled(false);
+        if (this.strategies[this.curId].guardLevel() == 'kline') {
+            refer.kltype = this.strategies[this.curId].kltype();
+        };
         this.curId = this.connections[this.curId].getTradeConnectionId();
         if (this.curId != -1) {
             //this.strategies[this.curId].buyMatch(refer);
