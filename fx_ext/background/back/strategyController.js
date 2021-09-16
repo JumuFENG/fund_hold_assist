@@ -182,24 +182,24 @@ class StrategySell extends Strategy {
 class StrategyBuyRepeat extends StrategyBuy {
     buyMatch(refer) {
         this.data.inCritical = false;
-        this.data.guardPrice = refer * (1 - this.data.stepRate);
+        this.data.guardPrice = refer.price * (1 - this.data.stepRate);
     }
 
     sellMatch(refer) {
         this.data.inCritical = false;
-        this.data.guardPrice = refer * (1 - this.data.stepRate);
+        this.data.guardPrice = refer.price * (1 - this.data.stepRate);
     }
 }
 
 class StrategySellRepeat extends StrategySell {
     buyMatch(refer) {
         this.data.inCritical = false;
-        this.data.guardPrice = refer * (1 + this.data.stepRate);
+        this.data.guardPrice = refer.price * (1 + this.data.stepRate);
     }
 
     sellMatch(refer) {
         this.data.inCritical = false;
-        this.data.guardPrice = refer * (1 + this.data.stepRate);
+        this.data.guardPrice = refer.price * (1 + this.data.stepRate);
     }
 }
 
@@ -266,8 +266,7 @@ class StrategySellIPO extends StrategySell {
 class StrategyBuyZT2 extends StrategyBuy {
     buyMatch(refer) {
         this.data.buyRound++;
-        this.data.guardPrice = refer * (1 - this.data.stepRate);
-        console.log(refer, this.data.guardPrice);
+        this.data.guardPrice = refer.price * (1 - this.data.stepRate);
         if (this.data.buyRound >= 2) {
             this.data.enabled = false;
         };
@@ -332,9 +331,9 @@ class StrategySellEL  extends StrategySell {
 
     buyMatch(refer) {
         if (!this.data.averPrice || this.data.averPrice == 0) {
-            this.data.averPrice = refer;
+            this.data.averPrice = refer.price;
         } else {
-            this.data.averPrice = (this.data.averPrice + refer) / 2;
+            this.data.averPrice = (this.data.averPrice + refer.price) / 2;
         };
         this.data.enabled = true;
     }
@@ -408,7 +407,7 @@ class StrategyBuyMA extends StrategyBuy {
         if (updatedKlt.includes(this.kltype())) {
             var nKlines = klines.getKline(this.kltype());
             if (nKlines && nKlines.length > 0) {
-                this.data.inCritical = nKlines.[nKlines.length - 1].bss18 == 'b';
+                this.data.inCritical = nKlines[nKlines.length - 1].bss18 == 'b';
             };
         };
     }
@@ -448,7 +447,7 @@ class StrategySellMA extends StrategySell {
         if (updatedKlt.includes(this.kltype())) {
             var nKlines = klines.getKline(this.kltype());
             if (nKlines && nKlines.length > 0) {
-                this.data.inCritical = nKlines.[nKlines.length - 1].bss18 == 's';
+                this.data.inCritical = nKlines[nKlines.length - 1].bss18 == 's';
             };
         };
     }
@@ -502,7 +501,7 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
         if (updatedKlt.includes(kltype)) {
             var nKlines = klines.getKline(kltype);
             if (nKlines && nKlines.length > 0) {
-                this.data.inCritical = nKlines.[nKlines.length - 1].bss18 == 'b';
+                this.data.inCritical = nKlines[nKlines.length - 1].bss18 == 'b';
             };
         } else if (gkl && updatedKlt.includes(gkl)) {
             var gKlines = klines.getKline(gkl);
@@ -545,7 +544,7 @@ class StrategySellMADynamic extends StrategySellMA {
         if (updatedKlt.includes(kltype)) {
             var nKlines = klines.getKline(kltype);
             if (nKlines && nKlines.length > 0) {
-                this.data.inCritical = nKlines.[nKlines.length - 1].bss18 == 's';
+                this.data.inCritical = nKlines[nKlines.length - 1].bss18 == 's';
             };
         } else if (kltype != '4') {
             var mKlines = klines.getKline(1);
