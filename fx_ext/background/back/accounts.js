@@ -63,16 +63,10 @@ class AccountInfo {
     loadStrategies() {
         this.stocks.forEach(s => {
             s.loadKlines();
-            var buyStorageKey = this.keyword + '_' + s.code + '_buyStrategy';
-            chrome.storage.local.get(buyStorageKey, item => {
-                if (item && item[buyStorageKey]) {
-                    this.applyStrategy(s.code, JSON.parse(item[buyStorageKey]));
-                };
-            });
-            var sellStorageKey = this.keyword + '_' + s.code + '_sellStrategy';
-            chrome.storage.local.get(sellStorageKey, item => {
-                if (item && item[sellStorageKey]) {
-                    this.applyStrategy(s.code, null, JSON.parse(item[sellStorageKey]));
+            var strStorageKey = this.keyword + '_' + s.code + '_strategies';
+            chrome.storage.local.get(strStorageKey, item => {
+                if (item && item[strStorageKey]) {
+                    this.applyStrategy(s.code, JSON.parse(item[strStorageKey]));
                 };
             });
         });
@@ -115,8 +109,7 @@ class AccountInfo {
                 holdCount: this.stocks[i].holdCount,
                 availableCount: this.stocks[i].availableCount,
                 latestPrice: this.stocks[i].latestPrice,
-                buyStrategy: this.stocks[i].buyStrategy ? this.stocks[i].buyStrategy.data : null,
-                sellStrategy: this.stocks[i].sellStrategy ? this.stocks[i].sellStrategy.data : null,
+                strategies: this.stocks[i].strategies ? this.stocks[i].strategies.tostring() : null,
                 costDetail: this.stocks[i].costDetail
             });
         };
@@ -234,41 +227,16 @@ class AccountInfo {
         }
     }
 
-    applyGuardLevel(code, strategy) {
-        if (!strategy.enabled()) {
-            return;
-        };
-        var gl = strategy.guardLevel();
-        if (gl == 'kline') {
-            emjyBack.klineAlarms.addStock(code, strategy.kltype());
-        } else if (gl == 'rtp') {
-            emjyBack.rtpTimer.addStock(code);
-        } else if (gl == 'zt') {
-            emjyBack.ztBoardTimer.addStock(code);
-        };
-    }
-
-    applyStrategy(code, bstr, sstr) {
+    applyStrategy(code, str) {
         var stock = this.stocks.find(function(s) {return s.code == code; });
         if (!stock) {
             return;
         };
-        if (bstr) {
-            var buyStrategy = strategyManager.create(bstr, this.keyword + '_' + code + '_buyStrategy');
-            stock.buyStrategy = buyStrategy;
-            this.applyGuardLevel(code, buyStrategy);
-        };
-        if (sstr) {
-            var sellStrategy = strategyManager.create(sstr, this.keyword + '_' + code + '_sellStrategy');
-            if (sstr.key == 'StrategySellEL' && stock.holdCost) {
-                sellStrategy.setHoldCost(stock.holdCost);
-            };
-            if (sstr.key == 'StrategySellMA' || sstr.key == 'StrategySellMAR') {
-                sellStrategy.setHoldCount(stock.holdCount);
-            };
-            stock.sellStrategy = sellStrategy;
-            this.applyGuardLevel(code, sellStrategy);
-        };
+        var strategyGroup = strategyGroupManager.create(str, code, this.keyword + '_' + code + '_strategies');
+        strategyGroup.setHoldCost(stock.holdCost);
+        strategyGroup.setHoldCount(stock.holdCount);
+        strategyGroup.applyGuardLevel();
+        stock.strategies = strategyGroup;
     }
 
     removeStrategy(code, stype) {
@@ -276,15 +244,9 @@ class AccountInfo {
         if (!stock) {
             return;
         };
-        var storageKey = this.keyword + '_' + code;
-        if (stype == 'buy') {
-            stock.buyStrategy = null;
-            storageKey += '_buyStrategy';
-        } else {
-            stock.sellStrategy = null;
-            storageKey += '_sellStrategy';
-        };
-        chrome.storage.local.remove(storageKey);
+
+        stock.strategies = null;
+        chrome.storage.local.remove(this.keyword + '_' + code + '_strategies');
     }
 
     addWatchStock(code) {
@@ -302,22 +264,19 @@ class AccountInfo {
             return;
         };
         this.stocks[ic].deleteKlines();
-        chrome.storage.local.remove([this.keyword + '_' + code + '_buyStrategy', this.keyword + '_' + code + '_sellStrategy']);
+        chrome.storage.local.remove(this.keyword + '_' + code + '_strategies');
         this.stocks.splice(ic, 1);
     }
 
     save() {
         var stock_watching = [];
         this.stocks.forEach(s => {
-            if (s.watching || (s.holdCount == 0 && (s.buyStrategy || s.sellStrategy))) {
+            if (s.holdCount == 0 && (s.watching || s.strategies)) {
                 stock_watching.push(s.code);
             };
             s.saveKlines();
-            if (s.buyStrategy) {
-                s.buyStrategy.flush();
-            };
-            if (s.sellStrategy) {
-                s.sellStrategy.flush();
+            if (s.strategies) {
+                s.strategies.save();
             };
         });
         var watchingStocks = {};

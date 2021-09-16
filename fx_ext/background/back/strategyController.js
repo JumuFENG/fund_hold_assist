@@ -48,12 +48,6 @@ class StrategyManager {
             return new StrategySellMADynamic(strategy, skey);
         };
     }
-
-    flushStrategy(strategy) {
-        var storageData = {};
-        storageData[strategy.storeKey] = strategy.tostring();
-        chrome.storage.local.set(storageData);
-    }
 }
 
 class Strategy {
@@ -74,6 +68,15 @@ class Strategy {
 
     enabled() {
         return this.data.enabled;
+    }
+
+    setEnabled(val) {
+        this.data.enabled = val;
+        this.data.inCritical = false;
+    }
+
+    key() {
+        return this.data.key;
     }
 
     kltype() {
@@ -130,6 +133,10 @@ class Strategy {
 }
 
 class StrategyBuy extends Strategy {
+    isBuyStrategy() {
+        return true;
+    }
+
     check(rtInfo) {
         var match = false;
         var stepInCritical = false;
@@ -155,6 +162,10 @@ class StrategyBuy extends Strategy {
 }
 
 class StrategySell extends Strategy {
+    isBuyStrategy() {
+        return false;
+    }
+    
     check(rtInfo) {
         var price = rtInfo.latestPrice;
         var match = false;

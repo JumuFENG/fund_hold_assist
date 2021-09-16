@@ -11,11 +11,6 @@ hr {
     border: 1px solid lightgray;
 }
 
-.radio_anchor_div a:link, .radio_anchor_div a:visited {
-    color: black;
-    text-decoration: none;
-}
-
 .radio_anchor_div a.highlight {
     background: #555;
 }
@@ -34,4 +29,10 @@ hr {
 
 .sortableTable th {
     background-color: lightgray;
+}
+
+.strategy_border_div {
+    border-left: 5px solid grey;
+    margin-top: 10px;
+    padding-left: 5px;
 }

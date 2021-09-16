@@ -143,15 +143,15 @@ class StockList {
         this.listContainer = document.createElement('div');
         this.root.appendChild(this.listContainer);
         this.root.appendChild(document.createElement('hr'));
-        this.strategyContainer = new StrategyChooser();
+        this.strategyGroupView = new StrategyGroupView();
         this.currentStock = null;
     }
 
     initUi(stocks) {
         this.log('init StockList');
         this.stocks = stocks;
-        if (this.strategyContainer.root.parentElement) {
-            this.strategyContainer.root.parentElement.removeChild(this.strategyContainer.root);
+        if (this.strategyGroupView.root.parentElement) {
+            this.strategyGroupView.root.parentElement.removeChild(this.strategyGroupView.root);
         }
         utils.removeAllChild(this.listContainer);
         for (var i = 0; i < stocks.length; i++) {
@@ -166,16 +166,23 @@ class StockList {
         divContainer.stock = stock;
         divContainer.onclick = e => {
             var stk = e.currentTarget.stock;
-            if (this.strategyContainer && (!this.currentStock || this.currentStock.code != stk.code)) {
-                if (this.strategyContainer) {
-                    this.strategyContainer.saveStrategy();
+            if (this.strategyGroupView && (!this.currentStock || this.currentStock.code != stk.code)) {
+                if (this.strategyGroupView) {
+                    this.strategyGroupView.saveStrategy();
                 };
-                if (this.strategyContainer.root.parentElement) {
-                    this.strategyContainer.root.parentElement.removeChild(this.strategyContainer.root);
+                if (this.strategyGroupView.root.parentElement) {
+                    this.strategyGroupView.root.parentElement.removeChild(this.strategyGroupView.root);
                 };
-                e.currentTarget.appendChild(this.strategyContainer.root);
+                e.currentTarget.appendChild(this.strategyGroupView.root);
                 this.currentStock = stk;
-                this.strategyContainer.initUi(this.currentStock);
+                var strategies = JSON.parse(this.currentStock.strategies);
+                if (!strategies) {
+                    strategies = {code: this.currentStock.code, account: this.currentStock.account};
+                } else {
+                    strategies.code = this.currentStock.code;
+                    strategies.account = this.currentStock.account;
+                };
+                this.strategyGroupView.initUi(strategies);
             };
         };
         var divTitle = document.createElement('div');
@@ -342,8 +349,8 @@ class StrategyChooser {
 }
 
 window.onunload = function() {
-    if (emjyManager.stockList.strategyContainer.stock) {
-        emjyManager.stockList.strategyContainer.saveStrategy();
+    if (emjyManager.stockList.strategyGroupView) {
+        emjyManager.stockList.strategyGroupView.saveStrategy();
     };
 }
 

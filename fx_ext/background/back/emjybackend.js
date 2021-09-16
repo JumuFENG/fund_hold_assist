@@ -22,7 +22,7 @@ class ManagerBack {
             emjyBack.collateralAccount.save();
             this.tabid = null;
         } else if (message.command == 'mngr.strategy') {
-            emjyBack.applyStrategy(message.account, message.code, message.buyStrategy, message.sellStrategy);
+            emjyBack.applyStrategy(message.account, message.code, message.strategies);
         } else if (message.command =='mngr.strategy.rmv') {
             emjyBack.removeStockStrategy(message.account, message.code, message.stype);
         } else if (message.command == 'mngr.addwatch') {
@@ -416,12 +416,12 @@ class EmjyBack {
         this.collateralAccount.updateStockRtKline(message);
     }
 
-    applyStrategy(account, code, bstr, sstr) {
-        this.log('applyStrategy', account, code, JSON.stringify(bstr), JSON.stringify(sstr));
+    applyStrategy(account, code, str) {
+        this.log('applyStrategy', account, code, JSON.stringify(str));
         if (account == this.normalAccount.keyword) {
-            this.normalAccount.applyStrategy(code, bstr, sstr);
+            this.normalAccount.applyStrategy(code, str);
         } else if (account == this.collateralAccount.keyword) {
-            this.collateralAccount.applyStrategy(code, bstr, sstr);
+            this.collateralAccount.applyStrategy(code, str);
         };
     }
 
@@ -433,13 +433,13 @@ class EmjyBack {
         };
     }
 
-    addWatchStock(account, code, buyStrategy, sellStrategy) {
+    addWatchStock(account, code, str) {
         if (account == this.normalAccount.keyword) {
             this.normalAccount.addWatchStock(code);
-            this.normalAccount.applyStrategy(code, buyStrategy, sellStrategy);
+            this.normalAccount.applyStrategy(code, str);
         } else if (account == this.collateralAccount.keyword) {
             this.collateralAccount.addWatchStock(code);
-            this.collateralAccount.applyStrategy(code, buyStrategy, sellStrategy);
+            this.collateralAccount.applyStrategy(code, str);
         };
     }
 

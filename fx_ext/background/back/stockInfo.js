@@ -260,8 +260,7 @@ class StockInfo {
         this.availableCount = stock.availableCount;
         this.costDetail = [];
         this.latestPrice = null;
-        this.buyStrategy = null;
-        this.sellStrategy = null;
+        this.strategies = null;
         this.klines = new KLine(this.code);
     }
 
@@ -270,7 +269,7 @@ class StockInfo {
             this.name = snapshot.name;
         }
         this.latestPrice = snapshot.realtimequote.currentPrice;
-        var rtInfo = {};
+        var rtInfo = {code: this.code, name: this.name};
         rtInfo.latestPrice = this.latestPrice;
         rtInfo.openPrice = snapshot.fivequote.openPrice;
         var buyPrices = [snapshot.fivequote.buy1, snapshot.fivequote.buy2, snapshot.fivequote.buy3, snapshot.fivequote.buy4, snapshot.fivequote.buy5];
@@ -279,8 +278,9 @@ class StockInfo {
         rtInfo.sellPrices = sellPrices;
         rtInfo.topprice = snapshot.topprice;
         rtInfo.bottomprice = snapshot.bottomprice;
-        this.rtInfo = rtInfo;
-        this.checkStrategies();
+        if (this.strategies) {
+            this.strategies.check(rtInfo);
+        };
         tradeAnalyzer.updateStockRtPrice(snapshot);
     }
 
@@ -300,36 +300,6 @@ class StockInfo {
                 emjyBack.fetchStockSnapshot(this.code);
             };
         };
-    }
-
-    checkStrategies() {
-        if (this.buyStrategy && this.buyStrategy.enabled()) {
-            var checkResult = this.buyStrategy.check(this.rtInfo);
-            if (checkResult.match) {
-                emjyBack.log('checkStrategies', this.code, 'buy match', JSON.stringify(this.buyStrategy));
-                emjyBack.tryBuyStock(this.code, this.name, checkResult.price, checkResult.count, checkResult.account);
-                if (this.buyStrategy.guardLevel() == 'zt') {
-                    emjyBack.ztBoardTimer.removeStock(this.code);
-                };
-                this.buyStrategy.buyMatch(checkResult.price);
-                if (this.sellStrategy) {
-                    this.sellStrategy.buyMatch(checkResult.price);
-                };
-            } else if (checkResult.stepInCritical) {
-                emjyBack.checkAvailableMoney(this.rtInfo.latestPrice, checkResult.account);
-            }
-        }
-        if (this.sellStrategy && this.sellStrategy.enabled()) {
-            var checkResult = this.sellStrategy.check(this.rtInfo);
-            if (checkResult.match) {
-                emjyBack.log('checkStrategies', 'sell match', this.code, JSON.stringify(this.sellStrategy));
-                emjyBack.trySellStock(this.code, checkResult.price, checkResult.count, checkResult.account);
-                this.sellStrategy.sellMatch(checkResult.price);
-                if (this.buyStrategy) {
-                    this.buyStrategy.sellMatch(checkResult.price);
-                };
-            }
-        }
     }
 
     loadKlines() {
