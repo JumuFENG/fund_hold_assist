@@ -147,9 +147,17 @@ class KLine {
     getBss18(klpre, klnew) {
         var bss18 = 'u';
         if (klnew.l - klnew.ma18 > 0 && this.klineApproximatelyAboveMa18(klpre)) {
-            bss18 = klpre.bss18 == 'w' ? 'b' : 'h';
+            if (klpre.bss18 == 'u') {
+                bss18 = 'b';
+            } else {
+                bss18 = klpre.bss18 == 'w' ? 'b' : 'h';
+            };
         } else if (klnew.h - klnew.ma18 < 0 && this.klineApproximatelyBellowMa18(klpre)) {
-            bss18 = klpre.bss18 == 'h' ? 's' : 'w';
+            if (klpre.bss18 == 'u') {
+                bss18 = 's';
+            } else {
+                bss18 = klpre.bss18 == 'h' ? 's' : 'w';
+            };
         } else {
             bss18 = klpre.bss18;
             if (klpre.bss18 == 'b') {
@@ -180,7 +188,7 @@ class KLine {
         if (this.baseKlt.has(kltype)) {
             this.factors.forEach(f => {
                 if (this.fillUpKlinesBaseOn(kltype, f)) {
-                    updatedKlt.push(kltype * f);
+                    updatedKlt.push((kltype * f).toString());
                 };
             });
         };

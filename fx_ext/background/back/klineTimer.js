@@ -2,7 +2,7 @@
 
 class KlineAlarms {
     constructor() {
-        this.log = console.log;
+        this.log = emjyBack.log;
         this.klineInterval = null;
         this.hitCount = 0;
         this.baseKlt = new Set(['1', '15']);//, '101'
@@ -27,6 +27,7 @@ class KlineAlarms {
             this.onTimer();
         }, 60000);
         this.onTimer();
+        this.log('kline timer started!');
     }
 
     stopTimer() {
@@ -34,6 +35,7 @@ class KlineAlarms {
             clearInterval(this.klineInterval);
             this.klineInterval = null;
             this.hitCount = 0;
+            this.log('kline timer stopped!');
         };
     }
 
@@ -67,6 +69,7 @@ class KlineAlarms {
 
 class RtpTimer {
     constructor() {
+        this.log = emjyBack.log;
         this.rtInterval = null;
         this.ticks = 1000;
         this.stocks = new Set();
@@ -94,6 +97,7 @@ class RtpTimer {
     }
 
     startTimer() {
+        this.log('RtpTimer started!');
         this.rtInterval = setInterval(() => {
             this.onTimer();
         }, this.ticks);
@@ -104,6 +108,7 @@ class RtpTimer {
         if (this.rtInterval) {
             clearInterval(this.rtInterval);
             this.rtInterval = null;
+            this.log('RtpTimer stopped!');
         };
     }
 

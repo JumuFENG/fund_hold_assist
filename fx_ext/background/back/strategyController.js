@@ -476,7 +476,8 @@ class StrategySellMARepeat extends StrategySellMA {
 }
 
 class StrategyBuyMADynamic extends StrategyBuyMA {
-    constructor() {
+    constructor(str, storeKey) {
+        super(str, storeKey);
         this.kltypeCandiList = {'4': '8', '8': '15', '15':'30', '30':'60', '60':'120', '120':'101', '101': '202', '202': '404'};
     }
 
@@ -553,7 +554,7 @@ class StrategySellMADynamic extends StrategySellMA {
                 this.data.kltype = '4';
             };
             var dKlines = klines.getKline('101');
-            if (dKlines.length > 0) {
+            if (dKlines && dKlines.length > 0) {
                 var klLatest = dKlines[dKlines.length - 1];
                 var lclose = klLatest.c;
                 if (highPrice > lclose * 1.085) {

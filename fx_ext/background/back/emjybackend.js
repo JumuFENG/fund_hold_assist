@@ -389,9 +389,13 @@ class EmjyBack {
             this.ztBoardTimer.stopTimer();
             this.tradeClosed();
         };
+    }
 
-        var now = new Date();
-        this.log(alarmInfo.name, now.toLocaleTimeString());
+    startAllTimers() {
+        this.ztBoardTimer.startTimer();
+        this.rtpTimer.setTick(10000);
+        this.rtpTimer.startTimer();
+        this.klineAlarms.startTimer();
     }
 
     updateStockMarketInfo(sdata) {
