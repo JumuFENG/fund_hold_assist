@@ -5,7 +5,7 @@ class KlineAlarms {
         this.log = emjyBack.log;
         this.klineInterval = null;
         this.hitCount = 0;
-        this.baseKlt = new Set(['1', '15']);//, '101'
+        this.baseKlt = new Set(['1', '15', '101']);
         this.stocks = {};
         this.baseKlt.forEach(k => {
             this.stocks[k] = new Set();
@@ -13,10 +13,6 @@ class KlineAlarms {
     }
 
     addStock(code, kltype) {
-        if (this.stocks[kltype] === undefined) {
-            this.stocks[kltype] = new Set();
-        };
-        this.stocks[kltype].add(code);
         this.baseKlt.forEach(k => {
             this.stocks[k].add(code);
         });
@@ -40,17 +36,9 @@ class KlineAlarms {
     }
 
     onTimer() {
-        var kltypes = ['1', '5', '15', '101', '102', '103', '104', '105', '106'];
-        var watchingKlt = [];
-        for (var i = 0; i < kltypes.length; i++) {
-            if (this.stocks[kltypes[i]] !== undefined) {
-                watchingKlt.push(kltypes[i]);
-            };
-        };
-        for (var i = 0; i < watchingKlt.length; i++) {
-            var kltype = watchingKlt[i];
+        this.baseKlt.forEach(kltype => {
             var fetch = false;
-            if (kltype > 100 && this.hitCount == 0) {
+            if (kltype == '101' && this.hitCount == 0) {
                 fetch = true;
             } else if (kltype == '1') {
                 fetch = true;
@@ -62,7 +50,7 @@ class KlineAlarms {
                     emjyBack.fetchStockKline(s, kltype);
                 });
             };
-        };
+        });
         this.hitCount++;
     }
 }
