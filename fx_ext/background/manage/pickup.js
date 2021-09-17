@@ -159,9 +159,6 @@ class ZtPool {
                 if (stock.c.startsWith('68') || stock.c.startsWith('30')) {
                     continue;
                 }
-                if (stock.n.startsWith('N')) {
-                    continue;
-                };
                 if (stock.n.includes("ST")) {
                     continue;
                 }
@@ -369,6 +366,7 @@ class ZtPool {
         for (var i = 0; i < this.ztData.length; i++) {
             if (this.ztData[i].ztcount == 1) {
                 this.refreshZtTable(this.ztTable, this.ztData[i].ztStocks);
+                this.addNewStockToWatchList(this.ztData[i].ztStocks);
             } else if (this.ztData[i].ztcount == 2) {
                 this.refreshZtTable(this.zt2Table, this.ztData[i].ztStocks);
                 this.addToWatchList(this.ztData[i].ztStocks);
@@ -429,7 +427,24 @@ class ZtPool {
         };
     }
 
+    addNewStockToWatchList(ztStocks) {
+        var ztdate = this.dateToString(new Date(), '-');
+        var account = 'normal';
+        for (var i = 0; i < ztStocks.length; i++) {
+            var stocki = ztStocks[i];
+            if (stocki.ztdate != ztdate) {
+                continue;
+            };
+            if (stocki.name.startsWith('N')) {
+                var buystr = {key: 'StrategyBuyZT', amount: 10000, enabled: true, account, ztdate};
+                var sellstr = {key: 'StrategySellMA', enabled: false, account, kltype:'4'};
+                emjyManager.addWatchingStock(stocki.code, account, buystr, sellstr);
+            };
+        };
+    }
+
     addToWatchList(ztStocks) {
+        return;
         var ztdate = this.dateToString(new Date(), '-');
         var account = 'normal';
         for (var i = 0; i < ztStocks.length; i++) {
