@@ -92,7 +92,7 @@ class StrategyGroup {
 
         for (var id in this.strategies) {
             if (this.strategies[id].key() == 'StrategySellEL') {
-                this.strategies[id].setHoldCost(stock.holdCost);
+                this.strategies[id].setHoldCost(cost);
             };
         };
     }

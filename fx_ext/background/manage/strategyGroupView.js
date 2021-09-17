@@ -69,9 +69,9 @@ class StrategySelectorView {
             this.root.appendChild(this.strateyContainer);
         };
         if (this.strategy) {
-            var strategyView = strategyViewManager.viewer(this.strategy);
-            strategyView.ownerAccount = this.account;
-            this.strateyContainer.appendChild(strategyView.createView());
+            this.strategyView = strategyViewManager.viewer(this.strategy);
+            this.strategyView.ownerAccount = this.account;
+            this.strateyContainer.appendChild(this.strategyView.createView());
         };
     }
 
@@ -83,6 +83,13 @@ class StrategySelectorView {
     onStrategyChanged(key) {
         this.strategy = {key};
         this.createStrategyView();
+    }
+
+    isChanged() {
+        if (this.strategyView) {
+            return this.strategyView.isChanged();
+        };
+        return false;
     }
 }
 
@@ -98,11 +105,15 @@ class StrategyGroupView {
         this.changed = false;
     }
 
-    initUi(strGrp) {
+    initUi(account, code, strGrp) {
         utils.removeAllChild(this.strategySelectorContainer);
         utils.removeAllChild(this.newStrategyContainer);
+        this.strategySelectors = [];
+        this.changed = false;
+        this.code = code;
+        this.account = account;
+        this.strGrp = strGrp ? strGrp : {grptype: 'GroupStandard'};
         var nextId = 0;
-        this.strGrp = strGrp
         if (this.strGrp.strategies) {
             for (var id in this.strGrp.strategies) {
                 this.insertSelectorView(id, this.strGrp.strategies[id]);
@@ -111,14 +122,14 @@ class StrategyGroupView {
                 };
             };
         };
-        this.newStrategyView = new StrategySelectorView(this.strGrp.account, nextId);
+        this.newStrategyView = new StrategySelectorView(this.account, nextId);
         this.newStrategyView.createView();
         this.newStrategyView.strGroupView = this;
         this.newStrategyContainer.appendChild(this.newStrategyView.root);
     }
 
     insertSelectorView(id, strategy) {
-        var strategySelView = new StrategySelectorView(this.strGrp.account, id, strategy);
+        var strategySelView = new StrategySelectorView(this.account, id, strategy);
         strategySelView.strGroupView = this;
         strategySelView.createView();
         this.strategySelectorContainer.appendChild(strategySelView.root);
@@ -139,22 +150,25 @@ class StrategyGroupView {
         };
     }
 
-    isChanged() {
-        if (this.changed) {
-            return true;
-        };
-
+    checkChanged() {
         for (var i = 0; i < this.strategySelectors.length; i++) {
-            if (this.strategySelectors[i].isChanged()) {
-                return true;
-            }
+            this.changed |= this.strategySelectors[i].isChanged();
         };
-        return false;
+        return this.changed;
     }
 
     saveStrategy() {
-        if (!this.isChanged()) {
-            
+        this.checkChanged();
+        if (!this.changed) {
+            return;
         };
+        var message = {command:'mngr.strategy', code: this.code, account: this.account};
+        var strategies = {};
+        for (var i = 0; i < this.strategySelectors.length; i++) {
+            strategies[this.strategySelectors[i].id] = this.strategySelectors[i].strategyView.strategy;
+        };
+        this.strGrp.strategies = strategies;
+        message.strategies = this.strGrp;
+        emjyManager.sendExtensionMessage(message);
     }
 }

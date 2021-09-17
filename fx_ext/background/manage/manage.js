@@ -138,51 +138,68 @@ class ManagerPage {
 class StockList {
     constructor(log) {
         this.log = log;
-        this.stocks = null;
+        this.stocks = [];
         this.root = document.createElement('div');
         this.listContainer = document.createElement('div');
         this.root.appendChild(this.listContainer);
         this.root.appendChild(document.createElement('hr'));
         this.strategyGroupView = new StrategyGroupView();
-        this.currentStock = null;
+        this.currentCode = null;
     }
 
     initUi(stocks) {
         this.log('init StockList');
-        this.stocks = stocks;
         if (this.strategyGroupView.root.parentElement) {
             this.strategyGroupView.root.parentElement.removeChild(this.strategyGroupView.root);
         }
         utils.removeAllChild(this.listContainer);
         for (var i = 0; i < stocks.length; i++) {
+            stocks[i].strategies = JSON.parse(stocks[i].strategies);
             this.addStock(stocks[i]);
         };
         
         this.listContainer.lastElementChild.click();
     }
 
+    onStrategyGroupChanged(code, strGrp) {
+        if (!strGrp) {
+            return;
+        };
+
+        for (var i = 0; i < this.stocks.length; i++) {
+            if (this.stocks[i].acccode == code) {
+                this.stocks[i].strategies = strGrp;
+                break;
+            };
+        };
+    }
+
+    currentStock(code) {
+        return this.stocks.find( s => {
+            return s.acccode == code;
+        });
+    }
+
     addStock(stock) {
+        if (!this.currentStock(stock.code)) {
+            this.stocks.push(stock);
+        };
+        
         var divContainer = document.createElement('div');
-        divContainer.stock = stock;
+        divContainer.acccode = stock.acccode;
         divContainer.onclick = e => {
-            var stk = e.currentTarget.stock;
-            if (this.strategyGroupView && (!this.currentStock || this.currentStock.code != stk.code)) {
+            if (this.strategyGroupView && (!this.currentCode || this.currentCode != e.currentTarget.acccode)) {
                 if (this.strategyGroupView) {
                     this.strategyGroupView.saveStrategy();
+                    this.onStrategyGroupChanged(this.currentCode, this.strategyGroupView.strGrp);
                 };
                 if (this.strategyGroupView.root.parentElement) {
                     this.strategyGroupView.root.parentElement.removeChild(this.strategyGroupView.root);
                 };
                 e.currentTarget.appendChild(this.strategyGroupView.root);
-                this.currentStock = stk;
-                var strategies = JSON.parse(this.currentStock.strategies);
-                if (!strategies) {
-                    strategies = {code: this.currentStock.code, account: this.currentStock.account};
-                } else {
-                    strategies.code = this.currentStock.code;
-                    strategies.account = this.currentStock.account;
-                };
-                this.strategyGroupView.initUi(strategies);
+                this.currentCode = e.currentTarget.acccode;
+                var stk = this.currentStock(this.currentCode);
+                this.strategyGroupView.initUi(stk.account, stk.code, stk.strategies);
             };
         };
         var divTitle = document.createElement('div');
@@ -348,11 +365,11 @@ class StrategyChooser {
     }
 }
 
-window.onunload = function() {
+window.addEventListener('beforeunload', e => {
     if (emjyManager.stockList.strategyGroupView) {
         emjyManager.stockList.strategyGroupView.saveStrategy();
     };
-}
+});
 
 window.onload = function() {
     emjyManager.initUi();
