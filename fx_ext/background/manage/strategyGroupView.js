@@ -200,8 +200,8 @@ class StrategyGroupView {
                     this.strGrp.transfers[id] = {transfer: -1};
                 };
                 this.insertSelectorView(id, this.strGrp.strategies[id], this.strGrp.transfers[id].transfer);
-                if (id >= nextId) {
-                    nextId = id + 1;
+                while (id - nextId >= 0) {
+                    nextId++;
                 };
             };
             this.onAvailableTransferIdChanged();

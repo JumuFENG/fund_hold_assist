@@ -26,7 +26,7 @@ class ManagerBack {
         } else if (message.command =='mngr.strategy.rmv') {
             emjyBack.removeStockStrategy(message.account, message.code, message.stype);
         } else if (message.command == 'mngr.addwatch') {
-            emjyBack.addWatchStock(message.account, message.code, message.buyStrategy, message.sellStrategy);
+            emjyBack.addWatchStock(message.account, message.code, message.strategies);
         } else if (message.command == 'mngr.rmwatch') {
             emjyBack.removeStock(message.account, message.code);
         } else if (message.command == 'mngr.getZTPool') {

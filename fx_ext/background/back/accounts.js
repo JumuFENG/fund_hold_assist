@@ -228,6 +228,9 @@ class AccountInfo {
     }
 
     applyStrategy(code, str) {
+        if (!str) {
+            return;
+        };
         var stock = this.stocks.find(function(s) {return s.code == code; });
         if (!stock) {
             return;

@@ -436,9 +436,8 @@ class ZtPool {
                 continue;
             };
             if (stocki.name.startsWith('N')) {
-                var buystr = {key: 'StrategyBuyZT', amount: 10000, enabled: true, account, ztdate};
-                var sellstr = {key: 'StrategySellMA', enabled: false, account, kltype:'4'};
-                emjyManager.addWatchingStock(stocki.code, account, buystr, sellstr);
+                var strgrp = {grptype:'GroupStandard',transfers:{'0':{'transfer':'-1'}},strategies:{'0':{key:'StrategyBuyZT',enabled:true,backRate:0.01,stepRate:0.08,amount:10000}}};
+                emjyManager.addWatchingStock(stocki.code, account, strgrp);
             };
         };
     }
@@ -452,9 +451,8 @@ class ZtPool {
             if (stocki.ztdate != ztdate) {
                 continue;
             };
-            var buystr = {key: 'StrategyBuyZTBoard', amount: 10000, enabled: true, account, ztdate};
-            var sellstr = {key: 'StrategySellMA', enabled: false, account, kltype:'4'};
-            emjyManager.addWatchingStock(stocki.code, account, buystr, sellstr);
+            var strgrp = {grptype:'GroupStandard', transfers:{'0':{'transfer':'1'}},strategies:{'0':{key: 'StrategyBuyZTBoard', amount: 10000, enabled: true, account, ztdate},'1': {key: 'StrategySellMA', enabled: false, account, kltype:'4'}}};
+            emjyManager.addWatchingStock(stocki.code, account, strgrp);
         };
     }
 };

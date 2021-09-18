@@ -77,21 +77,20 @@ class Manager {
         this.page.addPickUpArea(this.ztPool);
     }
 
-    addStock(code, account, buystr = null, sellstr = null) {
+    addStock(code, account, strGrp = null) {
         if (!this.stockList) {
             this.stockList = new StockList(this.log);
             this.page.root.appendChild(this.stockList.root);
         };
         var stock = {code, name:'', account, holdCount: 0, holdCost: 0};
         stock.acccode = account + '_' + code;
-        stock.buyStrategy = buystr;
-        stock.sellStrategy = sellstr;
+        stock.strategies = strGrp;
         this.stockList.addStock(stock);
     }
 
-    addWatchingStock(code, account, buyStrategy = null, sellStrategy = null) {
-        this.addStock(code, account, buyStrategy, sellStrategy);
-        this.sendExtensionMessage({command:'mngr.addwatch', code, account, buyStrategy, sellStrategy});
+    addWatchingStock(code, account, strGrp = null) {
+        this.addStock(code, account, strGrp);
+        this.sendExtensionMessage({command:'mngr.addwatch', code, account, strategies: strGrp});
     }
 }
 
@@ -230,138 +229,6 @@ class StockList {
         divContainer.appendChild(divDetails);
         this.listContainer.appendChild(document.createElement('hr'));
         this.listContainer.appendChild(divContainer);
-    }
-}
-
-class StrategyChooser {
-    constructor() {
-        this.buyView = null;
-        this.sellView = null;
-        this.ownerAccount = null;
-        this.code = null;
-        this.root = document.createElement('div');
-        this.radioBars = new RadioAnchorBar('');
-        this.radioBars.addRadio('买入策略', function(that) {
-            that.initOptions(true, that.buyView);
-        }, this);
-        this.radioBars.addRadio('卖出策略', function(that) {
-            that.initOptions(false, that.sellView);
-        }, this);
-        this.root.appendChild(this.radioBars.container);
-        this.strategySelector = document.createElement('select');
-        this.strategySelector.onchange = e => {
-            this.onStrategyChanged();
-        };
-        this.root.appendChild(this.strategySelector);
-        this.strategyRoot = document.createElement('div');
-        this.root.appendChild(this.strategyRoot);
-    }
-
-    initUi(stock) {
-        utils.removeAllChild(this.strategyRoot);
-        this.code = stock.code;
-        this.ownerAccount = stock.account;
-        if (stock.buyStrategy) {
-            this.buyView = strategyViewManager.viewer(stock.buyStrategy);
-            this.buyView.ownerAccount = stock.account;
-        } else {
-            this.buyView = null;
-        };
-        if (stock.sellStrategy) {
-            this.sellView = strategyViewManager.viewer(stock.sellStrategy);
-        } else {
-            this.sellView = null;
-        };
-        this.radioBars.selectDefault();
-    }
-
-    initOptions(isBuy, view) {
-        if (this.strategyBuy !== undefined) {
-            this.saveStrategy();
-        };
-
-        this.strategyBuy = isBuy;
-        if (isBuy) {
-            this.createStrategyOptions(BuyStrategyKeyNames);
-        } else {
-            this.createStrategyOptions(SellStrategyKeyNames);
-        }
-        
-        if (view && view.strategy) {
-            this.strategySelector.value = view.strategy.key;
-            this.onStrategyChanged();
-        };
-    }
-
-    createStrategyOptions(availableStrategies) {
-        utils.removeAllChild(this.strategySelector);
-        utils.removeAllChild(this.strategyRoot);
-        var opt0 = document.createElement('option');
-        opt0.textContent = '--请选择--';
-        opt0.selected = true;
-        opt0.disabled = true;
-        this.strategySelector.appendChild(opt0);
-        for (var i = 0; i < availableStrategies.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = availableStrategies[i].key;
-            opt.textContent = availableStrategies[i].name;
-            this.strategySelector.appendChild(opt);
-        };
-        var optDelete = document.createElement('option');
-        optDelete.value = 'invalid';
-        optDelete.textContent = '--删除--';
-        this.strategySelector.appendChild(optDelete);
-    }
-
-    saveStrategy() {
-        var message = {command:'mngr.strategy', code: this.code, account: this.ownerAccount};
-        if (this.buyView && this.buyView.isChanged()) {
-            message.buyStrategy = this.buyView.strategy;
-        };
-        if (this.sellView && this.sellView.isChanged()) {
-            message.sellStrategy = this.sellView.strategy;
-        };
-
-        if (message.buyStrategy || message.sellStrategy) {
-            emjyManager.sendExtensionMessage(message);
-        };
-    }
-
-    removeStrategy(stype) {
-        emjyManager.sendExtensionMessage({command:'mngr.strategy.rmv', code: this.code, account: this.ownerAccount, stype});
-    }
-
-    onStrategyChanged() {
-        if (this.strategyBuy) {
-            if (!this.buyView || this.buyView.strategy.key != this.strategySelector.value) {
-                if (this.strategySelector.value == 'invalid') {
-                    this.buyView = null;
-                    this.removeStrategy('buy');
-                } else {
-                    this.buyView = strategyViewManager.viewer({key: this.strategySelector.value, enabled: true, account: this.ownerAccount});
-                    this.buyView.ownerAccount = this.ownerAccount;
-                };
-                utils.removeAllChild(this.strategyRoot);
-            };
-        } else if (!this.sellView || this.sellView.strategy.key != this.strategySelector.value) {
-            if (this.strategySelector.value == 'invalid') {
-                this.sellView = null;
-                this.removeStrategy('sell');
-            } else {
-                this.sellView = strategyViewManager.viewer({key: this.strategySelector.value, enabled: true, account: this.ownerAccount});
-            };
-            utils.removeAllChild(this.strategyRoot);
-        }
-
-        if (this.strategyBuy) {
-            if (this.buyView) {
-                this.strategyRoot.appendChild(this.buyView.createView());
-            };
-        } else {
-            if (this.sellView) {
-                this.strategyRoot.appendChild(this.sellView.createView());
-            };
-        }
     }
 }
 
