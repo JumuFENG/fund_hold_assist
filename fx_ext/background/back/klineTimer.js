@@ -12,7 +12,7 @@ class KlineAlarms {
         });
     }
 
-    addStock(code, kltype) {
+    addStock(code) {
         this.baseKlt.forEach(k => {
             this.stocks[k].add(code);
         });

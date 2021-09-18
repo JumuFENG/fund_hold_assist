@@ -23,7 +23,6 @@ class StrategyGroup {
         this.storeKey = key;
         this.code = code;
         this.strategies = {};
-        this.curId = str.curId;
         this.grptype = str.grptype;
         this.initStrategies(str.strategies);
         this.transfers = {};
@@ -31,19 +30,17 @@ class StrategyGroup {
     }
 
     enabled() {
-        if (this.curId === undefined || this.curId == -1) {
-            return false;
+        for (var i in this.strategies) {
+            if (this.strategies[i].enabled()) {
+                return true;
+            };
         };
-
-        return this.strategies[this.curId].enabled();
+        return false;
     }
 
     initStrategies(strs) {
         for (var id in strs) {
             this.strategies[id] = strategyManager.create(strs[id]);
-            if (this.curId === undefined && this.strategies[id].enabled()) {
-                this.curId = id;
-            };
         };
     }
 
@@ -55,9 +52,6 @@ class StrategyGroup {
 
     tostring() {
         var data = {grptype: this.grptype};
-        if (this.curId && this.curId != -1) {
-            data.curId = this.curId;
-        };
         var strNum = 0;
         var strategies = {};
         for (var id in this.strategies) {
@@ -111,24 +105,27 @@ class StrategyGroup {
     }
 
     applyGuardLevel() {
-        if (!this.enabled()) {
-            return;
-        };
-
-        var strategy = this.strategies[this.curId];
-        var gl = strategy.guardLevel();
-        if (gl == 'kline') {
-            emjyBack.klineAlarms.addStock(this.code, strategy.kltype());
-        } else if (gl == 'rtp') {
-            emjyBack.rtpTimer.addStock(this.code);
-        } else if (gl == 'zt') {
-            emjyBack.ztBoardTimer.addStock(this.code);
+        for (var id in this.strategies) {
+            if (!this.strategies[id].enabled()) {
+                continue;
+            };
+            var gl = this.strategies[id].guardLevel();
+            if (gl == 'kline') {
+                emjyBack.klineAlarms.addStock(this.code);
+            } else if (gl == 'rtp') {
+                emjyBack.rtpTimer.addStock(this.code);
+            } else if (gl == 'zt') {
+                emjyBack.ztBoardTimer.addStock(this.code);
+            };
         };
     }
 
     check(rtInfo) {
-        var curStrategy = this.strategies[this.curId];
-        if (curStrategy) {
+        for (var id in this.strategies) {
+            var curStrategy = this.strategies[id];
+            if (!curStrategy.enabled()) {
+                continue;
+            };
             var checkResult = curStrategy.check(rtInfo);
             if (checkResult.match) {
                 if (curStrategy.isBuyStrategy()) {
@@ -141,75 +138,27 @@ class StrategyGroup {
                     emjyBack.log('checkStrategies sell match', this.code, JSON.stringify(curStrategy));
                     emjyBack.trySellStock(this.code, checkResult.price, checkResult.count, checkResult.account);
                 };
-                this.onTradeMatch({price: checkResult.price});
-                // if (curStrategy.isBuyStrategy()) {
-                //     this.onBuyMatch(checkResult.price);
-                // } else {
-                //     this.onSellMatch(checkResult.price);
-                // };
+                this.onTradeMatch(id, {price: checkResult.price});
             } else if (checkResult.stepInCritical) {
                 emjyBack.checkAvailableMoney(rtInfo.latestPrice, checkResult.account);
-            }
+            };
         };
     }
 
-    onTradeMatch(refer) {
-        this.strategies[this.curId].setEnabled(false);
-        if (this.strategies[this.curId].guardLevel() == 'kline') {
-            refer.kltype = this.strategies[this.curId].kltype();
+    onTradeMatch(id, refer) {
+        this.strategies[id].setEnabled(false);
+        var curStrategy = this.strategies[id];
+        if (curStrategy.guardLevel() == 'kline') {
+            refer.kltype = curStrategy.kltype();
         };
-        this.curId = this.transfers[this.curId].getTransferId();
-        if (this.curId != -1) {
-            //this.strategies[this.curId].buyMatch(refer);
-            this.strategies[this.curId].setEnabled(true);
-            this.applyGuardLevel();
-        };
-    }
-
-    onBuyMatch(refer) {
-        if (this.strategies[this.curId].isBuyStrategy()) {
-            var strategies = {};
-            for (var id in this.strategies) {
-                if (id == this.curId) {
-                    continue;
-                };
-                strategies[id] = this.strategies[id];
+        var tid = this.transfers[id].getTransferId();
+        if (tid != -1) {
+            this.strategies[tid].setEnabled(true);
+            if (curStrategy.isBuyStrategy()) {
+                this.strategies[tid].buyMatch(refer);
+            } else {
+                this.strategies[tid].sellMatch(refer);
             };
-            this.strategies = strategies;
-        };
-        this.curId = -1;
-        for (var id in this.strategies) {
-            if (!this.strategies[id].isBuyStrategy()) {
-                this.curId = id;
-                break;
-            };
-        };
-        if (this.curId != -1) {
-            this.strategies[this.curId].buyMatch(refer);
-            this.applyGuardLevel();
-        };
-    }
-
-    onSellMatch(refer) {
-        if (!this.strategies[this.curId].isBuyStrategy()) {
-            var strategies = {};
-            for (var id in this.strategies) {
-                if (id == this.curId) {
-                    continue;
-                };
-                strategies[id] = this.strategies[id];
-            };
-            this.strategies = strategies;
-        };
-        this.curId = -1;
-        for (var id in this.strategies) {
-            if (this.strategies[id].isBuyStrategy()) {
-                this.curId = id;
-                break;
-            };
-        };
-        if (this.curId != -1) {
-            this.strategies[this.curId].sellMatch(refer);
             this.applyGuardLevel();
         };
     }
