@@ -36,3 +36,9 @@ hr {
     margin-top: 10px;
     padding-left: 5px;
 }
+
+.strategy_transfer_box {
+    border-left: 2px dotted grey;
+    margin-top: 8px;
+    padding-left: 2px;
+}

@@ -48,6 +48,20 @@ class StrategyViewManager {
             return new StrategySellMADynamicView(strategy);
         };
     }
+
+    getStrategyName(key) {
+        for (var i = 0; i < BuyStrategyKeyNames.length; i++) {
+            if (BuyStrategyKeyNames[i].key == key) {
+                return BuyStrategyKeyNames[i].name;
+            };
+        };
+
+        for (var i = 0; i < SellStrategyKeyNames.length; i++) {
+            if (SellStrategyKeyNames[i].key == key) {
+                return SellStrategyKeyNames[i].name;
+            };
+        };
+    }
 }
 
 class StrategyBaseView {

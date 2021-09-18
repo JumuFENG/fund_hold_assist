@@ -8,13 +8,13 @@ class GroupManager {
     }
 }
 
-class StrategyConnections {
+class StrategyTransferConnection {
     constructor(conn) {
         this.conn = conn;
     }
 
-    getTradeConnectionId() {
-        return this.conn.tradeId;
+    getTransferId() {
+        return this.conn.transfer;
     }
 }
 
@@ -26,8 +26,8 @@ class StrategyGroup {
         this.curId = str.curId;
         this.grptype = str.grptype;
         this.initStrategies(str.strategies);
-        this.connections = {};
-        this.initConnections(str.connections);
+        this.transfers = {};
+        this.initTransfers(str.transfers);
     }
 
     enabled() {
@@ -47,9 +47,9 @@ class StrategyGroup {
         };
     }
 
-    initConnections(conn) {
+    initTransfers(conn) {
         for (var id in conn) {
-            this.connections[id] = new StrategyConnections(conn[id]);
+            this.transfers[id] = new StrategyTransferConnection(conn[id]);
         };
     }
 
@@ -67,14 +67,14 @@ class StrategyGroup {
         if (strNum > 0) {
             data.strategies = strategies;
         };
-        var connections = {};
+        var transfers = {};
         var connNum = 0;
-        for (var id in this.connections) {
-            connections[id] = this.connections[id].conn;
+        for (var id in this.transfers) {
+            transfers[id] = this.transfers[id].conn;
             connNum++;
         };
         if (connNum > 0) {
-            data.connections = connections;
+            data.transfers = transfers;
         };
         return JSON.stringify(data);
     }
@@ -158,7 +158,7 @@ class StrategyGroup {
         if (this.strategies[this.curId].guardLevel() == 'kline') {
             refer.kltype = this.strategies[this.curId].kltype();
         };
-        this.curId = this.connections[this.curId].getTradeConnectionId();
+        this.curId = this.transfers[this.curId].getTransferId();
         if (this.curId != -1) {
             //this.strategies[this.curId].buyMatch(refer);
             this.strategies[this.curId].setEnabled(true);

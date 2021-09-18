@@ -1,12 +1,68 @@
 'use strict';
 
+class TransferSelector {
+    constructor(transfer) {
+        this.transfer = transfer;
+        this.root = document.createElement('div');
+        this.root.className = 'strategy_transfer_box';
+        this.root.appendChild(document.createTextNode('递补策略'));
+    }
+
+    resetView() {
+        if (this.selectors) {
+            this.transfer = this.selectors.value;
+            utils.removeAllChild(this.selectors);
+        };
+
+        if (!this.selectors) {
+            this.selectors = document.createElement('select');
+            this.root.appendChild(this.selectors);
+        };
+    }
+
+    updateSelectors(ids) {
+        this.resetView();
+        var exists = false;
+        ids.forEach(i => {
+            var opt = document.createElement('option');
+            opt.value = i.id;
+            if (i.id == this.transfer) {
+                exists = true;
+            };
+            opt.textContent = i.val;
+            this.selectors.appendChild(opt);
+        });
+        this.selectors.value = exists ? this.transfer : ids[0].id;
+    }
+
+    selectedId() {
+        return this.selectors.value;
+    }
+}
+
 class StrategySelectorView {
-    constructor(account, id, strategy) {
+    constructor(account, id, strategy, transfer) {
         this.root = document.createElement('div');
         this.root.className = 'strategy_border_div';
         this.account = account;
         this.id = id;
+        this.transfer = transfer;
         this.strategy = strategy;
+    }
+
+    setAvailableTransfers(ids) {
+        this.availableIds = [];
+        for (var i = 0; i < ids.length; i++) {
+            var id = ids[i].id;
+            var val = ids[i].val;
+            if (id == this.id) {
+                val += ' (自循环)';
+            };
+            this.availableIds.push({id, val});
+        };
+        if (this.transferView) {
+            this.transferView.updateSelectors(this.availableIds);
+        };
     }
 
     createSelector() {
@@ -75,21 +131,42 @@ class StrategySelectorView {
         };
     }
 
+    createTransferView() {
+        if (this.transferView) {
+            this.transferView.resetView();
+        };
+        if (this.strategy) {
+            if (!this.transferView) {
+                this.transferView = new TransferSelector(this.transfer);
+                this.root.appendChild(this.transferView.root);
+            };
+            if (this.availableIds) {
+                this.transferView.updateSelectors(this.availableIds);
+            };
+        };
+    }
+
     createView() {
         this.createSelector();
         this.createStrategyView();
+        this.createTransferView();
     }
 
     onStrategyChanged(key) {
         this.strategy = {key};
         this.createStrategyView();
+        this.createTransferView();
     }
 
     isChanged() {
+        var changed = false;
         if (this.strategyView) {
-            return this.strategyView.isChanged();
+            changed |= this.strategyView.isChanged();
         };
-        return false;
+        if (this.transferView) {
+            changed |= (this.transferView.selectedId() != this.transfer);
+        };
+        return changed;
     }
 }
 
@@ -113,14 +190,21 @@ class StrategyGroupView {
         this.code = code;
         this.account = account;
         this.strGrp = strGrp ? strGrp : {grptype: 'GroupStandard'};
+        if (!this.strGrp.transfers) {
+            this.strGrp.transfers = {};
+        };
         var nextId = 0;
         if (this.strGrp.strategies) {
             for (var id in this.strGrp.strategies) {
-                this.insertSelectorView(id, this.strGrp.strategies[id]);
+                if (!this.strGrp.transfers[id]) {
+                    this.strGrp.transfers[id] = {transfer: -1};
+                };
+                this.insertSelectorView(id, this.strGrp.strategies[id], this.strGrp.transfers[id].transfer);
                 if (id >= nextId) {
                     nextId = id + 1;
                 };
             };
+            this.onAvailableTransferIdChanged();
         };
         this.newStrategyView = new StrategySelectorView(this.account, nextId);
         this.newStrategyView.createView();
@@ -128,16 +212,29 @@ class StrategyGroupView {
         this.newStrategyContainer.appendChild(this.newStrategyView.root);
     }
 
-    insertSelectorView(id, strategy) {
-        var strategySelView = new StrategySelectorView(this.account, id, strategy);
+    insertSelectorView(id, strategy, transId) {
+        var strategySelView = new StrategySelectorView(this.account, id, strategy, transId);
         strategySelView.strGroupView = this;
         strategySelView.createView();
         this.strategySelectorContainer.appendChild(strategySelView.root);
         this.strategySelectors.push(strategySelView);
     }
 
+    onAvailableTransferIdChanged() {
+        var ids = [];
+        for (var i = 0; i < this.strategySelectors.length; i++) {
+            var id = this.strategySelectors[i].id;
+            var idObj = {id};
+            idObj.val = '策略 ' + id + ': ' + strategyViewManager.getStrategyName(this.strategySelectors[i].strategy.key);
+            ids.push(idObj);
+        };
+        ids.push({id: -1, val: '无'});
+        this.strategySelectors.forEach(s => {s.setAvailableTransfers(ids);});
+    }
+
     onStrategyAdded(id, key) {
         this.insertSelectorView(id, {key});
+        this.onAvailableTransferIdChanged();
         this.changed = true;
     }
 
@@ -164,10 +261,13 @@ class StrategyGroupView {
         };
         var message = {command:'mngr.strategy', code: this.code, account: this.account};
         var strategies = {};
+        var transfers = {};
         for (var i = 0; i < this.strategySelectors.length; i++) {
             strategies[this.strategySelectors[i].id] = this.strategySelectors[i].strategyView.strategy;
+            transfers[this.strategySelectors[i].id] = {transfer: this.strategySelectors[i].transferView.selectedId()};
         };
         this.strGrp.strategies = strategies;
+        this.strGrp.transfers = transfers;
         message.strategies = this.strGrp;
         emjyManager.sendExtensionMessage(message);
     }
