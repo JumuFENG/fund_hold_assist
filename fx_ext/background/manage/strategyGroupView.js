@@ -222,13 +222,13 @@ class StrategyGroupView {
 
     onAvailableTransferIdChanged() {
         var ids = [];
+        ids.push({id: -1, val: '无'});
         for (var i = 0; i < this.strategySelectors.length; i++) {
             var id = this.strategySelectors[i].id;
             var idObj = {id};
             idObj.val = '策略 ' + id + ': ' + strategyViewManager.getStrategyName(this.strategySelectors[i].strategy.key);
             ids.push(idObj);
         };
-        ids.push({id: -1, val: '无'});
         this.strategySelectors.forEach(s => {s.setAvailableTransfers(ids);});
     }
 

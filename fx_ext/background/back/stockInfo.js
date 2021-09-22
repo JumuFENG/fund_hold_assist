@@ -32,14 +32,15 @@ class KLine {
         return this.klines[kltype];
     }
 
-    parseKlines(kline) {
+    parseKlines(kline, stime = '0') {
         var klines = [];
         for (var i = 0; kline && i < kline.length; i++) {
             var kl = kline[i].split(',');
             var time = kl[0];
-            if (new Date() < new Date(time)) {
+            if (time <= stime || new Date() < new Date(time)) {
                 continue;
             };
+
             var o = kl[1];
             var c = kl[2];
             var h = kl[3];
@@ -171,7 +172,11 @@ class KLine {
 
     updateRtKline(message) {
         var kltype = message.kltype;
-        var klines = this.parseKlines(message.kline.data.klines);
+        var stime = '0';
+        if (this.klines && this.klines[kltype]) {
+            stime = this.klines[kltype][this.klines[kltype].length - 1].time;
+        };
+        var klines = this.parseKlines(message.kline.data.klines, stime);
         var updatedKlt = [];
         if (klines.length > 0) {
             updatedKlt.push(kltype);
@@ -195,13 +200,12 @@ class KLine {
         return updatedKlt;
     }
 
-    getFactoredKlines(klines, fac, stime = null) {
+    getFactoredKlines(klines, fac, stime = '0') {
         var fklines = [];
         var startIdx = 0;
         if (stime) {
-            for (var i = 0; i < klines.length; i++) {
-                if (klines[i].time > stime) {
-                    startIdx = i;
+            for (; startIdx < klines.length; startIdx++) {
+                if (klines[startIdx].time > stime) {
                     break;
                 };
             };
@@ -286,19 +290,8 @@ class StockInfo {
 
     updateRtKline(message) {
         var updatedKlt = this.klines.updateRtKline(message);
-        if (this.buyStrategy && this.buyStrategy.guardLevel() == 'kline') {
-            this.buyStrategy.checkKlines(this.klines, updatedKlt);
-            this.buyStrategy.flush();
-            if (this.buyStrategy.inCritical() && (new Date()).getHours() < 15) {
-                emjyBack.fetchStockSnapshot(this.code);
-            };
-        };
-        if (this.sellStrategy && this.sellStrategy.guardLevel() == 'kline') {
-            this.sellStrategy.checkKlines(this.klines, updatedKlt);
-            this.sellStrategy.flush();
-            if (this.sellStrategy.inCritical() && (new Date()).getHours() < 15) {
-                emjyBack.fetchStockSnapshot(this.code);
-            };
+        if (this.strategies) {
+            this.strategies.checkKlines(this.klines, updatedKlt);
         };
     }
 

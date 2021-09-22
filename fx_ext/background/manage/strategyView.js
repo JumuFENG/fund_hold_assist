@@ -238,7 +238,7 @@ class StrategyBaseView {
                 this.accountSelector.appendChild(opt);
             });
             acctDiv.appendChild(this.accountSelector);
-            this.accountSelector.value = this.strategy.account;
+            this.accountSelector.value = this.strategy.account === undefined ? this.ownerAccount : this.strategy.account;
         };
         return acctDiv;
     }

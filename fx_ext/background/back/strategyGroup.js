@@ -1,9 +1,9 @@
 'use strict';
 
 class GroupManager {
-    create(group, code, skey) {
+    create(group, account, code, skey) {
         if (group.grptype == 'GroupStandard') {
-            return new StrategyGroup(group, code, skey);
+            return new StrategyGroup(group, account, code, skey);
         };
     }
 }
@@ -19,8 +19,9 @@ class StrategyTransferConnection {
 }
 
 class StrategyGroup {
-    constructor(str, code, key) {
+    constructor(str, account, code, key) {
         this.storeKey = key;
+        this.account = account;
         this.code = code;
         this.strategies = {};
         this.grptype = str.grptype;
@@ -130,13 +131,13 @@ class StrategyGroup {
             if (checkResult.match) {
                 if (curStrategy.isBuyStrategy()) {
                     emjyBack.log('checkStrategies buy match', this.code, JSON.stringify(curStrategy));
-                    emjyBack.tryBuyStock(this.code, rtInfo.name, checkResult.price, checkResult.count, checkResult.account);
+                    emjyBack.tryBuyStock(this.code, rtInfo.name, checkResult.price, checkResult.count, checkResult.account === undefined ? this.account : checkResult.account);
                     if (curStrategy.guardLevel() == 'zt') {
                         emjyBack.ztBoardTimer.removeStock(rtInfo.code);
                     };
                 } else {
                     emjyBack.log('checkStrategies sell match', this.code, JSON.stringify(curStrategy));
-                    emjyBack.trySellStock(this.code, checkResult.price, checkResult.count, checkResult.account);
+                    emjyBack.trySellStock(this.code, checkResult.price, checkResult.count, this.account);
                 };
                 this.onTradeMatch(id, {price: checkResult.price});
             } else if (checkResult.stepInCritical) {
@@ -151,6 +152,9 @@ class StrategyGroup {
         if (curStrategy.guardLevel() == 'kline') {
             refer.kltype = curStrategy.kltype();
         };
+        if (!this.transfers || !this.transfers[id]) {
+            return;
+        };
         var tid = this.transfers[id].getTransferId();
         if (tid != -1) {
             this.strategies[tid].setEnabled(true);
@@ -160,6 +164,21 @@ class StrategyGroup {
                 this.strategies[tid].sellMatch(refer);
             };
             this.applyGuardLevel();
+        };
+    }
+
+    checkKlines(klines, updatedKlt) {
+        var critical = false;
+        for (var id in this.strategies) {
+            var curStrategy = this.strategies[id];
+            if (!curStrategy.enabled()) {
+                continue;
+            };
+            curStrategy.checkKlines(klines, updatedKlt);
+            critical |= curStrategy.inCritical();
+        };
+        if (critical) {
+            emjyBack.fetchStockSnapshot(this.code);
         };
     }
 }

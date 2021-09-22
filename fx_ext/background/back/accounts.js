@@ -154,7 +154,7 @@ class AccountInfo {
     }
 
     updateStockRtKline(message) {
-        if (!this.stocks) {
+        if (!this.stocks || !message.kline.data) {
             return;
         };
 
@@ -235,7 +235,7 @@ class AccountInfo {
         if (!stock) {
             return;
         };
-        var strategyGroup = strategyGroupManager.create(str, code, this.keyword + '_' + code + '_strategies');
+        var strategyGroup = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
         strategyGroup.setHoldCost(stock.holdCost);
         strategyGroup.setHoldCount(stock.holdCount);
         strategyGroup.applyGuardLevel();

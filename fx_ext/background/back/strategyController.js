@@ -286,11 +286,11 @@ class StrategyBuyZT2 extends StrategyBuy {
     check(rtInfo) {
         var match = false;
         var stepInCritical = false;
+        if (this.data.buyRound === undefined || this.data.buyRound == 0) {
+            return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
+        };
         if (this.data.buyRound >= 2) {
             return {match, stepInCritical, account: this.data.account};
-        };
-        if (this.data.buyRound == 0) {
-            return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
         };
         if (this.data.buyRound == 1) {
             var price = rtInfo.latestPrice;
@@ -568,7 +568,7 @@ class StrategySellMADynamic extends StrategySellMA {
             if (dKlines && dKlines.length > 0) {
                 var klLatest = dKlines[dKlines.length - 1];
                 var lclose = klLatest.c;
-                if (highPrice > lclose * 1.085) {
+                if (highPrice > lclose * 1.085 && highPrice > this.data.price * 1.05) {
                     this.data.kltype = '4';
                 };
             };
