@@ -343,7 +343,7 @@ class EmjyBack {
         {name:'afternoon', tick: new Date(now.toDateString() + ' 12:59:55').getTime()},
         {name:'afternoon-started', tick: new Date(now.toDateString() + ' 13:0:1').getTime()},
         {name:'afternoon-preend', tick: new Date(now.toDateString() + ' 14:59:8').getTime()},
-        {name:'afternoon-end', tick: new Date(now.toDateString() + ' 15:0:2').getTime()}
+        {name:'afternoon-end', tick: new Date(now.toDateString() + ' 15:0:10').getTime()}
         ];
 
         for (var i = 0; i < alarms.length; i++) {

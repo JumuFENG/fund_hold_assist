@@ -86,7 +86,7 @@ class StrategyGroup {
         };
 
         for (var id in this.strategies) {
-            if (this.strategies[id].key() == 'StrategySellEL') {
+            if (this.strategies[id].key() == 'StrategySellEL' || this.strategies[id].key() == 'StrategySellMAD') {
                 this.strategies[id].setHoldCost(cost);
             };
         };
@@ -130,13 +130,13 @@ class StrategyGroup {
             var checkResult = curStrategy.check(rtInfo);
             if (checkResult.match) {
                 if (curStrategy.isBuyStrategy()) {
-                    emjyBack.log('checkStrategies buy match', this.code, JSON.stringify(curStrategy));
+                    emjyBack.log('checkStrategies buy match', this.code, rtInfo.name, JSON.stringify(curStrategy));
                     emjyBack.tryBuyStock(this.code, rtInfo.name, checkResult.price, checkResult.count, checkResult.account === undefined ? this.account : checkResult.account);
                     if (curStrategy.guardLevel() == 'zt') {
                         emjyBack.ztBoardTimer.removeStock(rtInfo.code);
                     };
                 } else {
-                    emjyBack.log('checkStrategies sell match', this.code, JSON.stringify(curStrategy));
+                    emjyBack.log('checkStrategies sell match', this.code, rtInfo.name, JSON.stringify(curStrategy));
                     emjyBack.trySellStock(this.code, checkResult.price, checkResult.count, this.account);
                 };
                 this.onTradeMatch(id, {price: checkResult.price});

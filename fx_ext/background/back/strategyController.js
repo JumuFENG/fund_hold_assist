@@ -1,59 +1,58 @@
 'use strict';
 
 class StrategyManager {
-    create(strategy, skey) {
+    create(strategy) {
         if (strategy.key == 'StrategyBuy') {
-            return new StrategyBuy(strategy, skey);
+            return new StrategyBuy(strategy);
+        };
+        if (strategy.key == 'StrategyBuyPopup') {
+            return new StrategyBuyPopup(strategy);
         };
         if (strategy.key == 'StrategySell') {
-            return new StrategySell(strategy, skey);
+            return new StrategySell(strategy);
         };
         if (strategy.key == 'StrategyBuyIPO') {
-            return new StrategyBuyIPO(strategy, skey);
+            return new StrategyBuyIPO(strategy);
         };
         if (strategy.key == 'StrategySellIPO') {
-            return new StrategySellIPO(strategy, skey);
+            return new StrategySellIPO(strategy);
         };
         if (strategy.key == 'StrategyBuyR') {
-            return new StrategyBuyRepeat(strategy, skey);
+            return new StrategyBuyRepeat(strategy);
         };
         if (strategy.key == 'StrategySellR') {
-            return new StrategySellRepeat(strategy, skey);
-        };
-        if (strategy.key == 'StrategyBuyZT') {
-            return new StrategyBuyZT2(strategy, skey);
+            return new StrategySellRepeat(strategy);
         };
         if (strategy.key == 'StrategyBuyZTBoard') {
-            return new StrategyBuyZTBoard(strategy, skey);
+            return new StrategyBuyZTBoard(strategy);
         };
         if (strategy.key == 'StrategySellEL') {
-            return new StrategySellEL(strategy, skey);
+            return new StrategySellEL(strategy);
         };
         if (strategy.key == 'StrategyBuyMA') {
-            return new StrategyBuyMA(strategy, skey);
+            return new StrategyBuyMA(strategy);
         };
         if (strategy.key == 'StrategySellMA') {
-            return new StrategySellMA(strategy, skey);
+            return new StrategySellMA(strategy);
         };
         if (strategy.key == 'StrategyBuyMAR') {
-            return new StrategyBuyMARepeat(strategy, skey);
+            return new StrategyBuyMARepeat(strategy);
         };
         if (strategy.key == 'StrategySellMAR') {
-            return new StrategySellMARepeat(strategy, skey);
+            return new StrategySellMARepeat(strategy);
         };
         if (strategy.key == 'StrategyBuyMAD') {
-            return new StrategyBuyMADynamic(strategy, skey);
+            return new StrategyBuyMADynamic(strategy);
         };
         if (strategy.key == 'StrategySellMAD') {
-            return new StrategySellMADynamic(strategy, skey);
+            return new StrategySellMADynamic(strategy);
         };
     }
 }
 
 class Strategy {
-    constructor(str, storeKey) {
+    constructor(str) {
         this.data = str;
-        this.storeKey = storeKey;
     }
 
     flush() {
@@ -137,6 +136,12 @@ class StrategyBuy extends Strategy {
         return true;
     }
 
+    check(rtInfo) {
+        return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
+    }
+}
+
+class StrategyBuyPopup extends StrategyBuy {
     check(rtInfo) {
         var match = false;
         var stepInCritical = false;
@@ -271,49 +276,6 @@ class StrategySellIPO extends StrategySell {
             this.flush();
         }
         return {match};
-    }
-}
-
-class StrategyBuyZT2 extends StrategyBuy {
-    buyMatch(refer) {
-        this.data.buyRound++;
-        this.data.guardPrice = refer.price * (1 - this.data.stepRate);
-        if (this.data.buyRound >= 2) {
-            this.data.enabled = false;
-        };
-    }
-
-    check(rtInfo) {
-        var match = false;
-        var stepInCritical = false;
-        if (this.data.buyRound === undefined || this.data.buyRound == 0) {
-            return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
-        };
-        if (this.data.buyRound >= 2) {
-            return {match, stepInCritical, account: this.data.account};
-        };
-        if (this.data.buyRound == 1) {
-            var price = rtInfo.latestPrice;
-            var topprice = rtInfo.topprice;
-            var bottomprice = rtInfo.bottomprice;
-            if (!this.data.inCritical) {
-                if (price < this.data.guardPrice) {
-                    this.data.inCritical = true;
-                    stepInCritical = true;
-                    this.data.prePeekPrice = price;
-                    this.flush();
-                };
-                return {match, stepInCritical, account: this.data.account};
-            };
-            if (price >= this.data.prePeekPrice * (1 + this.data.backRate)) {
-                return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
-            }
-            if (price < this.data.prePeekPrice) {
-                this.data.prePeekPrice = price;
-                this.flush();
-            }
-            return {match, stepInCritical, account: this.data.account};
-        };
     }
 }
 
@@ -519,12 +481,14 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
             var gKlines = klines.getKline(gkl);
             var tailWCount = 0;
             for (var i = gKlines.length - 1; i >= 0; i--) {
-                if (gKlines[i].bss18 != 'w') {
+                if (gKlines[i].bss18 == 'w' && gKlines[i].ma18 - gKlines[i].o > 0 && gKlines[i].ma18 - gKlines[i].c > 0) {
+                    tailWCount++;
+                } else {
                     break;
                 };
             };
-            if (tailWCount == 5) {
-                if (gKl == '404') {
+            if (tailWCount >= 5) {
+                if (gkl == '404') {
                     this.enabled = false;
                 } else {
                     this.data.kltype = gkl;
@@ -535,6 +499,12 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
 }
 
 class StrategySellMADynamic extends StrategySellMA {
+    setHoldCost(price) {
+        if (this.data.price === undefined) {
+            this.data.price = price;
+        };
+    }
+
     buyMatch(refer) {
         this.data.enabled = true;
         this.data.inCritical = false;

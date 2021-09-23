@@ -5,6 +5,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyBuy') {
             return new StrategyBuyView(strategy);
         };
+        if (strategy.key == 'StrategyBuyPopup') {
+            return new StrategyBuyPopupView(strategy);
+        };
         if (strategy.key == 'StrategySell') {
             return new StrategySellView(strategy);
         };
@@ -19,9 +22,6 @@ class StrategyViewManager {
         };
         if (strategy.key == 'StrategySellR') {
             return new StrategySellRepeatView(strategy);
-        };
-        if (strategy.key == 'StrategyBuyZT') {
-            return new StrategyBuyZT2View(strategy);
         };
         if (strategy.key == 'StrategyBuyZTBoard') {
             return new StrategyBuyZTBoardView(strategy);
@@ -265,6 +265,17 @@ class StrategyBuyView extends StrategyBaseView {
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('直接买入'));
+        view.appendChild(this.createAmountDiv());
+        view.appendChild(this.createBuyAccountSelector());
+        return view;
+    }
+}
+
+class StrategyBuyPopupView extends StrategyBaseView {
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
         view.appendChild(this.createGuardInput('监控价格 <= '));
         view.appendChild(this.createPopbackInput('反弹幅度 '));
         view.appendChild(this.createAmountDiv());
@@ -350,19 +361,6 @@ class StrategySellIPOView extends StrategyBaseView {
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('涨停板打开直接卖出,开盘不涨停则从高点反弹1%时卖出,跌停开盘直接卖出'));
         view.appendChild(this.createCountDiv());
-        return view;
-    }
-}
-
-class StrategyBuyZT2View extends StrategyBaseView {
-    createView() {
-        var view = document.createElement('div');
-        view.appendChild(this.createEnabledCheckbox());
-        view.appendChild(document.createTextNode('开盘直接买入'));
-        view.appendChild(this.createStepsInput('盘中补仓跌幅 ', 8));
-        view.appendChild(this.createPopbackInput('反弹幅度 '));
-        view.appendChild(this.createAmountDiv());
-        view.appendChild(this.createBuyAccountSelector());
         return view;
     }
 }

@@ -32,12 +32,16 @@ class KLine {
         return this.klines[kltype];
     }
 
-    parseKlines(kline, stime = '0') {
+    parseKlines(kline, stime = '0', kltype = '1') {
         var klines = [];
         for (var i = 0; kline && i < kline.length; i++) {
             var kl = kline[i].split(',');
             var time = kl[0];
-            if (time <= stime || new Date() < new Date(time)) {
+            var tDate = new Date(time);
+            if (kltype == '101') {
+                tDate.setHours(15);
+            };
+            if (time <= stime || new Date() < tDate) {
                 continue;
             };
 
@@ -173,10 +177,10 @@ class KLine {
     updateRtKline(message) {
         var kltype = message.kltype;
         var stime = '0';
-        if (this.klines && this.klines[kltype]) {
+        if (this.klines && this.klines[kltype] && this.klines[kltype].length > 0) {
             stime = this.klines[kltype][this.klines[kltype].length - 1].time;
         };
-        var klines = this.parseKlines(message.kline.data.klines, stime);
+        var klines = this.parseKlines(message.kline.data.klines, stime, kltype);
         var updatedKlt = [];
         if (klines.length > 0) {
             updatedKlt.push(kltype);
