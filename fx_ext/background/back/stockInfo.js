@@ -49,7 +49,8 @@ class KLine {
             var c = kl[2];
             var h = kl[3];
             var l = kl[4];
-            klines.push({time, o, c, h, l});
+            var vr = kl[5];
+            klines.push({time, o, c, h, l,vr});
         };
         return klines;
     }
@@ -222,7 +223,9 @@ class KLine {
                 var time = klines[i + fac - 1].time;
                 var h = klines[i].h;
                 var l = klines[i].l;
+                var vr = 0;
                 for (var j = 0; j < fac; j++) {
+                    vr -= klines[i + j].vr;
                     if (klines[i + j].h > h) {
                         h = klines[i + j].h;
                     };
@@ -230,7 +233,10 @@ class KLine {
                         l = klines[i + j].l;
                     };
                 };
-                fklines.push({time, o, c, h, l});
+                if (vr < 0) {
+                    vr = -vr;
+                };
+                fklines.push({time, o, c, h, l, vr});
             };
         };
         return fklines;

@@ -3,9 +3,9 @@ let quoteUrl = 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot';
 // https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id=601012&callback=jQuery18304735019505463437_1624277312927&_=1624277415671
 let ztPoolUrl = 'http://push2ex.eastmoney.com/getTopicZTPool?ut=7eea3edcaed734bea9cbfc24409ed989&sort=fbt%3Aasc&Pageindex=0&dpt=wz.ztzt&cb=cbztPoolback&date=';
 
-let hisKlineUrl = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&klt=101&fqt=1&fields1=f1%2Cf3&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55';
+let hisKlineUrl = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&klt=101&fqt=1&fields1=f1,f3&fields2=f51,f52,f53,f54,f55,f61';
 
-let hisKlineRt = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55&beg=0&end=20500000'
+let hisKlineRt = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f61&beg=0&end=20500000'
 
 var kltBack = {'1':'klineMinBack', '5':'kline5MinBack', '15':'kline15MinBack', '30':'klineHalfHrBack', '60':'klineHourlyBack', '120':'kline2HrBack', '101':'klineDailyBack', '102':'klineWeeklyBack', '103':'klineMonthlyBack', '104':'klineQuarterlyBack','105':'klineHalfYrBack','106':'klineYearBack'};
 
