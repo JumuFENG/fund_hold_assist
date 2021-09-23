@@ -381,9 +381,16 @@ class StrategySellELView  extends StrategyBaseView {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('止损止盈,满足条件时全部卖出'));
-        view.appendChild(this.createStepsInput('止盈 ', 20));
-        view.appendChild(this.createPopbackInput('止损 ', 15));
-        view.appendChild(this.createGuardInput('动态止盈点 '));
+        view.appendChild(document.createElement('br'));
+        view.appendChild(document.createTextNode('收益 < 5%, 止损点止损'));
+        view.appendChild(document.createElement('br'));
+        view.appendChild(document.createTextNode('收益 < 10%, 买入价止损'));
+        view.appendChild(document.createElement('br'));
+        view.appendChild(document.createTextNode('收益 < 20%, 回撤一半止盈'));
+        view.appendChild(document.createElement('br'));
+        view.appendChild(document.createTextNode('收益 > 20%, 回撤10%止盈'));
+        view.appendChild(this.createGuardInput('止损点 '));
+        view.appendChild(document.createTextNode('遇大阳线(>6.5%)动态调整止损点为大阳线最低点'));
         return view;
     }
 }

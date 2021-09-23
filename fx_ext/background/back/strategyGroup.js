@@ -86,7 +86,8 @@ class StrategyGroup {
         };
 
         for (var id in this.strategies) {
-            if (this.strategies[id].key() == 'StrategySellEL' || this.strategies[id].key() == 'StrategySellMAD') {
+            var key = this.strategies[id].key();
+            if (key == 'StrategySellEL' || key == 'StrategySellMAD') {
                 this.strategies[id].setHoldCost(cost);
             };
         };

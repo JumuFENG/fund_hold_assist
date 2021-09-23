@@ -315,39 +315,51 @@ class StrategySellEL  extends StrategySell {
         this.data.enabled = false;
     }
 
+    guardLevel() {
+        return 'kline';
+    }
+
+    kltype() {
+        return '1';
+    }
+
     check(rtInfo) {
-        var match = false;
-        var stepInCritical = false;
-        var price = rtInfo.latestPrice;
-        if (this.data.averPrice * (1 - this.data.backRate) >= price) {
+        if (this.data.inCritical) {
             return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
         };
+        return {match: false};
+    }
 
-        if (this.data.guardPrice && this.data.guardPrice > 0) {
-            if (price <= this.data.guardPrice) {
-                return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
+    checkKlines(klines, updatedKlt) {
+        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
+            return;
+        };
+
+        var latestPrice = 0;
+        if (updatedKlt.includes('1')) {
+            var nKlines = klines.getKline(this.kltype());
+            if (nKlines && nKlines.length > 0) {
+                var klHigh = nKlines[nKlines.length - 1].h;
+                if (klHigh - this.data.averPrice * 1.2 >= 0) {
+                    this.guardPrice = klHigh - this.averPrice * 0.1;
+                } else if (klHigh - this.data.averPrice * 1.1 >= 0) {
+                    this.guardPrice = - (- klHigh - this.averPrice) / 2;
+                } else if (klHigh - this.data.averPrice * 1.05 >= 0) {
+                    this.guardPrice = this.averPrice;
+                };
+                latestPrice = nKlines[nKlines.length - 1].c;
+            };
+        } else if (updatedKlt.includes('101')) {
+            var nKlines = klines.getKline('101');
+            if (nKlines && nKlines.length > 0) {
+                var kl = nKlines[nKlines.length - 1];
+                if (kl.c - kl.o * 1.065 >= 0) {
+                    this.guardPrice = kl.l;
+                };
+                latestPrice = kl.c;
             };
         };
-
-        if (!this.data.inCritical) {
-            if (this.data.averPrice * (1 + this.data.stepRate) <= price) {
-                this.data.inCritical = true;
-                this.data.prePeekPrice = price;
-                stepInCritical = true;
-                this.flush();
-            }
-            return {match, stepInCritical, account: this.data.account};
-        };
-
-        var dynPeek = this.data.prePeekPrice - (this.data.prePeekPrice - this.data.averPrice) * 0.2;        
-        if (price <= dynPeek && (!this.data.guardPrice || this.data.guardPrice == 0)) {
-            return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
-        };
-        if (price > this.data.prePeekPrice) {
-            this.data.prePeekPrice = price;
-            this.flush();
-        };
-        return {match, stepInCritical, account: this.data.account};
+        this.data.inCritical = (latestPrice - this.guardPrice < 0);
     }
 }
 
