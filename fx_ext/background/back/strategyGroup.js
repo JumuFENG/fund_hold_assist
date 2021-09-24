@@ -99,8 +99,7 @@ class StrategyGroup {
         };
 
         for (var id in this.strategies) {
-            var key = this.strategies[id].key();
-            if (key == 'StrategySellMA' || key == 'StrategySellMAR' ) {
+            if (!this.strategies[id].isBuyStrategy()) {
                 this.strategies[id].setHoldCount(count);
             };
         };

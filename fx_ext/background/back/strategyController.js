@@ -87,12 +87,10 @@ class Strategy {
     }
 
     buyMatch(peek) {
-        this.data.enabled = false;
         this.data.inCritical = false;
     }
 
     sellMatch(peek) {
-        this.data.enabled = false;
         this.data.inCritical = false;
     }
 
@@ -122,6 +120,8 @@ class Strategy {
         result.account = this.data.account;
         if (this.data.count && this.data.count != 0) {
             result.count = this.data.count;
+        } else if (this.count && this.count != 0) {
+            result.count = this.count;
         } else if (this.data.amount && this.data.amount != 0) {
             result.count = this.calcCount(this.data.amount, price);
         } else {
@@ -132,11 +132,20 @@ class Strategy {
 }
 
 class StrategyBuy extends Strategy {
+    constructor(str) {
+        super(str);
+        this.hitCount = 0;
+    }
+
     isBuyStrategy() {
         return true;
     }
 
     check(rtInfo) {
+        if (this.hitCount > 1) {
+            return {match: false};
+        };
+        this.hitCount++;
         return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
     }
 }
@@ -170,7 +179,11 @@ class StrategySell extends Strategy {
     isBuyStrategy() {
         return false;
     }
-    
+
+    setHoldCount(count) {
+        this.count = count;
+    }
+
     check(rtInfo) {
         var price = rtInfo.latestPrice;
         var match = false;
@@ -195,7 +208,7 @@ class StrategySell extends Strategy {
     }
 }
 
-class StrategyBuyRepeat extends StrategyBuy {
+class StrategyBuyRepeat extends StrategyBuyPopup {
     buyMatch(refer) {
         this.data.inCritical = false;
         this.data.guardPrice = refer.price * (1 - this.data.stepRate);
@@ -335,17 +348,22 @@ class StrategySellEL  extends StrategySell {
             return;
         };
 
+        if (!(updatedKlt.includes('1') || updatedKlt.includes('101'))) {
+            return;
+        };
+
         var latestPrice = 0;
+        var guardPrice = this.data.guardPrice;
         if (updatedKlt.includes('1')) {
             var nKlines = klines.getKline(this.kltype());
             if (nKlines && nKlines.length > 0) {
                 var klHigh = nKlines[nKlines.length - 1].h;
-                if (klHigh - this.data.averPrice * 1.2 >= 0) {
-                    this.guardPrice = klHigh - this.averPrice * 0.1;
-                } else if (klHigh - this.data.averPrice * 1.1 >= 0) {
-                    this.guardPrice = - (- klHigh - this.averPrice) / 2;
-                } else if (klHigh - this.data.averPrice * 1.05 >= 0) {
-                    this.guardPrice = this.averPrice;
+                if (klHigh - this.data.averPrice * 1.2 >= 0 && klHigh - this.averPrice * 0.1 - guardPrice > 0) {
+                    guardPrice = klHigh - this.averPrice * 0.1;
+                } else if (klHigh - this.data.averPrice * 1.1 >= 0 && guardPrice - klHigh / 2 - this.averPrice / 2 < 0) {
+                    guardPrice = - (- klHigh - this.averPrice) / 2;
+                } else if (klHigh - this.data.averPrice * 1.05 >= 0 && this.averPrice - guardPrice > 0) {
+                    guardPrice = this.averPrice;
                 };
                 latestPrice = nKlines[nKlines.length - 1].c;
             };
@@ -353,13 +371,14 @@ class StrategySellEL  extends StrategySell {
             var nKlines = klines.getKline('101');
             if (nKlines && nKlines.length > 0) {
                 var kl = nKlines[nKlines.length - 1];
-                if (kl.c - kl.o * 1.065 >= 0) {
-                    this.guardPrice = kl.l;
+                if (kl.c - kl.o * 1.065 >= 0 && kl.l - guardPrice > 0) {
+                    guardPrice = kl.l;
                 };
                 latestPrice = kl.c;
             };
         };
-        this.data.inCritical = (latestPrice - this.guardPrice < 0);
+        this.data.guardPrice = guardPrice;
+        this.data.inCritical = (latestPrice - guardPrice < 0);
     }
 }
 
@@ -461,8 +480,8 @@ class StrategySellMARepeat extends StrategySellMA {
 }
 
 class StrategyBuyMADynamic extends StrategyBuyMA {
-    constructor(str, storeKey) {
-        super(str, storeKey);
+    constructor(str) {
+        super(str);
         this.kltypeCandiList = {'4': '8', '8': '15', '15':'30', '30':'60', '60':'120', '120':'101', '101': '202', '202': '404'};
     }
 
@@ -489,7 +508,12 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
             if (nKlines && nKlines.length > 0) {
                 this.data.inCritical = nKlines[nKlines.length - 1].bss18 == 'b';
             };
-        } else if (gkl && updatedKlt.includes(gkl)) {
+        };
+        if (this.data.inCritical) {
+            return;
+        };
+
+        if (gkl && updatedKlt.includes(gkl)) {
             var gKlines = klines.getKline(gkl);
             var tailWCount = 0;
             for (var i = gKlines.length - 1; i >= 0; i--) {
