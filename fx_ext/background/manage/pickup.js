@@ -243,6 +243,8 @@ class ZtPool {
     onSavedZTPoolLoaded(ztpool) {
         this.archiveZTPool(ztpool);
         this.onZTDataLoaded();
+        // var ztstats = new ZtPoolStats();
+        // ztstats.onSavedZTPoolLoaded(ztpool);
     }
 
     onZTDataLoaded() {
@@ -369,9 +371,9 @@ class ZtPool {
                 this.addNewStockToWatchList(this.ztData[i].ztStocks);
             } else if (this.ztData[i].ztcount == 2) {
                 this.refreshZtTable(this.zt2Table, this.ztData[i].ztStocks);
-                this.addToWatchList(this.ztData[i].ztStocks);
             } else if (this.ztData[i].ztcount == 3) {
                 this.refreshZtTable(this.zt3Table, this.ztData[i].ztStocks);
+                this.addToWatchList(this.ztData[i].ztStocks);
             };
         };
     }
@@ -428,6 +430,7 @@ class ZtPool {
     }
 
     addNewStockToWatchList(ztStocks) {
+        return;
         var ztdate = this.dateToString(new Date(), '-');
         var account = 'normal';
         for (var i = 0; i < ztStocks.length; i++) {
@@ -443,7 +446,6 @@ class ZtPool {
     }
 
     addToWatchList(ztStocks) {
-        return;
         var ztdate = this.dateToString(new Date(), '-');
         var account = 'normal';
         for (var i = 0; i < ztStocks.length; i++) {
@@ -681,3 +683,75 @@ class TradeEmulate {
         this.statsDiv.appendChild(document.createTextNode(' 胜率: (' + earnedCount + '/' + this.emuStocks.length + ')' + (earnedCount * 100 / this.emuStocks.length).toFixed(3) + '%'));
     }
 };
+
+class ZtPoolStats {
+    onSavedZTPoolLoaded(ztpool) {
+        this.ztData = {};
+        this.maxZtCount = 0;
+        for (var k = 0; k < ztpool.length; k++) {
+            var ztdate = ztpool[k].ztdate;
+            for (var i = 0; i < ztpool[k].pool.length; ++i) {
+                var stock = ztpool[k].pool[i];
+                if (stock.c.startsWith('68') || stock.c.startsWith('30')) {
+                    continue;
+                }
+                if (stock.n.includes("ST")) {
+                    continue;
+                }
+                if (stock.n.endsWith('退')) {
+                    continue;
+                }
+                if (stock.n.startsWith('退市')) {
+                    continue;
+                }
+                if (stock.zttj.days != stock.zttj.ct) {
+                    continue;
+                }
+                var name = stock.n;
+                var code = stock.c;
+                var m = stock.m;
+                var ltsz = stock.ltsz / 100000000; // 流通市值
+                var zsz = stock.tshare / 100000000; // 总市值
+                var hsl = stock.hs;  // 换手率 %
+                var zbc = stock.zbc; // 炸板次数
+                var price = stock.p / 1000; // 最新价
+                var ztcount = stock.lbc; // 
+                if (ztcount - this.maxZtCount > 0) {
+                    this.maxZtCount = ztcount;
+                };
+                if (!this.ztData[ztdate]) {
+                    this.ztData[ztdate] = [];
+                };
+                if (!this.ztData[ztdate][ztcount]) {
+                    this.ztData[ztdate][ztcount] = [];
+                };
+                this.ztData[ztdate][ztcount].push({code, name});
+            }
+        };
+
+        console.log(this.ztData);
+        var ztNums = [];
+        for (var dt in this.ztData) {
+            var ztLen = [];
+            for (var i = 1; i <= this.maxZtCount; i++) {
+                if (this.ztData[dt][i]) {
+                    ztLen.push(this.ztData[dt][i].length);
+                } else {
+                    ztLen.push(0);
+                }
+            };
+            ztNums.push(ztLen);
+        };
+        for (var n = 1; n < 6; n++) {
+            for (var j = 0; j < this.maxZtCount - n; j++) {
+                var sumj = 0;
+                var sumj1 = 0;
+                for (var i = 0; i < ztNums.length - n; i++) {
+                    sumj += ztNums[i][j];
+                    sumj1 += ztNums[i + n][j + n];
+                };
+                console.log(j + 1, 'to', j + n + 1, sumj, sumj1, (sumj1 / sumj).toFixed(2));
+            };
+        }
+    }
+}
