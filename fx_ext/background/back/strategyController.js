@@ -29,6 +29,9 @@ class StrategyManager {
         if (strategy.key == 'StrategySellEL') {
             return new StrategySellEL(strategy);
         };
+        if (strategy.key == 'StrategySellELS') {
+            return new StrategySellELShort(strategy);
+        };
         if (strategy.key == 'StrategyBuyMA') {
             return new StrategyBuyMA(strategy);
         };
@@ -310,7 +313,7 @@ class StrategyBuyZTBoard extends StrategyBuy {
     }
 }
 
-class StrategySellEL  extends StrategySell {
+class StrategySellEL extends StrategySell {
     setHoldCost(price) {
         this.data.averPrice = price;
     }
@@ -329,56 +332,78 @@ class StrategySellEL  extends StrategySell {
     }
 
     guardLevel() {
-        return 'kline';
+        return 'kzt';
     }
 
     kltype() {
-        return '1';
+        return '101';
     }
 
     check(rtInfo) {
-        if (this.data.inCritical) {
+        var latestPrice = rtInfo.latestPrice;
+        var guardPrice = this.data.guardPrice;
+        var averPrice = this.data.averPrice;
+        if (latestPrice - averPrice * 1.2 >= 0 && latestPrice - averPrice * 0.1 - guardPrice > 0) {
+            guardPrice = latestPrice - averPrice * 0.1;
+        } else if (latestPrice - averPrice * 1.1 >= 0 && guardPrice - latestPrice / 2 - averPrice / 2 < 0) {
+            guardPrice = - (- latestPrice - averPrice) / 2;
+        } else if (latestPrice - averPrice * 1.05 >= 0 && averPrice - guardPrice > 0) {
+            guardPrice = averPrice;
+        };
+        if (guardPrice - this.data.guardPrice > 0) {
+            this.data.guardPrice = guardPrice;
+            this.flush();
+        };
+        if (rtInfo.latestPrice - guardPrice <= 0) {
+            this.data.inCritical
             return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
         };
         return {match: false};
     }
 
     checkKlines(klines, updatedKlt) {
-        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
+        if (klines === undefined || updatedKlt === undefined) {
             return;
         };
 
-        if (!(updatedKlt.includes('1') || updatedKlt.includes('101'))) {
+        if (updatedKlt.length < 1 || !updatedKlt.includes('101')) {
             return;
         };
 
-        var latestPrice = 0;
+        var nKlines = klines.getKline('101');
+        if (nKlines && nKlines.length > 0) {
+            var kl = nKlines[nKlines.length - 1];
+            if (kl.c - kl.o * 1.065 >= 0 && kl.l - this.data.guardPrice > 0) {
+                this.data.guardPrice = kl.l;
+                this.flush();
+            };
+        };
+    }
+}
+
+class StrategySellELShort extends StrategySellEL {
+    check(rtInfo) {
+        var latestPrice = rtInfo.latestPrice;
         var guardPrice = this.data.guardPrice;
-        if (updatedKlt.includes('1')) {
-            var nKlines = klines.getKline(this.kltype());
-            if (nKlines && nKlines.length > 0) {
-                var klHigh = nKlines[nKlines.length - 1].h;
-                if (klHigh - this.data.averPrice * 1.2 >= 0 && klHigh - this.averPrice * 0.1 - guardPrice > 0) {
-                    guardPrice = klHigh - this.averPrice * 0.1;
-                } else if (klHigh - this.data.averPrice * 1.1 >= 0 && guardPrice - klHigh / 2 - this.averPrice / 2 < 0) {
-                    guardPrice = - (- klHigh - this.averPrice) / 2;
-                } else if (klHigh - this.data.averPrice * 1.05 >= 0 && this.averPrice - guardPrice > 0) {
-                    guardPrice = this.averPrice;
-                };
-                latestPrice = nKlines[nKlines.length - 1].c;
-            };
-        } else if (updatedKlt.includes('101')) {
-            var nKlines = klines.getKline('101');
-            if (nKlines && nKlines.length > 0) {
-                var kl = nKlines[nKlines.length - 1];
-                if (kl.c - kl.o * 1.065 >= 0 && kl.l - guardPrice > 0) {
-                    guardPrice = kl.l;
-                };
-                latestPrice = kl.c;
-            };
+        var averPrice = this.data.averPrice;
+        if (latestPrice == rtInfo.topprice) {
+            guardPrice = latestPrice;
+        } else if (latestPrice - averPrice * 1.08 >= 0 && latestPrice - averPrice * 0.04 - guardPrice > 0) {
+            guardPrice = latestPrice - averPrice * 0.04;
+        } else if (latestPrice - averPrice * 1.04 >= 0 && guardPrice - latestPrice / 2 - averPrice / 2 < 0) {
+            guardPrice = - (- latestPrice - averPrice) / 2;
+        } else if (latestPrice - averPrice * 1.02 >= 0 && averPrice - guardPrice > 0) {
+            guardPrice = averPrice;
         };
-        this.data.guardPrice = guardPrice;
-        this.data.inCritical = (latestPrice - guardPrice < 0);
+        if (guardPrice - this.data.guardPrice > 0) {
+            this.data.guardPrice = guardPrice;
+            this.flush();
+        };
+        if (rtInfo.latestPrice - guardPrice < 0) {
+            this.data.inCritical = true;
+            return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
+        };
+        return {match: false};
     }
 }
 

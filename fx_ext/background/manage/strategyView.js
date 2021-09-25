@@ -29,6 +29,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategySellEL') {
             return new StrategySellELView(strategy);
         };
+        if (strategy.key == 'StrategySellELS') {
+            return new StrategySellELSView(strategy);
+        };
         if (strategy.key == 'StrategyBuyMA') {
             return new StrategyBuyMAView(strategy);
         };
@@ -157,7 +160,7 @@ class StrategyBaseView {
         this.inputGuard = document.createElement('input');
         if (this.strategy.guardPrice) {
             this.inputGuard.value = this.strategy.guardPrice;
-        }
+        };
         guardDiv.appendChild(this.inputGuard);
         return guardDiv;
     }
@@ -376,7 +379,7 @@ class StrategyBuyZTBoardView extends StrategyBaseView {
     }
 }
 
-class StrategySellELView  extends StrategyBaseView {
+class StrategySellELView extends StrategyBaseView {
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
@@ -391,6 +394,26 @@ class StrategySellELView  extends StrategyBaseView {
         view.appendChild(document.createTextNode('收益 > 20%, 回撤10%止盈'));
         view.appendChild(this.createGuardInput('止损点 '));
         view.appendChild(document.createTextNode('遇大阳线(>6.5%)动态调整止损点为大阳线最低点'));
+        return view;
+    }
+}
+
+class StrategySellELSView extends StrategyBaseView {
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('超短止损止盈'));
+        view.appendChild(document.createElement('br'));
+        view.appendChild(document.createTextNode('收益 < 2%, 止损点止损'));
+        view.appendChild(document.createElement('br'));
+        view.appendChild(document.createTextNode('收益 < 4%, 买入价止损'));
+        view.appendChild(document.createElement('br'));
+        view.appendChild(document.createTextNode('收益 < 8%, 回撤一半止盈'));
+        view.appendChild(document.createElement('br'));
+        view.appendChild(document.createTextNode('收益 > 8%, 回撤4%止盈'));
+        view.appendChild(document.createElement('br'));
+        view.appendChild(document.createTextNode('涨停后开板卖出'));
+        view.appendChild(this.createGuardInput('止损点 '));
         return view;
     }
 }

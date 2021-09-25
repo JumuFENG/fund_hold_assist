@@ -87,7 +87,7 @@ class StrategyGroup {
 
         for (var id in this.strategies) {
             var key = this.strategies[id].key();
-            if (key == 'StrategySellEL' || key == 'StrategySellMAD') {
+            if (key == 'StrategySellEL' || key == 'StrategySellMAD' || key == 'StrategySellELS') {
                 this.strategies[id].setHoldCost(cost);
             };
         };
@@ -117,6 +117,9 @@ class StrategyGroup {
                 emjyBack.rtpTimer.addStock(this.code);
             } else if (gl == 'zt') {
                 emjyBack.ztBoardTimer.addStock(this.code);
+            } else if (gl == 'kzt') {
+                emjyBack.rtpTimer.addStock(this.code);
+                emjyBack.klineAlarms.addStock(this.code);
             };
         };
     }

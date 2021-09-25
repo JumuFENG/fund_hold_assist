@@ -453,7 +453,7 @@ class ZtPool {
             if (stocki.ztdate != ztdate) {
                 continue;
             };
-            var strgrp = {grptype:'GroupStandard', transfers:{'0':{'transfer':'1'}},strategies:{'0':{key: 'StrategyBuyZTBoard', amount: 10000, enabled: true, account, ztdate},'1': {key: 'StrategySellMA', enabled: false, account, kltype:'4'}}};
+            var strgrp = {grptype:'GroupStandard', transfers:{'0':{'transfer':'1'}},strategies:{'0':{key: 'StrategyBuyZTBoard', amount: 10000, enabled: true, account, ztdate},'1': {key: 'StrategySellELS', enabled: false, account}}};
             emjyManager.addWatchingStock(stocki.code, account, strgrp);
         };
     }

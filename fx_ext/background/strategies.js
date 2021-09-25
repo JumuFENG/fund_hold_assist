@@ -16,6 +16,7 @@ let SellStrategyKeyNames = [
 {key: 'StrategySellR', name: '反弹(重复)卖出'},
 {key: 'StrategySellIPO', name: '开板卖出'},
 {key: 'StrategySellEL', name: '止损止盈'},
+{key: 'StrategySellELS', name: '止损止盈(超短)'},
 {key: 'StrategySellMA', name: 'MA突破卖出'},
 {key: 'StrategySellMAR', name:'MA突破卖出(日内)'},
 {key: 'StrategySellMAD', name: 'MA突破(动态)卖出'},
