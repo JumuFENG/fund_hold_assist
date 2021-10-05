@@ -30,22 +30,25 @@ class KlineAlarms {
         if (this.klineInterval) {
             clearInterval(this.klineInterval);
             this.klineInterval = null;
+            this.log('kline timer stopped! hitCount = ', this.hitCount);
             this.hitCount = 0;
-            this.log('kline timer stopped!');
         };
     }
 
     onTimer() {
         this.baseKlt.forEach(kltype => {
             var fetch = false;
-            if (kltype == '101' && this.hitCount == 0) {
-                fetch = true;
+            if (kltype == '101') {
+                fetch = this.hitCount == 0;
             } else if (kltype == '1') {
                 fetch = true;
-            } else if (this.hitCount % kltype == 0) {
-                fetch = true;
+            } else {
+                fetch = this.hitCount % kltype == 0;
             };
             if (fetch) {
+                if (kltype == '15') {
+                    this.log('hitCount = ', this.hitCount);
+                };
                 this.stocks[kltype].forEach(s => {
                     emjyBack.fetchStockKline(s, kltype);
                 });
@@ -55,16 +58,34 @@ class KlineAlarms {
     }
 }
 
-class RtpTimer {
+class DailyAlarm {
     constructor() {
         this.log = emjyBack.log;
-        this.rtInterval = null;
-        this.ticks = 1000;
         this.stocks = new Set();
     }
 
     addStock(code) {
         this.stocks.add(code);
+    }
+
+    removeStock(code) {
+        if (this.stocks.has(code)) {
+            this.stocks.delete(code);
+        };
+    }
+
+    onTimer() {
+        this.stocks.forEach(s => {
+            emjyBack.fetchStockKline(s, '101');
+        });
+    }
+}
+
+class RtpTimer extends DailyAlarm {
+    constructor() {
+        super();
+        this.rtInterval = null;
+        this.ticks = 1000;
     }
 
     removeStock(code) {
@@ -89,7 +110,6 @@ class RtpTimer {
         this.rtInterval = setInterval(() => {
             this.onTimer();
         }, this.ticks);
-        this.onTimer();
     }
 
     stopTimer() {
@@ -170,4 +190,3 @@ class ZtBoardTimer extends RtpTimer {
         });
     }
 }
-

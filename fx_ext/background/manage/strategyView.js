@@ -38,8 +38,8 @@ class StrategyViewManager {
         if (strategy.key == 'StrategySellMA') {
             return new StrategySellMAView(strategy);
         };
-        if (strategy.key == 'StrategyBuyMAR') {
-            return new StrategyBuyMARepeatView(strategy);
+        if (strategy.key == 'StrategyBuyBE') {
+            return new StrategyBuyBeforEndView(strategy);
         };
         if (strategy.key == 'StrategySellMAR') {
             return new StrategySellMARepeatView(strategy);
@@ -462,11 +462,14 @@ class StrategySellMAView extends StrategyBaseView {
     }
 }
 
-class StrategyBuyMARepeatView extends StrategyBuyMAView {
-    setDefaultKltype() {
-        if (this.klineSelector) {
-            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '4';
-        };
+class StrategyBuyBeforEndView extends StrategyBuyMAView {
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('陆地朝阳(阴后阳缩量, 尾盘买入)'));
+        view.appendChild(this.createAmountDiv());
+        view.appendChild(this.createBuyAccountSelector());
+        return view;
     }
 }
 

@@ -97,6 +97,24 @@ class Manager {
 class ManagerPage {
     constructor() {
         this.root = document.createElement('div');
+        var btnExport = document.createElement('button');
+        btnExport.textContent = '导出';
+        btnExport.onclick = e => {
+            emjyManager.sendExtensionMessage({command:'mngr.export'});
+        };
+        this.root.appendChild(btnExport);
+        var importDiv = document.createElement('div');
+        var fileIpt = document.createElement('input');
+        fileIpt.type = 'file';
+        fileIpt.multiple = false;
+        fileIpt.onchange = e => {
+            e.target.files[0].text().then(text => {
+                emjyManager.sendExtensionMessage({command:'mngr.import', config: JSON.parse(text)});
+            });
+        };
+        importDiv.appendChild(document.createTextNode('导入'));
+        importDiv.appendChild(fileIpt);
+        this.root.appendChild(importDiv);
     }
 
     addWatchArea() {

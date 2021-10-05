@@ -287,6 +287,30 @@ class AccountInfo {
         chrome.storage.local.set(watchingStocks);
     }
 
+    exportConfig() {
+        var configs = {};
+        var stock_watching = [];
+        this.stocks.forEach(s => {
+            if (s.holdCount == 0 && (s.watching || s.strategies)) {
+                stock_watching.push(s.code);
+            };
+            if (s.strategies) {
+                configs[s.strategies.storeKey] = s.strategies.tostring();
+            };
+        });
+        configs[this.keyword + '_watchings'] = stock_watching;
+        return configs;
+    }
+
+    importConfig(configs) {
+        configs[this.keyword + '_watchings'].forEach(c => {
+            this.addWatchStock(c);
+        });
+        this.stocks.forEach(s => {
+            this.applyStrategy(s.code, configs[this.keyword + '_' + s.code + '_strategies']);
+        });
+    }
+
     buyFundBeforeClose() {
         var anyCritial = this.stocks.find(function(s) {
             return s.buyStrategy && s.buyStrategy.enabled() && s.buyStrategy.inCritical();

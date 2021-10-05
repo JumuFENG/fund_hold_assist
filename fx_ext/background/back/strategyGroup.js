@@ -113,6 +113,8 @@ class StrategyGroup {
             var gl = this.strategies[id].guardLevel();
             if (gl == 'kline') {
                 emjyBack.klineAlarms.addStock(this.code);
+            } else if (gl == 'kday') {
+                emjyBack.dailyAlarm.addStock(this.code);
             } else if (gl == 'rtp') {
                 emjyBack.rtpTimer.addStock(this.code);
             } else if (gl == 'zt') {

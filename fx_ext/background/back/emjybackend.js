@@ -21,6 +21,10 @@ class ManagerBack {
             emjyBack.normalAccount.save();
             emjyBack.collateralAccount.save();
             this.tabid = null;
+        } else if (message.command == 'mngr.export') {
+            emjyBack.exportConfig();
+        } else if (message.command == 'mngr.import') {
+            emjyBack.importConfig(message.config);
         } else if (message.command == 'mngr.strategy') {
             emjyBack.applyStrategy(message.account, message.code, message.strategies);
         } else if (message.command =='mngr.strategy.rmv') {
@@ -76,6 +80,7 @@ class EmjyBack {
         this.klineAlarms = null;
         this.ztBoardTimer = null;
         this.rtpTimer = null;
+        this.dailyAlarm = null;
         this.quoteWorker = null;
         this.manager = null;
     }
@@ -88,7 +93,6 @@ class EmjyBack {
             this.quoteWorker = new Worker('workers/quoteworker.js');
             this.quoteWorker.onmessage = onQuoteWorkerMessage;
         };
-        this.setupQuoteAlarms();
         if (!this.klineAlarms) {
             this.klineAlarms = new KlineAlarms();
         };
@@ -98,6 +102,10 @@ class EmjyBack {
         if (!this.rtpTimer) {
             this.rtpTimer = new RtpTimer();
         };
+        if (!this.dailyAlarm) {
+            this.dailyAlarm = new DailyAlarm();
+        };
+        this.setupQuoteAlarms();
         this.log('EmjyBack initialized!');
     }
 
@@ -125,7 +133,7 @@ class EmjyBack {
                             this.mainTab.url = t.url;
                             var url = new URL(t.url);
                             this.authencated = url.pathname != '/Login';
-                            this.refreshAssets();
+                            this.loadAssets();
                         };
                     });
                 }, 200);
@@ -271,6 +279,11 @@ class EmjyBack {
         };
     }
 
+    loadAssets() {
+        this.scheduleTaskInNewTab({command: 'emjy.getAssets', path: this.normalAccount.assetsPath});
+        this.scheduleTaskInNewTab({command: 'emjy.getAssets', path: this.creditAccount.assetsPath});
+    }
+
     refreshAssets() {
         if (this.normalAccount.stocks.length > 0) {
             this.normalAccount.save();
@@ -279,8 +292,7 @@ class EmjyBack {
             this.collateralAccount.save();
         };
 
-        this.scheduleTaskInNewTab({command: 'emjy.getAssets', path: this.normalAccount.assetsPath});
-        this.scheduleTaskInNewTab({command: 'emjy.getAssets', path: this.creditAccount.assetsPath});
+        this.loadAssets();
     }
 
     checkAvailableMoney(price, account) {
@@ -336,28 +348,28 @@ class EmjyBack {
 
         var alarms = [
         {name:'morning-prestart', tick: new Date(now.toDateString() + ' 9:24:45').getTime()},
-        {name:'morning-start', tick: new Date(now.toDateString() + ' 9:29:51').getTime()},
-        {name:'morning-started', tick: new Date(now.toDateString() + ' 9:30:1').getTime()},
+        {name:'morning-start', tick: new Date(now.toDateString() + ' 9:29:42').getTime()},
         {name:'morning-middle', tick: new Date(now.toDateString() + ' 10:15:55').getTime()},
         {name:'morning-end', tick: new Date(now.toDateString() + ' 11:30:3').getTime()},
-        {name:'afternoon', tick: new Date(now.toDateString() + ' 12:59:55').getTime()},
-        {name:'afternoon-started', tick: new Date(now.toDateString() + ' 13:0:1').getTime()},
-        {name:'afternoon-preend', tick: new Date(now.toDateString() + ' 14:59:8').getTime()},
+        {name:'afternoon', tick: new Date(now.toDateString() + ' 12:59:5').getTime()},
+        {name:'daily-preend', tick: new Date(now.toDateString() + ' 14:56:45').getTime()},
+        {name:'afternoon-preend', tick: new Date(now.toDateString() + ' 14:59:38').getTime()},
         {name:'afternoon-end', tick: new Date(now.toDateString() + ' 15:0:10').getTime()}
         ];
 
+        if (now >= alarms[alarms.length - 1].tick) {
+            this.log('setupQuoteAlarms, time passed.');
+            return;
+        };
+
         for (var i = 0; i < alarms.length; i++) {
-            if (i == alarms.length - 1) {
-                if (now < alarms[i].tick) {
-                    this.log('setupQuoteAlarms', alarms[i].name);
-                    chrome.alarms.create(alarms[i].name, {when: alarms[i].tick});
-                };
-                break;
-            };
-            if (i + 1 < alarms.length && now < alarms[i + 1].tick) {
+            if (now < alarms[i].tick) {
                 this.log('setupQuoteAlarms', alarms[i].name);
                 chrome.alarms.create(alarms[i].name, {when: alarms[i].tick});
-            }; 
+            } else {
+                this.log(alarms[i].name, 'expired, trigger now');
+                this.onAlarm({name: alarms[i].name});
+            };
         };
     }
 
@@ -366,7 +378,6 @@ class EmjyBack {
             this.ztBoardTimer.startTimer();
         } else if (alarmInfo.name == 'morning-start') {
             this.rtpTimer.startTimer();
-        } else if (alarmInfo.name == 'morning-started') {
             this.klineAlarms.startTimer();
         } else if (alarmInfo.name == 'morning-middle') {
             this.tradeDailyRoutineTasks();
@@ -377,16 +388,15 @@ class EmjyBack {
             this.ztBoardTimer.stopTimer();
         } else if (alarmInfo.name == 'afternoon') {
             this.refreshAssets();
-        } else if (alarmInfo.name == 'afternoon-started') {
             this.rtpTimer.startTimer();
             this.klineAlarms.startTimer();
             this.ztBoardTimer.startTimer();
+        } else if (alarmInfo.name == 'daily-preend') {
+            this.dailyAlarm.onTimer();
         } else if (alarmInfo.name == 'afternoon-preend') {
             this.tradeBeforeClose();
         } else if (alarmInfo.name == 'afternoon-end') {
-            this.rtpTimer.stopTimer();
-            this.klineAlarms.stopTimer();
-            this.ztBoardTimer.stopTimer();
+            this.stopAllTimers();
             this.tradeClosed();
         };
     }
@@ -396,6 +406,12 @@ class EmjyBack {
         this.rtpTimer.setTick(10000);
         this.rtpTimer.startTimer();
         this.klineAlarms.startTimer();
+    }
+
+    stopAllTimers() {
+        this.ztBoardTimer.stopTimer();
+        this.rtpTimer.stopTimer();
+        this.klineAlarms.stopTimer();
     }
 
     updateStockMarketInfo(sdata) {
@@ -445,6 +461,8 @@ class EmjyBack {
 
     removeStock(account, code) {
         this.rtpTimer.removeStock(code);
+        this.dailyAlarm.removeStock(code);
+        this.ztBoardTimer.removeStock(code);
         if (account == this.normalAccount.keyword) {
             this.normalAccount.removeStock(code);
         } else if (account == this.collateralAccount.keyword) {
@@ -507,6 +525,26 @@ class EmjyBack {
         this.normalAccount.save();
         this.collateralAccount.save();
         tradeAnalyzer.save();
+    }
+
+    exportConfig() {
+        var configs = this.normalAccount.exportConfig();
+        var colConfig = this.collateralAccount.exportConfig();
+        for (var i in colConfig) {
+            configs[i] = colConfig[i];
+        };
+        var blob = new Blob([JSON.stringify(configs)], {type: 'application/json'});
+        this.saveToFile(blob, 'stocks.config.json');
+    }
+
+    importConfig(configs) {
+        for (var i in configs) {
+            var cfg = {};
+            cfg[i] = configs[i];
+            chrome.storage.local.set(cfg);
+        };
+        this.normalAccount.importConfig(configs);
+        this.collateralAccount.importConfig(configs);
     }
 
     clearStorage() {

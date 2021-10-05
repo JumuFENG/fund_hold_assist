@@ -38,8 +38,8 @@ class StrategyManager {
         if (strategy.key == 'StrategySellMA') {
             return new StrategySellMA(strategy);
         };
-        if (strategy.key == 'StrategyBuyMAR') {
-            return new StrategyBuyMARepeat(strategy);
+        if (strategy.key == 'StrategyBuyBE') {
+            return new StrategyBuyBeforeEnd(strategy);
         };
         if (strategy.key == 'StrategySellMAR') {
             return new StrategySellMARepeat(strategy);
@@ -388,11 +388,9 @@ class StrategySellELShort extends StrategySellEL {
         var averPrice = this.data.averPrice;
         if (latestPrice == rtInfo.topprice) {
             guardPrice = latestPrice;
-        } else if (latestPrice - averPrice * 1.08 >= 0 && latestPrice - averPrice * 0.04 - guardPrice > 0) {
-            guardPrice = latestPrice - averPrice * 0.04;
-        } else if (latestPrice - averPrice * 1.04 >= 0 && guardPrice - latestPrice / 2 - averPrice / 2 < 0) {
+        } else if (latestPrice - averPrice * 1.08 >= 0 && guardPrice - latestPrice / 2 - averPrice / 2 < 0) {
             guardPrice = - (- latestPrice - averPrice) / 2;
-        } else if (latestPrice - averPrice * 1.02 >= 0 && averPrice - guardPrice > 0) {
+        } else if (latestPrice - averPrice * 1.03 >= 0 && averPrice - guardPrice > 0) {
             guardPrice = averPrice;
         };
         if (guardPrice - this.data.guardPrice > 0) {
@@ -434,9 +432,9 @@ class StrategyBuyMA extends StrategyBuy {
             return;
         };
         if (updatedKlt.includes(this.kltype())) {
-            var nKlines = klines.getKline(this.kltype());
-            if (nKlines && nKlines.length > 0) {
-                this.data.inCritical = nKlines[nKlines.length - 1].bss18 == 'b';
+            var kl = klines.getLatestKline(this.kltype());
+            if (kl) {
+                this.data.inCritical = kl.bss18 == 'b';
             };
         };
     }
@@ -474,22 +472,12 @@ class StrategySellMA extends StrategySell {
         };
 
         if (updatedKlt.includes(this.kltype())) {
-            var nKlines = klines.getKline(this.kltype());
-            if (nKlines && nKlines.length > 0) {
-                this.data.inCritical = nKlines[nKlines.length - 1].bss18 == 's';
+            var kl = klines.getLatestKline(this.kltype());
+            if (kl) {
+                this.data.inCritical = kl.bss18 == 's';
+                return;
             };
         };
-    }
-}
-
-class StrategyBuyMARepeat extends StrategyBuyMA {
-    buyMatch(refer) {
-        this.data.enabled = false;
-        this.data.inCritical = false;
-    }
-
-    sellMatch() {
-
     }
 }
 
@@ -527,20 +515,28 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
         };
 
         var kltype = this.kltype();
-        var gkl = this.kltypeCandiList[kltype];
         if (updatedKlt.includes(kltype)) {
-            var nKlines = klines.getKline(kltype);
-            if (nKlines && nKlines.length > 0) {
-                this.data.inCritical = nKlines[nKlines.length - 1].bss18 == 'b';
+            var kl = klines.getLatestKline(this.kltype());
+            if (kl) {
+                this.data.inCritical = kl.bss18 == 'b';
             };
         };
         if (this.data.inCritical) {
             return;
         };
 
+        var gkl = this.kltypeCandiList[kltype];
         if (gkl && updatedKlt.includes(gkl)) {
             var gKlines = klines.getKline(gkl);
             var tailWCount = 0;
+            var gkl = klines.getIncompleteKline(gkl);
+            if (gkl) {
+                if (gkl.bss18 == 'w' && gkl.ma18 - gkl.o > 0 && gkl.ma18 - gkl.c > 0) {
+                    tailWCount = 1;
+                } else {
+                    return;
+                };
+            };
             for (var i = gKlines.length - 1; i >= 0; i--) {
                 if (gKlines[i].bss18 == 'w' && gKlines[i].ma18 - gKlines[i].o > 0 && gKlines[i].ma18 - gKlines[i].c > 0) {
                     tailWCount++;
@@ -585,9 +581,9 @@ class StrategySellMADynamic extends StrategySellMA {
 
         var kltype = this.kltype();
         if (updatedKlt.includes(kltype)) {
-            var nKlines = klines.getKline(kltype);
-            if (nKlines && nKlines.length > 0) {
-                this.data.inCritical = nKlines[nKlines.length - 1].bss18 == 's';
+            var kl = klines.getLatestKline(kltype);
+            if (kl) {
+                this.data.inCritical = kl.bss18 == 's';
             };
         } else if (kltype != '4') {
             var mKlines = klines.getKline(1);
@@ -596,12 +592,38 @@ class StrategySellMADynamic extends StrategySellMA {
                 this.data.kltype = '4';
             };
             var dKlines = klines.getKline('101');
-            if (dKlines && dKlines.length > 0) {
-                var klLatest = dKlines[dKlines.length - 1];
-                var lclose = klLatest.c;
+            var kl = klines.getLatestKline('101');
+            if (kl) {
+                var lclose = kl.c;
                 if (highPrice > lclose * 1.085 && highPrice > this.data.price * 1.05) {
                     this.data.kltype = '4';
                 };
+            };
+        };
+    }
+}
+
+class StrategyBuyBeforeEnd extends StrategyBuyMA {
+    guardLevel() {
+        return 'kday';
+    }
+
+    kltype() {
+        return '101';
+    }
+
+    checkKlines(klines, updatedKlt) {
+        if (klines === undefined) {
+            return;
+        };
+
+        var kltype = this.kltype();
+        var inkl = klines.getIncompleteKline(kltype);
+        var dKline = klines.getKline(kltype);
+        if (inkl && dKline && dKline.length > 0) {
+            var lkl = dKline[dKline.length - 1];
+            if (lkl && lkl.c - lkl.o < 0 && inkl.c - inkl.o > 0) {
+                this.data.inCritical = inkl.v - lkl.v * 0.98 < 0;
             };
         };
     }

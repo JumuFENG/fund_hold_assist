@@ -6,6 +6,7 @@ class KLine {
         this.storeKey = 'kline_' + this.code;
         this.baseKlt = new Set(['1', '15', '101']);
         this.factors = [2, 4, 8];
+        this.incompleteKline = {};
     }
 
     loadSaved() {
@@ -25,6 +26,9 @@ class KLine {
     }
 
     removeAll() {
+        if (this.klines !== undefined) {
+            this.klines = {};
+        };
         chrome.storage.local.remove(this.storeKey);
     }
 
@@ -32,25 +36,44 @@ class KLine {
         return this.klines[kltype];
     }
 
+    getIncompleteKline(kltype) {
+        if (this.incompleteKline) {
+            return this.incompleteKline[kltype];
+        };
+        return null;
+    }
+
+    getLatestKline(kltype) {
+        var kl = this.getIncompleteKline(kltype);
+        if (kl) {
+            return kl;
+        };
+        if (this.klines[kltype] && this.klines[kltype].length > 0) {
+            return this.klines[kltype][this.klines[kltype].length - 1];
+        };
+        return null;
+    }
+
     parseKlines(kline, stime = '0', kltype = '1') {
         var klines = [];
+        this.incompleteKline[kltype] = null;
         for (var i = 0; kline && i < kline.length; i++) {
             var kl = kline[i].split(',');
             var time = kl[0];
             var tDate = new Date(time);
-            if (kltype == '101') {
-                tDate.setHours(15);
-            };
-            if (time <= stime || new Date() < tDate) {
-                continue;
-            };
-
             var o = kl[1];
             var c = kl[2];
             var h = kl[3];
             var l = kl[4];
-            var vr = kl[5];
-            klines.push({time, o, c, h, l,vr});
+            var v = kl[5];
+            if (kltype == '101') {
+                tDate.setHours(15);
+            };
+            if (time <= stime || new Date() < tDate) {
+                this.incompleteKline[kltype] = {time, o, c, h, l, v};
+                continue;
+            };
+            klines.push({time, o, c, h, l, v});
         };
         return klines;
     }
@@ -89,6 +112,41 @@ class KLine {
         klines[1].bss18 = 'u';
         for (var i = 1; i < klines.length; i++) {
             klines[i].bss18 = this.getBss18(klines[i - 1], klines[i]);
+        };
+    }
+
+    incompleteMA(klines, kl, len) {
+        var ma = parseFloat(kl.c);
+        if (klines.length < len - 1) {
+            for (var i = 0; i < klines.length; i++) {
+                ma += parseFloat(klines[i].c);
+            };
+            return ma / (klines.length + 1);
+        };
+        for (var i = klines.length - len + 1; i < klines.length; i++) {
+            ma += parseFloat(klines[i].c);
+        };
+        return ma / len;
+    }
+
+    calcIncompleteKlineMA() {
+        for (var kltype in this.incompleteKline) {
+            var kl = this.incompleteKline[kltype];
+            if (!kl) {
+                continue;
+            };
+            var klines = this.klines[kltype];
+            if (!klines || klines.length < 1) {
+                this.incompleteKline[kltype].ma5 = kl.c;
+                this.incompleteKline[kltype].ma18 = kl.c;
+                this.incompleteKline[kltype].bss18 = 'u';
+            } else {
+                kl.ma5 = this.incompleteMA(klines, kl, 5);
+                kl.ma18 = this.incompleteMA(klines, kl, 18);
+                this.incompleteKline[kltype].ma5 = kl.ma5;
+                this.incompleteKline[kltype].ma18 = kl.ma18;
+                this.incompleteKline[kltype].bss18 = this.getBss18(klines[klines.length - 1], kl);
+            };
         };
     }
 
@@ -202,10 +260,12 @@ class KLine {
                 };
             });
         };
+        this.calcIncompleteKlineMA();
         return updatedKlt;
     }
 
-    getFactoredKlines(klines, fac, stime = '0') {
+    getFactoredKlines(kltype, fac, stime = '0') {
+        var klines = this.klines[kltype];
         var fklines = [];
         var startIdx = 0;
         if (stime) {
@@ -216,48 +276,73 @@ class KLine {
             };
         };
 
+        var inkl = this.getIncompleteKline(kltype);
+        this.incompleteKline[kltype * fac] = null;
         for (var i = startIdx; i < klines.length; i += fac) {
+            var o = klines[i].o;
+            var c = 0;
+            var time = klines[i + fac - 1].time;
+            var h = klines[i].h;
+            var l = klines[i].l;
+            var v = 0;
             if (klines.length - i >= fac) {
-                var o = klines[i].o;
-                var c = klines[i + fac - 1].c;
-                var time = klines[i + fac - 1].time;
-                var h = klines[i].h;
-                var l = klines[i].l;
-                var vr = 0;
+                c = klines[i + fac - 1].c;
                 for (var j = 0; j < fac; j++) {
-                    vr -= klines[i + j].vr;
-                    if (klines[i + j].h > h) {
+                    v -= klines[i + j].v;
+                    if (klines[i + j].h - h > 0) {
                         h = klines[i + j].h;
                     };
-                    if (klines[i + j].l < l) {
+                    if (klines[i + j].l - l < 0) {
                         l = klines[i + j].l;
                     };
                 };
-                if (vr < 0) {
-                    vr = -vr;
+                if (v < 0) {
+                    v = -v;
                 };
-                fklines.push({time, o, c, h, l, vr});
+                fklines.push({time, o, c, h, l, v});
+            } else if (klines.length - i + 1 == fac && inkl) {
+                c = inkl.c;
+                h = inkl.h;
+                l = inkl.l;
+                v -= inkl.v;
+                for (var j = i; j < klines.length; ++j) {
+                    v -= klines[j].v;
+                    if (klines[j].h - h > 0) {
+                        h = klines[j].h;
+                    };
+                    if (klines[j].l - l < 0) {
+                        l = klines[j].l;
+                    };
+                };
+                if (v < 0) {
+                    v = -v;
+                };
+                this.incompleteKline[kltype * fac] = {time, o, c, h, l, v};
             };
         };
         return fklines;
     }
 
     fillUpKlinesBaseOn(kltype, fac) {
-        if (this.klines[kltype] === undefined || this.klines[kltype].length < fac) {
+        if (this.klines[kltype] === undefined || this.klines[kltype].length < fac - 1) {
+            return false;
+        };
+
+        if (this.klines[kltype].length == fac - 1 && !this.getIncompleteKline(kltype)) {
             return false;
         };
 
         var fklt = kltype * fac;
         if (this.klines[fklt] === undefined || this.klines[fklt].length == 0) {
-            var fklines = this.getFactoredKlines(this.klines[kltype], fac);
+            var fklines = this.getFactoredKlines(kltype, fac);
             this.klines[fklt] = fklines;
             this.calcKlineMA(this.klines[fklt]);
-            return fklines.length > 0;
+            return fklines.length > 0 || this.getIncompleteKline(fklt);
         } else {
             var stime = this.klines[fklt][this.klines[fklt].length - 1].time;
-            var fklines = this.getFactoredKlines(this.klines[kltype], fac, stime);
+            var fklines = this.getFactoredKlines(kltype, fac, stime);
             this.appendKlines(this.klines[fklt], fklines);
-            return fklines.length > 0;
+            return fklines.length > 0 || this.getIncompleteKline(fklt);
         };
         return false;
     }
