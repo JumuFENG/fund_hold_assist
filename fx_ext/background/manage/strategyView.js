@@ -149,7 +149,11 @@ class StrategyBaseView {
         checkLbl.textContent = '启用';
         this.enabledCheck = document.createElement('input');
         this.enabledCheck.type = 'checkbox';
-        this.enabledCheck.checked = this.strategy.enabled;
+        if (this.strategy.enabled === undefined) {
+            this.enabledCheck.checked = true;
+        } else {
+            this.enabledCheck.checked = this.strategy.enabled;
+        };
         checkLbl.appendChild(this.enabledCheck);
         return checkLbl;
     }
@@ -385,13 +389,13 @@ class StrategySellELView extends StrategyBaseView {
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('止损止盈,满足条件时全部卖出'));
         view.appendChild(document.createElement('br'));
-        view.appendChild(document.createTextNode('收益 < 5%, 止损点止损'));
+        view.appendChild(document.createTextNode('收益 < 7%, 止损点止损'));
         view.appendChild(document.createElement('br'));
-        view.appendChild(document.createTextNode('收益 < 10%, 买入价止损'));
+        view.appendChild(document.createTextNode('收益 < 9%, 买入价+1%止损'));
         view.appendChild(document.createElement('br'));
-        view.appendChild(document.createTextNode('收益 < 20%, 回撤一半止盈'));
+        view.appendChild(document.createTextNode('收益 < 18%, 回撤8%止盈'));
         view.appendChild(document.createElement('br'));
-        view.appendChild(document.createTextNode('收益 > 20%, 回撤10%止盈'));
+        view.appendChild(document.createTextNode('收益 > 18%, 回撤10%止盈'));
         view.appendChild(this.createGuardInput('止损点 '));
         view.appendChild(document.createTextNode('遇大阳线(>6.5%)动态调整止损点为大阳线最低点'));
         return view;

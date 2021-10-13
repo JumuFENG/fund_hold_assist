@@ -274,7 +274,7 @@ class AccountInfo {
     save() {
         var stock_watching = [];
         this.stocks.forEach(s => {
-            if (s.holdCount == 0 && (s.watching || s.strategies)) {
+            if (s.holdCount == 0 && s.strategies) {
                 stock_watching.push(s.code);
             };
             s.saveKlines();
@@ -307,7 +307,9 @@ class AccountInfo {
             this.addWatchStock(c);
         });
         this.stocks.forEach(s => {
-            this.applyStrategy(s.code, configs[this.keyword + '_' + s.code + '_strategies']);
+            if (configs[this.keyword + '_' + s.code + '_strategies'] !== undefined) {
+                this.applyStrategy(s.code, JSON.parse(configs[this.keyword + '_' + s.code + '_strategies']));
+            };
         });
     }
 

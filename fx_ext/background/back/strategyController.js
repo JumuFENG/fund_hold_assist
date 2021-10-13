@@ -343,19 +343,19 @@ class StrategySellEL extends StrategySell {
         var latestPrice = rtInfo.latestPrice;
         var guardPrice = this.data.guardPrice;
         var averPrice = this.data.averPrice;
-        if (latestPrice - averPrice * 1.2 >= 0 && latestPrice - averPrice * 0.1 - guardPrice > 0) {
+        if (latestPrice - averPrice * 1.18 >= 0 && latestPrice - averPrice * 0.1 - guardPrice > 0) {
             guardPrice = latestPrice - averPrice * 0.1;
-        } else if (latestPrice - averPrice * 1.1 >= 0 && guardPrice - latestPrice / 2 - averPrice / 2 < 0) {
-            guardPrice = - (- latestPrice - averPrice) / 2;
-        } else if (latestPrice - averPrice * 1.05 >= 0 && averPrice - guardPrice > 0) {
-            guardPrice = averPrice;
+        } else if (latestPrice - averPrice * 1.09 >= 0 && latestPrice - averPrice * 0.08 - guardPrice > 0 ) {
+            guardPrice = latestPrice - averPrice * 0.08;
+        } else if (latestPrice - averPrice * 1.07 >= 0 && averPrice - guardPrice > 0) {
+            guardPrice = averPrice * 1.01;
         };
         if (guardPrice - this.data.guardPrice > 0) {
             this.data.guardPrice = guardPrice;
             this.flush();
         };
         if (rtInfo.latestPrice - guardPrice <= 0) {
-            this.data.inCritical
+            this.data.inCritical = true;
             return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
         };
         return {match: false};

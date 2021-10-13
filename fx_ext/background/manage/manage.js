@@ -225,7 +225,7 @@ class StockList {
         var anchor = document.createElement('a');
         anchor.textContent = '行情';
         if (stock.market !== undefined) {
-            anchor.href = futuStockUrl + stock.code + '-' + stock.market;
+            anchor.href = emStockUrl + (stock.market == 'SZ' ? 'sz' : 'sh') + stock.code + emStockUrlTail;
         };
         anchor.target = '_blank';
         divTitle.appendChild(anchor);

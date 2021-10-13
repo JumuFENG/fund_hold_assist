@@ -1,4 +1,6 @@
 let futuStockUrl = 'https://www.futunn.com/stock/';
+let emStockUrl = 'http://quote.eastmoney.com/concept/';
+let emStockUrlTail = '.html#fschart-k';
 var startDate = new Date('2021-07-23');
 var endDate = new Date('2021-07-23');
 
@@ -392,7 +394,7 @@ class ZtPool {
             if (stocki.url !== undefined) {
                 anchor.href = stocki.url;
             } else if (stocki.m !== undefined) {
-                anchor.href = futuStockUrl + stocki.code + (stocki.m == '0' ? '-SZ' : '-SH');
+                anchor.href = emStockUrl + (stocki.m == '0' ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
             };
             anchor.target = '_blank';
             ztTable.addRow(
@@ -640,7 +642,7 @@ class TradeEmulate {
             var anchor = document.createElement('a');
             anchor.textContent = stocki.name + '(' + stocki.code + ')';
             if (stocki.m !== undefined) {
-                anchor.href = futuStockUrl + stocki.code + (stocki.m == '0' ? '-SZ' : '-SH');
+                anchor.href = emStockUrl + (stocki.m == '0' ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
             };
             anchor.target = '_blank';
             this.emulateTable.addRow(
