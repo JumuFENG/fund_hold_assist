@@ -55,7 +55,7 @@ class TradeProxy {
                     };
                 };
             });
-        }, 200);
+        }, 500);
     }
 
     pageLoaded() {

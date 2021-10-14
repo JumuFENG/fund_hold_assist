@@ -45,6 +45,17 @@
             "run_at": "document_idle",
             "all_frames": true,
             "match_about_blank": false
+        },
+        {
+            "matches": [
+                "http://www.iwencai.com/*"
+            ],
+            "js": [
+                "inject/wencai_inject.js"
+            ],
+            "run_at": "document_idle",
+            "all_frames": true,
+            "match_about_blank": false
         }
     ],
     "permissions": [

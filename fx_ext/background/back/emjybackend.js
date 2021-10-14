@@ -237,6 +237,13 @@ class EmjyBack {
             } else if (message.result == 'error') {
                 this.log('trade error:', message.reason, message.what);
             }
+        } else if (message.command == 'emjy.addwatch') {
+            this.addWatchStock(message.account, message.code, message.strategies);
+            this.log('content add watch stock', message.account, message.code);
+        } else if (message.command == 'emjy.save') {
+            this.normalAccount.save();
+            this.collateralAccount.save();
+            this.log('content message save');
         }
     }
 
