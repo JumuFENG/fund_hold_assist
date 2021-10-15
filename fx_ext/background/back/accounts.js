@@ -60,6 +60,24 @@ class AccountInfo {
         });
     }
 
+    fixWatchings() {
+        chrome.storage.local.get(null, items => {
+            for (var k in items) {
+                if (k == 'undefined') {
+                    chrome.storage.local.remove(k);
+                    continue;
+                }
+                if (k.startsWith(this.keyword)) {
+                    var keys = k.split('_');
+                    if (keys.length == 3 && keys[2] == 'strategies') {
+                        this.addWatchStock(keys[1]);
+                        this.applyStrategy(keys[1], JSON.parse(items[k]));
+                    }
+                }
+            }
+        });
+    }
+
     loadStrategies() {
         this.stocks.forEach(s => {
             s.loadKlines();
