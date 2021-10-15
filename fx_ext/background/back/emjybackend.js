@@ -259,7 +259,9 @@ class EmjyBack {
                 this.manager.sendStocks([this.normalAccount, this.collateralAccount]);
             }
             chrome.tabs.onRemoved.addListener((tid, removeInfo) => {
-                this.manager.onManagerMessage({command: 'mngr.closed'}, tid);
+                if (tid == this.manager.tabid) {
+                    this.manager.onManagerMessage({command: 'mngr.closed'}, tid);
+                }
             });
         }
     }

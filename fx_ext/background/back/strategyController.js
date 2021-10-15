@@ -525,11 +525,11 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
             return;
         };
 
-        var gkl = this.kltypeCandiList[kltype];
-        if (gkl && updatedKlt.includes(gkl)) {
-            var gKlines = klines.getKline(gkl);
+        var gklt = this.kltypeCandiList[kltype];
+        if (gklt && updatedKlt.includes(gklt)) {
+            var gKlines = klines.getKline(gklt);
             var tailWCount = 0;
-            var gkl = klines.getIncompleteKline(gkl);
+            var gkl = klines.getIncompleteKline(gklt);
             if (gkl) {
                 if (gkl.bss18 == 'w' && gkl.ma18 - gkl.o > 0 && gkl.ma18 - gkl.c > 0) {
                     tailWCount = 1;
@@ -545,10 +545,10 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
                 };
             };
             if (tailWCount >= 5) {
-                if (gkl == '404') {
+                if (gklt == '404') {
                     this.enabled = false;
                 } else {
-                    this.data.kltype = gkl;
+                    this.data.kltype = gklt;
                 };
             };
         };

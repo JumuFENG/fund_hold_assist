@@ -281,12 +281,13 @@ class KLine {
         for (var i = startIdx; i < klines.length; i += fac) {
             var o = klines[i].o;
             var c = 0;
-            var time = klines[i + fac - 1].time;
+            var time = klines[i].time;
             var h = klines[i].h;
             var l = klines[i].l;
             var v = 0;
             if (klines.length - i >= fac) {
                 c = klines[i + fac - 1].c;
+                time = klines[i + fac - 1].time;
                 for (var j = 0; j < fac; j++) {
                     v -= klines[i + j].v;
                     if (klines[i + j].h - h > 0) {
@@ -301,6 +302,7 @@ class KLine {
                 };
                 fklines.push({time, o, c, h, l, v});
             } else if (klines.length - i + 1 == fac && inkl) {
+                time = inkl.time;
                 c = inkl.c;
                 h = inkl.h;
                 l = inkl.l;

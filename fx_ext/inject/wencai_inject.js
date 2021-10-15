@@ -1,7 +1,6 @@
 let emStockUrl = 'http://quote.eastmoney.com/concept/';
 let emStockUrlTail = '.html#fschart-k';
 
-console.log('hello, wencai');
 class WencaiFront {
 	stockMarketCode(code) {
 		if (code.startsWith('00')) {
@@ -79,7 +78,7 @@ class WencaiFront {
 		var leftCol = document.querySelector('.left_col');
 		leftCol.appendChild(extendDiv);
 		this.addSelector = document.createElement('select');
-		var addOptions = [{key:'StrategyBuy', name:'次日开盘买入'},{key:'StrategyBuyBE', name:'当日尾盘买入'}];
+		var addOptions = [{key:'StrategyBuyBE', name:'当日尾盘买入'}, {key:'StrategyBuy', name:'次日开盘买入'}];
 		for (var i = 0; i < addOptions.length; i++) {
 			var opt = document.createElement('option');
 			opt.value = addOptions[i].key;
@@ -96,6 +95,7 @@ class WencaiFront {
 			opt.textContent = accounts[i].name;
 			this.accountSelector.appendChild(opt);
 		}
+		var natls = document.querySelectorAll('div.natl_words');
 		extendDiv.appendChild(this.accountSelector);
 
 		var addBtn = document.createElement('button');
@@ -106,6 +106,14 @@ class WencaiFront {
 			this.addSelectedStocks();
 		}
 		extendDiv.appendChild(addBtn);
+
+		for (var i = 0; i < natls.length; i++) {
+			if (natls[i].innerText.startsWith('所属概念是两融标的')) {
+				this.accountSelector.value = 'credit';
+			} else if (natls[i].innerText.startsWith('涨停')) {
+				this.addSelector.value = 'StrategyBuy';
+			}
+		}
 	}
 
 	addWatchingStock(code) {
@@ -134,7 +142,6 @@ document.querySelector('.toplogo').onclick = e => {
 }
 
 window.onload = () => {
-	console.log('loaded!');
 	wencaiFront.addPatchButton();
 	wencaiFront.patchClickEvents();
 	wencaiFront.addActionButtons();
