@@ -112,9 +112,9 @@ class StrategyGroup {
             };
             var gl = this.strategies[id].guardLevel();
             if (gl == 'kline') {
-                emjyBack.klineAlarms.addStock(this.code);
+                emjyBack.klineAlarms.addStock(this.code, this.strategies[id].kltype());
             } else if (gl == 'kday') {
-                emjyBack.dailyAlarm.addStock(this.code);
+                emjyBack.dailyAlarm.addStock(this.code, this.strategies[id].kltype());
             } else if (gl == 'rtp') {
                 emjyBack.rtpTimer.addStock(this.code);
             } else if (gl == 'zt') {

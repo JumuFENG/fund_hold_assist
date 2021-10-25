@@ -470,7 +470,6 @@ class EmjyBack {
 
     removeStock(account, code) {
         this.rtpTimer.removeStock(code);
-        this.dailyAlarm.removeStock(code);
         this.ztBoardTimer.removeStock(code);
         if (account == this.normalAccount.keyword) {
             this.normalAccount.removeStock(code);

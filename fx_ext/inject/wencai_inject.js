@@ -78,7 +78,7 @@ class WencaiFront {
 		var leftCol = document.querySelector('.left_col');
 		leftCol.appendChild(extendDiv);
 		this.addSelector = document.createElement('select');
-		var addOptions = [{key:'StrategyBuyBE', name:'当日尾盘买入'}, {key:'StrategyBuy', name:'次日开盘买入'}];
+		var addOptions = [{key:'StrategyBuyMAE', name:'当日尾盘买入'}, {key:'StrategyBuy', name:'次日开盘买入'}];
 		for (var i = 0; i < addOptions.length; i++) {
 			var opt = document.createElement('option');
 			opt.value = addOptions[i].key;
@@ -122,7 +122,20 @@ class WencaiFront {
 		if (ownAccount != 'normal') {
 			ownAccount = 'collat';
 		}
-		var strgrp = {grptype:'GroupStandard', transfers:{'0':{'transfer':'1'}},strategies:{'0':{key: this.addSelector.value, amount: 5000, enabled: true, account},'1': {key: 'StrategySellEL', enabled: false}}};
+		var strategy0 = {key: this.addSelector.value, enabled: true, amount: 5000, account};
+		if (this.addSelector.value == 'StrategyBuyMAE') {
+			strategy0.kltype = '60';
+		}
+		var strgrp = {
+			grptype: "GroupStandard",
+			transfers: {"0":{transfer: "2"}, "1":{transfer: "2"}, "2":{transfer: "1"}, "3":{transfer: "-1"}},
+			strategies: {
+				"0": strategy0,
+				"1": {key:"StrategyBuyMAD", enabled:false, amount:5000, account, kltype:"60"},
+				"2": {key:"StrategySellMAD", enabled:false, kltype:"60"},
+				"3": {key:"StrategySellEL", enabled:false}
+			}
+		};
 		this.sendMessageToBackground({command:'emjy.addwatch', code, account: ownAccount, strategies: strgrp});
 	}
 

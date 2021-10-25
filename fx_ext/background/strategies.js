@@ -8,6 +8,7 @@ let BuyStrategyKeyNames = [
 {key: 'StrategyBuyZTBoard', name: '打板买入'},
 {key: 'StrategyBuyMA', name: 'MA突破买入'}, 
 {key: 'StrategyBuyMAD', name: 'MA突破(动态)买入'},
+{key: 'StrategyBuyMAE', name: 'MA突破(尾盘)买入'},
 {key: 'StrategyBuyBE', name: '尾盘买入'}, 
 ];
 
@@ -19,5 +20,4 @@ let SellStrategyKeyNames = [
 {key: 'StrategySellELS', name: '止损止盈(超短)'},
 {key: 'StrategySellMA', name: 'MA突破卖出'},
 {key: 'StrategySellMAD', name: 'MA突破(动态)卖出'},
-{key: 'StrategySellMAR', name:'MA突破卖出(日内)'},
 ];

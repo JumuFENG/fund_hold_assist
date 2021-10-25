@@ -13,6 +13,11 @@ class KLine {
         chrome.storage.local.get(this.storeKey, item => {
             if (item && item[this.storeKey]) {
                 this.klines = item[this.storeKey];
+                for (var i in this.klines) {
+                    if (this.klines[i].length > 600) {
+                        this.klines[i] = this.klines[i].slice(this.klines[i].length - 600);
+                    }
+                }
             };
         });
     }

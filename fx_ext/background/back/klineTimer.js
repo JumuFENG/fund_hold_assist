@@ -1,10 +1,8 @@
 'use strict';
 
-class KlineAlarms {
+class DailyAlarm {
     constructor() {
         this.log = emjyBack.log;
-        this.klineInterval = null;
-        this.hitCount = 0;
         this.baseKlt = new Set(['1', '15', '101']);
         this.stocks = {};
         this.baseKlt.forEach(k => {
@@ -12,10 +10,35 @@ class KlineAlarms {
         });
     }
 
-    addStock(code) {
-        this.baseKlt.forEach(k => {
-            this.stocks[k].add(code);
+    addStock(code, kltype) {
+        var klt = '101';
+        if (kltype - 15 < 0) {
+            klt = '1';
+        } else if (kltype - 100 < 0 || kltype - 120 == 0) {
+            klt = '15';
+        }
+        this.stocks[klt].add(code);
+    }
+
+    onTimer() {
+        this.baseKlt.forEach(kltype => {
+            this.stocks[kltype].forEach(s => {
+                emjyBack.fetchStockKline(s, kltype);
+            });
         });
+    }
+}
+
+class KlineAlarms extends DailyAlarm {
+    constructor() {
+        super();
+        this.hitCount = 0;
+        this.klineInterval = null;
+    }
+
+    addStock(code, kltype) {
+        super.addStock(code, kltype);
+        this.stocks['1'].add(code);
     }
 
     startTimer() {
@@ -58,34 +81,16 @@ class KlineAlarms {
     }
 }
 
-class DailyAlarm {
+class RtpTimer {
     constructor() {
         this.log = emjyBack.log;
         this.stocks = new Set();
+        this.rtInterval = null;
+        this.ticks = 5000;
     }
 
     addStock(code) {
         this.stocks.add(code);
-    }
-
-    removeStock(code) {
-        if (this.stocks.has(code)) {
-            this.stocks.delete(code);
-        };
-    }
-
-    onTimer() {
-        this.stocks.forEach(s => {
-            emjyBack.fetchStockKline(s, '101');
-        });
-    }
-}
-
-class RtpTimer extends DailyAlarm {
-    constructor() {
-        super();
-        this.rtInterval = null;
-        this.ticks = 1000;
     }
 
     removeStock(code) {
@@ -130,6 +135,7 @@ class RtpTimer extends DailyAlarm {
 class ZtBoardTimer extends RtpTimer {
     constructor() {
         super();
+        this.ticks = 1000;
         this.lazyInterval = null;
         this.lazyStocks = new Set();
     }

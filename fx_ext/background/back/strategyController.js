@@ -41,8 +41,8 @@ class StrategyManager {
         if (strategy.key == 'StrategyBuyBE') {
             return new StrategyBuyBeforeEnd(strategy);
         };
-        if (strategy.key == 'StrategySellMAR') {
-            return new StrategySellMARepeat(strategy);
+        if (strategy.key == 'StrategyBuyMAE') {
+            return new StrategyBuyMABeforeEnd(strategy);
         };
         if (strategy.key == 'StrategyBuyMAD') {
             return new StrategyBuyMADynamic(strategy);
@@ -481,17 +481,6 @@ class StrategySellMA extends StrategySell {
     }
 }
 
-class StrategySellMARepeat extends StrategySellMA {
-    buyMatch(refer) {
-
-    }
-
-    sellMatch(refer) {
-        this.data.enabled = false;
-        this.data.inCritical = false;
-    }
-}
-
 class StrategyBuyMADynamic extends StrategyBuyMA {
     constructor(str) {
         super(str);
@@ -624,6 +613,61 @@ class StrategyBuyBeforeEnd extends StrategyBuyMA {
             var lkl = dKline[dKline.length - 1];
             if (lkl && lkl.c - lkl.o < 0 && inkl.c - inkl.o > 0) {
                 this.data.inCritical = inkl.v - lkl.v * 0.98 < 0;
+            };
+        };
+    }
+}
+
+class StrategyBuyMABeforeEnd extends StrategyBuyMA {
+    guardLevel() {
+        return 'kday';
+    }
+
+    kltype() {
+        return this.data.kltype;
+    }
+
+    checkKlines(klines, updatedKlt) {
+        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
+            return;
+        };
+        if (updatedKlt.includes(this.kltype())) {
+            var kl = klines.getLatestKline(this.kltype());
+            if (kl) {
+                if (kl.bss18 == 'b') {
+                    this.data.inCritical = true;
+                    return;
+                }
+                if (kl.bss18 == 'h') {
+                    var h = kl.h;
+                    var c = kl.c;
+                    var o = kl.o;
+                    var dKline = klines.getKline(this.kltype())
+                    if (dKline && dKline.length > 0) {
+                        var klb = dKline[dKline.length - 1];
+                        for (var i = dKline.length - 1; i >= 0; i--) {
+                            if (dKline[i].h - h > 0) {
+                                h = dKline[i].h;
+                            }
+                            if (dKline[i].bss18 == 'b') {
+                                klb = dKline[i];
+                                o = klb.o;
+                                if (i >= 1) {
+                                    o = dKline[i - 1].c;
+                                }
+                                break;
+                            }
+                        }
+                        if ((h - o) / o < 0.03 && c - o > 0) {
+                            this.data.inCritical = true;
+                            return;
+                        }
+                        if ((h - o) / o > 0.03 && (h - c) * 4 < h - o) {
+                            this.data.inCritical = true;
+                            return;
+                        }
+                    }
+                }
             };
         };
     }

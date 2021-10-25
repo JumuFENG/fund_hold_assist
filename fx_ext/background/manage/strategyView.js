@@ -41,8 +41,8 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyBuyBE') {
             return new StrategyBuyBeforEndView(strategy);
         };
-        if (strategy.key == 'StrategySellMAR') {
-            return new StrategySellMARepeatView(strategy);
+        if (strategy.key == 'StrategyBuyMAE') {
+            return new StrategyBuyMABeforeEndView(strategy);
         };
         if (strategy.key == 'StrategyBuyMAD') {
             return new StrategyBuyMADynamicView(strategy);
@@ -477,10 +477,14 @@ class StrategyBuyBeforEndView extends StrategyBuyMAView {
     }
 }
 
-class StrategySellMARepeatView extends StrategySellMAView {
+class StrategyBuyMABeforeEndView extends StrategyBuyMAView {
+    maDescription() {
+        return '尾盘突破18周期均线，或最高价回撤幅度<1/3时尾盘买入';
+    }
+
     setDefaultKltype() {
         if (this.klineSelector) {
-            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '1';
+            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '60';
         };
     }
 }
