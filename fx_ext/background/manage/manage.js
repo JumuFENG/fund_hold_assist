@@ -89,8 +89,10 @@ class Manager {
     }
 
     addWatchingStock(code, account, strGrp = null) {
-        this.addStock(code, account, strGrp);
-        this.sendExtensionMessage({command:'mngr.addwatch', code, account, strategies: strGrp});
+        if (!this.stockList.stockExist(code, account)) {
+            this.addStock(code, account, strGrp);
+            this.sendExtensionMessage({command:'mngr.addwatch', code, account, strategies: strGrp});
+        }
     }
 }
 
@@ -191,14 +193,18 @@ class StockList {
         };
     }
 
-    currentStock(code) {
+    stockExist(code, account) {
+        return this.accStockExists(account + '_' + code);
+    }
+
+    accStockExists(code) {
         return this.stocks.find( s => {
             return s.acccode == code;
         });
     }
 
     addStock(stock) {
-        if (!this.currentStock(stock.code)) {
+        if (!this.accStockExists(stock.acccode)) {
             this.stocks.push(stock);
         };
         
@@ -215,7 +221,7 @@ class StockList {
                 };
                 e.currentTarget.appendChild(this.strategyGroupView.root);
                 this.currentCode = e.currentTarget.acccode;
-                var stk = this.currentStock(this.currentCode);
+                var stk = this.accStockExists(this.currentCode);
                 this.strategyGroupView.initUi(stk.account, stk.code, stk.strategies);
             };
         };

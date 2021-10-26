@@ -555,6 +555,9 @@ class StrategySellMADynamic extends StrategySellMA {
         this.data.enabled = true;
         this.data.inCritical = false;
         this.data.kltype = refer.kltype;
+        if (refer.kltype - 100 > 0) {
+            this.data.kltype = '60';
+        }
         this.data.price = refer.price;
     }
 
