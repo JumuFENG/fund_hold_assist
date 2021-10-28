@@ -149,7 +149,7 @@ class StrategyBuy extends Strategy {
             return {match: false};
         };
         this.hitCount++;
-        return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
+        return this.matchResult(true, rtInfo.sellPrices[1], rtInfo.topprice);
     }
 }
 
@@ -168,7 +168,7 @@ class StrategyBuyPopup extends StrategyBuy {
             return {match, stepInCritical, account: this.data.account};
         }
         if (price >= this.data.prePeekPrice * (1 + this.data.backRate)) {
-            return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
+            return this.matchResult(true, rtInfo.sellPrices[1], rtInfo.topprice);
         }
         if (price < this.data.prePeekPrice) {
             this.data.prePeekPrice = price;
@@ -201,7 +201,7 @@ class StrategySell extends Strategy {
             return {match, stepInCritical, account: this.data.account};
         }
         if (price <= this.data.prePeekPrice * (1 - this.data.backRate)) {
-            return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
+            return this.matchResult(true, rtInfo.buyPrices[1], rtInfo.bottomprice);
         }
         if (price > this.data.prePeekPrice) {
             this.data.prePeekPrice = price;
@@ -252,7 +252,7 @@ class StrategyBuyIPO extends StrategyBuy {
             return {match, stepInCritical, account: this.data.account};
         }
         if (price >= this.data.prePeekPrice * (1 + this.data.backRate)) {
-            return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
+            return this.matchResult(true, rtInfo.sellPrices[1], rtInfo.topprice);
         }
         if (price < this.data.prePeekPrice) {
             this.data.prePeekPrice = price;
@@ -267,7 +267,7 @@ class StrategySellIPO extends StrategySell {
         var match = false;
         if (rtInfo.openPrice == rtInfo.topprice) {
             if (rtInfo.latestPrice < rtInfo.topprice) {
-                return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
+                return this.matchResult(true, rtInfo.buyPrices[1], rtInfo.bottomprice);
             };
             return {match};
         };
@@ -284,7 +284,7 @@ class StrategySellIPO extends StrategySell {
         };
 
         if (rtInfo.latestPrice <= this.data.prePeekPrice * 0.99) {
-            return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
+            return this.matchResult(true, rtInfo.buyPrices[1], rtInfo.bottomprice);
         }
 
         if (rtInfo.latestPrice > this.data.prePeekPrice) {
@@ -303,7 +303,7 @@ class StrategyBuyZTBoard extends StrategyBuy {
     check(rtInfo) {
         if (rtInfo.sellPrices[1] == '-' && rtInfo.sellPrices[0] == rtInfo.topprice) {
             console.log(rtInfo);
-            return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
+            return this.matchResult(true, rtInfo.sellPrices[1], rtInfo.topprice);
         };
         if (rtInfo.latestPrice == rtInfo.topprice) {
             console.log(rtInfo);
@@ -356,7 +356,7 @@ class StrategySellEL extends StrategySell {
         };
         if (rtInfo.latestPrice - guardPrice <= 0) {
             this.data.inCritical = true;
-            return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
+            return this.matchResult(true, rtInfo.buyPrices[1], rtInfo.bottomprice);
         };
         return {match: false};
     }
@@ -399,7 +399,7 @@ class StrategySellELShort extends StrategySellEL {
         };
         if (rtInfo.latestPrice - guardPrice < 0) {
             this.data.inCritical = true;
-            return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
+            return this.matchResult(true, rtInfo.buyPrices[1], rtInfo.bottomprice);
         };
         return {match: false};
     }
@@ -422,7 +422,7 @@ class StrategyBuyMA extends StrategyBuy {
 
     check(rtInfo) {
         if (this.data.inCritical) {
-            return this.matchResult(true, rtInfo.sellPrices[0], rtInfo.topprice);
+            return this.matchResult(true, rtInfo.sellPrices[1], rtInfo.topprice);
         };
         return {match:false};
     }
@@ -461,7 +461,7 @@ class StrategySellMA extends StrategySell {
 
     check(rtInfo) {
         if (this.data.inCritical) {
-            return this.matchResult(true, rtInfo.buyPrices[0], rtInfo.bottomprice);
+            return this.matchResult(true, rtInfo.buyPrices[1], rtInfo.bottomprice);
         };
         return {match:false};
     }

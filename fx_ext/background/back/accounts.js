@@ -292,7 +292,7 @@ class AccountInfo {
     save() {
         var stock_watching = [];
         this.stocks.forEach(s => {
-            if (s.holdCount == 0 && s.strategies) {
+            if (s.strategies) {
                 stock_watching.push(s.code);
             };
             s.saveKlines();

@@ -14,7 +14,7 @@ class KLine {
             if (item && item[this.storeKey]) {
                 this.klines = item[this.storeKey];
                 for (var i in this.klines) {
-                    if (this.klines[i].length > 600) {
+                    if (this.klines[i].length > 600 && i - 15 < 0) {
                         this.klines[i] = this.klines[i].slice(this.klines[i].length - 600);
                     }
                 }

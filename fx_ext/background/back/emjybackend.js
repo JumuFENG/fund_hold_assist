@@ -564,6 +564,17 @@ class EmjyBack {
         var url = URL.createObjectURL(blob);
         chrome.downloads.download({url, filename, saveAs:false, conflictAction});
     }
+
+    listAllBuySellPrice() {
+        for (var i = 0; i < this.normalAccount.stocks.length; i++) {
+            var stocki = this.normalAccount.stocks[i];
+            tradeAnalyzer.listAllBuySellPrice(stocki.klines.klines, stocki.code, stocki.name);
+        }
+        for (var i = 0; i < this.collateralAccount.stocks.length; i++) {
+            var stocki = this.collateralAccount.stocks[i];
+            tradeAnalyzer.listAllBuySellPrice(stocki.klines.klines, stocki.code, stocki.name);
+        }
+    }
 }
 
 class TradingData {
@@ -590,6 +601,42 @@ class TradingData {
             var url = URL.createObjectURL(blob);
             var filename = 'StockDailyPrices/' + fileDate + '_' + c + '.json';
             chrome.downloads.download({url, filename, saveAs:false});
+        }
+    }
+
+    listAllBuySellPrice(stockKl, code, name) {
+        var codes = new Set(['000858', '002460', '000401', '002041', '600862', '601600', '601101', '000998', '600546', '600918', '600276', '600031', '000630', '002241', '600010', '600089', '600150', '601016', '601117', '601601', '601800', '600905', '002847']);
+        if (!codes.has(code)) {
+            return;
+        }
+        for (var i in stockKl) {
+            var afterbuy = false;
+            var bcount = 0;
+            var ecount = 0;
+            var lcount = 0;
+            var b = 0;
+            var rec = [];
+            var earned = 0;
+            for (var j = 0; j < stockKl[i].length; j++) {
+                if (stockKl[i][j].bss18 == 'b') {
+                    afterbuy = true;
+                    bcount ++;
+                    b = stockKl[i][j].c;
+                }
+                if (stockKl[i][j].bss18 == 's' && afterbuy) {
+                    var e = stockKl[i][j].c - b;
+                    rec.push('b:' + b + ' s:' + stockKl[i][j].c + ' e:' + e.toFixed(2));
+                    if (e > 0) {
+                        ecount ++;
+                    } else {
+                        lcount ++;
+                    }
+                    earned += e * 100 / b;
+                    afterbuy = false;
+                }
+            }
+
+            console.log(name, 'kltype' + i, stockKl[i].length, 'b:', bcount, 'e', ecount, 'l', lcount, 'total', earned.toFixed(2));
         }
     }
 }

@@ -54,7 +54,6 @@ class KlineAlarms extends DailyAlarm {
             clearInterval(this.klineInterval);
             this.klineInterval = null;
             this.log('kline timer stopped! hitCount = ', this.hitCount);
-            this.hitCount = 0;
         };
     }
 
@@ -62,7 +61,7 @@ class KlineAlarms extends DailyAlarm {
         this.baseKlt.forEach(kltype => {
             var fetch = false;
             if (kltype == '101') {
-                fetch = this.hitCount == 0;
+                fetch = this.hitCount > 240;
             } else if (kltype == '1') {
                 fetch = true;
             } else {
