@@ -126,6 +126,56 @@ class StrategyGroup {
         };
     }
 
+    applyKlines(klines) {
+        if (!klines) {
+            return;
+        }
+
+        if (!this.strategies[0] || !this.strategies[3]) {
+            return;
+        }
+
+        var key = this.strategies[3].key();
+        if (this.strategies[0].key() == 'StrategyBuy' || this.strategies[0].key() == 'StrategyBuyZTBoard') {
+            var elIdx = this.strategies[0].key() == 'StrategyBuy' ? 3 : 1;
+            if (key == 'StrategySellEL' || key == 'StrategySellELS') {
+                if (this.strategies[elIdx].data.guardPrice !== undefined && this.strategies[elIdx].data.guardPrice != null) {
+                    return;
+                }
+                emjyBack.log('set guardPrice for', this.account, this.code);
+                if (klines['101']) {
+                    var kl0 = klines['101'][klines['101'].length - 2];
+                    var kl1 = klines['101'][klines['101'].length - 3];
+                    this.strategies[elIdx].data.guardPrice = kl1.c - kl0.l > 0 ? kl0.l : kl1.c;
+                    if (!this.strategies[elIdx].data.enabled) {
+                        this.strategies[elIdx].data.enabled = true;
+                    }
+                } else {
+                    emjyBack.log('no daily kline data', this.code, this.account);
+                }
+            }
+        }
+
+        if (this.strategies[0].key() == 'StrategyBuyMAE') {
+            if (key == 'StrategySellEL' || key == 'StrategySellELS') {
+                if (this.strategies[3].data.guardPrice !== undefined && this.strategies[3].data.guardPrice != null) {
+                    return;
+                }
+                emjyBack.log('set guardPrice for', this.account, this.code);
+                if (klines['101']) {
+                    var kl0 = klines['101'][klines['101'].length - 1];
+                    var kl1 = klines['101'][klines['101'].length - 2];
+                    this.strategies[3].data.guardPrice = kl1.c - kl0.l > 0 ? kl0.l : kl1.c;
+                    if (!this.strategies[3].data.enabled) {
+                        this.strategies[3].data.enabled = true;
+                    }
+                } else {
+                    emjyBack.log('no daily kline data', this.code, this.account);
+                }
+            }
+        }
+    }
+
     check(rtInfo) {
         for (var id in this.strategies) {
             var curStrategy = this.strategies[id];

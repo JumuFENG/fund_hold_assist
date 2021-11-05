@@ -74,7 +74,16 @@ class KLine {
             if (kltype == '101') {
                 tDate.setHours(15);
             };
-            if (time <= stime || new Date() < tDate) {
+            if (time <= stime) {
+                continue;
+            }
+            if (new Date() < tDate) {
+                if (kltype == '15' && (tDate - new Date()) > 200000) {
+                    continue;
+                }
+                if (kltype == '101' && (tDate - new Date()) > 600000) {
+                    continue;
+                }
                 this.incompleteKline[kltype] = {time, o, c, h, l, v};
                 continue;
             };

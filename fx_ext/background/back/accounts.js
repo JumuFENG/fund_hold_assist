@@ -231,7 +231,7 @@ class AccountInfo {
                 finalCount = stockInfo.availableCount;
             }
             if (finalCount == 0) {
-                this.log('error: availableCount is 0');
+                this.log('error: availableCount is 0', stockInfo.code, stockInfo.name);
                 return;
             };
 
@@ -349,6 +349,14 @@ class AccountInfo {
             emjyBack.fetchStockSnapshot(this.wallet.fundcode);
             this.wallet.state = 'fetchSell';
         };
+    }
+
+    fillupGuardPrices() {
+        this.stocks.forEach(stock => {
+            if (stock.klines && stock.strategies) {
+                stock.strategies.applyKlines(stock.klines.klines);
+            }
+        });
     }
 }
 

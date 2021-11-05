@@ -51,7 +51,9 @@ class TradeProxy {
                     clearInterval(tabInterval);
                     if (r.result == 'success') {
                         emjyBack.onContentMessageReceived(r, this.tabid);
-                        this.closeTab();
+                        if (r.what.includes('委托编号')) {
+                            this.closeTab();
+                        }
                     };
                 };
             });

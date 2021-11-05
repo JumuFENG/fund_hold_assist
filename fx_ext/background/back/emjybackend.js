@@ -530,7 +530,9 @@ class EmjyBack {
     }
 
     tradeClosed() {
+        this.normalAccount.fillupGuardPrices();
         this.normalAccount.save();
+        this.collateralAccount.fillupGuardPrices();
         this.collateralAccount.save();
         tradeAnalyzer.save();
     }
