@@ -69,7 +69,6 @@ function onQuoteWorkerMessage(e) {
 
 class EmjyBack {
     constructor() {
-        this.log = null;
         this.mainTab = null;
         this.authencated = false;
         this.normalAccount = null;
@@ -85,8 +84,15 @@ class EmjyBack {
         this.manager = null;
     }
 
-    Init(logger) {
-        this.log = logger;
+    log(...args) {
+        var dt = new Date();
+        var l = '[' + dt.getHours() + ':' + dt.getMinutes() + ':' + dt.getSeconds()  + '] ' +  args.join(' ');
+        this.logs.push(l + '\n');
+        console.log(l);
+    }
+
+    Init() {
+        this.logs = [];
         emjyBack = this;
         this.stockMarket['511880'] = 'SH';
         if (!this.quoteWorker) {
@@ -535,6 +541,13 @@ class EmjyBack {
         this.collateralAccount.fillupGuardPrices();
         this.collateralAccount.save();
         tradeAnalyzer.save();
+        this.flushLogs();
+    }
+
+    flushLogs() {
+        var blob = new Blob(this.logs, {type: 'application/text'});
+        this.saveToFile(blob, 'stock.assist.log');
+        this.logs = [];
     }
 
     exportConfig() {

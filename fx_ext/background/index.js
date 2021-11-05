@@ -37,7 +37,7 @@
         } else if (message.command == 'emjy.contentLoaded') {
             if (!emjyBack) {
                 emjyBack = new EmjyBack();
-                emjyBack.Init(logInfo);
+                emjyBack.Init();
             }
             emjyBack.onContentLoaded(message, sender.tab.id);
             logInfo('emjy.Loaded', message.url);
@@ -46,7 +46,7 @@
         } else if (message.command.startsWith('mngr.')) {
             if (!emjyBack) {
                 emjyBack = new EmjyBack();
-                emjyBack.Init(logInfo);
+                emjyBack.Init();
             };
             if (sender.tab) {
                 emjyBack.onManagerMessageReceived(message, sender.tab.id);
