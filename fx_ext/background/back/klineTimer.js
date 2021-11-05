@@ -80,12 +80,10 @@ class KlineAlarms extends DailyAlarm {
     }
 }
 
-class RtpTimer {
+class OtpAlarm {
     constructor() {
         this.log = emjyBack.log;
         this.stocks = new Set();
-        this.rtInterval = null;
-        this.ticks = 5000;
     }
 
     addStock(code) {
@@ -96,6 +94,24 @@ class RtpTimer {
         if (this.stocks.has(code)) {
             this.stocks.delete(code);
         };
+    }
+
+    onTimer() {
+        this.stocks.forEach(s => {
+            emjyBack.fetchStockSnapshot(s);
+        });
+    }
+}
+
+class RtpTimer extends OtpAlarm {
+    constructor() {
+        super();
+        this.rtInterval = null;
+        this.ticks = 5000;
+    }
+
+    removeStock(code) {
+        super.removeStock(code);
         if (this.stocks.size == 0) {
             this.stopTimer();
         };

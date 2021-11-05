@@ -140,6 +140,10 @@ class StrategyBuy extends Strategy {
         this.hitCount = 0;
     }
 
+    guardLevel() {
+        return 'otp';  // one time prices;
+    }
+
     isBuyStrategy() {
         return true;
     }
@@ -154,6 +158,10 @@ class StrategyBuy extends Strategy {
 }
 
 class StrategyBuyPopup extends StrategyBuy {
+    guardLevel() {
+        return 'rtp';
+    }
+
     check(rtInfo) {
         var match = false;
         var stepInCritical = false;
@@ -236,6 +244,10 @@ class StrategySellRepeat extends StrategySell {
 }
 
 class StrategyBuyIPO extends StrategyBuy {
+    guardLevel() {
+        return 'rtp';
+    }
+
     check(rtInfo) {
         var match = false;
         var stepInCritical = false;

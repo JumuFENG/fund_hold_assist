@@ -115,6 +115,8 @@ class StrategyGroup {
                 emjyBack.klineAlarms.addStock(this.code, this.strategies[id].kltype());
             } else if (gl == 'kday') {
                 emjyBack.dailyAlarm.addStock(this.code, this.strategies[id].kltype());
+            } else if (gl == 'otp') {
+                emjyBack.otpAlarm.addStock(this.code);
             } else if (gl == 'rtp') {
                 emjyBack.rtpTimer.addStock(this.code);
             } else if (gl == 'zt') {

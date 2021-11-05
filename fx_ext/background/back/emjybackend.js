@@ -111,6 +111,9 @@ class EmjyBack {
         if (!this.dailyAlarm) {
             this.dailyAlarm = new DailyAlarm();
         };
+        if (!this.otpAlarm) {
+            this.otpAlarm = new OtpAlarm();
+        }
         this.setupQuoteAlarms();
         this.log('EmjyBack initialized!');
     }
@@ -394,6 +397,7 @@ class EmjyBack {
         } else if (alarmInfo.name == 'morning-start') {
             this.rtpTimer.startTimer();
             this.klineAlarms.startTimer();
+            this.otpAlarm.onTimer();
         } else if (alarmInfo.name == 'morning-middle') {
             this.tradeDailyRoutineTasks();
             this.rtpTimer.setTick(10000);
