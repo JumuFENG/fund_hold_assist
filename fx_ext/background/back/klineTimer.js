@@ -2,7 +2,6 @@
 
 class DailyAlarm {
     constructor() {
-        this.log = emjyBack.log;
         this.baseKlt = new Set(['1', '15', '101']);
         this.stocks = {};
         this.baseKlt.forEach(k => {
@@ -47,14 +46,14 @@ class KlineAlarms extends DailyAlarm {
             this.onTimer();
         }, 60000);
         this.onTimer();
-        this.log('kline timer started!');
+        emjyBack.log('kline timer started!');
     }
 
     stopTimer() {
         if (this.klineInterval) {
             clearInterval(this.klineInterval);
             this.klineInterval = null;
-            this.log('kline timer stopped! hitCount = ', this.hitCount);
+            emjyBack.log('kline timer stopped! hitCount = ', this.hitCount);
         };
     }
 
@@ -70,7 +69,7 @@ class KlineAlarms extends DailyAlarm {
             };
             if (fetch) {
                 if (kltype == '15') {
-                    this.log('hitCount = ', this.hitCount);
+                    emjyBack.log('hitCount = ', this.hitCount);
                 };
                 this.stocks[kltype].forEach(s => {
                     emjyBack.fetchStockKline(s, kltype);
@@ -83,7 +82,6 @@ class KlineAlarms extends DailyAlarm {
 
 class OtpAlarm {
     constructor() {
-        this.log = emjyBack.log;
         this.stocks = new Set();
     }
 
@@ -127,7 +125,7 @@ class RtpTimer extends OtpAlarm {
     }
 
     startTimer() {
-        this.log('RtpTimer started!');
+        emjyBack.log('RtpTimer started!');
         this.rtInterval = setInterval(() => {
             this.onTimer();
         }, this.ticks);
@@ -137,7 +135,7 @@ class RtpTimer extends OtpAlarm {
         if (this.rtInterval) {
             clearInterval(this.rtInterval);
             this.rtInterval = null;
-            this.log('RtpTimer stopped!');
+            emjyBack.log('RtpTimer stopped!');
         };
     }
 

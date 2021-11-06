@@ -4,8 +4,7 @@ let NewStockPurchasePath = '/Trade/NewBatBuy';
 let NewBondsPurchasePath = '/Trade/XzsgBatPurchase';
 
 class ManagerBack {
-    constructor(log) {
-        this.log = log;
+    constructor() {
         this.tabid = null;
     }
 
@@ -14,7 +13,7 @@ class ManagerBack {
     }
 
     onManagerMessage(message, tabid) {
-        this.log('ManagerBack ', JSON.stringify(message), tabid);
+        emjyBack.log('ManagerBack ', JSON.stringify(message), tabid);
         if (message.command == 'mngr.init') {
             this.tabid = tabid;
         } else if (message.command == 'mngr.closed') {
@@ -46,7 +45,7 @@ class ManagerBack {
         if (this.isValid()) {
             chrome.tabs.sendMessage(this.tabid, message);
         } else {
-            this.log('manager tab id is', this.tabid);
+            emjyBack.log('manager tab id is', this.tabid);
         }
     }
 
@@ -265,7 +264,7 @@ class EmjyBack {
 
     onManagerMessageReceived(message, tabid) {
         if (!this.manager) {
-            this.manager = new ManagerBack(this.log);
+            this.manager = new ManagerBack();
         }
 
         this.manager.onManagerMessage(message, tabid);

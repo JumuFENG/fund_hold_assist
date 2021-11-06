@@ -71,7 +71,7 @@ class StrategyGroup {
         if (connNum > 0) {
             data.transfers = transfers;
         };
-        if (this.buydetail && this.buyde.length > 0) {
+        if (this.buydetail && this.buydetail.length > 0) {
             data.buydetail = this.buydetail;
         }
         return JSON.stringify(data);

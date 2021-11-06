@@ -7,11 +7,10 @@ class Wallet {
         this.name = '';
         this.state = 'none';
         this.holdCount = 0;
-        this.log = emjyBack.log;
     }
 
     updateFundPrice(snapshot, account) {
-        this.log('updateFundPrice');
+        emjyBack.log('updateFundPrice');
         if (snapshot.code != this.fundcode) {
             return;
         };
@@ -37,7 +36,6 @@ class AccountInfo {
         this.assetsPath = null;
         this.stocks = [];
         this.wallet = null;
-        this.log = emjyBack.log;
     }
 
     initAccount(key, buyPath, sellPath, assetsPath) {
@@ -155,7 +153,7 @@ class AccountInfo {
     }
 
     updateStockRtPrice(snapshot) {
-        // this.log('updateStockRtPrice', JSON.stringify(snapshot));
+        // emjyBack.log('updateStockRtPrice', JSON.stringify(snapshot));
         if (this.wallet && snapshot.code == this.wallet.fundcode) {
             this.wallet.updateFundPrice(snapshot, this.keyword);
             return;
@@ -195,7 +193,7 @@ class AccountInfo {
         var stockInfo = {code, name};
 
         if (count < 100) {
-            this.log('Buy', code, name, 'price:', price, 'count: 1/', finalCount);
+            emjyBack.log('Buy', code, name, 'price:', price, 'count: 1/', finalCount);
             emjyBack.sendTradeMessage(this.buyPath, stockInfo, price, finalCount);
             return;
         };
@@ -208,7 +206,7 @@ class AccountInfo {
         moneyNeed = finalCount * price;
 
         if (this.availableMoney < moneyNeed) {
-            this.log('No availableMoney match');
+            emjyBack.log('No availableMoney match');
             return;
         }
         emjyBack.sendTradeMessage(this.buyPath, stockInfo, price, finalCount);
@@ -231,7 +229,7 @@ class AccountInfo {
                 finalCount = stockInfo.availableCount;
             }
             if (finalCount == 0) {
-                this.log('error: availableCount is 0', stockInfo.code, stockInfo.name);
+                emjyBack.log('error: availableCount is 0', stockInfo.code, stockInfo.name);
                 return;
             };
 
