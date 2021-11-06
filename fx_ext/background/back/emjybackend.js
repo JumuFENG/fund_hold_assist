@@ -165,10 +165,13 @@ class EmjyBack {
             var url = new URL(this.mainTab.url);
             this.authencated = url.pathname != '/Login';
             if (this.contentProxies.length > 0 && this.authencated) {
-                this.contentProxies.forEach(p => {
-                    p.triggerTask();
-                });
+                var trcnt = 0;
+                for (var i = 0; i < this.contentProxies.length && trcnt < 5; i++) {
+                    this.contentProxies[i].triggerTask();
+                    ++ trcnt;
+                }
             };
+            this.log('onContentLoaded', this.mainTab.url);
         } else {
             this.contentProxies.forEach(c => {
                 if (c.tabid == tabid) {
@@ -176,8 +179,6 @@ class EmjyBack {
                 };
             });
         };
-
-        this.log('onContentLoaded', this.mainTab.url);
     }
 
     // DON'T use this API directly, or it may break the task queue.
@@ -207,6 +208,12 @@ class EmjyBack {
                 this.contentProxies.splice(this.contentProxies.indexOf(c), 1);
             };
         });
+        for (var i = 0; i < this.contentProxies.length; i++) {
+            if (!this.contentProxies[i].triggered) {
+                this.contentProxies[i].triggerTask();
+                break;
+            }
+        }
     }
 
     onContentMessageReceived(message, tabid) {
@@ -528,7 +535,7 @@ class EmjyBack {
                 proxy.url += '&mt=' + market;
             };
         };
-        if (this.authencated) {
+        if (this.authencated && this.contentProxies.length < 5) {
             proxy.triggerTask();
         };
         this.contentProxies.push(proxy);
