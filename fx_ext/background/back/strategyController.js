@@ -217,6 +217,10 @@ class StrategySell extends Strategy {
         }
         return {match, stepInCritical, account: this.data.account};
     }
+
+    sellMatchUnavailable() {
+
+    }
 }
 
 class StrategyBuyRepeat extends StrategyBuyPopup {
@@ -507,7 +511,9 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
     sellMatch(refer) {
         this.data.enabled = true;
         this.data.inCritical = false;
-        this.data.kltype = refer.kltype;
+        if (refer.kltype !== undefined) {
+            this.data.kltype = refer.kltype;
+        }
     }
 
     checkKlines(klines, updatedKlt) {
@@ -566,7 +572,9 @@ class StrategySellMADynamic extends StrategySellMA {
     buyMatch(refer) {
         this.data.enabled = true;
         this.data.inCritical = false;
-        this.data.kltype = refer.kltype;
+        if (refer.kltype !== undefined) {
+            this.data.kltype = refer.kltype;
+        }
         if (refer.kltype - 100 > 0) {
             this.data.kltype = '60';
         }
@@ -604,6 +612,14 @@ class StrategySellMADynamic extends StrategySellMA {
                 };
             };
         };
+    }
+
+    sellMatchUnavailable() {
+        var kltypeCandiList = {'4': '8', '8': '15', '15':'30', '30':'60', '60':'120', '120':'101', '101': '202', '202': '404'};
+        var kltype = this.kltype();
+        this.data.kltype = kltypeCandiList[kltype];
+        this.inCritical = false;
+        this.enabled = true;
     }
 }
 

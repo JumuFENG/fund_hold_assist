@@ -71,6 +71,9 @@ class StrategyGroup {
         if (connNum > 0) {
             data.transfers = transfers;
         };
+        if (this.buydetail && this.buyde.length > 0) {
+            data.buydetail = this.buydetail;
+        }
         return JSON.stringify(data);
     }
 
@@ -78,6 +81,11 @@ class StrategyGroup {
         var data = {};
         data[this.storeKey] = this.tostring();
         chrome.storage.local.set(data);
+    }
+
+    getTodayDate() {
+        var now = new Date();
+        return now.getFullYear() + '-' + ('' + (now.getMonth()+1)).padStart(2, '0') + '-' + ('' + now.getDate()).padStart(2, '0');
     }
 
     setHoldCost(cost) {
@@ -93,10 +101,69 @@ class StrategyGroup {
         };
     }
 
-    setHoldCount(count) {
+    totalCount() {
+        if (!this.buydetail) {
+            return 0;
+        }
+        var count = 0;
+        for (var i = 0; i < this.buydetail.length; i++) {
+            count += this.buydetail[i].count;
+        }
+        return count;
+    }
+
+    availableCount() {
+        if (!this.buydetail) {
+            return 0;
+        }
+        var td = this.getTodayDate();
+        var count = 0;
+        for (var i = 0; i < this.buydetail.length; i++) {
+            if (this.buydetail[i].date < td) {
+                count += this.buydetail[i].count;
+            }
+        }
+        return count;
+    }
+
+    sellDetail(count) {
+        if (!this.buydetail) {
+            return;
+        }
+        var td = this.getTodayDate();
+        var soldCount = count;
+        for (var i = 0; i < this.buydetail.length && soldCount > 0; i++) {
+            if (this.buydetail[i].count - soldCount <= 0) {
+                this.buydetail[i].count = 0;
+                soldCount -= this.buydetail[i].count;
+            } else {
+                this.buydetail[i].count -= soldCount;
+                soldCount = 0;
+            }
+        }
+        var ndetail = [];
+        for (var i = 0; i < this.buydetail.length; i++) {
+            if (this.buydetail[i].count > 0) {
+                ndetail.push(this.buydetail[i]);
+            }
+        }
+        this.buydetail = ndetail;
+    }
+
+    setHoldCount(count, acount) {
         if (count === undefined || count <= 0) {
             return;
         };
+
+        if (!this.buydetail || this.totalCount() != count || this.availableCount() != acount) {
+            this.buydetail = [];
+            if (count == acount) {
+                this.buydetail.push({date: '0', count});
+            } else {
+                this.buydetail.push({date: '0', count: acount});
+                this.buydetail.push({date: this.getTodayDate(), count: count - acount});
+            }
+        }
 
         for (var id in this.strategies) {
             if (!this.strategies[id].isBuyStrategy()) {
@@ -192,11 +259,21 @@ class StrategyGroup {
                     if (curStrategy.guardLevel() == 'zt') {
                         emjyBack.ztBoardTimer.removeStock(rtInfo.code);
                     };
-                } else {
+                    if (this.buydetail) {
+                        this.buydetail.push({date: this.getTodayDate(), count: checkResult.count, price: checkResult.price});
+                    }
+                    this.onTradeMatch(id, {price: checkResult.price});
+                } else if (this.availableCount() >= checkResult.count) {
                     emjyBack.log('checkStrategies sell match', this.code, rtInfo.name, JSON.stringify(curStrategy));
                     emjyBack.trySellStock(this.code, checkResult.price, checkResult.count, this.account);
-                };
-                this.onTradeMatch(id, {price: checkResult.price});
+                    if (this.buydetail) {
+                        this.sellDetail(checkResult.count);
+                    }
+                    this.onTradeMatch(id, {price: checkResult.price});
+                } else {
+                    emjyBack.log('checkStrategies sell match, no available count to sell', this.code, rtInfo.name, JSON.stringify(curStrategy));
+                    curStrategy.sellMatchUnavailable();
+                }
             } else if (checkResult.stepInCritical) {
                 emjyBack.checkAvailableMoney(rtInfo.latestPrice, checkResult.account);
             };

@@ -372,7 +372,6 @@ class StockInfo {
         this.holdCost = stock.holdCost;
         this.holdCount = stock.holdCount;
         this.availableCount = stock.availableCount;
-        this.costDetail = [];
         this.latestPrice = null;
         this.strategies = null;
         this.klines = new KLine(this.code);

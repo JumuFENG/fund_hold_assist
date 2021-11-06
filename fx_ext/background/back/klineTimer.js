@@ -37,8 +37,9 @@ class KlineAlarms extends DailyAlarm {
     }
 
     addStock(code, kltype) {
-        super.addStock(code, kltype);
-        this.stocks['1'].add(code);
+        this.baseKlt.forEach(k => {
+            this.stocks[k].add(code);
+        });
     }
 
     startTimer() {

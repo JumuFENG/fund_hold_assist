@@ -255,7 +255,7 @@ class AccountInfo {
         };
         var strategyGroup = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
         strategyGroup.setHoldCost(stock.holdCost);
-        strategyGroup.setHoldCount(stock.holdCount);
+        strategyGroup.setHoldCount(stock.holdCount, stock.availableCount);
         strategyGroup.applyGuardLevel();
         stock.strategies = strategyGroup;
     }
