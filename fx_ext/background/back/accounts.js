@@ -275,7 +275,7 @@ class AccountInfo {
         if (stock) {
             return;
         };
-        this.stocks.push(new StockInfo({ code, name: '', holdCount: 0, availableCount: 0, market: '', watching: true}));
+        this.stocks.push(new StockInfo({ code, name: '', holdCount: 0, availableCount: 0, market: ''}));
         emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code});
     }
 
@@ -309,7 +309,7 @@ class AccountInfo {
         var configs = {};
         var stock_watching = [];
         this.stocks.forEach(s => {
-            if (s.holdCount == 0 && (s.watching || s.strategies)) {
+            if (s.strategies) {
                 stock_watching.push(s.code);
             };
             if (s.strategies) {
