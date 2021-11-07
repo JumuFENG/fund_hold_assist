@@ -222,6 +222,7 @@ class StockList {
                 e.currentTarget.appendChild(this.strategyGroupView.root);
                 this.currentCode = e.currentTarget.acccode;
                 var stk = this.accStockExists(this.currentCode);
+                this.strategyGroupView.latestPrice = stk.latestPrice;
                 this.strategyGroupView.initUi(stk.account, stk.code, stk.strategies);
             };
         };

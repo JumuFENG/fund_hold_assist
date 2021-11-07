@@ -173,8 +173,10 @@ class StrategySelectorView {
 class StrategyGroupView {
     constructor() {
         this.root = document.createElement('div');
+        this.strategyInfoContainer = document.createElement('div');
         this.strategySelectorContainer = document.createElement('div');
         this.newStrategyContainer = document.createElement('div');
+        this.root.appendChild(this.strategyInfoContainer);
         this.root.appendChild(this.strategySelectorContainer);
         this.root.appendChild(this.newStrategyContainer);
         this.newStrategyView = null;
@@ -183,6 +185,7 @@ class StrategyGroupView {
     }
 
     initUi(account, code, strGrp) {
+        utils.removeAllChild(this.strategyInfoContainer);
         utils.removeAllChild(this.strategySelectorContainer);
         utils.removeAllChild(this.newStrategyContainer);
         this.strategySelectors = [];
@@ -193,6 +196,7 @@ class StrategyGroupView {
         if (!this.strGrp.transfers) {
             this.strGrp.transfers = {};
         };
+        this.createGroupInfoView();
         var nextId = 0;
         if (this.strGrp.strategies) {
             for (var id in this.strGrp.strategies) {
@@ -210,6 +214,50 @@ class StrategyGroupView {
         this.newStrategyView.createView();
         this.newStrategyView.strGroupView = this;
         this.newStrategyContainer.appendChild(this.newStrategyView.root);
+    }
+
+    calcCount(amount, price) {
+        var ct = (amount / 100) / price;
+        var d = ct - Math.floor(ct);
+        if (d <= ct * 0.15) {
+            return 100 * Math.floor(ct);
+        };
+        return 100 * Math.ceil(ct);
+    }
+
+    createGroupInfoView() {
+        var ctDiv = document.createElement('div');
+        ctDiv.appendChild(document.createTextNode('满仓数量 '));
+        this.inputCount = document.createElement('input');
+        this.inputCount.style.maxWidth = 60;
+        ctDiv.appendChild(this.inputCount);
+        ctDiv.appendChild(document.createTextNode(' 金额 '));
+        this.inputAmount = document.createElement('input');
+        this.inputAmount.style.maxWidth = 80;
+        ctDiv.appendChild(this.inputAmount);
+        this.inputAmount.onchange = e => {
+            this.inputCount.value = this.calcCount(this.inputAmount.value, this.latestPrice);
+        }
+        this.inputCount.onchange = e => {
+            this.inputAmount.value = (this.inputCount.value * this.latestPrice).toFixed(2);
+        }
+
+        if (!this.strGrp || !this.strGrp.count0) {
+            var amount = 40000;
+            if (this.strGrp && this.strGrp.amount) {
+                amount = this.strGrp.amount;
+            }
+            this.inputAmount.value = amount;
+            this.inputCount.value = this.calcCount(amount, this.latestPrice);
+        } else {
+            this.inputCount.value = this.strGrp.count0;
+            if (this.latestPrice) {
+                this.inputAmount.value = (this.strGrp.count0 * this.latestPrice).toFixed(2);
+            } else if (this.strGrp.amount) {
+                this.inputAmount.value = this.strGrp.amount;
+            }
+        }
+        this.strategyInfoContainer.appendChild(ctDiv);
     }
 
     insertSelectorView(id, strategy, transId) {
@@ -251,6 +299,22 @@ class StrategyGroupView {
         for (var i = 0; i < this.strategySelectors.length; i++) {
             this.changed |= this.strategySelectors[i].isChanged();
         };
+        if (this.changed || this.strategySelectors.length > 0) {
+            if (this.inputCount && this.latestPrice) {
+                var count = parseInt(this.inputCount.value);
+                if (!this.strGrp.count0 || count != this.strGrp.count0) {
+                    this.strGrp.count0 = count;
+                    this.strGrp.amount = this.inputAmount.value;
+                    this.changed = true;
+                }
+            } else if (this.inputAmount) {
+                var amount = parseInt(this.inputAmount.value);
+                if (!this.strGrp.amount || amount != this.strGrp.amount) {
+                    this.strGrp.amount = amount;
+                    this.changed = true;
+                }
+            }
+        }
         return this.changed;
     }
 

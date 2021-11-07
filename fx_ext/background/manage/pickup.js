@@ -441,7 +441,7 @@ class ZtPool {
                 continue;
             };
             if (stocki.name.startsWith('N')) {
-                var strgrp = {grptype:'GroupStandard',transfers:{'0':{'transfer':'-1'}},strategies:{'0':{key:'StrategyBuyZT',enabled:true,backRate:0.01,stepRate:0.08,amount:10000}}};
+                var strgrp = {grptype:'GroupStandard',amount:10000,transfers:{'0':{'transfer':'-1'}},strategies:{'0':{key:'StrategyBuyZT',enabled:true,backRate:0.01,stepRate:0.08}}};
                 emjyManager.addWatchingStock(stocki.code, account, strgrp);
             };
         };

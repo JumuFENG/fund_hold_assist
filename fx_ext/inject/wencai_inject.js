@@ -128,10 +128,11 @@ class WencaiFront {
 		}
 		var strgrp = {
 			grptype: "GroupStandard",
+			amount: 5000,
 			transfers: {"0":{transfer: "2"}, "1":{transfer: "2"}, "2":{transfer: "1"}, "3":{transfer: "-1"}},
 			strategies: {
 				"0": strategy0,
-				"1": {key:"StrategyBuyMAD", enabled:false, amount:5000, account, kltype:"60"},
+				"1": {key:"StrategyBuyMAD", enabled:false, account, kltype:"60"},
 				"2": {key:"StrategySellMAD", enabled:false, kltype:"60"},
 				"3": {key:"StrategySellEL", enabled:false}
 			}

@@ -105,15 +105,6 @@ class Strategy {
         return 'rtp'; // real time prices;
     }
 
-    calcCount(amount, price) {
-        var ct = (amount / 100) / price;
-        var d = ct - Math.floor(ct);
-        if (d <= ct * 0.15) {
-            return 100 * Math.floor(ct);
-        };
-        return 100 * Math.ceil(ct);
-    }
-
     matchResult(match, price0, pricebk) {
         if (!match) {
             return {match};
@@ -121,15 +112,6 @@ class Strategy {
         var price = (price0 == '-' ? pricebk : price0);
         var result = {match, price};
         result.account = this.data.account;
-        if (this.data.count && this.data.count != 0) {
-            result.count = this.data.count;
-        } else if (this.count && this.count != 0) {
-            result.count = this.count;
-        } else if (this.data.amount && this.data.amount != 0) {
-            result.count = this.calcCount(this.data.amount, price);
-        } else {
-            result.count = this.calcCount(40000, price);
-        };
         return result;
     }
 }
@@ -189,10 +171,6 @@ class StrategyBuyPopup extends StrategyBuy {
 class StrategySell extends Strategy {
     isBuyStrategy() {
         return false;
-    }
-
-    setHoldCount(count) {
-        this.count = count;
     }
 
     check(rtInfo) {
@@ -457,10 +435,6 @@ class StrategyBuyMA extends StrategyBuy {
 }
 
 class StrategySellMA extends StrategySell {
-    setHoldCount(count) {
-        this.data.count = count;
-    }
-
     buyMatch(refer) {
         this.data.enabled = true;
         this.data.inCritical = false;

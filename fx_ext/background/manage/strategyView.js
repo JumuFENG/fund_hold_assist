@@ -76,6 +76,22 @@ class StrategyBaseView {
 
     }
 
+    isEqualNum(a, b) {
+        if (a == b) {
+            return true;
+        }
+        if (isNaN(a) && isNaN(b)) {
+            return true;
+        }
+        if (isNaN(a)) {
+            return !b;
+        }
+        if (isNaN(b)) {
+            return !a;
+        }
+        return false;
+    }
+
     isChanged() {
         var changed = false;
         if (this.enabledCheck) {
@@ -87,7 +103,7 @@ class StrategyBaseView {
 
         if (this.inputGuard) {
             var guardPrice = parseFloat(this.inputGuard.value);
-            if (!this.strategy.guardPrice || this.strategy.guardPrice != guardPrice) {
+            if (!this.isEqualNum(this.strategy.guardPrice, guardPrice)) {
                 changed = true;
                 this.strategy.guardPrice = guardPrice;
             }
@@ -95,7 +111,7 @@ class StrategyBaseView {
 
         if (this.inputPop) {
             var backRate = parseFloat(this.inputPop.value) / 100;
-            if (!this.strategy.backRate || this.strategy.backRate != backRate) {
+            if (!this.isEqualNum(this.strategy.backRate, backRate)) {
                 changed = true;
                 this.strategy.backRate = backRate;
             };
@@ -103,7 +119,7 @@ class StrategyBaseView {
 
         if (this.inputStep) {
             var stepRate = parseFloat(this.inputStep.value) / 100;
-            if (!this.strategy.stepRate || this.strategy.stepRate != stepRate) {
+            if (!this.isEqualNum(this.strategy.stepRate, stepRate)) {
                 this.strategy.stepRate = stepRate;
                 changed = true;
             };
@@ -111,7 +127,7 @@ class StrategyBaseView {
 
         if (this.inputCount) {
             var count = parseInt(this.inputCount.value);
-            if (!this.strategy.count || this.strategy.count != count) {
+            if (!this.isEqualNum(this.strategy.count, count)) {
                 changed = true;
                 this.strategy.count = count;
             };
@@ -119,7 +135,7 @@ class StrategyBaseView {
 
         if (this.inputAmount) {
             var amount = parseInt(this.inputAmount.value);
-            if (!this.strategy.amount || this.strategy.amount != amount) {
+            if (!this.isEqualNum(this.strategy.amount, amount)) {
                 changed = true;
                 this.strategy.amount = amount;
             };
@@ -273,7 +289,6 @@ class StrategyBuyView extends StrategyBaseView {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('直接买入'));
-        view.appendChild(this.createAmountDiv());
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }
@@ -285,7 +300,6 @@ class StrategyBuyPopupView extends StrategyBaseView {
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(this.createGuardInput('监控价格 <= '));
         view.appendChild(this.createPopbackInput('反弹幅度 '));
-        view.appendChild(this.createAmountDiv());
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }
@@ -321,7 +335,6 @@ class StrategyBuyRepeatView extends StrategyBaseView {
         view.appendChild(this.createReferedInput('参考价(前高) '));
         view.appendChild(this.createStepsInput('波段振幅 '));
         view.appendChild(this.createPopbackInput('反弹幅度 '));
-        view.appendChild(this.createAmountDiv());
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }
@@ -356,7 +369,6 @@ class StrategyBuyIPOView extends StrategyBaseView {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(this.createPopbackInput('反弹幅度 '));
-        view.appendChild(this.createAmountDiv());
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }
@@ -377,7 +389,6 @@ class StrategyBuyZTBoardView extends StrategyBaseView {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('打板买入'));
-        view.appendChild(this.createAmountDiv());
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }
@@ -439,7 +450,6 @@ class StrategyBuyMAView extends StrategyBaseView {
         view.appendChild(document.createTextNode(this.maDescription()));
         view.appendChild(this.createKlineTypeSelector());
         this.setDefaultKltype();
-        view.appendChild(this.createAmountDiv());
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }
@@ -471,7 +481,6 @@ class StrategyBuyBeforEndView extends StrategyBuyMAView {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('陆地朝阳(阴后阳缩量, 尾盘买入)'));
-        view.appendChild(this.createAmountDiv());
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }
