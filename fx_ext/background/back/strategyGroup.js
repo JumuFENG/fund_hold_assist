@@ -293,6 +293,7 @@ class StrategyGroup {
                     this.onTradeMatch(id, {price});
                 } else {
                     var count = this.availableCount();
+                    var countAll = this.totalCount();
                     if (count > 0) {
                         emjyBack.log('checkStrategies sell match', this.code, rtInfo.name, 'sell count:', count, JSON.stringify(curStrategy));
                         emjyBack.trySellStock(this.code, price, count, this.account);
@@ -300,7 +301,7 @@ class StrategyGroup {
                             this.sellDetail(count);
                         }
                         this.onTradeMatch(id, {price});
-                    } else {
+                    } else if (countAll > 0) {
                         emjyBack.log('checkStrategies sell match, no available count to sell', this.code, rtInfo.name, JSON.stringify(curStrategy));
                         curStrategy.sellMatchUnavailable();
                     }
