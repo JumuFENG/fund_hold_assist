@@ -51,7 +51,7 @@ class TradeProxy {
                     clearInterval(tabInterval);
                     if (r.result == 'success') {
                         emjyBack.onContentMessageReceived(r, this.tabid);
-                        if (r.what && r.what.includes('委托编号')) {
+                        if (r.what === undefined || r.what.includes('委托编号')) {
                             this.closeTab();
                         }
                     };

@@ -384,8 +384,8 @@ class StrategySellELShort extends StrategySellEL {
             guardPrice = latestPrice;
         } else if (latestPrice - averPrice * 1.08 >= 0 && guardPrice - latestPrice / 2 - averPrice / 2 < 0) {
             guardPrice = - (- latestPrice - averPrice) / 2;
-        } else if (latestPrice - averPrice * 1.03 >= 0 && averPrice - guardPrice > 0) {
-            guardPrice = averPrice;
+        } else if (latestPrice - averPrice * 1.04 >= 0 && averPrice - guardPrice > 0) {
+            guardPrice = averPrice * 1.01;
         };
         if (guardPrice - this.data.guardPrice > 0) {
             this.data.guardPrice = guardPrice;

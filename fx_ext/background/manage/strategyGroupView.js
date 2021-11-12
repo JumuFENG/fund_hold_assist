@@ -300,12 +300,14 @@ class StrategyGroupView {
             this.changed |= this.strategySelectors[i].isChanged();
         };
         if (this.changed || this.strategySelectors.length > 0) {
-            if (this.inputCount && this.latestPrice) {
+            if (this.inputCount) {
                 var count = parseInt(this.inputCount.value);
                 if (!this.strGrp.count0 || count != this.strGrp.count0) {
                     this.strGrp.count0 = count;
-                    this.strGrp.amount = this.inputAmount.value;
                     this.changed = true;
+                    if (this.latestPrice) {
+                        this.strGrp.amount = count * this.latestPrice;
+                    }
                 }
             } else if (this.inputAmount) {
                 var amount = parseInt(this.inputAmount.value);

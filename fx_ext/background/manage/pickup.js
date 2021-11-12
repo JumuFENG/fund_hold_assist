@@ -448,6 +448,7 @@ class ZtPool {
     }
 
     addToWatchList(ztStocks) {
+        return;
         var ztdate = this.dateToString(new Date(), '-');
         var account = 'normal';
         for (var i = 0; i < ztStocks.length; i++) {
