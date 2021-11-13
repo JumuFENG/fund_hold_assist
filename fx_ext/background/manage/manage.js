@@ -41,7 +41,7 @@ class Manager {
 
         if (!this.stockList) {
             this.stockList = new StockList(this.log);
-            this.page.root.appendChild(this.stockList.root);
+            this.page.initStockList(this.stockList.root);
         };
 
         var accstocks = [];
@@ -56,7 +56,6 @@ class Manager {
             };
         };
         this.stockList.initUi(accstocks);
-        //this.log(JSON.stringify(stocks));
     }
 
     initUi() {
@@ -67,14 +66,14 @@ class Manager {
 
         if (!this.stockList) {
             this.stockList = new StockList(this.log);
-            this.page.root.appendChild(this.stockList.root);
+            this.page.initStockList(this.stockList.root);
         };
 
         this.page.addWatchArea();
         if (!this.ztPool) {
             this.ztPool = new ZtPool(this.sendExtensionMessage);
         };
-        this.page.addPickUpArea(this.ztPool);
+        this.page.initZtPanel(this.ztPool);
     }
 
     addStock(code, account, strGrp = null) {
@@ -99,27 +98,25 @@ class Manager {
 class ManagerPage {
     constructor() {
         this.root = document.createElement('div');
-        var btnExport = document.createElement('button');
-        btnExport.textContent = '导出';
-        btnExport.onclick = e => {
-            emjyManager.sendExtensionMessage({command:'mngr.export'});
-        };
-        this.root.appendChild(btnExport);
-        var importDiv = document.createElement('div');
-        var fileIpt = document.createElement('input');
-        fileIpt.type = 'file';
-        fileIpt.multiple = false;
-        fileIpt.onchange = e => {
-            e.target.files[0].text().then(text => {
-                emjyManager.sendExtensionMessage({command:'mngr.import', config: JSON.parse(text)});
-            });
-        };
-        importDiv.appendChild(document.createTextNode('导入'));
-        importDiv.appendChild(fileIpt);
-        this.root.appendChild(importDiv);
+        this.navigator = new RadioAnchorBar();
+        this.navigator.addRadio('自选管理', function(that) {
+            that.showStocksList();
+        }, this);
+        this.navigator.addRadio('涨停管理', function(that) {
+            that.showZTPanel();
+        }, this);
+        this.navigator.addRadio('设置', function(that) {
+            that.showSettings();
+        }, this);
+        this.navigator.selectDefault();
+        this.root.appendChild(this.navigator.container);
     }
 
     addWatchArea() {
+        if (!this.stockListDiv) {
+            this.stockListDiv = document.createElement('div');
+            this.root.appendChild(this.stockListDiv);
+        }
         var watchDiv = document.createElement('div');
         var inputCode = document.createElement('input');
         watchDiv.appendChild(inputCode);
@@ -144,13 +141,80 @@ class ManagerPage {
             inputCode.value = '';
         };
         watchDiv.appendChild(btnOk);
-        this.root.appendChild(watchDiv);
+        this.stockListDiv.appendChild(watchDiv);
     }
 
-    addPickUpArea(ztPool) {
+    initStockList(stockList) {
+        if (!this.stockListDiv) {
+            this.stockListDiv = document.createElement('div');
+            this.root.appendChild(this.stockListDiv);
+        }
+        this.stockListDiv.appendChild(stockList);
+    }
+
+    showStocksList() {
+        if (this.settingsDiv) {
+            this.settingsDiv.style.display = 'none';
+        }
+        if (this.ztPanelDiv) {
+            this.ztPanelDiv.style.display = 'none';
+        }
+        if (this.stockListDiv) {
+            this.stockListDiv.style.display = 'block';
+        }
+    }
+
+    initZtPanel(ztPool) {
+        if (!this.ztPanelDiv) {
+            this.ztPanelDiv = document.createElement('div');
+            this.root.appendChild(this.ztPanelDiv);
+        }
         ztPool.createZtArea();
-        this.root.appendChild(document.createElement('hr'));
-        this.root.appendChild(ztPool.root);
+        this.ztPanelDiv.appendChild(ztPool.root);
+    }
+
+    showZTPanel() {
+        if (this.settingsDiv) {
+            this.settingsDiv.style.display = 'none';
+        }
+        if (this.stockListDiv) {
+            this.stockListDiv.style.display = 'none';
+        }
+        if (this.ztPanelDiv) {
+            this.ztPanelDiv.style.display = 'block';
+        }
+    }
+
+    showSettings() {
+        if (!this.settingsDiv) {
+            this.settingsDiv = document.createElement('div');
+            this.root.appendChild(this.settingsDiv);
+            var btnExport = document.createElement('button');
+            btnExport.textContent = '导出';
+            btnExport.onclick = e => {
+                emjyManager.sendExtensionMessage({command:'mngr.export'});
+            };
+            this.settingsDiv.appendChild(btnExport);
+            var importDiv = document.createElement('div');
+            var fileIpt = document.createElement('input');
+            fileIpt.type = 'file';
+            fileIpt.multiple = false;
+            fileIpt.onchange = e => {
+                e.target.files[0].text().then(text => {
+                    emjyManager.sendExtensionMessage({command:'mngr.import', config: JSON.parse(text)});
+                });
+            };
+            importDiv.appendChild(document.createTextNode('导入'));
+            importDiv.appendChild(fileIpt);
+            this.settingsDiv.appendChild(importDiv);
+        }
+        if (this.stockListDiv) {
+            this.stockListDiv.style.display = 'none';
+        }
+        if (this.ztPanelDiv) {
+            this.ztPanelDiv.style.display = 'none';
+        }
+        this.settingsDiv.style.display = 'block';
     }
 }
 

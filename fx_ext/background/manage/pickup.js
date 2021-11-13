@@ -11,7 +11,7 @@ class ZtPool {
         this.ztListDiv = null;
         this.emulator = null;
         this.ztpool = [];
-        this.ztData = [{ztcount: 1, ztStocks: []}, {ztcount: 2, ztStocks:[]}, {ztcount: 3, ztStocks:[]}];
+        this.ztData = {};
         this.gettingDate = null;
         this.gettingKline = new Set();
     }
@@ -181,13 +181,12 @@ class ZtPool {
                 var hsl = stock.hs;  // 换手率 %
                 var zbc = stock.zbc; // 炸板次数
                 var price = stock.p / 1000; // 最新价
-                for (var j = 0; j < this.ztData.length; j++) {
-                    if (this.ztData[j].ztcount == stock.lbc) {
-                        var stk = this.ztData[j].ztStocks.find(s => {return s.code == stock.c && s.ztdate == ztdate;});
-                        if (!stk) {
-                            this.ztData[j].ztStocks.push({name, code, m, ltsz, zsz, hsl, zbc, price, ztdate});
-                        };
-                    };
+                if (this.ztData[stock.lbc] === undefined) {
+                    this.ztData[stock.lbc] = [];
+                }
+                var stk = this.ztData[stock.lbc].find(s => {return s.code == stock.c && s.ztdate == ztdate;});
+                if (!stk) {
+                    this.ztData[stock.lbc].push({name, code, m, ltsz, zsz, hsl, zbc, price, ztdate});
                 };
             }
         };
@@ -220,25 +219,26 @@ class ZtPool {
                 if (fobj[0].ztdate !== undefined && Array.isArray(fobj[0].pool)) {
                     this.onSavedZTPoolLoaded(fobj);
                 };
-                if (fobj[0].ztcount !== undefined && Array.isArray(fobj[0].ztStocks)) {
-                    this.addMoreZTData(fobj);
-                    this.onZTDataLoaded()
-                };
-            };
+            } else if (fobj[1]|| fobj[2]) {
+                this.addMoreZTData(fobj);
+                this.onZTDataLoaded();
+            }
         });
     }
 
     addMoreZTData(fobj) {
-        for (var i = 0; i < fobj.length; i++) {
-            for (var j = 0; j < this.ztData.length; j++) {
-                if (this.ztData[j].ztcount == fobj[i].ztcount) {
-                    fobj[i].ztStocks.forEach(f => {
-                        if (!this.ztData[j].ztStocks.find(s => {return s.code == f.code && s.ztdate == f.ztdate;})) {
-                            this.ztData[j].ztStocks.push(f);
-                        };
-                    });
-                };
-            };
+        for (var i in fobj) {
+            if (this.ztData[i] === undefined) {
+                this.ztData[i] = [];
+            }
+            for (var j = 0; j < fobj[i].length; j++) {
+                var stk = this.ztData[i].find(s => {
+                    return s.code == fobj[i][j].code && s.ztdate == fobj[i][j].ztdate;
+                });
+                if (!stk) {
+                    this.ztData[i].push(fobj[i][j]);
+                }
+            }
         };
     }
 
@@ -353,13 +353,11 @@ class ZtPool {
     refreshZtPool() {
         if (!this.ztListDiv) {
             this.ztListDiv = document.createElement('div');
-            this.ztTable = new SortableTable();
-            this.zt2Table = new SortableTable();
-            this.zt3Table = new SortableTable();
-            this.ztListDiv.appendChild(this.ztTable.container);
-            this.ztListDiv.appendChild(this.zt2Table.container);
-            this.ztListDiv.appendChild(this.zt3Table.container);
             this.root.appendChild(this.ztListDiv);
+            this.ztRadioBar = new RadioAnchorBar();
+            this.ztListDiv.appendChild(this.ztRadioBar.container);
+            this.ztTable = new SortableTable();
+            this.ztListDiv.appendChild(this.ztTable.container);
         };
         if (!this.emulator) {
             this.emulator = new TradeEmulate();
@@ -367,22 +365,31 @@ class ZtPool {
             this.root.appendChild(emulateDiv);
             this.emulator.initUi(emulateDiv);
         };
-        for (var i = 0; i < this.ztData.length; i++) {
-            if (this.ztData[i].ztcount == 1) {
-                this.refreshZtTable(this.ztTable, this.ztData[i].ztStocks);
-                this.addNewStockToWatchList(this.ztData[i].ztStocks);
-            } else if (this.ztData[i].ztcount == 2) {
-                this.refreshZtTable(this.zt2Table, this.ztData[i].ztStocks);
-            } else if (this.ztData[i].ztcount == 3) {
-                this.refreshZtTable(this.zt3Table, this.ztData[i].ztStocks);
-                this.addToWatchList(this.ztData[i].ztStocks);
-            };
-        };
+        this.ztRadioBar.clearAllAnchors();
+        this.radioValues = [];
+        for (var i in this.ztData) {
+            this.ztRadioBar.addRadio(i > 1 ? i + '连板' : '首板', function(that) {
+                that.showZTTable();
+            }, this);
+            this.radioValues.push(i);
+        }
+        this.ztRadioBar.selectDefault();
     }
 
-    refreshZtTable(ztTable, ztStocks) {
-        ztTable.reset();
-        ztTable.setClickableHeader('序号', '名称(代码)', '总市值', '流通市值', '炸板次数', '换手率(%)', '首板价格', '首板日期', '次开', '次高', '次低', '次收', '3开', '3高', '3低', '3收');
+    showZTTable() {
+        var zt = this.radioValues[this.ztRadioBar.getHighlighted()];
+        if (this.ztData[zt]) {
+            this.refreshZtTable(zt);
+        }
+    }
+
+    refreshZtTable(zt) {
+        this.ztTable.reset();
+        var ztStocks = this.ztData[zt];
+        if (!ztStocks) {
+            return;
+        }
+        this.ztTable.setClickableHeader('序号', '名称(代码)', '总市值', '流通市值', '炸板次数', '换手率(%)', '首板价格', '首板日期', '次开', '次高', '次低', '次收', '3开', '3高', '3低', '3收');
         for (var i = 0; i < ztStocks.length; i++) {
             var stocki = ztStocks[i];
             if (stocki.kline && stocki.kline.length > 2) {
@@ -397,7 +404,7 @@ class ZtPool {
                 anchor.href = emStockUrl + (stocki.m == '0' ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
             };
             anchor.target = '_blank';
-            ztTable.addRow(
+            this.ztTable.addRow(
                 i + 1, anchor,
                 parseFloat(stocki.zsz.toFixed(4)),
                 parseFloat(stocki.ltsz.toFixed(4)),
@@ -419,7 +426,7 @@ class ZtPool {
 
     saveZtPool() {
         var date = this.dateToString(new Date());
-        if (this.ztData[0].ztStocks.length > 0) {
+        if (this.ztData) {
             var blob = new Blob([JSON.stringify(this.ztData)], {type: 'application/json'});
             var filename = 'StockDailyPrices/首板统计/ztpool' + date + '.json';
             this.sendExtensionMessage({command:'mngr.saveFile', blob, filename});

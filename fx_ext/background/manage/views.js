@@ -116,6 +116,13 @@ class RadioAnchorBar {
         this.radioAchors = [];
     }
 
+    clearAllAnchors() {
+        if (this.radioAchors.length > 0) {
+            utils.removeAllChild(this.container);
+            this.radioAchors = [];
+        }
+    }
+
     addRadio(text, cb, that) {
         var ra = document.createElement('a');
         ra.href = 'javascript:void(0)';
