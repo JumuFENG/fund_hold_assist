@@ -287,6 +287,9 @@ class StrategyGroup {
                     if (curStrategy.guardLevel() == 'zt') {
                         emjyBack.ztBoardTimer.removeStock(rtInfo.code);
                     };
+                    if (curStrategy.guardLevel() == 'opt') {
+                        emjyBack.otpAlarm.removeStock(rtInfo.code);
+                    }
                     if (this.buydetail) {
                         this.buydetail.push({date: this.getTodayDate(), count, price});
                     }
@@ -331,6 +334,7 @@ class StrategyGroup {
             };
             this.applyGuardLevel();
         };
+        this.save();
     }
 
     checkKlines(klines, updatedKlt) {
