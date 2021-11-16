@@ -11,13 +11,12 @@ class WencaiFront {
 	}
 
 	addSelectedStocks() {
-		var tableWrap = document.querySelector('#tableWrap');
-		var slistTable = tableWrap.querySelectorAll('table')[1];
+		var slistTable = document.querySelector('.iwc-table-body-outer').querySelector('table');
 		if (slistTable) {
 			var rows = slistTable.querySelectorAll('tr');
 			rows.forEach(r => {
-				var code = r.childNodes[5].textContent.trim();
-				if (r.querySelector('.checkbox').checked) {
+				var code = r.childNodes[3].textContent.trim();
+				if (r.querySelector('i.tr-selected')) {
 					this.addWatchingStock(code);
 				}
 			})
@@ -28,18 +27,17 @@ class WencaiFront {
 	}
 
 	patchClickEvents() {
-		var tableWrap = document.querySelector('#tableWrap');
-		var slistTable = tableWrap.querySelectorAll('table')[1];
+		var slistTable = document.querySelector('.iwc-table-body-outer').querySelector('table');
 		if (slistTable) {
 			var rows = slistTable.querySelectorAll('tr');
 			rows.forEach(r => {
-				var code = r.childNodes[5].textContent.trim();
+				var code = r.childNodes[3].textContent.trim();
 				var ekUrl = emStockUrl + this.stockMarketCode(code) + emStockUrlTail;
 				var alink = document.createElement('a');
 				alink.textContent = code;
 				alink.href = ekUrl;
 				alink.target = '_blank';
-				r.childNodes[5].onclick = e => {
+				r.childNodes[3].onclick = e => {
 					alink.click();
 				}
 			})
@@ -62,8 +60,8 @@ class WencaiFront {
 			this.patchClickEvents();
 			this.addActionButtons();
 		}
-		var bxTitle = document.querySelector('#boxTitle');
-		bxTitle.appendChild(patchBtn);
+		var barLeft = document.querySelector('.left-bar-ul', '.small-left-bar');
+		barLeft.insertBefore(patchBtn, barLeft.firstElementChild.nextElementSibling);
 	}
 
 	addActionButtons() {
@@ -71,12 +69,12 @@ class WencaiFront {
 		if (extendDiv === undefined || !extendDiv) {
 			extendDiv = document.createElement('div');
 			extendDiv.id = 'wencai_extend_div';
+			var leftCol = document.querySelector('.data-operate-and-table-screen');
+			leftCol.insertBefore(extendDiv, leftCol.firstElementChild);
 		}
 		while (extendDiv.hasChildNodes()) {
 			extendDiv.removeChild(extendDiv.lastChild);
 		}
-		var leftCol = document.querySelector('.left_col');
-		leftCol.appendChild(extendDiv);
 		this.addSelector = document.createElement('select');
 		var addOptions = [{key:'StrategyBuyMAE', name:'当日尾盘买入'}, {key:'StrategyBuy', name:'次日开盘买入'}];
 		for (var i = 0; i < addOptions.length; i++) {
@@ -122,14 +120,14 @@ class WencaiFront {
 		if (ownAccount != 'normal') {
 			ownAccount = 'collat';
 		}
-		var strategy0 = {key: this.addSelector.value, enabled: true, amount: 5000, account};
+		var strategy0 = {key: this.addSelector.value, enabled: true, account};
 		if (this.addSelector.value == 'StrategyBuyMAE') {
 			strategy0.kltype = '60';
 		}
 		var strgrp = {
 			grptype: "GroupStandard",
 			amount: 5000,
-			transfers: {"0":{transfer: "2"}, "1":{transfer: "2"}, "2":{transfer: "1"}, "3":{transfer: "-1"}},
+			transfers: {"0":{transfer: "2"}, "1":{transfer: "2"}, "2":{transfer: "1"}, "3":{transfer: "1"}},
 			strategies: {
 				"0": strategy0,
 				"1": {key:"StrategyBuyMAD", enabled:false, account, kltype:"60"},
