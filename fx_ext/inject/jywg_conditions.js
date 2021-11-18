@@ -23,8 +23,7 @@ class JywgUtils {
                     holdCount: rowCells[2].textContent,
                     availableCount: rowCells[3].textContent,
                     holdCost: rowCells[4].textContent,
-                    latestPrice: rowCells[5].textContent,
-                    market: rowCells[9].textContent == '深圳A股' ? 'SZ' : "SH"
+                    latestPrice: rowCells[5].textContent
                 };
                 stocks.push(stockInfo);
             }

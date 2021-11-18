@@ -89,7 +89,7 @@ function getKlineDailySince(code, date, len, market) {
 }
 
 function klineback(kline) {
-    postMessage({command: 'quote.get.kline', kline});
+    postMessage({command: 'quote.get.kline', kltype:'101', kline});
 }
 
 function getKlineRt(code, klt, market) {

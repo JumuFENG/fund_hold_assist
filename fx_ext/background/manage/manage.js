@@ -10,8 +10,24 @@ class Manager {
         this.page = null;
         this.stockList = null;
         this.ztPool = null;
+        this.klines = {};
         this.accountNames = {'normal':'普通账户', 'collat': '担保品账户', 'credit': '融资账户'};
         this.accountsMap = {'normal': ['normal'], 'collat': ['credit', 'collat']};
+        this.zt1stocks = [];
+        chrome.storage.local.get('ztstocks', item => {
+            if (item && item['ztstocks']) {
+                this.zt1stocks = item['ztstocks'];
+                for (var i = 0; i < this.zt1stocks.length; i++) {
+                    this.loadKlines(this.zt1stocks[i].code, this.zt1stocks[i].ztdate);
+                }
+            }
+        });
+        this.delstocks = [];
+        chrome.storage.local.get('ztdels', item => {
+            if (item && item['ztdels']) {
+                this.delstocks = item['ztdels'];
+            }
+        });
     }
 
     sendExtensionMessage(message) {
@@ -26,10 +42,67 @@ class Manager {
                 this.ztPool.onZTPoolback(message.ztpool);
             };
         } else if (message.command == 'mngr.getkline') {
-            if (this.ztPool) {
-                this.ztPool.updateKline(message.kline);
-            };
+            var code = message.kline.data.code;
+            if (this.klines[code] === undefined) {
+                this.klines[code] = new KLine(code);
+            }
+            this.klines[code].updateRtKline(message);
+            this.klines[code].save();
+            this.updateZt1stockInfo(code);
         }
+    }
+
+    getZT1StockKline(code, ztdate) {
+        var zdate = new Date(ztdate);
+        zdate.setMonth(zdate.getMonth() - 1);
+        if (!this.klines[code]) {
+            this.klines[code] = new KLine(code);
+        } else if (this.klines[code].klines && this.klines[code].klines['101'].length > 1) {
+            zdate = new Date(this.klines[code].klines['101'][this.klines[code].klines['101'].length - 1].time);
+        }
+        zdate.setHours(15);
+        if (new Date() - zdate > 24 * 3600000) {
+            var date = zdate.getFullYear()  + ('' + (zdate.getMonth() + 1)).padStart(2, '0') + ('' + zdate.getDate()).padStart(2, '0');
+            this.sendExtensionMessage({command:'mngr.getkline', code, date});
+        }
+    }
+
+    loadKlines(code) {
+        if (this.klines[code] === undefined) {
+            this.klines[code] = new KLine(code);
+        }
+        this.klines[code].loadSaved();
+    }
+
+    addZt1Stock(stkzt) {
+        var stk = this.zt1stocks.find(s => {
+            return s.code == stkzt.code && s.ztdate == stkzt.ztdate;
+        });
+        if (!stk) {
+            this.zt1stocks.push(stkzt);
+        }
+        if (!this.klines[stkzt.code] || !this.klines[stkzt.code].klines) {
+            this.getZT1StockKline(stkzt.code, stkzt.ztdate);
+        }
+    }
+
+    updateZt1stockInfo(code) {
+        this.zt1stocks.forEach(s => {
+            if (s.code == code && s.vscale === undefined) {
+                var vscale = this.klines[code].getVolScale('101', s.ztdate, 10);
+                if (vscale < 0.1) {
+                    s.vscale = 0;
+                } else if (vscale < 0.8) {
+                    s.vscale = 1;
+                } else if (vscale < 1.2) {
+                    s.vscale = 2;
+                } else if (vscale < 4) {
+                    s.vscale = 3;
+                } else {
+                    s.vscale = 4;
+                }
+            }
+        })
     }
 
     initStocks(stocks) {
@@ -102,8 +175,11 @@ class ManagerPage {
         this.navigator.addRadio('自选管理', function(that) {
             that.showStocksList();
         }, this);
-        this.navigator.addRadio('涨停管理', function(that) {
+        this.navigator.addRadio('涨停一览', function(that) {
             that.showZTPanel();
+        }, this);
+        this.navigator.addRadio('选股入口', function(that) {
+            that.showPickupPanel();
         }, this);
         this.navigator.addRadio('设置', function(that) {
             that.showSettings();
@@ -124,7 +200,7 @@ class ManagerPage {
         var accounts = ['normal', 'collat'];
         for (var i in emjyManager.accountsMap) {
             var opt = document.createElement('option');
-            opt.value = i
+            opt.value = i;
             opt.textContent = emjyManager.accountNames[i];
             watchAccountSelector.appendChild(opt);
         };
@@ -159,6 +235,9 @@ class ManagerPage {
         if (this.ztPanelDiv) {
             this.ztPanelDiv.style.display = 'none';
         }
+        if (this.pickupDiv && this.pickupDiv.style.display != 'none') {
+            this.pickupDiv.style.display = 'none';
+        }
         if (this.stockListDiv) {
             this.stockListDiv.style.display = 'block';
         }
@@ -180,9 +259,32 @@ class ManagerPage {
         if (this.stockListDiv) {
             this.stockListDiv.style.display = 'none';
         }
+        if (this.pickupDiv && this.pickupDiv.style.display != 'none') {
+            this.pickupDiv.style.display = 'none';
+        }
         if (this.ztPanelDiv) {
             this.ztPanelDiv.style.display = 'block';
         }
+    }
+
+    showPickupPanel() {
+        if (this.stockListDiv) {
+            this.stockListDiv.style.display = 'none';
+        }
+        if (this.ztPanelDiv) {
+            this.ztPanelDiv.style.display = 'none';
+        }
+        if (this.settingsDiv) {
+            this.settingsDiv.style.display = 'none';
+        }
+        if (!this.pickupDiv) {
+            this.pickupDiv = document.createElement('div');
+            this.root.appendChild(this.pickupDiv);
+            this.pickupPanel = new PickupPanel();
+            this.pickupPanel.showSelectedTable();
+            this.pickupDiv.appendChild(this.pickupPanel.root);
+        }
+        this.pickupDiv.style.display = 'block';
     }
 
     showSettings() {
@@ -213,6 +315,9 @@ class ManagerPage {
         }
         if (this.ztPanelDiv) {
             this.ztPanelDiv.style.display = 'none';
+        }
+        if (this.pickupDiv && this.pickupDiv.style.display != 'none') {
+            this.pickupDiv.style.display = 'none';
         }
         this.settingsDiv.style.display = 'block';
     }

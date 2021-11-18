@@ -297,7 +297,8 @@ class EmjyBack {
         } else if (message.command == 'quote.get.ZTPool') {
             this.manager.sendManagerMessage({command:'mngr.getZTPool', ztpool: message.ztpool});
         } else if (message.command == 'quote.get.kline') {
-            this.manager.sendManagerMessage({command:'mngr.getkline', kline: message.kline});
+            message.command = 'mngr.getkline';
+            this.manager.sendManagerMessage(message);
         } else if (message.command == 'quote.kline.rt') {
             this.updateStockRtKline(message);
         };
@@ -552,7 +553,7 @@ class EmjyBack {
         this.normalAccount.save();
         this.collateralAccount.fillupGuardPrices();
         this.collateralAccount.save();
-        tradeAnalyzer.save();
+        //tradeAnalyzer.save();
         this.flushLogs();
     }
 

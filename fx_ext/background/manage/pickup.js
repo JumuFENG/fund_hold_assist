@@ -1,6 +1,8 @@
 let futuStockUrl = 'https://www.futunn.com/stock/';
 let emStockUrl = 'http://quote.eastmoney.com/concept/';
 let emStockUrlTail = '.html#fschart-k';
+let stockPriceRanges = {0:'低位', 1:'高位', 2:'上涨中继', 3:'下跌中继'};
+let stockVolScales = {0:'微量', 1:'缩量', 2:'平量', 3:'放量', 4:'天量'};
 var startDate = new Date('2021-07-23');
 var endDate = new Date('2021-07-23');
 
@@ -13,7 +15,6 @@ class ZtPool {
         this.ztpool = [];
         this.ztData = {};
         this.gettingDate = null;
-        this.gettingKline = new Set();
     }
 
     dateToString(dt, sep = '') {
@@ -221,7 +222,7 @@ class ZtPool {
                 };
             } else if (fobj[1]|| fobj[2]) {
                 this.addMoreZTData(fobj);
-                this.onZTDataLoaded();
+                this.refreshZtPool();
             }
         });
     }
@@ -244,31 +245,9 @@ class ZtPool {
 
     onSavedZTPoolLoaded(ztpool) {
         this.archiveZTPool(ztpool);
-        this.onZTDataLoaded();
+        this.refreshZtPool();
         // var ztstats = new ZtPoolStats();
         // ztstats.onSavedZTPoolLoaded(ztpool);
-    }
-
-    onZTDataLoaded() {
-        for (var i = 0; i < this.ztData.length; i++) {
-            for (var j = 0; j < this.ztData[i].ztStocks.length; j++) {
-                var stocki = this.ztData[i].ztStocks[j];
-                var code = stocki.code;
-                var date = this.getNextDate(stocki.ztdate);
-                if (stocki.kline && stocki.kline.length > 0) {
-                    var len = stocki.kline.length;
-                    if (len >= 20) {
-                        continue;
-                    };
-                    date = this.getNextDate(stocki.kline[len - 1].date);
-                };
-                if (date <= this.getLastTradingDate() && !this.gettingKline.has(code)) {
-                    this.sendExtensionMessage({command:'mngr.getkline', code, date, len: 20});
-                    this.gettingKline.add(code);
-                };
-            };
-        };
-        this.refreshZtPool();
     }
 
     onMergeZTPools(files) {
@@ -289,64 +268,6 @@ class ZtPool {
                     this.sendExtensionMessage({command:'mngr.saveFile', blob, filename});
                 };
             });
-        };
-    }
-
-    parseKlines(kline) {
-        var klines = [];
-        for (var i = 0; kline && i < kline.length; i++) {
-            var kl = kline[i].split(',');
-            var date = kl[0];
-            var o = kl[1];
-            var c = kl[2];
-            var h = kl[3];
-            var l = kl[4];
-            klines.push({date, o, c, h, l});
-        };
-        return klines;
-    }
-
-    updateKline(kline) {
-        var klines = this.parseKlines(kline.data.klines);
-        for (var i = 0; i < this.ztData.length; i++) {
-            this.ztData[i].ztStocks.forEach(s => {
-                if (s.code == kline.data.code) {
-                    if (!s.kline || s.kline.length < 20) {
-                        this.updateKlineTo(s, klines);
-                    };
-                };
-            });
-        };
-        
-        if (this.gettingKline.has(kline.data.code)) {
-            this.gettingKline.delete(kline.data.code);
-        };
-
-        if (this.gettingKline.size == 0) {
-            this.refreshZtPool();
-        };
-    }
-
-    updateKlineTo(stock, klines) {
-        if (!stock) {
-            return;
-        };
-        if (!stock.name) {
-            stock.name = kline.data.name;
-        };
-
-        if (!stock.kline) {
-            stock.kline = [];
-        };
-        var len = stock.kline.length;
-        var lastDate = (len == 0 ? stock.ztdate : stock.kline[len-1].date);
-        for (var i = 0; i < klines.length; i++) {
-            if (klines[i].date > lastDate) {
-                stock.kline.push(klines[i]);
-            };
-            if (stock.kline.length >= 20) {
-                break;
-            };
         };
     }
 
@@ -389,20 +310,20 @@ class ZtPool {
         if (!ztStocks) {
             return;
         }
-        this.ztTable.setClickableHeader('序号', '名称(代码)', '总市值', '流通市值', '炸板次数', '换手率(%)', '首板价格', '首板日期', '次开', '次高', '次低', '次收', '3开', '3高', '3低', '3收');
+        var zttitle = zt > 1 ? zt + '连板' : '首板';
+        this.ztTable.setClickableHeader('序号', '名称(代码)', '总市值', '流通市值', '炸板次数', '换手率(%)', zttitle + '价格', zttitle + '日期');
         for (var i = 0; i < ztStocks.length; i++) {
             var stocki = ztStocks[i];
-            if (stocki.kline && stocki.kline.length > 2) {
-                // skipt old data;
-                continue;
-            };
+            if (zt == 1) {
+                emjyManager.addZt1Stock(stocki);
+            }
             var anchor = document.createElement('a');
             anchor.textContent = stocki.name + '(' + stocki.code + ')';
-            if (stocki.url !== undefined) {
-                anchor.href = stocki.url;
-            } else if (stocki.m !== undefined) {
+            if (stocki.m !== undefined) {
                 anchor.href = emStockUrl + (stocki.m == '0' ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
-            };
+            } else {
+                anchor.href = emStockUrl + (stocki.code.startsWith('00') ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
+            }
             anchor.target = '_blank';
             this.ztTable.addRow(
                 i + 1, anchor,
@@ -412,16 +333,8 @@ class ZtPool {
                 parseFloat(stocki.hsl.toFixed(2)),
                 stocki.price,
                 stocki.ztdate,
-                stocki.kline && stocki.kline.length > 0 ? stocki.kline[0].o : '',
-                stocki.kline && stocki.kline.length > 0 ? stocki.kline[0].h : '',
-                stocki.kline && stocki.kline.length > 0 ? stocki.kline[0].l : '',
-                stocki.kline && stocki.kline.length > 0 ? stocki.kline[0].c : '',
-                stocki.kline && stocki.kline.length > 1 ? stocki.kline[1].o : '',
-                stocki.kline && stocki.kline.length > 1 ? stocki.kline[1].h : '',
-                stocki.kline && stocki.kline.length > 1 ? stocki.kline[1].l : '',
-                stocki.kline && stocki.kline.length > 1 ? stocki.kline[1].c : '',
                 );
-        };
+        }
     }
 
     saveZtPool() {
@@ -468,6 +381,174 @@ class ZtPool {
         };
     }
 };
+
+class PickupPanel {
+    constructor() {
+        this.root = document.createElement('div');
+        this.selectedTable = new SortableTable();
+        this.root.appendChild(this.selectedTable.container);
+        var saveBtn = document.createElement('button');
+        saveBtn.textContent = '保存';
+        saveBtn.onclick = e => {
+            this.save();
+        }
+        this.root.appendChild(saveBtn);
+    }
+
+    showSelectedTable() {
+        this.selectedTable.reset();
+        this.selectedTable.setClickableHeader('删除', '代码', '名称', '日期', '放量程度', '股价区间', '低点日', '高点日', '删除日');
+        for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
+            var stocki = emjyManager.zt1stocks[i];
+            var delBtn = document.createElement('button');
+            delBtn.textContent = 'x';
+            delBtn.idx = i;
+            delBtn.onclick = e => {
+                this.removeSelected(e.target.idx);
+            }
+            var anchor = document.createElement('a');
+            anchor.textContent = stocki.name;
+            if (stocki.m !== undefined) {
+                anchor.href = emStockUrl + (stocki.m == '0' ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
+            } else {
+                anchor.href = emStockUrl + (stocki.code.startsWith('00') ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
+            }
+            anchor.target = '_blank';
+
+            var vol = document.createElement('select');
+            for (var v in stockVolScales) {
+                var opt = document.createElement('option');
+                opt.value = v;
+                opt.textContent = stockVolScales[v];
+                vol.appendChild(opt);
+            }
+            if (stocki.vscale) {
+                vol.value = stocki.vscale;
+            } else {
+                vol.value = 2;
+            }
+            if (vol.value == 3) {
+                vol.style.backgroundColor = 'red';
+            } else if (vol.value > 3) {
+                vol.style.backgroundColor = 'deeppink';
+            }
+            vol.idx = i;
+            vol.onchange = e => {
+                this.setVolScale(e.target.idx, e.target.value);
+            }
+            var prng = document.createElement('select');
+            var opt0 = document.createElement('option');
+            opt0.textContent = '--------';
+            opt0.disabled = true;
+            opt0.selected = true;
+            prng.appendChild(opt0);
+            for (var p in stockPriceRanges) {
+                var opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = stockPriceRanges[p];
+                prng.appendChild(opt);
+            }
+            if (stocki.prng) {
+                prng.value = stocki.prng;
+            }
+            if (prng.value == 0) {
+                prng.style.backgroundColor = 'red';
+            }
+            prng.idx = i;
+            prng.onchange = e => {
+                this.setPrng(e.target.idx, e.target.value);
+                if (e.target.value == 0) {
+                    e.target.style.backgroundColor = 'red';
+                } else {
+                    e.target.style.backgroundColor = '';
+                }
+            }
+            var lowdate = document.createElement('input');
+            lowdate.idx = i;
+            lowdate.style.maxWidth = 80;
+            lowdate.value = stocki.lowdt ? stocki.lowdt : stocki.ztdate;
+            lowdate.onchange = e => {
+                this.setLowDate(e.target.idx, e.target.value);
+            }
+            var highdate = document.createElement('input');
+            highdate.idx = i;
+            highdate.style.maxWidth = 80;
+            highdate.value = stocki.hidate ? stocki.hidate : stocki.ztdate;
+            highdate.onchange = e => {
+                this.setHighDate(e.target.idx, e.target.value);
+            }
+            var deldate = document.createElement('input');
+            deldate.idx = i;
+            deldate.style.maxWidth = 80;
+            deldate.value = stocki.rmvdate ? stocki.rmvdate : stocki.ztdate;
+            deldate.onchange = e => {
+                this.setDelDate(e.target.idx, e.target.value);
+            }
+            this.selectedTable.addRow(
+                delBtn,
+                stocki.code,
+                anchor,
+                stocki.ztdate,
+                vol,
+                prng,
+                lowdate,
+                highdate,
+                deldate
+                );
+        }
+    }
+
+    removeSelected(idx) {
+        emjyManager.zt1stocks.splice(idx, 1);
+        this.showSelectedTable();
+    }
+
+    setVolScale(idx, val) {
+        emjyManager.zt1stocks[idx].vscale = val;
+    }
+
+    setPrng(idx, val) {
+        emjyManager.zt1stocks[idx].prng = val;
+    }
+
+    setLowDate(idx, date) {
+        if (emjyManager.zt1stocks[idx].lowdt === undefined && emjyManager.zt1stocks[idx].ztdate == date) {
+            return;
+        }
+        emjyManager.zt1stocks[idx].lowdt = date;
+    }
+
+    setHighDate(idx, date) {
+        if (emjyManager.zt1stocks[idx].hidate === undefined && emjyManager.zt1stocks[idx].ztdate == date) {
+            return;
+        }
+        emjyManager.zt1stocks[idx].hidate = date;
+    }
+
+    setDelDate(idx, date) {
+        if (emjyManager.zt1stocks[idx].rmvdate === undefined && emjyManager.zt1stocks[idx].ztdate == date) {
+            return;
+        }
+        emjyManager.zt1stocks[idx].rmvdate = date;
+    }
+
+    save() {
+        var zt1stocks = [];
+        var ztdels = emjyManager.delstocks;
+        for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
+            var stocki = emjyManager.zt1stocks[i];
+            if (stocki.rmvdate !== undefined && stocki.rmvdate > stocki.ztdate) {
+                if (!ztdels.find(s => {s.code == stocki.code && s.ztdate == stocki.ztdate})) {
+                    ztdels.push(stocki);
+                }
+            } else {
+                zt1stocks.push(stocki);
+            }
+        }
+        chrome.storage.local.set({'ztstocks': zt1stocks});
+        chrome.storage.local.set({'ztdels': ztdels});
+    }
+}
 
 class TradeEmulate {
     constructor() {

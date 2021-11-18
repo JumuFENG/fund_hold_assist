@@ -105,9 +105,11 @@ class AccountInfo {
             stockInfo.holdCount = parseInt(stocks[i].holdCount);
             stockInfo.availableCount = parseInt(stocks[i].availableCount);
             stockInfo.holdCost = stocks[i].holdCost;
-            stockInfo.market = stocks[i].market;
+            if (stocks[i].market !== undefined) {
+                stockInfo.market = stocks[i].market;
+                emjyBack.stockMarket[stocks[i].code] = stocks[i].market;
+            }
             stockInfo.latestPrice = stocks[i].latestPrice;
-            emjyBack.stockMarket[stocks[i].code] = stocks[i].market;
         };
     }
 

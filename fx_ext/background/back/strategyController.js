@@ -506,6 +506,10 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
             return;
         };
 
+        if (kltype == '60') {
+            return;
+        }
+        
         var gklt = this.kltypeCandiList[kltype];
         if (gklt && updatedKlt.includes(gklt)) {
             var gKlines = klines.getKline(gklt);
@@ -526,11 +530,11 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
                 };
             };
             if (tailWCount >= 5) {
-                if (gklt == '404') {
-                    this.enabled = false;
-                } else {
-                    this.data.kltype = gklt;
-                };
+                // if (gklt == '404') {
+                //     this.data.enabled = false;
+                // } else {
+                // };
+                this.data.kltype = gklt;
             };
         };
     }
@@ -592,8 +596,8 @@ class StrategySellMADynamic extends StrategySellMA {
         var kltypeCandiList = {'4': '8', '8': '15', '15':'30', '30':'60', '60':'120', '120':'101', '101': '202', '202': '404'};
         var kltype = this.kltype();
         this.data.kltype = kltypeCandiList[kltype];
-        this.inCritical = false;
-        this.enabled = true;
+        this.data.inCritical = false;
+        this.data.enabled = true;
     }
 }
 

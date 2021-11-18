@@ -262,7 +262,7 @@ class StrategyGroup {
 
     getBuyCount(price) {
         if (!this.count0 || this.count0 <= 0) {
-            var amount = 40000;
+            var amount = 10000;
             if (this.amount && this.amount > 0) {
                 amount = this.amount;
             };
