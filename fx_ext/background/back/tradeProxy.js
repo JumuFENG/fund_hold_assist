@@ -40,19 +40,20 @@ class TradeProxy {
         var tabInterval = setInterval(() => {
             chrome.tabs.sendMessage(this.tabid, this.task, r => {
                 if (r.command == this.task.command && r.status == 'success') {
-                    console.log(this.tabid, r);
                     if (r.result == 'error' && r.reason == 'maxCountInvalid') {
                         if (this.retry < 10) {
                             this.retry++;
                             return;
                         };
-                        console.log('retry ', this.retry);
+                        emjyBack.log('retry ', this.retry);
                     };
                     clearInterval(tabInterval);
                     if (r.result == 'success') {
                         emjyBack.onContentMessageReceived(r, this.tabid);
                         if (r.what === undefined || r.what.includes('委托编号')) {
                             this.closeTab();
+                        } else {
+                            emjyBack.log(this.tabid, JSON.stringify(r));
                         }
                     };
                 };

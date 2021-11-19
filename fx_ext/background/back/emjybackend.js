@@ -225,7 +225,7 @@ class EmjyBack {
         if (message.command == 'emjy.getValidateKey') {
             this.log('getValidateKey =', message.key);
         } else if (message.command == 'emjy.getAssets') {
-            this.log('update assets', JSON.stringify(message));
+            // this.log('update assets', JSON.stringify(message));
             if (message.assetsPath == this.normalAccount.assetsPath) {
                 this.normalAccount.pureAssets = parseFloat(message.pureAssets);
                 this.normalAccount.availableMoney = parseFloat(message.availableMoney);
