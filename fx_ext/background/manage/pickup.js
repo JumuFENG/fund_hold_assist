@@ -393,16 +393,28 @@ class PickupPanel {
             this.save();
         }
         this.root.appendChild(saveBtn);
+        var nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Next';
+        nextBtn.onclick = e => {
+            this.showNext();
+        }
+        this.root.appendChild(nextBtn);
     }
 
     showSelectedTable() {
         this.selectedTable.reset();
         this.selectedTable.setClickableHeader('删除', '代码', '名称', '日期', '放量程度', '股价区间', '低点日', '高点日', '删除日');
-        for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
-            var stocki = emjyManager.zt1stocks[i];
+        for (var j = 0; j < emjyManager.zt1stocks.length; j++) {
+            var code = emjyManager.zt1stocks[j].code;
+            var dups = emjyManager.zt1stocks.filter(s=>s.code == code);
+            if (dups.length == 1) {
+                continue;
+            }
+            for (var i = 0; i < dups.length; i++) {
+            var stocki = dups[i];
             var delBtn = document.createElement('button');
             delBtn.textContent = 'x';
-            delBtn.idx = i;
+            delBtn.idx = emjyManager.zt1stocks.findIndex(s=>s.code == stocki.code && s.ztdate == stocki.ztdate);
             delBtn.onclick = e => {
                 this.removeSelected(e.target.idx);
             }
@@ -495,11 +507,29 @@ class PickupPanel {
                 highdate,
                 deldate
                 );
+            }
+            break;
         }
     }
 
     removeSelected(idx) {
         emjyManager.zt1stocks.splice(idx, 1);
+        this.showSelectedTable();
+    }
+
+    showNext() {
+        var zt1stocks = [];
+        for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
+            var stocki = emjyManager.zt1stocks[i];
+            if (stocki.rmvdate !== undefined && stocki.rmvdate > stocki.ztdate) {
+                if (!emjyManager.delstocks.find(s => {s.code == stocki.code && s.ztdate == stocki.ztdate})) {
+                    emjyManager.delstocks.push(stocki);
+                }
+            } else {
+                zt1stocks.push(stocki);
+            }
+        }
+        emjyManager.zt1stocks = zt1stocks;
         this.showSelectedTable();
     }
 
