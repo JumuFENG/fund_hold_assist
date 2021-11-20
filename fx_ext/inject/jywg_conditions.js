@@ -346,7 +346,9 @@ class EmjyFrontend {
             this.jywgutils.tradeNewBondsBuy(message.command, sendResponse);
         } else if (message.command == 'emjy.trade.newstocks') {
             this.jywgutils.tradeNewStockBuy(message.command, sendResponse);
-        };
+        } else if (message.command == 'emjy.checkContentError') {
+            this.checkError();
+        }
     }
 
     onLoginPageLoaded() {
@@ -373,16 +375,11 @@ class EmjyFrontend {
         var path = location.pathname;
         if (path == this.loginPath) {
             this.onLoginPageLoaded();
-        }
-        if (path != this.normalAssetsPath && path != this.creditAssetsPath) {
             var errorConfirmInterval = setInterval(() => {
-                console.log('btnCxcConfirm checking');
                 var btnCxcConfirm = document.querySelector('#btnCxcConfirm');
-                var errorText = document.querySelector('.cxc_bd', 'error');
-                if (btnCxcConfirm && errorText) {
-                    this.jywgutils.onErrorMessageAlert(errorText);
-                    this.sendMessageToBackground({command:'emjy.contentErrorAlert', url: location.href, what: errorText.textContent});
+                if (btnCxcConfirm) {
                     btnCxcConfirm.click();
+                    clearInterval(errorConfirmInterval);
                 }
             }, 500);
         }
@@ -390,6 +387,17 @@ class EmjyFrontend {
         this.pageLoaded = true;
         this.sendMessageToBackground({command:'emjy.contentLoaded', url: location.href});
         this.log('onPageLoaded', path);
+    }
+
+    checkError() {
+        console.log('btnCxcConfirm checking');
+        var btnCxcConfirm = document.querySelector('#btnCxcConfirm');
+        var errorText = document.querySelector('.cxc_bd', 'error');
+        if (btnCxcConfirm && errorText) {
+            this.jywgutils.onErrorMessageAlert(errorText);
+            this.sendMessageToBackground({command:'emjy.contentErrorAlert', url: location.href, what: errorText.textContent});
+            btnCxcConfirm.click();
+        }
     }
 
     getAssets(assetsPath, sendResponse) {

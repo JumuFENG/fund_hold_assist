@@ -29,6 +29,9 @@ class TradeProxy {
                         clearInterval(loadInterval);
                         if (this.task) {
                             this.sendTaskMessage();
+                            if (this.task.command.startsWith('emjy.trade')) {
+                                this.sendCheckError();
+                            }
                         };
                     };
                 });
@@ -61,12 +64,21 @@ class TradeProxy {
         }, 500);
     }
 
+    sendCheckError() {
+        this.checkInterval = setInterval(() => {
+            chrome.tabs.sendMessage(this.tabid, {command:'emjy.checkContentError'});
+        }, 500);
+    }
+
     pageLoaded() {
         emjyBack.log('pageLoaded', this.url);
     }
 
     closeTab() {
         if (this.tabid && this.tabOpened) {
+            if (this.checkInterval) {
+                clearInterval(this.checkInterval);
+            }
             chrome.tabs.remove(this.tabid);
             this.tabOpened = false;
         };
