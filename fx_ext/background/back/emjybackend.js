@@ -574,8 +574,14 @@ class EmjyBack {
         for (var i in colConfig) {
             configs[i] = colConfig[i];
         };
-        var blob = new Blob([JSON.stringify(configs)], {type: 'application/json'});
-        this.saveToFile(blob, 'stocks.config.json');
+        chrome.storage.local.get(['ztstocks','ztdels'], item => {
+            if (item) {
+                configs['ztstocks'] = item['ztstocks'];
+                configs['ztdels'] = item['ztdels'];
+            }
+            var blob = new Blob([JSON.stringify(configs)], {type: 'application/json'});
+            this.saveToFile(blob, 'stocks.config.json');
+        });
     }
 
     importConfig(configs) {
