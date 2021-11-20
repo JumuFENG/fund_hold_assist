@@ -109,6 +109,27 @@ class JywgUtils {
         });
     }
 
+    onErrorMessageAlert(errorText) {
+        if (errorText && errorText.textContent == 'The Jylb field is required.') {
+            if (!location.pathname.includes('Buy') && !location.pathname.includes('Sale')) {
+                return;
+            }
+            document.querySelector('#delegateWay').childNodes[0].value = 'B';
+            var aprices = document.querySelector('#datalist').querySelectorAll('a');
+            for (var i = 0; i < aprices.length; i++) {
+                var x = i;
+                if (location.pathname.includes('Sale')) {
+                    x = aprices.length - 1 - i;
+                }
+                if (aprices[x].childNodes[1].textContent == '-') {
+                    continue;
+                }
+                aprices[x].click();
+                break;
+            }
+        }
+    }
+
     clickConfirmAgainBtn() {
         var checkAgainInterval = setInterval(() => {
             var confirmAgain = document.querySelector('.btn_jh', '.btnts', '.cl', '.btn', '.btn-default-blue');
@@ -329,10 +350,13 @@ class EmjyFrontend {
     }
 
     onLoginPageLoaded() {
-        var btnConfirm = document.getElementsByClassName('btn-orange vbtn-confirm')[0];
-        if (btnConfirm) {
-            btnConfirm.click();
-        }
+        var loginInterval = setInterval(()=>{
+            var btnConfirm = document.querySelector('.btn-orange', '.vbtn-confirm');
+            if (btnConfirm) {
+                btnConfirm.click();
+                clearInterval(loadInterval);
+            }
+        }, 200);
         // document.getElementById('txtZjzh').value = '';
         // document.getElementById('txtPwd').value = '';
         document.getElementById('rdsc45').checked = true;
@@ -349,17 +373,19 @@ class EmjyFrontend {
         var path = location.pathname;
         if (path == this.loginPath) {
             this.onLoginPageLoaded();
-        // } else if (path == this.normalAssetsPath || path == this.creditAssetsPath) {
-        //     var assetsMsg = this.getAssets(path);
-        //     if (assetsMsg) {
-        //         this.sendMessageToBackground(assetsMsg);
-        //         this.log('sendMessageToBackground done');
-        //     }
         }
-        var btnCxcConfirm = document.querySelector('#btnCxcConfirm');
-        if (btnCxcConfirm) {
-            btnCxcConfirm.click();
-        };
+        if (path != this.normalAssetsPath && path != this.creditAssetsPath) {
+            var errorConfirmInterval = setInterval(() => {
+                console.log('btnCxcConfirm checking');
+                var btnCxcConfirm = document.querySelector('#btnCxcConfirm');
+                var errorText = document.querySelector('.cxc_bd', 'error');
+                if (btnCxcConfirm && errorText) {
+                    this.jywgutils.onErrorMessageAlert(errorText);
+                    this.sendMessageToBackground({command:'emjy.contentErrorAlert', url: location.href, what: errorText.textContent});
+                    btnCxcConfirm.click();
+                }
+            }, 500);
+        }
 
         this.pageLoaded = true;
         this.sendMessageToBackground({command:'emjy.contentLoaded', url: location.href});

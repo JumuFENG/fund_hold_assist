@@ -259,6 +259,11 @@ class EmjyBack {
             this.normalAccount.save();
             this.collateralAccount.save();
             this.log('content message save');
+        } else if (message.command == 'emjy.contentErrorAlert') {
+            this.log('content error alert:', message.what, 'url=', message.url, tabid);
+            if (message.what == '当前时间不允许做该项业务') {
+                this.remvoeProxy(tabid);
+            }
         }
     }
 

@@ -41,11 +41,11 @@ class TradeProxy {
             chrome.tabs.sendMessage(this.tabid, this.task, r => {
                 if (r.command == this.task.command && r.status == 'success') {
                     if (r.result == 'error' && r.reason == 'maxCountInvalid') {
+                        emjyBack.log('retry ', this.retry, JSON.stringify(r));
                         if (this.retry < 10) {
                             this.retry++;
                             return;
                         };
-                        emjyBack.log('retry ', this.retry);
                     };
                     clearInterval(tabInterval);
                     if (r.result == 'success') {
