@@ -414,7 +414,8 @@ class PickupPanel {
             var stocki = dups[i];
             var delBtn = document.createElement('button');
             delBtn.textContent = 'x';
-            delBtn.idx = emjyManager.zt1stocks.findIndex(s=>s.code == stocki.code && s.ztdate == stocki.ztdate);
+            var idx = emjyManager.zt1stocks.findIndex(s=>s.code == stocki.code && s.ztdate == stocki.ztdate);
+            delBtn.idx = idx;
             delBtn.onclick = e => {
                 this.removeSelected(e.target.idx);
             }
@@ -444,7 +445,7 @@ class PickupPanel {
             } else if (vol.value > 3) {
                 vol.style.backgroundColor = 'deeppink';
             }
-            vol.idx = i;
+            vol.idx = idx;
             vol.onchange = e => {
                 this.setVolScale(e.target.idx, e.target.value);
             }
@@ -466,7 +467,7 @@ class PickupPanel {
             if (prng.value == 0) {
                 prng.style.backgroundColor = 'red';
             }
-            prng.idx = i;
+            prng.idx = idx;
             prng.onchange = e => {
                 this.setPrng(e.target.idx, e.target.value);
                 if (e.target.value == 0) {
@@ -476,21 +477,21 @@ class PickupPanel {
                 }
             }
             var lowdate = document.createElement('input');
-            lowdate.idx = i;
+            lowdate.idx = idx;
             lowdate.style.maxWidth = 80;
             lowdate.value = stocki.lowdt ? stocki.lowdt : stocki.ztdate;
             lowdate.onchange = e => {
                 this.setLowDate(e.target.idx, e.target.value);
             }
             var highdate = document.createElement('input');
-            highdate.idx = i;
+            highdate.idx = idx;
             highdate.style.maxWidth = 80;
             highdate.value = stocki.hidate ? stocki.hidate : stocki.ztdate;
             highdate.onchange = e => {
                 this.setHighDate(e.target.idx, e.target.value);
             }
             var deldate = document.createElement('input');
-            deldate.idx = i;
+            deldate.idx = idx;
             deldate.style.maxWidth = 80;
             deldate.value = stocki.rmvdate ? stocki.rmvdate : stocki.ztdate;
             deldate.onchange = e => {
@@ -522,7 +523,7 @@ class PickupPanel {
         for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
             var stocki = emjyManager.zt1stocks[i];
             if (stocki.rmvdate !== undefined && stocki.rmvdate > stocki.ztdate) {
-                if (!emjyManager.delstocks.find(s => {s.code == stocki.code && s.ztdate == stocki.ztdate})) {
+                if (!emjyManager.delstocks.find(s => s.code == stocki.code && s.ztdate == stocki.ztdate)) {
                     emjyManager.delstocks.push(stocki);
                 }
             } else {
@@ -568,7 +569,7 @@ class PickupPanel {
         for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
             var stocki = emjyManager.zt1stocks[i];
             if (stocki.rmvdate !== undefined && stocki.rmvdate > stocki.ztdate) {
-                if (!ztdels.find(s => {s.code == stocki.code && s.ztdate == stocki.ztdate})) {
+                if (!ztdels.find(s => s.code == stocki.code && s.ztdate == stocki.ztdate)) {
                     ztdels.push(stocki);
                 }
             } else {
