@@ -246,12 +246,7 @@ class EmjyBack {
             
             this.remvoeProxy(tabid);
         } else if (message.command == 'emjy.trade') {
-            if (message.result == 'success') {
-                this.log('trade success', message.what);
-                this.remvoeProxy(tabid);
-            } else if (message.result == 'error') {
-                this.log('trade error:', message.reason, message.what);
-            }
+            this.log('trade message: result =', message.result, ', what =', message.what);
         } else if (message.command == 'emjy.addwatch') {
             this.addWatchStock(message.account, message.code, message.strategies);
             this.log('content add watch stock', message.account, message.code);
@@ -261,8 +256,10 @@ class EmjyBack {
             this.log('content message save');
         } else if (message.command == 'emjy.contentErrorAlert') {
             this.log('content error alert:', message.what, 'url=', message.url, tabid);
-            if (message.what == '当前时间不允许做该项业务') {
-                this.remvoeProxy(tabid);
+            if (message.what !== undefined) {
+                if (message.what == '当前时间不允许做该项业务' || message.what.startsWith('委托已成功提交')) {
+                    this.remvoeProxy(tabid);
+                }
             }
         }
     }

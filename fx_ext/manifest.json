@@ -48,8 +48,8 @@
         },
         {
             "matches": [
-                "http://www.iwencai.com/*",
-                "https://www.iwencai.com/*"
+                "*://iwencai.com/*",
+                "*://www.iwencai.com/*"
             ],
             "js": [
                 "inject/wencai_inject.js"
