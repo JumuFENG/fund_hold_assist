@@ -165,7 +165,7 @@ class EmjyBack {
             this.authencated = url.pathname != '/Login';
             if (this.contentProxies.length > 0 && this.authencated) {
                 var trcnt = 0;
-                for (var i = 0; i < this.contentProxies.length && trcnt < 5; i++) {
+                for (var i = 0; i < this.contentProxies.length; i++) {
                     this.contentProxies[i].triggerTask();
                     ++ trcnt;
                 }
@@ -539,7 +539,7 @@ class EmjyBack {
                 proxy.url += '&mt=' + market;
             };
         };
-        if (this.authencated && this.contentProxies.length < 5) {
+        if (this.authencated) {
             proxy.triggerTask();
         };
         this.contentProxies.push(proxy);

@@ -59,12 +59,6 @@ class ZtPool {
             // this.getHistZTPool();
         };
         this.root.appendChild(getZtBtn);
-        var saveZtBtn = document.createElement('button');
-        saveZtBtn.textContent = '保存';
-        saveZtBtn.onclick = e => {
-            this.saveZtPool();
-        };
-        this.root.appendChild(saveZtBtn);
         var hideLbl = document.createElement('label');
         hideLbl.textContent = '隐藏涨停列表';
         var checkHide = document.createElement('input');
@@ -207,6 +201,7 @@ class ZtPool {
         this.ztpool.push({ztdate, pool: ztpool.data.pool});
         this.archiveZTPool(this.ztpool);
         this.refreshZtPool();
+        this.saveZtPool();
     }
 
     onFileLoaded(files) {
@@ -393,6 +388,23 @@ class PickupPanel {
             this.save();
         }
         this.root.appendChild(saveBtn);
+        var tmpBtn = document.createElement('button');
+        tmpBtn.textContent = 'Test';
+        tmpBtn.onclick = e => {
+            this.tmpEvents();
+        }
+        this.root.appendChild(tmpBtn);
+    }
+
+    tmpEvents() {
+        // for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
+        //     var stkzt = emjyManager.zt1stocks[i];
+        //     if (!emjyManager.klines[stkzt.code] || !emjyManager.klines[stkzt.code].klines) {
+        //         emjyManager.getZT1StockKline(stkzt.code, stkzt.ztdate);
+        //         console.log(stkzt, emjyManager.klines[stkzt.code]);
+        //     }
+        // }
+        //emjyManager.updateZt1stockKlines();
     }
 
     showSelectedTable() {
@@ -431,10 +443,12 @@ class PickupPanel {
                 vol.style.backgroundColor = 'red';
             } else if (vol.value > 3) {
                 vol.style.backgroundColor = 'deeppink';
+            } else if (vol.value == 0) {
+                vol.style.backgroundColor = 'deepskyblue';
             }
             vol.idx = i;
             vol.onchange = e => {
-                this.setVolScale(e.target.idx, e.target.value);
+                emjyManager.setVolScale(e.target.idx, e.target.value);
             }
             var prng = document.createElement('select');
             var opt0 = document.createElement('option');
@@ -456,7 +470,7 @@ class PickupPanel {
             }
             prng.idx = i;
             prng.onchange = e => {
-                this.setPrng(e.target.idx, e.target.value);
+                emjyManager.setPrng(e.target.idx, e.target.value);
                 if (e.target.value == 0) {
                     e.target.style.backgroundColor = 'red';
                 } else {
@@ -468,21 +482,21 @@ class PickupPanel {
             lowdate.style.maxWidth = 80;
             lowdate.value = stocki.lowdt ? stocki.lowdt : stocki.ztdate;
             lowdate.onchange = e => {
-                this.setLowDate(e.target.idx, e.target.value);
+                emjyManager.setLowDate(e.target.idx, e.target.value);
             }
             var highdate = document.createElement('input');
             highdate.idx = i;
             highdate.style.maxWidth = 80;
             highdate.value = stocki.hidate ? stocki.hidate : stocki.ztdate;
             highdate.onchange = e => {
-                this.setHighDate(e.target.idx, e.target.value);
+                emjyManager.setHighDate(e.target.idx, e.target.value);
             }
             var deldate = document.createElement('input');
             deldate.idx = i;
             deldate.style.maxWidth = 80;
             deldate.value = stocki.rmvdate ? stocki.rmvdate : stocki.ztdate;
             deldate.onchange = e => {
-                this.setDelDate(e.target.idx, e.target.value);
+                emjyManager.setDelDate(e.target.idx, e.target.value);
             }
             this.selectedTable.addRow(
                 delBtn,
@@ -501,35 +515,6 @@ class PickupPanel {
     removeSelected(idx) {
         emjyManager.zt1stocks.splice(idx, 1);
         this.showSelectedTable();
-    }
-
-    setVolScale(idx, val) {
-        emjyManager.zt1stocks[idx].vscale = val;
-    }
-
-    setPrng(idx, val) {
-        emjyManager.zt1stocks[idx].prng = val;
-    }
-
-    setLowDate(idx, date) {
-        if (emjyManager.zt1stocks[idx].lowdt === undefined && emjyManager.zt1stocks[idx].ztdate == date) {
-            return;
-        }
-        emjyManager.zt1stocks[idx].lowdt = date;
-    }
-
-    setHighDate(idx, date) {
-        if (emjyManager.zt1stocks[idx].hidate === undefined && emjyManager.zt1stocks[idx].ztdate == date) {
-            return;
-        }
-        emjyManager.zt1stocks[idx].hidate = date;
-    }
-
-    setDelDate(idx, date) {
-        if (emjyManager.zt1stocks[idx].rmvdate === undefined && emjyManager.zt1stocks[idx].ztdate == date) {
-            return;
-        }
-        emjyManager.zt1stocks[idx].rmvdate = date;
     }
 
     save() {

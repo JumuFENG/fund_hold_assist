@@ -367,12 +367,12 @@ class KLine {
         // get v scale for time based on mvol(n)
         var kline = this.klines[kltype];
         var tidx = kline.findIndex(kl => kl.time == time);
-        if (tidx == -1) {
-            emjyBack.log('error: no kline for code = ', this.code, ' time=', time);
-            return;
+        if (tidx < 1) {
+            console.log('error: no kline for code = ', this.code, ' time=', time);
+            return 1;
         }
         var totalVol = 0;
-        for (var i = 0; i < n; i++) {
+        for (var i = 1; i <= n; i++) {
             if (tidx - i < 0) {
                 break;
             }
@@ -382,8 +382,8 @@ class KLine {
             totalVol = - totalVol;
         }
         var va = totalVol / n;
-        if (tidx < n - 1) {
-            va = totalVol / (tidx - 1);
+        if (tidx < n) {
+            va = totalVol / tidx;
         }
         return kline[tidx].v / va;
     }

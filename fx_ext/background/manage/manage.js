@@ -62,8 +62,29 @@ class Manager {
         }
         zdate.setHours(15);
         if (new Date() - zdate > 24 * 3600000) {
-            var date = zdate.getFullYear()  + ('' + (zdate.getMonth() + 1)).padStart(2, '0') + ('' + zdate.getDate()).padStart(2, '0');
+            var date = this.toDateString(zdate);
             this.sendExtensionMessage({command:'mngr.getkline', code, date});
+        }
+    }
+
+    toDateString(dt) {
+        return dt.getFullYear() + ('' + (dt.getMonth() + 1)).padStart(2, '0') + ('' + dt.getDate()).padStart(2, '0');
+    }
+
+    updateZt1stockKlines() {
+        // TODO: update stock in stocklist.
+        for (var i = 0; i < this.zt1stocks.length; i++) {
+            var code = this.zt1stocks[i].code;
+            if (this.klines[code].klines === undefined) {
+                this.getZT1StockKline(code, this.zt1stocks[i].ztdate);
+                continue;
+            }
+            var ldate = new Date(this.klines[code].getLatestKline('101').time);
+            ldate.setDate(ldate.getDate());
+            if (ldate < new Date()) {
+                var date = this.toDateString(ldate);
+                this.sendExtensionMessage({command:'mngr.getkline', code, date});
+            }
         }
     }
 
@@ -75,11 +96,11 @@ class Manager {
     }
 
     addZt1Stock(stkzt) {
-        var stk = this.zt1stocks.find(s => {
-            return s.code == stkzt.code && s.ztdate == stkzt.ztdate;
-        });
-        if (!stk) {
+        var stk = this.zt1stocks.find(s => s.code == stkzt.code);
+        if (!stk || (stk.rmvdate !== undefined && stk.rmvdate > stk.ztdate)) {
             this.zt1stocks.push(stkzt);
+        } else {
+            console.log('addZt1Stock existing stock code ', stk.code, 'zt date ', stk.ztdate);
         }
         if (!this.klines[stkzt.code] || !this.klines[stkzt.code].klines) {
             this.getZT1StockKline(stkzt.code, stkzt.ztdate);
@@ -87,7 +108,7 @@ class Manager {
     }
 
     updateZt1stockInfo(code) {
-        this.zt1stocks.forEach(s => {
+        this.zt1stocks.forEach((s, idx) => {
             if (s.code == code && s.vscale === undefined) {
                 var vscale = this.klines[code].getVolScale('101', s.ztdate, 10);
                 if (vscale < 0.1) {
@@ -101,8 +122,75 @@ class Manager {
                 } else {
                     s.vscale = 4;
                 }
+                this.checkDelDate(idx);
             }
         })
+    }
+
+    checkDelDate(idx) {
+        var code = this.zt1stocks[idx].code;
+        var ztdate = this.zt1stocks[idx].ztdate;
+        var kline = this.klines[code].klines['101'];
+        var ldays = 0;
+        var rmvdate = ztdate;
+        var hidate = ztdate;
+        var highPrice = 0;
+        for (var i = 0; i < kline.length; i++) {
+            if (kline[i].time < ztdate) {
+                continue;
+            }
+            if (kline[i].time == ztdate) {
+                highPrice = kline[i].h;
+            }
+            var t = kline[i].o - kline[i].c > 0 ? kline[i].o : kline[i].c;
+            if (kline[i].ma18 - t > 0) {
+                ldays++;
+            } else {
+                ldays = 0;
+            }
+            if (kline[i].h - highPrice > 0) {
+                highPrice = kline[i].h;
+                hidate = kline[i].time;
+            }
+            if (ldays >= 5) {
+                rmvdate = kline[i].time;
+                break;
+            }
+        }
+        if (ldays >= 5 && rmvdate > ztdate) {
+            this.setHighDate(idx, hidate);
+            this.setDelDate(idx, rmvdate);
+            console.log('setDelDate', code, rmvdate);
+        }
+    }
+
+    setVolScale(idx, val) {
+        this.zt1stocks[idx].vscale = val;
+    }
+
+    setPrng(idx, val) {
+        this.zt1stocks[idx].prng = val;
+    }
+
+    setLowDate(idx, date) {
+        if (this.zt1stocks[idx].lowdt === undefined && this.zt1stocks[idx].ztdate == date) {
+            return;
+        }
+        this.zt1stocks[idx].lowdt = date;
+    }
+
+    setHighDate(idx, date) {
+        if (this.zt1stocks[idx].hidate === undefined && this.zt1stocks[idx].ztdate == date) {
+            return;
+        }
+        this.zt1stocks[idx].hidate = date;
+    }
+
+    setDelDate(idx, date) {
+        if (this.zt1stocks[idx].rmvdate === undefined && this.zt1stocks[idx].ztdate == date) {
+            return;
+        }
+        this.zt1stocks[idx].rmvdate = date;
     }
 
     initStocks(stocks) {
@@ -223,6 +311,12 @@ class ManagerPage {
     initStockList(stockList) {
         if (!this.stockListDiv) {
             this.stockListDiv = document.createElement('div');
+            var updateBtn = document.createElement('button');
+            updateBtn.textContent = '更新数据';
+            updateBtn.onclick = e => {
+                emjyManager.updateZt1stockKlines();
+            }
+            this.stockListDiv.appendChild(updateBtn);
             this.root.appendChild(this.stockListDiv);
         }
         this.stockListDiv.appendChild(stockList);
@@ -247,6 +341,7 @@ class ManagerPage {
         if (!this.ztPanelDiv) {
             this.ztPanelDiv = document.createElement('div');
             this.root.appendChild(this.ztPanelDiv);
+            this.ztPanelDiv.style.display = 'none';
         }
         ztPool.createZtArea();
         this.ztPanelDiv.appendChild(ztPool.root);

@@ -42,11 +42,15 @@ function queryStockInfo(code) {
     var url = SHSZQueryUrl + code;
     xmlHttpGet(url, (response) => {
         eval(response);
-        var items = sData.split(',');
-        var name = items[4];
-        var market = (items[5] == 1 ? 'SH' : 'SZ');
-        var sdata = {name, code, market};
-        postMessage({command: 'quote.query.stock', sdata});
+        if (!sData.includes(',')) {
+            postMessage({command:'quote.query.stock', sdata: {code, market:code.startsWith('60') ? 'SH' : 'SZ'}});
+        } else {
+            var items = sData.split(',');
+            var name = items[4];
+            var market = (items[5] == 1 ? 'SH' : 'SZ');
+            var sdata = {name, code, market};
+            postMessage({command: 'quote.query.stock', sdata});
+        }
     });
 }
 
