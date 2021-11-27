@@ -164,10 +164,8 @@ class EmjyBack {
             var url = new URL(this.mainTab.url);
             this.authencated = url.pathname != '/Login';
             if (this.contentProxies.length > 0 && this.authencated) {
-                var trcnt = 0;
                 for (var i = 0; i < this.contentProxies.length; i++) {
                     this.contentProxies[i].triggerTask();
-                    ++ trcnt;
                 }
             };
             this.log('onContentLoaded', this.mainTab.url);
@@ -212,6 +210,27 @@ class EmjyBack {
                 this.contentProxies[i].triggerTask();
                 break;
             }
+        }
+    }
+
+    onAssetsLoaded(message) {
+        this.log('onAssetsLoaded', message.assetsPath);
+        if (message.assetsPath == this.normalAccount.assetsPath) {
+            this.normalAccount.pureAssets = parseFloat(message.pureAssets);
+            this.normalAccount.availableMoney = parseFloat(message.availableMoney);
+            this.normalAccount.parseStockInfoList(message.stocks);
+            this.normalAccount.loadStrategies();
+        } else {
+            this.creditAccount.pureAssets = 0.0;
+            this.creditAccount.availableMoney = parseFloat(message.availableCreditMoney);
+            this.collateralAccount.pureAssets = parseFloat(message.pureAssets);
+            this.collateralAccount.availableMoney = parseFloat(message.availableMoney);
+            this.collateralAccount.parseStockInfoList(message.stocks);
+            this.collateralAccount.loadStrategies();
+        }
+
+        if (this.manager && this.manager.isValid()) {
+            this.manager.sendStocks([this.normalAccount, this.collateralAccount]);
         }
     }
 
@@ -307,8 +326,8 @@ class EmjyBack {
     }
 
     loadAssets() {
-        this.scheduleTaskInNewTab({command: 'emjy.getAssets', path: this.normalAccount.assetsPath});
-        this.scheduleTaskInNewTab({command: 'emjy.getAssets', path: this.creditAccount.assetsPath});
+        this.scheduleNewTabCommand(new AssetsCommander(this.normalAccount.assetsPath));
+        this.scheduleNewTabCommand(new AssetsCommander(this.creditAccount.assetsPath));
     }
 
     refreshAssets() {
@@ -358,10 +377,6 @@ class EmjyBack {
         };
 
         buyAccount.buyStock(code, name, price, count);
-    }
-
-    sendTradeMessage(tradePath, stock, price, count) {
-        this.scheduleTaskInNewTab({command: 'emjy.trade', path: tradePath, stock, price, count});
     }
 
     setupQuoteAlarms() {
@@ -509,8 +524,8 @@ class EmjyBack {
     }
 
     tradeDailyRoutineTasks() {
-        this.scheduleTaskInNewTab({command:'emjy.trade.newstocks', path: NewStockPurchasePath});
-        this.scheduleTaskInNewTab({command:'emjy.trade.newbonds', path: NewBondsPurchasePath});
+        this.scheduleNewTabCommand(new NewStocksCommander());
+        this.scheduleNewTabCommand(new NewBondsCommander());
     }
 
     getHSMarketFlag(code) {
@@ -524,25 +539,11 @@ class EmjyBack {
         return '';
     }
 
-    scheduleTaskInNewTab(task, active = true) {
-        var proxy = new TradeProxy();
-        proxy.task = task;
-        proxy.active = active;
-        if (task.path) {
-            proxy.url = 'https://jywg.18.cn' + task.path;
-        };
-
-        if (task.command == 'emjy.trade') {
-            proxy.url += '?code=' + task.stock.code;
-            var market = this.getHSMarketFlag(task.stock.code);
-            if (market != '') {
-                proxy.url += '&mt=' + market;
-            };
-        };
+    scheduleNewTabCommand(command) {
         if (this.authencated) {
-            proxy.triggerTask();
+            command.triggerTask();
         };
-        this.contentProxies.push(proxy);
+        this.contentProxies.push(command);
     }
 
     tradeBeforeClose() {

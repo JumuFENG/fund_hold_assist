@@ -8,24 +8,6 @@ class Wallet {
         this.state = 'none';
         this.holdCount = 0;
     }
-
-    updateFundPrice(snapshot, account) {
-        emjyBack.log('updateFundPrice');
-        if (snapshot.code != this.fundcode) {
-            return;
-        };
-
-        this.latestPrice = snapshot.realtimequote.currentPrice;
-        this.buy1Prices = snapshot.fivequote.buy1;
-        this.sell1Prices = snapshot.fivequote.sale1;
-        if (this.state == 'fetchBuy') {
-            this.state = 'none';
-            emjyBack.tryBuyStock(this.fundcode, this.name, this.sell1Prices, 1, account);
-        } else if (this.state == 'fetchSell') {
-            this.state = 'none';
-            emjyBack.trySellStock(this.fundcode, this.buy1Prices, 1, account);
-        }
-    }
 }
 
 class AccountInfo {
@@ -158,7 +140,6 @@ class AccountInfo {
     updateStockRtPrice(snapshot) {
         // emjyBack.log('updateStockRtPrice', JSON.stringify(snapshot));
         if (this.wallet && snapshot.code == this.wallet.fundcode) {
-            this.wallet.updateFundPrice(snapshot, this.keyword);
             return;
         };
 
@@ -193,11 +174,9 @@ class AccountInfo {
             finalCount *= 100;
         }
 
-        var stockInfo = {code, name};
-
         if (count < 100) {
             emjyBack.log('Buy', code, name, 'price:', price, 'count: 1/', finalCount);
-            emjyBack.sendTradeMessage(this.buyPath, stockInfo, price, finalCount);
+            emjyBack.scheduleNewTabCommand(new TradeCommander(this.buyPath, code, name, finalCount, price));
             return;
         };
 
@@ -212,7 +191,7 @@ class AccountInfo {
             emjyBack.log('No availableMoney match');
             return;
         }
-        emjyBack.sendTradeMessage(this.buyPath, stockInfo, price, finalCount);
+        emjyBack.scheduleNewTabCommand(new TradeCommander(this.buyPath, code, name, finalCount, price));
         this.availableMoney -= moneyNeed;
     }
 
@@ -236,11 +215,11 @@ class AccountInfo {
                 return;
             };
 
-            emjyBack.sendTradeMessage(this.sellPath, {code: stockInfo.code, name: stockInfo.name}, price, finalCount);
+            emjyBack.scheduleNewTabCommand(new TradeCommander(this.sellPath, code, stockInfo.name, finalCount, price));
             stockInfo.availableCount -= finalCount;
             this.availableMoney += finalCount * price;
         } else if (code == this.wallet.fundcode) {
-            emjyBack.sendTradeMessage(this.sellPath, {code}, price, finalCount);
+            emjyBack.scheduleNewTabCommand(new TradeCommander(this.sellPath, code, '', finalCount, price));
             this.availableMoney += this.wallet.holdCount * price;
             this.wallet.holdCount = 0;
         }
@@ -338,8 +317,7 @@ class AccountInfo {
         });
 
         if (!anyCritial) {
-            emjyBack.fetchStockSnapshot(this.wallet.fundcode);
-            this.wallet.state = 'fetchBuy';
+            emjyBack.scheduleNewTabCommand(new TradeCommander(this.buyPath, this.wallet.fundcode, '', 1, 0));
         };
     }
 
@@ -347,8 +325,7 @@ class AccountInfo {
         var count = 100 * Math.ceil(400 / price);
         var moneyNeed = count * price;
         if (moneyNeed > this.availableMoney && this.wallet.holdCount > 0) {
-            emjyBack.fetchStockSnapshot(this.wallet.fundcode);
-            this.wallet.state = 'fetchSell';
+            emjyBack.scheduleNewTabCommand(new TradeCommander(this.sellPath, this.wallet.fundcode, '', 1, 0));
         };
     }
 
@@ -367,9 +344,9 @@ class NormalAccount extends AccountInfo {
     }
 
     buyFundBeforeClose() {
-        emjyBack.scheduleTaskInNewTab({command: 'emjy.trade.bonds', code: '204001', path: BondRepurchasePath}, true);
+        emjyBack.scheduleNewTabCommand(new BondRepurchaseCommander('204001'), true);
         setTimeout(() => {
-            emjyBack.scheduleTaskInNewTab({command: 'emjy.trade.bonds', code: '131810', path: BondRepurchasePath}, false);
-        }, 5000);
+            emjyBack.scheduleNewTabCommand(new BondRepurchaseCommander('131810', true));
+        }, 8000);
     }
 }

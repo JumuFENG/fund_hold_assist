@@ -1,56 +1,10 @@
 'use strict';
 let EmjyFront = null;
-let BondRepurchasePath = '/BondRepurchase/SecuritiesLendingRepurchase';
-let NewStockPurchasePath = '/Trade/NewBatBuy';
-let NewBondsPurchasePath = '/Trade/XzsgBatPurchase';
 
 class JywgUtils {
     constructor(log) {
         this.log = log;
         this.retry = 0;
-    }
-
-    getStocks() {
-        var stocks = [];
-
-        var tableStocks = document.querySelector('#tabBody').querySelectorAll('tr');
-        for (var i = 0; i < tableStocks.length; ++i) {
-            var rowCells = tableStocks[i].querySelectorAll('td');
-            if (rowCells.length == 11) {
-                var stockInfo = {
-                    code: rowCells[0].textContent,
-                    name: rowCells[1].textContent,
-                    holdCount: rowCells[2].textContent,
-                    availableCount: rowCells[3].textContent,
-                    holdCost: rowCells[4].textContent,
-                    latestPrice: rowCells[5].textContent
-                };
-                stocks.push(stockInfo);
-            }
-        }
-        return stocks;
-    }
-
-    getAssetsCredit () {
-        var assetsTableRows = document.getElementById('myAssets_main').childNodes[0].childNodes;
-
-        return {
-            totalAssets: assetsTableRows[0].childNodes[0].childNodes[1].textContent,
-            availableMoney: assetsTableRows[0].childNodes[2].childNodes[1].textContent,
-            pureAssets: assetsTableRows[1].childNodes[0].childNodes[1].textContent,
-            availableCreditMoney: assetsTableRows[1].childNodes[2].childNodes[1].textContent,
-            stocks: this.getStocks()
-        };
-    }
-
-    getAssetsNor() {
-        var assetsTableRows = document.getElementById('assest_cont').childNodes[0].childNodes[0].childNodes;
-        
-        return {
-            pureAssets: assetsTableRows[0].childNodes[0].childNodes[1].textContent,
-            availableMoney: assetsTableRows[1].childNodes[0].childNodes[1].textContent,
-            stocks: this.getStocks()
-        };
     }
 
     getValidateKey() {
@@ -160,41 +114,6 @@ class JywgUtils {
         }, 200);
     }
 
-    tradeBondRepurchase(code, command, sendResponse) {
-        if (location.pathname != BondRepurchasePath) {
-            var url = new URL(location.href);
-            url.pathname = BondRepurchasePath;
-            url.search='';
-            EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded', expected: url.href});
-            location.href = url;
-            return;
-        };
-        if (sendResponse) {
-            sendResponse({command, status: 'success', result:'unknown'});
-        };
-        document.querySelector('#iptZqdm').value = code;
-        document.querySelector('#iptZqdm').click();
-        var quickSaleInterval = setInterval(() => {
-            var quickSale = document.querySelector('#quickSale');
-            if (!quickSale) {
-                return;
-            };
-            quickSale.childNodes[0].childNodes[1].childNodes[0].click();
-            clearInterval(quickSaleInterval);
-            setTimeout(() => {
-                if (document.querySelector('#lblKrsl').textContent == 0) {
-                    this.log('可融数量: 0');
-                    EmjyFront.sendMessageToBackground({command:'emjy.trade', result: 'success', reason: 'maxCountInvalid'});
-                    return;
-                };
-                document.querySelector('#iptRqsl').value = document.querySelector('#lblKrsl').textContent;
-                document.querySelector('#btnConfirm').disabled = false;
-                document.querySelector('#btnConfirm').click();
-                this.clickConfirmAgainBtn();
-            }, 1000);
-        }, 300);
-    }
-
     clickTrade(path, code, name, price, count, sendResponse) {
         if (location.pathname != path || (!location.href.includes('code=') && document.querySelector('#btnConfirm').disabled)) {
             var url = new URL(location.href);
@@ -298,24 +217,389 @@ class JywgUtils {
             };
         };
     }
+}
 
-    tradeNewStockBuy(command, sendResponse) {
-        this.tradeNewStockBond(command, NewStockPurchasePath, sendResponse);
+class CommandReactor {
+    constructor() {
     }
 
-    tradeNewBondsBuy(command, sendResponse) {
-        this.tradeNewStockBond(command, NewBondsPurchasePath, sendResponse);
+    onTaskMessage(sendResponse) {
+    }
+
+    onStepsMessage(step, sendResponse) {
+    }
+}
+
+class AssetsReactor extends CommandReactor {
+    constructor() {
+        super();
+        this.normalAssetsPath = '/Search/Position';
+        this.creditAssetsPath = '/MarginSearch/MyAssets';
+    }
+
+    getStocks() {
+        var stocks = [];
+        var tableStocks = document.querySelector('#tabBody').querySelectorAll('tr');
+        console.log('getStocks', tableStocks);
+        for (var i = 0; i < tableStocks.length; ++i) {
+            var rowCells = tableStocks[i].querySelectorAll('td');
+            if (rowCells.length == 11) {
+                var stockInfo = {
+                    code: rowCells[0].textContent,
+                    name: rowCells[1].textContent,
+                    holdCount: rowCells[2].textContent,
+                    availableCount: rowCells[3].textContent,
+                    holdCost: rowCells[4].textContent,
+                    latestPrice: rowCells[5].textContent
+                };
+                stocks.push(stockInfo);
+            }
+        }
+        return stocks;
+    }
+
+    getAssetsCredit() {
+        var myAssets = document.querySelector('#myAssets_main');
+        if (!myAssets || !myAssets.childNodes || myAssets.childNodes.length < 1) {
+            return;
+        }
+        var assets0 = myAssets.childNodes[0];
+        if (!assets0 || !assets0.childNodes || assets0.childNodes.length != 4) {
+            return;
+        }
+        var assetsTableRows = assets0.childNodes;
+
+        return {
+            totalAssets: assetsTableRows[0].childNodes[0].childNodes[1].textContent,
+            availableMoney: assetsTableRows[0].childNodes[2].childNodes[1].textContent,
+            pureAssets: assetsTableRows[1].childNodes[0].childNodes[1].textContent,
+            availableCreditMoney: assetsTableRows[1].childNodes[2].childNodes[1].textContent,
+            stocks: this.getStocks()
+        };
+    }
+
+    getAssetsNor() {
+        var myAssets = document.querySelector('#assest_cont');
+        if (!myAssets || !myAssets.childNodes || myAssets.childNodes.length < 1) {
+            return;
+        }
+        var assets0 = myAssets.childNodes[0];
+        if (!assets0 || !assets0.childNodes || assets0.childNodes.length < 1) {
+            return;
+        }
+        var assets1 = assets0.childNodes[0];
+        if (!assets1 || !assets1.childNodes || assets1.childNodes.length != 3) {
+            return;
+        }
+        var assetsTableRows = assets1.childNodes;
+
+        return {
+            pureAssets: assetsTableRows[0].childNodes[0].childNodes[1].textContent,
+            availableMoney: assetsTableRows[1].childNodes[0].childNodes[1].textContent,
+            stocks: this.getStocks()
+        };
+    }
+
+    onTaskMessage(sendResponse) {
+        if (!document.querySelector('#tabBody').querySelectorAll('tr')) {
+            sendResponse({command:'step', step:'waiting'});
+            return;
+        }
+
+        var assetsMsg = {};
+        if (location.pathname == this.creditAssetsPath) {
+            assetsMsg = this.getAssetsCredit();
+        } else {
+            assetsMsg = this.getAssetsNor();
+        }
+        console.log('onTaskMessage', assetsMsg);
+        if (assetsMsg) {
+            assetsMsg.assetsPath = location.pathname;
+            sendResponse({command:'step', step:'got', assets: assetsMsg});
+        } else {
+            sendResponse({command:'step', step:'waiting'});
+        }
+    }
+
+    onStepsMessage(step, sendResponse) {
+        if (step == 'get') {
+            console.log('onStepsMessage', 'get');
+            this.onTaskMessage(sendResponse);
+        }
+    }
+}
+
+class NewStocksReactor extends CommandReactor {
+    constructor() {
+        super();
+    }
+
+    onTaskMessage(sendResponse) {
+        var seletedCount = 0;
+        document.querySelector('#tableBody').querySelectorAll('tr').forEach(r => {
+            var tds = r.querySelectorAll('td');
+            if (tds.length < 2) {
+                return;
+            };
+            var code = tds[2].textContent;
+            console.log(code);
+            if (code.startsWith('68') || code.startsWith('30')) {
+                return;
+            };
+            var chkbx = r.querySelector('input');
+            if (chkbx) {
+                chkbx.click();
+                seletedCount++;
+            };
+        });
+
+        sendResponse({command:'step', step: 'set', count: seletedCount});
+    }
+
+    onStepsMessage(step, sendResponse) {
+        if (step == 'batclick') {
+            document.querySelector('#btnBatBuy').click();
+            sendResponse({command:'step', step, status:'done'});
+        } else if (step == 'confirm') {
+            var status = 'waiting';
+            if (document.querySelector('#btnConfirm')) {
+                document.querySelector('#btnConfirm').click();
+                status = 'done';
+            }
+            sendResponse({command:'step', step, status})
+        } else if (step == 'waitcomplete') {
+            var status = 'waiting';
+            var alert = '';
+            if (document.querySelector('.cxc_bd', '.info')) {
+                status = 'done';
+                alert = document.querySelector('.cxc_bd', '.info').textContent;
+            }
+            sendResponse({command:'step', step, status, alert});
+        }
+    }
+}
+
+class BondRepurchaseReactor extends CommandReactor {
+    constructor(code) {
+        super();
+        this.code = code;
+    }
+
+    onTaskMessage(sendResponse) {
+        if (!document.querySelector('#iptZqdm')) {
+            sendResponse({command:'step', step:'codeinput', status:'waiting'});
+            return;
+        }
+        document.querySelector('#iptZqdm').value = this.code;
+        document.querySelector('#iptZqdm').click();
+        sendResponse({command:'step', step:'codeinput', status:'done'});
+    }
+
+    onStepsMessage(step, sendResponse) {
+        if (step == 'codeinput') {
+            this.onTaskMessage(sendResponse);
+            return;
+        }
+        
+        if (step == 'quicksale') {
+            var quickSale = document.querySelector('#quickSale');
+            if (!quickSale || !quickSale.childNodes) {
+                sendResponse({command:'step', step, status:'waiting'});
+                return;
+            }
+            var qsRows = quickSale.querySelectorAll('tr');
+            if (!qsRows || qsRows.length < 2) {
+                sendResponse({command:'step', step, status:'waiting'});
+                return;
+            }
+            qsRows[1].click();
+            sendResponse({command:'step', step, status:'done'});
+            return;
+        }
+
+        if (step == 'chkcount') {
+            if (document.querySelector('#lblKrsl').textContent == 0) {
+                sendResponse({command:'step', step, status:'waiting'});
+                return;
+            }
+            document.querySelector('#iptRqsl').value = document.querySelector('#lblKrsl').textContent;
+            document.querySelector('#btnConfirm').disabled = false;
+            document.querySelector('#btnConfirm').click();
+            sendResponse({command:'step', step, status:'done'});
+            return;
+        }
+
+        if (step == 'confirm') {
+            var confirmAgain = document.querySelector('.btn_jh', '.btnts', '.cl', '.btn', '.btn-default-blue');
+            if (!confirmAgain) {
+                sendResponse({command:'step', step, status:'waiting'});
+                return;
+            } 
+
+            confirmAgain.click();
+            sendResponse({command:'step', step, status:'done'});
+            return;
+        }
+
+        if (step == 'waitcomplete') {
+            var status = 'waiting';
+            var alert = '';
+            if (document.querySelector('.cxc_bd', '.info')) {
+                status = 'done';
+                alert = document.querySelector('.cxc_bd', '.info').textContent;
+            }
+            sendResponse({command:'step', step, status, alert});
+            return;
+        }
+    }
+}
+
+class TradeReactor extends CommandReactor {
+    constructor(code, name, count, price) {
+        super();
+        this.code = code;
+        this.name = name;
+        this.count = count;
+        this.price = price;
+    }
+
+    clickToSetPrice(sendResponse) {
+        if (!document.querySelector('#datalist')) {
+            sendResponse({command:'step', step:'stockinput', status:'waiting'});
+            return false;
+        }
+        var aprices = document.querySelector('#datalist').querySelectorAll('a');
+        if (!aprices || aprices.length < 1) {
+            sendResponse({command:'step', step:'stockinput', status:'waiting'});
+            return false;
+        }
+        for (var i = 0; i < aprices.length; i++) {
+            var x = i;
+            if (location.pathname.includes('Sale')) {
+                x = aprices.length - 1 - i;
+            }
+            if (aprices[x].childNodes[1].textContent == '-') {
+                continue;
+            }
+            aprices[x].click();
+            return true;
+        }
+        sendResponse({command:'step', step:'stockinput', status:'error', what: 'no valid price to set'});
+        console.log('clickToSetPrice error: no valid price to click!');
+        return false;
+    }
+
+    setCount(sendResponse) {
+        if (this.count <= 4 && this.count >= 1) {
+            var radId = ['', '#radall', '#radtwo', '#radstree', '#radfour'][this.count];
+            if (!document.querySelector(radId)) {
+                sendResponse({command:'step', step:'stockinput', status:'waiting'});
+                return;
+            } else {
+                document.querySelector(radId).click();
+                sendResponse({command:'step', step: 'stockinput', status:'done'});
+                return;
+            };
+        }
+        if (this.count < 100) {
+            sendResponse({command:'step', step:'stockinput', status: 'error', what: 'countInvalid count = ' + this.count});
+            return;
+        }
+
+        document.querySelector('#iptCount').value = this.count;
+        sendResponse({command:'step', step: 'stockinput', status:'done'});
+    }
+
+    checkSubmitDisabled(sendResponse) {
+        var btnCxcConfirm = document.querySelector('#btnCxcConfirm');
+        var errorText = document.querySelector('.cxc_bd', 'error');
+        if (btnCxcConfirm && errorText) {
+            btnCxcConfirm.click();
+            if (errorText && errorText.textContent == 'The Jylb field is required.') {
+                document.querySelector('#delegateWay').childNodes[0].value = 'B';
+                if (this.clickToSetPrice(sendResponse)) {
+                    this.setCount(sendResponse);
+                }
+                return;
+            }
+        }
+
+        if (document.querySelector('#lbMaxCount').textContent - this.count < 0) {
+            sendResponse({command:'step', step: 'chksubmit', status:'waiting', what: 'maxCountInvalid maxCount = '+ document.querySelector('#lbMaxCount').textContent});
+            return;
+        } else {
+            sendResponse({command:'step', step: 'chksubmit', status:'waiting', what: ''});
+            return;
+        }
+    }
+
+    onTaskMessage(sendResponse) {
+        if (!document.querySelector('#stockCode')) {
+            sendResponse({command:'step', step:'stockinput', status:'waiting'});
+            return;
+        }
+        if (document.querySelector('#stockCode').value != this.code) {
+            document.querySelector('#stockCode').value = this.code;
+        }
+        if (this.name.length > 0) {
+            document.querySelector('#iptbdName').value = this.name;
+        }
+        if (this.price !== undefined && this.price > 0) {
+            document.querySelector('#iptPrice').value = this.price;
+        } else if (!this.clickToSetPrice(sendResponse)) {
+            return;
+        }
+        this.setCount(sendResponse);
+    }
+
+    onStepsMessage(step, sendResponse) {
+        if (step == 'stockinput') {
+            this.onTaskMessage(sendResponse);
+            return;
+        }
+
+        if (step == 'chksubmit') {
+            if (document.querySelector('#btnConfirm').disabled) {
+                this.checkSubmitDisabled(sendResponse);
+            } else {
+                document.querySelector('#btnConfirm').click();
+                sendResponse({command:'step', step, status:'done'});
+            }
+            return;
+        }
+
+        if (step == 'confirm') {
+            var confirmAgain = document.querySelector('.btn_jh', '.btnts', '.cl', '.btn', '.btn-default-blue');
+            if (!confirmAgain) {
+                sendResponse({command:'step', step, status:'waiting'});
+                return;
+            } 
+
+            confirmAgain.click();
+            sendResponse({command:'step', step, status:'done'});
+            return;
+        }
+
+        if (step == 'waitcomplete') {
+            var status = 'waiting';
+            var alert = '';
+            if (document.querySelector('.cxc_bd', '.info')) {
+                status = 'done';
+                alert = document.querySelector('.cxc_bd', '.info').textContent;
+            }
+            sendResponse({command:'step', step, status, alert});
+            return;
+        }
     }
 }
 
 class EmjyFrontend {
     constructor() {
         this.loginPath = '/Login';
-        this.normalAssetsPath = '/Search/Position';
-        this.creditAssetsPath = '/MarginSearch/MyAssets';
         this.jywgutils = null;
         this.log = null;
         this.pageLoaded = null;
+        this.commandReactor = null;
     }
 
     Init(log) {
@@ -337,17 +621,27 @@ class EmjyFrontend {
                 this.sendMessageToBackground({command:'emjy.getValidateKey', key: vkey});
             }
         } else if (message.command == 'emjy.getAssets') {
-            this.getAssets(message.path, sendResponse);
+            this.commandReactor = new AssetsReactor();
+            this.commandReactor.onTaskMessage(sendResponse);
         } else if (message.command == 'emjy.trade') {
-            this.stockTrade(message, sendResponse);
+            this.commandReactor = new TradeReactor(message.code, message.name, message.count, message.price);
+            this.commandReactor.onTaskMessage(sendResponse);
         } else if (message.command == 'emjy.trade.bonds') {
-            this.jywgutils.tradeBondRepurchase(message.code, message.command, sendResponse);
+            this.commandReactor = new BondRepurchaseReactor(message.code);
+            this.commandReactor.onTaskMessage(sendResponse);
         } else if (message.command == 'emjy.trade.newbonds') {
-            this.jywgutils.tradeNewBondsBuy(message.command, sendResponse);
+            this.commandReactor = new NewStocksReactor();
+            this.commandReactor.onTaskMessage(sendResponse);
         } else if (message.command == 'emjy.trade.newstocks') {
-            this.jywgutils.tradeNewStockBuy(message.command, sendResponse);
-        } else if (message.command == 'emjy.checkContentError') {
-            this.checkError();
+            this.commandReactor = new NewStocksReactor();
+            this.commandReactor.onTaskMessage(sendResponse);
+        } else if (message.command == 'emjy.step') {
+            console.log(message);
+            if (this.commandReactor) {
+                this.commandReactor.onStepsMessage(message.step, sendResponse);
+            } else {
+                console.log('onBackMessageReceived', 'commandReactor is null', this.commandReactor);
+            }
         }
     }
 
@@ -399,44 +693,6 @@ class EmjyFrontend {
             btnCxcConfirm.click();
         }
     }
-
-    getAssets(assetsPath, sendResponse) {
-        this.log('getAssets', assetsPath, location.pathname);
-        if (location.pathname != assetsPath) {
-            var url = new URL(location.href);
-            url.pathname = assetsPath;
-            url.search='';
-            this.sendMessageToBackground({command:'emjy.trade', result: 'error', reason: 'pageNotLoaded', expected: url.href});
-            location.href = url;
-            return;
-        };
-
-        var assetsMsg = {};
-        if (assetsPath == this.creditAssetsPath) {
-            assetsMsg = this.jywgutils.getAssetsCredit();
-        } else {
-            assetsMsg = this.jywgutils.getAssetsNor();
-        }
-        
-        if (assetsMsg) {
-            assetsMsg.command = 'emjy.getAssets';
-            assetsMsg.assetsPath = assetsPath;
-            assetsMsg.status = 'success';
-            assetsMsg.result = 'success';
-            if (sendResponse) {
-                sendResponse(assetsMsg);
-            };
-        }
-    }
-
-    stockTrade(message, sendResponse) {
-        this.log('stockTrade', JSON.stringify(message));
-        var stockName = message.stock.name;
-        if (stockName === undefined) {
-            stockName = '';
-        }
-        this.jywgutils.clickTrade(message.path, message.stock.code, stockName, message.price, message.count, sendResponse);
-    }
 }
 
 function logInfo(...args) {
@@ -451,8 +707,10 @@ function onMessage(message, sender, sendResponse) {
             EmjyFront.Init(logInfo);
         }
         if (EmjyFront.pageLoaded) {
+            console.log('onMessage 1');
             EmjyFront.onBackMessageReceived(message, sender, sendResponse);
         } else {
+            console.log('onMessage 2')
             setTimeout(EmjyFront.onBackMessageReceived(message, sender, sendResponse), 1100);
         }
     } else {
