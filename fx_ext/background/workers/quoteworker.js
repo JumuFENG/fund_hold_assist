@@ -7,7 +7,7 @@ let hisKlineUrl = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3
 
 let hisKlineRt = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56&beg=0&end=20500000'
 
-let bkQueryUrl = 'http://push2.eastmoney.com/api/qt/clist/get?ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fields=f12'
+let bkQueryUrl = 'http://push2.eastmoney.com/api/qt/clist/get?ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fields=f12,f13,f14'
 
 var kltBack = {'1':'klineMinBack', '5':'kline5MinBack', '15':'kline15MinBack', '30':'klineHalfHrBack', '60':'klineHourlyBack', '120':'kline2HrBack', '101':'klineDailyBack', '102':'klineWeeklyBack', '103':'klineMonthlyBack', '104':'klineQuarterlyBack','105':'klineHalfYrBack','106':'klineYearBack'};
 
@@ -162,7 +162,14 @@ function klineYearBack(kline) {
 }
 
 function bkQuery(bk, pn, pz) {
-    var url = bkQueryUrl + '&cb=bkQueryBack&pn=' + pn + '&pz=' + pz + '&fs=b:' + bk + '+f:!50&_=' + Date.now();
+    var url = bkQueryUrl + '&cb=bkQueryBack&pn=' + pn + '&pz=' + pz + '&fs=' + bk + '&_=' + Date.now();
+    // fs={k:v} + {k:v}
+    // b->板块  
+    // m->市场(0 = sz, 1 = sh)  t->类型 f->风险/风格 s->
+    // m(0),t(6) 深主板 m(0),t(80) 创业板   m(0),t(7)深B股  m(0),t(8)深新股
+    // m(1),t(2) 上主板 m(1),t(23) 上科创板) m(1),t(3)上B股  m(1),t(8)上新股
+    // f(4) 风险警示 f(3) 两网及退市
+    // m(0),t(81),s(2048) 北交所
     xmlHttpGet(url);
 }
 

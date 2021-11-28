@@ -35,7 +35,7 @@ class ManagerBack {
         } else if (message.command == 'mngr.getZTPool') {
             emjyBack.postQuoteWorkerMessage({command:'quote.get.ZTPool', date: message.date});
         } else if (message.command == 'mngr.getkline') {
-            emjyBack.postQuoteWorkerMessage({command: 'quote.get.kline', code: message.code, date: message.date, len: message.len, market: emjyBack.stockMarket[message.code]});
+            emjyBack.postQuoteWorkerMessage({command: 'quote.get.kline', code: message.code, date: message.date, len: message.len, market: emjyBack.getStockMarketHS(message.code)});
         } else if (message.command == 'mngr.saveFile') {
             emjyBack.saveToFile(message.blob, message.filename);
         };
@@ -93,7 +93,6 @@ class EmjyBack {
     Init() {
         this.logs = [];
         emjyBack = this;
-        this.stockMarket['511880'] = 'SH';
         if (!this.quoteWorker) {
             this.quoteWorker = new Worker('workers/quoteworker.js');
             this.quoteWorker.onmessage = onQuoteWorkerMessage;
@@ -114,14 +113,19 @@ class EmjyBack {
             this.otpAlarm = new OtpAlarm();
         }
         this.setupQuoteAlarms();
-        var today = new Date();
-        if (today.getDate() == 1 || (today.getDate() <= 3 && today.getDay() == 1)) {
+        if ((new Date()).getDate() == 1) {
             if (!this.fetchingBKstocks) {
                 this.fetchingBKstocks = new BkStocksFetch('BK0596', 1000);
             }
             this.log('update rzrq BK stcoks, BK0596');
             this.fetchingBKstocks.fetchBkStcoks();
         }
+        chrome.storage.local.get('hsj_stocks', item => {
+            if (item && item['hsj_stocks']) {
+                this.stockMarket = item['hsj_stocks'];
+            }
+            this.stockMarket['511880'] = {name:'银华日利ETF', mkt:1};
+        });
         this.log('EmjyBack initialized!');
     }
 
@@ -474,7 +478,8 @@ class EmjyBack {
     updateStockMarketInfo(sdata) {
         this.normalAccount.updateStockMarketInfo(sdata);
         this.collateralAccount.updateStockMarketInfo(sdata);
-        this.stockMarket[sdata.code] = sdata.market;
+        var mkt = sdata.market == 'SH' ? 1 : 0;
+        this.stockMarket[sdata.code] = {name:sdata.name, mkt};
     }
 
     updateStockRtPrice(snapshot) {
@@ -530,9 +535,13 @@ class EmjyBack {
         this.postQuoteWorkerMessage({command:'quote.fetch.code', code});
     }
 
+    getStockMarketHS(code) {
+        var stk = this.stockMarket[code];
+        return stk.mkt == '0' ? 'SZ' : 'SH';
+    }
+
     fetchStockKline(code, kltype) {
-        var market = this.stockMarket[code];
-        this.postQuoteWorkerMessage({command:'quote.kline.rt', code, kltype, market});
+        this.postQuoteWorkerMessage({command:'quote.kline.rt', code, kltype, market: this.getStockMarketHS(code)});
     }
 
     tradeDailyRoutineTasks() {
@@ -541,7 +550,7 @@ class EmjyBack {
     }
 
     getHSMarketFlag(code) {
-        var market = this.stockMarket[code];
+        var market = this.getStockMarketHS(code);
         if (market == 'SH') {
             return '1';// 'HA';
         };
@@ -549,6 +558,12 @@ class EmjyBack {
             return '2'; // 'SA';
         };
         return '';
+    }
+
+    fetchAllStocksMktInfo() {
+        this.fetchingBKstocks = new BkStocksMarketFetch();
+        this.fetchingBKstocks.updateBkStocks();
+        this.log('fetch all stock market info!');
     }
 
     scheduleNewTabCommand(command) {
@@ -569,6 +584,9 @@ class EmjyBack {
         this.collateralAccount.fillupGuardPrices();
         this.collateralAccount.save();
         //tradeAnalyzer.save();
+        if ((new Date()).getDate() == 2) {
+            this.fetchAllStocksMktInfo();
+        }
         this.flushLogs();
     }
 
@@ -628,7 +646,7 @@ class EmjyBack {
 
 class BkStocksFetch {
     constructor(bk, pz) {
-        this.bk = bk;
+        this.bk = 'b:' + bk;
         this.pn = 1;
         this.pz = pz;
         this.stocks = new Set();
@@ -653,6 +671,37 @@ class BkStocksFetch {
         var bkstocks = {};
         bkstocks['bkstocks_' + this.bk] = [...this.stocks];
         chrome.storage.local.set(bkstocks);
+    }
+}
+
+class BkStocksMarketFetch extends BkStocksFetch {
+    constructor(pz = 1000) {
+        super('', pz);
+        this.bk = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
+        this.stockDetails = {};
+    }
+
+    updateBkStocks(message) {
+        for (var i in message.data) {
+            var code = message.data[i].f12;
+            var name = message.data[i].f14;
+            var mkt = message.data[i].f13;
+            if (!this.stocks.has(code)) {
+                this.stocks.add(code);
+                this.stockDetails[code] = {name, mkt};
+            }
+        }
+
+        if (this.stocks.size != message.total) {
+            this.pn++;
+            this.fetchBkStcoks();
+            return;
+        }
+
+        var bkstocks = {};
+        bkstocks['hsj_stocks'] = this.stockDetails;
+        chrome.storage.local.set(bkstocks);
+        emjyBack.stockMarket = this.stockDetails;
     }
 }
 

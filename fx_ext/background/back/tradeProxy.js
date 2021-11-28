@@ -108,7 +108,7 @@ class NewStocksCommander extends CommanderBase {
                     this.sendStepMessage('batclick');
                     return;
                 } else {
-                    emjyBack.log('new stock count =', count, 'tab', this.tabid);
+                    emjyBack.log(this.command, 'stock/bond count =', count, 'tab', this.tabid);
                     this.closeTab();
                     return;
                 }
@@ -127,7 +127,7 @@ class NewStocksCommander extends CommanderBase {
                 }
             } else if (r.step == 'waitcomplete') {
                 if (r.status == 'done') {
-                    emjyBack.log('new stock bat buy success, alert =', r.alert, 'tab', this.tabid);
+                    emjyBack.log('new stock/bond bat buy success, alert =', r.alert, 'tab', this.tabid);
                     this.closeTab();
                     return;
                 } else if (r.status == 'waiting') {

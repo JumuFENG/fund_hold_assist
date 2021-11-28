@@ -118,12 +118,6 @@ class AccountInfo {
         return {account: this.keyword, stocks};
     }
 
-    queryStockMarketInfo() {
-        this.stocks.forEach(s => {
-            emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code: s.code});
-        });
-    }
-
     updateStockMarketInfo(sdata) {
         if (!this.stocks || this.stocks.length == 0) {
             return;
@@ -255,8 +249,15 @@ class AccountInfo {
         if (stock) {
             return;
         };
-        this.stocks.push(new StockInfo({ code, name: '', holdCount: 0, availableCount: 0, market: ''}));
-        emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code});
+        var name = '';
+        var market = '';
+        if (emjyBack.stockMarket[code]) {
+            name = emjyBack.stockMarket[code].name;
+            market = emjyBack.getStockMarketHS(code);
+        } else {
+            emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code});
+        }
+        this.stocks.push(new StockInfo({ code, name, holdCount: 0, availableCount: 0, market}));
     }
 
     removeStock(code) {
