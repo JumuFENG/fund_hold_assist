@@ -124,7 +124,7 @@ class EmjyBack {
     onContentLoaded(message, tabid) {
         if (!this.mainTab) {
             this.log('init mainTabId and accounts');
-            this.mainTab = new TradeProxy();
+            this.mainTab = new CommanderBase();
             this.mainTab.tabid = tabid;
             this.mainTab.url = message.url;
             chrome.tabs.onRemoved.addListener((tabid, removeInfo) => {

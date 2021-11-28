@@ -263,12 +263,14 @@ class TradeCommander extends CommanderBase {
                     this.sendStepMessage('chksubmit');
                 } else if (r.status == 'error') {
                     emjyBack.log('Trade error, what =', r.what, 'tab', this.tabid);
-                    // this.closeTab();
                 }
                 return;
             }
             if (r.step == 'chksubmit') {
                 if (r.status == 'waiting') {
+                    if (r.what !== undefined) {
+                        emjyBack.log('Trade submit waiting, what =', r.what);
+                    }
                     if (this.chksubmitRetry < 80) {
                         this.sendStepMessage('chksubmit');
                         this.chksubmitRetry ++;
@@ -278,6 +280,10 @@ class TradeCommander extends CommanderBase {
                         this.closeTab();
                         return;
                     }
+                }
+                if (r.status == 'error') {
+                    emjyBack.log('Trade error, what =', r.what, 'tab', this.tabid);
+                    return;
                 }
                 if (r.status == 'done') {
                     this.sendStepMessage('confirm');
@@ -301,7 +307,7 @@ class TradeCommander extends CommanderBase {
                 }
                 if (r.status == 'done') {
                     emjyBack.log('Trade complete, alert =', r.alert, 'tab', this.tabid);
-                    //this.closeTab();
+                    this.closeTab();
                     return;
                 }
             }

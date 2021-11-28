@@ -490,7 +490,7 @@ class TradeReactor extends CommandReactor {
     }
 
     setCount(sendResponse) {
-        if (this.count <= 4 && this.count >= 1) {
+        if (this.count - 4 <= 0 && this.count - 1 >= 0) {
             var radId = ['', '#radall', '#radtwo', '#radstree', '#radfour'][this.count];
             if (!document.querySelector(radId)) {
                 sendResponse({command:'step', step:'stockinput', status:'waiting'});
@@ -501,7 +501,7 @@ class TradeReactor extends CommandReactor {
                 return;
             };
         }
-        if (this.count < 100) {
+        if (this.count - 100 < 0) {
             sendResponse({command:'step', step:'stockinput', status: 'error', what: 'countInvalid count = ' + this.count});
             return;
         }
@@ -515,11 +515,33 @@ class TradeReactor extends CommandReactor {
         var errorText = document.querySelector('.cxc_bd', 'error');
         if (btnCxcConfirm && errorText) {
             btnCxcConfirm.click();
+            console.log('error alert:', errorText.textContent);
             if (errorText && errorText.textContent == 'The Jylb field is required.') {
                 document.querySelector('#delegateWay').childNodes[0].value = 'B';
                 if (this.clickToSetPrice(sendResponse)) {
                     this.setCount(sendResponse);
                 }
+                return;
+            }
+        }
+
+        if (document.querySelector('.sub_title')) {
+            var subtitle = document.querySelector('.sub_title').querySelectorAll('span');
+            var valid = 0;
+            for (var i = 0; i < subtitle.length; i++) {
+                if (subtitle[i].textContent != '-') {
+                    valid++;
+                }
+            }
+            var aprices = document.querySelector('#datalist').querySelectorAll('a');
+            for (var i = 0; i < aprices.length; i++) {
+                var pr = aprices[i].querySelectorAll('span');
+                if (pr[1].textContent != '-') {
+                    valid++;
+                }
+            }
+            if (valid == 0) {
+                sendResponse({command:'step', step: 'chksubmit', status: 'error', what:'NoStockInfo'});
                 return;
             }
         }
