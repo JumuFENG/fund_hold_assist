@@ -1,6 +1,7 @@
 let futuStockUrl = 'https://www.futunn.com/stock/';
 let emStockUrl = 'http://quote.eastmoney.com/concept/';
 let emStockUrlTail = '.html#fschart-k';
+let BkRZRQ = 'BK0596';
 let stockPriceRanges = {0:'低位', 1:'高位', 2:'上涨中继', 3:'下跌中继'};
 let stockVolScales = {0:'微量', 1:'缩量', 2:'平量', 3:'放量', 4:'天量'};
 var startDate = new Date('2021-07-23');

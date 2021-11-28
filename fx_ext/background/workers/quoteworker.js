@@ -7,6 +7,8 @@ let hisKlineUrl = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3
 
 let hisKlineRt = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56&beg=0&end=20500000'
 
+let bkQueryUrl = 'http://push2.eastmoney.com/api/qt/clist/get?ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fields=f12'
+
 var kltBack = {'1':'klineMinBack', '5':'kline5MinBack', '15':'kline15MinBack', '30':'klineHalfHrBack', '60':'klineHourlyBack', '120':'kline2HrBack', '101':'klineDailyBack', '102':'klineWeeklyBack', '103':'klineMonthlyBack', '104':'klineQuarterlyBack','105':'klineHalfYrBack','106':'klineYearBack'};
 
 // fields 
@@ -159,6 +161,15 @@ function klineYearBack(kline) {
     postMessage({command: 'quote.kline.rt', kltype:'106', kline});
 }
 
+function bkQuery(bk, pn, pz) {
+    var url = bkQueryUrl + '&cb=bkQueryBack&pn=' + pn + '&pz=' + pz + '&fs=b:' + bk + '+f:!50&_=' + Date.now();
+    xmlHttpGet(url);
+}
+
+function bkQueryBack(bkdata) {
+    postMessage({command: 'quote.get.bkcode', total: bkdata.data.total, data: bkdata.data.diff});
+}
+
 addEventListener('message', function(e) {
     if (e.data.command == 'quote.query.stock') {
         queryStockInfo(e.data.code);
@@ -174,6 +185,8 @@ addEventListener('message', function(e) {
         } else {
             getKlineRt(e.data.code, e.data.kltype, e.data.market);
         };
+    } else if (e.data.command == 'quote.get.bkcode') {
+        bkQuery(e.data.bk, e.data.pn, e.data.pz);
     } else {
         postLog('unknown command ' + e.data.command);
     }

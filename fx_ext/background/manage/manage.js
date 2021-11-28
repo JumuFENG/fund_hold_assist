@@ -28,6 +28,12 @@ class Manager {
                 this.delstocks = item['ztdels'];
             }
         });
+        this.rzrqStocks = new Set();
+        chrome.storage.local.get('bkstocks_' + BkRZRQ, item => {
+            if (item && item['bkstocks_' + BkRZRQ]) {
+                this.rzrqStocks = new Set(item['bkstocks_' + BkRZRQ]);
+            }
+        });
     }
 
     sendExtensionMessage(message) {

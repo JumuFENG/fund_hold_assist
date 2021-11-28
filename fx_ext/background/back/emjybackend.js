@@ -114,6 +114,14 @@ class EmjyBack {
             this.otpAlarm = new OtpAlarm();
         }
         this.setupQuoteAlarms();
+        var today = new Date();
+        if (today.getDate() == 1 || (today.getDate() <= 3 && today.getDay() == 1)) {
+            if (!this.fetchingBKstocks) {
+                this.fetchingBKstocks = new BkStocksFetch('BK0596', 1000);
+            }
+            this.log('update rzrq BK stcoks, BK0596');
+            this.fetchingBKstocks.fetchBkStcoks();
+        }
         this.log('EmjyBack initialized!');
     }
 
@@ -322,7 +330,11 @@ class EmjyBack {
             this.manager.sendManagerMessage(message);
         } else if (message.command == 'quote.kline.rt') {
             this.updateStockRtKline(message);
-        };
+        } else if (message.command == 'quote.get.bkcode') {
+            if (this.fetchingBKstocks) {
+                this.fetchingBKstocks.updateBkStocks(message);
+            }
+        }
     }
 
     loadAssets() {
@@ -611,6 +623,36 @@ class EmjyBack {
             var stocki = this.collateralAccount.stocks[i];
             tradeAnalyzer.listAllBuySellPrice(stocki.klines.klines, stocki.code, stocki.name);
         }
+    }
+}
+
+class BkStocksFetch {
+    constructor(bk, pz) {
+        this.bk = bk;
+        this.pn = 1;
+        this.pz = pz;
+        this.stocks = new Set();
+    }
+
+    fetchBkStcoks() {
+        emjyBack.postQuoteWorkerMessage({command:'quote.get.bkcode', bk: this.bk, pn: this.pn, pz: this.pz});
+    }
+
+    updateBkStocks(message) {
+        for (var i in message.data) {
+            var code = message.data[i].f12;
+            this.stocks.add(code);
+        }
+
+        if (this.stocks.size != message.total) {
+            this.pn++;
+            this.fetchBkStcoks();
+            return;
+        }
+
+        var bkstocks = {};
+        bkstocks['bkstocks_' + this.bk] = [...this.stocks];
+        chrome.storage.local.set(bkstocks);
     }
 }
 
