@@ -18,7 +18,7 @@ class Manager {
             if (item && item['ztstocks']) {
                 this.zt1stocks = item['ztstocks'];
                 for (var i = 0; i < this.zt1stocks.length; i++) {
-                    this.loadKlines(this.zt1stocks[i].code, this.zt1stocks[i].ztdate);
+                    this.loadKlines(this.zt1stocks[i].code);
                 }
             }
         });
@@ -55,10 +55,11 @@ class Manager {
             this.klines[code].updateRtKline(message);
             this.klines[code].save();
             this.updateZt1stockInfo(code);
+            this.stockList.updateStockPrice(code);
         }
     }
 
-    getZT1StockKline(code, ztdate) {
+    getDailyKlineSinceMonthAgo(code, ztdate) {
         var zdate = new Date(ztdate);
         zdate.setMonth(zdate.getMonth() - 1);
         if (!this.klines[code]) {
@@ -68,29 +69,46 @@ class Manager {
         }
         zdate.setHours(15);
         if (new Date() - zdate > 24 * 3600000) {
-            var date = this.toDateString(zdate);
+            var date = this.dateToString(zdate);
             this.sendExtensionMessage({command:'mngr.getkline', code, date});
         }
     }
 
-    toDateString(dt) {
-        return dt.getFullYear() + ('' + (dt.getMonth() + 1)).padStart(2, '0') + ('' + dt.getDate()).padStart(2, '0');
+    dateToString(dt, sep = '') {
+        return dt.getFullYear() + sep + ('' + (dt.getMonth() + 1)).padStart(2, '0') + sep + ('' + dt.getDate()).padStart(2, '0');
     }
 
-    updateZt1stockKlines() {
-        // TODO: update stock in stocklist.
+    updateKlineDaily(code) {
+        var ldate = new Date(this.klines[code].getLatestKline('101').time);
+        ldate.setDate(ldate.getDate() + 1);
+        if (ldate < new Date()) {
+            var date = this.dateToString(ldate);
+            this.sendExtensionMessage({command:'mngr.getkline', code, date});
+            return true;
+        }
+        return false;
+    }
+
+    updateShownStocksDailyKline() {
+        var today = this.dateToString(new Date());
+        for (var i = 0; i < this.stockList.stocks.length; i++) {
+            var code = this.stockList.stocks[i].code;
+            if (this.klines[code].klines === undefined) {
+                this.getDailyKlineSinceMonthAgo(code, today);
+                continue;
+            }
+            if (!this.updateKlineDaily(code)) {
+                this.stockList.stocks[i].latestPrice = this.klines[code].getLatestKline('101').c;
+            }
+        }
+        this.stockList.refresh();
         for (var i = 0; i < this.zt1stocks.length; i++) {
             var code = this.zt1stocks[i].code;
             if (this.klines[code].klines === undefined) {
-                this.getZT1StockKline(code, this.zt1stocks[i].ztdate);
+                this.getDailyKlineSinceMonthAgo(code, this.zt1stocks[i].ztdate);
                 continue;
             }
-            var ldate = new Date(this.klines[code].getLatestKline('101').time);
-            ldate.setDate(ldate.getDate());
-            if (ldate < new Date()) {
-                var date = this.toDateString(ldate);
-                this.sendExtensionMessage({command:'mngr.getkline', code, date});
-            }
+            this.updateKlineDaily(code);
         }
     }
 
@@ -109,7 +127,7 @@ class Manager {
             console.log('addZt1Stock existing stock code ', stk.code, 'zt date ', stk.ztdate);
         }
         if (!this.klines[stkzt.code] || !this.klines[stkzt.code].klines) {
-            this.getZT1StockKline(stkzt.code, stkzt.ztdate);
+            this.getDailyKlineSinceMonthAgo(stkzt.code, stkzt.ztdate);
         }
     }
 
@@ -217,6 +235,7 @@ class Manager {
             var account = stocks[i].account;
             for (var j = 0; j < tstocks.length; j++) {
                 var ts = tstocks[j];
+                this.loadKlines(ts.code);
                 ts.acccode = account + '_' + ts.code;
                 ts.account = account;
                 accstocks.push(ts);
@@ -259,6 +278,13 @@ class Manager {
             this.addStock(code, account, strGrp);
             this.sendExtensionMessage({command:'mngr.addwatch', code, account, strategies: strGrp});
         }
+    }
+
+    stockAccountFrom(code) {
+        if (this.rzrqStocks && this.rzrqStocks.has(code)) {
+            return 'collat';
+        }
+        return 'normal';
     }
 }
 
@@ -320,7 +346,7 @@ class ManagerPage {
             var updateBtn = document.createElement('button');
             updateBtn.textContent = '更新数据';
             updateBtn.onclick = e => {
-                emjyManager.updateZt1stockKlines();
+                emjyManager.updateShownStocksDailyKline();
             }
             this.stockListDiv.appendChild(updateBtn);
             this.root.appendChild(this.stockListDiv);
@@ -450,6 +476,21 @@ class StockList {
         this.listContainer.lastElementChild.click();
     }
 
+    refresh() {
+        this.log('refresh stocks');
+        if (this.strategyGroupView.root.parentElement) {
+            this.strategyGroupView.root.parentElement.removeChild(this.strategyGroupView.root);
+        }
+        utils.removeAllChild(this.listContainer);
+        var stocks = this.stocks;
+        this.stocks = [];
+        for (var i = 0; i < stocks.length; i++) {
+            this.addStock(stocks[i]);
+        }
+
+        this.listContainer.lastElementChild.click();
+    }
+
     onStrategyGroupChanged(code, strGrp) {
         if (!strGrp) {
             return;
@@ -471,6 +512,15 @@ class StockList {
         return this.stocks.find( s => {
             return s.acccode == code;
         });
+    }
+
+    updateStockPrice(code) {
+        for (var i = 0; i < this.stocks.length; i++) {
+            if (this.stocks[i].code == code) {
+                this.stocks[i].latestPrice = emjyManager.klines[code].getLatestKline('101').c;
+            }
+        }
+        this.refresh();
     }
 
     addStock(stock) {

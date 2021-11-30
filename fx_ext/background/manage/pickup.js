@@ -18,10 +18,6 @@ class ZtPool {
         this.gettingDate = null;
     }
 
-    dateToString(dt, sep = '') {
-        return dt.getFullYear() + sep + ('' + (dt.getMonth() + 1)).padStart(2, '0') + sep + ('' + dt.getDate()).padStart(2, '0');
-    }
-
     getLastTradingDate(sep = '') {
         var now = new Date();
         var dateVal = now.getDate();
@@ -32,13 +28,13 @@ class ZtPool {
         };
         now.setDate(dateVal);
         this.gettingDate = now;
-        return this.dateToString(now, sep);
+        return emjyManager.dateToString(now, sep);
     }
 
     getNextDate(date, sep = '') {
         var d = new Date(date);
         d.setDate(d.getDate() + 1);
-        return this.dateToString(d, sep);
+        return emjyManager.dateToString(d, sep);
     }
 
     createZtArea() {
@@ -141,7 +137,7 @@ class ZtPool {
     }
 
     getHistZTPool() {
-        this.getZTPool(this.dateToString(startDate));
+        this.getZTPool(emjyManager.dateToString(startDate));
         this.gettingDate = startDate;
     }
 
@@ -189,10 +185,10 @@ class ZtPool {
     }
 
     onZTPoolback(ztpool) {
-        var ztdate = this.dateToString(this.gettingDate, '-');
+        var ztdate = emjyManager.dateToString(this.gettingDate, '-');
         this.gettingDate.setDate(this.gettingDate.getDate() + 1);
         if (this.gettingDate < endDate) {
-            this.getZTPool(this.dateToString(this.gettingDate));
+            this.getZTPool(emjyManager.dateToString(this.gettingDate));
         };
         if (!ztpool || !ztpool.data) {
             console.log('onZTPoolback', ztpool);
@@ -334,7 +330,7 @@ class ZtPool {
     }
 
     saveZtPool() {
-        var date = this.dateToString(new Date());
+        var date = emjyManager.dateToString(new Date());
         if (this.ztData) {
             var blob = new Blob([JSON.stringify(this.ztData)], {type: 'application/json'});
             var filename = 'StockDailyPrices/首板统计/ztpool' + date + '.json';
@@ -349,7 +345,7 @@ class ZtPool {
 
     addNewStockToWatchList(ztStocks) {
         return;
-        var ztdate = this.dateToString(new Date(), '-');
+        var ztdate = emjyManager.dateToString(new Date(), '-');
         var account = 'normal';
         for (var i = 0; i < ztStocks.length; i++) {
             var stocki = ztStocks[i];
@@ -365,7 +361,7 @@ class ZtPool {
 
     addToWatchList(ztStocks) {
         return;
-        var ztdate = this.dateToString(new Date(), '-');
+        var ztdate = emjyManager.dateToString(new Date(), '-');
         var account = 'normal';
         for (var i = 0; i < ztStocks.length; i++) {
             var stocki = ztStocks[i];
@@ -398,14 +394,30 @@ class PickupPanel {
     }
 
     tmpEvents() {
-        // for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
-        //     var stkzt = emjyManager.zt1stocks[i];
-        //     if (!emjyManager.klines[stkzt.code] || !emjyManager.klines[stkzt.code].klines) {
-        //         emjyManager.getZT1StockKline(stkzt.code, stkzt.ztdate);
-        //         console.log(stkzt, emjyManager.klines[stkzt.code]);
-        //     }
-        // }
-        //emjyManager.updateZt1stockKlines();
+        var today = emjyManager.dateToString(new Date(), '-');
+        for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
+            var stkzt = emjyManager.zt1stocks[i];
+            if (stkzt.ztdate != today) {
+                continue;
+            }
+            if (stkzt.vscale == 4) {
+                var ownAccount = emjyManager.stockAccountFrom(stkzt.code);
+                var account = ownAccount == 'normal' ? 'normal' : 'credit';
+                var strgrp = {
+                    grptype: "GroupStandard",
+                    amount: 5000,
+                    transfers: {"0":{transfer: "2"}, "1":{transfer: "2"}, "2":{transfer: "1"}, "3":{transfer: "1"}},
+                    strategies: {
+                        "0": {key:"StrategyBuy", enabled:true, account},
+                        "1": {key:"StrategyBuyMAD", enabled:false, account, kltype:"60"},
+                        "2": {key:"StrategySellMAD", enabled:false, kltype:"60"},
+                        "3": {key:"StrategySellEL", enabled:false}
+                    }
+                };
+                emjyManager.addWatchingStock(stkzt.code, ownAccount, strgrp);
+                console.log('add code', ownAccount, stkzt);
+            }
+        }
     }
 
     showSelectedTable() {
