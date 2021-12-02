@@ -387,4 +387,20 @@ class KLine {
         }
         return kline[tidx].v / va;
     }
+
+    continuouslyBellow(kltype='101', n = 5) {
+        var kline = this.klines[kltype];
+        if (kline.length < n) {
+            return false;
+        }
+        for (var i = 1; i <= n; i++) {
+            var kl = kline[kline.length - i];
+            if (kl.bss18 - kl.o > 0 && kl.bss18 - kl.c > 0) {
+                continue;
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
 }

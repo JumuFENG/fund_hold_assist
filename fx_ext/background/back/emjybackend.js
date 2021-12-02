@@ -562,7 +562,7 @@ class EmjyBack {
 
     fetchAllStocksMktInfo() {
         this.fetchingBKstocks = new BkStocksMarketFetch();
-        this.fetchingBKstocks.updateBkStocks();
+        this.fetchingBKstocks.fetchBkStcoks();
         this.log('fetch all stock market info!');
     }
 

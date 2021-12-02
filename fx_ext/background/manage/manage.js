@@ -92,16 +92,16 @@ class Manager {
     updateShownStocksDailyKline() {
         var today = this.dateToString(new Date());
         for (var i = 0; i < this.stockList.stocks.length; i++) {
-            var code = this.stockList.stocks[i].code;
-            if (this.klines[code].klines === undefined) {
+            var code = this.stockList.stocks[i].stock.code;
+            if (this.klines[code] === undefined || this.klines[code].klines === undefined) {
                 this.getDailyKlineSinceMonthAgo(code, today);
                 continue;
             }
             if (!this.updateKlineDaily(code)) {
-                this.stockList.stocks[i].latestPrice = this.klines[code].getLatestKline('101').c;
+                this.stockList.updateStockPrice(code);
             }
         }
-        this.stockList.refresh();
+        
         for (var i = 0; i < this.zt1stocks.length; i++) {
             var code = this.zt1stocks[i].code;
             if (this.klines[code].klines === undefined) {
@@ -447,133 +447,6 @@ class ManagerPage {
             this.pickupDiv.style.display = 'none';
         }
         this.settingsDiv.style.display = 'block';
-    }
-}
-
-class StockList {
-    constructor(log) {
-        this.log = log;
-        this.stocks = [];
-        this.root = document.createElement('div');
-        this.listContainer = document.createElement('div');
-        this.root.appendChild(this.listContainer);
-        this.root.appendChild(document.createElement('hr'));
-        this.strategyGroupView = new StrategyGroupView();
-        this.currentCode = null;
-    }
-
-    initUi(stocks) {
-        this.log('init StockList');
-        if (this.strategyGroupView.root.parentElement) {
-            this.strategyGroupView.root.parentElement.removeChild(this.strategyGroupView.root);
-        }
-        utils.removeAllChild(this.listContainer);
-        for (var i = 0; i < stocks.length; i++) {
-            stocks[i].strategies = JSON.parse(stocks[i].strategies);
-            this.addStock(stocks[i]);
-        };
-        
-        this.listContainer.lastElementChild.click();
-    }
-
-    refresh() {
-        this.log('refresh stocks');
-        if (this.strategyGroupView.root.parentElement) {
-            this.strategyGroupView.root.parentElement.removeChild(this.strategyGroupView.root);
-        }
-        utils.removeAllChild(this.listContainer);
-        var stocks = this.stocks;
-        this.stocks = [];
-        for (var i = 0; i < stocks.length; i++) {
-            this.addStock(stocks[i]);
-        }
-
-        this.listContainer.lastElementChild.click();
-    }
-
-    onStrategyGroupChanged(code, strGrp) {
-        if (!strGrp) {
-            return;
-        };
-
-        for (var i = 0; i < this.stocks.length; i++) {
-            if (this.stocks[i].acccode == code) {
-                this.stocks[i].strategies = strGrp;
-                break;
-            };
-        };
-    }
-
-    stockExist(code, account) {
-        return this.accStockExists(account + '_' + code);
-    }
-
-    accStockExists(code) {
-        return this.stocks.find( s => {
-            return s.acccode == code;
-        });
-    }
-
-    updateStockPrice(code) {
-        for (var i = 0; i < this.stocks.length; i++) {
-            if (this.stocks[i].code == code) {
-                this.stocks[i].latestPrice = emjyManager.klines[code].getLatestKline('101').c;
-            }
-        }
-        this.refresh();
-    }
-
-    addStock(stock) {
-        if (!this.accStockExists(stock.acccode)) {
-            this.stocks.push(stock);
-        };
-        
-        var divContainer = document.createElement('div');
-        divContainer.acccode = stock.acccode;
-        divContainer.onclick = e => {
-            if (this.strategyGroupView && (!this.currentCode || this.currentCode != e.currentTarget.acccode)) {
-                if (this.strategyGroupView) {
-                    this.strategyGroupView.saveStrategy();
-                    this.onStrategyGroupChanged(this.currentCode, this.strategyGroupView.strGrp);
-                };
-                if (this.strategyGroupView.root.parentElement) {
-                    this.strategyGroupView.root.parentElement.removeChild(this.strategyGroupView.root);
-                };
-                e.currentTarget.appendChild(this.strategyGroupView.root);
-                this.currentCode = e.currentTarget.acccode;
-                var stk = this.accStockExists(this.currentCode);
-                this.strategyGroupView.latestPrice = stk.latestPrice;
-                this.strategyGroupView.initUi(stk.account, stk.code, stk.strategies);
-            };
-        };
-        var divTitle = document.createElement('div');
-        var titleText = stock.name + '(' + stock.code + ') '+ emjyManager.accountNames[stock.account];
-        divTitle.appendChild(document.createTextNode(titleText));
-        var anchor = document.createElement('a');
-        anchor.textContent = '行情';
-        if (stock.market !== undefined) {
-            anchor.href = emStockUrl + (stock.market == 'SZ' ? 'sz' : 'sh') + stock.code + emStockUrlTail;
-        };
-        anchor.target = '_blank';
-        divTitle.appendChild(anchor);
-        
-        if (stock.holdCount == 0) {
-            var deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'Delete';
-            deleteBtn.code = stock.code;
-            deleteBtn.account = stock.account;
-            deleteBtn.onclick = e => {
-                emjyManager.sendExtensionMessage({command:'mngr.rmwatch', code: e.target.code, account: e.target.account});
-                location.reload();
-            }
-            divTitle.appendChild(deleteBtn);
-        };
-        divContainer.appendChild(divTitle);
-        var divDetails = document.createElement('div');
-        divDetails.appendChild(document.createTextNode('最新价：' + stock.latestPrice + ' 成本价：' + stock.holdCost + ' 数量：' + stock.holdCount));
-        divContainer.appendChild(divDetails);
-        this.listContainer.appendChild(document.createElement('hr'));
-        this.listContainer.appendChild(divContainer);
     }
 }
 
