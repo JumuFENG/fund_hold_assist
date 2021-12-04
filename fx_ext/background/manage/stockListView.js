@@ -9,40 +9,82 @@ class StockView {
         this.container.onclick = e => {
             this.onStockClicked(e.currentTarget, this.stock);
         };
-        var divTitle = document.createElement('div');
+        this.divTitle = document.createElement('div');
         var titleText = stock.name + '(' + stock.code + ') '+ emjyManager.accountNames[stock.account];
-        divTitle.appendChild(document.createTextNode(titleText));
+        this.divTitle.appendChild(document.createTextNode(titleText));
         var anchor = document.createElement('a');
         anchor.textContent = '行情';
         if (stock.market !== undefined) {
             anchor.href = emStockUrl + (stock.market == 'SZ' ? 'sz' : 'sh') + stock.code + emStockUrlTail;
         };
         anchor.target = '_blank';
-        divTitle.appendChild(anchor);
+        this.divTitle.appendChild(anchor);
         
         if (stock.holdCount == 0) {
-            var deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'Delete';
-            deleteBtn.code = stock.code;
-            deleteBtn.account = stock.account;
-            deleteBtn.onclick = e => {
+            this.deleteBtn = document.createElement('button');
+            this.deleteBtn.textContent = 'Delete';
+            this.deleteBtn.code = stock.code;
+            this.deleteBtn.account = stock.account;
+            this.deleteBtn.onclick = e => {
                 emjyManager.sendExtensionMessage({command:'mngr.rmwatch', code: e.target.code, account: e.target.account});
                 location.reload();
             }
-            divTitle.appendChild(deleteBtn);
-            this.deleteBtn = deleteBtn;
+            this.divTitle.appendChild(this.deleteBtn);
         };
-        this.container.appendChild(divTitle);
+        this.container.appendChild(this.divTitle);
         var divDetails = document.createElement('div');
         this.detailView = document.createTextNode('最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost + ' 数量：' + this.stock.holdCount);
         divDetails.appendChild(this.detailView);
         this.container.appendChild(divDetails);
+        this.showWarningInTitle();
     }
 
     refresh() {
         this.detailView.textContent = '最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost + ' 数量：' + this.stock.holdCount;
         if (this.deleteBtn && emjyManager.klines[this.stock.code].continuouslyBellow()) {
-            this.deleteBtn.style.color = 'green';
+            this.divTitle.style.borderBottom = '2px solid green';
+        }
+    }
+
+    showWarningInTitle() {
+        var strGrp = this.stock.strategies;
+        var needfix = false;
+        if (strGrp && strGrp.strategies) {
+            var strategies = strGrp.strategies;
+            if (this.stock.holdCount == 0) {
+                var buystrCount = 0;
+                for (const i in strategies) {
+                    const str = strategies[i];
+                    if (str.enabled && str.key.includes('Sell')) {
+                        needfix =  true;
+                        break;
+                    } else if (str.key.includes('Buy')) {
+                        buystrCount ++;
+                    }
+                }
+                if (buystrCount == 0) {
+                    needfix = true;
+                }
+            } else {
+                var sellstrCount = 0;
+                for (const i in strategies) {
+                    const str = strategies[i];
+                    if (str.enabled && str.key.includes('Buy')) {
+                        needfix =  true;
+                        break;
+                    } else if (str.key.includes('Sell')) {
+                        sellstrCount ++;
+                    }
+                }
+                if (sellstrCount == 0) {
+                    needfix = true;
+                }
+            }
+        }
+
+        if (needfix) {
+            this.divTitle.style.borderLeft = '5px solid red';
+            this.divTitle.style.paddingLeft = '10px';
         }
     }
 }
