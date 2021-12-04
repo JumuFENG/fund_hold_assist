@@ -265,7 +265,6 @@ class AccountInfo {
         if (ic == -1) {
             return;
         };
-        this.stocks[ic].deleteKlines();
         chrome.storage.local.remove(this.keyword + '_' + code + '_strategies');
         this.stocks.splice(ic, 1);
     }

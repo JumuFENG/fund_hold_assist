@@ -590,9 +590,14 @@ class EmjyBack {
         this.flushLogs();
     }
 
+    getTodayDate(sep = '') {
+        var dt = new Date();
+        return dt.getFullYear() + sep + ('' + (dt.getMonth() + 1)).padStart(2, '0') + sep + ('' + dt.getDate()).padStart(2, '0');
+    }
+
     flushLogs() {
         var blob = new Blob(this.logs, {type: 'application/text'});
-        this.saveToFile(blob, 'stock.assist.log');
+        this.saveToFile(blob, 'logs/stock.assist' + this.getTodayDate() + '.log');
         this.logs = [];
     }
 
