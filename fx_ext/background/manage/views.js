@@ -8,9 +8,12 @@ class Utils {
         return true;
     }
 
-    getTodayDate() {
-        var dt = new Date();
-        return dt.getFullYear()+"-" + ('' + (dt.getMonth()+1)).padStart(2, '0') + "-" + ('' + dt.getDate()).padStart(2, '0');
+    dateToString(dt, sep = '') {
+        return dt.getFullYear() + sep + ('' + (dt.getMonth() + 1)).padStart(2, '0') + sep + ('' + dt.getDate()).padStart(2, '0');
+    }
+
+    getTodayDate(sep = '-') {
+        return this.dateToString(new Date(), sep);
     }
 
     days_since_2000(date) {
@@ -42,6 +45,15 @@ class Utils {
         while(ele.hasChildNodes()) {
             ele.removeChild(ele.lastChild);
         }
+    }
+
+    calcBuyCount(amount, price) {
+        var ct = (amount / 100) / price;
+        var d = ct - Math.floor(ct);
+        if (d <= ct * 0.15) {
+            return 100 * Math.floor(ct);
+        };
+        return 100 * Math.ceil(ct);
     }
     
     createSingleRow(c, span = 2) {

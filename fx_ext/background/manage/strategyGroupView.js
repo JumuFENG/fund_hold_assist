@@ -216,15 +216,6 @@ class StrategyGroupView {
         this.newStrategyContainer.appendChild(this.newStrategyView.root);
     }
 
-    calcCount(amount, price) {
-        var ct = (amount / 100) / price;
-        var d = ct - Math.floor(ct);
-        if (d <= ct * 0.15) {
-            return 100 * Math.floor(ct);
-        };
-        return 100 * Math.ceil(ct);
-    }
-
     createGroupInfoView() {
         var ctDiv = document.createElement('div');
         ctDiv.appendChild(document.createTextNode('满仓数量 '));
@@ -236,7 +227,7 @@ class StrategyGroupView {
         this.inputAmount.style.maxWidth = 80;
         ctDiv.appendChild(this.inputAmount);
         this.inputAmount.onchange = e => {
-            this.inputCount.value = this.calcCount(this.inputAmount.value, this.latestPrice);
+            this.inputCount.value = utils.calcBuyCount(this.inputAmount.value, this.latestPrice);
         }
         this.inputCount.onchange = e => {
             this.inputAmount.value = (this.inputCount.value * this.latestPrice).toFixed(2);
@@ -248,7 +239,7 @@ class StrategyGroupView {
                 amount = this.strGrp.amount;
             }
             this.inputAmount.value = amount;
-            this.inputCount.value = this.calcCount(amount, this.latestPrice);
+            this.inputCount.value = utils.calcBuyCount(amount, this.latestPrice);
         } else {
             this.inputCount.value = this.strGrp.count0;
             if (this.latestPrice) {

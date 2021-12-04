@@ -69,20 +69,16 @@ class Manager {
         }
         zdate.setHours(15);
         if (new Date() - zdate > 24 * 3600000) {
-            var date = this.dateToString(zdate);
+            var date = utils.dateToString(zdate);
             this.sendExtensionMessage({command:'mngr.getkline', code, date});
         }
-    }
-
-    dateToString(dt, sep = '') {
-        return dt.getFullYear() + sep + ('' + (dt.getMonth() + 1)).padStart(2, '0') + sep + ('' + dt.getDate()).padStart(2, '0');
     }
 
     updateKlineDaily(code) {
         var ldate = new Date(this.klines[code].getLatestKline('101').time);
         ldate.setDate(ldate.getDate() + 1);
         if (ldate < new Date()) {
-            var date = this.dateToString(ldate);
+            var date = utils.dateToString(ldate);
             this.sendExtensionMessage({command:'mngr.getkline', code, date});
             return true;
         }
@@ -90,7 +86,7 @@ class Manager {
     }
 
     updateShownStocksDailyKline() {
-        var today = this.dateToString(new Date());
+        var today = utils.getTodayDate('');
         for (var i = 0; i < this.stockList.stocks.length; i++) {
             var code = this.stockList.stocks[i].stock.code;
             if (this.klines[code] === undefined || this.klines[code].klines === undefined) {

@@ -185,11 +185,24 @@ class StrategyGroup {
             };
             var gl = this.strategies[id].guardLevel();
             if (gl == 'kline') {
-                emjyBack.klineAlarms.addStock(this.code, this.strategies[id].kltype());
+                if (this.strategies[id].kltype() % 101 == 0) {
+                    emjyBack.dailyAlarm.addStock(this.code, this.strategies[id].kltype());
+                } else {
+                    emjyBack.klineAlarms.addStock(this.code, this.strategies[id].kltype());
+                }
             } else if (gl == 'kday') {
                 emjyBack.dailyAlarm.addStock(this.code, this.strategies[id].kltype());
             } else if (gl == 'otp') {
-                emjyBack.otpAlarm.addStock(this.code);
+                var isbuy = this.strategies[id].isBuyStrategy();
+                var account = this.account;
+                if (this.strategies[id].data.account !== undefined) {
+                    account = this.strategies[id].data.account;
+                }
+                var stock = {code: this.code, account, isbuy};
+                if (this.count0 !== undefined) {
+                    stock.count = this.count0;
+                }
+                emjyBack.otpAlarm.addStock(stock);
             } else if (gl == 'rtp') {
                 emjyBack.rtpTimer.addStock(this.code);
             } else if (gl == 'zt') {
@@ -251,22 +264,13 @@ class StrategyGroup {
         }
     }
 
-    calcCount(amount, price) {
-        var ct = (amount / 100) / price;
-        var d = ct - Math.floor(ct);
-        if (d <= ct * 0.15) {
-            return 100 * Math.floor(ct);
-        };
-        return 100 * Math.ceil(ct);
-    }
-
     getBuyCount(price) {
         if (!this.count0 || this.count0 <= 0) {
             var amount = 10000;
             if (this.amount && this.amount > 0) {
                 amount = this.amount;
             };
-            this.count0 = this.calcCount(amount, price);
+            this.count0 = utils.calcBuyCount(amount, price);
         }
         return this.count0;
     }
