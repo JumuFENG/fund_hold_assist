@@ -89,20 +89,18 @@ class StockView {
     }
 }
 
-class StockList {
-    constructor(log) {
-        this.log = log;
+class StockListPanelPage extends RadioAnchorPage {
+    constructor() {
+        super('自选管理');
         this.stocks = [];
-        this.root = document.createElement('div');
-        this.listContainer = document.createElement('div');
-        this.root.appendChild(this.listContainer);
-        this.root.appendChild(document.createElement('hr'));
+        this.initStockList();
+        this.addWatchArea();
         this.strategyGroupView = new StrategyGroupView();
         this.currentCode = null;
     }
 
     initUi(stocks) {
-        this.log('init StockList');
+        emjyManager.log('init StockList');
         if (this.strategyGroupView.root.parentElement) {
             this.strategyGroupView.root.parentElement.removeChild(this.strategyGroupView.root);
         }
@@ -149,7 +147,7 @@ class StockList {
 
     addStock(stock) {
         if (this.accStockExists(stock.acccode)) {
-            this.log(stock.acccode, 'already exists');
+            emjyManager.log(stock.acccode, 'already exists');
             return;
         };
         
@@ -171,5 +169,46 @@ class StockList {
         this.listContainer.appendChild(document.createElement('hr'));
         this.listContainer.appendChild(divContainer.container);
         this.stocks.push(divContainer);
+    }
+
+    initStockList() {
+        var updateBtn = document.createElement('button');
+        updateBtn.textContent = '更新数据';
+        updateBtn.onclick = e => {
+            emjyManager.updateShownStocksDailyKline();
+        }
+        this.container.appendChild(updateBtn);
+        
+        this.listContainer = document.createElement('div');
+        this.container.appendChild(this.listContainer);
+        this.container.appendChild(document.createElement('hr'));
+    }
+
+    addWatchArea() {
+        var watchDiv = document.createElement('div');
+        var inputCode = document.createElement('input');
+        watchDiv.appendChild(inputCode);
+        var watchAccountSelector = document.createElement('select');
+        var accounts = ['normal', 'collat'];
+        for (var i in emjyManager.accountsMap) {
+            var opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = emjyManager.accountNames[i];
+            watchAccountSelector.appendChild(opt);
+        };
+        watchDiv.appendChild(watchAccountSelector);
+        var btnOk = document.createElement('button');
+        btnOk.textContent = '新增观察股票';
+        btnOk.parentPage = this;
+        btnOk.onclick = (e) => {
+            if (inputCode.value.length != 6) {
+                alert('Wrong stock code');
+                return;
+            };
+            emjyManager.addWatchingStock(inputCode.value, watchAccountSelector.value);
+            inputCode.value = '';
+        };
+        watchDiv.appendChild(btnOk);
+        this.container.appendChild(watchDiv);
     }
 }

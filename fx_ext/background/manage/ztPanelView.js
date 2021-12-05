@@ -1,16 +1,52 @@
-let futuStockUrl = 'https://www.futunn.com/stock/';
-let emStockUrl = 'http://quote.eastmoney.com/concept/';
-let emStockUrlTail = '.html#fschart-k';
-let BkRZRQ = 'BK0596';
-let stockPriceRanges = {0:'低位', 1:'高位', 2:'上涨中继', 3:'下跌中继'};
-let stockVolScales = {0:'微量', 1:'缩量', 2:'平量', 3:'放量', 4:'天量'};
+'use strict';
+
 var startDate = new Date('2021-07-23');
 var endDate = new Date('2021-07-23');
 
-class ZtPool {
-    constructor(sendMsg) {
-        this.sendExtensionMessage = sendMsg;
-        this.root = document.createElement('div');
+class ZtTablePage extends RadioAnchorPage {
+    constructor(zt, ztStocks) {
+        var zttitle = zt > 1 ? zt + '连板' : '首板';
+        super(zttitle);
+
+        if (!ztStocks) {
+            return;
+        }
+       
+        this.ztTable = new SortableTable();
+        this.ztTable.reset();
+        this.container.appendChild(this.ztTable.container);
+        this.ztTable.setClickableHeader('序号', '名称(代码)', '总市值', '流通市值', '炸板次数', '换手率(%)', zttitle + '价格', zttitle + '日期');
+        for (var i = 0; i < ztStocks.length; i++) {
+            var stocki = ztStocks[i];
+            if (zt == 1) {
+                emjyManager.addZt1Stock(stocki);
+            }
+            var anchor = document.createElement('a');
+            anchor.textContent = stocki.name + '(' + stocki.code + ')';
+            if (stocki.m !== undefined) {
+                anchor.href = emStockUrl + (stocki.m == '0' ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
+            } else {
+                anchor.href = emStockUrl + (stocki.code.startsWith('00') ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
+            }
+            anchor.target = '_blank';
+            this.ztTable.addRow(
+                i + 1, anchor,
+                parseFloat(stocki.zsz.toFixed(4)),
+                parseFloat(stocki.ltsz.toFixed(4)),
+                stocki.zbc,
+                parseFloat(stocki.hsl.toFixed(2)),
+                stocki.price,
+                stocki.ztdate,
+                );
+        }
+    }
+}
+
+class ZtPanelPage extends RadioAnchorPage {
+    constructor() {
+        super('涨停一览');
+        this.createZtArea();
+
         this.ztListDiv = null;
         this.emulator = null;
         this.ztpool = [];
@@ -48,14 +84,14 @@ class ZtPool {
         fileIptDiv.appendChild(document.createTextNode('涨停板文件 '));
         fileIptDiv.appendChild(inputFile);
         fileIptDiv.appendChild(document.createElement('br'));
-        this.root.appendChild(fileIptDiv);
+        this.container.appendChild(fileIptDiv);
         var getZtBtn = document.createElement('button');
         getZtBtn.textContent = '获取最新涨停股池';
         getZtBtn.onclick = e => {
             this.getZTPool(this.getLastTradingDate());
             // this.getHistZTPool();
         };
-        this.root.appendChild(getZtBtn);
+        this.container.appendChild(getZtBtn);
         var hideLbl = document.createElement('label');
         hideLbl.textContent = '隐藏涨停列表';
         var checkHide = document.createElement('input');
@@ -67,7 +103,7 @@ class ZtPool {
             };
         };
         hideLbl.appendChild(checkHide);
-        this.root.appendChild(hideLbl);
+        this.container.appendChild(hideLbl);
     }
 
     createEmulateArea() {
@@ -142,7 +178,7 @@ class ZtPool {
     }
 
     getZTPool(date) {
-        this.sendExtensionMessage({command:'mngr.getZTPool', date});
+        emjyManager.sendExtensionMessage({command:'mngr.getZTPool', date});
     }
 
     archiveZTPool(ztpool) {
@@ -257,7 +293,7 @@ class ZtPool {
                     ztpool.sort((a, b) => {return a.ztdate > b .ztdate; });
                     var blob = new Blob([JSON.stringify(ztpool)], {type: 'application/json'});
                     var filename = 'StockDailyPrices/首板统计/ztdaily/' + ztpool[0].ztdate + '-' + ztpool[ztpool.length - 1].ztdate + '.json';
-                    this.sendExtensionMessage({command:'mngr.saveFile', blob, filename});
+                    emjyManager.sendExtensionMessage({command:'mngr.saveFile', blob, filename});
                 };
             });
         };
@@ -266,67 +302,23 @@ class ZtPool {
     refreshZtPool() {
         if (!this.ztListDiv) {
             this.ztListDiv = document.createElement('div');
-            this.root.appendChild(this.ztListDiv);
+            this.container.appendChild(this.ztListDiv);
             this.ztRadioBar = new RadioAnchorBar();
             this.ztListDiv.appendChild(this.ztRadioBar.container);
-            this.ztTable = new SortableTable();
-            this.ztListDiv.appendChild(this.ztTable.container);
         };
         if (!this.emulator) {
             this.emulator = new TradeEmulate();
             var emulateDiv = this.createEmulateArea();
-            this.root.appendChild(emulateDiv);
+            this.container.appendChild(emulateDiv);
             this.emulator.initUi(emulateDiv);
         };
         this.ztRadioBar.clearAllAnchors();
-        this.radioValues = [];
         for (var i in this.ztData) {
-            this.ztRadioBar.addRadio(i > 1 ? i + '连板' : '首板', function(that) {
-                that.showZTTable();
-            }, this);
-            this.radioValues.push(i);
+            var ztTbl = new ZtTablePage(i, this.ztData[i]);
+            this.ztRadioBar.addRadio(ztTbl);
+            this.ztListDiv.appendChild(ztTbl.container);
         }
         this.ztRadioBar.selectDefault();
-    }
-
-    showZTTable() {
-        var zt = this.radioValues[this.ztRadioBar.getHighlighted()];
-        if (this.ztData[zt]) {
-            this.refreshZtTable(zt);
-        }
-    }
-
-    refreshZtTable(zt) {
-        this.ztTable.reset();
-        var ztStocks = this.ztData[zt];
-        if (!ztStocks) {
-            return;
-        }
-        var zttitle = zt > 1 ? zt + '连板' : '首板';
-        this.ztTable.setClickableHeader('序号', '名称(代码)', '总市值', '流通市值', '炸板次数', '换手率(%)', zttitle + '价格', zttitle + '日期');
-        for (var i = 0; i < ztStocks.length; i++) {
-            var stocki = ztStocks[i];
-            if (zt == 1) {
-                emjyManager.addZt1Stock(stocki);
-            }
-            var anchor = document.createElement('a');
-            anchor.textContent = stocki.name + '(' + stocki.code + ')';
-            if (stocki.m !== undefined) {
-                anchor.href = emStockUrl + (stocki.m == '0' ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
-            } else {
-                anchor.href = emStockUrl + (stocki.code.startsWith('00') ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
-            }
-            anchor.target = '_blank';
-            this.ztTable.addRow(
-                i + 1, anchor,
-                parseFloat(stocki.zsz.toFixed(4)),
-                parseFloat(stocki.ltsz.toFixed(4)),
-                stocki.zbc,
-                parseFloat(stocki.hsl.toFixed(2)),
-                stocki.price,
-                stocki.ztdate,
-                );
-        }
     }
 
     saveZtPool() {
@@ -334,12 +326,12 @@ class ZtPool {
         if (this.ztData) {
             var blob = new Blob([JSON.stringify(this.ztData)], {type: 'application/json'});
             var filename = 'StockDailyPrices/首板统计/ztpool' + date + '.json';
-            this.sendExtensionMessage({command:'mngr.saveFile', blob, filename});
+            emjyManager.sendExtensionMessage({command:'mngr.saveFile', blob, filename});
         };
         if (this.ztpool.length > 0) {
             var blob = new Blob([JSON.stringify(this.ztpool)], {type: 'application/json'});
             var filename = 'StockDailyPrices/首板统计/ztdaily/' + this.ztpool[0].ztdate + '.json';
-            this.sendExtensionMessage({command:'mngr.saveFile', blob, filename});
+            emjyManager.sendExtensionMessage({command:'mngr.saveFile', blob, filename});
         };
     }
 
@@ -373,187 +365,6 @@ class ZtPool {
         };
     }
 };
-
-class PickupPanel {
-    constructor() {
-        this.root = document.createElement('div');
-        this.selectedTable = new SortableTable();
-        this.root.appendChild(this.selectedTable.container);
-        var saveBtn = document.createElement('button');
-        saveBtn.textContent = '保存';
-        saveBtn.onclick = e => {
-            this.save();
-        }
-        this.root.appendChild(saveBtn);
-        var tmpBtn = document.createElement('button');
-        tmpBtn.textContent = 'Test';
-        tmpBtn.onclick = e => {
-            this.tmpEvents();
-        }
-        this.root.appendChild(tmpBtn);
-    }
-
-    tmpEvents() {
-        var today = utils.getTodayDate('-');
-        for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
-            var stkzt = emjyManager.zt1stocks[i];
-            if (stkzt.ztdate != today) {
-                continue;
-            }
-            if (stkzt.vscale == 4) {
-                var ownAccount = emjyManager.stockAccountFrom(stkzt.code);
-                var account = ownAccount == 'normal' ? 'normal' : 'credit';
-                var strgrp = {
-                    grptype: "GroupStandard",
-                    transfers: {"0":{transfer: "2"}, "1":{transfer: "2"}, "2":{transfer: "1"}, "3":{transfer: "1"}},
-                    strategies: {
-                        "0": {key:"StrategyBuy", enabled:true, account},
-                        "1": {key:"StrategyBuyMAD", enabled:false, account, kltype:"60"},
-                        "2": {key:"StrategySellMAD", enabled:false, kltype:"60"},
-                        "3": {key:"StrategySellEL", enabled:false}
-                    }
-                };
-                var amount = 5000;
-                if (emjyManager.klines[stkzt.code] && emjyManager.klines[stkzt.code]['101']) {
-                    var price = emjyManager.klines[stkzt.code].getLatestKline('101').c;
-                    var count = utils.calcBuyCount(amount, price);
-                    strgrp.count0 = count;
-                } else {
-                    strgrp.amount = amount;
-                }
-                emjyManager.addWatchingStock(stkzt.code, ownAccount, strgrp);
-                console.log('add code', ownAccount, stkzt);
-            }
-        }
-    }
-
-    showSelectedTable() {
-        this.selectedTable.reset();
-        this.selectedTable.setClickableHeader('删除', '代码', '名称', '日期', '放量程度', '股价区间', '低点日', '高点日', '删除日');
-        for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
-            var stocki = emjyManager.zt1stocks[i];
-            var delBtn = document.createElement('button');
-            delBtn.textContent = 'x';
-            delBtn.idx = i;
-            delBtn.onclick = e => {
-                this.removeSelected(e.target.idx);
-            }
-            var anchor = document.createElement('a');
-            anchor.textContent = stocki.name;
-            if (stocki.m !== undefined) {
-                anchor.href = emStockUrl + (stocki.m == '0' ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
-            } else {
-                anchor.href = emStockUrl + (stocki.code.startsWith('00') ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
-            }
-            anchor.target = '_blank';
-
-            var vol = document.createElement('select');
-            for (var v in stockVolScales) {
-                var opt = document.createElement('option');
-                opt.value = v;
-                opt.textContent = stockVolScales[v];
-                vol.appendChild(opt);
-            }
-            if (stocki.vscale) {
-                vol.value = stocki.vscale;
-            } else {
-                vol.value = 2;
-            }
-            if (vol.value == 3) {
-                vol.style.backgroundColor = 'red';
-            } else if (vol.value > 3) {
-                vol.style.backgroundColor = 'deeppink';
-            } else if (vol.value == 0) {
-                vol.style.backgroundColor = 'deepskyblue';
-            }
-            vol.idx = i;
-            vol.onchange = e => {
-                emjyManager.setVolScale(e.target.idx, e.target.value);
-            }
-            var prng = document.createElement('select');
-            var opt0 = document.createElement('option');
-            opt0.textContent = '--------';
-            opt0.disabled = true;
-            opt0.selected = true;
-            prng.appendChild(opt0);
-            for (var p in stockPriceRanges) {
-                var opt = document.createElement('option');
-                opt.value = p;
-                opt.textContent = stockPriceRanges[p];
-                prng.appendChild(opt);
-            }
-            if (stocki.prng) {
-                prng.value = stocki.prng;
-            }
-            if (prng.value == 0) {
-                prng.style.backgroundColor = 'red';
-            }
-            prng.idx = i;
-            prng.onchange = e => {
-                emjyManager.setPrng(e.target.idx, e.target.value);
-                if (e.target.value == 0) {
-                    e.target.style.backgroundColor = 'red';
-                } else {
-                    e.target.style.backgroundColor = '';
-                }
-            }
-            var lowdate = document.createElement('input');
-            lowdate.idx = i;
-            lowdate.style.maxWidth = 80;
-            lowdate.value = stocki.lowdt ? stocki.lowdt : stocki.ztdate;
-            lowdate.onchange = e => {
-                emjyManager.setLowDate(e.target.idx, e.target.value);
-            }
-            var highdate = document.createElement('input');
-            highdate.idx = i;
-            highdate.style.maxWidth = 80;
-            highdate.value = stocki.hidate ? stocki.hidate : stocki.ztdate;
-            highdate.onchange = e => {
-                emjyManager.setHighDate(e.target.idx, e.target.value);
-            }
-            var deldate = document.createElement('input');
-            deldate.idx = i;
-            deldate.style.maxWidth = 80;
-            deldate.value = stocki.rmvdate ? stocki.rmvdate : stocki.ztdate;
-            deldate.onchange = e => {
-                emjyManager.setDelDate(e.target.idx, e.target.value);
-            }
-            this.selectedTable.addRow(
-                delBtn,
-                stocki.code,
-                anchor,
-                stocki.ztdate,
-                vol,
-                prng,
-                lowdate,
-                highdate,
-                deldate
-                );
-        }
-    }
-
-    removeSelected(idx) {
-        emjyManager.zt1stocks.splice(idx, 1);
-        this.showSelectedTable();
-    }
-
-    save() {
-        var zt1stocks = [];
-        var ztdels = emjyManager.delstocks;
-        for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
-            var stocki = emjyManager.zt1stocks[i];
-            if (stocki.rmvdate !== undefined && stocki.rmvdate > stocki.ztdate) {
-                if (!ztdels.find(s => {s.code == stocki.code && s.ztdate == stocki.ztdate})) {
-                    ztdels.push(stocki);
-                }
-            } else {
-                zt1stocks.push(stocki);
-            }
-        }
-        chrome.storage.local.set({'ztstocks': zt1stocks});
-        chrome.storage.local.set({'ztdels': ztdels});
-    }
-}
 
 class TradeEmulate {
     constructor() {

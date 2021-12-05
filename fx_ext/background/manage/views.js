@@ -118,6 +118,34 @@ class Utils {
     }
 }
 
+class RadioAnchorPage {
+    constructor(text) {
+        this.container = document.createElement('div');
+        this.anchorBar = document.createElement('a');
+        this.anchorBar.href = 'javascript:void(0)';
+        this.anchorBar.textContent = text;
+        this.anchorBar.onclick = () => {
+            if (this.onAnchorClicked) {
+                this.onAnchorClicked(this.idx);
+            }
+        }
+        this.selected = false;
+        this.container.style.display = 'none';
+    }
+
+    show() {
+        this.selected = true;
+        this.anchorBar.className = 'highlight';
+        this.container.style.display = 'block';
+    }
+
+    hide() {
+        this.selected = false;
+        this.anchorBar.className = '';
+        this.container.style.display = 'none';
+    }
+}
+
 class RadioAnchorBar {
     constructor(text = '') {
         this.container = document.createElement('div');
@@ -135,48 +163,34 @@ class RadioAnchorBar {
         }
     }
 
-    addRadio(text, cb, that) {
-        var ra = document.createElement('a');
-        ra.href = 'javascript:void(0)';
-        ra.anchorBar = this;
-        ra.textContent = text;
-        ra.onclick = function(e) {
-            e.target.anchorBar.setHightlight(e.target, cb, that);
+    addRadio(anpg) {
+        this.container.appendChild(anpg.anchorBar);
+        anpg.idx = this.radioAchors.length;
+        anpg.onAnchorClicked = obj => {
+            this.setHightlight(obj);
         }
-        this.container.appendChild(ra);
-        this.radioAchors.push(ra);
+        this.radioAchors.push(anpg);
     }
 
-    setHightlight(r, cb, that) {
-        if (!cb) {
-            r.className = '';
-            r.click();
+    setHightlight(i) {
+        var h = this.getHighlighted();
+        if (h == i) {
             return;
-        };
-        
-        for (var i = 0; i < this.radioAchors.length; i++) {
-            if (this.radioAchors[i] == r) {
-                if (this.radioAchors[i].className == 'highlight') {
-                    return;
-                };
-                this.radioAchors[i].className = 'highlight';
-                if (typeof(cb) === 'function') {
-                    cb(that);
-                };
-            } else {
-                this.radioAchors[i].className = '';
-            }
-        };
+        }
+        this.radioAchors[h].hide();
+        this.radioAchors[i].show();
     }
 
     selectDefault() {
         var defaultItem = this.radioAchors[this.getHighlighted()];
-        this.setHightlight(defaultItem);
+        if (!defaultItem.selected) {
+            defaultItem.show();
+        }
     }
 
     getHighlighted() {
         for (var i = 0; i < this.radioAchors.length; i++) {
-            if (this.radioAchors[i].className == 'highlight') {
+            if (this.radioAchors[i].selected) {
                 return i;
             }
         };
