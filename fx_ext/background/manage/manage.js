@@ -150,6 +150,10 @@ class Manager {
     checkDelDate(idx) {
         var code = this.zt1stocks[idx].code;
         var ztdate = this.zt1stocks[idx].ztdate;
+        if (!this.klines[code].klines || !this.klines[code].klines['101']) {
+            console.log('error: kline not exists', code);
+            return;
+        }
         var kline = this.klines[code].klines['101'];
         var ldays = 0;
         var rmvdate = ztdate;
@@ -180,7 +184,7 @@ class Manager {
         if (ldays >= 5 && rmvdate > ztdate) {
             this.setHighDate(idx, hidate);
             this.setDelDate(idx, rmvdate);
-            console.log('setDelDate', code, rmvdate);
+            console.log('setDelDate', code, hidate, rmvdate);
         }
     }
 

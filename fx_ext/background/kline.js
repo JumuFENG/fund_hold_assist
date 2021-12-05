@@ -395,7 +395,7 @@ class KLine {
         }
         for (var i = 1; i <= n; i++) {
             var kl = kline[kline.length - i];
-            if (kl.bss18 - kl.o > 0 && kl.bss18 - kl.c > 0) {
+            if (kl.ma18 - kl.o > 0 && kl.ma18 - kl.c > 0) {
                 continue;
             } else {
                 return false;

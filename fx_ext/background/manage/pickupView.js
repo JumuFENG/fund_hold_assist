@@ -75,12 +75,6 @@ class PickupPanelPage extends RadioAnchorPage {
         this.selectedTable.setClickableHeader('删除', '代码', '名称', '日期', '放量程度', '股价区间', '低点日', '高点日', '删除日');
         for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
             var stocki = emjyManager.zt1stocks[i];
-            var delBtn = document.createElement('button');
-            delBtn.textContent = 'x';
-            delBtn.idx = i;
-            delBtn.onclick = e => {
-                this.removeSelected(e.target.idx);
-            }
             var anchor = document.createElement('a');
             anchor.textContent = stocki.name;
             if (stocki.m !== undefined) {
@@ -162,7 +156,7 @@ class PickupPanelPage extends RadioAnchorPage {
                 emjyManager.setDelDate(e.target.idx, e.target.value);
             }
             this.selectedTable.addRow(
-                delBtn,
+                i,
                 stocki.code,
                 anchor,
                 stocki.ztdate,
