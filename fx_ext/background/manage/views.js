@@ -158,6 +158,9 @@ class RadioAnchorBar {
 
     clearAllAnchors() {
         if (this.radioAchors.length > 0) {
+            this.radioAchors.forEach(a => {
+                utils.removeAllChild(a.container);
+            });
             utils.removeAllChild(this.container);
             this.radioAchors = [];
         }

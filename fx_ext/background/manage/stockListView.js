@@ -41,7 +41,7 @@ class StockView {
 
     refresh() {
         this.detailView.textContent = '最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost + ' 数量：' + this.stock.holdCount;
-        if (this.deleteBtn && emjyManager.klines[this.stock.code].continuouslyBellow()) {
+        if (this.deleteBtn && emjyManager.klines[this.stock.code] && emjyManager.klines[this.stock.code].continuouslyBellow()) {
             this.divTitle.style.borderBottom = '2px solid green';
         }
     }
@@ -86,6 +86,8 @@ class StockView {
             this.divTitle.style.borderLeft = '5px solid red';
             this.divTitle.style.paddingLeft = '10px';
         }
+
+        this.refresh();
     }
 }
 

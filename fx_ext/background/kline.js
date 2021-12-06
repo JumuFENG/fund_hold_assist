@@ -389,6 +389,9 @@ class KLine {
     }
 
     continuouslyBellow(kltype='101', n = 5) {
+        if (!this.klines) {
+            return false;
+        }
         var kline = this.klines[kltype];
         if (kline.length < n) {
             return false;
