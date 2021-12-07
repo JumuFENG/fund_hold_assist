@@ -57,15 +57,9 @@ class PickupPanelPage extends RadioAnchorPage {
                     }
                 };
                 var amount = 5000;
-                if (emjyManager.klines[stkzt.code] && emjyManager.klines[stkzt.code]['101']) {
-                    var price = emjyManager.klines[stkzt.code].getLatestKline('101').c;
-                    var count = utils.calcBuyCount(amount, price);
-                    strgrp.count0 = count;
-                } else {
-                    strgrp.amount = amount;
-                }
+                strgrp.count0 = utils.calcBuyCount(amount, stkzt.price);
                 emjyManager.addWatchingStock(stkzt.code, ownAccount, strgrp);
-                console.log('add code', ownAccount, stkzt);
+                console.log('add code', ownAccount, stkzt.code, stkzt.name, strgrp);
             }
         }
     }

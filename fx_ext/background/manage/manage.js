@@ -125,26 +125,29 @@ class Manager {
         if (!this.klines[stkzt.code] || !this.klines[stkzt.code].klines) {
             this.getDailyKlineSinceMonthAgo(stkzt.code, stkzt.ztdate);
         }
+        this.page.pickupPage.showSelectedTable();
     }
 
     updateZt1stockInfo(code) {
         this.zt1stocks.forEach((s, idx) => {
-            if (s.code == code && s.vscale === undefined) {
-                var vscale = this.klines[code].getVolScale('101', s.ztdate, 10);
-                if (vscale < 0.1) {
-                    s.vscale = 0;
-                } else if (vscale < 0.8) {
-                    s.vscale = 1;
-                } else if (vscale < 1.2) {
-                    s.vscale = 2;
-                } else if (vscale < 4) {
-                    s.vscale = 3;
-                } else {
-                    s.vscale = 4;
+            if (s.code == code) {
+                if (s.vscale === undefined) {
+                    var vscale = this.klines[code].getVolScale('101', s.ztdate, 10);
+                    if (vscale < 0.1) {
+                        s.vscale = 0;
+                    } else if (vscale < 0.8) {
+                        s.vscale = 1;
+                    } else if (vscale < 1.2) {
+                        s.vscale = 2;
+                    } else if (vscale < 4) {
+                        s.vscale = 3;
+                    } else {
+                        s.vscale = 4;
+                    }
                 }
                 this.checkDelDate(idx);
             }
-        })
+        });
     }
 
     checkDelDate(idx) {
@@ -295,9 +298,9 @@ class ManagerPage {
         this.navigator.addRadio(emjyManager.ztPool);
         this.root.appendChild(emjyManager.ztPool.container);
 
-        var pkpage = new PickupPanelPage();
-        this.navigator.addRadio(pkpage);
-        this.root.appendChild(pkpage.container);
+        this.pickupPage = new PickupPanelPage();
+        this.navigator.addRadio(this.pickupPage);
+        this.root.appendChild(this.pickupPage.container);
 
         var rvpage = new ReviewPanelPage();
         this.navigator.addRadio(rvpage);
