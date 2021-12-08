@@ -162,12 +162,18 @@ class Manager {
         var rmvdate = ztdate;
         var hidate = ztdate;
         var highPrice = 0;
+        var izt = 0, ih = 0;
         for (var i = 0; i < kline.length; i++) {
             if (kline[i].time < ztdate) {
                 continue;
             }
             if (kline[i].time == ztdate) {
                 highPrice = kline[i].h;
+                izt = i;
+                continue;
+            }
+            if (kline[i].bss18 != 'w') {
+                continue;
             }
             var t = kline[i].o - kline[i].c > 0 ? kline[i].o : kline[i].c;
             if (kline[i].ma18 - t > 0) {
@@ -178,16 +184,31 @@ class Manager {
             if (kline[i].h - highPrice > 0) {
                 highPrice = kline[i].h;
                 hidate = kline[i].time;
+                ih = i;
             }
             if (ldays >= 5) {
                 rmvdate = kline[i].time;
                 break;
             }
         }
+
         if (ldays >= 5 && rmvdate > ztdate) {
             this.setHighDate(idx, hidate);
             this.setDelDate(idx, rmvdate);
             console.log('setDelDate', code, hidate, rmvdate);
+            if (ih - izt > 1) {
+                var lowdate = ztdate;
+                var lowPrice = kline[izt + 1].o;
+                for (let i = izt + 2; i < ih; i++) {
+                    if (lowPrice - kline[i].l > 0) {
+                        lowdate = kline[i].time;
+                        lowPrice = kline[i].l;
+                    }
+                }
+                if (lowdate != ztdate) {
+                    this.setLowDate(idx, lowdate);
+                }
+            }
         }
     }
 

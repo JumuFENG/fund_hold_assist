@@ -388,22 +388,22 @@ class KLine {
         return kline[tidx].v / va;
     }
 
-    continuouslyBellow(kltype='101', n = 5) {
+    continuouslyBellowDays(kltype='101') {
         if (!this.klines) {
-            return false;
+            return 0;
         }
         var kline = this.klines[kltype];
-        if (kline.length < n) {
-            return false;
-        }
-        for (var i = 1; i <= n; i++) {
-            var kl = kline[kline.length - i];
-            if (kl.ma18 - kl.o > 0 && kl.ma18 - kl.c > 0) {
-                continue;
-            } else {
-                return false;
+        var n = 0;
+        for (var i = kline.length - 1; i > 0; i--) {
+            var kl = kline[i];
+            if (kl.bss18 != 'w' && kl.bss18 != 's') {
+                break;
             }
+            if (kl.ma18 - kl.o < 0 || kl.ma18 - kl.c < 0) {
+                return n;
+            }
+            n++;
         }
-        return true;
+        return n;
     }
 }

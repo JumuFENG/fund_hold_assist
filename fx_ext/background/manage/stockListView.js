@@ -41,7 +41,7 @@ class StockView {
 
     refresh() {
         this.detailView.textContent = '最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost + ' 数量：' + this.stock.holdCount;
-        if (this.deleteBtn && emjyManager.klines[this.stock.code] && emjyManager.klines[this.stock.code].continuouslyBellow()) {
+        if (this.deleteBtn && emjyManager.klines[this.stock.code] && emjyManager.klines[this.stock.code].continuouslyBellowDays() >= 5) {
             this.divTitle.style.borderBottom = '2px solid green';
             console.log('remove', this.stock.code);
         }
