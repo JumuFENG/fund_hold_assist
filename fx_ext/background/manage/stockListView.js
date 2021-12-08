@@ -43,6 +43,7 @@ class StockView {
         this.detailView.textContent = '最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost + ' 数量：' + this.stock.holdCount;
         if (this.deleteBtn && emjyManager.klines[this.stock.code] && emjyManager.klines[this.stock.code].continuouslyBellow()) {
             this.divTitle.style.borderBottom = '2px solid green';
+            console.log('remove', this.stock.code);
         }
     }
 
@@ -69,7 +70,7 @@ class StockView {
                 var sellstrCount = 0;
                 for (const i in strategies) {
                     const str = strategies[i];
-                    if (str.enabled && str.key.includes('Buy')) {
+                    if (str.enabled && (str.key.includes('Buy') || (str.kltype !== undefined && str.kltype - 30 < 0))) {
                         needfix =  true;
                         break;
                     } else if (str.key.includes('Sell')) {
@@ -86,8 +87,6 @@ class StockView {
             this.divTitle.style.borderLeft = '5px solid red';
             this.divTitle.style.paddingLeft = '10px';
         }
-
-        this.refresh();
     }
 }
 

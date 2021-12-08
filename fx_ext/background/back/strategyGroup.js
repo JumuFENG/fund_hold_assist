@@ -193,16 +193,13 @@ class StrategyGroup {
             } else if (gl == 'kday') {
                 emjyBack.dailyAlarm.addStock(this.code, this.strategies[id].kltype());
             } else if (gl == 'otp') {
-                var isbuy = this.strategies[id].isBuyStrategy();
-                var account = this.account;
-                if (this.strategies[id].data.account !== undefined) {
-                    account = this.strategies[id].data.account;
+                if (this.count0 !== undefined && this.count0 > 0) {
+                    emjyBack.otpAlarm.addTask({params:{id}, exec: (params) => {
+                        this.onOtpAlarm(params.id);
+                    }});
+                } else {
+                    emjyBack.otpAlarm.addStock(this.code);
                 }
-                var stock = {code: this.code, account, isbuy};
-                if (this.count0 !== undefined) {
-                    stock.count = this.count0;
-                }
-                emjyBack.otpAlarm.addStock(stock);
             } else if (gl == 'rtp') {
                 emjyBack.rtpTimer.addStock(this.code);
             } else if (gl == 'zt') {
@@ -282,6 +279,25 @@ class StrategyGroup {
             this.count0 = this.calcBuyCount(amount, price);
         }
         return this.count0;
+    }
+
+    onOtpAlarm(id) {
+        var curStrategy = this.strategies[id];
+        if (!curStrategy.enabled()) {
+            return;
+        }
+
+        if (curStrategy.isBuyStrategy()) {
+            var count = this.count0 === undefined ? 0 : this.count0;
+            emjyBack.tryBuyStock(this.code, '', 0, count, curStrategy.data.account === undefined ? this.account: curStrategy.data.account);
+            emjyBack.log('onOtpAlarm buy match', this.code, 'buy count:', count, JSON.stringify(curStrategy));
+            if (this.buydetail) {
+                this.buydetail.push({date: this.getTodayDate(), count});
+            }
+            this.onTradeMatch(id, {});
+        } else {
+            emjyBack.log('!!!NOT IMPLEMENTED!!! onOtpAlarm sell match', this.code, JSON.stringify(curStrategy));
+        }
     }
 
     check(rtInfo) {

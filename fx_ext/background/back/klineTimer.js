@@ -82,26 +82,24 @@ class KlineAlarms extends DailyAlarm {
 
 class OtpAlarm {
     constructor() {
-        this.stocks = [];
+        this.stocks = new Set();
+        this.tasks = [];
     }
 
     addStock(stock) {
-        if (!this.stocks.find(s => s.code == stock.code)) {
-            this.stocks.push(stock);
-        }
+        this.stocks.add(code);
+    }
+
+    addTask(tsk) {
+        this.tasks.push(tsk);
     }
 
     onTimer() {
         this.stocks.forEach(s => {
-            if (s.count === undefined) {
-                emjyBack.fetchStockSnapshot(s.code);
-            } else {
-                if (s.isbuy) {
-                    emjyBack.tryBuyStock(s.code, '', 0, s.count, s.account);
-                } else {
-                    emjyBack.trySellStock(s.code, 0, s.count, s.account);
-                }
-            }
+            emjyBack.fetchStockSnapshot(s);
+        });
+        this.tasks.forEach(tsk => {
+            tsk.exec(tsk.params);
         });
     }
 }
