@@ -297,6 +297,10 @@ class Manager {
         }
     }
 
+    isRzRq(code) {
+        return this.rzrqStocks && this.rzrqStocks.has(code);
+    }
+
     stockAccountFrom(code) {
         if (this.rzrqStocks && this.rzrqStocks.has(code)) {
             return 'collat';
