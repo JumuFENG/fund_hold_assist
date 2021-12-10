@@ -128,25 +128,39 @@ class Manager {
         this.page.pickupPage.showSelectedTable();
     }
 
+    toVscale(vs) {
+        if (vs < 0.1) {
+            return 0;
+        } else if (vs < 0.8) {
+            return 1;
+        } else if (vs < 1.2) {
+            return 2;
+        } else if (vs < 4) {
+            return 3;
+        }
+        return 4;
+    }
+
     updateZt1stockInfo(code) {
         this.zt1stocks.forEach((s, idx) => {
             if (s.code == code) {
                 if (s.vscale === undefined) {
                     var vscale = this.klines[code].getVolScale('101', s.ztdate, 10);
-                    if (vscale < 0.1) {
-                        s.vscale = 0;
-                    } else if (vscale < 0.8) {
-                        s.vscale = 1;
-                    } else if (vscale < 1.2) {
-                        s.vscale = 2;
-                    } else if (vscale < 4) {
-                        s.vscale = 3;
-                    } else {
-                        s.vscale = 4;
-                    }
+                    s.vscale = this.toVscale(vscale);
                 }
                 this.checkDelDate(idx);
             }
+        });
+    }
+
+    updateAllVolScale() {
+        this.zt1stocks.forEach(s => {
+            var vscale = this.klines[s.code].getVolScale('101', s.ztdate, 10);
+            s.vscale = this.toVscale(vscale);
+        });
+        this.delstocks.forEach(s => {
+            var vscale = this.klines[s.code].getVolScale('101', s.ztdate, 10);
+            s.vscale = this.toVscale(vscale);
         });
     }
 

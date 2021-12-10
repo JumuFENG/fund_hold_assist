@@ -20,10 +20,10 @@ class PickupPanelPage extends RadioAnchorPage {
         this.container.appendChild(saveBtn);
 
         this.dtrngSelector = document.createElement('select');
-        var daterange = ['当日','所有']
+        var daterange = ['当日', '前日', '所有']
         for (var i = 0; i < daterange.length; ++i) {
             var opt = document.createElement('option');
-            opt.value =i;
+            opt.value = i;
             opt.textContent = daterange[i];
             this.dtrngSelector.appendChild(opt);
         }
@@ -124,7 +124,7 @@ class PickupPanelPage extends RadioAnchorPage {
                 opt.textContent = stockVolScales[v];
                 vol.appendChild(opt);
             }
-            if (stocki.vscale) {
+            if (stocki.vscale !== undefined) {
                 vol.value = stocki.vscale;
             } else {
                 vol.value = 2;
@@ -209,10 +209,19 @@ class PickupPanelPage extends RadioAnchorPage {
 
     showFilteredTable() {
         var filteredStocks = [];
-        var today = utils.getTodayDate('-');
+        var today = emjyManager.zt1stocks[emjyManager.zt1stocks.length - 1].ztdate;
+        if (this.dtrngSelector.value == 1) {
+            for (let i = emjyManager.zt1stocks.length - 1; i > 0; i--) {
+                if (emjyManager.zt1stocks[i].ztdate != today) {
+                    today = emjyManager.zt1stocks[i].ztdate;
+                    break;
+                }
+            }
+        }
+
         for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
             var stkzt = emjyManager.zt1stocks[i];
-            if (this.dtrngSelector.value == 0 && stkzt.ztdate != today) {
+            if (this.dtrngSelector.value != 2 && stkzt.ztdate != today) {
                 continue;
             }
 
