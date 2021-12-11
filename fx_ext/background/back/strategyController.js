@@ -110,9 +110,7 @@ class Strategy {
             return {match};
         };
         var price = (price0 == '-' ? pricebk : price0);
-        var result = {match, price};
-        result.account = this.data.account;
-        return result;
+        return {match, price};
     }
 }
 

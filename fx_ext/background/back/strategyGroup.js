@@ -288,13 +288,7 @@ class StrategyGroup {
         }
 
         if (curStrategy.isBuyStrategy()) {
-            var count = this.count0 === undefined ? 0 : this.count0;
-            emjyBack.tryBuyStock(this.code, '', 0, count, curStrategy.data.account === undefined ? this.account: curStrategy.data.account);
-            emjyBack.log('onOtpAlarm buy match', this.code, 'buy count:', count, JSON.stringify(curStrategy));
-            if (this.buydetail) {
-                this.buydetail.push({date: this.getTodayDate(), count});
-            }
-            this.onTradeMatch(id, {});
+            this.doTrade(id, {price:0, count: this.count0 === undefined ? 0 : this.count0});
         } else {
             emjyBack.log('!!!NOT IMPLEMENTED!!! onOtpAlarm sell match', this.code, JSON.stringify(curStrategy));
         }
@@ -306,42 +300,62 @@ class StrategyGroup {
             if (!curStrategy.enabled()) {
                 continue;
             };
+
             var checkResult = curStrategy.check(rtInfo);
-            var price = checkResult.price;
             if (checkResult.match) {
+                var price = checkResult.price;
                 if (curStrategy.isBuyStrategy()) {
                     var count = this.getBuyCount(price);
-                    emjyBack.log('checkStrategies buy match', this.code, rtInfo.name, 'buy count:', count, JSON.stringify(curStrategy));
-                    emjyBack.tryBuyStock(this.code, rtInfo.name, price, count, checkResult.account === undefined ? this.account : checkResult.account);
-                    if (curStrategy.guardLevel() == 'zt') {
-                        emjyBack.ztBoardTimer.removeStock(rtInfo.code);
-                    };
-                    if (curStrategy.guardLevel() == 'opt') {
-                        emjyBack.otpAlarm.removeStock(rtInfo.code);
-                    }
-                    if (this.buydetail) {
-                        this.buydetail.push({date: this.getTodayDate(), count, price});
-                    }
-                    this.onTradeMatch(id, {price});
+                    this.doTrade(id, {price, count});
                 } else {
-                    var count = this.availableCount();
-                    var countAll = this.totalCount();
-                    if (count > 0) {
-                        emjyBack.log('checkStrategies sell match', this.code, rtInfo.name, 'sell count:', count, JSON.stringify(curStrategy));
-                        emjyBack.trySellStock(this.code, price, count, this.account);
-                        if (this.buydetail) {
-                            this.sellDetail(count);
-                        }
-                        this.onTradeMatch(id, {price});
-                    } else if (countAll > 0) {
-                        emjyBack.log('checkStrategies sell match, no available count to sell', this.code, rtInfo.name, JSON.stringify(curStrategy));
-                        curStrategy.sellMatchUnavailable();
-                    }
+                    this.doTrade(id, {price});
                 }
             } else if (checkResult.stepInCritical) {
                 emjyBack.checkAvailableMoney(rtInfo.latestPrice, checkResult.account);
             };
         };
+    }
+
+    doTrade(id, info) {
+        var curStrategy = this.strategies[id];
+        if (!curStrategy || !curStrategy.enabled()) {
+            return;
+        }
+
+        var price = info.price === undefined ? 0 : info.price;
+        if (curStrategy.isBuyStrategy()) {
+            var count = info.count;
+            if (count === undefined && price > 0) {
+                count = this.getBuyCount(price);
+            }
+            var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
+            emjyBack.log('checkStrategies buy match', this.code, 'buy count:', count, JSON.stringify(curStrategy));
+            emjyBack.tryBuyStock(this.code, info.name === undefined ? '' : info.name, price, count, account);
+            if (curStrategy.guardLevel() == 'zt') {
+                emjyBack.ztBoardTimer.removeStock(this.code);
+            };
+            if (curStrategy.guardLevel() == 'opt') {
+                emjyBack.otpAlarm.removeStock(this.code);
+            }
+            if (this.buydetail) {
+                this.buydetail.push({date: this.getTodayDate(), count, price});
+            }
+            this.onTradeMatch(id, {price});
+        } else {
+            var count = this.availableCount();
+            var countAll = this.totalCount();
+            if (count > 0) {
+                emjyBack.log('checkStrategies sell match', this.code, 'sell count:', count, JSON.stringify(curStrategy));
+                emjyBack.trySellStock(this.code, price, count, this.account);
+                if (this.buydetail) {
+                    this.sellDetail(count);
+                }
+                this.onTradeMatch(id, {price});
+            } else if (countAll > 0) {
+                emjyBack.log('checkStrategies sell match, no available count to sell', this.code, rtInfo.name, JSON.stringify(curStrategy));
+                curStrategy.sellMatchUnavailable();
+            }
+        }
     }
 
     onTradeMatch(id, refer) {
@@ -367,17 +381,27 @@ class StrategyGroup {
     }
 
     checkKlines(klines, updatedKlt) {
-        var critical = false;
         for (var id in this.strategies) {
             var curStrategy = this.strategies[id];
             if (!curStrategy.enabled()) {
                 continue;
-            };
+            }
+            if (typeof(curStrategy.checkKlines) !== 'function') {
+                continue;
+            }
+
             curStrategy.checkKlines(klines, updatedKlt);
-            critical |= curStrategy.inCritical();
-        };
-        if (critical) {
-            emjyBack.fetchStockSnapshot(this.code);
+            if (curStrategy.inCritical()) {
+                if (curStrategy.isBuyStrategy()) {
+                    var count = this.count0;
+                    if (count === undefined || count == 0) {
+                        count = this.getBuyCount(klines.getLatestKline(curStrategy.kltype()));
+                    }
+                    this.doTrade(id, {price: 0, count});
+                } else {
+                    this.doTrade(id, {price: 0});
+                }
+            }
         };
     }
 }
