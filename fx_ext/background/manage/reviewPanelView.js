@@ -31,6 +31,15 @@ class ReviewPanelPage extends RadioAnchorPage {
             }
             anchor.target = '_blank';
 
+            var chartDiv = document.createElement('div');
+            chartDiv.code = stocki.code;
+            chartDiv.ztdate = stocki.ztdate;
+            chartDiv.style.width = '800';
+            chartDiv.style.height = '450';
+            chartDiv.onclick = (e) => {
+                this.showKlChart(e.target);
+            }
+
             this.stocksTable.addRow(
                 i,
                 stocki.code,
@@ -38,8 +47,22 @@ class ReviewPanelPage extends RadioAnchorPage {
                 stocki.ztdate,
                 stockVolScales[stocki.vscale],
                 stocki.rmvdate,
-                ''
+                chartDiv
                 );
+        }
+    }
+
+    showKlChart(chart) {
+        if (chart.childElementCount > 0) {
+            console.log(chart);
+            return;
+        }
+
+        var klCht = new KlChart(chart.code);
+        chart.appendChild(klCht.container);
+        if (emjyManager.klines[chart.code] && emjyManager.klines[chart.code].klines['101']) {
+            var data = emjyManager.klines[chart.code].klines['101'].filter(kl => kl.time >= chart.ztdate);
+            klCht.drawKlines(data);
         }
     }
 }

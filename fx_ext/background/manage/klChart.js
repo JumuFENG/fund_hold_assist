@@ -16,6 +16,7 @@ class KlChart {
         center.appendChild(this.leftPanel);
         this.canvas = document.createElement('canvas');
         this.canvas.style.width = '100%';
+        this.canvas.style.height = '100%';
         center.appendChild(this.canvas);
         this.rightPanel = document.createElement('div');
         this.rightPanel.style.width = '20px';
@@ -39,6 +40,8 @@ class KlChart {
         if (this.stickWidth == 1) {
             this.dist = 0;
         }
+        this.stickWidth = parseInt(this.stickWidth);
+        this.dist = parseInt(this.dist);
 
         var dm = data[0].l;
         var dmx = data[0].h;
@@ -66,39 +69,51 @@ class KlChart {
 
         this.klscale = this.klHeight / (dmx - dm);
         this.kloffset = dm;
+        console.log(this.stickWidth, this.dist);
         for (let i = 0; i < data.length; i++) {
             const kl = data[i];
-            var o = this.klHeight - this.klscale * (kl.o - dm);
-            var c = this.klHeight - this.klscale * (kl.c - dm);
-            var h = this.klHeight - this.klscale * (kl.h - dm);
-            var l = this.klHeight - this.klscale * (kl.l - dm);
+            var o = parseInt(this.klHeight - this.klscale * (kl.o - dm));
+            var c = parseInt(this.klHeight - this.klscale * (kl.c - dm));
+            var h = parseInt(this.klHeight - this.klscale * (kl.h - dm));
+            var l = parseInt(this.klHeight - this.klscale * (kl.l - dm));
             var x = (this.stickWidth + this.dist) * i;
             var och = o;
             var ocl = c;
-            if (kl.c > kl.o) {
-                this.ctx.fillStyle = 'red';
-                this.ctx.strokeStyle = 'red';
-                och = c;
-                ocl = o;
+            if (kl.c == kl.o) {
+                if (i > 0 && kl.c - data[i - 1].c < 0) {
+                    this.ctx.fillStyle = 'green';
+                    this.ctx.strokeStyle = 'green';
+                } else {
+                    this.ctx.fillStyle = 'red';
+                    this.ctx.strokeStyle = 'red';
+                }
             } else {
-                this.ctx.fillStyle = 'green';
-                this.ctx.strokeStyle = 'green';
+                if (kl.c - kl.o > 0) {
+                    this.ctx.fillStyle = 'red';
+                    this.ctx.strokeStyle = 'red';
+                    och = c;
+                    ocl = o;
+                    this.ctx.strokeRect(x + 0.5, och + 0.5, this.stickWidth, ocl - och);
+                } else {
+                    this.ctx.fillStyle = 'green';
+                    this.ctx.strokeStyle = 'green';
+                    this.ctx.fillRect(x, och, this.stickWidth, ocl - och);
+                }
             }
 
-            this.ctx.fillRect(x, och, this.stickWidth, ocl - och);
+            this.ctx.beginPath();
+            if (kl.c == kl.o) {
+                this.ctx.moveTo(x + 0.5, och + 0.5);
+                this.ctx.lineTo(x + this.stickWidth + 0.5, och + 0.5);
+            }
             var xmid = x + this.stickWidth / 2;
-            if (h < och) {
-                this.ctx.moveTo(xmid, h);
-                this.ctx.lineTo(xmid, och);
-                this.ctx.stroke();
-            }
-            if (l > ocl) {
-                this.ctx.moveTo(xmid, ocl);
-                this.ctx.lineTo(xmid, l);
-                this.ctx.stroke();
-            }
+            this.ctx.moveTo(xmid + 0.5, h + 0.5);
+            this.ctx.lineTo(xmid + 0.5, och + 0.5);
+            this.ctx.moveTo(xmid + 0.5, ocl + 0.5);
+            this.ctx.lineTo(xmid + 0.5, l + 0.5);
+            this.ctx.stroke();
 
-            var vHt = this.volscale * kl.v;
+            var vHt = parseInt(this.volscale * kl.v);
             this.ctx.fillRect(x, this.canvas.height - vHt, this.stickWidth, vHt);
         }
     }
