@@ -573,6 +573,16 @@ class StrategySellMADynamic extends StrategySellMA {
         if (updatedKlt.includes(kltype)) {
             var kl = klines.getLatestKline(kltype);
             if (kl) {
+                if (this.data.guardPrice !== undefined && this.data.guardPrice > 0) {
+                    if (kl.c - this.data.guardPrice >= 0) {
+                        if (kl.c - 1.05 * this.data.price > 0) {
+                            this.data.inCritical = kl.bss18 == 's';
+                        }
+                        return;
+                    }
+                    this.data.inCritical = kl.bss18 == 's' || kl.bss18 == 'w';
+                    return;
+                }
                 this.data.inCritical = kl.bss18 == 's';
             };
         } else if (kltype != '4') {
@@ -581,7 +591,6 @@ class StrategySellMADynamic extends StrategySellMA {
             if (highPrice > this.data.price * 1.2) {
                 this.data.kltype = '4';
             };
-            var dKlines = klines.getKline('101');
             var kl = klines.getLatestKline('101');
             if (kl) {
                 var lclose = kl.c;

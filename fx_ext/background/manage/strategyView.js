@@ -178,7 +178,7 @@ class StrategyBaseView {
         var guardDiv = document.createElement('div');
         guardDiv.appendChild(document.createTextNode(text));
         this.inputGuard = document.createElement('input');
-        if (this.strategy.guardPrice) {
+        if (this.strategy.guardPrice !== undefined) {
             this.inputGuard.value = this.strategy.guardPrice;
         };
         guardDiv.appendChild(this.inputGuard);
@@ -519,6 +519,14 @@ class StrategySellMADynamicView extends StrategySellMAView {
         if (this.klineSelector) {
             this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '30';
         };
+    }
+
+    createView() {
+        var view = super.createView();
+        var inputGuard = this.createGuardInput('安全线');
+        inputGuard.appendChild(document.createTextNode('安全线以上盈利>5%且满足卖出条件才卖出，避免横盘震荡中反复割肉。'));
+        view.appendChild(inputGuard);
+        return view;
     }
 }
 
