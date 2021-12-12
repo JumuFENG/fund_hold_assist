@@ -27,7 +27,7 @@ class StockView {
             this.deleteBtn.account = stock.account;
             this.deleteBtn.onclick = e => {
                 emjyManager.sendExtensionMessage({command:'mngr.rmwatch', code: e.target.code, account: e.target.account});
-                location.reload();
+                emjyManager.stockList.deleteStock(e.target.account, e.target.code);
             }
             this.divTitle.appendChild(this.deleteBtn);
         };
@@ -174,6 +174,18 @@ class StockListPanelPage extends RadioAnchorPage {
         this.listContainer.appendChild(document.createElement('hr'));
         this.listContainer.appendChild(divContainer.container);
         this.stocks.push(divContainer);
+    }
+
+    deleteStock(account, code) {
+        var idx = this.stocks.findIndex(s => s.stock.acccode == account + '_' + code);
+        if (idx == -1) {
+            return;
+        }
+        if (this.strategyGroupView.root.parentElement == this.stocks[idx].container) {
+            this.stocks[idx].container.removeChild(this.strategyGroupView.root);
+        }
+        utils.removeAllChild(this.stocks[idx].container);
+        this.stocks.splice(idx, 1);
     }
 
     initStockList() {
