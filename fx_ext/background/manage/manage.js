@@ -13,25 +13,35 @@ class Manager {
         this.klines = {};
         this.accountNames = {'normal':'普通账户', 'collat': '担保品账户', 'credit': '融资账户'};
         this.accountsMap = {'normal': ['normal'], 'collat': ['credit', 'collat']};
-        this.zt1stocks = [];
-        chrome.storage.local.get('ztstocks', item => {
-            if (item && item['ztstocks']) {
-                this.zt1stocks = item['ztstocks'];
-                for (var i = 0; i < this.zt1stocks.length; i++) {
-                    this.loadKlines(this.zt1stocks[i].code);
+        this.loadAllSavedData();
+    }
+
+    loadAllSavedData() {
+        chrome.storage.local.get(null, item => {
+            if (item) {
+                if (item['ztstocks']) {
+                    this.zt1stocks = item['ztstocks'];
                 }
-            }
-        });
-        this.delstocks = [];
-        chrome.storage.local.get('ztdels', item => {
-            if (item && item['ztdels']) {
-                this.delstocks = item['ztdels'];
-            }
-        });
-        this.rzrqStocks = new Set();
-        chrome.storage.local.get('bkstocks_' + BkRZRQ, item => {
-            if (item && item['bkstocks_' + BkRZRQ]) {
-                this.rzrqStocks = new Set(item['bkstocks_' + BkRZRQ]);
+                if (item['ztdels']) {
+                    this.delstocks = item['ztdels'];
+                }
+                if (item['bkstocks_' + BkRZRQ]) {
+                    this.rzrqStocks = new Set(item['bkstocks_' + BkRZRQ]);
+                }
+                for (const key in item) {
+                    if (!key.startsWith('kline_')) {
+                        continue;
+                    }
+                    if (Object.hasOwnProperty.call(item, key)) {
+                        var code = key.split('_')[1];
+                        var kline = new KLine(code);
+                        kline.klines = item[key];
+                        this.klines[code] = kline;
+                        if (this.stockList) {
+                            this.stockList.updateStockPrice(code);
+                        }
+                    }
+                }
             }
         });
     }

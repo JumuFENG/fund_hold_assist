@@ -58,11 +58,13 @@ class ReviewPanelPage extends RadioAnchorPage {
             return;
         }
 
-        var klCht = new KlChartSvg(chart.code);//new KlChartCanvas(chart.code); //
-        chart.appendChild(klCht.container);
         if (emjyManager.klines[chart.code] && emjyManager.klines[chart.code].klines) {
+            var klCht = new KlChartSvg(chart.code);//new KlChartCanvas(chart.code); //
+            chart.appendChild(klCht.container);
             var data = emjyManager.klines[chart.code].klines['101'].filter(kl => kl.time >= chart.ztdate);
             klCht.drawKlines(data);
+        } else {
+            emjyManager.getDailyKlineSinceMonthAgo(chart.code, chart.ztdate);
         }
     }
 }

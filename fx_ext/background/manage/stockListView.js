@@ -87,6 +87,10 @@ class StockView {
             this.divTitle.style.borderLeft = '5px solid red';
             this.divTitle.style.paddingLeft = '10px';
         }
+
+        if (emjyManager.klines[this.stock.code]) {
+            this.refresh();
+        }
     }
 }
 
