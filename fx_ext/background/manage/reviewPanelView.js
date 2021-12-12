@@ -34,8 +34,8 @@ class ReviewPanelPage extends RadioAnchorPage {
             var chartDiv = document.createElement('div');
             chartDiv.code = stocki.code;
             chartDiv.ztdate = stocki.ztdate;
-            chartDiv.style.width = '800';
-            chartDiv.style.height = '450';
+            chartDiv.style.width = '400';
+            chartDiv.style.height = '230';
             chartDiv.onclick = (e) => {
                 this.showKlChart(e.target);
             }
@@ -58,9 +58,9 @@ class ReviewPanelPage extends RadioAnchorPage {
             return;
         }
 
-        var klCht = new KlChart(chart.code);
+        var klCht = new KlChartSvg(chart.code);//new KlChartCanvas(chart.code); //
         chart.appendChild(klCht.container);
-        if (emjyManager.klines[chart.code] && emjyManager.klines[chart.code].klines['101']) {
+        if (emjyManager.klines[chart.code] && emjyManager.klines[chart.code].klines) {
             var data = emjyManager.klines[chart.code].klines['101'].filter(kl => kl.time >= chart.ztdate);
             klCht.drawKlines(data);
         }
