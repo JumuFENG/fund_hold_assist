@@ -18,6 +18,10 @@ class ReviewPanelPage extends RadioAnchorPage {
     }
 
     showStockTable() {
+        if (!emjyManager.delstocks || emjyManager.delstocks.length == 0) {
+            return;
+        }
+
         this.stocksTable.reset();
         this.stocksTable.setClickableHeader('', '代码', '名称', '日期', '放量程度', '删除日', '走势');
         for (let i = 0; i < emjyManager.delstocks.length; i++) {
@@ -59,10 +63,20 @@ class ReviewPanelPage extends RadioAnchorPage {
         }
 
         if (emjyManager.klines[chart.code] && emjyManager.klines[chart.code].klines) {
+            var idx = emjyManager.klines[chart.code].klines['101'].findIndex(kl => kl.time == chart.ztdate);
+            if (idx == -1) {
+                emjyManager.klines[chart.code].klines['101'] = [];
+                emjyManager.getDailyKlineSinceMonthAgo(chart.code, chart.ztdate);
+                return;
+            }
+
+            if (idx > 0) {
+                idx --;
+            }
             var klCht = new KlChartSvg(chart.code);//new KlChartCanvas(chart.code); //
             chart.appendChild(klCht.container);
-            var data = emjyManager.klines[chart.code].klines['101'].filter(kl => kl.time >= chart.ztdate);
-            klCht.drawKlines(data);
+
+            klCht.drawKlines(emjyManager.klines[chart.code].klines['101'].slice(idx));
         } else {
             emjyManager.getDailyKlineSinceMonthAgo(chart.code, chart.ztdate);
         }

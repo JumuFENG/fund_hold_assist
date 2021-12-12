@@ -104,6 +104,10 @@ class PickupPanelPage extends RadioAnchorPage {
     }
 
     showSelectedTable() {
+        if (!emjyManager.zt1stocks || emjyManager.zt1stocks.length == 0) {
+            return;
+        }
+
         this.selectedTable.reset();
         this.selectedTable.setClickableHeader('', '代码', '名称', '日期', '放量程度', '股价区间', '低点日', '高点日', '删除日');
         for (var i = 0; i < emjyManager.zt1stocks.length; i++) {

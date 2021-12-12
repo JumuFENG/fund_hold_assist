@@ -67,13 +67,13 @@ class KlChart {
         var vSum = 0;
         for (let i = 0; i < data.length; i++) {
             const kl = data[i];
-            if (dm > kl.l) {
+            if (dm - kl.l > 0) {
                 dm = kl.l;
             }
-            if (dmx < kl.h) {
+            if (dmx - kl.h < 0) {
                 dmx = kl.h;
             }
-            if (vmx < kl.v) {
+            if (vmx - kl.v < 0) {
                 vmx = kl.v;
             }
             vSum -= kl.v;
@@ -83,7 +83,7 @@ class KlChart {
         }
 
         this.volRef = vSum / data.length;
-        this.volscale = this.volHeight * 0.5 / this.volRef;
+        this.volscale = this.volHeight * 0.35 / this.volRef;
 
         this.klscale = this.klHeight / (dmx - dm);
         this.kloffset = dm;
