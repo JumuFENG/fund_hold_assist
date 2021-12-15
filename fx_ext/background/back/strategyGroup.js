@@ -329,7 +329,7 @@ class StrategyGroup {
                 count = this.getBuyCount(price);
             }
             var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
-            emjyBack.log('checkStrategies buy match', this.code, 'buy count:', count, JSON.stringify(curStrategy));
+            emjyBack.log('checkStrategies buy match', this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy));
             emjyBack.tryBuyStock(this.code, info.name === undefined ? '' : info.name, price, count, account);
             if (curStrategy.guardLevel() == 'zt') {
                 emjyBack.ztBoardTimer.removeStock(this.code);
@@ -345,14 +345,14 @@ class StrategyGroup {
             var count = this.availableCount();
             var countAll = this.totalCount();
             if (count > 0) {
-                emjyBack.log('checkStrategies sell match', this.code, 'sell count:', count, JSON.stringify(curStrategy));
+                emjyBack.log('checkStrategies sell match', this.code, 'sell count:', count, 'price', price, JSON.stringify(curStrategy));
                 emjyBack.trySellStock(this.code, price, count, this.account);
                 if (this.buydetail) {
                     this.sellDetail(count);
                 }
                 this.onTradeMatch(id, {price});
             } else if (countAll > 0) {
-                emjyBack.log('checkStrategies sell match, no available count to sell', this.code, rtInfo.name, JSON.stringify(curStrategy));
+                emjyBack.log('checkStrategies sell match, no available count to sell', this.code, JSON.stringify(curStrategy));
                 curStrategy.sellMatchUnavailable();
             }
         }

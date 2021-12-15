@@ -540,7 +540,7 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
 
 class StrategySellMADynamic extends StrategySellMA {
     setHoldCost(price) {
-        if (this.data.price === undefined) {
+        if (this.data.price === undefined || this.data.price == 0) {
             this.data.price = price;
         };
     }
@@ -586,13 +586,13 @@ class StrategySellMADynamic extends StrategySellMA {
         } else if (kltype != '4') {
             var mKlines = klines.getKline(1);
             var highPrice = mKlines[mKlines.length - 1].h;
-            if (highPrice > this.data.price * 1.2) {
+            if (this.data.price > 0 && highPrice > this.data.price * 1.2) {
                 this.data.kltype = '4';
             };
             var kl = klines.getLatestKline('101');
             if (kl) {
                 var lclose = kl.c;
-                if (highPrice > lclose * 1.085 && highPrice > this.data.price * 1.05) {
+                if (this.data.price > 0 && highPrice > lclose * 1.085 && highPrice > this.data.price * 1.05) {
                     this.data.kltype = '4';
                 };
             };

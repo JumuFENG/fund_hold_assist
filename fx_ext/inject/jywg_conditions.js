@@ -473,18 +473,29 @@ class TradeReactor extends CommandReactor {
             sendResponse({command:'step', step:'stockinput', status:'waiting'});
             return false;
         }
-        for (var i = 0; i < aprices.length; i++) {
-            var x = i;
-            if (location.pathname.includes('Sale')) {
-                x = aprices.length - 1 - i;
+        var prAnchor = aprices[0];
+        var fprice = 0;
+        if (location.pathname.includes('Sale')) {
+            prAnchor = aprices[aprices.length - 1];
+            if (prAnchor.childNodes[1].textContent != '-' ) {
+                prAnchor.click();
+                return true;
             }
-            if (aprices[x].childNodes[1].textContent == '-') {
-                continue;
+            fprice = document.querySelector('#dt').textContent;
+        } else {
+            if (prAnchor.childNodes[1].textContent != '-') {
+                prAnchor.click();
+                return true;
             }
-            aprices[x].click();
+            fprice = document.querySelector('#zt').textContent;
+        }
+
+        if (fprice != '-') {
+            document.querySelector('#iptPrice').value = fprice;
+            console.log('set price to top/bottom price', fprice);
             return true;
         }
-        sendResponse({command:'step', step:'stockinput', status:'error', what: 'no valid price to set'});
+        sendResponse({command:'step', step:'stockinput', status:'waiting', what: 'no valid price to set'});
         console.log('clickToSetPrice error: no valid price to click!');
         return false;
     }

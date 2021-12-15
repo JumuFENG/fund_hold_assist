@@ -51,7 +51,7 @@ class CommanderBase {
 
     sendStepMessage(step) {
         setTimeout(()=>{
-            emjyBack.log('sendStepMessage', step);
+            emjyBack.log('sendStepMessage', step, 'tab', this.tabid);
             chrome.tabs.sendMessage(this.tabid, {command: 'emjy.step', step}, r => {
                 this.onReactResponsed(r);
             });
@@ -269,7 +269,7 @@ class TradeCommander extends CommanderBase {
             if (r.step == 'chksubmit') {
                 if (r.status == 'waiting') {
                     if (r.what !== undefined) {
-                        emjyBack.log('Trade submit waiting, what =', r.what);
+                        emjyBack.log('Trade submit waiting, what =', r.what, 'tab', this.tabid);
                     }
                     if (this.chksubmitRetry < 80) {
                         this.sendStepMessage('chksubmit');

@@ -273,8 +273,15 @@ class Manager {
 
         var accstocks = [];
         for (var i = 0; i < stocks.length; i++) {
-            var tstocks = stocks[i].stocks;
+            var tstocks = stocks[i].stocks.sort((a, b) => {
+                if (a.holdCount > 0 && b.holdCount > 0) {
+                    return a.latestPrice * a.holdCount - b.latestPrice * b.holdCount < 0;
+                }
+                return a.holdCount < b.holdCount;
+            });
+            console.log(tstocks);
             var account = stocks[i].account;
+
             for (var j = 0; j < tstocks.length; j++) {
                 var ts = tstocks[j];
                 this.loadKlines(ts.code);
