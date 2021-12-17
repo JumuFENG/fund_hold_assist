@@ -8,12 +8,7 @@ class JywgUtils {
     }
 
     getValidateKey() {
-        var tradePath = '/MarginTrade/MarginBuy';//'/MarginTrade/Buy';
-        if (location.pathname != tradePath) {
-            return;
-        }
-
-        return document.getElementById('em_validatekey').value;
+        return document.querySelector('#em_validatekey').value;
     }
 
     getCookie() {
@@ -230,105 +225,6 @@ class CommandReactor {
     }
 }
 
-class AssetsReactor extends CommandReactor {
-    constructor() {
-        super();
-        this.normalAssetsPath = '/Search/Position';
-        this.creditAssetsPath = '/MarginSearch/MyAssets';
-    }
-
-    getStocks() {
-        var stocks = [];
-        var tableStocks = document.querySelector('#tabBody').querySelectorAll('tr');
-        console.log('getStocks', tableStocks);
-        for (var i = 0; i < tableStocks.length; ++i) {
-            var rowCells = tableStocks[i].querySelectorAll('td');
-            if (rowCells.length == 11) {
-                var stockInfo = {
-                    code: rowCells[0].textContent,
-                    name: rowCells[1].textContent,
-                    holdCount: rowCells[2].textContent,
-                    availableCount: rowCells[3].textContent,
-                    holdCost: rowCells[4].textContent,
-                    latestPrice: rowCells[5].textContent
-                };
-                stocks.push(stockInfo);
-            }
-        }
-        return stocks;
-    }
-
-    getAssetsCredit() {
-        var myAssets = document.querySelector('#myAssets_main');
-        if (!myAssets || !myAssets.childNodes || myAssets.childNodes.length < 1) {
-            return;
-        }
-        var assets0 = myAssets.childNodes[0];
-        if (!assets0 || !assets0.childNodes || assets0.childNodes.length != 4) {
-            return;
-        }
-        var assetsTableRows = assets0.childNodes;
-
-        return {
-            totalAssets: assetsTableRows[0].childNodes[0].childNodes[1].textContent,
-            availableMoney: assetsTableRows[0].childNodes[2].childNodes[1].textContent,
-            pureAssets: assetsTableRows[1].childNodes[0].childNodes[1].textContent,
-            availableCreditMoney: assetsTableRows[1].childNodes[2].childNodes[1].textContent,
-            stocks: this.getStocks()
-        };
-    }
-
-    getAssetsNor() {
-        var myAssets = document.querySelector('#assest_cont');
-        if (!myAssets || !myAssets.childNodes || myAssets.childNodes.length < 1) {
-            return;
-        }
-        var assets0 = myAssets.childNodes[0];
-        if (!assets0 || !assets0.childNodes || assets0.childNodes.length < 1) {
-            return;
-        }
-        var assets1 = assets0.childNodes[0];
-        if (!assets1 || !assets1.childNodes || assets1.childNodes.length != 3) {
-            return;
-        }
-        var assetsTableRows = assets1.childNodes;
-
-        return {
-            pureAssets: assetsTableRows[0].childNodes[0].childNodes[1].textContent,
-            availableMoney: assetsTableRows[1].childNodes[0].childNodes[1].textContent,
-            stocks: this.getStocks()
-        };
-    }
-
-    onTaskMessage(sendResponse) {
-        if (!document.querySelector('#tabBody').querySelectorAll('tr')) {
-            sendResponse({command:'step', step:'waiting'});
-            return;
-        }
-
-        var assetsMsg = {};
-        if (location.pathname == this.creditAssetsPath) {
-            assetsMsg = this.getAssetsCredit();
-        } else {
-            assetsMsg = this.getAssetsNor();
-        }
-        console.log('onTaskMessage', assetsMsg);
-        if (assetsMsg) {
-            assetsMsg.assetsPath = location.pathname;
-            sendResponse({command:'step', step:'got', assets: assetsMsg});
-        } else {
-            sendResponse({command:'step', step:'waiting'});
-        }
-    }
-
-    onStepsMessage(step, sendResponse) {
-        if (step == 'get') {
-            console.log('onStepsMessage', 'get');
-            this.onTaskMessage(sendResponse);
-        }
-    }
-}
-
 class NewStocksReactor extends CommandReactor {
     constructor() {
         super();
@@ -464,35 +360,40 @@ class TradeReactor extends CommandReactor {
     }
 
     clickToSetPrice(sendResponse) {
+        console.log('clickToSetPrice enter');
         if (!document.querySelector('#datalist')) {
+            console.log('clickToSetPrice datalist null');
             sendResponse({command:'step', step:'stockinput', status:'waiting'});
             return false;
         }
         var aprices = document.querySelector('#datalist').querySelectorAll('a');
         if (!aprices || aprices.length < 1) {
+            console.log('clickToSetPrice anchors in datalist is 0');
             sendResponse({command:'step', step:'stockinput', status:'waiting'});
             return false;
         }
         var prAnchor = aprices[0];
-        var fprice = 0;
+        var tbAnchor = null;
         if (location.pathname.includes('Sale')) {
             prAnchor = aprices[aprices.length - 1];
             if (prAnchor.childNodes[1].textContent != '-' ) {
                 prAnchor.click();
+                console.log('clickToSetPrice anchor clicked sell!');
                 return true;
             }
-            fprice = document.querySelector('#dt').textContent;
+            tbAnchor = document.querySelector('#dt');
         } else {
             if (prAnchor.childNodes[1].textContent != '-') {
+                console.log('clickToSetPrice anchor clicked buy!');
                 prAnchor.click();
                 return true;
             }
-            fprice = document.querySelector('#zt').textContent;
+            tbAnchor = document.querySelector('#zt');
         }
 
-        if (fprice != '-') {
-            document.querySelector('#iptPrice').value = fprice;
-            console.log('set price to top/bottom price', fprice);
+        if (tbAnchor.textContent != '-') {
+            tbAnchor.click();
+            console.log('set price to top/bottom price', tbAnchor.textContent);
             return true;
         }
         sendResponse({command:'step', step:'stockinput', status:'waiting', what: 'no valid price to set'});
@@ -579,10 +480,9 @@ class TradeReactor extends CommandReactor {
         }
         if (this.price !== undefined && this.price > 0) {
             document.querySelector('#iptPrice').value = this.price;
-        } else if (!this.clickToSetPrice(sendResponse)) {
-            return;
+        } else if (this.clickToSetPrice(sendResponse)) {
+            this.setCount(sendResponse);
         }
-        this.setCount(sendResponse);
     }
 
     onStepsMessage(step, sendResponse) {
@@ -653,9 +553,6 @@ class EmjyFrontend {
             if (vkey) {
                 this.sendMessageToBackground({command:'emjy.getValidateKey', key: vkey});
             }
-        } else if (message.command == 'emjy.getAssets') {
-            this.commandReactor = new AssetsReactor();
-            this.commandReactor.onTaskMessage(sendResponse);
         } else if (message.command == 'emjy.trade') {
             this.commandReactor = new TradeReactor(message.code, message.name, message.count, message.price);
             this.commandReactor.onTaskMessage(sendResponse);

@@ -139,6 +139,12 @@ class EmjyBack {
             this.mainTab = new CommanderBase();
             this.mainTab.tabid = tabid;
             this.mainTab.url = message.url;
+            this.normalAccount = new NormalAccount();
+            this.normalAccount.loadWatchings();
+            this.collateralAccount = new CollateralAccount();
+            this.collateralAccount.loadWatchings();
+            this.creditAccount = new CreditAccount();
+
             chrome.tabs.onRemoved.addListener((tabid, removeInfo) => {
                 if (emjyBack.mainTab.tabid == tabid) {
                     emjyBack.mainTab = null;
@@ -153,20 +159,13 @@ class EmjyBack {
                             this.mainTab.url = t.url;
                             var url = new URL(t.url);
                             this.authencated = url.pathname != '/Login';
-                            this.loadAssets();
+                            if (this.authencated) {
+                                this.sendMsgToMainTabContent({command:'emjy.getValidateKey'});
+                            }
                         };
                     });
                 }, 200);
             });
-
-            this.normalAccount = new NormalAccount();
-            this.normalAccount.initAccount('normal', '/Trade/Buy', '/Trade/Sale', '/Search/Position');
-            this.normalAccount.loadWatchings();
-            this.collateralAccount = new AccountInfo();
-            this.collateralAccount.initAccount('collat', '/MarginTrade/Buy', '/MarginTrade/Sale', '/MarginSearch/MyAssets');
-            this.collateralAccount.loadWatchings();
-            this.creditAccount = new AccountInfo();
-            this.creditAccount.initAccount('credit', '/MarginTrade/MarginBuy', '/MarginTrade/FinanceSale', '/MarginSearch/MyAssets');
             return;
         };
 
@@ -176,6 +175,8 @@ class EmjyBack {
             var url = new URL(this.mainTab.url);
             this.authencated = url.pathname != '/Login';
             if (this.contentProxies.length > 0 && this.authencated) {
+                this.sendMsgToMainTabContent({command:'emjy.getValidateKey'});
+                this.loadAssets();
                 for (var i = 0; i < this.contentProxies.length; i++) {
                     this.contentProxies[i].triggerTask();
                 }
@@ -191,22 +192,19 @@ class EmjyBack {
     }
 
     // DON'T use this API directly, or it may break the task queue.
-    sendMsgToContent(data) {
+    sendMsgToMainTabContent(data) {
         var url = new URL(this.mainTab.url);
         if (!this.mainTab.tabid || url.host != 'jywg.18.cn') {
             return;
         }
 
         if (url.pathname == '/Login' || !this.authencated) {
-            this.log('not sendMsgToContent', url.pathname, this.authencated);
-            // this.revokeCurrentTask();
+            this.log('not sendMsgToMainTabContent', url.pathname, this.authencated);
             return;
         }
 
-        //chrome.tabs.sendMessage(tabid, {command: 'emjy.navigate', url: url.href});
-
         chrome.tabs.sendMessage(this.mainTab.tabid, data);
-        this.log('sendMsgToContent', JSON.stringify(data));
+        this.log('sendMsgToMainTabContent', JSON.stringify(data));
     }
 
     remvoeProxy(tabid) {
@@ -225,27 +223,6 @@ class EmjyBack {
         }
     }
 
-    onAssetsLoaded(message) {
-        this.log('onAssetsLoaded', message.assetsPath);
-        if (message.assetsPath == this.normalAccount.assetsPath) {
-            this.normalAccount.pureAssets = parseFloat(message.pureAssets);
-            this.normalAccount.availableMoney = parseFloat(message.availableMoney);
-            this.normalAccount.parseStockInfoList(message.stocks);
-            this.normalAccount.loadStrategies();
-        } else {
-            this.creditAccount.pureAssets = 0.0;
-            this.creditAccount.availableMoney = parseFloat(message.availableCreditMoney);
-            this.collateralAccount.pureAssets = parseFloat(message.pureAssets);
-            this.collateralAccount.availableMoney = parseFloat(message.availableMoney);
-            this.collateralAccount.parseStockInfoList(message.stocks);
-            this.collateralAccount.loadStrategies();
-        }
-
-        if (this.manager && this.manager.isValid()) {
-            this.manager.sendStocks([this.normalAccount, this.collateralAccount]);
-        }
-    }
-
     onContentMessageReceived(message, tabid) {
         if (!this.normalAccount && !this.creditAccount) {
             this.log('background not initialized');
@@ -255,27 +232,8 @@ class EmjyBack {
         this.log('onContentMessageReceived', tabid);
         if (message.command == 'emjy.getValidateKey') {
             this.log('getValidateKey =', message.key);
-        } else if (message.command == 'emjy.getAssets') {
-            // this.log('update assets', JSON.stringify(message));
-            if (message.assetsPath == this.normalAccount.assetsPath) {
-                this.normalAccount.pureAssets = parseFloat(message.pureAssets);
-                this.normalAccount.availableMoney = parseFloat(message.availableMoney);
-                this.normalAccount.parseStockInfoList(message.stocks);
-                this.normalAccount.loadStrategies();
-            } else {
-                this.creditAccount.pureAssets = 0.0;
-                this.creditAccount.availableMoney = parseFloat(message.availableCreditMoney);
-                this.collateralAccount.pureAssets = parseFloat(message.pureAssets);
-                this.collateralAccount.availableMoney = parseFloat(message.availableMoney);
-                this.collateralAccount.parseStockInfoList(message.stocks);
-                this.collateralAccount.loadStrategies();
-            }
-
-            if (this.manager && this.manager.isValid()) {
-                this.manager.sendStocks([this.normalAccount, this.collateralAccount]);
-            }
-            
-            this.remvoeProxy(tabid);
+            this.validateKey = message.key;
+            this.loadAssets();
         } else if (message.command == 'emjy.trade') {
             this.log('trade message: result =', message.result, ', what =', message.what);
         } else if (message.command == 'emjy.addwatch') {
@@ -342,8 +300,8 @@ class EmjyBack {
     }
 
     loadAssets() {
-        this.scheduleNewTabCommand(new AssetsCommander(this.normalAccount.assetsPath));
-        this.scheduleNewTabCommand(new AssetsCommander(this.creditAccount.assetsPath));
+        this.normalAccount.loadAssets();
+        this.collateralAccount.loadAssets(assets=> {this.creditAccount.onAssetsLoaded(assets);});
     }
 
     refreshAssets() {
@@ -355,6 +313,11 @@ class EmjyBack {
         };
 
         this.loadAssets();
+    }
+
+    loadDeals() {
+        this.normalAccount.loadDeals();
+        this.collateralAccount.loadDeals();
     }
 
     checkAvailableMoney(price, account) {
@@ -580,6 +543,7 @@ class EmjyBack {
 
     tradeClosed() {
         this.normalAccount.fillupGuardPrices();
+        this.loadDeals();
         this.normalAccount.save();
         this.collateralAccount.fillupGuardPrices();
         this.collateralAccount.save();

@@ -10,21 +10,161 @@ class Wallet {
     }
 }
 
-class AccountInfo {
-    constructor() {
-        this.keyword = null;
-        this.buyPath = null;
-        this.sellPath = null;
-        this.assetsPath = null;
-        this.stocks = [];
-        this.wallet = null;
+class DealsClient {
+    constructor(validateKey, cb) {
+        this.validateKey = validateKey;
+        this.qqhs = 20; // 请求行数
+        this.dwc = '';
+        this.dealsCallback = cb;
     }
 
-    initAccount(key, buyPath, sellPath, assetsPath) {
-        this.keyword = key;
-        this.buyPath = buyPath;
-        this.sellPath = sellPath;
-        this.assetsPath = assetsPath;
+    getUrl() {
+        return 'https://jywg.18.cn/Search/GetDealData?validatekey=' + this.validateKey;
+    }
+
+    GetNext() {
+        var fd = new FormData();
+        fd.append('qqhs', this.qqhs);
+        fd.append('dwc', this.dwc);
+        this.updateDwc();
+        xmlHttpPost(this.getUrl(), fd, response => {
+            this.onResponse(response);
+        });
+    }
+
+    updateDwc() {
+        this.dwc = '';
+    }
+
+    onResponse(response) {
+        var deals = JSON.parse(response);
+        if (deals.Status != 0 || deals.Message) {
+            emjyBack.log(response);
+        }
+        var dend = deals.Data[deals.Data.length - 1];
+        if (dend.Dwc) {
+            this.dwc = dend.Dwc;
+        }
+        if (this.dwc && deals.Data.length == this.qqhs) {
+            this.GetNext();
+        }
+        if (typeof(this.dealsCallback) == 'function') {
+            this.dealsCallback(deals.Data);
+        }
+    }
+}
+
+class MarginDealsClient extends DealsClient {
+    constructor(validateKey, cb) {
+        super(validateKey, cb);
+        this.dwc = 1;
+    }
+
+    getUrl() {
+        return 'https://jywg.18.cn/MarginSearch/GetDealData?validatekey=' + this.validateKey;
+    }
+
+    updateDwc() {
+        this.dwc++;
+    }
+}
+
+class AssetsClient {
+    constructor(validateKey, cb, pcb) {
+        this.validateKey = validateKey;
+        this.moneyType = 'RMB';
+        this.assetsCallback = cb;
+        this.positionCallback = pcb;
+    }
+
+    GetAssets() {
+        var url = 'https://jywg.18.cn/Com/queryAssetAndPositionV1?validatekey=' + this.validateKey;
+        var fd = new FormData();
+        fd.append('moneyType', this.moneyType);
+        xmlHttpPost(url, fd, response => {
+            this.onResponse(response);
+        });
+    }
+
+    onResponse(response) {
+        var assets = JSON.parse(response);
+        if (assets.Status != 0 || assets.Errcode != 0) {
+            emjyBack.log(response);
+        }
+        var assetsInfo = {};
+        var data = assets.Data[0];
+        for (const key in data) {
+            if (Object.hasOwnProperty.call(data, key)) {
+                if (key != 'positions') {
+                    assetsInfo[key] = data[key];
+                }
+            }
+        }
+        if (typeof(this.assetsCallback) == 'function') {
+            this.assetsCallback(assetsInfo);
+        }
+        if (typeof(this.positionCallback) == 'function') {
+            this.positionCallback(data.positions);
+        }
+    }
+}
+
+class MarginAssetsClient extends AssetsClient {
+    constructor(validateKey, cb, pcb) {
+        super(validateKey, cb, pcb);
+    }
+
+    GetAssets() {
+        var url = 'https://jywg.18.cn/MarginSearch/GetRzrqAssets?validatekey=' + this.validateKey;
+        var fd = new FormData();
+        fd.append('hblx', this.moneyType);
+        xmlHttpPost(url, fd, response => {
+            this.onAssetsResponse(response);
+        });
+
+        var slUrl = 'https://jywg.18.cn/MarginSearch/GetStockList?validatekey=' + this.validateKey;
+        xmlHttpPost(slUrl, new FormData(), response => {
+            this.onStockListResponse(response);
+        });
+    }
+
+    onAssetsResponse(response) {
+        var assets = JSON.parse(response);
+        if (assets.Status != 0 || assets.Message) {
+            emjyBack.log(response);
+        }
+        if (typeof(this.assetsCallback) == 'function') {
+            this.assetsCallback(assets.Data);
+        }
+    }
+
+    onStockListResponse(response) {
+        var assets = JSON.parse(response);
+        if (assets.Status != 0 || assets.Message) {
+            emjyBack.log(response);
+        }
+        if (typeof(this.positionCallback) == 'function') {
+            this.positionCallback(assets.Data);
+        }
+    }
+}
+
+class Account {
+    constructor() {
+        this.keyword = null;
+        this.stocks = [];
+        this.wallet = null;
+        this.buyPath = null;
+        this.sellPath = null;
+    }
+}
+
+class NormalAccount extends Account {
+    constructor() {
+        super();
+        this.keyword = 'normal';
+        this.buyPath = '/Trade/Buy';
+        this.sellPath = '/Trade/Sale';
         this.wallet = new Wallet();
     }
 
@@ -312,13 +452,10 @@ class AccountInfo {
     }
 
     buyFundBeforeClose() {
-        var anyCritial = this.stocks.find(function(s) {
-            return s.buyStrategy && s.buyStrategy.enabled() && s.buyStrategy.inCritical();
-        });
-
-        if (!anyCritial) {
-            emjyBack.scheduleNewTabCommand(new TradeCommander(this.buyPath, this.wallet.fundcode, '', 1, 0));
-        };
+        emjyBack.scheduleNewTabCommand(new BondRepurchaseCommander('204001'), true);
+        setTimeout(() => {
+            emjyBack.scheduleNewTabCommand(new BondRepurchaseCommander('131810', true));
+        }, 8000);
     }
 
     checkAvailableMoney(price) {
@@ -336,17 +473,151 @@ class AccountInfo {
             }
         });
     }
+
+    loadDeals() {
+        var dealclt = new DealsClient(emjyBack.validateKey, (deals) => {
+            this.handleDeals(deals);
+        });
+        dealclt.GetNext();
+    }
+
+    handleDeals(deals) {
+        for (let i = 0; i < deals.length; i++) {
+            const deali = deals[i];
+            if (deali.Mmsm.includes('卖出')) {
+                // Not implemented!
+                // console.log(deali.Mmsm, deali.Zqdm);
+            } else if (deali.Mmsm.includes('买入')) {
+                this.stocks.forEach(s => {
+                    if (s.code == deali.Zqdm) {
+                        s.strategies.clearTodayBuyDetail();
+                        s.strategies.updateBuyDetail(s.strategies.getTodayDate(), deali.Cjjg, deali.Cjsl);
+                    }
+                });
+            }
+        }
+    }
+
+    loadAssets() {
+        var astClient = new AssetsClient(emjyBack.validateKey, assets => {
+            this.onAssetsLoaded(assets);
+        }, positions => {
+            this.onPositionsLoaded(positions);
+        });
+        astClient.GetAssets();
+    }
+
+    onAssetsLoaded(assets) {
+        this.pureAssets = parseFloat(assets.Zzc);
+        this.availableMoney = parseFloat(assets.Kyzj);
+    }
+
+    parsePosition(position) {
+        var code = position.Zqdm;
+        var name = position.Zqmc;
+        var holdCount = parseInt(position.Zqsl);
+        var availableCount = parseInt(position.Kysl);
+        var holdCost = position.Cbjg;
+        var latestPrice = position.Zxjg;
+        return {code, name, holdCount, holdCost, availableCount, latestPrice};
+    }
+
+    onPositionsLoaded(positions) {
+        for (var i = 0; i < positions.length; i++) {
+            if (this.wallet && positions[i].Zqdm == this.wallet.fundcode) {
+                this.wallet.name = positions[i].Zqmc;
+                this.wallet.holdCount = positions[i].Zqsl;
+                continue;
+            };
+            var stocki = this.parsePosition(positions[i]);
+            var stockInfo = this.stocks.find(function(s) {return s.code == stocki.code});
+            if (stockInfo) {
+                stockInfo.code = stocki.code;
+                stockInfo.name = stocki.name;
+                stockInfo.holdCount = stocki.holdCount;
+                stockInfo.availableCount = stocki.availableCount;
+                stockInfo.holdCost = stocki.holdCost;
+                stockInfo.latestPrice = stocki.latestPrice;
+            } else {
+                var market = '';
+                if (emjyBack.stockMarket[stocki.code]) {
+                    market = emjyBack.getStockMarketHS(stocki.code);
+                } else {
+                    emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code: stocki.code});
+                }
+                stocki.market = market;
+                this.stocks.push(new StockInfo(stocki));
+            }
+        }
+        this.loadStrategies();
+    }
 }
 
-class NormalAccount extends AccountInfo {
+class CreditAccount extends NormalAccount {
     constructor() {
         super();
+        this.keyword = 'credit';
+        this.buyPath = '/MarginTrade/MarginBuy';
+        this.sellPath = '/MarginTrade/FinanceSale';
+    }
+
+    onAssetsLoaded(assets) {
+        this.pureAssets = 0;
+        this.availableMoney = parseFloat(assets.Bzjkys);
+    }
+}
+
+class CollateralAccount extends NormalAccount {
+    constructor() {
+        super();
+        this.keyword = 'collat';
+        this.buyPath = '/MarginTrade/Buy';
+        this.sellPath = '/MarginTrade/Sale';
     }
 
     buyFundBeforeClose() {
-        emjyBack.scheduleNewTabCommand(new BondRepurchaseCommander('204001'), true);
-        setTimeout(() => {
-            emjyBack.scheduleNewTabCommand(new BondRepurchaseCommander('131810', true));
-        }, 8000);
+        var anyCritial = this.stocks.find(function(s) {
+            return s.buyStrategy && s.buyStrategy.enabled() && s.buyStrategy.inCritical();
+        });
+
+        if (!anyCritial) {
+            emjyBack.scheduleNewTabCommand(new TradeCommander(this.buyPath, this.wallet.fundcode, '', 1, 0));
+        };
+    }
+
+    loadDeals() {
+        var dealclt = new MarginDealsClient(emjyBack.validateKey, (deals) => {
+            this.handleDeals(deals);
+        });
+        dealclt.GetNext();
+    }
+
+    loadAssets(cb) {
+        this.assetsCallback = cb;
+        var astClient = new MarginAssetsClient(emjyBack.validateKey, assets => {
+            this.onAssetsLoaded(assets);
+        }, positions => {
+            this.onPositionsLoaded(positions);
+        });
+        astClient.GetAssets();
+    }
+
+    onAssetsLoaded(assets) {
+        this.pureAssets = assets.Zzc - assets.Zfz;
+        this.availableMoney = parseFloat(assets.Zjkys);
+        if (typeof(this.assetsCallback) == 'function') {
+            this.assetsCallback(assets);
+        }
+    }
+
+    parsePosition(position) {
+        var code = position.Zqdm;
+        var name = position.Zqmc;
+        var holdCount = parseInt(position.Zqsl);
+        var availableCount = parseInt(position.Gfky);
+        var holdCost = position.Cbjg;
+        var latestPrice = position.Zxjg;
+        return {code, name, holdCount, holdCost, availableCount, latestPrice};
     }
 }
+

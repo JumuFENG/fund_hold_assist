@@ -162,6 +162,34 @@ class StrategyGroup {
         this.buydetail = ndetail;
     }
 
+    clearTodayBuyDetail() {
+        if (!this.buydetail) {
+            return;
+        }
+        var toady = this.getTodayDate();
+        var ndetail = [];
+        for (var i = 0; i < this.buydetail.length; i++) {
+            if (this.buydetail[i].date != toady) {
+                ndetail.push(this.buydetail[i]);
+            }
+        }
+        this.buydetail = ndetail;
+    }
+
+    updateBuyDetail(date, price, count) {
+        if (!this.buydetail) {
+            console.log(this.code, this);
+            return;
+        }
+        this.buydetail.push({date, price, count});
+        for (var id in this.strategies) {
+            var curStrategy = this.strategies[id];
+            if (!curStrategy.isBuyStrategy() && curStrategy.data.price !== undefined) {
+                curStrategy.data.price = price;
+            }
+        }
+    }
+
     setHoldCount(count, acount) {
         if (count === undefined || count <= 0) {
             return;

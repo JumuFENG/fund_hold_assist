@@ -70,11 +70,10 @@ class CommanderBase {
     }
 }
 
-class AssetsCommander extends CommanderBase {
+class DirectCommander extends CommanderBase {
     constructor(path) {
         super();
         this.url = EmjyUrlRoot + path;
-        this.command = 'emjy.getAssets';
     }
 
     onReactResponsed(r) {
@@ -83,13 +82,14 @@ class AssetsCommander extends CommanderBase {
                 this.sendStepMessage('get');
                 emjyBack.log(JSON.stringify(r), 'tab', this.tabid);
                 return;
-            } else if (r.step == 'got') {
-                emjyBack.onAssetsLoaded(r.assets);
+            }
+            if (r.step == 'got') {
+                this.onGotResponsed(r);
                 this.closeTab();
                 return;
             }
         }
-        emjyBack.log(JSON.stringify(r), 'tab', this.tabid);
+        emjyBack.log('Direct command', this.command, JSON.stringify(r), 'tab', this.tabid);
     }
 }
 
