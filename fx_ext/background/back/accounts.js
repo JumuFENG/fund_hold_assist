@@ -22,10 +22,15 @@ class DealsClient {
         return 'https://jywg.18.cn/Search/GetDealData?validatekey=' + this.validateKey;
     }
 
-    GetNext() {
+    getFormData() {
         var fd = new FormData();
         fd.append('qqhs', this.qqhs);
         fd.append('dwc', this.dwc);
+        return fd;
+    }
+
+    GetNext() {
+        var fd = this.getFormData();
         this.updateDwc();
         xmlHttpPost(this.getUrl(), fd, response => {
             this.onResponse(response);
@@ -41,15 +46,25 @@ class DealsClient {
         if (deals.Status != 0 || deals.Message) {
             emjyBack.log(response);
         }
-        var dend = deals.Data[deals.Data.length - 1];
-        if (dend.Dwc) {
-            this.dwc = dend.Dwc;
+        if (deals.Data.length > 0) {
+            var dend = deals.Data[deals.Data.length - 1];
+            if (dend.Dwc) {
+                this.dwc = dend.Dwc;
+            }
+        }
+        if (!this.data || this.data.length == 0) {
+            this.data = deals.Data;
+        } else {
+            this.data.push.apply(this.data, deals.Data);
         }
         if (this.dwc && deals.Data.length == this.qqhs) {
             this.GetNext();
-        }
-        if (typeof(this.dealsCallback) == 'function') {
-            this.dealsCallback(deals.Data);
+        } else if (typeof(this.dealsCallback) == 'function') {
+            this.dealsCallback(this.data);
+            if (typeof(this.onNextPeriod) == 'function' && this.data.length > 0) {
+                this.data = [];
+                this.onNextPeriod();
+            }
         }
     }
 }
@@ -66,6 +81,65 @@ class MarginDealsClient extends DealsClient {
 
     updateDwc() {
         this.dwc++;
+    }
+}
+
+class HistDealsClient extends DealsClient {
+    constructor(validateKey, cb) {
+        super(validateKey, cb);
+    }
+
+    dateToString(dt, sep = '-') {
+        return dt.getFullYear() + sep + ('' + (dt.getMonth() + 1)).padStart(2, '0') + sep + ('' + dt.getDate()).padStart(2, '0');
+    }
+
+    setStartDate(startDate) {
+        this.startDate = startDate;
+        this.endTime = new Date();
+        this.setStartTime();
+    }
+
+    onNextPeriod() {
+        this.endTime = new Date(this.startTime);
+        this.endTime.setDate(this.startTime.getDate() - 1);
+        this.setStartTime();
+        if (this.startDate && this.endTime < this.startDate) {
+            if (typeof(this.dealsCallback) == 'function') {
+                this.dealsCallback(null);
+            }
+            return;
+        }
+        this.GetNext();
+    }
+
+    setStartTime() {
+        if (!this.startDate || this.endTime - this.startDate > 90 * 86400000) {
+            this.startTime = new Date(this.endTime);
+            this.startTime.setDate(this.endTime.getDate() - 90);
+        } else {
+            this.startTime = this.startDate;
+        }
+    }
+
+    getFormData() {
+        var fd = super.getFormData();
+        fd.append('st', this.dateToString(this.startTime));
+        fd.append('et', this.dateToString(this.endTime));
+        return fd;
+    }
+
+    getUrl() {
+        return 'https://jywg.18.cn/Search/GetHisDealData?validatekey=' + this.validateKey;
+    }
+}
+
+class MarginHistDealsClient extends HistDealsClient {
+    constructor(validateKey, cb) {
+        super(validateKey, cb);
+    }
+
+    getUrl() {
+        return 'https://jywg.18.cn/MarginSearch/GetHisDealData?validatekey=' + this.validateKey;
     }
 }
 
@@ -208,31 +282,6 @@ class NormalAccount extends Account {
                 };
             });
         });
-    }
-
-    parseStockInfoList(stocks) {
-        for (var i = 0; i < stocks.length; i++) {
-            if (this.wallet && stocks[i].code == this.wallet.fundcode) {
-                this.wallet.name = stocks[i].name;
-                this.wallet.holdCount = stocks[i].holdCount;
-                continue;
-            };
-            var stockInfo = this.stocks.find(function(s) {return s.code == stocks[i].code});
-            if (!stockInfo) {
-                stockInfo = new StockInfo(stocks[i]);
-                this.stocks.push(stockInfo);
-            };
-            stockInfo.code = stocks[i].code;
-            stockInfo.name = stocks[i].name;
-            stockInfo.holdCount = parseInt(stocks[i].holdCount);
-            stockInfo.availableCount = parseInt(stocks[i].availableCount);
-            stockInfo.holdCost = stocks[i].holdCost;
-            if (stocks[i].market !== undefined) {
-                stockInfo.market = stocks[i].market;
-                emjyBack.stockMarket[stocks[i].code] = stocks[i].market;
-            }
-            stockInfo.latestPrice = stocks[i].latestPrice;
-        };
     }
 
     getAccountStocks() {
@@ -498,6 +547,22 @@ class NormalAccount extends Account {
         }
     }
 
+    loadHistDeals(startDate, cb) {
+        var dealclt = new HistDealsClient(emjyBack.validateKey, (deals) => {
+            if (!this.fecthedDeals || this.fecthedDeals.length == 0) {
+                this.fecthedDeals = deals;
+            } else {
+                this.fecthedDeals.push.apply(this.fecthedDeals, deals);
+            }
+            if (typeof(cb) == 'function' && (!deals || deals.length == 0) && this.fecthedDeals && this.fecthedDeals.length > 0) {
+                cb(this.fecthedDeals);
+                this.fecthedDeals = [];
+            }
+        });
+        dealclt.setStartDate(startDate);
+        dealclt.GetNext();
+    }
+
     loadAssets() {
         var astClient = new AssetsClient(emjyBack.validateKey, assets => {
             this.onAssetsLoaded(assets);
@@ -565,6 +630,22 @@ class CreditAccount extends NormalAccount {
         this.pureAssets = 0;
         this.availableMoney = parseFloat(assets.Bzjkys);
     }
+
+    buyFundBeforeClose() {
+
+    }
+
+    loadDeals() {
+
+    }
+
+    loadHistDeals() {
+
+    }
+
+    loadAssets() {
+
+    }
 }
 
 class CollateralAccount extends NormalAccount {
@@ -589,6 +670,22 @@ class CollateralAccount extends NormalAccount {
         var dealclt = new MarginDealsClient(emjyBack.validateKey, (deals) => {
             this.handleDeals(deals);
         });
+        dealclt.GetNext();
+    }
+
+    loadHistDeals(startDate, cb) {
+        var dealclt = new MarginHistDealsClient(emjyBack.validateKey, (deals) => {
+            if (!this.fecthedDeals || this.fecthedDeals.length == 0) {
+                this.fecthedDeals = deals;
+            } else {
+                this.fecthedDeals.push.apply(this.fecthedDeals, deals);
+            }
+            if (typeof(cb) == 'function' && (!deals || deals.length == 0) && this.fecthedDeals && this.fecthedDeals.length > 0) {
+                cb(this.fecthedDeals);
+                this.fecthedDeals = [];
+            }
+        });
+        dealclt.setStartDate(startDate);
         dealclt.GetNext();
     }
 

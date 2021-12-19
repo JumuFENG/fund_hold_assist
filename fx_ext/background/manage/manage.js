@@ -279,7 +279,7 @@ class Manager {
                 }
                 return a.holdCount < b.holdCount;
             });
-            console.log(tstocks);
+
             var account = stocks[i].account;
 
             for (var j = 0; j < tstocks.length; j++) {

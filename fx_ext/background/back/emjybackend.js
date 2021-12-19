@@ -320,6 +320,92 @@ class EmjyBack {
         this.collateralAccount.loadDeals();
     }
 
+    updateHistDeals() {
+        chrome.storage.local.get('hist_deals', item => {
+            var startDate = null;
+            if (item && item['hist_deals']) {
+                this.savedDeals = item['hist_deals'];
+                if (this.savedDeals && this.savedDeals.length > 0) {
+                    startDate = new Date(this.savedDeals[this.savedDeals.length - 1].time);
+                    startDate.setDate(startDate.getDate() + 1);
+                }
+            }
+            this.normalAccount.loadHistDeals(startDate, deals => {this.addHistDeals(deals);});
+            this.collateralAccount.loadHistDeals(startDate, deals => {this.addHistDeals(deals);});
+        });
+    }
+
+    getDealTime(cjrq, cjsj) {
+        var date = cjrq.slice(0, 4) + "-" + cjrq.slice(4, 6) + "-" + cjrq.slice(6, 8);
+        if (cjsj.length != 6) {
+            return date + ' 0:0';
+        }
+        return date + ' ' + cjsj.slice(0, 2) + ':' + cjsj.slice(2, 4) + ':' + cjsj.slice(4, 6);
+    }
+// {
+//     "Cjrq": "20210629", 成交日期
+//     "Cjsj": "143048", 成交时间
+//     "Zqdm": "600905", 证券代码
+//     "Zqmc": "三峡能源", 证券名称
+//     "Mmsm": "证券卖出", 买卖说明
+//     "Cjsl": "10000", 成交数量
+//     "Cjjg": "6.620", 成交价格
+//     "Cjje": "66200.00", 成交金额
+//     "Sxf": "16.55", 手续费
+//     "Yhs": "66.20", 印花税
+//     "Ghf": "1.32", 过户费
+//     "Zjye": "66682.05", 资金余额
+//     "Gfye": "26700", 股份余额
+//     "Market": "HA",
+//     "Cjbh": "24376386", 成交编号
+//     "Wtbh": "319719", 委托编号
+//     "Gddm": "E062854229", 股东代码
+//     "Dwc": "",
+//     "Xyjylx": "卖出担保品" 交易类型
+// }
+    addHistDeals(deals) {
+        var fetchedDeals = [];
+        for (let i = 0; i < deals.length; i++) {
+            const deali = deals[i];
+            if (deali.Mmsm == '担保品划入' || deali.Mmsm == '担保品划出' || deali.Mmsm == '配售申购' || deali.Mmsm == '融券' || deali.Mmsm == '配股缴款') {
+                continue;
+            }
+
+            var tradeType = '';
+            if (deali.Mmsm == '证券卖出') {
+                tradeType = 'S';
+            } else if (deali.Mmsm == '证券买入') {
+                tradeType = 'B';
+            } else {
+                console.log('unknown trade type', deali.Mmsm, deali);
+                continue;
+            }
+            var code = deali.Zqdm;
+            var time = this.getDealTime(deali.Cjrq, deali.Cjsj);
+            var count = deali.Cjsl;
+            var price = deali.Cjjg;
+            var fee = deali.Sxf;
+            var feeYh = deali.Yhs;
+            var feeGh = deali.Ghf;
+            fetchedDeals.push({time, code, tradeType, price, count, fee, feeYh, feeGh});
+        }
+
+        fetchedDeals.reverse();
+        if (!this.savedDeals || this.savedDeals.length == 0) {
+            this.savedDeals = fetchedDeals;
+        } else {
+            for (let i = 0; i < fetchedDeals.length; i++) {
+                const deali = fetchedDeals[i];
+                if (!this.savedDeals.find(d => d.time == deali.time && d.code == deali.code && d.count == deali.count && d.price == deali.price)) {
+                    this.savedDeals.push(deali);
+                }
+            }
+            this.savedDeals.sort((a, b) => a.time > b.time);
+        }
+        chrome.storage.local.set({'hist_deals': this.savedDeals});
+        console.log(this.savedDeals);
+    }
+
     checkAvailableMoney(price, account) {
         if (this.normalAccount.keyword == account) {
             this.normalAccount.checkAvailableMoney(price);
