@@ -374,26 +374,63 @@ class StrategySellEL extends StrategySell {
 }
 
 class StrategySellELShort extends StrategySellEL {
+    guardLevel() {
+        return 'kline';
+    }
+
+    kltype() {
+        return '1';
+    }
+
     check(rtInfo) {
-        var latestPrice = rtInfo.latestPrice;
-        var guardPrice = this.data.guardPrice;
-        var averPrice = this.data.averPrice;
-        if (latestPrice == rtInfo.topprice) {
-            guardPrice = latestPrice;
-        } else if (latestPrice - averPrice * 1.08 >= 0 && guardPrice - latestPrice / 2 - averPrice / 2 < 0) {
-            guardPrice = - (- latestPrice - averPrice) / 2;
-        } else if (latestPrice - averPrice * 1.04 >= 0 && averPrice - guardPrice > 0) {
-            guardPrice = averPrice * 1.01;
-        };
-        if (guardPrice - this.data.guardPrice > 0) {
-            this.data.guardPrice = guardPrice;
-            this.flush();
-        };
-        if (rtInfo.latestPrice - guardPrice < 0) {
-            this.data.inCritical = true;
-            return this.matchResult(true, rtInfo.buyPrices[1], rtInfo.bottomprice);
-        };
         return {match: false};
+    }
+
+    checkKlines(klines, updatedKlt) {
+        if (klines === undefined || updatedKlt === undefined) {
+            return;
+        };
+
+        if (updatedKlt.length < 1 || !updatedKlt.includes('1')) {
+            return;
+        };
+
+        var kl = klines.getLatestKline('1');
+        if (kl.c - this.data.guardPrice < 0) {
+            this.data.inCritical = true;
+            return;
+        }
+
+        var nKlines = klines.getKline('101');
+        if (nKlines && nKlines.length > 0) {
+            var downKlNum = 0;
+            var upKlNum = 0;
+            var troughprice = nKlines[nKlines.length - 1].l;
+            for (let i = nKlines.length - 1; i > 0; i--) {
+                const kl = nKlines[i];
+                const kl0 = nKlines[i - 1];
+                if (downKlNum < 2) {
+                    if (kl.l - kl0.l < 0) {
+                        break;
+                    }
+                    if (kl.l - kl0.l > 0) {
+                        downKlNum++;
+                        troughprice = kl0.l;
+                    }
+                } else {
+                    if (kl.l - kl0.l > 0) {
+                        break;
+                    }
+                    if (kl.l - kl0.l < 0) {
+                        upKlNum++;
+                    }
+                }
+            }
+            if (upKlNum > 2 && downKlNum > 2 && troughprice - this.data.guardPrice > 0) {
+                this.data.guardPrice = troughprice;
+                this.flush();
+            }
+        }
     }
 }
 

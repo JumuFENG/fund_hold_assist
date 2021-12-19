@@ -417,17 +417,7 @@ class StrategySellELSView extends StrategyBaseView {
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
-        view.appendChild(document.createTextNode('超短止损止盈'));
-        view.appendChild(document.createElement('br'));
-        view.appendChild(document.createTextNode('收益 < 2%, 止损点止损'));
-        view.appendChild(document.createElement('br'));
-        view.appendChild(document.createTextNode('收益 < 4%, 买入价止损'));
-        view.appendChild(document.createElement('br'));
-        view.appendChild(document.createTextNode('收益 < 8%, 回撤一半止盈'));
-        view.appendChild(document.createElement('br'));
-        view.appendChild(document.createTextNode('收益 > 8%, 回撤4%止盈'));
-        view.appendChild(document.createElement('br'));
-        view.appendChild(document.createTextNode('涨停后开板卖出'));
+        view.appendChild(document.createTextNode('低点抬高法, 1分钟，短线收益不错时设置该策略'));
         view.appendChild(this.createGuardInput('止损点 '));
         return view;
     }
