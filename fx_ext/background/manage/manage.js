@@ -19,11 +19,17 @@ class Manager {
     loadAllSavedData() {
         chrome.storage.local.get(null, item => {
             if (item) {
+                if (item['hsj_stocks']) {
+                    this.stockMarket = item['hsj_stocks'];
+                }
                 if (item['ztstocks']) {
                     this.zt1stocks = item['ztstocks'];
                 }
                 if (item['ztdels']) {
                     this.delstocks = item['ztdels'];
+                }
+                if (item['hist_deals']) {
+                    this.savedDeals = item['hist_deals'];
                 }
                 if (item['bkstocks_' + BkRZRQ]) {
                     this.rzrqStocks = new Set(item['bkstocks_' + BkRZRQ]);
@@ -332,6 +338,13 @@ class Manager {
         return this.rzrqStocks && this.rzrqStocks.has(code);
     }
 
+    stockEmLink(code) {
+        if (this.stockMarket[code]) {
+            return emStockUrl + (this.stockMarket[code].mkt == '0' ? 'sz' : 'sh') + code + emStockUrlTail;
+        }
+        return emStockUrl + (code.startsWith('00') ? 'sz' : 'sh') + code + emStockUrlTail;
+    }
+
     stockAccountFrom(code) {
         if (this.rzrqStocks && this.rzrqStocks.has(code)) {
             return 'collat';
@@ -361,6 +374,10 @@ class ManagerPage {
         var rvpage = new ReviewPanelPage();
         this.navigator.addRadio(rvpage);
         this.root.appendChild(rvpage.container);
+
+        var dealsPage = new DealsPanelPage();
+        this.navigator.addRadio(dealsPage);
+        this.root.appendChild(dealsPage.container);
 
         var settingsPage = new SettingsPanelPage('设置');
         this.navigator.addRadio(settingsPage);
