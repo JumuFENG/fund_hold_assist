@@ -215,7 +215,8 @@ class JywgUtils {
 }
 
 class CommandReactor {
-    constructor() {
+    constructor(sendResponse) {
+        this.sendResponse = sendResponse;
     }
 
     onTaskMessage(sendResponse) {
@@ -226,11 +227,11 @@ class CommandReactor {
 }
 
 class NewStocksReactor extends CommandReactor {
-    constructor() {
-        super();
+    constructor(sendResponse) {
+        super(sendResponse);
     }
 
-    onTaskMessage(sendResponse) {
+    onTaskMessage() {
         var seletedCount = 0;
         document.querySelector('#tableBody').querySelectorAll('tr').forEach(r => {
             var tds = r.querySelectorAll('td');
@@ -249,20 +250,20 @@ class NewStocksReactor extends CommandReactor {
             };
         });
 
-        sendResponse({command:'step', step: 'set', count: seletedCount});
+        this.sendResponse({command:'step', step: 'set', count: seletedCount});
     }
 
-    onStepsMessage(step, sendResponse) {
+    onStepsMessage(step) {
         if (step == 'batclick') {
             document.querySelector('#btnBatBuy').click();
-            sendResponse({command:'step', step, status:'done'});
+            this.sendResponse({command:'step', step, status:'done'});
         } else if (step == 'confirm') {
             var status = 'waiting';
             if (document.querySelector('#btnConfirm')) {
                 document.querySelector('#btnConfirm').click();
                 status = 'done';
             }
-            sendResponse({command:'step', step, status})
+            this.sendResponse({command:'step', step, status})
         } else if (step == 'waitcomplete') {
             var status = 'waiting';
             var alert = '';
@@ -270,70 +271,70 @@ class NewStocksReactor extends CommandReactor {
                 status = 'done';
                 alert = document.querySelector('.cxc_bd', '.info').textContent;
             }
-            sendResponse({command:'step', step, status, alert});
+            this.sendResponse({command:'step', step, status, alert});
         }
     }
 }
 
 class BondRepurchaseReactor extends CommandReactor {
-    constructor(code) {
-        super();
+    constructor(code, sendResponse) {
+        super(sendResponse);
         this.code = code;
     }
 
-    onTaskMessage(sendResponse) {
+    onTaskMessage() {
         if (!document.querySelector('#iptZqdm')) {
-            sendResponse({command:'step', step:'codeinput', status:'waiting'});
+            this.sendResponse({command:'step', step:'codeinput', status:'waiting'});
             return;
         }
         document.querySelector('#iptZqdm').value = this.code;
         document.querySelector('#iptZqdm').click();
-        sendResponse({command:'step', step:'codeinput', status:'done'});
+        this.sendResponse({command:'step', step:'codeinput', status:'done'});
     }
 
-    onStepsMessage(step, sendResponse) {
+    onStepsMessage(step) {
         if (step == 'codeinput') {
-            this.onTaskMessage(sendResponse);
+            this.onTaskMessage(this.sendResponse);
             return;
         }
         
         if (step == 'quicksale') {
             var quickSale = document.querySelector('#quickSale');
             if (!quickSale || !quickSale.childNodes) {
-                sendResponse({command:'step', step, status:'waiting'});
+                this.sendResponse({command:'step', step, status:'waiting'});
                 return;
             }
             var qsRows = quickSale.querySelectorAll('tr');
             if (!qsRows || qsRows.length < 2) {
-                sendResponse({command:'step', step, status:'waiting'});
+                this.sendResponse({command:'step', step, status:'waiting'});
                 return;
             }
             qsRows[1].click();
-            sendResponse({command:'step', step, status:'done'});
+            this.sendResponse({command:'step', step, status:'done'});
             return;
         }
 
         if (step == 'chkcount') {
             if (document.querySelector('#lblKrsl').textContent == 0) {
-                sendResponse({command:'step', step, status:'waiting'});
+                this.sendResponse({command:'step', step, status:'waiting'});
                 return;
             }
             document.querySelector('#iptRqsl').value = document.querySelector('#lblKrsl').textContent;
             document.querySelector('#btnConfirm').disabled = false;
             document.querySelector('#btnConfirm').click();
-            sendResponse({command:'step', step, status:'done'});
+            this.sendResponse({command:'step', step, status:'done'});
             return;
         }
 
         if (step == 'confirm') {
             var confirmAgain = document.querySelector('.btn_jh', '.btnts', '.cl', '.btn', '.btn-default-blue');
             if (!confirmAgain) {
-                sendResponse({command:'step', step, status:'waiting'});
+                this.sendResponse({command:'step', step, status:'waiting'});
                 return;
             } 
 
             confirmAgain.click();
-            sendResponse({command:'step', step, status:'done'});
+            this.sendResponse({command:'step', step, status:'done'});
             return;
         }
 
@@ -344,32 +345,40 @@ class BondRepurchaseReactor extends CommandReactor {
                 status = 'done';
                 alert = document.querySelector('.cxc_bd', '.info').textContent;
             }
-            sendResponse({command:'step', step, status, alert});
+            this.sendResponse({command:'step', step, status, alert});
             return;
         }
     }
 }
 
 class TradeReactor extends CommandReactor {
-    constructor(code, name, count, price) {
-        super();
+    constructor(code, name, count, price, sendResponse) {
+        super(sendResponse);
         this.code = code;
         this.name = name;
         this.count = count;
         this.price = price;
+        this.bodyObserver = new MutationObserver((mutelist, obs) => {
+            for (var mu of mutelist) {
+                if (mu.type == 'childList' && mu.addedNodes.length > 1) {
+                    this.bodyChildChanged();
+                }
+            }
+        });
+        this.bodyObserver.observe(document.querySelector('body'), {childList: true});
     }
 
-    clickToSetPrice(sendResponse) {
+    clickToSetPrice() {
         console.log('clickToSetPrice enter');
         if (!document.querySelector('#datalist')) {
             console.log('clickToSetPrice datalist null');
-            sendResponse({command:'step', step:'stockinput', status:'waiting'});
+            this.sendResponse({command:'step', step:'stockinput', status:'waiting'});
             return false;
         }
         var aprices = document.querySelector('#datalist').querySelectorAll('a');
         if (!aprices || aprices.length < 1) {
             console.log('clickToSetPrice anchors in datalist is 0');
-            sendResponse({command:'step', step:'stockinput', status:'waiting'});
+            this.sendResponse({command:'step', step:'stockinput', status:'waiting'});
             return false;
         }
         var prAnchor = aprices[0];
@@ -396,33 +405,33 @@ class TradeReactor extends CommandReactor {
             console.log('set price to top/bottom price', tbAnchor.textContent);
             return true;
         }
-        sendResponse({command:'step', step:'stockinput', status:'waiting', what: 'no valid price to set'});
+        this.sendResponse({command:'step', step:'stockinput', status:'waiting', what: 'no valid price to set'});
         console.log('clickToSetPrice error: no valid price to click!');
         return false;
     }
 
-    setCount(sendResponse) {
+    setCount() {
         if (this.count - 4 <= 0 && this.count - 1 >= 0) {
             var radId = ['', '#radall', '#radtwo', '#radstree', '#radfour'][this.count];
             if (!document.querySelector(radId)) {
-                sendResponse({command:'step', step:'stockinput', status:'waiting'});
+                this.sendResponse({command:'step', step:'stockinput', status:'waiting'});
                 return;
             } else {
                 document.querySelector(radId).click();
-                sendResponse({command:'step', step: 'stockinput', status:'done'});
+                this.sendResponse({command:'step', step: 'stockinput', status:'done'});
                 return;
             };
         }
         if (this.count - 100 < 0) {
-            sendResponse({command:'step', step:'stockinput', status: 'error', what: 'countInvalid count = ' + this.count});
+            this.sendResponse({command:'step', step:'stockinput', status: 'error', what: 'countInvalid count = ' + this.count});
             return;
         }
 
         document.querySelector('#iptCount').value = this.count;
-        sendResponse({command:'step', step: 'stockinput', status:'done'});
+        this.sendResponse({command:'step', step: 'stockinput', status:'done'});
     }
 
-    checkSubmitDisabled(sendResponse) {
+    checkSubmitDisabled() {
         var btnCxcConfirm = document.querySelector('#btnCxcConfirm');
         var errorText = document.querySelector('.cxc_bd', 'error');
         if (btnCxcConfirm && errorText) {
@@ -430,8 +439,8 @@ class TradeReactor extends CommandReactor {
             console.log('error alert:', errorText.textContent);
             if (errorText && errorText.textContent == 'The Jylb field is required.') {
                 document.querySelector('#delegateWay').childNodes[0].value = 'B';
-                if (this.clickToSetPrice(sendResponse)) {
-                    this.setCount(sendResponse);
+                if (this.clickToSetPrice(this.sendResponse)) {
+                    this.setCount(this.sendResponse);
                 }
                 return;
             }
@@ -453,23 +462,42 @@ class TradeReactor extends CommandReactor {
                 }
             }
             if (valid == 0) {
-                sendResponse({command:'step', step: 'chksubmit', status: 'error', what:'NoStockInfo'});
+                this.sendResponse({command:'step', step: 'chksubmit', status: 'error', what:'NoStockInfo'});
                 return;
             }
         }
 
         if (document.querySelector('#lbMaxCount').textContent - this.count < 0) {
-            sendResponse({command:'step', step: 'chksubmit', status:'waiting', what: 'maxCountInvalid maxCount = '+ document.querySelector('#lbMaxCount').textContent});
+            this.sendResponse({command:'step', step: 'chksubmit', status:'waiting', what: 'maxCountInvalid maxCount = '+ document.querySelector('#lbMaxCount').textContent});
             return;
         } else {
-            sendResponse({command:'step', step: 'chksubmit', status:'waiting', what: ''});
+            this.sendResponse({command:'step', step: 'chksubmit', status:'waiting', what: ''});
             return;
         }
     }
 
-    onTaskMessage(sendResponse) {
+    bodyChildChanged() {
+        console.log('bodyChildChanged');
+        var btnCxcConfirm = document.querySelector('#btnCxcConfirm');
+        var errorText = document.querySelector('.cxc_bd', 'error');
+        if (btnCxcConfirm && errorText) {
+            // if (errorText.textContent.includes('委托已提交') || errorText.textContent.includes('当前时间不允许做该项业务') || errorText.textContent.includes('委托已成功提交') || errorText.textContent.includes('可用资金不足')) {
+            //     return;
+            // }
+            btnCxcConfirm.click();
+            console.log('error alert:', errorText.textContent);
+            if (errorText && errorText.textContent == 'The Jylb field is required.') {
+                document.querySelector('#delegateWay').childNodes[0].value = 'B';
+            }
+            if (this.clickToSetPrice()) {
+                this.setCount();
+            }
+        }
+    }
+
+    onTaskMessage() {
         if (!document.querySelector('#stockCode')) {
-            sendResponse({command:'step', step:'stockinput', status:'waiting'});
+            this.sendResponse({command:'step', step:'stockinput', status:'waiting'});
             return;
         }
         if (document.querySelector('#stockCode').value != this.code) {
@@ -480,23 +508,23 @@ class TradeReactor extends CommandReactor {
         }
         if (this.price !== undefined && this.price > 0) {
             document.querySelector('#iptPrice').value = this.price;
-        } else if (this.clickToSetPrice(sendResponse)) {
-            this.setCount(sendResponse);
+        } else if (this.clickToSetPrice(this.sendResponse)) {
+            this.setCount(this.sendResponse);
         }
     }
 
-    onStepsMessage(step, sendResponse) {
+    onStepsMessage(step) {
         if (step == 'stockinput') {
-            this.onTaskMessage(sendResponse);
+            this.onTaskMessage(this.sendResponse);
             return;
         }
 
         if (step == 'chksubmit') {
             if (document.querySelector('#btnConfirm').disabled) {
-                this.checkSubmitDisabled(sendResponse);
+                this.checkSubmitDisabled(this.sendResponse);
             } else {
                 document.querySelector('#btnConfirm').click();
-                sendResponse({command:'step', step, status:'done'});
+                this.sendResponse({command:'step', step, status:'done'});
             }
             return;
         }
@@ -504,12 +532,13 @@ class TradeReactor extends CommandReactor {
         if (step == 'confirm') {
             var confirmAgain = document.querySelector('.btn_jh', '.btnts', '.cl', '.btn', '.btn-default-blue');
             if (!confirmAgain) {
-                sendResponse({command:'step', step, status:'waiting'});
+                this.sendResponse({command:'step', step, status:'waiting'});
                 return;
             } 
 
             confirmAgain.click();
-            sendResponse({command:'step', step, status:'done'});
+            this.sendResponse({command:'step', step, status:'done'});
+            this.bodyObserver.disconnect();
             return;
         }
 
@@ -520,7 +549,7 @@ class TradeReactor extends CommandReactor {
                 status = 'done';
                 alert = document.querySelector('.cxc_bd', '.info').textContent;
             }
-            sendResponse({command:'step', step, status, alert});
+            this.sendResponse({command:'step', step, status, alert});
             return;
         }
     }
@@ -554,21 +583,22 @@ class EmjyFrontend {
                 this.sendMessageToBackground({command:'emjy.getValidateKey', key: vkey});
             }
         } else if (message.command == 'emjy.trade') {
-            this.commandReactor = new TradeReactor(message.code, message.name, message.count, message.price);
-            this.commandReactor.onTaskMessage(sendResponse);
+            this.commandReactor = new TradeReactor(message.code, message.name, message.count, message.price, sendResponse);
+            this.commandReactor.onTaskMessage();
         } else if (message.command == 'emjy.trade.bonds') {
-            this.commandReactor = new BondRepurchaseReactor(message.code);
-            this.commandReactor.onTaskMessage(sendResponse);
+            this.commandReactor = new BondRepurchaseReactor(message.code, sendResponse);
+            this.commandReactor.onTaskMessage();
         } else if (message.command == 'emjy.trade.newbonds') {
-            this.commandReactor = new NewStocksReactor();
-            this.commandReactor.onTaskMessage(sendResponse);
+            this.commandReactor = new NewStocksReactor(sendResponse);
+            this.commandReactor.onTaskMessage();
         } else if (message.command == 'emjy.trade.newstocks') {
-            this.commandReactor = new NewStocksReactor();
-            this.commandReactor.onTaskMessage(sendResponse);
+            this.commandReactor = new NewStocksReactor(sendResponse);
+            this.commandReactor.onTaskMessage();
         } else if (message.command == 'emjy.step') {
             console.log(message);
             if (this.commandReactor) {
-                this.commandReactor.onStepsMessage(message.step, sendResponse);
+                this.commandReactor.sendResponse = sendResponse;
+                this.commandReactor.onStepsMessage(message.step);
             } else {
                 console.log('onBackMessageReceived', 'commandReactor is null', this.commandReactor);
             }
