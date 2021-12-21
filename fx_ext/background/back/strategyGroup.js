@@ -225,8 +225,6 @@ class StrategyGroup {
                     emjyBack.otpAlarm.addTask({params:{id}, exec: (params) => {
                         this.onOtpAlarm(params.id);
                     }});
-                } else {
-                    emjyBack.otpAlarm.addStock(this.code);
                 }
             } else if (gl == 'rtp') {
                 emjyBack.rtpTimer.addStock(this.code);
@@ -325,7 +323,7 @@ class StrategyGroup {
     check(rtInfo) {
         for (var id in this.strategies) {
             var curStrategy = this.strategies[id];
-            if (!curStrategy.enabled()) {
+            if (!curStrategy.enabled() || curStrategy.guardLevel() == 'otp') {
                 continue;
             };
 

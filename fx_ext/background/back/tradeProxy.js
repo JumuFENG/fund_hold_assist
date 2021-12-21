@@ -64,6 +64,7 @@ class CommanderBase {
 
     closeTab() {
         if (this.tabid && this.tabOpened) {
+            emjyBack.log('closeTab tab', this.tabid);
             chrome.tabs.remove(this.tabid);
             this.tabOpened = false;
         };
