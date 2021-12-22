@@ -429,7 +429,7 @@ class EmjyBack {
         sellAccount.sellStock(code, price, count);
     }
 
-    tryBuyStock(code, name, price, count, account) {
+    tryBuyStock(code, price, count, account) {
         var buyAccount = this.normalAccount;
         if (account) {
             if (account == this.normalAccount.keyword) {
@@ -441,7 +441,7 @@ class EmjyBack {
             };
         };
 
-        buyAccount.buyStock(code, name, price, count);
+        buyAccount.buyStock(code, price, count);
     }
 
     setupQuoteAlarms() {
@@ -594,8 +594,10 @@ class EmjyBack {
     }
 
     tradeDailyRoutineTasks() {
-        this.scheduleNewTabCommand(new NewStocksCommander());
-        this.scheduleNewTabCommand(new NewBondsCommander());
+        var nsClient = new NewStocksClient(this.validateKey);
+        nsClient.buy();
+        var nbClient = new NewBondsClient(this.validateKey);
+        nbClient.buy();
     }
 
     getHSMarketFlag(code) {

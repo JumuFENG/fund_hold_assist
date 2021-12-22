@@ -4,6 +4,28 @@ let NewStockPurchaseUrl = 'https://jywg.18.cn/Trade/NewBatBuy';
 let NewBondsPurchaseUrl = 'https://jywg.18.cn/Trade/XzsgBatPurchase';
 let BondRepurchaseUrl = 'https://jywg.18.cn/BondRepurchase/SecuritiesLendingRepurchase';
 
+function xmlHttpPostJson(url, json, cb) {
+    var httpRequest = new XMLHttpRequest();//第一步：建立所需的对象
+    httpRequest.open('POST', url, true);//第二步：打开连接
+    httpRequest.setRequestHeader("Content-Type", "application/json");
+    /**
+     * 获取数据后的处理程序
+     */
+    httpRequest.onreadystatechange = function () {
+        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                if (typeof(cb) === 'function') {
+                    cb(httpRequest.responseText);
+                } else {
+                    eval(httpRequest.responseText);
+                }
+            }
+        }
+    }
+
+    httpRequest.send(json);//第三步：发送请求
+}
+
 class CommanderBase {
     constructor() {
         this.tabid = null;
@@ -314,5 +336,269 @@ class TradeCommander extends CommanderBase {
             }
         }
         emjyBack.log(JSON.stringify(r), 'tab', this.tabid);
+    }
+}
+
+class NewStocksClient {
+    constructor(validateKey) {
+        this.validateKey = validateKey;
+    }
+
+    GetCanBuy() {
+        var url = 'https://jywg.18.cn/Trade/GetCanBuyNewStockListV3?validatekey=' + this.validateKey;
+        xmlHttpPost(url, null, response => {
+            var robj = JSON.parse(response);
+            if (robj.NewStockList && robj.NewStockList.length > 0) {
+                this.buyNewStocks(robj.NewStockList);
+                return;
+            }
+            console.log(robj);
+        });
+    }
+
+    buyNewStocks(stocks) {
+        var data = [];
+        for (let i = 0; i < stocks.length; i++) {
+            const stk = stocks[i];
+            if (!stk.Zqdm.startsWith('00') && !stk.Zqdm.startsWith('60')) {
+                continue;
+            }
+            if (stk.Ksgsx <= 0 || stk.Sgdm == '732176') {
+                continue;
+            }
+            var StockCode = stk.Sgdm;
+            var StockName = stk.Zqmc;
+            var Price = stk.Fxj;
+            var Amount = parseInt(stk.Ksgsx);
+            var TradeType = "B";
+            var Market = stk.Market;
+            data.push({StockCode, StockName, Price, Amount, TradeType, Market});
+        }
+
+        if (data.length == 0) {
+            emjyBack.log('buyNewStocks no new stocks to buy!');
+            return;
+        }
+
+        var jdata = JSON.stringify(data);
+        emjyBack.log('buyNewStocks', jdata);
+        var url = 'https://jywg.18.cn/Trade/SubmitBatTradeV2?validatekey=' + this.validateKey;
+        xmlHttpPostJson(url, jdata, response => {
+            var robj = JSON.parse(response);
+            if (robj.Status == 0) {
+                emjyBack.log('buyNewStocks success', robj.Message);
+            } else {
+                emjyBack.log('buyNewStocks error', response);
+            }
+        });
+    }
+
+    buy() {
+        if (!this.validateKey) {
+            emjyBack.log('no valid validateKey', this.validateKey);
+            return;
+        }
+        this.GetCanBuy();
+    }
+}
+
+class NewBondsClient {
+    constructor(validateKey) {
+        this.validateKey = validateKey;
+    }
+
+    GetCanBuy() {
+        var url = 'https://jywg.18.cn/Trade/GetConvertibleBondListV2?validatekey=' + this.validateKey;
+        xmlHttpPost(url, null, response => {
+            var robj = JSON.parse(response);
+            if (robj.Status != 0) {
+                emjyBack.log('unknown error', response);
+                return;
+            }
+            if (robj.Data && robj.Data.length > 0) {
+                this.buyNewBonds(robj.Data);
+                return;
+            }
+            emjyBack.log('no new bonds', response);
+        });
+    }
+
+    buyNewBonds(bonds) {
+        var data = [];
+        for (let i = 0; i < bonds.length; i++) {
+            const bondi = bonds[i];
+            if (!bondi.ExIsToday) {
+                continue;
+            }
+            var StockCode = bondi.SUBCODE;
+            var StockName = bondi.SUBNAME;
+            var Price = bondi.PARVALUE;
+            var Amount = bondi.LIMITBUYVOL;
+            var TradeType = "B";
+            var Market = bondi.Market;
+            data.push({StockCode, StockName, Price, Amount, TradeType, Market});
+        }
+
+        if (data.length == 0) {
+            emjyBack.log('buyNewBonds no new bonds to buy!');
+            return;
+        }
+
+        var jdata = JSON.stringify(data);
+        emjyBack.log('buyNewStocks', jdata);
+        var url = 'https://jywg.18.cn/Trade/SubmitBatTradeV2?validatekey=' + this.validateKey;
+        xmlHttpPostJson(url, jdata, response => {
+            var robj = JSON.parse(response);
+            if (robj.Status == 0) {
+                emjyBack.log('buyNewBonds success', robj.Message);
+            } else {
+                emjyBack.log('buyNewBonds error', response);
+            }
+        });
+    }
+
+    buy() {
+        if (!this.validateKey) {
+            emjyBack.log('no valid validateKey', this.validateKey);
+            return;
+        }
+        this.GetCanBuy();
+    }
+}
+
+class BondRepurchaseClient {
+    constructor(validateKey, cb) {
+        this.validateKey = validateKey;
+        this.exitcb = cb;
+    }
+
+    exit() {
+        if (typeof(this.exitcb) == 'function') {
+            this.exitcb();
+        }
+    }
+
+    checkCount(code, price) {
+        var url = 'https://jywg.18.cn/Com/GetCanOperateAmount?validatekey=' + this.validateKey;
+        var fd = new FormData();
+        fd.append('stockCode', code);
+        fd.append('price', price);
+        fd.append('tradeType', '0S');
+        xmlHttpPost(url, fd, response => {
+            var robj = JSON.parse(response);
+            if (robj.Status != 0) {
+                emjyBack.log('unknown error', response);
+                this.exit();
+                return;
+            }
+            if (robj.Data && robj.Data.length > 0 && robj.Data[0].Kczsl > 0) {
+                this.bondRepurchase(code, price, robj.Data[0].Kczsl);
+                return;
+            }
+            emjyBack.log('no enough money to repurchase', response);
+            this.exit();
+        });
+    }
+
+    bondRepurchase(code, price, count) {
+        var url = 'https://jywg.18.cn/BondRepurchase/SecuritiesLendingRepurchaseTrade?validatekey=' + this.validateKey;
+        var fd = new FormData();
+        fd.append('zqdm', code);
+        fd.append('rqjg', price);
+        fd.append('rqsl', count);
+        emjyBack.log('bondRepurchase', code, price, count);
+        xmlHttpPost(url, fd, response => {
+            var robj = JSON.parse(response);
+            if (robj.Status != 0) {
+                emjyBack.log('repurchase error', response);
+                this.exit();
+                return;
+            }
+            if (robj.Data && robj.Data.length > 0) {
+                emjyBack.log('repurchase success');
+            }
+            emjyBack.log(response);
+            this.exit();
+        });
+    }
+
+    buy(code, price) {
+        if (!this.validateKey) {
+            emjyBack.log('no valid validateKey', this.validateKey);
+            this.exit();
+            return;
+        }
+
+        this.checkCount(code, price);
+    }
+}
+
+class RepaymentClient {
+    constructor(validateKey, cb) {
+        this.validateKey = validateKey;
+        this.exitcb = cb;
+    }
+
+    exit() {
+        if (typeof(this.exitcb) == 'function') {
+            this.exitcb();
+        }
+    }
+
+    GetRzrqAssets() {
+        var url = 'https://jywg.18.cn/MarginSearch/GetRzrqAssets?validatekey=' + this.validateKey;
+        var fd = new FormData();
+        fd.append('hblx', 'RMB');
+        xmlHttpPost(url, fd, response => {
+            var robj = JSON.parse(response);
+            if (robj.Status != 0 || !robj.Data) {
+                emjyBack.log(response);
+                this.exit();
+                return;
+            }
+            var total = -(-robj.Data.Rzfzhj - robj.Data.Rqxf);
+            if (total <= 0 || robj.Data.Zjkys - 1 < 0) {
+                emjyBack.log('待还款金额', total, '可用金额', robj.Data.Zjkys);
+                this.exit();
+                return;
+            }
+
+            var payAmount = total;
+            if (total > robj.Data.Zjkys - 0.1) {
+                payAmount = (robj.Data.Zjkys - 0.11).toFixed(2);
+            }
+            this.Repayment(payAmount);
+        });
+    }
+
+    Repayment(hkje) {
+        if (hkje <= 0) {
+            emjyBack.log('Error number hkje', hkje);
+            this.exit();
+            return;
+        }
+
+        var url = 'https://jywg.18.cn/MarginTrade/submitZjhk?validatekey=' + this.validateKey;
+        var fd = new FormData();
+        fd.append('hbdm', 'RMB');
+        fd.append('hkje', hkje);
+        fd.append('bzxx', ''); // 备注信息
+        xmlHttpPost(url, fd, response => {
+            var robj = JSON.parse(response);
+            if (robj.Status == 0) {
+                emjyBack.log('Repayment success!');
+            }
+            emjyBack.log(response);
+            this.exit();
+        });
+    }
+
+    go() {
+        if (!this.validateKey) {
+            emjyBack.log('no valid validateKey', this.validateKey);
+            this.exit();
+            return;
+        }
+        this.GetRzrqAssets();
     }
 }
