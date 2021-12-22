@@ -223,6 +223,175 @@ class MarginAssetsClient extends AssetsClient {
     }
 }
 
+class TradeClient {
+    constructor(validateKey) {
+        this.validateKey = validateKey;
+    }
+
+    getUrl() {
+        return 'https://jywg.18.cn/Trade/SubmitTradeV2?validatekey=' + this.validateKey;
+    }
+
+    getBasicFormData(code, price, count, tradeType) {
+        var fd = new FormData();
+        var stock = emjyBack.stockMarket[code];
+        fd.append('stockCode', code);
+        fd.append('price', price);
+        fd.append('amount', count);
+        fd.append('tradeType', tradeType);
+        var market = stock.mkt == '0' ? 'SA' : 'HA';
+        fd.append('market', market);
+        return fd;
+    }
+
+    getFormData(code, price, count, tradeType) {
+        var fd = this.getBasicFormData(code, price, count, tradeType);
+        fd.append('zqmc', emjyBack.stockMarket[code].name);
+        return fd;
+    }
+
+    getRtPrice(code, cb) {
+        var cbprefix = 'jSnapshotBack';
+        var url = 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id=' + code + '&callback=' + cbprefix + '&_=' + Date.now();
+        var httpRequest = new XMLHttpRequest();//第一步：建立所需的对象
+        httpRequest.open('GET', url, true);//第二步：打开连接
+        httpRequest.send();//第三步：发送请求
+        /**
+         * 获取数据后的处理程序
+         */
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                if (typeof(cb) === 'function') {
+                    console.log(httpRequest.responseText);
+                    var resobj = JSON.parse(httpRequest.responseText.substring(cbprefix.length + 1, httpRequest.responseText.length - 2));
+                    console.log(resobj.realtimequote.currentPrice);
+                    var bp = resobj.bottomprice;
+                    var tp = resobj.topprice;
+                    var cp = resobj.realtimequote.currentPrice;
+                    var s5 = resobj.fivequote.sale5;
+                    var b5 = resobj.fivequote.buy5;
+                    cb({bp, tp, cp, s5, b5});
+                } else {
+                    eval(httpRequest.responseText);
+                }
+            }
+        };
+    }
+
+    doTrade(code, price, count, tradeType, jylx) {
+        emjyBack.log('doTrade', tradeType, code, price, count, jylx);
+        xmlHttpPost(this.getUrl(), this.getFormData(code, price, count, tradeType, jylx), response => {
+            var robj = JSON.parse(response);
+            if (robj.Status != 0) {
+                emjyBack.log(response);
+                return;
+            }
+            if (robj.Data && robj.Data.length > 0) {
+                emjyBack.log('Trade success! wtbh', robj.Data[0].Wtbh);
+            }
+            console.log(robj);
+        });
+    }
+
+    trade(code, price, count, tradeType, jylx) {
+        if (price == 0) {
+            this.getRtPrice(code, pobj => {
+                var p = pobj.cp;
+                if (tradeType == 'B') {
+                    p = pobj.s5 == '-' ? pobj.tp : pobj.s5;
+                } else if (tradeType == 'S') {
+                    p = pobj.b5 == '-' ? pobj.bp : pobj.b5;
+                }
+                this.doTrade(code, p, count, tradeType, jylx);
+            });
+        } else {
+            this.doTrade(code, price, count, tradeType, jylx);
+        }
+    }
+
+    // stockCode	"002084"
+    // price	"5.67"
+    // amount	"900"
+    // tradeType	"S"
+    // zqmc	"海鸥住工"
+    // gddm	""
+    // market	"SA"
+    sell(code, price, count) {
+        this.trade(code, price, count, 'S');
+    }
+
+    // stockCode	"605033"
+    // price	"15.71"
+    // amount	"100"
+    // tradeType	"B"
+    // zqmc	"美邦股份"
+    // market	"HA"
+    buy(code, price, count) {
+        this.trade(code, price, count, 'B');
+    }
+}
+
+class CollatTradeClient extends TradeClient {
+    constructor(validateKey) {
+        super(validateKey);
+    }
+
+    getUrl() {
+        return 'https://jywg.18.cn/MarginTrade/SubmitTradeV2?validatekey=' + this.validateKey;
+    }
+
+    getFormData(code, price, count, tradeType, jylx) {
+        var fd = super.getBasicFormData(code, price, count, tradeType);
+        fd.append('stockName', emjyBack.stockMarket[code].name);
+        fd.append('xyjylx', jylx); // 信用交易类型
+        return fd;
+    }
+
+    // stockCode   "601456"
+    // stockName   "国联证券"
+    // price   "13.87"
+    // amount  "100"
+    // tradeType   "S"
+    // xyjylx  "7"
+    // market  "HA"
+    sell(code, price, count) {
+        this.trade(code, price, count, 'S', '7');
+    }
+
+    // stockCode	"000531"
+    // stockName	"穗恒运Ａ"
+    // price	"10.20"
+    // amount	"100"
+    // tradeType	"B"
+    // xyjylx	"6"
+    // market	"SA"
+    buy(code, price, count) {
+        this.trade(code, price, count, 'B', '6');
+    }
+}
+
+class CreditTradeClient extends CollatTradeClient {
+    constructor(validateKey) {
+        super(validateKey);
+    }
+
+    // stockCode	"601016"
+    // stockName	"节能风电"
+    // price	"5.91"
+    // amount	"1000"
+    // tradeType	"B"
+    // xyjylx	"a"
+    // market	"HA"
+    buy(code, price, count) {
+        this.trade(code, price, count, 'B', 'a');
+    }
+
+    sell(code, price, count) {
+        console.log('Error: NOT IMPLEMENTED!');
+        // this.trade(code, price, count, 'B', '6');
+    }
+}
+
 class Account {
     constructor() {
         this.keyword = null;
@@ -230,6 +399,7 @@ class Account {
         this.wallet = null;
         this.buyPath = null;
         this.sellPath = null;
+        this.tradeClient = null;
     }
 }
 
@@ -347,7 +517,15 @@ class NormalAccount extends Account {
         };
     }
 
+    createTradeClient() {
+        this.tradeClient = new TradeClient(emjyBack.validateKey);
+    }
+
     buyStock(code, name, price, count) {
+        if (!this.tradeClient) {
+            this.createTradeClient();
+        }
+
         var finalCount = count;
         if (count <= 0) {
             finalCount = parseInt(400 / price);
@@ -374,11 +552,15 @@ class NormalAccount extends Account {
             emjyBack.log('No availableMoney match');
             return;
         }
-        emjyBack.scheduleNewTabCommand(new TradeCommander(this.buyPath, code, name, finalCount, price));
+        this.tradeClient.buy(code, price, finalCount);
         this.availableMoney -= moneyNeed;
     }
 
     sellStock(code, price, count) {
+        if (!this.tradeClient) {
+            this.createTradeClient();
+        }
+
         var finalCount = count;
         if (count <= 0) {
             finalCount = parseInt(400 / price);
@@ -398,7 +580,7 @@ class NormalAccount extends Account {
                 return;
             };
 
-            emjyBack.scheduleNewTabCommand(new TradeCommander(this.sellPath, code, stockInfo.name, finalCount, price));
+            this.tradeClient.sell(code, price, finalCount);
             stockInfo.availableCount -= finalCount;
             this.availableMoney += finalCount * price;
         } else if (code == this.wallet.fundcode) {
@@ -626,6 +808,10 @@ class CreditAccount extends NormalAccount {
         this.sellPath = '/MarginTrade/FinanceSale';
     }
 
+    createTradeClient() {
+        this.tradeClient = new CreditTradeClient(emjyBack.validateKey);
+    }
+
     onAssetsLoaded(assets) {
         this.pureAssets = 0;
         this.availableMoney = parseFloat(assets.Bzjkys);
@@ -654,6 +840,10 @@ class CollateralAccount extends NormalAccount {
         this.keyword = 'collat';
         this.buyPath = '/MarginTrade/Buy';
         this.sellPath = '/MarginTrade/Sale';
+    }
+
+    createTradeClient() {
+        this.tradeClient = new CollatTradeClient(emjyBack.validateKey);
     }
 
     buyFundBeforeClose() {
