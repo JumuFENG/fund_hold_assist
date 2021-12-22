@@ -81,6 +81,8 @@ class StockView {
                     needfix = true;
                 }
             }
+        } else {
+            needfix = true;
         }
 
         if (needfix) {

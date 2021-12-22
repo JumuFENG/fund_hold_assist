@@ -120,11 +120,16 @@ class EmjyBack {
             this.log('update rzrq BK stcoks, BK0596');
             this.fetchingBKstocks.fetchBkStcoks();
         }
+        this.normalAccount = new NormalAccount();
+        this.collateralAccount = new CollateralAccount();
+        this.creditAccount = new CreditAccount();
         chrome.storage.local.get('hsj_stocks', item => {
             if (item && item['hsj_stocks']) {
                 this.stockMarket = item['hsj_stocks'];
             }
             this.stockMarket['511880'] = {name:'银华日利ETF', mkt:1};
+            this.normalAccount.loadWatchings();
+            this.collateralAccount.loadWatchings();
         });
         this.log('EmjyBack initialized!');
     }
@@ -139,11 +144,6 @@ class EmjyBack {
             this.mainTab = new CommanderBase();
             this.mainTab.tabid = tabid;
             this.mainTab.url = message.url;
-            this.normalAccount = new NormalAccount();
-            this.normalAccount.loadWatchings();
-            this.collateralAccount = new CollateralAccount();
-            this.collateralAccount.loadWatchings();
-            this.creditAccount = new CreditAccount();
 
             chrome.tabs.onRemoved.addListener((tabid, removeInfo) => {
                 if (emjyBack.mainTab.tabid == tabid) {
@@ -159,7 +159,7 @@ class EmjyBack {
                             this.mainTab.url = t.url;
                             var url = new URL(t.url);
                             this.authencated = url.pathname != '/Login';
-                            if (this.authencated) {
+                            if (this.authencated && !this.validateKey) {
                                 this.sendMsgToMainTabContent({command:'emjy.getValidateKey'});
                             }
                         };
@@ -174,9 +174,10 @@ class EmjyBack {
             chrome.tabs.executeScript(this.mainTab.tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
             var url = new URL(this.mainTab.url);
             this.authencated = url.pathname != '/Login';
-            if (this.contentProxies.length > 0 && this.authencated) {
+            if (this.authencated && !this.validateKey) {
                 this.sendMsgToMainTabContent({command:'emjy.getValidateKey'});
-                this.loadAssets();
+            }
+            if (this.contentProxies.length > 0 && this.authencated) {
                 for (var i = 0; i < this.contentProxies.length; i++) {
                     this.contentProxies[i].triggerTask();
                 }
@@ -207,22 +208,6 @@ class EmjyBack {
         this.log('sendMsgToMainTabContent', JSON.stringify(data));
     }
 
-    remvoeProxy(tabid) {
-        this.log('remvoeProxy', tabid);
-        this.contentProxies.forEach(c => {
-            if (c.tabid == tabid) {
-                c.closeTab();
-                this.contentProxies.splice(this.contentProxies.indexOf(c), 1);
-            };
-        });
-        for (var i = 0; i < this.contentProxies.length; i++) {
-            if (!this.contentProxies[i].triggered) {
-                this.contentProxies[i].triggerTask();
-                break;
-            }
-        }
-    }
-
     onContentMessageReceived(message, tabid) {
         if (!this.normalAccount && !this.creditAccount) {
             this.log('background not initialized');
@@ -243,13 +228,6 @@ class EmjyBack {
             this.normalAccount.save();
             this.collateralAccount.save();
             this.log('content message save');
-        } else if (message.command == 'emjy.contentErrorAlert') {
-            this.log('content error alert:', message.what, 'url=', message.url, tabid);
-            if (message.what !== undefined) {
-                if (message.what == '当前时间不允许做该项业务' || message.what.startsWith('委托已成功提交')) {
-                    this.remvoeProxy(tabid);
-                }
-            }
         }
     }
 
