@@ -356,7 +356,7 @@ class StrategyGroup {
             }
             var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
             emjyBack.log('checkStrategies buy match', this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy));
-            emjyBack.tryBuyStock(this.code, info.name === undefined ? '' : info.name, price, count, account);
+            emjyBack.tryBuyStock(this.code, price, count, account);
             if (curStrategy.guardLevel() == 'zt') {
                 emjyBack.ztBoardTimer.removeStock(this.code);
             };

@@ -310,7 +310,7 @@ class TradeClient {
                     return;
                 }
             } else {
-                emjyBack.log('trade error:', 'count is not valid', robj.Data.Kmml);
+                emjyBack.log('trade error:', 'getCount unresolved response:');
             }
             emjyBack.log(response);
         });
@@ -941,7 +941,7 @@ class CollateralAccount extends NormalAccount {
     }
 
     buyFundBeforeClose() {
-        var rpclt = new RepaymentClient(this.validateKey, () => {
+        var rpclt = new RepaymentClient(emjyBack.validateKey, () => {
             this.buyStock(this.wallet.fundcode, 0, 1);
         });
         rpclt.go();
