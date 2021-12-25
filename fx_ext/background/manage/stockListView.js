@@ -40,7 +40,11 @@ class StockView {
     }
 
     refresh() {
-        this.detailView.textContent = '最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost + ' 数量：' + this.stock.holdCount;
+        var detailText = '最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost + ' 数量：' + this.stock.holdCount;
+        if (this.stock.holdCount == 0) {
+            detailText += ' 总收益:' + emjyManager.getTotalEarned(this.stock.code).toFixed(2);
+        }
+        this.detailView.textContent = detailText;
         if (this.deleteBtn && emjyManager.klines[this.stock.code] && emjyManager.klines[this.stock.code].continuouslyBellowDays() >= 5) {
             this.divTitle.style.borderBottom = '2px solid green';
             console.log('remove', this.stock.code);

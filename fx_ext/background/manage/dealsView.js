@@ -9,6 +9,7 @@ class DealsPanelPage extends RadioAnchorPage {
             this.showDealsTable();
         }
         this.ignored = new Set(['511880', '511010']);
+        this.stockHis = new Set();
     }
 
     show() {
@@ -30,6 +31,8 @@ class DealsPanelPage extends RadioAnchorPage {
             if (this.ignored.has(deali.code)) {
                 continue;
             }
+
+            this.stockHis.add(deali.code);
             var anchor = document.createElement('a');
             anchor.textContent = deali.code;
             if (emjyManager.stockMarket && emjyManager.stockMarket[deali.code]) {

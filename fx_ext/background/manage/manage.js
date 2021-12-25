@@ -271,6 +271,28 @@ class Manager {
         this.zt1stocks[idx].rmvdate = date;
     }
 
+    getTotalEarned(code) {
+        if (!emjyManager.savedDeals || emjyManager.savedDeals.length == 0) {
+            return 0;
+        }
+
+        var allDeals = emjyManager.savedDeals.filter(d => d.code == code);
+        var earned = 0;
+        for (let i = 0; i < allDeals.length; i++) {
+            const deali = allDeals[i];
+            var fee = -(-deali.fee - deali.feeGh - deali.feeYh);
+            var amount = deali.price * deali.count;
+            if (deali.tradeType == 'B') {
+                amount = -(-amount - fee);
+                earned -= amount;
+            } else {
+                amount -= fee;
+                earned += amount;
+            }
+        }
+        return earned;
+    }
+
     initStocks(stocks) {
         this.log('initStocks');
         if (!this.page) {
