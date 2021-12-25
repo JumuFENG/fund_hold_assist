@@ -293,6 +293,18 @@ class Manager {
         return earned;
     }
 
+    getCurrentHoldValue(code) {
+        var stock = this.stockList.stocks.find(s => s.stock.code == code);
+        console.log(stock);
+        if (!stock || !stock.stock || !stock.stock.holdCount) {
+            return 0;
+        }
+        if (!emjyManager.klines[code].klines) {
+            return 0;
+        }
+        return stock.stock.holdCount * this.klines[code].getLatestKline('101').c;
+    }
+
     initStocks(stocks) {
         this.log('initStocks');
         if (!this.page) {

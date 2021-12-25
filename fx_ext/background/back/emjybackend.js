@@ -345,14 +345,14 @@ class EmjyBack {
         var fetchedDeals = [];
         for (let i = 0; i < deals.length; i++) {
             const deali = deals[i];
-            if (deali.Mmsm == '担保品划入' || deali.Mmsm == '担保品划出' || deali.Mmsm == '配售申购' || deali.Mmsm == '融券' || deali.Mmsm == '配股缴款') {
+            if (deali.Mmsm == '担保品划入' || deali.Mmsm == '担保品划出' || deali.Mmsm == '融券') {
                 continue;
             }
 
             var tradeType = '';
             if (deali.Mmsm == '证券卖出') {
                 tradeType = 'S';
-            } else if (deali.Mmsm == '证券买入') {
+            } else if (deali.Mmsm == '证券买入' || deali.Mmsm == '配售申购' || deali.Mmsm == '配股缴款' || deali.Mmsm == '网上认购') {
                 tradeType = 'B';
             } else {
                 console.log('unknown trade type', deali.Mmsm, deali);
@@ -365,7 +365,8 @@ class EmjyBack {
             var fee = deali.Sxf;
             var feeYh = deali.Yhs;
             var feeGh = deali.Ghf;
-            fetchedDeals.push({time, code, tradeType, price, count, fee, feeYh, feeGh});
+            var sid = deali.Wtbh;
+            fetchedDeals.push({time, sid, code, tradeType, price, count, fee, feeYh, feeGh});
         }
 
         fetchedDeals.reverse();
@@ -374,7 +375,7 @@ class EmjyBack {
         } else {
             for (let i = 0; i < fetchedDeals.length; i++) {
                 const deali = fetchedDeals[i];
-                if (!this.savedDeals.find(d => d.time == deali.time && d.code == deali.code && d.count == deali.count && d.price == deali.price)) {
+                if (!this.savedDeals.find(d => d.time == deali.time && d.code == deali.code && d.sid == deali.sid)) {
                     this.savedDeals.push(deali);
                 }
             }
