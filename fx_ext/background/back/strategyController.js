@@ -50,6 +50,9 @@ class StrategyManager {
         if (strategy.key == 'StrategySellMAD') {
             return new StrategySellMADynamic(strategy);
         };
+        if (strategy.key == 'StrategyMA') {
+            return new StrategyMA(strategy);
+        }
     }
 }
 
@@ -723,6 +726,81 @@ class StrategyBuyMABeforeEnd extends StrategyBuyMA {
                 }
             };
         };
+    }
+}
+
+class StrategyMA extends Strategy {
+    guardLevel() {
+        return 'kline';
+    }
+
+    checkKlines(klines, updatedKlt, buydetails) {
+        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
+            return {match: false};
+        };
+
+        var kltype = this.kltype();
+        if (updatedKlt.includes(kltype)) {
+            var kl = klines.getLatestKline(kltype);
+            if (!this.data.guardPrice || this.data.guardPrice == 0) {
+                if (kl.bss18 == 'b') {
+                    return {match: true, tradeTpye: 'B', count: 0};
+                }
+                if (kl.bss18 == 's') {
+                    return {match: true, tradeTpye: 'S', count: 1};
+                }
+                return {match: false};
+            } else if (this.data.guardPrice - kl.c > 0) {
+                if (kl.bss18 == 's' || kl.bss18 == 'w') {
+                    return {match: false, tradeTpye: 'S', count: 1};
+                }
+                return {match: false};
+            } else {
+                if (kl.bss18 != 's' && kl.bss18 != 'b') {
+                    return {match: false};
+                }
+                if (!buydetails || buydetails.length == 0) {
+                    if (kl.bss18 == 'b') {
+                        return {match: true, tradeTpye: 'B', count: 0};
+                    }
+                    return {match: false};
+                }
+                var pmin = buydetails[0].price;
+                for (let i = 0; i < buydetails.length; i++) {
+                    const bd = buydetails[i];
+                    if (bd.price - pmin < 0) {
+                        pmin = bd.price;
+                    }
+                }
+                if (kl.bss18 == 'b') {
+                    if (kl.c - pmin * 0.95 < 0) {
+                        return {match: true, tradeTpye: 'B', count: 0};
+                    }
+                    return {match: false};
+                }
+                if (kl.bss18 == 's') {
+                    var amount = 0;
+                    var countAll = 0;
+                    for (let j = 0; j < buydetails.length; j++) {
+                        const bdj = buydetails[j];
+                        amount += bdj.price * bdj.count;
+                        countAll -= bdj.count;
+                    }
+                    if (countAll < 0) {
+                        countAll = -countAll;
+                    }
+                    var paver = amount / countAll;
+                    if (kl.c - paver * 1.05 > 0) {
+                        return {match: true, tradeTpye: 'S', count: 1};
+                    }
+                    if (kl.c - pmin * 1.05 > 0) {
+                        return {match: true, tradeTpye: 'S', count: 0};
+                    }
+                    return {match: false};
+                }
+            }
+        }
+        return {match: false};
     }
 }
 

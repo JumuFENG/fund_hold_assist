@@ -50,9 +50,18 @@ class StrategyViewManager {
         if (strategy.key == 'StrategySellMAD') {
             return new StrategySellMADynamicView(strategy);
         };
+        if (strategy.key == 'StrategyMA') {
+            return new StrategyMAView(strategy);
+        }
     }
 
     getStrategyName(key) {
+        for (var i = 0; i < ComplexStrategyKeyNames.length; i++) {
+            if (ComplexStrategyKeyNames[i].key == key) {
+                return ComplexStrategyKeyNames[i].name;
+            };
+        };
+
         for (var i = 0; i < BuyStrategyKeyNames.length; i++) {
             if (BuyStrategyKeyNames[i].key == key) {
                 return BuyStrategyKeyNames[i].name;
@@ -503,6 +512,26 @@ class StrategyBuyMADynamicView extends StrategyBuyMAView {
 class StrategySellMADynamicView extends StrategySellMAView {
     maDescription() {
         return '连续2根K线<18周期均线,以第3根K线开盘时(全部)卖出, 累计收益>20%或单日涨幅>8.5% 调整K线类型为4分钟';
+    }
+
+    setDefaultKltype() {
+        if (this.klineSelector) {
+            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '30';
+        };
+    }
+
+    createView() {
+        var view = super.createView();
+        var inputGuard = this.createGuardInput('安全线');
+        inputGuard.appendChild(document.createTextNode('安全线以上盈利>5%且满足卖出条件才卖出，避免横盘震荡中反复割肉。'));
+        view.appendChild(inputGuard);
+        return view;
+    }
+}
+
+class StrategyMAView extends StrategyBuyMAView {
+    maDescription() {
+        return '18周期MA均线买卖组合策略(长期)';
     }
 
     setDefaultKltype() {

@@ -72,16 +72,26 @@ class StrategySelectorView {
         opt0.selected = true;
         opt0.disabled = true;
         strategySelector.appendChild(opt0);
+        for (var i = 0; i < ComplexStrategyKeyNames.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = ComplexStrategyKeyNames[i].key;
+            opt.textContent = ComplexStrategyKeyNames[i].name;
+            strategySelector.appendChild(opt);
+        }
+        var opt1 = document.createElement('option');
+        opt1.textContent = '==========';
+        opt1.disabled = true;
+        strategySelector.appendChild(opt1);
         for (var i = 0; i < BuyStrategyKeyNames.length; i++) {
             var opt = document.createElement('option');
             opt.value = BuyStrategyKeyNames[i].key;
             opt.textContent = BuyStrategyKeyNames[i].name;
             strategySelector.appendChild(opt);
         };
-        var opt1 = document.createElement('option');
-        opt1.textContent = '==========';
-        opt1.disabled = true;
-        strategySelector.appendChild(opt1);
+        var opt2 = document.createElement('option');
+        opt2.textContent = '==========';
+        opt2.disabled = true;
+        strategySelector.appendChild(opt2);
         for (var i = 0; i < SellStrategyKeyNames.length; i++) {
             var opt = document.createElement('option');
             opt.value = SellStrategyKeyNames[i].key;

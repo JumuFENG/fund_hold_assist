@@ -34,6 +34,9 @@ class StrategyGroup {
         if (str.amount) {
             this.amount = str.amount;
         }
+        if (str.buydetail) {
+            this.buydetail = str.buydetail;
+        }
     }
 
     enabled() {
@@ -349,7 +352,31 @@ class StrategyGroup {
         }
 
         var price = info.price === undefined ? 0 : info.price;
-        if (curStrategy.isBuyStrategy()) {
+        if (info.tradeType) {
+            price = 0;
+            if (info.tradeType == 'B') {
+                var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
+                var count = this.count0;
+                emjyBack.log('checkStrategies buy match', this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy))
+                emjyBack.tryBuyStock(this.code, price, count, account);
+                if (this.buydetail) {
+                    this.buydetail.push({date: this.getTodayDate(), count, price: info.price});
+                }
+            } else if (info.tradeType == 'S') {
+                var count = this.count0;
+                var countAll = this.availableCount();
+                if (info.count == 1 || count - countAll > 0) {
+                    count = countAll;
+                }
+                if (count > 0) {
+                    emjyBack.log('checkStrategies sell match', this.code, 'sell count:', count, 'price', price, JSON.stringify(curStrategy));
+                    emjyBack.trySellStock(this.code, price, count, this.account);
+                    if (this.buydetail) {
+                        this.sellDetail(count);
+                    }
+                }
+            }
+        } else if (curStrategy.isBuyStrategy()) {
             var count = info.count;
             if (count === undefined && price > 0) {
                 count = this.getBuyCount(price);
@@ -416,7 +443,14 @@ class StrategyGroup {
                 continue;
             }
 
-            curStrategy.checkKlines(klines, updatedKlt);
+            var matchResult = curStrategy.checkKlines(klines, updatedKlt, this.buydetail);
+            if (matchResult && matchResult.match) {
+                this.doTrade(id, matchResult);
+                return;
+            }
+            if (matchResult != undefined) {
+                return;
+            }
             if (curStrategy.inCritical()) {
                 if (curStrategy.isBuyStrategy()) {
                     var count = this.count0;
