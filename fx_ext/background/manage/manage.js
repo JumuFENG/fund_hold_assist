@@ -295,7 +295,6 @@ class Manager {
 
     getCurrentHoldValue(code) {
         var stock = this.stockList.stocks.find(s => s.stock.code == code);
-        console.log(stock);
         if (!stock || !stock.stock || !stock.stock.holdCount) {
             return 0;
         }

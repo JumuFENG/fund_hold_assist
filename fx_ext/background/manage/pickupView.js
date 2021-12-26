@@ -88,7 +88,7 @@ class PickupPanelPage extends RadioAnchorPage {
             var account = ownAccount == 'normal' ? 'normal' : 'credit';
             var strgrp = {
                 grptype: "GroupStandard",
-                transfers: {"0":{transfer: "2"}, "1":{transfer: "2"}, "2":{transfer: "1"}, "3":{transfer: "1"}},
+                transfers: {"0":{transfer: "2"}, "1":{transfer: "2"}, "2":{transfer: "-1"}, "3":{transfer: "-1"}},
                 strategies: {
                     "0": {key:"StrategyBuy", enabled:true, account},
                     "1": {key:"StrategyBuyMAD", enabled:false, account, kltype:"60"},
