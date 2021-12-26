@@ -5,6 +5,7 @@ let emStockUrl = 'http://quote.eastmoney.com/concept/';
 let emStockUrlTail = '.html#fschart-k';
 let BkRZRQ = 'BK0596';
 let stockPriceRanges = {0:'低位', 1:'高位', 2:'上涨中继', 3:'下跌中继'};
+let stockZtStrengthes = {0:'一字板',1:'[0, 2%)',2:'[2,8)%',3:'[8,12)%',4:'[12,18)%',5:'>=18%'};
 let stockVolScales = {0:'微量', 1:'缩量', 2:'平量', 3:'放量', 4:'天量'};
 
 class PickupPanelPage extends RadioAnchorPage {
@@ -29,7 +30,24 @@ class PickupPanelPage extends RadioAnchorPage {
         }
         this.container.appendChild(this.dtrngSelector);
 
+        this.ztstrengthSelector = document.createElement('select');
+        var sopt0 = document.createElement('option');
+        sopt0.value = -1;
+        sopt0.textContent = '上板强度';
+        this.ztstrengthSelector.appendChild(sopt0);
+        for (const v in stockZtStrengthes) {
+            var opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = stockZtStrengthes[v];
+            this.ztstrengthSelector.appendChild(opt);
+        }
+        this.container.appendChild(this.ztstrengthSelector);
+
         this.volSelector = document.createElement('select');
+        var vopt0 = document.createElement('option');
+        vopt0.value = -1;
+        vopt0.textContent = '放量程度';
+        this.volSelector.appendChild(vopt0);
         for (var v in stockVolScales) {
             var opt = document.createElement('option');
             opt.value = v;
@@ -41,7 +59,7 @@ class PickupPanelPage extends RadioAnchorPage {
         this.prngSelector = document.createElement('select');
         var opt0 = document.createElement('option');
         opt0.value = -1;
-        opt0.textContent = '-';
+        opt0.textContent = '价格区间';
         this.prngSelector.appendChild(opt0);
         for (var p in stockPriceRanges) {
             var opt = document.createElement('option');
@@ -229,7 +247,28 @@ class PickupPanelPage extends RadioAnchorPage {
                 continue;
             }
 
-            if (this.volSelector.value != stkzt.vscale) {
+            if (this.ztstrengthSelector.value != -1) {
+                var zstrength = this.ztstrengthSelector.value;
+                var match = false;
+                if (zstrength == 0 && stkzt.zstrength == 0) {
+                    match = true;
+                } else if (zstrength == 1 && stkzt.zstrength != 0 && stkzt.zstrength - 2 < 0) {
+                    match = true;
+                } else if (zstrength == 2 && stkzt.zstrength - 2 >= 0 && stkzt.zstrength - 8 < 0) {
+                    match = true;
+                } else if (zstrength == 3 && stkzt.zstrength - 8 >= 0 && stkzt.zstrength - 12 < 0) {
+                    match = true;
+                } else if (zstrength == 4 && stkzt.zstrength - 12 >= 0 && stkzt.zstrength - 18 < 0) {
+                    match = true;
+                } else if (zstrength == 5 && stkzt.zstrength - 18 >= 0) {
+                    match = true;
+                }
+                if (!match) {
+                    continue;
+                }
+            }
+
+            if (this.volSelector.value != -1 && this.volSelector.value != stkzt.vscale) {
                 continue;
             }
 
@@ -241,7 +280,7 @@ class PickupPanelPage extends RadioAnchorPage {
 
         this.filteredTable.reset();
         this.selectedFiltered.clear();
-        this.filteredTable.setClickableHeader('', '代码', '名称', '日期', '放量程度', '股价区间', '两融');
+        this.filteredTable.setClickableHeader('', '代码', '名称', '日期', '上板强度', '放量程度', '股价区间', '两融');
         for (let i = 0; i < filteredStocks.length; i++) {
             const stocki = filteredStocks[i];
 
@@ -275,6 +314,7 @@ class PickupPanelPage extends RadioAnchorPage {
                 stocki.code,
                 anchor,
                 stocki.ztdate,
+                stocki.zstrength,
                 vscaleDiv,
                 prngDiv,
                 rzrq

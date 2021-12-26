@@ -388,6 +388,21 @@ class KLine {
         return kline[tidx].v / va;
     }
 
+    getZtStrength(time) {
+        var kline = this.klines['101'];
+        var tidx = kline.findIndex(kl => kl.time == time);
+        if (tidx < 1) {
+            console.log('error: no kline data to check zt strength', this.code, time);
+            return;
+        }
+        var delta = kline[tidx].c - kline[tidx].l;
+        if (delta == 0) {
+            return 0;
+        }
+        var lc = kline[tidx - 1].c;
+        return (100 * delta / lc).toFixed(2);
+    }
+
     continuouslyBellowDays(kltype='101') {
         if (!this.klines) {
             return 0;

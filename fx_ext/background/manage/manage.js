@@ -163,6 +163,7 @@ class Manager {
                 if (s.vscale === undefined) {
                     var vscale = this.klines[code].getVolScale('101', s.ztdate, 10);
                     s.vscale = this.toVscale(vscale);
+                    s.zstrength = this.klines[s.code].getZtStrength(s.ztdate);
                 }
                 this.checkDelDate(idx);
             }
@@ -173,10 +174,12 @@ class Manager {
         this.zt1stocks.forEach(s => {
             var vscale = this.klines[s.code].getVolScale('101', s.ztdate, 10);
             s.vscale = this.toVscale(vscale);
+            s.zstrength = this.klines[s.code].getZtStrength(s.ztdate);
         });
         this.delstocks.forEach(s => {
             var vscale = this.klines[s.code].getVolScale('101', s.ztdate, 10);
             s.vscale = this.toVscale(vscale);
+            s.zstrength = this.klines[s.code].getZtStrength(s.ztdate);
         });
     }
 
