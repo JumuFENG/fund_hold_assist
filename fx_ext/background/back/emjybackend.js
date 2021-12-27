@@ -127,7 +127,6 @@ class EmjyBack {
             if (item && item['hsj_stocks']) {
                 this.stockMarket = item['hsj_stocks'];
             }
-            this.stockMarket['511880'] = {name:'银华日利ETF', mkt:1};
             this.normalAccount.loadWatchings();
             this.collateralAccount.loadWatchings();
         });
@@ -508,6 +507,7 @@ class EmjyBack {
         this.collateralAccount.updateStockMarketInfo(sdata);
         var mkt = sdata.market == 'SH' ? 1 : 0;
         this.stockMarket[sdata.code] = {name:sdata.name, mkt};
+        this.marketInfoUpdated = true;
     }
 
     updateStockRtPrice(snapshot) {
@@ -610,6 +610,7 @@ class EmjyBack {
 
     tradeClosed() {
         this.normalAccount.fillupGuardPrices();
+        this.normalAccount.buyFundBeforeClose();
         this.loadDeals();
         this.normalAccount.save();
         this.collateralAccount.fillupGuardPrices();
@@ -617,6 +618,9 @@ class EmjyBack {
         //tradeAnalyzer.save();
         if ((new Date()).getDate() == 2) {
             this.fetchAllStocksMktInfo();
+        }
+        if (this.marketInfoUpdated) {
+            chrome.storage.local.set({'hsj_stocks': this.stockMarket});
         }
         this.flushLogs();
     }

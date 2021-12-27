@@ -33,9 +33,17 @@ class StockInfo {
         //tradeAnalyzer.updateStockRtPrice(snapshot);
     }
 
+    isTradeTime() {
+        var now = new Date();
+        if (now > new Date(now.toDateString() + ' 9:30') && now < new Date(now.toDateString() + ' 15:00')) {
+            return true;
+        }
+        return false;
+    }
+
     updateRtKline(message) {
         var updatedKlt = this.klines.updateRtKline(message);
-        if (this.strategies) {
+        if (this.strategies && this.isTradeTime()) {
             this.strategies.checkKlines(this.klines, updatedKlt);
         };
     }

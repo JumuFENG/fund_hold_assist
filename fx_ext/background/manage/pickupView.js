@@ -127,7 +127,7 @@ class PickupPanelPage extends RadioAnchorPage {
         }
 
         this.selectedTable.reset();
-        this.selectedTable.setClickableHeader('', '代码', '名称', '日期', '放量程度', '股价区间', '低点日', '高点日', '删除日');
+        this.selectedTable.setClickableHeader('', '代码', '名称', '日期', '上板强度', '放量程度', '股价区间', '低点日', '高点日', '删除日');
         for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
             var stocki = emjyManager.zt1stocks[i];
             var anchor = document.createElement('a');
@@ -215,6 +215,7 @@ class PickupPanelPage extends RadioAnchorPage {
                 stocki.code,
                 anchor,
                 stocki.ztdate,
+                stocki.zstrength,
                 vol,
                 prng,
                 lowdate,

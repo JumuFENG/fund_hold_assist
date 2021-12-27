@@ -23,7 +23,7 @@ class ReviewPanelPage extends RadioAnchorPage {
         }
 
         this.stocksTable.reset();
-        this.stocksTable.setClickableHeader('', '代码', '名称', '日期', '放量程度', '删除日', '走势');
+        this.stocksTable.setClickableHeader('', '代码', '名称', '日期', '上板强度', '放量程度', '删除日', '走势');
         for (let i = 0; i < emjyManager.delstocks.length; i++) {
             var stocki = emjyManager.delstocks[i];
             var anchor = document.createElement('a');
@@ -49,6 +49,7 @@ class ReviewPanelPage extends RadioAnchorPage {
                 stocki.code,
                 anchor,
                 stocki.ztdate,
+                stocki.zstrength,
                 stockVolScales[stocki.vscale],
                 stocki.rmvdate,
                 chartDiv
