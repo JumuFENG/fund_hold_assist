@@ -175,11 +175,23 @@ class Manager {
             var vscale = this.klines[s.code].getVolScale('101', s.ztdate, 10);
             s.vscale = this.toVscale(vscale);
             s.zstrength = this.klines[s.code].getZtStrength(s.ztdate);
+            if (s.zstrength === undefined) {
+                if (this.klines[s.code]) {
+                    this.klines[s.code].klines['101'] = [];
+                }
+                this.getDailyKlineSinceMonthAgo(s.code, s.ztdate);
+            }
         });
         this.delstocks.forEach(s => {
             var vscale = this.klines[s.code].getVolScale('101', s.ztdate, 10);
             s.vscale = this.toVscale(vscale);
             s.zstrength = this.klines[s.code].getZtStrength(s.ztdate);
+            if (s.zstrength === undefined) {
+                if (this.klines[s.code] && this.klines[s.code].klines) {
+                    this.klines[s.code].klines['101'] = [];
+                }
+                this.getDailyKlineSinceMonthAgo(s.code, s.ztdate);
+            }
         });
     }
 
