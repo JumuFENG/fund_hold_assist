@@ -143,6 +143,26 @@ class MarginHistDealsClient extends HistDealsClient {
     }
 }
 
+class OrdersClient extends DealsClient {
+    constructor(validateKey, cb) {
+        super(validateKey, cb);
+    }
+
+    getUrl() {
+        return 'https://jywg.18.cn/Search/GetOrdersData?validatekey=' + this.validateKey;
+    }
+}
+
+class MarginOrdersClient extends DealsClient {
+    constructor(validateKey, cb) {
+        super(validateKey, cb);
+    }
+
+    getUrl() {
+        return 'https://jywg.18.cn/MarginSearch/GetOrdersData?validatekey=' + this.validateKey;
+    }
+}
+
 class AssetsClient {
     constructor(validateKey, cb, pcb) {
         this.validateKey = validateKey;
@@ -316,7 +336,7 @@ class TradeClient {
         });
     }
 
-    doTrade(code, price, count, tradeType, jylx) {
+    doTrade(code, price, count, tradeType, jylx, cb) {
         emjyBack.log('doTrade', tradeType, code, price, count, jylx);
         xmlHttpPost(this.getUrl(), this.getFormData(code, price, count, tradeType, jylx), response => {
             var robj = JSON.parse(response);
@@ -326,12 +346,15 @@ class TradeClient {
             }
             if (robj.Data && robj.Data.length > 0) {
                 emjyBack.log('Trade success! wtbh', robj.Data[0].Wtbh);
+                if (typeof(cb) === 'function') {
+                    cb({code, price, count, sid: robj.Data[0].Wtbh});
+                }
             }
             console.log(robj);
         });
     }
 
-    tradeValidPrice(code, price, count, tradeType, jylx) {
+    tradeValidPrice(code, price, count, tradeType, jylx, cb) {
         if (count < 100) {
             if (count < 1 || count > 10) {
                 emjyBack.log('unknwn count', count);
@@ -342,14 +365,14 @@ class TradeClient {
                 if (count > 1) {
                     finalCount = 100 * ((cobj.availableCount / 100) / count).toFixed();
                 }
-                this.doTrade(code, price, finalCount, tradeType, jylx);
+                this.doTrade(code, price, finalCount, tradeType, jylx, cb);
             });
         } else {
-            this.doTrade(code, price, count, tradeType, jylx);
+            this.doTrade(code, price, count, tradeType, jylx, cb);
         }
     }
 
-    trade(code, price, count, tradeType, jylx) {
+    trade(code, price, count, tradeType, jylx, cb) {
         emjyBack.log('trade', tradeType, code, price, count, jylx);
         if (price == 0) {
             this.getRtPrice(code, pobj => {
@@ -359,10 +382,10 @@ class TradeClient {
                 } else if (tradeType == 'S') {
                     p = pobj.b5 == '-' ? pobj.bp : pobj.b5;
                 }
-                this.tradeValidPrice(code, p, count, tradeType, jylx);
+                this.tradeValidPrice(code, p, count, tradeType, jylx, cb);
             });
         } else {
-            this.tradeValidPrice(code, price, count, tradeType, jylx);
+            this.tradeValidPrice(code, price, count, tradeType, jylx, cb);
         }
     }
 
@@ -374,7 +397,7 @@ class TradeClient {
     // gddm	""
     // market	"SA"
     sell(code, price, count) {
-        this.trade(code, price, count, 'S');
+        this.trade(code, price, count, 'S', null);
     }
 
     // stockCode	"605033"
@@ -383,8 +406,8 @@ class TradeClient {
     // tradeType	"B"
     // zqmc	"美邦股份"
     // market	"HA"
-    buy(code, price, count) {
-        this.trade(code, price, count, 'B');
+    buy(code, price, count, cb) {
+        this.trade(code, price, count, 'B', null, cb);
     }
 }
 
@@ -440,8 +463,8 @@ class CollatTradeClient extends TradeClient {
     // tradeType	"B"
     // xyjylx	"6"
     // market	"SA"
-    buy(code, price, count) {
-        this.trade(code, price, count, 'B', '6');
+    buy(code, price, count, cb) {
+        this.trade(code, price, count, 'B', '6', cb);
     }
 }
 
@@ -457,12 +480,12 @@ class CreditTradeClient extends CollatTradeClient {
     // tradeType	"B"
     // xyjylx	"a"
     // market	"HA"
-    buy(code, price, count) {
+    buy(code, price, count, cb) {
         if (count < 100) {
             emjyBack.log('trade error:', 'must set correct buy count for credit buy');
             return;
         }
-        this.trade(code, price, count, 'B', 'a');
+        this.trade(code, price, count, 'B', 'a', cb);
     }
 
     sell(code, price, count) {
@@ -600,7 +623,7 @@ class NormalAccount extends Account {
         this.tradeClient = new TradeClient(emjyBack.validateKey);
     }
 
-    buyStock(code, price, count) {
+    buyStock(code, price, count, cb) {
         if (!this.tradeClient) {
             this.createTradeClient();
         }
@@ -615,7 +638,7 @@ class NormalAccount extends Account {
         }
 
         if (count < 100) {
-            this.tradeClient.buy(code, price, count);
+            this.tradeClient.buy(code, price, count, cb);
             return;
         };
 
@@ -630,7 +653,7 @@ class NormalAccount extends Account {
             emjyBack.log('No availableMoney match');
             return;
         }
-        this.tradeClient.buy(code, price, finalCount);
+        this.tradeClient.buy(code, price, finalCount, cb);
         this.availableMoney -= moneyNeed;
     }
 
@@ -800,7 +823,7 @@ class NormalAccount extends Account {
     }
 
     loadDeals() {
-        var dealclt = new DealsClient(emjyBack.validateKey, (deals) => {
+        var dealclt = new OrdersClient(emjyBack.validateKey, (deals) => {
             this.handleDeals(deals);
         });
         dealclt.GetNext();
@@ -815,8 +838,7 @@ class NormalAccount extends Account {
             } else if (deali.Mmsm.includes('买入')) {
                 this.stocks.forEach(s => {
                     if (s.code == deali.Zqdm) {
-                        s.strategies.clearTodayBuyDetail();
-                        s.strategies.updateBuyDetail(s.strategies.getTodayDate(), deali.Cjjg, deali.Cjsl);
+                        s.strategies.updateBuyDetail(deali.Wtbh, deali.Cjjg, deali.Cjsl);
                     }
                 });
             }
@@ -948,7 +970,7 @@ class CollateralAccount extends NormalAccount {
     }
 
     loadDeals() {
-        var dealclt = new MarginDealsClient(emjyBack.validateKey, (deals) => {
+        var dealclt = new MarginOrdersClient(emjyBack.validateKey, (deals) => {
             this.handleDeals(deals);
         });
         dealclt.GetNext();

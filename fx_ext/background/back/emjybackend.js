@@ -407,7 +407,7 @@ class EmjyBack {
         sellAccount.sellStock(code, price, count);
     }
 
-    tryBuyStock(code, price, count, account) {
+    tryBuyStock(code, price, count, account, cb) {
         var buyAccount = this.normalAccount;
         if (account) {
             if (account == this.normalAccount.keyword) {
@@ -419,7 +419,7 @@ class EmjyBack {
             };
         };
 
-        buyAccount.buyStock(code, price, count);
+        buyAccount.buyStock(code, price, count, cb);
     }
 
     setupQuoteAlarms() {

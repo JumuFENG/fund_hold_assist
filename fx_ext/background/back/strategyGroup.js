@@ -165,31 +165,33 @@ class StrategyGroup {
         this.buydetail = ndetail;
     }
 
-    clearTodayBuyDetail() {
-        if (!this.buydetail) {
-            return;
+    addBuyDetail(detail) {
+        if (this.buydetail) {
+            this.buydetail.push({date: this.getTodayDate(), count: detail.count, price: detail.price, sid: detail.sid});
+        } else {
+            this.buydetail = [{date: this.getTodayDate(), count: detail.count, price: detail.price, sid: detail.sid}];
         }
-        var toady = this.getTodayDate();
-        var ndetail = [];
-        for (var i = 0; i < this.buydetail.length; i++) {
-            if (this.buydetail[i].date != toady) {
-                ndetail.push(this.buydetail[i]);
-            }
-        }
-        this.buydetail = ndetail;
     }
 
-    updateBuyDetail(date, price, count) {
+    updateBuyDetail(sid, price, count) {
+        emjyBack.log('updateBuyDetail', this.code, sid, price, count);
         if (!this.buydetail) {
-            console.log(this.code, this);
+            if (count != 0) {
+                this.buydetail = [{date: this.getTodayDate(), count, price, sid}];
+            }
             return;
         }
-        this.buydetail.push({date, price, count});
-        for (var id in this.strategies) {
-            var curStrategy = this.strategies[id];
-            if (!curStrategy.isBuyStrategy() && curStrategy.data.price !== undefined) {
-                curStrategy.data.price = price;
+
+        var didx = this.buydetail.findIndex(bd => bd.sid == sid);
+        if (didx >= 0) {
+            if (count == 0) {
+                this.buydetail.splice(didx, 1);
+            } else {
+                this.buydetail[didx].price = price;
+                this.buydetail[didx].count = count;
             }
+        } else if (count != 0){
+            this.buydetail.push({date: this.getTodayDate(), count, price, sid});
         }
     }
 
@@ -358,10 +360,9 @@ class StrategyGroup {
                 var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
                 var count = this.count0;
                 emjyBack.log('checkStrategies buy match', this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy))
-                emjyBack.tryBuyStock(this.code, price, count, account);
-                if (this.buydetail) {
-                    this.buydetail.push({date: this.getTodayDate(), count, price: info.price});
-                }
+                emjyBack.tryBuyStock(this.code, price, count, account, bd => {
+                    this.addBuyDetail(bd);
+                });
             } else if (info.tradeType == 'S') {
                 var count = this.count0;
                 var countAll = this.availableCount();
@@ -383,15 +384,14 @@ class StrategyGroup {
             }
             var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
             emjyBack.log('checkStrategies buy match', this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy));
-            emjyBack.tryBuyStock(this.code, price, count, account);
+            emjyBack.tryBuyStock(this.code, price, count, account, bd => {
+                this.addBuyDetail(bd);
+            });
             if (curStrategy.guardLevel() == 'zt') {
                 emjyBack.ztBoardTimer.removeStock(this.code);
             };
             if (curStrategy.guardLevel() == 'opt') {
                 emjyBack.otpAlarm.removeStock(this.code);
-            }
-            if (this.buydetail) {
-                this.buydetail.push({date: this.getTodayDate(), count, price});
             }
             this.onTradeMatch(id, {price});
         } else {
