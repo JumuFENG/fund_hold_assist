@@ -204,9 +204,11 @@ class StrategyGroup {
             this.buydetail = [];
             if (count == acount) {
                 this.buydetail.push({date: '0', count});
-            } else {
+            } else if (acount > 0) {
                 this.buydetail.push({date: '0', count: acount});
                 this.buydetail.push({date: this.getTodayDate(), count: count - acount});
+            } else {
+                this.buydetail.push({date: this.getTodayDate(), count});
             }
         }
     }
