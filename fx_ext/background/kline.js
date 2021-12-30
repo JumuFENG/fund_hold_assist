@@ -403,6 +403,17 @@ class KLine {
         return (100 * delta / lc).toFixed(2);
     }
 
+    getCutPrice(time) {
+        var kline = this.klines['101'];
+        var tidx = kline.findIndex(kl => kl.time == time);
+        if (tidx < 0) {
+            console.log('error: no kline data to check cut price', this.code, time);
+            return;
+        }
+        var c = kline[tidx].c * 0.9;
+        return c - kline[tidx].l > 0 ? kline[tidx].l : c.toFixed(2);
+    }
+
     continuouslyBellowDays(kltype='101') {
         if (!this.klines) {
             return 0;

@@ -320,7 +320,7 @@ class TradeClient {
         xmlHttpPost(url, fd, response => {
             var robj = JSON.parse(response);
             if (robj.Status != 0) {
-                emjyBack.log('trade getCount error');
+                emjyBack.log(code, tradeType, 'trade getCount error');
                 emjyBack.log(response);
                 return;
             }
@@ -330,7 +330,7 @@ class TradeClient {
                     return;
                 }
             } else {
-                emjyBack.log('trade error:', 'getCount unresolved response:');
+                emjyBack.log(code, tradeType, 'trade error:', 'getCount unresolved response:');
             }
             emjyBack.log(response);
         });
@@ -341,23 +341,23 @@ class TradeClient {
         xmlHttpPost(this.getUrl(), this.getFormData(code, price, count, tradeType, jylx), response => {
             var robj = JSON.parse(response);
             if (robj.Status != 0) {
-                emjyBack.log(response);
+                emjyBack.log(code, tradeType, response);
                 return;
             }
             if (robj.Data && robj.Data.length > 0) {
-                emjyBack.log('Trade success! wtbh', robj.Data[0].Wtbh);
+                emjyBack.log(code, tradeType, 'Trade success! wtbh', robj.Data[0].Wtbh);
                 if (typeof(cb) === 'function') {
                     cb({code, price, count, sid: robj.Data[0].Wtbh});
                 }
             }
-            console.log(robj);
+            console.log(code, tradeType, robj);
         });
     }
 
     tradeValidPrice(code, price, count, tradeType, jylx, cb) {
         if (count < 100) {
             if (count < 1 || count > 10) {
-                emjyBack.log('unknwn count', count);
+                emjyBack.log(code, tradeType, 'unknwn count', count);
                 return;
             }
             this.getCount(code, price, tradeType, jylx, cobj => {
@@ -491,6 +491,22 @@ class CreditTradeClient extends CollatTradeClient {
     sell(code, price, count) {
         console.log('trade error:', 'NOT IMPLEMENTED!');
         // this.trade(code, price, count, 'B', '6');
+    }
+}
+
+class TestTradeClient extends TradeClient {
+    constructor() {
+        super('');
+    }
+
+    trade(code, price, count, tradeType, jylx, cb) {
+        console.log('test trade', tradeType, code, price, count, jylx);
+        if (price == 0 || count < 100) {
+            console.log('please set correct price and count for test trade!');
+            return;
+        } else {
+            emjyBack.testAccount.addDeal(code, price, count, tradeType);
+        }
     }
 }
 
@@ -1021,3 +1037,48 @@ class CollateralAccount extends NormalAccount {
     }
 }
 
+class TestAccount extends Account {
+    constructor() {
+        super();
+        this.keyword = 'test';
+        this.sid = 1;
+        this.deals = [];
+    }
+
+    applyStrategy(code, str) {
+        if (!str) {
+            return;
+        };
+        var stock = this.stocks.find(function(s) {return s.code == code; });
+        if (!stock) {
+            return;
+        };
+        var strategyGroup = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
+        strategyGroup.applyGuardLevel();
+        stock.strategies = strategyGroup;
+    }
+
+    loadAssets() {
+        this.loadStrategies();
+        chrome.storage.local.get('test_deals', item => {
+            if (item && item['test_deals']) {
+                this.deals = item['test_deals'];
+            }
+        });
+    }
+
+    addDeal(code, price, count, tradeType) {
+        var time = emjyBack.getTodayDate('-');
+        this.deals.push({time, sid: this.sid, code, tradeType, price, count});
+        this.sid ++;
+    }
+
+    createTradeClient() {
+        this.tradeClient = new TestTradeClient();
+    }
+
+    save() {
+        super.save();
+        chrome.storage.local.set({'test_deals': this.deals});
+    }
+}

@@ -133,6 +133,11 @@ class EmjyBack {
         this.log('EmjyBack initialized!');
     }
 
+    setupTestAccount() {
+        this.testAccount = new TestAccount();
+        this.testAccount.loadAssets();
+    }
+
     totalAssets() {
         return this.normalAccount.pureAssets + this.collateralAccount.pureAssets;
     }
@@ -401,7 +406,12 @@ class EmjyBack {
                 sellAccount = this.collateralAccount;
             } else if (account == this.creditAccount.keyword) {
                 sellAccount = this.creditAccount;
-            };
+            } else if (this.testAccount && account == this.testAccount.keyword) {
+                sellAccount = this.testAccount;
+            } else {
+                console.log('Error, no valid account', account);
+                return;
+            }
         };
 
         sellAccount.sellStock(code, price, count);
@@ -416,7 +426,12 @@ class EmjyBack {
                 buyAccount = this.collateralAccount;
             } else if (account == this.creditAccount.keyword) {
                 buyAccount = this.creditAccount;
-            };
+            } else if (this.testAccount && account == this.testAccount.keyword) {
+                buyAccount = this.testAccount;
+            } else {
+                console.log('Error, no valid account', account);
+                return;
+            }
         };
 
         buyAccount.buyStock(code, price, count, cb);
@@ -681,6 +696,13 @@ class EmjyBack {
             var stocki = this.collateralAccount.stocks[i];
             tradeAnalyzer.listAllBuySellPrice(stocki.klines.klines, stocki.code, stocki.name);
         }
+    }
+
+    doTestTrade(code, sdate) {
+        if (!this.testAccount) {
+            this.setupTestAccount();
+        }
+        
     }
 }
 

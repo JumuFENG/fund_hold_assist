@@ -1,6 +1,6 @@
 'use strict';
 
-class KlChart {
+class Chart {
     constructor(title = '') {
         this.container = document.createElement('div');
         this.container.style = 'display: table; width: 100%; height: 100%;';
@@ -31,6 +31,9 @@ class KlChart {
     strokeLine(x1, y1, x2, y2) {
     }
 
+    fillPoint(x, y) {
+    }
+
     fillRect(x, y, w, h) {
     }
 
@@ -44,6 +47,12 @@ class KlChart {
     }
 
     strokeStyle(clr) {
+    }
+}
+
+class KlChart extends Chart {
+    constructor(title = '') {
+        super(title);
     }
 
     drawKlines(data) {
@@ -195,6 +204,70 @@ class KlChartCanvas extends KlChart {
     }
 }
 
+class ChartSvg extends Chart {
+    strokeWidth(w) {
+        this.lineWidth = w;
+    }
+
+    fillStyle(clr) {
+        this.fillColor = clr;
+    }
+
+    strokeStyle(clr) {
+        this.strokeColor = clr;
+    }
+
+    strokeLine(x1, y1, x2, y2) {
+        var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        line.setAttribute('style', 'stroke:' + this.strokeColor + ';stroke-width:' + this.lineWidth);
+        this.canvas.appendChild(line);
+    }
+
+    fillPoint(x, y) {
+        var pt = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        pt.setAttribute('cx', x);
+        pt.setAttribute('cy', y);
+        pt.setAttribute('r', this.r);
+        pt.setAttribute('fill', this.fillColor);
+        this.canvas.appendChild(pt);
+    }
+
+    fillRect(x, y, w, h) {
+        var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', x);
+        rect.setAttribute('y', y);
+        rect.setAttribute('width', w);
+        rect.setAttribute('height', h);
+        rect.setAttribute('style', 'fill:' + this.fillColor + ';');
+        this.canvas.appendChild(rect);
+    }
+
+    strokeRect(x, y, w, h) {
+        var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', x);
+        rect.setAttribute('y', y);
+        rect.setAttribute('width', w);
+        rect.setAttribute('height', h);
+        rect.setAttribute('style', 'fill:none; stroke:' + this.strokeColor+ ';stroke-width:' + this.lineWidth + ';');
+        this.canvas.appendChild(rect);
+    }
+
+    strokePolyLine(pts) {
+        var polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        var points = [];
+        pts.forEach(pt => {
+            points.push('' + pt[0] + ',' +pt[1]);
+        });
+        polyline.setAttribute('points', points.join(' '));
+        polyline.setAttribute('style', 'fill:none; stroke:' + this.strokeColor +'; stroke-width:' + this.lineWidth + ';');
+        this.canvas.appendChild(polyline);
+    }
+}
+
 class KlChartSvg extends KlChart {
     constructor(title = '') {
         super(title);
@@ -262,5 +335,66 @@ class KlChartSvg extends KlChart {
         polyline.setAttribute('points', points.join(' '));
         polyline.setAttribute('style', 'fill:none; stroke:' + this.strokeColor +'; stroke-width:' + this.lineWidth + ';');
         this.canvas.appendChild(polyline);
+    }
+}
+
+class ScatterChart extends ChartSvg {
+    constructor(title = '') {
+        super(title);
+    }
+
+    init() {
+        this.canvas = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        this.canvas.style = 'width: 100%; height: 100%;';
+        this.corePanel.appendChild(this.canvas);
+        this.lineWidth = 1;
+        this.chartWidth = this.corePanel.clientWidth;
+        this.chartHeight = this.corePanel.clientHeight;
+        this.r = (this.chartWidth / 100).toFixed();
+        this.fillColor = 'red';
+        this.strokeColor = 'black';
+    }
+
+    drawPoints(data) {
+        if (!this.canvas) {
+            this.init();
+        }
+
+        this.r = (this.chartWidth / data.length).toFixed();
+        if (this.r == 0) {
+            this.r = 2;
+        }
+        var xm = data[0][0];
+        var xmx = data[0][0];
+        var ym = data[0][1];
+        var ymx = data[0][1];
+        for (let i = 0; i < data.length; i++) {
+            const d = data[i];
+            if (d[0] - xm < 0) {
+                xm = d[0];
+            } else if (d[0] - xmx > 0) {
+                xmx = d[0];
+            }
+            if (d[1] - ym < 0) {
+                ym = d[1];
+            } else if (d[1] - ymx > 0) {
+                ymx = d[1];
+            }
+        }
+        ym -= 1;
+        ymx -= -1;
+        xm -= 1;
+        xmx -= -1;
+        this.xscale = this.chartWidth / (xmx - xm);
+        this.yscale = this.chartHeight / (ymx - ym);
+        for (let i = 0; i < data.length; i++) {
+            const d = data[i];
+            this.fillPoint(this.xscale * (d[0] - xm), this.chartHeight - this.yscale * (d[1] - ym));
+        }
+
+        this.strokeRect(0, 0, this.chartWidth, this.chartHeight);
+        this.strokeLine(0, this.chartHeight + this.yscale * ym, this.chartWidth, this.chartHeight + this.yscale * ym);
+        this.strokeLine(0, this.chartHeight - this.yscale * (xm - ym), this.xscale * (xmx - xm), this.chartHeight - this.yscale * (xmx - ym));
+        this.strokeLine(0, this.chartHeight + this.yscale * (xm + ym), this.xscale * (xmx - xm), this.chartHeight - this.yscale * (- xmx - ym));
     }
 }
