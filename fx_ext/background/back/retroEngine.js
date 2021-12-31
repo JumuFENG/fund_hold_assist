@@ -190,6 +190,14 @@ class RetroEngine {
         }
     }
 
+    clearRetroDeals() {
+        emjyBack.retroAccount.deals = [];
+    }
+
+    saveRetroDeals() {
+        emjyBack.retroAccount.save();
+    }
+
     initRetro(code, str, startDate, endDate = null) {
         this.code = code;
         this.startDate = startDate;

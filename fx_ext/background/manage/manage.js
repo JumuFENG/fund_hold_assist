@@ -42,6 +42,10 @@ class Manager {
                 }
                 for (const key in item) {
                     if (!key.startsWith('kline_')) {
+                        // console.log('key in storage', key);
+                        // if (key === 'undefined') {
+                        //     console.log(item[key]);
+                        // }
                         continue;
                     }
                     if (Object.hasOwnProperty.call(item, key)) {

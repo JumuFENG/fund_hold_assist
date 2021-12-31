@@ -180,6 +180,7 @@ class StrategyGroup {
         } else {
             this.buydetail = [{date, count: detail.count, price: detail.price, sid: detail.sid}];
         }
+        this.save();
     }
 
     updateBuyDetail(sid, price, count) {
@@ -393,6 +394,7 @@ class StrategyGroup {
                     }
                 }
             }
+            this.save();
         } else if (curStrategy.isBuyStrategy()) {
             var count = info.count;
             if (count === undefined && price > 0) {

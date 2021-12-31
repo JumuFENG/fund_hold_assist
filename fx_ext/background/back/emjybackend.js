@@ -714,11 +714,13 @@ class EmjyBack {
         }
     }
 
-    retro() {
+    retro(code) {
         if (!this.retroEngine) {
             this.retroEngine = new RetroEngine();
         }
-        this.retroEngine.initRetro('000858',{"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000}, '2021-01-04');
+        if (code) {
+            this.retroEngine.initRetro(code, {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000}, '2021-01-04');
+        }
     }
 }
 

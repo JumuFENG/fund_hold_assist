@@ -366,6 +366,54 @@ class KLine {
         return false;
     }
 
+    getLastTrough(kltype) {
+        if (!this.klines || !this.klines[kltype]) {
+            console.log('no klins data for kltype', kltype);
+            return 0;
+        }
+
+        var nKlines = this.klines[kltype];
+        if (nKlines && nKlines.length > 0) {
+            var downKlNum = 0;
+            var upKlNum = 0;
+            var troughprice = nKlines[nKlines.length - 1].l;
+            for (let i = nKlines.length - 1; i > 0; i--) {
+                const kl = nKlines[i];
+                const kl0 = nKlines[i - 1];
+                if (downKlNum < 2) {
+                    if (kl.l - kl0.l < 0) {
+                        break;
+                    }
+                    if (kl.l - kl0.l > 0) {
+                        downKlNum++;
+                        troughprice = kl0.l;
+                        console.log(kl0);
+                    }
+                } else {
+                    if (kl.l - kl0.l > 0) {
+                        if (upKlNum >= 2) {
+                            break;
+                        }
+                        if (troughprice - kl0.l > 0) {
+                            downKlNum++;
+                            troughprice = kl0.l;
+                            console.log(kl0);
+                        }
+                        upKlNum = 0;
+                        continue;
+                    }
+                    if (kl.l - kl0.l < 0) {
+                        upKlNum++;
+                    }
+                }
+            }
+            if (upKlNum >= 2 && downKlNum > 2) {
+                return troughprice;
+            }
+        }
+        return 0;
+    }
+
     getVolScale(kltype, time, n) {
         // get v scale for time based on mvol(n)
         var kline = this.klines[kltype];
