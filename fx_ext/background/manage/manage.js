@@ -31,6 +31,12 @@ class Manager {
                 if (item['hist_deals']) {
                     this.savedDeals = item['hist_deals'];
                 }
+                if (item['retro_deals']) {
+                    this.retroDeals = item['retro_deals'];
+                }
+                if (item['track_deals']) {
+                    this.trackDeals = item['track_deals'];
+                }
                 if (item['bkstocks_' + BkRZRQ]) {
                     this.rzrqStocks = new Set(item['bkstocks_' + BkRZRQ]);
                 }

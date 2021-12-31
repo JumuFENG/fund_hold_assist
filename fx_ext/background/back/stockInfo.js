@@ -48,9 +48,9 @@ class StockInfo {
         };
     }
 
-    loadKlines() {
+    loadKlines(cb) {
         if (this.klines) {
-            this.klines.loadSaved();
+            this.klines.loadSaved(cb);
         };
     }
 

@@ -25,9 +25,7 @@ class DealsPanelPage extends RadioAnchorPage {
         this.container.appendChild(btnShowShorts);
         this.dealsTable = new SortableTable();
         this.container.appendChild(this.dealsTable.container);
-        if (emjyManager.savedDeals && emjyManager.savedDeals.length > 0) {
-            this.showDealsTable();
-        }
+        this.showDealsTable();
         this.ignored = new Set(['511880', '511010', '161129', '162411', '159994','160416',
         '159949', '518880', '159939', '512880', '512660', '512290', '512400', '512800', '513050',
         '161226', '161130', '588000', '512480', '513100', '512480', '513100', '588300', 
@@ -43,6 +41,11 @@ class DealsPanelPage extends RadioAnchorPage {
         this.stockHis = new Set();
     }
 
+    getAllDeals() {
+        // return emjyManager.savedDeals;
+        return emjyManager.retroDeals;
+    }
+
     show() {
         super.show();
         if (!this.dealsTable.table) {
@@ -51,7 +54,8 @@ class DealsPanelPage extends RadioAnchorPage {
     }
 
     showDeals(ignored, filtered) {
-        if (!emjyManager.savedDeals || emjyManager.savedDeals.length == 0) {
+        var allDeals = this.getAllDeals();
+        if (!allDeals || allDeals.length == 0) {
             return;
         }
 
@@ -63,8 +67,8 @@ class DealsPanelPage extends RadioAnchorPage {
         var totalCost = 0;
         var partEarned = 0;
         var partCost = 0;
-        for (let i = 0; i < emjyManager.savedDeals.length; i++) {
-            const deali = emjyManager.savedDeals[i];
+        for (let i = 0; i < allDeals.length; i++) {
+            const deali = allDeals[i];
             if (ignored && ignored.has(deali.code)) {
                 continue;
             }
@@ -82,6 +86,9 @@ class DealsPanelPage extends RadioAnchorPage {
             anchor.target = '_blank';
 
             var fee = -(-deali.fee - deali.feeGh - deali.feeYh);
+            if (isNaN(fee)) {
+                fee = 0;
+            }
             totalFee += fee;
             fee  = fee.toFixed(2);
             var amount = deali.price * deali.count;
@@ -158,8 +165,9 @@ class DealsPanelPage extends RadioAnchorPage {
         }
         // this.showDeals(notshow);
         var shown = new Set();
-        for (let i = 0; i < emjyManager.savedDeals.length; i++) {
-            const deali = emjyManager.savedDeals[i];
+        var allDeals = this.getAllDeals();
+        for (let i = 0; i < allDeals.length; i++) {
+            const deali = allDeals[i];
             if (notshow.has(deali.code)) {
                 continue;
             }
@@ -170,7 +178,8 @@ class DealsPanelPage extends RadioAnchorPage {
     }
 
     show1stRoundTrade(filtered) {
-        var deals = emjyManager.savedDeals.filter(d => filtered.has(d.code));
+        var allDeals = this.getAllDeals();
+        var deals = allDeals.filter(d => filtered.has(d.code));
         deals.sort((d1, d2) => {
             if (d1.code == d2.code) {
                 return d1.time > d2.time;

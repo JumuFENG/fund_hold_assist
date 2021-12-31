@@ -162,14 +162,23 @@ class StrategyGroup {
                 ndetail.push(this.buydetail[i]);
             }
         }
+        if (ndetail.length == 0) {
+            if (this.amount > 0) {
+                this.count0 = 0;
+            }
+        }
         this.buydetail = ndetail;
     }
 
     addBuyDetail(detail) {
+        var date = detail.time;
+        if (!date) {
+            date = this.getTodayDate();
+        }
         if (this.buydetail) {
-            this.buydetail.push({date: this.getTodayDate(), count: detail.count, price: detail.price, sid: detail.sid});
+            this.buydetail.push({date, count: detail.count, price: detail.price, sid: detail.sid});
         } else {
-            this.buydetail = [{date: this.getTodayDate(), count: detail.count, price: detail.price, sid: detail.sid}];
+            this.buydetail = [{date, count: detail.count, price: detail.price, sid: detail.sid}];
         }
     }
 
@@ -355,9 +364,14 @@ class StrategyGroup {
             return;
         }
 
+        if (!this.count0 && this.amount) {
+            this.count0 = this.calcBuyCount(this.amount, info.price);
+        }
         var price = info.price === undefined ? 0 : info.price;
         if (info.tradeType) {
-            price = 0;
+            if (this.account == 'normal' || this.account == 'collat') {
+                price = 0;
+            }
             if (info.tradeType == 'B') {
                 var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
                 var count = this.count0;

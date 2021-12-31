@@ -9,7 +9,7 @@ class KLine {
         this.incompleteKline = {};
     }
 
-    loadSaved() {
+    loadSaved(cb) {
         chrome.storage.local.get(this.storeKey, item => {
             if (item && item[this.storeKey]) {
                 this.klines = item[this.storeKey];
@@ -19,6 +19,9 @@ class KLine {
                     }
                 }
             };
+            if (typeof(cb) === 'function') {
+                cb();
+            }
         });
     }
 

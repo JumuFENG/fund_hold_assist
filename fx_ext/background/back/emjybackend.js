@@ -112,7 +112,6 @@ class EmjyBack {
         if (!this.otpAlarm) {
             this.otpAlarm = new OtpAlarm();
         }
-        this.setupQuoteAlarms();
         if ((new Date()).getDate() == 1) {
             if (!this.fetchingBKstocks) {
                 this.fetchingBKstocks = new BkStocksFetch('BK0596', 1000);
@@ -130,16 +129,23 @@ class EmjyBack {
             this.normalAccount.loadWatchings();
             this.collateralAccount.loadWatchings();
         });
+        this.trackAccount = new TrackingAccount();
+        this.trackAccount.loadAssets();
+        this.setupQuoteAlarms();
         this.log('EmjyBack initialized!');
     }
 
-    setupTestAccount() {
-        this.testAccount = new TestAccount();
-        this.testAccount.loadAssets();
+    setupRetroAccount() {
+        this.retroAccount = new RetrospectAccount();
+        this.retroAccount.loadAssets();
     }
 
     totalAssets() {
         return this.normalAccount.pureAssets + this.collateralAccount.pureAssets;
+    }
+
+    isLoginPage(pathname) {
+        return pathname == '/Login' || pathname == '/Login/ExitIframe';
     }
 
     onContentLoaded(message, tabid) {
@@ -162,7 +168,7 @@ class EmjyBack {
                             clearInterval(loadInterval);
                             this.mainTab.url = t.url;
                             var url = new URL(t.url);
-                            this.authencated = url.pathname != '/Login';
+                            this.authencated = !this.isLoginPage(url.pathname);
                             if (this.authencated && !this.validateKey) {
                                 this.sendMsgToMainTabContent({command:'emjy.getValidateKey'});
                             }
@@ -177,7 +183,7 @@ class EmjyBack {
             this.mainTab.url = message.url;
             chrome.tabs.executeScript(this.mainTab.tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
             var url = new URL(this.mainTab.url);
-            this.authencated = url.pathname != '/Login';
+            this.authencated = !this.isLoginPage(url.pathname);
             if (this.authencated && !this.validateKey) {
                 this.sendMsgToMainTabContent({command:'emjy.getValidateKey'});
             }
@@ -406,8 +412,10 @@ class EmjyBack {
                 sellAccount = this.collateralAccount;
             } else if (account == this.creditAccount.keyword) {
                 sellAccount = this.creditAccount;
-            } else if (this.testAccount && account == this.testAccount.keyword) {
-                sellAccount = this.testAccount;
+            } else if (account == this.trackAccount.keyword) {
+                sellAccount = this.trackAccount;
+            } else if (this.retroAccount && account == this.retroAccount.keyword) {
+                sellAccount = this.retroAccount;
             } else {
                 console.log('Error, no valid account', account);
                 return;
@@ -426,8 +434,10 @@ class EmjyBack {
                 buyAccount = this.collateralAccount;
             } else if (account == this.creditAccount.keyword) {
                 buyAccount = this.creditAccount;
-            } else if (this.testAccount && account == this.testAccount.keyword) {
-                buyAccount = this.testAccount;
+            } else if (account == this.trackAccount.keyword) {
+                buyAccount = this.trackAccount;
+            } else if (this.retroAccount && account == this.retroAccount.keyword) {
+                buyAccount = this.retroAccount;
             } else {
                 console.log('Error, no valid account', account);
                 return;
@@ -530,11 +540,16 @@ class EmjyBack {
         this.normalAccount.updateStockRtPrice(snapshot);
         this.collateralAccount.updateStockRtPrice(snapshot);
         this.ztBoardTimer.updateStockRtPrice(snapshot);
+        this.trackAccount.updateStockRtKline(snapshot);
     }
 
     updateStockRtKline(message) {
         this.normalAccount.updateStockRtKline(message);
         this.collateralAccount.updateStockRtKline(message);
+        this.trackAccount.updateStockRtKline(message);
+        if (this.retroAccount) {
+            this.retroAccount.updateStockRtKline(message);
+        }
     }
 
     applyStrategy(account, code, str) {
@@ -556,11 +571,9 @@ class EmjyBack {
 
     addWatchStock(account, code, str) {
         if (account == this.normalAccount.keyword) {
-            this.normalAccount.addWatchStock(code);
-            this.normalAccount.applyStrategy(code, str);
+            this.normalAccount.addWatchStock(code, str);
         } else if (account == this.collateralAccount.keyword) {
-            this.collateralAccount.addWatchStock(code);
-            this.collateralAccount.applyStrategy(code, str);
+            this.collateralAccount.addWatchStock(code, str);
         };
     }
 
@@ -580,11 +593,14 @@ class EmjyBack {
 
     getStockMarketHS(code) {
         var stk = this.stockMarket[code];
+        if (!stk) {
+            return (code.startsWith('00') || code.startsWith('30')) ? 'SZ' : 'SH';
+        }
         return stk.mkt == '0' ? 'SZ' : 'SH';
     }
 
-    fetchStockKline(code, kltype) {
-        this.postQuoteWorkerMessage({command:'quote.kline.rt', code, kltype, market: this.getStockMarketHS(code)});
+    fetchStockKline(code, kltype, sdate) {
+        this.postQuoteWorkerMessage({command:'quote.kline.rt', code, kltype, market: this.getStockMarketHS(code), sdate});
     }
 
     tradeDailyRoutineTasks() {
@@ -698,11 +714,11 @@ class EmjyBack {
         }
     }
 
-    doTestTrade(code, sdate) {
-        if (!this.testAccount) {
-            this.setupTestAccount();
+    retro() {
+        if (!this.retroEngine) {
+            this.retroEngine = new RetroEngine();
         }
-        
+        this.retroEngine.initRetro('000858',{"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000}, '2021-01-04');
     }
 }
 
@@ -766,69 +782,3 @@ class BkStocksMarketFetch extends BkStocksFetch {
         emjyBack.stockMarket = this.stockDetails;
     }
 }
-
-class TradingData {
-    constructor() {
-        this.dayPriceAvg = {};
-    }
-
-    updateStockRtPrice(snapshot) {
-        if (!this.dayPriceAvg[snapshot.code]) {
-            this.dayPriceAvg[snapshot.code] = [];
-        };
-        this.dayPriceAvg[snapshot.code].push([snapshot.realtimequote.currentPrice, snapshot.realtimequote.avg]);
-    }
-
-    getTodayDate() {
-        var now = new Date();
-        return now.getFullYear() + ('' + (now.getMonth()+1)).padStart(2, '0') + ('' + now.getDate()).padStart(2, '0');
-    }
-
-    save() {
-        var fileDate = this.getTodayDate();
-        for (var c in this.dayPriceAvg) {
-            var blob = new Blob([JSON.stringify(this.dayPriceAvg[c])], {type: 'application/json'});
-            var url = URL.createObjectURL(blob);
-            var filename = 'StockDailyPrices/' + fileDate + '_' + c + '.json';
-            chrome.downloads.download({url, filename, saveAs:false});
-        }
-    }
-
-    listAllBuySellPrice(stockKl, code, name) {
-        var codes = new Set(['000858', '002460', '000401', '002041', '600862', '601600', '601101', '000998', '600546', '600918', '600276', '600031', '000630', '002241', '600010', '600089', '600150', '601016', '601117', '601601', '601800', '600905', '002847']);
-        if (!codes.has(code)) {
-            return;
-        }
-        for (var i in stockKl) {
-            var afterbuy = false;
-            var bcount = 0;
-            var ecount = 0;
-            var lcount = 0;
-            var b = 0;
-            var rec = [];
-            var earned = 0;
-            for (var j = 0; j < stockKl[i].length; j++) {
-                if (stockKl[i][j].bss18 == 'b') {
-                    afterbuy = true;
-                    bcount ++;
-                    b = stockKl[i][j].c;
-                }
-                if (stockKl[i][j].bss18 == 's' && afterbuy) {
-                    var e = stockKl[i][j].c - b;
-                    rec.push('b:' + b + ' s:' + stockKl[i][j].c + ' e:' + e.toFixed(2));
-                    if (e > 0) {
-                        ecount ++;
-                    } else {
-                        lcount ++;
-                    }
-                    earned += e * 100 / b;
-                    afterbuy = false;
-                }
-            }
-
-            console.log(name, 'kltype' + i, stockKl[i].length, 'b:', bcount, 'e', ecount, 'l', lcount, 'total', earned.toFixed(2));
-        }
-    }
-}
-
-let tradeAnalyzer = new TradingData();

@@ -744,15 +744,15 @@ class StrategyMA extends Strategy {
             var kl = klines.getLatestKline(kltype);
             if (!this.data.guardPrice || this.data.guardPrice == 0) {
                 if (kl.bss18 == 'b') {
-                    return {match: true, tradeTpye: 'B', count: 0};
+                    return {match: true, tradeType: 'B', count: 0, price: kl.c};
                 }
                 if (kl.bss18 == 's') {
-                    return {match: true, tradeTpye: 'S', count: 1};
+                    return {match: true, tradeType: 'S', count: 1, price: kl.c};
                 }
                 return {match: false};
             } else if (this.data.guardPrice - kl.c > 0) {
                 if (kl.bss18 == 's' || kl.bss18 == 'w') {
-                    return {match: false, tradeTpye: 'S', count: 1};
+                    return {match: true, tradeType: 'S', count: 1, price: kl.c};
                 }
                 return {match: false};
             } else {
@@ -761,7 +761,7 @@ class StrategyMA extends Strategy {
                 }
                 if (!buydetails || buydetails.length == 0) {
                     if (kl.bss18 == 'b') {
-                        return {match: true, tradeTpye: 'B', count: 0};
+                        return {match: true, tradeType: 'B', count: 0, price: kl.c};
                     }
                     return {match: false};
                 }
@@ -774,7 +774,7 @@ class StrategyMA extends Strategy {
                 }
                 if (kl.bss18 == 'b') {
                     if (kl.c - pmin * 0.95 < 0) {
-                        return {match: true, tradeTpye: 'B', count: 0};
+                        return {match: true, tradeType: 'B', count: 0, price: kl.c};
                     }
                     return {match: false};
                 }
@@ -791,10 +791,10 @@ class StrategyMA extends Strategy {
                     }
                     var paver = amount / countAll;
                     if (kl.c - paver * 1.05 > 0) {
-                        return {match: true, tradeTpye: 'S', count: 1};
+                        return {match: true, tradeType: 'S', count: 1, price: kl.c};
                     }
                     if (kl.c - pmin * 1.05 > 0) {
-                        return {match: true, tradeTpye: 'S', count: 0};
+                        return {match: true, tradeType: 'S', count: 0, price: kl.c};
                     }
                     return {match: false};
                 }

@@ -104,11 +104,16 @@ function getKlineRt(code, klt, market) {
     xmlHttpGet(url);
 }
 
-function getKlineDaily(code, market) {
+function getKlineDaily(code, market, date) {
     var secid = codeToSecid(code, market);
-    var edate = new Date();
-    var sdate = new Date(edate.setDate(edate.getDate() - 30));
-    var beg = sdate.getFullYear() + ('' + (sdate.getMonth() + 1)).padStart(2, '0') + ('' + sdate.getDate()).padStart(2, '0');
+    var beg = date;
+    if (!beg) {
+        var edate = new Date();
+        var sdate = new Date(edate.setDate(edate.getDate() - 30));
+        beg = sdate.getFullYear() + ('' + (sdate.getMonth() + 1)).padStart(2, '0') + ('' + sdate.getDate()).padStart(2, '0');
+    } else if (date.includes('-')) {
+        beg = date.split('-').join('');
+    }
     var url = hisKlineUrl + '&cb=klineDailyBack&secid=' + secid + '&beg=' + beg + '&end=20500000&_=' + Date.now();
     xmlHttpGet(url);
 }
@@ -188,7 +193,7 @@ addEventListener('message', function(e) {
         getKlineDailySince(e.data.code, e.data.date, e.data.len, e.data.market);
     } else if (e.data.command == 'quote.kline.rt') {
         if (e.data.kltype == '101') {
-            getKlineDaily(e.data.code, e.data.market);
+            getKlineDaily(e.data.code, e.data.market, e.data.sdate);
         } else {
             getKlineRt(e.data.code, e.data.kltype, e.data.market);
         };

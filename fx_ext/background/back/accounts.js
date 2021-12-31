@@ -505,7 +505,7 @@ class TestTradeClient extends TradeClient {
             console.log('please set correct price and count for test trade!');
             return;
         } else {
-            emjyBack.testAccount.addDeal(code, price, count, tradeType);
+            emjyBack.trackAccount.addDeal(code, price, count, tradeType);
         }
     }
 }
@@ -732,11 +732,12 @@ class NormalAccount extends Account {
         chrome.storage.local.remove(this.keyword + '_' + code + '_strategies');
     }
 
-    addWatchStock(code) {
+    addWatchStock(code, str) {
         var stock = this.stocks.find(s => {return s.code == code;});
         if (stock) {
             return;
         };
+
         var name = '';
         var market = '';
         if (emjyBack.stockMarket[code]) {
@@ -745,7 +746,14 @@ class NormalAccount extends Account {
         } else {
             emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code});
         }
-        this.stocks.push(new StockInfo({ code, name, holdCount: 0, availableCount: 0, market}));
+        var stock = new StockInfo({ code, name, holdCount: 0, availableCount: 0, market});
+
+        if (str) {
+            var strategyGroup = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
+            strategyGroup.applyGuardLevel();
+            stock.strategies = strategyGroup;
+        }
+        this.stocks.push(stock);
     }
 
     removeStock(code) {
@@ -878,6 +886,10 @@ class NormalAccount extends Account {
     }
 
     loadAssets() {
+        if (!emjyBack.validateKey) {
+            console.log('no validateKey');
+            return;
+        }
         var astClient = new AssetsClient(emjyBack.validateKey, assets => {
             this.onAssetsLoaded(assets);
         }, positions => {
@@ -1009,6 +1021,10 @@ class CollateralAccount extends NormalAccount {
     }
 
     loadAssets(cb) {
+        if (!emjyBack.validateKey) {
+            console.log('no validateKey');
+            return;
+        }
         this.assetsCallback = cb;
         var astClient = new MarginAssetsClient(emjyBack.validateKey, assets => {
             this.onAssetsLoaded(assets);
@@ -1034,51 +1050,5 @@ class CollateralAccount extends NormalAccount {
         var holdCost = position.Cbjg;
         var latestPrice = position.Zxjg;
         return {code, name, holdCount, holdCost, availableCount, latestPrice};
-    }
-}
-
-class TestAccount extends Account {
-    constructor() {
-        super();
-        this.keyword = 'test';
-        this.sid = 1;
-        this.deals = [];
-    }
-
-    applyStrategy(code, str) {
-        if (!str) {
-            return;
-        };
-        var stock = this.stocks.find(function(s) {return s.code == code; });
-        if (!stock) {
-            return;
-        };
-        var strategyGroup = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
-        strategyGroup.applyGuardLevel();
-        stock.strategies = strategyGroup;
-    }
-
-    loadAssets() {
-        this.loadStrategies();
-        chrome.storage.local.get('test_deals', item => {
-            if (item && item['test_deals']) {
-                this.deals = item['test_deals'];
-            }
-        });
-    }
-
-    addDeal(code, price, count, tradeType) {
-        var time = emjyBack.getTodayDate('-');
-        this.deals.push({time, sid: this.sid, code, tradeType, price, count});
-        this.sid ++;
-    }
-
-    createTradeClient() {
-        this.tradeClient = new TestTradeClient();
-    }
-
-    save() {
-        super.save();
-        chrome.storage.local.set({'test_deals': this.deals});
     }
 }
