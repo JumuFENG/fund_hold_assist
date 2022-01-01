@@ -38,7 +38,6 @@ class DealsPanelPage extends RadioAnchorPage {
         this.newstkbonds = new Set(['718599','127043','118002','072895','733029','110075','783108',
         '113043','783229','370078','113042','123096','733926','370059','783636','072966','110079',
         '123111','783778','113047','127032','113048','127047']);
-        this.stockHis = new Set();
     }
 
     getAllDeals() {
@@ -53,30 +52,21 @@ class DealsPanelPage extends RadioAnchorPage {
         }
     }
 
-    showDeals(ignored, filtered) {
+    addDealsOf(code) {
         var allDeals = this.getAllDeals();
         if (!allDeals || allDeals.length == 0) {
             return;
         }
 
-        this.dealsTable.reset();
-        this.dealsTable.setClickableHeader('日期', '代码', '名称', '买卖', '价格', '数量', '手续费', '金额');
         var resCount = 0;
         var totalFee = 0;
         var totalEarned = 0;
         var totalCost = 0;
         var partEarned = 0;
         var partCost = 0;
-        for (let i = 0; i < allDeals.length; i++) {
-            const deali = allDeals[i];
-            if (ignored && ignored.has(deali.code)) {
-                continue;
-            }
-            if (filtered && !filtered.has(deali.code)) {
-                continue;
-            }
-
-            this.stockHis.add(deali.code);
+        var deals = allDeals.filter(d => d.code == code);
+        for (let i = 0; i < deals.length; i++) {
+            const deali = deals[i];
             var anchor = document.createElement('a');
             anchor.textContent = deali.code;
             if (emjyManager.stockMarket && emjyManager.stockMarket[deali.code]) {
@@ -119,20 +109,51 @@ class DealsPanelPage extends RadioAnchorPage {
             } else if (deali.tradeType == 'B') {
                 resCount -= -deali.count;
             }
-            if (resCount == 0 && filtered && filtered.size == 1) {
+            if (resCount == 0) {
                 this.dealsTable.addRow('part', '', '', '', '', '', partEarned.toFixed(2), (100 * (partEarned / partCost)).toFixed(2) + '%');
                 partEarned = 0;
                 partCost = 0;
             }
         }
-        if (filtered && filtered.size == 1 && resCount != 0) {
-            totalEarned += emjyManager.getCurrentHoldValue(filtered.values().next().value);
-        }
+        totalEarned += emjyManager.getCurrentHoldValue(code, resCount); // filtered.values().next().value
         if (resCount == 0) {
             this.dealsTable.addRow('total', '', '', resCount, totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), (100 * (totalEarned / totalCost)).toFixed(2) + '%');
         } else {
             this.dealsTable.addRow('total', '', '', resCount, totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), '-');
         }
+        return {cost: totalCost, earn: totalEarned};
+    }
+
+    showDeals(ignored, filtered) {
+        var allDeals = this.getAllDeals();
+        if (!allDeals || allDeals.length == 0) {
+            return;
+        }
+
+        var toShow = new Set();
+        if (filtered && filtered.size > 0) {
+            toShow = filtered;
+        } else {
+            for (let i = 0; i < allDeals.length; i++) {
+                const deali = allDeals[i];
+                if (ignored && ignored.has(deali.code)) {
+                    continue;
+                }
+                toShow.add(deali.code);
+            }
+        }
+
+        this.dealsTable.reset();
+        this.dealsTable.setClickableHeader('日期', '代码', '名称', '买卖', '价格', '数量', '手续费', '金额');
+        var finalCost = {cost: 0, earn: 0};
+        toShow.forEach(ds => {
+            if (!ignored || !ignored.has(ds)) {
+                var result = this.addDealsOf(ds);
+                finalCost.cost += result.cost;
+                finalCost.earn += result.earn;
+            }
+        });
+        this.dealsTable.addRow('TOTAL', '', '', '', finalCost.cost.toFixed(2), '', finalCost.earn.toFixed(2), (100 * (finalCost.earn / finalCost.cost)).toFixed(2) + '%');
     }
 
     showDealsTable() {

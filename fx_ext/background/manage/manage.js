@@ -324,7 +324,11 @@ class Manager {
         return earned;
     }
 
-    getCurrentHoldValue(code) {
+    getCurrentHoldValue(code, count = 0) {
+        if (count > 0) {
+            return count * this.klines[code].getLatestKline('101').c;
+        }
+
         var stock = this.stockList.stocks.find(s => s.stock.code == code);
         if (!stock || !stock.stock || !stock.stock.holdCount) {
             return 0;
