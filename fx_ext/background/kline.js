@@ -382,7 +382,7 @@ class KLine {
                 const kl0 = nKlines[i - 1];
                 if (downKlNum < 2) {
                     if (kl.l - kl0.l < 0) {
-                        break;
+                        continue;
                     }
                     if (kl.l - kl0.l > 0) {
                         downKlNum++;

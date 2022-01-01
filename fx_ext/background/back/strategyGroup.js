@@ -223,7 +223,7 @@ class StrategyGroup {
         }
     }
 
-    applyGuardLevel() {
+    applyGuardLevel(allklt = true) {
         for (var id in this.strategies) {
             if (!this.strategies[id].enabled()) {
                 continue;
@@ -233,7 +233,7 @@ class StrategyGroup {
                 if (this.strategies[id].kltype() % 101 == 0) {
                     emjyBack.dailyAlarm.addStock(this.code, this.strategies[id].kltype());
                 } else {
-                    emjyBack.klineAlarms.addStock(this.code, this.strategies[id].kltype());
+                    emjyBack.klineAlarms.addStock(this.code, this.strategies[id].kltype(), allklt);
                 }
             } else if (gl == 'kday') {
                 emjyBack.dailyAlarm.addStock(this.code, this.strategies[id].kltype());

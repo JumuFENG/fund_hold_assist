@@ -122,15 +122,15 @@ class EmjyBack {
         this.normalAccount = new NormalAccount();
         this.collateralAccount = new CollateralAccount();
         this.creditAccount = new CreditAccount();
+        this.trackAccount = new TrackingAccount();
         chrome.storage.local.get('hsj_stocks', item => {
             if (item && item['hsj_stocks']) {
                 this.stockMarket = item['hsj_stocks'];
             }
             this.normalAccount.loadWatchings();
             this.collateralAccount.loadWatchings();
+            this.trackAccount.loadAssets();
         });
-        this.trackAccount = new TrackingAccount();
-        this.trackAccount.loadAssets();
         this.setupQuoteAlarms();
         this.log('EmjyBack initialized!');
     }
@@ -640,20 +640,28 @@ class EmjyBack {
     }
 
     tradeClosed() {
-        this.normalAccount.fillupGuardPrices();
         this.normalAccount.buyFundBeforeClose();
         this.loadDeals();
-        this.normalAccount.save();
+        this.normalAccount.fillupGuardPrices();
         this.collateralAccount.fillupGuardPrices();
-        this.collateralAccount.save();
-        //tradeAnalyzer.save();
         if ((new Date()).getDate() == 2) {
             this.fetchAllStocksMktInfo();
         }
         if (this.marketInfoUpdated) {
             chrome.storage.local.set({'hsj_stocks': this.stockMarket});
         }
-        this.flushLogs();
+        var s101 = new Set();
+        this.dailyAlarm.stocks['101'].forEach(s => s101.add(s));
+        this.dailyAlarm.stocks['15'].forEach(s => s101.add(s));
+        this.klineAlarms.stocks['15'].forEach(s => s101.add(s));
+        this.klineAlarms.stocks['101'].forEach(s => s101.add(s));
+        s101.forEach(s => {this.fetchStockKline(s, '101')});
+        setTimeout(()=> {
+            this.normalAccount.save();
+            this.collateralAccount.save();
+            this.trackAccount.save();
+            this.flushLogs();
+        }, 20000);
     }
 
     getTodayDate(sep = '') {
@@ -673,10 +681,15 @@ class EmjyBack {
         for (var i in colConfig) {
             configs[i] = colConfig[i];
         };
-        chrome.storage.local.get(['ztstocks','ztdels'], item => {
+        var trackConfig = this.trackAccount.exportConfig();
+        for (var i in trackConfig) {
+            configs[i] = trackConfig[i];
+        }
+        chrome.storage.local.get(['ztstocks','ztdels', 'hist_deals'], item => {
             if (item) {
                 configs['ztstocks'] = item['ztstocks'];
                 configs['ztdels'] = item['ztdels'];
+                configs['hist_deals'] = item['hist_deals'];
             }
             var blob = new Blob([JSON.stringify(configs)], {type: 'application/json'});
             this.saveToFile(blob, 'stocks.config.json');
@@ -691,6 +704,7 @@ class EmjyBack {
         };
         this.normalAccount.importConfig(configs);
         this.collateralAccount.importConfig(configs);
+        this.trackAccount.importConfig(configs);
     }
 
     clearStorage() {

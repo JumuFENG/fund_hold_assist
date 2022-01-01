@@ -107,12 +107,26 @@ class TrackingAccount extends NormalAccount {
             return;
         };
         var strategyGroup = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
-        strategyGroup.applyGuardLevel();
+        strategyGroup.applyGuardLevel(false);
         stock.strategies = strategyGroup;
     }
 
     loadAssets() {
-        this.loadStrategies();
+        var watchingStorageKey = this.keyword + '_watchings';
+        chrome.storage.local.get(watchingStorageKey, item => {
+            emjyBack.log('get watching_stocks', JSON.stringify(item));
+            if (item && item[watchingStorageKey]) {
+                item[watchingStorageKey].forEach(s => {
+                    this.addWatchStock(s);
+                    var strStorageKey = this.keyword + '_' + s + '_strategies';
+                    chrome.storage.local.get(strStorageKey, sitem => {
+                        if (sitem && sitem[strStorageKey]) {
+                            this.applyStrategy(s, JSON.parse(sitem[strStorageKey]));
+                        };
+                    });
+                });
+            };
+        });
         chrome.storage.local.get(this.key_deals, item => {
             if (item && item[this.key_deals]) {
                 this.deals = item[this.key_deals];

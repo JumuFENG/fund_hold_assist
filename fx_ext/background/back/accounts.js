@@ -914,6 +914,11 @@ class NormalAccount extends Account {
     }
 
     onPositionsLoaded(positions) {
+        if (!positions) {
+            emjyBack.log('onPositionsLoaded positions is null.');
+            return;
+        }
+
         for (var i = 0; i < positions.length; i++) {
             if (this.wallet && positions[i].Zqdm == this.wallet.fundcode) {
                 this.wallet.name = positions[i].Zqmc;
