@@ -144,6 +144,10 @@ class Manager {
     addZt1Stock(stkzt) {
         var stk = this.zt1stocks.find(s => s.code == stkzt.code);
         if (!stk || (stk.rmvdate !== undefined && stk.rmvdate > stk.ztdate)) {
+            if (stkzt.name.startsWith('N')) {
+                console.log('not add new stocks');
+                return;
+            }
             this.zt1stocks.push(stkzt);
         } else {
             console.log('addZt1Stock existing stock code ', stk.code, 'zt date ', stk.ztdate);

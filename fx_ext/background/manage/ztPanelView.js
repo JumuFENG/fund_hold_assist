@@ -3,6 +3,57 @@
 var startDate = new Date('2021-07-23');
 var endDate = new Date('2021-07-23');
 
+class WencaiQuestClient {
+    constructor(date, cb) {
+        this.url = 'http://iwencai.com/unifiedwap/unified-wap/v2/result/get-robot-data';
+        this.pageLen = 50;
+        this.completCb = cb;
+        this.ztdate = date;
+    }
+
+    getFormData(question, page = 1) {
+        var fd = new FormData();
+        fd.append('question', question);
+        fd.append('perpage', this.pageLen);
+        fd.append('page', page);
+        fd.append('secondary_intent', "stock");
+        fd.append('log_info', "{\"input_type\":\"typewrite\"}");
+        fd.append('source', "Ths_iwencai_Xuangu");
+        fd.append('version', "2.0");
+        fd.append('query_area', "");
+        fd.append('block_list', "");
+        fd.append('add_info', "{\"urp\":{\"scene\":1,\"company\":1,\"business\":1},\"contentType\":\"json\",\"searchInfo\":true}");
+        return fd;
+    }
+
+    getZTPool(page = 1) {
+        var fd = this.getFormData(this.ztdate + "涨跌幅>9.8", page);
+        utils.post(this.url, fd, response => {
+            this.onPostBack(response);
+        });
+    }
+
+    onPostBack(response) {
+        var ztdata = JSON.parse(response).data.answer[0].txt[0].content.components[0].data;
+        if (!this.data || this.data.length == 0) {
+            this.data = ztdata.datas;
+        } else {
+            this.data.push.apply(this.data, ztdata.datas);
+        }
+
+        console.log(JSON.parse(response).data.answer[0]);
+        if (ztdata.datas.length == this.pageLen) {
+            var page = ztdata.meta.page;
+            this.getZTPool(++page);
+        } else {
+            console.log('getZTPool done', this.data.length);
+            if (typeof(this.completCb) === 'function') {
+                this.completCb(this.data);
+            }
+        }
+    }
+}
+
 class ZtTablePage extends RadioAnchorPage {
     constructor(zt, ztStocks) {
         var zttitle = zt > 1 ? zt + '连板' : '首板';
@@ -34,7 +85,7 @@ class ZtTablePage extends RadioAnchorPage {
                 parseFloat(stocki.zsz.toFixed(4)),
                 parseFloat(stocki.ltsz.toFixed(4)),
                 stocki.zbc,
-                parseFloat(stocki.hsl.toFixed(2)),
+                stocki.hsl ? parseFloat(stocki.hsl.toFixed(2)) : '',
                 stocki.price,
                 stocki.ztdate,
                 );
@@ -179,6 +230,10 @@ class ZtPanelPage extends RadioAnchorPage {
 
     getZTPool(date) {
         emjyManager.sendExtensionMessage({command:'mngr.getZTPool', date});
+        var ztclt = new WencaiQuestClient(date, datas => {
+            this.onWencaiZTPoolBack(datas);
+        });
+        ztclt.getZTPool();
     }
 
     archiveZTPool(ztpool) {
@@ -220,6 +275,78 @@ class ZtPanelPage extends RadioAnchorPage {
         };
     }
 
+    getdateFromWencaiKye(data) {
+        var ztdate = '';
+        for (var key in data) {
+            var km = key.match(/\[(\d+)\]/)
+            if (km && km.length == 2) {
+                ztdate = km[1];
+                break;
+            }
+        }
+        return ztdate;
+    }
+
+    onWencaiZTPoolBack(datas) {
+        if (!datas || datas.length == 0) {
+            return;
+        }
+
+        var mdate = this.getdateFromWencaiKye(datas[0]);
+        if (mdate == '') {
+            return;
+        }
+
+        var pool = [];
+        for (let i = 0; i < datas.length; i++) {
+            const wstk = datas[i];
+            if (mdate != this.getdateFromWencaiKye(wstk)) {
+                continue;
+            }
+            if (wstk['最高价:前复权[' + mdate + ']'] != wstk['收盘价:前复权[' + mdate + ']']) {
+                continue;
+            }
+            var stock = {};
+            stock.c = wstk.code;
+            stock.m = wstk["股票代码"].split('.')[1] == 'SZ' ? '0' : '1';
+            stock.n = wstk["股票简称"];
+            stock.p = wstk["最新价"] * 1000;
+            stock.zdp = wstk["涨跌幅:前复权[" + mdate + "]"];
+            //stock.amount = wstk[];
+            stock.ltsz = 0;
+            //stock.tshare = ;
+            //stock.hs = wstk[""]
+            stock.lbc = 1;
+            stock.fbt = '';
+            stock.lbt = '';
+            stock.fund = '';
+            stock.zbc = 0;
+            //stock.hybk = ;
+            stock.zttj = { days: 1, ct: 1 };
+            pool.push(stock);
+        }
+        var ztdate = mdate.slice(0, 4) + "-" + mdate.slice(4, 6) + "-" + mdate.slice(6, 8);
+        this.mergeZTPool({ztdate, pool});
+    }
+
+    mergeZTPool(pool) {
+        console.log(pool);
+        var ep = this.ztpool.findIndex(p => p.ztdate == pool.ztdate);
+        if (ep >= 0) {
+            for (let i = 0; i < pool.pool.length; i++) {
+                const data = pool.pool[i];
+                if (!this.ztpool[ep].pool.find(z => z.c == data.c)) {
+                    this.ztpool[ep].pool.push(data);
+                }
+            }
+        } else {
+            this.ztpool.push(pool);
+        }
+        this.archiveZTPool(this.ztpool);
+        this.refreshZtPool();
+        this.saveZtPool();
+    }
+
     onZTPoolback(ztpool) {
         var ztdate = utils.dateToString(this.gettingDate, '-');
         this.gettingDate.setDate(this.gettingDate.getDate() + 1);
@@ -231,10 +358,7 @@ class ZtPanelPage extends RadioAnchorPage {
             return;
         };
 
-        this.ztpool.push({ztdate, pool: ztpool.data.pool});
-        this.archiveZTPool(this.ztpool);
-        this.refreshZtPool();
-        this.saveZtPool();
+        this.mergeZTPool({ztdate, pool: ztpool.data.pool});
     }
 
     onFileLoaded(files) {

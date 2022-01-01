@@ -223,6 +223,12 @@ class RetroEngine {
         this.initKlines(code, startDate);
     }
 
+    initStrategMaRetro(code, startDate, endDate = null) {
+        this.initRetro(code,
+            {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000},
+             startDate, endDate);
+    }
+
     startRetro() {
         var stock = emjyBack.retroAccount.stocks.find(s => s.code == this.code);
         if (!stock || !stock.klines || !stock.klines.klines) {

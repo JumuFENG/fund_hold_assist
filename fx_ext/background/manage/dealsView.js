@@ -211,8 +211,12 @@ class DealsPanelPage extends RadioAnchorPage {
             anchor.target = '_blank';
 
             var fee = -(-deali.fee - deali.feeGh - deali.feeYh);
-            totalFee += fee;
-            fee  = fee.toFixed(2);
+            if (!isNaN(fee)) {
+                totalFee += fee;
+                fee  = fee.toFixed(2);
+            } else {
+                fee = 0;
+            }
             var amount = deali.price * deali.count;
             if (deali.tradeType == 'B') {
                 amount = -(-amount - fee);
