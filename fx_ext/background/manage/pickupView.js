@@ -86,6 +86,13 @@ class PickupPanelPage extends RadioAnchorPage {
         }
         this.container.appendChild(addBtn);
 
+        var rankBtn = document.createElement('button');
+        rankBtn.textContent = '人气排行';
+        rankBtn.onclick = e => {
+            this.getRanks();
+        }
+        this.container.appendChild(rankBtn);
+
         if (emjyManager.zt1stocks && emjyManager.zt1stocks.length > 0) {
             this.showSelectedTable();
         }
@@ -323,6 +330,11 @@ class PickupPanelPage extends RadioAnchorPage {
         }
     }
 
+    getRanks() {
+        var rkclt = new StockRankClient();
+        rkclt.getRanks();
+    }
+
     save() {
         var zt1stocks = [];
         var ztdels = emjyManager.delstocks;
@@ -341,5 +353,86 @@ class PickupPanelPage extends RadioAnchorPage {
         emjyManager.zt1stocks = zt1stocks;
         emjyManager.delstocks = ztdels;
         this.showSelectedTable();
+    }
+}
+
+class StockRankClient {
+    constructor(limit = 100) {
+        this.limit = limit;
+    }
+
+    getRanks() {
+        this.GetFromDabanke();
+        this.GetFromWencai();
+    }
+
+    GetFromDabanke() {
+        var url = 'https://www.dabanke.com/gupiaorenqipaihangbang.html';
+        utils.get(url, response => {
+            var parser = new DOMParser();
+            var bodytext = response.match(/<tbody>[\s\S]*?<\/tbody/)[0].replace(/\s{2,}/g," ");
+            //var htmlDoc = parser.parseFromString('<table>' + bodytext + '</table>', 'text/xml');
+            var reg = new RegExp(/<tr>(.+?)<\/tr>/, 'g');
+            var matches = bodytext.matchAll(reg);
+            //var allrows = bodytext.match(/<tr>(.*)<\/tr>/)//htmlDoc.querySelectorAll('tr');
+            var rank = [];
+            for (const m of matches) {
+                var row = m[1].match(/<td.+?>\s(\d+)\s<\/td>\s<td.+?<\/td>\s<td.+?>\s(\d+)\s<\/td>/);
+                if (rank.length >= 100) {
+                    break;
+                }
+                if (row[2] - this.limit > 0) {
+                    continue;
+                }
+                rank.push({code: row[1], rank: row[2]});
+            }
+            this.mergeRanks(rank);
+        });
+    }
+
+    mergeRanks(rank) {
+        if (!rank || rank.length == 0) {
+            return;
+        }
+
+        if (!this.ranks || this.ranks.length == 0) {
+            this.ranks = rank;
+            return;
+        }
+
+        for (let i = 0; i < this.ranks.length; i++) {
+            var code = this.ranks[i].code;
+            if (!rank.find(r => r.code == code)) {
+                this.ranks.splice(i, 1);
+                i--;
+            }
+        }
+        console.log(this.ranks);
+    }
+
+    GetFromWencai() {
+        var wencaiClt = new WencaiQuestClient('人气个股排名', datas => {
+            this.onWencaiRankBack(datas);
+        }, 100);
+        wencaiClt.getWencaiNext();
+    }
+
+    onWencaiRankBack(datas) {
+        if (!datas || datas.length == 0) {
+            return;
+        }
+
+        var rank = [];
+        for (let i = 0; i < datas.length; i++) {
+            const d = datas[i];
+            for (const key in d) {
+                if (key.includes('个股热度排名')) {
+                    rank.push({code: d.code, rank: d[key].split('/')[0]});
+                    break;
+                }
+            }
+        }
+        console.log(rank);
+        this.mergeRanks(rank);
     }
 }

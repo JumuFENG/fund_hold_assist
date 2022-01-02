@@ -23,7 +23,13 @@ class DealsPanelPage extends RadioAnchorPage {
             this.showShortTerms();
         }
         this.container.appendChild(btnShowShorts);
-        this.dealsTable = new SortableTable();
+        var btnTest = document.createElement('button');
+        btnTest.textContent = '测试';
+        btnTest.onclick = e => {
+            this.countMaxAmount();
+        }
+        this.container.appendChild(btnTest);
+        this.dealsTable = new SortableTable(1, 0, false);
         this.container.appendChild(this.dealsTable.container);
         this.showDealsTable();
         this.ignored = new Set(['511880', '511010', '161129', '162411', '159994','160416',
@@ -121,7 +127,7 @@ class DealsPanelPage extends RadioAnchorPage {
         } else {
             this.dealsTable.addRow('total', '', '', resCount, totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), '-');
         }
-        return {cost: totalCost, earn: totalEarned};
+        return {cost: totalCost, earn: totalEarned, fee: totalFee};
     }
 
     showDeals(ignored, filtered) {
@@ -139,21 +145,33 @@ class DealsPanelPage extends RadioAnchorPage {
                 if (ignored && ignored.has(deali.code)) {
                     continue;
                 }
+                if (emjyManager.stockMarket[deali.code].name.includes('银行')) {
+                    continue;
+                }
                 toShow.add(deali.code);
             }
         }
 
         this.dealsTable.reset();
         this.dealsTable.setClickableHeader('日期', '代码', '名称', '买卖', '价格', '数量', '手续费', '金额');
-        var finalCost = {cost: 0, earn: 0};
+        var collections = [];
         toShow.forEach(ds => {
             if (!ignored || !ignored.has(ds)) {
                 var result = this.addDealsOf(ds);
-                finalCost.cost += result.cost;
-                finalCost.earn += result.earn;
+                result.code = ds;
+                collections.push(result);
             }
         });
-        this.dealsTable.addRow('TOTAL', '', '', '', finalCost.cost.toFixed(2), '', finalCost.earn.toFixed(2), (100 * (finalCost.earn / finalCost.cost)).toFixed(2) + '%');
+        var totalCost = 0, totalEarned = 0, totalFee = 0;
+        collections.sort((a, b) => {return a.earn - b.earn > 0;});
+        for (let i = 0; i < collections.length; i++) {
+            const collecti = collections[i];
+            totalCost += collecti.cost;
+            totalEarned += collecti.earn;
+            totalFee += collecti.fee;
+            this.dealsTable.addRow(i, collecti.code, emjyManager.stockMarket[collecti.code].name, '', collecti.cost.toFixed(2), collecti.fee.toFixed(2), collecti.earn.toFixed(2), (100 * (collecti.earn / collecti.cost)).toFixed(2) + '%');
+        }
+        this.dealsTable.addRow('TOTAL', '', '', '', totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), (100 * (totalEarned / totalCost)).toFixed(2) + '%');
     }
 
     showDealsTable() {
@@ -286,5 +304,24 @@ class DealsPanelPage extends RadioAnchorPage {
         } else {
             this.dealsTable.addRow('total', '', '', resCount, totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), '-');
         }
+    }
+
+    countMaxAmount() {
+        var allDeals = this.getAllDeals();
+        var amount = 0;
+        var maxMt = 0;
+        for (let i = 0; i < allDeals.length; i++) {
+            const deali = allDeals[i];
+            if (deali.tradeType == 'B') {
+                amount += (deali.count * deali.price);
+            } else {
+                amount -= (deali.count * deali.price);
+            }
+            if (amount > maxMt) {
+                maxMt = amount;
+            }
+        }
+        console.log(maxMt);
+        return maxMt;
     }
 }

@@ -1,7 +1,25 @@
 class Utils {
+    get(url, cb) {
+        var httpRequest = new XMLHttpRequest();//第一步：建立所需的对象
+        httpRequest.open('GET', url, true);//第二步：打开连接
+        httpRequest.send();//第三步：发送请求 
+        /**
+         * 获取数据后的处理程序
+         */
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                if (typeof(cb) === 'function') {
+                    cb(httpRequest.responseText);
+                } else {
+                    eval(httpRequest.responseText);
+                }
+            }
+        }
+    }
+
     post(url, form, cb) {
         var httpRequest = new XMLHttpRequest();//第一步：建立所需的对象
-        httpRequest.open('POST', url, true);//第二步：打开连接 
+        httpRequest.open('POST', url, true);//第二步：打开连接
         httpRequest.send(form);//第三步：发送请求
         /**
          * 获取数据后的处理程序
@@ -220,12 +238,13 @@ class RadioAnchorBar {
 }
 
 class SortableTable {
-    constructor(hrows = 1, erows = 0) {
+    constructor(hrows = 1, erows = 0, sortable = true) {
         this.container = document.createElement('div');
         this.headRows = hrows;
         this.endRows = erows;
         this.colOffset = 0;
         this.table = null;
+        this.sortable = sortable;
     }
 
     reset() {
@@ -304,7 +323,7 @@ class SortableTable {
     }
 
     sortTable(n) {
-        if (n < 1) {
+        if (n < 1 || !this.sortable) {
             return;
         };
 

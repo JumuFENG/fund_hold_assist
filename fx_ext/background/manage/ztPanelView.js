@@ -4,16 +4,17 @@ var startDate = new Date('2021-07-23');
 var endDate = new Date('2021-07-23');
 
 class WencaiQuestClient {
-    constructor(date, cb) {
+    constructor(question, cb, limit = 0) {
         this.url = 'http://iwencai.com/unifiedwap/unified-wap/v2/result/get-robot-data';
         this.pageLen = 50;
+        this.limit = limit;
         this.completCb = cb;
-        this.ztdate = date;
+        this.question = question;
     }
 
-    getFormData(question, page = 1) {
+    getFormData(page = 1) {
         var fd = new FormData();
-        fd.append('question', question);
+        fd.append('question', this.question);
         fd.append('perpage', this.pageLen);
         fd.append('page', page);
         fd.append('secondary_intent', "stock");
@@ -26,8 +27,8 @@ class WencaiQuestClient {
         return fd;
     }
 
-    getZTPool(page = 1) {
-        var fd = this.getFormData(this.ztdate + "涨跌幅>9.8", page);
+    getWencaiNext(page = 1) {
+        var fd = this.getFormData(page);
         utils.post(this.url, fd, response => {
             this.onPostBack(response);
         });
@@ -42,11 +43,11 @@ class WencaiQuestClient {
         }
 
         console.log(JSON.parse(response).data.answer[0]);
-        if (ztdata.datas.length == this.pageLen) {
+        if (ztdata.datas.length == this.pageLen && (this.limit <= 0 || this.data.length < this.limit)) {
             var page = ztdata.meta.page;
-            this.getZTPool(++page);
+            this.getWencaiNext(++page);
         } else {
-            console.log('getZTPool done', this.data.length);
+            console.log('wencai question done!', this.data.length);
             if (typeof(this.completCb) === 'function') {
                 this.completCb(this.data);
             }
@@ -230,10 +231,10 @@ class ZtPanelPage extends RadioAnchorPage {
 
     getZTPool(date) {
         emjyManager.sendExtensionMessage({command:'mngr.getZTPool', date});
-        var ztclt = new WencaiQuestClient(date, datas => {
+        var ztclt = new WencaiQuestClient(date + "涨跌幅>9.8", datas => {
             this.onWencaiZTPoolBack(datas);
         });
-        ztclt.getZTPool();
+        ztclt.getWencaiNext();
     }
 
     archiveZTPool(ztpool) {
@@ -275,7 +276,7 @@ class ZtPanelPage extends RadioAnchorPage {
         };
     }
 
-    getdateFromWencaiKye(data) {
+    getdateFromWencaiKey(data) {
         var ztdate = '';
         for (var key in data) {
             var km = key.match(/\[(\d+)\]/)
@@ -292,7 +293,7 @@ class ZtPanelPage extends RadioAnchorPage {
             return;
         }
 
-        var mdate = this.getdateFromWencaiKye(datas[0]);
+        var mdate = this.getdateFromWencaiKey(datas[0]);
         if (mdate == '') {
             return;
         }
@@ -300,7 +301,7 @@ class ZtPanelPage extends RadioAnchorPage {
         var pool = [];
         for (let i = 0; i < datas.length; i++) {
             const wstk = datas[i];
-            if (mdate != this.getdateFromWencaiKye(wstk)) {
+            if (mdate != this.getdateFromWencaiKey(wstk)) {
                 continue;
             }
             if (wstk['最高价:前复权[' + mdate + ']'] != wstk['收盘价:前复权[' + mdate + ']']) {
