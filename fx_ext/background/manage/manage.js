@@ -413,6 +413,21 @@ class Manager {
         return emStockUrl + (code.startsWith('00') ? 'sz' : 'sh') + code + emStockUrlTail;
     }
 
+    stockAnchor(code, text) {
+        var anchor = document.createElement('a');
+        if (text) {
+            anchor.textContent = text;
+        } else {
+            anchor.textContent = code;
+            if (this.stockMarket && this.stockMarket[code]) {
+                anchor.textContent = this.stockMarket[code].name;
+            }
+        }
+        anchor.href = this.stockEmLink(code);
+        anchor.target = '_blank';
+        return anchor;
+    }
+
     stockAccountFrom(code) {
         if (this.rzrqStocks && this.rzrqStocks.has(code)) {
             return 'collat';

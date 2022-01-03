@@ -12,12 +12,7 @@ class StockView {
         this.divTitle = document.createElement('div');
         var titleText = stock.name + '(' + stock.code + ') '+ emjyManager.accountNames[stock.account];
         this.divTitle.appendChild(document.createTextNode(titleText));
-        var anchor = document.createElement('a');
-        anchor.textContent = '行情';
-        if (stock.market !== undefined) {
-            anchor.href = emStockUrl + (stock.market == 'SZ' ? 'sz' : 'sh') + stock.code + emStockUrlTail;
-        };
-        anchor.target = '_blank';
+        var anchor = demjyManager.stockAnchor(stocki.code, '行情');
         this.divTitle.appendChild(anchor);
         
         if (stock.holdCount == 0) {

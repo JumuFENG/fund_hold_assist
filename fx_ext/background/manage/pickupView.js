@@ -137,15 +137,7 @@ class PickupPanelPage extends RadioAnchorPage {
         this.selectedTable.setClickableHeader('', '代码', '名称', '日期', '上板强度', '放量程度', '股价区间', '低点日', '高点日', '删除日');
         for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
             var stocki = emjyManager.zt1stocks[i];
-            var anchor = document.createElement('a');
-            anchor.textContent = stocki.name;
-            if (stocki.m !== undefined) {
-                anchor.href = emStockUrl + (stocki.m == '0' ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
-            } else {
-                anchor.href = emStockUrl + (stocki.code.startsWith('00') ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
-            }
-            anchor.target = '_blank';
-
+            var anchor = emjyManager.stockAnchor(stocki.code);
             var vol = document.createElement('select');
             for (var v in stockVolScales) {
                 var opt = document.createElement('option');
@@ -303,15 +295,7 @@ class PickupPanelPage extends RadioAnchorPage {
                 }
             };
 
-            var anchor = document.createElement('a');
-            anchor.textContent = stocki.name;
-            if (stocki.m !== undefined) {
-                anchor.href = emStockUrl + (stocki.m == '0' ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
-            } else {
-                anchor.href = emStockUrl + (stocki.code.startsWith('00') ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
-            }
-            anchor.target = '_blank';
-
+            var anchor = emjyManager.stockAnchor(stocki.code);
             var vscaleDiv = document.createElement('div');
             vscaleDiv.textContent = stockVolScales[stocki.vscale];
             var prngDiv = document.createElement('div');

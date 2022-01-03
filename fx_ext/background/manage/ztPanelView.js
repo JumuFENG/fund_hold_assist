@@ -73,14 +73,7 @@ class ZtTablePage extends RadioAnchorPage {
             if (zt == 1) {
                 emjyManager.addZt1Stock(stocki);
             }
-            var anchor = document.createElement('a');
-            anchor.textContent = stocki.name + '(' + stocki.code + ')';
-            if (stocki.m !== undefined) {
-                anchor.href = emStockUrl + (stocki.m == '0' ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
-            } else {
-                anchor.href = emStockUrl + (stocki.code.startsWith('00') ? 'sz' : 'sh') + stocki.code + emStockUrlTail;
-            }
-            anchor.target = '_blank';
+            var anchor = emjyManager.stockAnchor(stocki.code, stocki.name + '(' + stocki.code + ')');
             this.ztTable.addRow(
                 i + 1, anchor,
                 parseFloat(stocki.zsz.toFixed(4)),

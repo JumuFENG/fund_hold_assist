@@ -26,7 +26,9 @@ class DealsPanelPage extends RadioAnchorPage {
         var btnTest = document.createElement('button');
         btnTest.textContent = '测试';
         btnTest.onclick = e => {
-            this.countMaxAmount();
+            //this.countMaxAmount();
+            //this.showDealsWithouYdb();
+            this.bsStatistics();
         }
         this.container.appendChild(btnTest);
         this.dealsTable = new SortableTable(1, 0, false);
@@ -73,14 +75,7 @@ class DealsPanelPage extends RadioAnchorPage {
         var deals = allDeals.filter(d => d.code == code);
         for (let i = 0; i < deals.length; i++) {
             const deali = deals[i];
-            var anchor = document.createElement('a');
-            anchor.textContent = deali.code;
-            if (emjyManager.stockMarket && emjyManager.stockMarket[deali.code]) {
-                anchor.textContent = emjyManager.stockMarket[deali.code].name;
-            }
-            anchor.href = emjyManager.stockEmLink(deali.code);
-            anchor.target = '_blank';
-
+            var anchor = emjyManager.stockAnchor(deali.code);
             var fee = -(-deali.fee - deali.feeGh - deali.feeYh);
             if (isNaN(fee)) {
                 fee = 0;
@@ -145,9 +140,6 @@ class DealsPanelPage extends RadioAnchorPage {
                 if (ignored && ignored.has(deali.code)) {
                     continue;
                 }
-                if (emjyManager.stockMarket[deali.code].name.includes('银行')) {
-                    continue;
-                }
                 toShow.add(deali.code);
             }
         }
@@ -176,6 +168,10 @@ class DealsPanelPage extends RadioAnchorPage {
 
     showDealsTable() {
         this.showDeals(this.ignored);
+    }
+
+    showDealsWithouYdb() {
+        this.showDeals(new Set(bankStocks));
     }
 
     showSingleStock(code) {
@@ -241,14 +237,8 @@ class DealsPanelPage extends RadioAnchorPage {
             if (shown1stRound.has(deali.code)) {
                 continue;
             }
-            var anchor = document.createElement('a');
-            anchor.textContent = deali.code;
-            if (emjyManager.stockMarket && emjyManager.stockMarket[deali.code]) {
-                anchor.textContent = emjyManager.stockMarket[deali.code].name;
-            }
-            anchor.href = emjyManager.stockEmLink(deali.code);
-            anchor.target = '_blank';
 
+            var anchor = emjyManager.stockAnchor(deali.code);
             var fee = -(-deali.fee - deali.feeGh - deali.feeYh);
             if (!isNaN(fee)) {
                 totalFee += fee;
@@ -323,5 +313,98 @@ class DealsPanelPage extends RadioAnchorPage {
         }
         console.log(maxMt);
         return maxMt;
+    }
+
+    bsStatistics() {
+        var allDeals = this.getAllDeals();
+        var codes = new Set();
+        for (let i = 0; i < allDeals.length; i++) {
+            codes.add((allDeals[i].code));
+        }
+
+        var dealsStats = [];
+        codes.forEach(c => {
+            var kline = emjyManager.klines[c].getKline('101');
+            var bi = -1;
+            console.log(c);
+            console.log(kline.length);
+            while (true) {
+                bi = kline.findIndex((k, i)=>{return i > bi && k.bss18 == 'b';});
+                if (bi == -1) {
+                    break;
+                }
+                var si = kline.findIndex((k, i)=>{return i > bi && k.bss18 == 's';});
+                if (si == -1) {
+                    break;
+                }
+                var bprc = kline[bi].c;
+                var sprc = kline[si].c;
+                var earn = 100 * (sprc - bprc) / bprc;
+                var bma = kline[bi].ma18;
+                var mkl = kline[bi];
+                for (let j = bi; j >= 0; j--) {
+                    const kl = kline[j];
+                    if (kl.bss18 == 's') {
+                        break;
+                    }
+                    if (kl.l - mkl.l < 0) {
+                        mkl = kl;
+                    }
+                }
+                var time = kline[bi].time;
+                var mma = mkl.ma18;
+                var mprc = mkl.l;
+                var moff = ((mma - mprc) * 100 / mma).toFixed(2);
+                var boff = ((bprc - bma) * 100 / bma).toFixed(2);
+                var bct = ((bprc - mprc) * 100 / bprc).toFixed(2);
+                dealsStats.push({code: c, time, mma, mprc, moff, bma, bprc, boff, bct, sprc, earn});
+            }
+        });
+        console.log(dealsStats);
+        if (!this.statsTable) {
+            this.statsTable = new SortableTable(1,1);
+            this.container.appendChild(this.statsTable.container);
+        }
+        this.statsTable.reset();
+        this.statsTable.setClickableHeader('', 'code', 'name', '前低','前低ma','前偏', '时间','买入','买入ma','买偏', '止损','卖出','收益');
+        // var getAverEarned = function(l, r) {
+        //     var totalEarn = 0;
+        //     var count = 0;
+        //     for (let i = 0; i < dealsStats.length; i++) {
+        //         const statsi = dealsStats[i];
+        //         if (statsi.bct < l || statsi.bct > r) {
+        //             continue;
+        //         }
+        //         totalEarn += statsi.earn;
+        //         count++;
+        //     }
+        //     if (count == 0) {
+        //         return {aver: 0, count};
+        //     }
+        //     return {aver: totalEarn/count, count};
+        // }
+
+        // var d = 10;
+        // for (let j = 4; j < 30; j+=d) {
+        //     var rt = getAverEarned(j, j + d);
+        //     this.statsTable.addRow(j, '(' + j + ',' + (j + d) +']', rt.count, rt.aver.toFixed(4));
+        // }
+
+        var totalEarn = 0;
+        var count = 0;
+        for (let i = 0; i < dealsStats.length; i++) {
+            const statsi = dealsStats[i];
+            if (statsi.bct > 24 || statsi.bct < 14) {
+                continue;
+            }
+            totalEarn += statsi.earn;
+            this.statsTable.addRow(
+                i, statsi.code, emjyManager.stockAnchor(statsi.code),
+                statsi.mprc, statsi.mma, statsi.moff, statsi.time,
+                statsi.bprc, statsi.bma, statsi.boff, statsi.bct, 
+                statsi.sprc, statsi.earn.toFixed(2));
+            count++;
+        }
+        this.statsTable.addRow(count, '', '', '', '','','','','','','','',(totalEarn/count).toFixed(4))
     }
 }
