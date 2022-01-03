@@ -81,6 +81,7 @@ class EmjyBack {
         this.dailyAlarm = null;
         this.quoteWorker = null;
         this.manager = null;
+        this.klines = {};
     }
 
     log(...args) {
@@ -543,12 +544,36 @@ class EmjyBack {
         this.trackAccount.updateStockRtKline(snapshot);
     }
 
+    isTradeTime() {
+        var now = new Date();
+        if (now > new Date(now.toDateString() + ' 9:30') && now < new Date(now.toDateString() + ' 15:00')) {
+            return true;
+        }
+        return false;
+    }
+
+    loadKlines(code, cb) {
+        if (!this.klines[code]) {
+            this.klines[code] = new KLine(code);
+            this.klines[code].loadSaved(cb);
+        } else {
+            if (typeof(cb) === 'function') {
+                cb();
+            }
+        }
+    }
+
     updateStockRtKline(message) {
-        this.normalAccount.updateStockRtKline(message);
-        this.collateralAccount.updateStockRtKline(message);
-        this.trackAccount.updateStockRtKline(message);
+        var code = message.kline.data.code;
+        var updatedKlt = this.klines[code].updateRtKline(message);
+        if (!this.isTradeTime()) {
+            return;
+        }
+        this.normalAccount.updateStockRtKline(code, updatedKlt);
+        this.collateralAccount.updateStockRtKline(code, updatedKlt);
+        this.trackAccount.updateStockRtKline(code, updatedKlt);
         if (this.retroAccount) {
-            this.retroAccount.updateStockRtKline(message);
+            this.retroAccount.updateStockRtKline(code, updatedKlt);
         }
     }
 
@@ -660,6 +685,7 @@ class EmjyBack {
             this.normalAccount.save();
             this.collateralAccount.save();
             this.trackAccount.save();
+            this.klines.forEach(k => k.save());
             this.flushLogs();
         }, 20000);
     }
@@ -720,11 +746,11 @@ class EmjyBack {
     listAllBuySellPrice() {
         for (var i = 0; i < this.normalAccount.stocks.length; i++) {
             var stocki = this.normalAccount.stocks[i];
-            tradeAnalyzer.listAllBuySellPrice(stocki.klines.klines, stocki.code, stocki.name);
+            tradeAnalyzer.listAllBuySellPrice(emjyBack.klines[stocki.code].klines, stocki.code, stocki.name);
         }
         for (var i = 0; i < this.collateralAccount.stocks.length; i++) {
             var stocki = this.collateralAccount.stocks[i];
-            tradeAnalyzer.listAllBuySellPrice(stocki.klines.klines, stocki.code, stocki.name);
+            tradeAnalyzer.listAllBuySellPrice(emjyBack.klines[stocki.code].klines, stocki.code, stocki.name);
         }
     }
 

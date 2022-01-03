@@ -401,7 +401,7 @@ class StrategyGroup {
                 count = this.getBuyCount(price);
             }
             var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
-            emjyBack.log('checkStrategies buy match', this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy));
+            emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy));
             emjyBack.tryBuyStock(this.code, price, count, account, bd => {
                 this.addBuyDetail(bd);
             });
@@ -416,7 +416,7 @@ class StrategyGroup {
             var count = this.availableCount();
             var countAll = this.totalCount();
             if (count > 0) {
-                emjyBack.log('checkStrategies sell match', this.code, 'sell count:', count, 'price', price, JSON.stringify(curStrategy));
+                emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', price, JSON.stringify(curStrategy));
                 emjyBack.trySellStock(this.code, price, count, this.account);
                 if (this.buydetail) {
                     this.sellDetail(count);
@@ -451,7 +451,7 @@ class StrategyGroup {
         this.save();
     }
 
-    checkKlines(klines, updatedKlt) {
+    checkKlines(updatedKlt) {
         for (var id in this.strategies) {
             var curStrategy = this.strategies[id];
             if (!curStrategy.enabled()) {
@@ -461,7 +461,7 @@ class StrategyGroup {
                 continue;
             }
 
-            var matchResult = curStrategy.checkKlines(klines, updatedKlt, this.buydetail);
+            var matchResult = curStrategy.checkKlines(emjyBack.klines[this.code], updatedKlt, this.buydetail);
             if (matchResult && matchResult.match) {
                 this.doTrade(id, matchResult);
                 return;
@@ -473,7 +473,7 @@ class StrategyGroup {
                 if (curStrategy.isBuyStrategy()) {
                     var count = this.count0;
                     if (count === undefined || count == 0) {
-                        count = this.getBuyCount(klines.getLatestKline(curStrategy.kltype()));
+                        count = this.getBuyCount(emjyBack.klines[this.code].getLatestKline(curStrategy.kltype()));
                     }
                     this.doTrade(id, {price: 0, count});
                 } else {

@@ -188,20 +188,17 @@ class RetroEngine {
     }
 
     initKlines(code, startDate) {
-        var stock = emjyBack.retroAccount.stocks.find(s => s.code == code);
-        if (stock) {
-            stock.loadKlines(() => {
-                if (!stock.klines.klines) {
-                    emjyBack.fetchStockKline(code, '101', startDate);
-                    return;
-                }
-                var dKline = stock.klines.klines['101'];
-                if (!dKline || dKline[0].time > startDate) {
-                    stock.klines.klines['101'] = [];
-                    emjyBack.fetchStockKline(code, '101', startDate);
-                }
-            });
-        }
+        emjyBack.loadKlines(code,() => {
+            if (!emjyBack.klines[code].klines) {
+                emjyBack.fetchStockKline(code, '101', startDate);
+                return;
+            }
+            var dKline = emjyBack.klines[code].klines['101'];
+            if (!dKline || dKline[0].time > startDate) {
+                emjyBack.klines[code].klines['101'] = [];
+                emjyBack.fetchStockKline(code, '101', startDate);
+            }
+        });
     }
 
     clearRetroDeals() {
@@ -231,11 +228,16 @@ class RetroEngine {
 
     startRetro() {
         var stock = emjyBack.retroAccount.stocks.find(s => s.code == this.code);
-        if (!stock || !stock.klines || !stock.klines.klines) {
+        if (!stock) {
             console.log('stock not exists')
             return;
         }
-        var dKline = stock.klines.klines['101'];
+        if (!emjyBack.klines[this.code] || !emjyBack.klines[this.code].klines) {
+            console.log('stock klines not find!');
+            return;
+        }
+
+        var dKline = emjyBack.klines[this.code].klines['101'];
 
         //'000858'
         var startIdx = dKline.findIndex(k => k.time >= this.startDate);
@@ -247,7 +249,7 @@ class RetroEngine {
         for (var i = 0; i < resKline.length; i++) {
             dKline.push(resKline[i]);
             emjyBack.retroAccount.tradeTime = resKline[i].time;
-            stock.strategies.checkKlines(stock.klines, ['101']);
+            stock.strategies.checkKlines(['101']);
         }
     }
 }

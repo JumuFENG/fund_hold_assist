@@ -407,7 +407,7 @@ class Manager {
     }
 
     stockEmLink(code) {
-        if (this.stockMarket[code]) {
+        if (this.stockMarket && this.stockMarket[code]) {
             return emStockUrl + (this.stockMarket[code].mkt == '0' ? 'sz' : 'sh') + code + emStockUrlTail;
         }
         return emStockUrl + (code.startsWith('00') ? 'sz' : 'sh') + code + emStockUrlTail;

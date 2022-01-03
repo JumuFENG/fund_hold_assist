@@ -12,7 +12,7 @@ class StockView {
         this.divTitle = document.createElement('div');
         var titleText = stock.name + '(' + stock.code + ') '+ emjyManager.accountNames[stock.account];
         this.divTitle.appendChild(document.createTextNode(titleText));
-        var anchor = demjyManager.stockAnchor(stocki.code, '行情');
+        var anchor = emjyManager.stockAnchor(stock.code, '行情');
         this.divTitle.appendChild(anchor);
         
         if (stock.holdCount == 0) {

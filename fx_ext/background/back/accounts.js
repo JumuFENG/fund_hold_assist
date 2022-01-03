@@ -562,7 +562,6 @@ class NormalAccount extends Account {
 
     loadStrategies() {
         this.stocks.forEach(s => {
-            s.loadKlines();
             var strStorageKey = this.keyword + '_' + s.code + '_strategies';
             chrome.storage.local.get(strStorageKey, item => {
                 if (item && item[strStorageKey]) {
@@ -624,14 +623,14 @@ class NormalAccount extends Account {
         }
     }
 
-    updateStockRtKline(message) {
-        if (!this.stocks || !message.kline.data) {
+    updateStockRtKline(code, updatedKlt) {
+        if (!this.stocks) {
             return;
         };
 
-        var stock = this.stocks.find((s) => { return s.code == message.kline.data.code});
+        var stock = this.stocks.find((s) => { return s.code == code});
         if (stock) {
-            stock.updateRtKline(message);
+            stock.updateRtKline(updatedKlt);
         };
     }
 
@@ -733,6 +732,7 @@ class NormalAccount extends Account {
     }
 
     addWatchStock(code, str) {
+        emjyBack.loadKlines(code);
         var stock = this.stocks.find(s => {return s.code == code;});
         if (stock) {
             return;
@@ -771,7 +771,6 @@ class NormalAccount extends Account {
             if (s.strategies) {
                 stock_watching.push(s.code);
             };
-            s.saveKlines();
             if (s.strategies) {
                 s.strategies.save();
             };
@@ -840,8 +839,8 @@ class NormalAccount extends Account {
 
     fillupGuardPrices() {
         this.stocks.forEach(stock => {
-            if (stock.klines && stock.strategies) {
-                stock.strategies.applyKlines(stock.klines.klines);
+            if (emjyBack[stock.code].klines && stock.strategies) {
+                stock.strategies.applyKlines(emjyBack[stock.code].klines.klines);
             }
         });
     }
