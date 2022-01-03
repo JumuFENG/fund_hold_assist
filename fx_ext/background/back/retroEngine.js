@@ -216,13 +216,17 @@ class RetroEngine {
         if (!emjyBack.retroAccount) {
             emjyBack.setupRetroAccount();
         }
-        emjyBack.retroAccount.addWatchStock(code, str);
+        if (emjyBack.retroAccount.stocks.find(s=>s.code == code)) {
+            emjyBack.retroAccount.applyStrategy(code, str);
+        } else {
+            emjyBack.retroAccount.addWatchStock(code, str);
+        }
         this.initKlines(code, startDate);
     }
 
     initStrategMaRetro(code, startDate, endDate = null) {
         this.initRetro(code,
-            {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000},
+            {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":40000},
              startDate, endDate);
     }
 

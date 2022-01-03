@@ -161,7 +161,7 @@ class DealsPanelPage extends RadioAnchorPage {
             totalCost += collecti.cost;
             totalEarned += collecti.earn;
             totalFee += collecti.fee;
-            this.dealsTable.addRow(i, collecti.code, emjyManager.stockMarket[collecti.code].name, '', collecti.cost.toFixed(2), collecti.fee.toFixed(2), collecti.earn.toFixed(2), (100 * (collecti.earn / collecti.cost)).toFixed(2) + '%');
+            this.dealsTable.addRow(i, collecti.code, emjyManager.stockAnchor(collecti.code), '', collecti.cost.toFixed(2), collecti.fee.toFixed(2), collecti.earn.toFixed(2), (100 * (collecti.earn / collecti.cost)).toFixed(2) + '%');
         }
         this.dealsTable.addRow('TOTAL', '', '', '', totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), (100 * (totalEarned / totalCost)).toFixed(2) + '%');
     }
@@ -326,8 +326,6 @@ class DealsPanelPage extends RadioAnchorPage {
         codes.forEach(c => {
             var kline = emjyManager.klines[c].getKline('101');
             var bi = -1;
-            console.log(c);
-            console.log(kline.length);
             while (true) {
                 bi = kline.findIndex((k, i)=>{return i > bi && k.bss18 == 'b';});
                 if (bi == -1) {

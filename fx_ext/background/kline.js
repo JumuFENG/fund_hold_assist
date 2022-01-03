@@ -414,6 +414,29 @@ class KLine {
         return 0;
     }
 
+    getLowestInWaiting(kltype) {
+        if (!this.klines || !this.klines[kltype]) {
+            console.log('no klins data for kltype', kltype);
+            return 0;
+        }
+
+        var nKlines = this.klines[kltype];
+        if (nKlines && nKlines.length > 0) {
+            var low = nKlines[nKlines.length - 1].l;
+            for (let i = nKlines.length - 1; i > 0; i--) {
+                const kl = nKlines[i];
+                if (kl.bss18 == 's') {
+                    break;
+                }
+                if (kl.l - low < 0) {
+                    low = kl.l;
+                }
+            }
+            return low;
+        }
+        return 0;
+    }
+
     getVolScale(kltype, time, n) {
         // get v scale for time based on mvol(n)
         var kline = this.klines[kltype];
