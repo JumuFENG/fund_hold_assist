@@ -323,8 +323,9 @@ class DealsPanelPage extends RadioAnchorPage {
         }
 
         var dealsStats = [];
+        var kltype = '60';
         codes.forEach(c => {
-            var kline = emjyManager.klines[c].getKline('101');
+            var kline = emjyManager.klines[c].getKline(kltype);
             var bi = -1;
             while (true) {
                 bi = kline.findIndex((k, i)=>{return i > bi && k.bss18 == 'b';});
@@ -382,8 +383,8 @@ class DealsPanelPage extends RadioAnchorPage {
         //     return {aver: totalEarn/count, count};
         // }
 
-        // var d = 10;
-        // for (let j = 4; j < 30; j+=d) {
+        // var d = 1;
+        // for (let j = 0; j < 15; j+=d) {
         //     var rt = getAverEarned(j, j + d);
         //     this.statsTable.addRow(j, '(' + j + ',' + (j + d) +']', rt.count, rt.aver.toFixed(4));
         // }
@@ -392,7 +393,7 @@ class DealsPanelPage extends RadioAnchorPage {
         var count = 0;
         for (let i = 0; i < dealsStats.length; i++) {
             const statsi = dealsStats[i];
-            if (statsi.bct > 24 || statsi.bct < 14) {
+            if (statsi.bct > 10 || statsi.bct < 5) { // 14, 24 for '101'
                 continue;
             }
             totalEarn += statsi.earn;

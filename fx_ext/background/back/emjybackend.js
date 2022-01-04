@@ -758,6 +758,9 @@ class EmjyBack {
         if (!this.retroEngine) {
             this.retroEngine = new RetroEngine();
         }
+        if (!this.retroAccount) {
+            this.setupRetroAccount();
+        }
         if (code) {
             this.retroEngine.initRetro(code, {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000}, '2021-01-04');
         }

@@ -700,6 +700,22 @@ class StrategyMA extends Strategy {
         }
     }
 
+    cutlineAcceptable(klines, kl) {
+        var kltype = this.kltype();
+        var low = klines.getLowestInWaiting(kltype);
+        var cutp = (kl.c - low) * 100 / kl.c;
+        var cutRange = {'101':{l:14, r:24}}; //, '30':{l:4,r:11}
+        if (!cutRange[kltype]) {
+            this.data.guardPrice = low;
+            return true;
+        }
+        if (cutp >= cutRange[kltype].l && cutp <= cutRange[kltype].r) {
+            this.data.guardPrice = low;
+            return true;
+        }
+        return false;
+    }
+
     resetGuardPrice() {
         this.data.guardPrice = undefined;
     }
@@ -714,10 +730,7 @@ class StrategyMA extends Strategy {
             var kl = klines.getLatestKline(kltype);
             if (!this.data.guardPrice || this.data.guardPrice == 0) {
                 if (kl.bss18 == 'b') {
-                    var low = klines.getLowestInWaiting(kltype);
-                    var cutp = (kl.c - low) * 100 / kl.c;
-                    if (cutp >= 14 && cutp <= 24) {
-                        this.updateGuardPrice(klines);
+                    if (this.cutlineAcceptable(klines, kl)) {
                         return {match: true, tradeType: 'B', count: 0, price: kl.c};
                     }
                 }
@@ -738,10 +751,7 @@ class StrategyMA extends Strategy {
                 }
                 if (!buydetails || buydetails.length == 0) {
                     if (kl.bss18 == 'b') {
-                        var low = klines.getLowestInWaiting(kltype);
-                        var cutp = (kl.c - low) * 100 / kl.c;
-                        if (cutp >= 14 && cutp <= 24) {
-                            this.updateGuardPrice(klines);
+                        if (this.cutlineAcceptable(klines, kl)) {
                             return {match: true, tradeType: 'B', count: 0, price: kl.c};
                         }
                     }
@@ -756,10 +766,7 @@ class StrategyMA extends Strategy {
                 }
                 if (kl.bss18 == 'b') {
                     if (kl.c - pmin * 0.95 < 0) {
-                        var low = klines.getLowestInWaiting(kltype);
-                        var cutp = (kl.c - low) * 100 / kl.c;
-                        if (cutp >= 14 && cutp <= 24) {
-                            this.updateGuardPrice(klines);
+                        if (this.cutlineAcceptable(klines, kl)) {
                             return {match: true, tradeType: 'B', count: 0, price: kl.c};
                         }
                     }

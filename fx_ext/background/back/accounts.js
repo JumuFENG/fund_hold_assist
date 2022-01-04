@@ -839,8 +839,8 @@ class NormalAccount extends Account {
 
     fillupGuardPrices() {
         this.stocks.forEach(stock => {
-            if (emjyBack[stock.code].klines && stock.strategies) {
-                stock.strategies.applyKlines(emjyBack[stock.code].klines.klines);
+            if (emjyBack.klines[stock.code] && stock.strategies) {
+                stock.strategies.applyKlines(emjyBack.klines[stock.code].klines);
             }
         });
     }

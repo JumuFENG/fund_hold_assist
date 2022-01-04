@@ -190,13 +190,13 @@ class RetroEngine {
     initKlines(code, startDate) {
         emjyBack.loadKlines(code,() => {
             if (!emjyBack.klines[code].klines) {
-                emjyBack.fetchStockKline(code, '101', startDate);
+                emjyBack.fetchStockKline(code, this.kltype, startDate);
                 return;
             }
-            var dKline = emjyBack.klines[code].klines['101'];
-            if (!dKline || dKline[0].time > startDate) {
-                emjyBack.klines[code].klines['101'] = [];
-                emjyBack.fetchStockKline(code, '101', startDate);
+            var dKline = emjyBack.klines[code].klines[this.kltype];
+            if (this.kltype == '101' && (!dKline || dKline[0].time > startDate)) {
+                emjyBack.klines[code].klines[this.kltype] = [];
+                emjyBack.fetchStockKline(code, this.kltype, startDate);
             }
         });
     }
@@ -224,10 +224,20 @@ class RetroEngine {
         this.initKlines(code, startDate);
     }
 
-    initStrategMaRetro(code, startDate, endDate = null) {
+    initStrategMaRetro(code, startDate, kltype = '101') {
+        this.kltype = kltype;
         this.initRetro(code,
-            {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":40000},
-             startDate, endDate);
+            {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype}},"amount":40000},
+             startDate);
+    }
+
+    retroAgainMa(kltype) {
+        emjyBack.retroAccount.deals = [];
+        emjyBack.retroAccount.stocks.forEach(s => {
+            s.strategies = null;
+            this.initStrategMaRetro(s.code, null, kltype);
+            this.startRetro();
+        });
     }
 
     startRetro() {
@@ -241,10 +251,12 @@ class RetroEngine {
             return;
         }
 
-        var dKline = emjyBack.klines[this.code].klines['101'];
+        var dKline = emjyBack.klines[this.code].klines[this.kltype];
 
-        //'000858'
-        var startIdx = dKline.findIndex(k => k.time >= this.startDate);
+        var startIdx = 0
+        if (this.startDate) {
+            startIdx = dKline.findIndex(k => k.time >= this.startDate);
+        }
         if (startIdx < 0) {
             console.log('can not find kl data at', this.startDate);
             return;
@@ -253,7 +265,7 @@ class RetroEngine {
         for (var i = 0; i < resKline.length; i++) {
             dKline.push(resKline[i]);
             emjyBack.retroAccount.tradeTime = resKline[i].time;
-            stock.strategies.checkKlines(['101']);
+            stock.strategies.checkKlines([this.kltype]);
         }
     }
 }
