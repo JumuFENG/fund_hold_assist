@@ -685,7 +685,9 @@ class EmjyBack {
             this.normalAccount.save();
             this.collateralAccount.save();
             this.trackAccount.save();
-            this.klines.forEach(k => k.save());
+            for (const c in this.klines) {
+                this.klines[c].save();
+            }
             this.flushLogs();
         }, 20000);
     }

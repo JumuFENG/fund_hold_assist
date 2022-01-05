@@ -398,7 +398,7 @@ class StrategyGroup {
         } else if (curStrategy.isBuyStrategy()) {
             var count = info.count;
             if (count === undefined && price > 0) {
-                count = this.getBuyCount(price);
+                count = this.getBuyCount(info.price);
             }
             var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
             emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy));

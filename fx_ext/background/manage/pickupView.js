@@ -395,10 +395,9 @@ class StockRankClient {
     }
 
     GetFromWencai() {
-        var wencaiClt = new WencaiQuestClient('人气个股排名', datas => {
+        wencaiCommon.getWencaiRank100(datas => {
             this.onWencaiRankBack(datas);
-        }, 100);
-        wencaiClt.getWencaiNext();
+        });
     }
 
     onWencaiRankBack(datas) {
