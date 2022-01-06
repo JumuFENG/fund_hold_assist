@@ -75,6 +75,14 @@ class WencaiCommon {
         this.wencai(date + "涨跌幅>9.8", cb);
     }
 
+    getYdbAll(cb) {
+        this.wencai('银行或地产或保险', cb);
+    }
+
+    getPriceMoreThan(prc, cb) {
+        this.wencai('股价>'+prc, cb);
+    }
+
     getWencaiRank100(cb) {
         this.wencaiLimit('人气个股排名', 100, cb);
     }

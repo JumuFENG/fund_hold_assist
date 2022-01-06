@@ -113,6 +113,15 @@ class StockListPanelPage extends RadioAnchorPage {
         utils.removeAllChild(this.listContainer);
         for (var i = 0; i < stocks.length; i++) {
             stocks[i].strategies = JSON.parse(stocks[i].strategies);
+            if (stocks[i].holdCount == 0 && stocks[i].strategies) {
+                var strategyObj = stocks[i].strategies.strategies;
+                if (Object.keys(strategyObj).length == 1) {
+                    var key = Object.keys(strategyObj)[0];
+                    if (strategyObj[key].key == 'StrategyMA' && strategyObj[key].period == 'l') {
+                        continue;
+                    }
+                }
+            }
             this.addStock(stocks[i]);
         };
         

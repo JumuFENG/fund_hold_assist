@@ -586,9 +586,9 @@ class RepaymentClient {
         xmlHttpPost(url, fd, response => {
             var robj = JSON.parse(response);
             if (robj.Status == 0) {
-                emjyBack.log('Repayment success!');
+                emjyBack.log('Repayment success!', robj.Data[0].Sjhkje);
             }
-            emjyBack.log(response);
+            emjyBack.log('Repayment response:', response);
             this.exit();
         });
     }

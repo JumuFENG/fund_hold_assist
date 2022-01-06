@@ -704,7 +704,7 @@ class StrategyMA extends Strategy {
         var kltype = this.kltype();
         var low = klines.getLowestInWaiting(kltype);
         var cutp = (kl.c - low) * 100 / kl.c;
-        var cutRange = {'101':{l:14, r:24}}; //, '30':{l:4,r:11}
+        var cutRange = {'101':{l:15, r:27}}; //, '30':{l:4,r:11},'101':{l:14, r:24}
         if (!cutRange[kltype]) {
             this.data.guardPrice = low;
             return true;

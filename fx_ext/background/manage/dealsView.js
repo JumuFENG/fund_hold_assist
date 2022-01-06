@@ -28,7 +28,8 @@ class DealsPanelPage extends RadioAnchorPage {
         btnTest.onclick = e => {
             //this.countMaxAmount();
             //this.showDealsWithouYdb();
-            this.bsStatistics();
+            //this.bsStatistics();
+            this.getMarketValued();
         }
         this.container.appendChild(btnTest);
         this.dealsTable = new SortableTable(1, 0, false);
@@ -323,9 +324,16 @@ class DealsPanelPage extends RadioAnchorPage {
         }
 
         var dealsStats = [];
-        var kltype = '60';
+        var kltype = '101';
         codes.forEach(c => {
             var kline = emjyManager.klines[c].getKline(kltype);
+            if (!kline) {
+                console.log('no kline for', c);
+                return;
+            }
+            if (!c.startsWith('60') && !c.startsWith('00')) {
+                return;
+            }
             var bi = -1;
             while (true) {
                 bi = kline.findIndex((k, i)=>{return i > bi && k.bss18 == 'b';});
@@ -361,7 +369,7 @@ class DealsPanelPage extends RadioAnchorPage {
         });
         console.log(dealsStats);
         if (!this.statsTable) {
-            this.statsTable = new SortableTable(1,1);
+            this.statsTable = new SortableTable(1,0);
             this.container.appendChild(this.statsTable.container);
         }
         this.statsTable.reset();
@@ -383,8 +391,8 @@ class DealsPanelPage extends RadioAnchorPage {
         //     return {aver: totalEarn/count, count};
         // }
 
-        // var d = 1;
-        // for (let j = 0; j < 15; j+=d) {
+        // var d = 5;
+        // for (let j = 0; j < 35; j+=d) {
         //     var rt = getAverEarned(j, j + d);
         //     this.statsTable.addRow(j, '(' + j + ',' + (j + d) +']', rt.count, rt.aver.toFixed(4));
         // }
@@ -393,7 +401,7 @@ class DealsPanelPage extends RadioAnchorPage {
         var count = 0;
         for (let i = 0; i < dealsStats.length; i++) {
             const statsi = dealsStats[i];
-            if (statsi.bct > 10 || statsi.bct < 5) { // 14, 24 for '101'
+            if (statsi.bct > 24 || statsi.bct < 14) { // 14, 24 for '101'
                 continue;
             }
             totalEarn += statsi.earn;
@@ -405,5 +413,26 @@ class DealsPanelPage extends RadioAnchorPage {
             count++;
         }
         this.statsTable.addRow(count, '', '', '', '','','','','','','','',(totalEarn/count).toFixed(4))
+    }
+
+    getMarketValued() {
+        // wencaiCommon.getWencaiMarketValuesTop(700, datas => {
+        //     var rank = [];
+        //     for (let i = 0; i < datas.length; i++) {
+        //         rank.push(datas[i].code);
+        //     }
+        //     console.log(rank);
+        // });
+        var normal = [];
+        var collat = [];
+        maxValueSelected.forEach(s => {
+            if (emjyManager.isRzRq(s)) {
+                collat.push(s);
+            } else {
+                normal.push(s);
+            }
+        });
+        console.log(normal);
+        console.log(collat);
     }
 }
