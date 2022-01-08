@@ -171,9 +171,12 @@ class ZtPanelPage extends RadioAnchorPage {
     }
 
     getZTPool(date) {
-        emjyManager.sendExtensionMessage({command:'mngr.getZTPool', date});
-        wencaiCommon.getWencaiZt(datas => {
-            this.onWencaiZTPoolBack(datas);
+        // emjyManager.sendExtensionMessage({command:'mngr.getZTPool', date});
+        // wencaiCommon.getWencaiZt(datas => {
+        //     this.onWencaiZTPoolBack(datas);
+        // });
+        dbkCommon.getZdt((zt, dt, zts0, zts1, bkful) => {
+            
         });
     }
 

@@ -239,9 +239,6 @@ class StrategyGroupView {
         this.inputAmount.onchange = e => {
             this.inputCount.value = utils.calcBuyCount(this.inputAmount.value, this.latestPrice);
         }
-        this.inputCount.onchange = e => {
-            this.inputAmount.value = (this.inputCount.value * this.latestPrice).toFixed(2);
-        }
 
         if (!this.strGrp || !this.strGrp.count0) {
             var amount = 40000;
@@ -252,9 +249,7 @@ class StrategyGroupView {
             this.inputCount.value = utils.calcBuyCount(amount, this.latestPrice);
         } else {
             this.inputCount.value = this.strGrp.count0;
-            if (this.latestPrice) {
-                this.inputAmount.value = (this.strGrp.count0 * this.latestPrice).toFixed(2);
-            } else if (this.strGrp.amount) {
+            if (this.strGrp.amount) {
                 this.inputAmount.value = this.strGrp.amount;
             }
         }
@@ -306,11 +301,9 @@ class StrategyGroupView {
                 if (!this.strGrp.count0 || count != this.strGrp.count0) {
                     this.strGrp.count0 = count;
                     this.changed = true;
-                    if (this.latestPrice) {
-                        this.strGrp.amount = count * this.latestPrice;
-                    }
                 }
-            } else if (this.inputAmount) {
+            }
+            if (this.inputAmount) {
                 var amount = parseInt(this.inputAmount.value);
                 if (!this.strGrp.amount || amount != this.strGrp.amount) {
                     this.strGrp.amount = amount;

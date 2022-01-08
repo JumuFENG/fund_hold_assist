@@ -124,7 +124,7 @@ class Manager {
             }
         }
         
-        for (var i = 0; i < this.zt1stocks.length; i++) {
+        for (var i = 0; i < this.zt1stocks && this.zt1stocks.length; i++) {
             var code = this.zt1stocks[i].code;
             if (this.klines[code].klines === undefined) {
                 this.getDailyKlineSinceMonthAgo(code, this.zt1stocks[i].ztdate);

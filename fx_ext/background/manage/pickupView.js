@@ -347,30 +347,12 @@ class StockRankClient {
 
     getRanks() {
         this.GetFromDabanke();
-        this.GetFromWencai();
+        //this.GetFromWencai();
     }
 
     GetFromDabanke() {
-        var url = 'https://www.dabanke.com/gupiaorenqipaihangbang.html';
-        utils.get(url, response => {
-            var parser = new DOMParser();
-            var bodytext = response.match(/<tbody>[\s\S]*?<\/tbody/)[0].replace(/\s{2,}/g," ");
-            //var htmlDoc = parser.parseFromString('<table>' + bodytext + '</table>', 'text/xml');
-            var reg = new RegExp(/<tr>(.+?)<\/tr>/, 'g');
-            var matches = bodytext.matchAll(reg);
-            //var allrows = bodytext.match(/<tr>(.*)<\/tr>/)//htmlDoc.querySelectorAll('tr');
-            var rank = [];
-            for (const m of matches) {
-                var row = m[1].match(/<td.+?>\s(\d+)\s<\/td>\s<td.+?<\/td>\s<td.+?>\s(\d+)\s<\/td>/);
-                if (rank.length >= 100) {
-                    break;
-                }
-                if (row[2] - this.limit > 0) {
-                    continue;
-                }
-                rank.push({code: row[1], rank: row[2]});
-            }
-            this.mergeRanks(rank);
+        dbkCommon.getRanks(r => {
+            this.mergeRanks(r);
         });
     }
 
@@ -381,6 +363,7 @@ class StockRankClient {
 
         if (!this.ranks || this.ranks.length == 0) {
             this.ranks = rank;
+            console.log(this.ranks);
             return;
         }
 
