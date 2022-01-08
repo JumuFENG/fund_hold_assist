@@ -1,7 +1,8 @@
 'use strict';
 
 let ComplexStrategyKeyNames = [
-{key: 'StrategyMA', name: 'MA突破买卖'}
+{key: 'StrategyMA', name: 'MA突破买卖'},
+{key: 'StrategyGE', name: '网格买入,盈利卖出'},
 ]
 
 let BuyStrategyKeyNames = [

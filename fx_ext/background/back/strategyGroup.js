@@ -128,7 +128,7 @@ class StrategyGroup {
     }
 
     availableCount() {
-        if (!this.buydetail) {
+        if (!this.buydetail || this.buydetail.length == 0) {
             return 0;
         }
         var td = this.getTodayDate();
@@ -136,6 +136,39 @@ class StrategyGroup {
         for (var i = 0; i < this.buydetail.length; i++) {
             if (this.buydetail[i].date < td) {
                 count += this.buydetail[i].count;
+            }
+        }
+        return count;
+    }
+
+    getCountLessThan(price) {
+        if (!this.buydetail || this.buydetail.length == 0) {
+            return 0;
+        }
+
+        var lessDetail = this.buydetail.filter(bd => bd.price - price <= 0);
+        var moreDetail = this.buydetail.filter(bd => bd.price - price > 0);
+        var count = 0;
+        var tdcount = 0;
+        var td = this.getTodayDate();
+        for (var i = 0; i < lessDetail.length; i++) {
+            if (lessDetail[i].date < td) {
+                count += lessDetail[i].count;
+            } else {
+                tdcount += lessDetail[i].count;
+            }
+        }
+
+        if (tdcount > 0) {
+            var morecount = 0;
+            for (let i = 0; i < moreDetail.length; i++) {
+                const md = moreDetail[i];
+                morecount += md.count;
+            }
+            if (morecount > tdcount) {
+                return count + tdcount;
+            } else {
+                return count + morecount;
             }
         }
         return count;
@@ -224,17 +257,25 @@ class StrategyGroup {
     }
 
     applyGuardLevel(allklt = true) {
+        var addToKlineAlarm = function(code, kl, isall) {
+            if (kl % 101 == 0) {
+                emjyBack.dailyAlarm.addStock(code, kl);
+            } else {
+                emjyBack.klineAlarms.addStock(code, kl, isall);
+            }
+        };
+
         for (var id in this.strategies) {
             if (!this.strategies[id].enabled()) {
                 continue;
             };
             var gl = this.strategies[id].guardLevel();
             if (gl == 'kline') {
-                if (this.strategies[id].kltype() % 101 == 0) {
-                    emjyBack.dailyAlarm.addStock(this.code, this.strategies[id].kltype());
-                } else {
-                    emjyBack.klineAlarms.addStock(this.code, this.strategies[id].kltype(), allklt);
-                }
+                addToKlineAlarm(this.code, this.strategies[id].kltype(), allklt);
+            } else if (gl == 'klines') {
+                this.strategies[id].kltype().forEach(kl => {
+                    addToKlineAlarm(this.code, kl);
+                });
             } else if (gl == 'kday') {
                 emjyBack.dailyAlarm.addStock(this.code, this.strategies[id].kltype());
             } else if (gl == 'otp') {
@@ -376,7 +417,7 @@ class StrategyGroup {
             if (info.tradeType == 'B') {
                 var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
                 var count = this.count0;
-                emjyBack.log('checkStrategies buy match', this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy))
+                emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy))
                 emjyBack.tryBuyStock(this.code, price, count, account, bd => {
                     this.addBuyDetail(bd);
                 });
@@ -385,9 +426,11 @@ class StrategyGroup {
                 var countAll = this.availableCount();
                 if (info.count == 1 || count - countAll > 0) {
                     count = countAll;
+                } else if (info.count == 2) {
+                    count = this.getCountLessThan(info.price);
                 }
                 if (count > 0) {
-                    emjyBack.log('checkStrategies sell match', this.code, 'sell count:', count, 'price', price, JSON.stringify(curStrategy));
+                    emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', price, JSON.stringify(curStrategy));
                     emjyBack.trySellStock(this.code, price, count, this.account);
                     if (this.buydetail) {
                         this.sellDetail(count);
@@ -462,11 +505,13 @@ class StrategyGroup {
             }
 
             var matchResult = curStrategy.checkKlines(emjyBack.klines[this.code], updatedKlt, this.buydetail);
-            if (matchResult && matchResult.match) {
-                this.doTrade(id, matchResult);
-                return;
-            }
-            if (matchResult != undefined) {
+            if (matchResult) {
+                if (matchResult.match) {
+                    this.doTrade(id, matchResult);
+                }
+                if (matchResult.stepInCritical) {
+                    this.save();
+                }
                 return;
             }
             if (curStrategy.inCritical()) {

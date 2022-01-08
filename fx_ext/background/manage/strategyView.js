@@ -53,6 +53,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyMA') {
             return new StrategyMAView(strategy);
         }
+        if (strategy.key == 'StrategyGE') {
+            return new StrategyGridEarningView(strategy);
+        }
     }
 
     getStrategyName(key) {
@@ -275,9 +278,9 @@ class StrategyBaseView {
         return acctDiv;
     }
 
-    createKlineTypeSelector() {
+    createKlineTypeSelector(text = 'K线类型 ') {
         var kltDiv = document.createElement('div');
-        kltDiv.appendChild(document.createTextNode('K线类型 '));
+        kltDiv.appendChild(document.createTextNode(text));
         this.klineSelector = document.createElement('select');
         var kltypes = [{klt:'4', text:'4分钟'}, {klt:'8', text:'8分钟'}, {klt:'15', text:'15分钟'}, {klt:'30', text:'30分钟'}, {klt:'60', text:'1小时'}, {klt:'120', text:'2小时'}, {klt:'101', text:'1日'}, {klt:'202', text:'2日'}];
         //{klt:'1', text:'1分钟'}, {klt:'2', text:'2分钟'}, , {klt:'404', text:'4日'}, {klt:'808', text:'8日'}, {klt:'102', text:'1周'}, {klt:'103', text:'1月'}, {klt:'104', text:'1季度'}, {klt:'105', text:'半年'}, {klt:'106', text:'年'}
@@ -546,6 +549,39 @@ class StrategyMAView extends StrategyBuyMAView {
         inputGuard.appendChild(document.createTextNode('安全线以上盈利>5%且满足卖出条件才卖出，避免横盘震荡中反复割肉。'));
         view.appendChild(inputGuard);
         return view;
+    }
+}
+
+class StrategyGridEarningView extends StrategyBaseView {
+    setDefaultKltype() {
+        if (this.klineSelector) {
+            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '30';
+        };
+    }
+
+    maDescription() {
+        return '买入条件:网格法逢低止跌买入. 卖出条件:18周期均线跌破卖出盈利部分';
+    }
+
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode(this.maDescription()));
+        view.appendChild(this.createStepsInput('网格波幅 '));
+        view.appendChild(this.createBuyAccountSelector());
+
+        view.appendChild(this.createKlineTypeSelector('卖出K线类型'));
+        this.setDefaultKltype();
+        return view;
+    }
+
+    isChanged() {
+        var changed = super.isChanged();
+        if (this.strategy.peroid === undefined) {
+            this.strategy.peroid = 'l';
+            changed = true;
+        }
+        return changed;
     }
 }
 

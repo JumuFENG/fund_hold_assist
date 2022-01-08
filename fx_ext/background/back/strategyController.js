@@ -53,6 +53,9 @@ class StrategyManager {
         if (strategy.key == 'StrategyMA') {
             return new StrategyMA(strategy);
         }
+        if (strategy.key == 'StrategyGE') {
+            return new StrategyGE(strategy);
+        }
     }
 }
 
@@ -794,6 +797,80 @@ class StrategyMA extends Strategy {
                     return {match: false};
                 }
             }
+        }
+        return {match: false};
+    }
+}
+
+class StrategyGE extends Strategy {
+    constructor(str) {
+        super(str);
+        this.skltype = '1';
+    }
+
+    guardLevel() {
+        return 'klines';
+    }
+
+    kltype() {
+        return [this.skltype, this.data.kltype];
+    }
+
+    checkMa1Buy(kl1) {
+        if (kl1) {
+            var kl = kl1.getLatestKline(this.skltype);
+            if (this.inCritical()) {
+                if (kl1.isDecreaseStopped(this.skltype)) {
+                    this.data.inCritical = false;
+                    this.data.guardPrice = kl.c;
+                    return {match: true, tradeType:'B', count: 0, price: kl.c};
+                }
+                return {match: false};
+            }
+            if (kl.l - this.data.guardPrice * (1 - this.data.stepRate) <= 0) {
+                this.data.inCritical = true;
+                return {match: false, stepInCritical: true};
+            }
+        }
+        return {match: false};
+    }
+
+    checkKlines(klines, updatedKlt, buydetails) {
+        var holdCount = 0;
+        if (buydetails) {
+            buydetails.forEach(b => {holdCount += b.count});
+        }
+
+        var kltype = this.data.kltype;
+        if (holdCount == 0) {
+            if (this.data.guardPrice) {
+                if (updatedKlt.includes(this.skltype)) {
+                    return this.checkMa1Buy(klines);
+                }
+                return {match: false};
+            }
+            if (updatedKlt.includes(kltype)) {
+                var kl = klines.getLatestKline(kltype);
+                if (kl.bss18 == 'b') {
+                    this.data.guardPrice = kl.c;
+                    return {match: true, tradeType:'B', count: 0, price: kl.c};
+                }
+                return {match: false};
+            }
+            return {match: false};
+        }
+        if (updatedKlt.includes(this.skltype)) {
+            var obj = this.checkMa1Buy(klines);
+            if (obj.match || obj.stepInCritical) {
+                return obj;
+            }
+        }
+        if (updatedKlt.includes(kltype)) {
+            var kl = klines.getLatestKline(kltype);
+            if (kl.bss18 == 's') {
+                return {match: true, tradeType:'S', count: 2, price: kl.c * (1 - this.data.stepRate)};
+            }
+            return {match: false};
         }
         return {match: false};
     }

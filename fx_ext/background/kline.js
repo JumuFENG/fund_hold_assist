@@ -414,6 +414,37 @@ class KLine {
         return 0;
     }
 
+    isDecreaseStopped(kltype) {
+        if (!this.klines || !this.klines[kltype]) {
+            console.log('no klins data for kltype', kltype);
+            return false;
+        }
+
+        var kline = this.getKline(kltype);
+        var lastIdx = kline.length - 1;
+        var klend = this.getIncompleteKline(kltype);
+        if (!klend) {
+            klend = kline[kline.length - 1];
+            lastIdx = kline.length - 2;
+        }
+        var popCount = 0;
+        for (let i = lastIdx; i >= 0; i--) {
+            const klpre = kline[i];
+            if (klend.c - klpre.c > 0 ) {
+                popCount++;
+                if (popCount >= 2) {
+                    return true;
+                }
+                klend = klpre;
+                continue;
+            }
+            if (i < kline.length - 5) {
+                break;
+            }
+        }
+        return false;
+    }
+
     getLowestInWaiting(kltype) {
         if (!this.klines || !this.klines[kltype]) {
             console.log('no klins data for kltype', kltype);
