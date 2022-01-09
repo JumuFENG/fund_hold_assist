@@ -739,20 +739,27 @@ class StrategyMA extends Strategy {
                 }
                 if (kl.bss18 == 's') {
                     this.resetGuardPrice();
-                    return {match: true, tradeType: 'S', count: 1, price: kl.c};
+                    var count = buydetails.availableCount();
+                    if (count > 0) {
+                        this.resetGuardPrice();
+                        return {match: true, tradeType: 'S', count, price: kl.c};
+                    }
                 }
                 return {match: false};
             } else if (this.data.guardPrice - kl.c > 0) {
                 if (kl.bss18 == 's' || kl.bss18 == 'w') {
-                    this.resetGuardPrice();
-                    return {match: true, tradeType: 'S', count: 1, price: kl.c};
+                    var count = buydetails.availableCount();
+                    if (count > 0) {
+                        this.resetGuardPrice();
+                        return {match: true, tradeType: 'S', count, price: kl.c};
+                    }
                 }
                 return {match: false};
             } else {
                 if (kl.bss18 != 's' && kl.bss18 != 'b') {
                     return {match: false};
                 }
-                if (!buydetails || buydetails.length == 0) {
+                if (!buydetails || buydetails.totalCount() == 0) {
                     if (kl.bss18 == 'b') {
                         if (this.cutlineAcceptable(klines, kl)) {
                             return {match: true, tradeType: 'B', count: 0, price: kl.c};
@@ -760,13 +767,7 @@ class StrategyMA extends Strategy {
                     }
                     return {match: false};
                 }
-                var pmin = buydetails[0].price;
-                for (let i = 0; i < buydetails.length; i++) {
-                    const bd = buydetails[i];
-                    if (bd.price - pmin < 0) {
-                        pmin = bd.price;
-                    }
-                }
+                var pmin = buydetails.getMinBuyPrice();
                 if (kl.bss18 == 'b') {
                     if (kl.c - pmin * 0.95 < 0) {
                         if (this.cutlineAcceptable(klines, kl)) {
@@ -776,23 +777,10 @@ class StrategyMA extends Strategy {
                     return {match: false};
                 }
                 if (kl.bss18 == 's') {
-                    var amount = 0;
-                    var countAll = 0;
-                    for (let j = 0; j < buydetails.length; j++) {
-                        const bdj = buydetails[j];
-                        amount += bdj.price * bdj.count;
-                        countAll -= bdj.count;
-                    }
-                    if (countAll < 0) {
-                        countAll = -countAll;
-                    }
-                    var paver = amount / countAll;
-                    if (kl.c - paver * 1.05 > 0) {
+                    var count = buydetails.getCountLessThan(kl.c * 0.95);
+                    if (count > 0) {
                         this.resetGuardPrice();
-                        return {match: true, tradeType: 'S', count: 1, price: kl.c};
-                    }
-                    if (kl.c - pmin * 1.05 > 0) {
-                        return {match: true, tradeType: 'S', count: 0, price: kl.c};
+                        return {match: true, tradeType: 'S', count, price: kl.c};
                     }
                     return {match: false};
                 }
@@ -836,11 +824,7 @@ class StrategyGE extends Strategy {
     }
 
     checkKlines(klines, updatedKlt, buydetails) {
-        var holdCount = 0;
-        if (buydetails) {
-            buydetails.forEach(b => {holdCount += b.count});
-        }
-
+        var holdCount = buydetails.totalCount();
         var kltype = this.data.kltype;
         if (holdCount == 0) {
             if (this.data.guardPrice) {
@@ -868,7 +852,11 @@ class StrategyGE extends Strategy {
         if (updatedKlt.includes(kltype)) {
             var kl = klines.getLatestKline(kltype);
             if (kl.bss18 == 's') {
-                return {match: true, tradeType:'S', count: 2, price: kl.c * (1 - this.data.stepRate)};
+                var count = buydetails.getCountLessThan(kl.c * (1 - this.data.stepRate));
+                if (count > 0) {
+                    this.data.guardPrice = kl.c;
+                    return {match: true, tradeType:'S', count, price: kl.c};
+                }
             }
             return {match: false};
         }

@@ -396,7 +396,7 @@ class EmjyBack {
         console.log(this.savedDeals);
     }
 
-    trySellStock(code, price, count, account) {
+    trySellStock(code, price, count, account, cb) {
         var sellAccount = this.normalAccount;
         if (account) {
             if (account == this.normalAccount.keyword) {
@@ -415,7 +415,7 @@ class EmjyBack {
             }
         };
 
-        sellAccount.sellStock(code, price, count);
+        sellAccount.sellStock(code, price, count, cb);
     }
 
     tryBuyStock(code, price, count, account, cb) {

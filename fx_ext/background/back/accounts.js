@@ -347,7 +347,7 @@ class TradeClient {
             if (robj.Data && robj.Data.length > 0) {
                 emjyBack.log(code, tradeType, 'Trade success! wtbh', robj.Data[0].Wtbh);
                 if (typeof(cb) === 'function') {
-                    cb({code, price, count, sid: robj.Data[0].Wtbh});
+                    cb({code, price, count, sid: robj.Data[0].Wtbh, type: tradeType});
                 }
             }
             console.log(code, tradeType, robj);
@@ -396,8 +396,8 @@ class TradeClient {
     // zqmc	"海鸥住工"
     // gddm	""
     // market	"SA"
-    sell(code, price, count) {
-        this.trade(code, price, count, 'S', null);
+    sell(code, price, count, cb) {
+        this.trade(code, price, count, 'S', null, cb);
     }
 
     // stockCode	"605033"
@@ -452,8 +452,8 @@ class CollatTradeClient extends TradeClient {
     // tradeType   "S"
     // xyjylx  "7"
     // market  "HA"
-    sell(code, price, count) {
-        this.trade(code, price, count, 'S', '7');
+    sell(code, price, count, cb) {
+        this.trade(code, price, count, 'S', '7', cb);
     }
 
     // stockCode	"000531"
@@ -488,7 +488,7 @@ class CreditTradeClient extends CollatTradeClient {
         this.trade(code, price, count, 'B', 'a', cb);
     }
 
-    sell(code, price, count) {
+    sell(code, price, count, cb) {
         console.log('trade error:', 'NOT IMPLEMENTED!');
         // this.trade(code, price, count, 'B', '6');
     }
@@ -586,8 +586,7 @@ class NormalAccount extends Account {
                 holdCount: this.stocks[i].holdCount,
                 availableCount: this.stocks[i].availableCount,
                 latestPrice: this.stocks[i].latestPrice,
-                strategies: this.stocks[i].strategies ? this.stocks[i].strategies.tostring() : null,
-                costDetail: this.stocks[i].costDetail
+                strategies: this.stocks[i].strategies ? this.stocks[i].strategies.tostring() : null
             });
         };
 
@@ -646,12 +645,12 @@ class NormalAccount extends Account {
         this.tradeClient.buy(code, price, count, cb);
     }
 
-    sellStock(code, price, count) {
+    sellStock(code, price, count, cb) {
         if (!this.tradeClient) {
             this.createTradeClient();
         }
 
-        this.tradeClient.sell(code, price, count);
+        this.tradeClient.sell(code, price, count, cb);
     }
 
     applyStrategy(code, str) {
@@ -664,7 +663,7 @@ class NormalAccount extends Account {
         };
         var strategyGroup = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
         strategyGroup.setHoldCost(stock.holdCost);
-        strategyGroup.setHoldCount(stock.holdCount, stock.availableCount);
+        strategyGroup.setHoldCount(stock.holdCount, stock.availableCount, stock.holdCost);
         strategyGroup.applyGuardLevel();
         stock.strategies = strategyGroup;
     }
@@ -797,19 +796,47 @@ class NormalAccount extends Account {
     }
 
     handleDeals(deals) {
-        for (let i = 0; i < deals.length; i++) {
-            const deali = deals[i];
-            if (deali.Mmsm.includes('卖出')) {
-                // Not implemented!
-                // console.log(deali.Mmsm, deali.Zqdm);
-            } else if (deali.Mmsm.includes('买入')) {
-                this.stocks.forEach(s => {
-                    if (s.code == deali.Zqdm) {
-                        s.strategies.updateBuyDetail(deali.Wtbh, deali.Cjjg, deali.Cjsl);
+        var tradedCode = new Set();
+        var bdeals = deals.filter(d => d.Mmsm.includes('买入'));
+        for (let i = 0; i < bdeals.length; i++) {
+            const deali = bdeals[i];
+            this.stocks.forEach(s => {
+                if (s.code == deali.Zqdm) {
+                    tradedCode.add(deali.Zqdm);
+                    if (!s.strategies) {
+                        console.log('can not find strategy for stock', s.code, deali);
+                        return;
                     }
-                });
-            }
+                    s.strategies.updateBuyDetail(deali.Wtbh, deali.Cjjg, deali.Cjsl);
+                }
+            });
         }
+
+        var sdeails = deals.filter(d => d.Mmsm.includes('卖出'));
+        for (let i = 0; i < sdeails.length; i++) {
+            const deali = sdeails[i];
+            this.stocks.forEach(s => {
+                if (s.code == deali.Zqdm) {
+                    tradedCode.add(deali.Zqdm);
+                    if (!s.strategies) {
+                        console.log('can not find strategy for stock', s.code, deali);
+                        return;
+                    }
+                    s.strategies.updateSellDetail(deali.Wtbh, deali.Cjjg, deali.Cjsl);
+                }
+            });
+        }
+
+        tradedCode.forEach(c => {
+            this.stocks.forEach(s => {
+                if (s.code == c) {
+                    if (s.strategies) {
+                        s.strategies.archiveBuyDetail();
+                        s.strategies.save();
+                    }
+                }
+            });
+        });
     }
 
     loadHistDeals(startDate, cb) {

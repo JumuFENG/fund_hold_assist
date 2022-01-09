@@ -155,11 +155,11 @@ class TrackingAccount extends NormalAccount {
         this.tradeClient.buy(code, price, count, cb);
     }
 
-    sellStock(code, price, count) {
+    sellStock(code, price, count, cb) {
         if (!this.tradeClient) {
             this.createTradeClient();
         }
-        this.tradeClient.sell(code, price, count);
+        this.tradeClient.sell(code, price, count, cb);
     }
 
     save() {

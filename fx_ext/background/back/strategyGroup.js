@@ -18,6 +18,251 @@ class StrategyTransferConnection {
     }
 }
 
+class BuyDetail {
+    constructor(records) {
+        if (records) {
+            this.records = records;
+        } else {
+            this.records = [];
+        }
+    }
+
+    getTodayDate() {
+        var now = new Date();
+        return now.getFullYear() + '-' + ('' + (now.getMonth()+1)).padStart(2, '0') + '-' + ('' + now.getDate()).padStart(2, '0');
+    }
+
+    buyRecords() {
+        return this.records.filter(r => r.type == 'B');
+    }
+
+    sellRecords() {
+        return this.records.filter(r => r.type == 'S');
+    }
+
+    addRecord(r) {
+        if (!this.records) {
+            this.records = [];
+        }
+        this.records.push(r);
+    }
+
+    addBuyDetail(detail) {
+        var date = detail.time;
+        if (!date) {
+            date = this.getTodayDate();
+        }
+        this.addRecord({date, count: detail.count, price: detail.price, sid: detail.sid, type:'B'});
+    }
+
+    addSellDetail(detail) {
+        var date = detail.time;
+        if (!date) {
+            date = this.getTodayDate();
+        }
+        this.addRecord({date, count: detail.count, price: detail.price, sid: detail.sid, type:'S'});
+    }
+
+    archiveRecords() {
+        var selrec = this.sellRecords();
+        if (!selrec || selrec.length == 0) {
+            return;
+        }
+
+        var buyrec = this.buyRecords();
+        buyrec.sort((a, b) => {return a.price - b.price < 0;});
+        var soldrec = [];
+        var soldCount = this.pendingSoldCount();
+        for (var i = buyrec.length - 1; i >= 0; i--) {
+            if (buyrec[i].count == soldCount) {
+                soldrec.push(buyrec.splice(i, 1)[0]);
+                soldCount = 0;
+                break;
+            }
+            if (buyrec[i].count > soldCount) {
+                soldrec.push({date:buyrec[i].date, count:soldCount, price: buyrec[i].price, sid: buyrec[i].sid, type:buyrec[i].type});
+                buyrec[i].count -= soldCount;
+                soldCount = 0;
+                break;
+            }
+            soldCount -= buyrec[i].count;
+            soldrec.push(buyrec.splice(i, 1)[0]);
+        }
+
+        var tdcount = 0;
+        var td = this.getTodayDate();
+        for (let i = 0; i < soldrec.length; i++) {
+            if (soldrec[i].date == td) {
+                tdcount += soldrec[i].count;
+            }
+        }
+
+        for (var i = buyrec.length - 1; i >= 0 && tdcount > 0; i--) {
+            if (buyrec[i].count >= tdcount) {
+                buyrec[i].date = td;
+                tdcount = 0;
+                break;
+            }
+            buyrec[i].date = td;
+            tdcount -= buyrec[i].count;
+        }
+        this.records = buyrec;
+    }
+
+    totalCount() {
+        var buyrec = this.buyRecords();
+        if (!buyrec || buyrec.length == 0) {
+            return 0;
+        }
+
+        var count = 0;
+        for (var i = 0; i < buyrec.length; i++) {
+            count += buyrec[i].count;
+        }
+        return count - this.pendingSoldCount();
+    }
+
+    availableCount() {
+        var buyrec = this.buyRecords();
+        if (!buyrec || buyrec.length == 0) {
+            return 0;
+        }
+
+        var td = this.getTodayDate();
+        var count = 0;
+        for (var i = 0; i < buyrec.length; i++) {
+            if (buyrec[i].date < td) {
+                count += buyrec[i].count;
+            }
+        }
+        return count - this.pendingSoldCount();
+    }
+
+    getCountLessThan(price) {
+        var buyrec = this.buyRecords();
+        if (!buyrec || buyrec.length == 0) {
+            return 0;
+        }
+
+        var lessDetail = buyrec.filter(bd => bd.price - price <= 0);
+        var moreDetail = buyrec.filter(bd => bd.price - price > 0);
+        var count = 0;
+        var tdcount = 0;
+        var td = this.getTodayDate();
+        for (var i = 0; i < lessDetail.length; i++) {
+            if (lessDetail[i].date < td) {
+                count += lessDetail[i].count;
+            } else {
+                tdcount += lessDetail[i].count;
+            }
+        }
+
+        if (tdcount > 0) {
+            var morecount = 0;
+            for (let i = 0; i < moreDetail.length; i++) {
+                const md = moreDetail[i];
+                morecount += md.count;
+            }
+            if (morecount > tdcount) {
+                return count + tdcount;
+            } else {
+                return count + morecount;
+            }
+        }
+        return count - this.pendingSoldCount();
+    }
+
+    pendingSoldCount() {
+        var selrec = this.sellRecords();
+        if (!selrec || selrec.length == 0) {
+            return 0;
+        }
+
+        var count = 0;
+        for (var i = 0; i < selrec.length; i++) {
+            count += selrec[i].count;
+        }
+        return count;
+    }
+
+    getMinBuyPrice() {
+        var buyrec = this.buyRecords();
+        if (!buyrec || buyrec.length == 0) {
+            return 0;
+        }
+
+        var pmin = buyrec[0].price;
+        for (let i = 1; i < buyrec.length; i++) {
+            if (buyrec[i].price - pmin < 0) {
+                pmin = buyrec[i].price;
+            }
+        }
+        return pmin;
+    }
+
+    updateBuyDetail(sid, price, count) {
+        if (!this.records) {
+            if (count != 0) {
+                this.addBuyDetail({count, price, sid});
+            }
+            return;
+        }
+
+        var didx = this.records.findIndex(bd => bd.sid == sid);
+        if (didx >= 0) {
+            if (count == 0) {
+                this.records.splice(didx, 1);
+            } else {
+                this.records[didx].price = price;
+                this.records[didx].count = count;
+            }
+        } else if (count != 0){
+            this.addBuyDetail({count, price, sid});
+        }
+    }
+
+    updateSellDetail(sid, price, count) {
+        var selrec = this.sellRecords();
+        if (!selrec || selrec.length == 0) {
+            if (count != 0) {
+                this.addSellDetail({count, price, sid});
+            }
+            return;
+        }
+
+        var didx = this.records.findIndex(bd => bd.sid == sid);
+        if (didx >= 0) {
+            if (count == 0) {
+                this.records.splice(didx, 1);
+            } else {
+                this.records[didx].price = price;
+                this.records[didx].count = count;
+            }
+        } else if (count != 0){
+            this.addSellDetail({count, price, sid});
+        }
+    }
+
+    setHoldCount(tcount, acount, price) {
+        if (tcount === undefined || tcount <= 0) {
+            this.records = [];
+            return;
+        }
+
+        if (!this.records || this.totalCount() != tcount || this.availableCount() != acount) {
+            this.records = [];
+            if (acount == 0) {
+                this.records.push({date: this.getTodayDate(), count: tcount, price});
+            } else if (tcount == acount) {
+                this.records.push({date: '0', count: tcount, price});
+            } else {
+                this.records.push({date: '0', count: acount, price});
+                this.records.push({date: this.getTodayDate(), count: tcount - acount, price});
+            }
+        }
+    }
+}
+
 class StrategyGroup {
     constructor(str, account, code, key) {
         this.storeKey = key;
@@ -34,9 +279,7 @@ class StrategyGroup {
         if (str.amount) {
             this.amount = str.amount;
         }
-        if (str.buydetail) {
-            this.buydetail = str.buydetail;
-        }
+        this.buydetail = new BuyDetail(str.buydetail);
     }
 
     enabled() {
@@ -80,8 +323,8 @@ class StrategyGroup {
         if (connNum > 0) {
             data.transfers = transfers;
         };
-        if (this.buydetail && this.buydetail.length > 0) {
-            data.buydetail = this.buydetail;
+        if (this.buydetail && this.buydetail.records && this.buydetail.records.length > 0) {
+            data.buydetail = this.buydetail.records;
         }
         if (this.count0 !== undefined) {
             data.count0 = this.count0;
@@ -98,11 +341,6 @@ class StrategyGroup {
         chrome.storage.local.set(data);
     }
 
-    getTodayDate() {
-        var now = new Date();
-        return now.getFullYear() + '-' + ('' + (now.getMonth()+1)).padStart(2, '0') + '-' + ('' + now.getDate()).padStart(2, '0');
-    }
-
     setHoldCost(cost) {
         if (cost === undefined || cost <= 0) {
             return;
@@ -116,144 +354,23 @@ class StrategyGroup {
         };
     }
 
-    totalCount() {
-        if (!this.buydetail) {
-            return 0;
-        }
-        var count = 0;
-        for (var i = 0; i < this.buydetail.length; i++) {
-            count += this.buydetail[i].count;
-        }
-        return count;
-    }
-
-    availableCount() {
-        if (!this.buydetail || this.buydetail.length == 0) {
-            return 0;
-        }
-        var td = this.getTodayDate();
-        var count = 0;
-        for (var i = 0; i < this.buydetail.length; i++) {
-            if (this.buydetail[i].date < td) {
-                count += this.buydetail[i].count;
-            }
-        }
-        return count;
-    }
-
-    getCountLessThan(price) {
-        if (!this.buydetail || this.buydetail.length == 0) {
-            return 0;
-        }
-
-        var lessDetail = this.buydetail.filter(bd => bd.price - price <= 0);
-        var moreDetail = this.buydetail.filter(bd => bd.price - price > 0);
-        var count = 0;
-        var tdcount = 0;
-        var td = this.getTodayDate();
-        for (var i = 0; i < lessDetail.length; i++) {
-            if (lessDetail[i].date < td) {
-                count += lessDetail[i].count;
-            } else {
-                tdcount += lessDetail[i].count;
-            }
-        }
-
-        if (tdcount > 0) {
-            var morecount = 0;
-            for (let i = 0; i < moreDetail.length; i++) {
-                const md = moreDetail[i];
-                morecount += md.count;
-            }
-            if (morecount > tdcount) {
-                return count + tdcount;
-            } else {
-                return count + morecount;
-            }
-        }
-        return count;
-    }
-
-    sellDetail(count) {
-        if (!this.buydetail) {
-            return;
-        }
-        var td = this.getTodayDate();
-        var soldCount = count;
-        for (var i = 0; i < this.buydetail.length && soldCount > 0; i++) {
-            if (this.buydetail[i].count - soldCount <= 0) {
-                this.buydetail[i].count = 0;
-                soldCount -= this.buydetail[i].count;
-            } else {
-                this.buydetail[i].count -= soldCount;
-                soldCount = 0;
-            }
-        }
-        var ndetail = [];
-        for (var i = 0; i < this.buydetail.length; i++) {
-            if (this.buydetail[i].count > 0) {
-                ndetail.push(this.buydetail[i]);
-            }
-        }
-        if (ndetail.length == 0) {
-            if (this.amount > 0) {
-                this.count0 = 0;
-            }
-        }
-        this.buydetail = ndetail;
-    }
-
-    addBuyDetail(detail) {
-        var date = detail.time;
-        if (!date) {
-            date = this.getTodayDate();
-        }
-        if (this.buydetail) {
-            this.buydetail.push({date, count: detail.count, price: detail.price, sid: detail.sid});
-        } else {
-            this.buydetail = [{date, count: detail.count, price: detail.price, sid: detail.sid}];
-        }
-        this.save();
+    setHoldCount(tcount, acount, price) {
+        this.buydetail.setHoldCount(tcount, acount, price);
     }
 
     updateBuyDetail(sid, price, count) {
         emjyBack.log('updateBuyDetail', this.code, sid, price, count);
-        if (!this.buydetail) {
-            if (count != 0) {
-                this.buydetail = [{date: this.getTodayDate(), count, price, sid}];
-            }
-            return;
-        }
-
-        var didx = this.buydetail.findIndex(bd => bd.sid == sid);
-        if (didx >= 0) {
-            if (count == 0) {
-                this.buydetail.splice(didx, 1);
-            } else {
-                this.buydetail[didx].price = price;
-                this.buydetail[didx].count = count;
-            }
-        } else if (count != 0){
-            this.buydetail.push({date: this.getTodayDate(), count, price, sid});
-        }
+        this.buydetail.updateBuyDetail(sid, price, count);
     }
 
-    setHoldCount(count, acount) {
-        if (count === undefined || count <= 0) {
-            return;
-        };
+    updateSellDetail(sid, price, count) {
+        emjyBack.log('updateSellDetail', this.code, sid, price, count);
+        this.buydetail.updateSellDetail(sid, price, count);
+    }
 
-        if (!this.buydetail || this.totalCount() != count || this.availableCount() != acount) {
-            this.buydetail = [];
-            if (count == acount) {
-                this.buydetail.push({date: '0', count});
-            } else if (acount > 0) {
-                this.buydetail.push({date: '0', count: acount});
-                this.buydetail.push({date: this.getTodayDate(), count: count - acount});
-            } else {
-                this.buydetail.push({date: this.getTodayDate(), count});
-            }
-        }
+    archiveBuyDetail() {
+        emjyBack.log('archiveBuyDetail', this.code);
+        this.buydetail.archiveRecords();
     }
 
     applyGuardLevel(allklt = true) {
@@ -417,22 +534,20 @@ class StrategyGroup {
                 var count = this.count0;
                 emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy))
                 emjyBack.tryBuyStock(this.code, price, count, account, bd => {
-                    this.addBuyDetail(bd);
+                    this.buydetail.addBuyDetail(bd);
+                    this.save();
                 });
             } else if (info.tradeType == 'S') {
                 var count = this.count0;
-                var countAll = this.availableCount();
-                if (info.count == 1 || count - countAll > 0) {
-                    count = countAll;
-                } else if (info.count == 2) {
-                    count = this.getCountLessThan(info.price);
+                if (info.count >= 100) {
+                    count = info.count;
                 }
                 if (count > 0) {
                     emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', price, JSON.stringify(curStrategy));
-                    emjyBack.trySellStock(this.code, price, count, this.account);
-                    if (this.buydetail) {
-                        this.sellDetail(count);
-                    }
+                    emjyBack.trySellStock(this.code, price, count, this.account, sd => {
+                        this.buydetail.addSellDetail(sd);
+                        this.save();
+                    });
                 }
             }
             this.save();
@@ -444,7 +559,8 @@ class StrategyGroup {
             var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
             emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy));
             emjyBack.tryBuyStock(this.code, price, count, account, bd => {
-                this.addBuyDetail(bd);
+                this.buydetail.addBuyDetail(bd);
+                this.save();
             });
             if (curStrategy.guardLevel() == 'zt') {
                 emjyBack.ztBoardTimer.removeStock(this.code);
@@ -458,10 +574,10 @@ class StrategyGroup {
             var countAll = this.totalCount();
             if (count > 0) {
                 emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', price, JSON.stringify(curStrategy));
-                emjyBack.trySellStock(this.code, price, count, this.account);
-                if (this.buydetail) {
-                    this.sellDetail(count);
-                }
+                emjyBack.trySellStock(this.code, price, count, this.account, sd => {
+                    this.buydetail.addSellDetail(sd);
+                    this.save();
+                });
                 this.onTradeMatch(id, {price});
             } else if (countAll > 0) {
                 emjyBack.log('checkStrategies sell match, no available count to sell', this.code, JSON.stringify(curStrategy));
