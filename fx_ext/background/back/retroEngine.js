@@ -203,6 +203,9 @@ class RetroEngine {
 
     clearRetroDeals() {
         emjyBack.retroAccount.deals = [];
+        for (let i = emjyBack.retroAccount.stocks.length - 1; i >= 0; i--) {
+            emjyBack.retroAccount.removeStock(emjyBack.retroAccount.stocks[i].code);
+        }
     }
 
     saveRetroDeals() {

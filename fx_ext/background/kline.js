@@ -56,7 +56,7 @@ class KLine {
         if (kl) {
             return kl;
         };
-        if (this.klines[kltype] && this.klines[kltype].length > 0) {
+        if (this.klines && this.klines[kltype] && this.klines[kltype].length > 0) {
             return this.klines[kltype][this.klines[kltype].length - 1];
         };
         return null;

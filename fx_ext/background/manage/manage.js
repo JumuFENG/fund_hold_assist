@@ -326,7 +326,11 @@ class Manager {
 
     getCurrentHoldValue(code, count = 0) {
         if (count > 0) {
-            return count * this.klines[code].getLatestKline('101').c;
+            if (this.klines[code] && this.klines[code].klines) {
+                return count * this.klines[code].getLatestKline('101').c;
+            }
+            console.log(code, count, 'no kline data');
+            return 0;
         }
 
         var stock = this.stockList.stocks.find(s => s.stock.code == code);
