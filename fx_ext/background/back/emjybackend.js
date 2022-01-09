@@ -396,14 +396,6 @@ class EmjyBack {
         console.log(this.savedDeals);
     }
 
-    checkAvailableMoney(price, account) {
-        if (this.normalAccount.keyword == account) {
-            this.normalAccount.checkAvailableMoney(price);
-        } else if (this.collateralAccount.keyword == account) {
-            this.collateralAccount.checkAvailableMoney(price);
-        }
-    }
-
     trySellStock(code, price, count, account) {
         var sellAccount = this.normalAccount;
         if (account) {
@@ -501,7 +493,6 @@ class EmjyBack {
             this.klineAlarms.stopTimer();
             this.ztBoardTimer.stopTimer();
         } else if (alarmInfo.name == 'afternoon') {
-            this.refreshAssets();
             this.rtpTimer.startTimer();
             this.klineAlarms.startTimer();
             this.ztBoardTimer.startTimer();
@@ -698,6 +689,7 @@ class EmjyBack {
     }
 
     flushLogs() {
+        emjyBack.log('flush log!');
         var blob = new Blob(this.logs, {type: 'application/text'});
         this.saveToFile(blob, 'logs/stock.assist' + this.getTodayDate() + '.log');
         this.logs = [];

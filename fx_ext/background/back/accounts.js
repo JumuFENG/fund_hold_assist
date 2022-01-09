@@ -643,33 +643,7 @@ class NormalAccount extends Account {
             this.createTradeClient();
         }
 
-        var finalCount = count;
-        if (count <= 0) {
-            finalCount = parseInt(400 / price);
-            if (finalCount * price < 390) {
-                finalCount++;
-            }
-            finalCount *= 100;
-        }
-
-        if (count < 100) {
-            this.tradeClient.buy(code, price, count, cb);
-            return;
-        };
-
-        var moneyNeed = finalCount * price;
-        if (this.availableMoney < moneyNeed) {
-            finalCount = 100 * Math.floor(this.availableMoney / (100 * price));
-        }
-
-        moneyNeed = finalCount * price;
-
-        if (this.availableMoney < moneyNeed) {
-            emjyBack.log('No availableMoney match');
-            return;
-        }
-        this.tradeClient.buy(code, price, finalCount, cb);
-        this.availableMoney -= moneyNeed;
+        this.tradeClient.buy(code, price, count, cb);
     }
 
     sellStock(code, price, count) {
@@ -677,33 +651,7 @@ class NormalAccount extends Account {
             this.createTradeClient();
         }
 
-        var finalCount = count;
-        if (count <= 0) {
-            finalCount = parseInt(400 / price);
-            if (finalCount * price < 390) {
-                finalCount++;
-            }
-            finalCount *= 100;
-        }
-
-        var stockInfo = this.stocks.find(function(s) { return s.code == code; });
-        if (stockInfo) {
-            if (finalCount > stockInfo.availableCount) {
-                finalCount = stockInfo.availableCount;
-            }
-            if (finalCount == 0) {
-                emjyBack.log('error: availableCount is 0', stockInfo.code, stockInfo.name);
-                return;
-            };
-
-            this.tradeClient.sell(code, price, finalCount);
-            stockInfo.availableCount -= finalCount;
-            this.availableMoney += finalCount * price;
-        } else if (code == this.wallet.fundcode) {
-            this.tradeClient.sell(code, price, finalCount);
-            this.availableMoney += this.wallet.holdCount * price;
-            this.wallet.holdCount = 0;
-        }
+        this.tradeClient.sell(code, price, count);
     }
 
     applyStrategy(code, str) {
@@ -829,12 +777,8 @@ class NormalAccount extends Account {
         this.buyBondRepurchase();
     }
 
-    checkAvailableMoney(price) {
-        var count = 100 * Math.ceil(400 / price);
-        var moneyNeed = count * price;
-        if (moneyNeed > this.availableMoney && this.wallet.holdCount > 0) {
-            this.sellStock(this.wallet.fundcode, 0, 1);
-        };
+    sellWalletFund() {
+        this.sellStock(this.wallet.fundcode, 0, 1);
     }
 
     fillupGuardPrices() {

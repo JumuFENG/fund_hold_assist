@@ -394,9 +394,7 @@ class StrategyGroup {
                 } else {
                     this.doTrade(id, {price});
                 }
-            } else if (checkResult.stepInCritical) {
-                emjyBack.checkAvailableMoney(rtInfo.latestPrice, checkResult.account);
-            };
+            }
         };
     }
 
