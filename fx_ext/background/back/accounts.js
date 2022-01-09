@@ -519,6 +519,10 @@ class Account {
         this.sellPath = null;
         this.tradeClient = null;
     }
+
+    getStock(code) {
+        return this.stocks.find(s => s.code == code);
+    }
 }
 
 class NormalAccount extends Account {

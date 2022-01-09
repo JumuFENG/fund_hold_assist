@@ -297,6 +297,21 @@ class StrategyGroup {
         };
     }
 
+    addStrategy(str) {
+        var ids = Object.keys(this.strategies);
+        var id = 0;
+        if (ids) {
+            for (let i = 0; i < ids.length; i++) {
+                if (ids[i] - id > 0) {
+                    id = ids[i];
+                }
+            }
+            ++id;
+        }
+        this.strategies[id] = strategyManager.create(str);
+        this.save();
+    }
+
     initTransfers(conn) {
         for (var id in conn) {
             this.transfers[id] = new StrategyTransferConnection(conn[id]);
