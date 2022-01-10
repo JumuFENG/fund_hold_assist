@@ -217,6 +217,9 @@ class BuyDetail {
                 this.records[didx].count = count;
             }
         } else if (count != 0){
+            if (this.records.length == 1 && this.records[0].count == count) {
+                this.records = [];
+            }
             this.addBuyDetail({count, price, sid});
         }
     }
@@ -252,12 +255,12 @@ class BuyDetail {
         if (!this.records || this.totalCount() != tcount || this.availableCount() != acount) {
             this.records = [];
             if (acount == 0) {
-                this.records.push({date: this.getTodayDate(), count: tcount, price});
+                this.addBuyDetail({count: tcount, price});
             } else if (tcount == acount) {
-                this.records.push({date: '0', count: tcount, price});
+                this.addBuyDetail({date: '0', count: tcount, price});
             } else {
-                this.records.push({date: '0', count: acount, price});
-                this.records.push({date: this.getTodayDate(), count: tcount - acount, price});
+                this.addBuyDetail({date: '0', count: acount, price});
+                this.addBuyDetail({count: tcount - acount, price});
             }
         }
     }

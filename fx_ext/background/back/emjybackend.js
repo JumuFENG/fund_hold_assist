@@ -759,6 +759,19 @@ class EmjyBack {
             this.retroEngine.initRetro(code, {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000}, '2021-01-04');
         }
     }
+
+    cheatExistingStocks() {
+        var cheatOperation = function(account) {
+            for (let i = 0; i < account.stocks.length; i++) {
+                const stocki = account.stocks[i];
+                // TODO: add operations here!
+            }
+        }
+        console.log('normal');
+        cheatOperation(this.normalAccount);
+        console.log('collat');
+        cheatOperation(this.collateralAccount);
+    }
 }
 
 class BkStocksFetch {
