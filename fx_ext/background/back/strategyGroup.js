@@ -300,7 +300,16 @@ class StrategyGroup {
         };
     }
 
-    addStrategy(str) {
+    isLongTerm() {
+        for (var id in this.strategies) {
+            if (this.strategies[id].data.period == 'l') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    getNextValidId() {
         var ids = Object.keys(this.strategies);
         var id = 0;
         if (ids) {
@@ -311,7 +320,27 @@ class StrategyGroup {
             }
             ++id;
         }
+        return id;
+    }
+
+    addStrategy(str) {
+        var id = this.getNextValidId();
         this.strategies[id] = strategyManager.create(str);
+        this.save();
+    }
+
+    addStrategyGroup(strgrp) {
+        var id = this.getNextValidId();
+        var idmap = {'-1':'-1'};
+        for (var oid in strgrp.strategies) {
+            this.strategies[id] = strategyManager.create(strgrp.strategies[oid]);
+            idmap[oid] = id;
+            ++id;
+        }
+
+        for (var id in strgrp.transfers) {
+            this.transfers[idmap[id]] = new StrategyTransferConnection(idmap[strgrp.transfers[id]]);
+        }
         this.save();
     }
 

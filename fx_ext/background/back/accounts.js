@@ -682,10 +682,22 @@ class NormalAccount extends Account {
         chrome.storage.local.remove(this.keyword + '_' + code + '_strategies');
     }
 
-    addWatchStock(code, str) {
+    addStockStrategy(stock, strgrp) {
+        if (stock.strategies && stock.strategies.isLongTerm()) {
+            stock.strategies.addStrategyGroup(strgrp);
+        } else if (strgrp) {
+            var strategyGroup = strategyGroupManager.create(strgrp, this.keyword, stock.code, this.keyword + '_' + stock.code + '_strategies');
+            strategyGroup.applyGuardLevel();
+            stock.strategies = strategyGroup;
+        }
+    }
+
+    addWatchStock(code, strgrp) {
         emjyBack.loadKlines(code);
         var stock = this.stocks.find(s => {return s.code == code;});
+
         if (stock) {
+            this.addStockStrategy(stock, strgrp);
             return;
         };
 
@@ -697,13 +709,9 @@ class NormalAccount extends Account {
         } else {
             emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code});
         }
-        var stock = new StockInfo({ code, name, holdCount: 0, availableCount: 0, market});
 
-        if (str) {
-            var strategyGroup = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
-            strategyGroup.applyGuardLevel();
-            stock.strategies = strategyGroup;
-        }
+        var stock = new StockInfo({ code, name, holdCount: 0, availableCount: 0, market});
+        this.addStockStrategy(stock, strgrp);
         this.stocks.push(stock);
     }
 
