@@ -42,30 +42,29 @@ class DbkQuestClient {
         var bkful = [];
         for (var i = 0; i < bks.length; i++) {
             var bkn = bks[i].innerText.split(':');
-            bkful.push(bkn[0].trim());
+            bkful.push({bk:bkn[0].trim(), num:0});
         }
 
         var getFulBk = function(bk) {
             for (let i = 0; i < bkful.length; i++) {
-                if (bkful[i].startsWith(bk)) {
-                    return bkful[i];
+                if (bkful[i].bk.startsWith(bk)) {
+                    return bkful[i].bk;
                 }
             }
         }
         var tbls = ele.querySelectorAll('table.table.table-bordered.text-center');
-        var zt = [];
-        rows = tbls[2].querySelectorAll('tbody>tr');
-        for (var i = 0; i < rows.length; i++) {
-            var cels = rows[i].querySelectorAll('td');
-            zt.push({c:cels[0].innerText.trim(), n:cels[1].innerText.trim(), lbc:cels[6].innerText.trim()});
+        var parseZdt = function(tbl) {
+            var zdt = [];
+            var rows = tbl.querySelectorAll('tbody>tr');
+            for (var i = 0; i < rows.length; i++) {
+                var cels = rows[i].querySelectorAll('td');
+                zdt.push({c:cels[0].innerText.trim(), n:cels[1].innerText.trim(), lbc:cels[6].innerText.trim()});
+            }
+            return zdt
         }
 
-        var dt = [];
-        rows = tbls[3].querySelectorAll('tbody>tr');
-        for (var i = 0; i < rows.length; i++) {
-            var cels = rows[i].querySelectorAll('td');
-            dt.push({c:cels[0].innerText.trim(), n:cels[1].innerText.trim(), lbc:cels[6].innerText.trim()});
-        }
+        var zt = parseZdt(tbls[2]);
+        var dt = parseZdt(tbls[3]);
         var getCode = function(name, bk) {
             for (let i = 0; i < zt.length; i++) {
                 if (zt[i].n == name) {
@@ -81,41 +80,54 @@ class DbkQuestClient {
             }
         }
 
-        var rows = tbls[0].querySelectorAll('tbody>tr');
-        var zts0 = [];
-        for (var i = 0; i < rows.length; i++) {
-            var cels = rows[i].querySelectorAll('td');
-            var stkstr = cels[2].innerText.trim();
-            var reg = new RegExp(/(.*?)\((.*?)\)\s+\((.*?)\)/, 'g');
-            var stks = stkstr.matchAll(reg);
-            for (var m of stks) {
-                zts0.push({bk:m[3].trim(), r:m[2].trim(), n:m[1].trim()});
+        var parseZtProgress = function(tbl) {
+            var pgs = [];
+            var rows = tbl.querySelectorAll('tbody>tr');
+            for (var i = 0; i < rows.length; i++) {
+                var cels = rows[i].querySelectorAll('td');
+                var stkstr = cels[2].innerText.trim();
+                var reg = new RegExp(/(.*?)\((.*?)\)\s+\((.*?)\)/, 'g');
+                var stks = stkstr.matchAll(reg);
+                for (var m of stks) {
+                    pgs.push({bk:m[3].trim(), r:m[2].trim(), n:m[1].trim()});
+                }
             }
+            return pgs;
         }
+
+        var zts0 = parseZtProgress(tbls[0]);
         for (let i = 0; i < zts0.length; i++) {
             zts0[i].bk = getFulBk(zts0[i].bk);
             zts0[i].c = getCode(zts0[i].n, zts0[i].bk);
         }
 
-        var zts1 = [];
-        rows = tbls[1].querySelectorAll('tbody>tr');
-        for (var i = 0; i < rows.length; i++) {
-            var cels = rows[i].querySelectorAll('td');
-            var stks = cels[2].innerText.trim().split(' ');
-            var stkstr = cels[2].innerText.trim();
-            var reg = new RegExp(/(.*?)\((.*?)\)\s+\((.*?)\)/, 'g');
-            var stks = stkstr.matchAll(reg);
-            for (var m of stks) {
-                zts1.push({bk:m[3].trim(), r:m[2].trim(), n:m[1].trim()});
-            }
-        }
+        var zts1 = parseZtProgress(tbls[1]);
         for (let i = 0; i < zts1.length; i++) {
             zts1[i].bk = getFulBk(zts1[i].bk);
             zts1[i].c = getCode(zts1[i].n, zts1[i].bk);
         }
 
+        var addBkFullNum = function(bk) {
+            for (let i = 0; i < bkful.length; i++) {
+                if (bkful[i].bk.startsWith(bk)) {
+                    bkful[i].num ++;
+                }
+            }
+        }
+
+        for (let i = 0; i < zt.length; i++) {
+            addBkFullNum(zt[i].bk);
+        }
+
+        var datecels = ele.querySelectorAll('div.card-body>div.row')[0].querySelectorAll('div');
+        var date = '';
+        for (let i = 0; i < datecels.length; i++) {
+            if (datecels[i].children.length == 0) {
+                date = datecels[i].innerText.substring(0, 10);
+            }
+        }
         if (typeof(cb) === 'function') {
-            cb(zt, dt, zts0, zts1, bkful);
+            cb(date, zt, dt, zts0, zts1, bkful);
         }
     }
 

@@ -239,7 +239,7 @@ class RetroEngine {
         this.code = code;
         var str = {
             "grptype":"GroupStandard",
-            "strategies":{"0":{"key":"StrategyGE","enabled":true,"stepRate":0.04, kltype, "peroid":"l"}},
+            "strategies":{"0":{"key":"StrategyGE","enabled":true,"stepRate":0.04, kltype, "period":"l"}},
             "transfers":{"0":{"transfer":"-1"}},
             "amount":10000};
         if (!emjyBack.retroAccount) {

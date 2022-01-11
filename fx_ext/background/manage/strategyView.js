@@ -577,8 +577,8 @@ class StrategyGridEarningView extends StrategyBaseView {
 
     isChanged() {
         var changed = super.isChanged();
-        if (this.strategy.peroid === undefined) {
-            this.strategy.peroid = 'l';
+        if (this.strategy.period === undefined) {
+            this.strategy.period = 'l';
             changed = true;
         }
         return changed;

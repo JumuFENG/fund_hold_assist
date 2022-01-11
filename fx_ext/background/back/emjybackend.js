@@ -452,7 +452,7 @@ class EmjyBack {
         var alarms = [
         {name:'morning-prestart', tick: new Date(now.toDateString() + ' 9:24:45').getTime()},
         {name:'morning-start', tick: new Date(now.toDateString() + ' 9:29:42').getTime()},
-        {name:'morning-otp', tick: new Date(now.toDateString() + ' 9:30:01').getTime()},
+        {name:'morning-otp', tick: new Date(now.toDateString() + ' 9:30:02').getTime()},
         {name:'morning-middle', tick: new Date(now.toDateString() + ' 10:15:55').getTime()},
         {name:'morning-end', tick: new Date(now.toDateString() + ' 11:30:3').getTime()},
         {name:'afternoon', tick: new Date(now.toDateString() + ' 12:59:5').getTime()},

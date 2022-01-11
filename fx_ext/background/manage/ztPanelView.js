@@ -15,7 +15,7 @@ class ZtTablePage extends RadioAnchorPage {
         this.ztTable = new SortableTable();
         this.ztTable.reset();
         this.container.appendChild(this.ztTable.container);
-        this.ztTable.setClickableHeader('序号', '名称(代码)', '总市值', '流通市值', '炸板次数', '换手率(%)', zttitle + '价格', zttitle + '日期');
+        this.ztTable.setClickableHeader('序号', '名称(代码)', '总市值', '流通市值', '炸板次数', '换手率(%)', zttitle + '价格', zttitle + '日期', '板块');
         for (var i = 0; i < ztStocks.length; i++) {
             var stocki = ztStocks[i];
             if (zt == 1) {
@@ -30,6 +30,7 @@ class ZtTablePage extends RadioAnchorPage {
                 stocki.hsl ? parseFloat(stocki.hsl.toFixed(2)) : '',
                 stocki.price,
                 stocki.ztdate,
+                stocki.bk
                 );
         }
     }
@@ -171,12 +172,12 @@ class ZtPanelPage extends RadioAnchorPage {
     }
 
     getZTPool(date) {
-        // emjyManager.sendExtensionMessage({command:'mngr.getZTPool', date});
+        emjyManager.sendExtensionMessage({command:'mngr.getZTPool', date});
         // wencaiCommon.getWencaiZt(datas => {
         //     this.onWencaiZTPoolBack(datas);
         // });
-        dbkCommon.getZdt((zt, dt, zts0, zts1, bkful) => {
-            
+        dbkCommon.getZdt((date, zt, dt, zts0, zts1, bkful) => {
+            this.onDbkZTPoolBack(date, zt);
         });
     }
 
@@ -197,7 +198,7 @@ class ZtPanelPage extends RadioAnchorPage {
                 if (stock.n.startsWith('退市')) {
                     continue;
                 }
-                if (stock.zttj.days != stock.zttj.ct) {
+                if (stock.zttj && stock.zttj.days != stock.zttj.ct) {
                     continue;
                 }
                 var name = stock.n;
@@ -211,9 +212,13 @@ class ZtPanelPage extends RadioAnchorPage {
                 if (this.ztData[stock.lbc] === undefined) {
                     this.ztData[stock.lbc] = [];
                 }
+                var bk = stock.bk;
+                if (stock.bk === undefined) {
+                    bk = stock.hybk;
+                }
                 var stk = this.ztData[stock.lbc].find(s => {return s.code == stock.c && s.ztdate == ztdate;});
                 if (!stk) {
-                    this.ztData[stock.lbc].push({name, code, m, ltsz, zsz, hsl, zbc, price, ztdate});
+                    this.ztData[stock.lbc].push({name, code, m, ltsz, zsz, hsl, zbc, price, ztdate, bk});
                 };
             }
         };
@@ -273,14 +278,40 @@ class ZtPanelPage extends RadioAnchorPage {
         this.mergeZTPool({ztdate, pool});
     }
 
+    onDbkZTPoolBack(ztdate, datas) {
+        if (!datas || datas.length == 0) {
+            return;
+        }
+
+        var pool = [];
+        for (let i = 0; i < datas.length; i++) {
+            const ztstk = datas[i];
+            var stock = {};
+            stock.bk = ztstk.bk;
+            stock.c = ztstk.c;
+            stock.n = ztstk.n;
+            stock.lbc = ztstk.lbc;
+            pool.push(stock);
+        }
+
+        this.mergeZTPool({ztdate, pool});
+    }
+
     mergeZTPool(pool) {
         console.log(pool);
         var ep = this.ztpool.findIndex(p => p.ztdate == pool.ztdate);
         if (ep >= 0) {
             for (let i = 0; i < pool.pool.length; i++) {
                 const data = pool.pool[i];
-                if (!this.ztpool[ep].pool.find(z => z.c == data.c)) {
+                var ztitem = this.ztpool[ep].pool.find(z => z.c == data.c)
+                if (!ztitem) {
                     this.ztpool[ep].pool.push(data);
+                } else {
+                    for (const key in data) {
+                        if (ztitem[key] === undefined) {
+                            ztitem[key] = data[key];
+                        }
+                    }
                 }
             }
         } else {
