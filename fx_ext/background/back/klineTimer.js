@@ -31,6 +31,10 @@ class DailyAlarm {
 class KlineAlarms extends DailyAlarm {
     constructor() {
         super();
+        this.baseKlt = new Set(['1', '15']);
+        this.baseKlt.forEach(k => {
+            this.stocks[k] = new Set();
+        });
         this.hitCount = 0;
         this.klineInterval = null;
     }
@@ -64,9 +68,7 @@ class KlineAlarms extends DailyAlarm {
     onTimer() {
         this.baseKlt.forEach(kltype => {
             var fetch = false;
-            if (kltype == '101') {
-                fetch = this.hitCount > 240;
-            } else if (kltype == '1') {
+            if (kltype == '1') {
                 fetch = true;
             } else {
                 fetch = this.hitCount % kltype == 0;

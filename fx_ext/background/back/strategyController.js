@@ -68,7 +68,7 @@ class Strategy {
     }
 
     check(rtInfo) {
-
+        return {match: false};
     }
 
     enabled() {

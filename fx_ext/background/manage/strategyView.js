@@ -320,18 +320,6 @@ class StrategyBuyPopupView extends StrategyBaseView {
     }
 }
 
-class StrategyBuyStopDecView extends StrategyBuyMAView {
-    setDefaultKltype() {
-        if (this.klineSelector) {
-            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '15';
-        };
-    }
-
-    maDescription() {
-        return '止跌买入，下跌趋势中设置。直接买入的优化。';
-    }
-}
-
 class StrategySellView extends StrategyBaseView {
     createView() {
         var view = document.createElement('div');
@@ -469,6 +457,18 @@ class StrategyBuyMAView extends StrategyBaseView {
         this.setDefaultKltype();
         view.appendChild(this.createBuyAccountSelector());
         return view;
+    }
+}
+
+class StrategyBuyStopDecView extends StrategyBuyMAView {
+    setDefaultKltype() {
+        if (this.klineSelector) {
+            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '15';
+        };
+    }
+
+    maDescription() {
+        return '止跌买入，下跌趋势中设置。直接买入的优化。';
     }
 }
 
