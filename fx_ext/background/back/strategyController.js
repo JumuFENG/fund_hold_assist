@@ -178,7 +178,7 @@ class StrategyBuySD extends StrategyBuy {
         };
 
         if (klines.isDecreaseStoppedStrict(this.kltype())) {
-            this.data.enabled = false;
+            var kl = klines.getLatestKline(this.kltype());
             return {match: true, tradeType:'B', count: 0, price: kl.c};
         }
         return {match: false};

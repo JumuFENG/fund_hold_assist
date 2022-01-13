@@ -227,11 +227,22 @@ class RetroEngine {
         this.initKlines(code, startDate);
     }
 
-    initStrategMaRetro(code, startDate, kltype = '101') {
+    retroStrategyMa(code, startDate, kltype = '101', endDate = null) {
         this.kltype = kltype;
-        this.initRetro(code,
-            {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype}},"amount":40000},
-             startDate);
+        this.code = code;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        var str = {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype}},"amount":40000};
+        if (!emjyBack.retroAccount) {
+            emjyBack.setupRetroAccount();
+        }
+        if (emjyBack.retroAccount.stocks.find(s=>s.code == code)) {
+            emjyBack.retroAccount.applyStrategy(code, str);
+        } else {
+            emjyBack.retroAccount.addWatchStock(code, str);
+        }
+
+        this.startRetro();
     }
 
     retroStrategyGe(code, kltype = '30') {
@@ -272,6 +283,29 @@ class RetroEngine {
                 stock.strategies.checkKlines([skltype]);
             }
         }
+    }
+
+    retroStrategyBuySD(code, kltype = '30') {
+        this.kltype = kltype;
+        this.code = code;
+        var str = {
+            "grptype":"GroupStandard",
+            "strategies":{"0":{"key":"StrategyBuySD","enabled":true, kltype}},
+            "transfers":{"0":{"transfer":"-1"}},
+            "amount":10000};
+        if (!emjyBack.retroAccount) {
+            emjyBack.setupRetroAccount();
+        }
+
+        var stock = emjyBack.retroAccount.stocks.find(s => s.code == this.code);
+        if (stock) {
+            stock.strategies = null;
+            emjyBack.retroAccount.applyStrategy(code, str);
+        } else {
+            emjyBack.retroAccount.addWatchStock(code, str);
+        }
+
+        this.startRetro();
     }
 
     retroAgainMa(kltype) {

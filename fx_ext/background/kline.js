@@ -416,7 +416,7 @@ class KLine {
 
     isDecreaseStoppedStrict(kltype) {
         // 严格止跌，下降趋势>8根K线，反弹连续2根K线的收盘价和最低价均上涨，主要用于建仓或者做正T
-        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length > 10) {
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length < 10) {
             console.log('no klins data for kltype', kltype);
             return false;
         }
@@ -451,6 +451,7 @@ class KLine {
                 if (ndecCt > 0) {
                     ndecCt = 0;
                 }
+                klbottom = kline[i];
             } else {
                 ndecCt++;
             }
@@ -460,13 +461,15 @@ class KLine {
             if (decCount >= 8) {
                 break;
             }
-            klbottom = kline[i];
         }
 
         if (ndecCt > 2 || decCount < 8) {
             return false;
         }
 
+        if (lastIdx > bottomIdx + 5) {
+            return false;
+        }
         // 低点之后上涨k线数
         var upCount = 0;
         for (let i = lastIdx; i >= 0 && i >= bottomIdx; i--) {
