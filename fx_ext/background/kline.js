@@ -414,7 +414,79 @@ class KLine {
         return 0;
     }
 
+    isDecreaseStoppedStrict(kltype) {
+        // 严格止跌，下降趋势>8根K线，反弹连续2根K线的收盘价和最低价均上涨，主要用于建仓或者做正T
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length > 10) {
+            console.log('no klins data for kltype', kltype);
+            return false;
+        }
+
+        var kline = this.getKline(kltype);
+        var lastIdx = kline.length - 1;
+        var klend = this.getIncompleteKline(kltype);
+        if (!klend) {
+            klend = kline[lastIdx];
+            lastIdx = kline.length - 2;
+        }
+
+        // 最低点
+        var bottomIdx = lastIdx;
+        var bottomPrc = klend.l;
+        for (let i = lastIdx; i >= 0 && i > lastIdx - 10; i--) {
+            const klpre = kline[i];
+            if (klpre.l - bottomPrc < 0) {
+                bottomPrc = klpre.l;
+                bottomIdx = i;
+            }
+        }
+
+        // 最低点之前下跌k线数
+        var klbottom = kline[bottomIdx];
+        var decCount = 0;
+        var ndecCt = 0;
+        for (let i = bottomIdx - 1; i >= 0; i--) {
+            const klpre = kline[i];
+            if (klpre.h - klbottom.h > 0 || klpre.c - klbottom.c > 0) {
+                decCount++;
+                if (ndecCt > 0) {
+                    ndecCt = 0;
+                }
+            } else {
+                ndecCt++;
+            }
+            if (ndecCt > 2) {
+                return false;
+            }
+            if (decCount >= 8) {
+                break;
+            }
+            klbottom = kline[i];
+        }
+
+        if (ndecCt > 2 || decCount < 8) {
+            return false;
+        }
+
+        // 低点之后上涨k线数
+        var upCount = 0;
+        for (let i = lastIdx; i >= 0 && i >= bottomIdx; i--) {
+            const klpre = kline[i];
+            if (klend.c - klpre.c > 0 && klend.l - klpre.l > 0) {
+                upCount++;
+                if (upCount >= 2) {
+                    return true;
+                }
+                klend = klpre;
+                continue;
+            } else {
+                return upCount >= 2;
+            }
+        }
+        return upCount >= 2;
+    }
+
     isDecreaseStopped(kltype) {
+        // 止跌，连续2根K线收盘价上涨。主要用于网格法加仓买入，有价格区间限制
         if (!this.klines || !this.klines[kltype]) {
             console.log('no klins data for kltype', kltype);
             return false;
@@ -424,7 +496,7 @@ class KLine {
         var lastIdx = kline.length - 1;
         var klend = this.getIncompleteKline(kltype);
         if (!klend) {
-            klend = kline[kline.length - 1];
+            klend = kline[lastIdx];
             lastIdx = kline.length - 2;
         }
         var popCount = 0;

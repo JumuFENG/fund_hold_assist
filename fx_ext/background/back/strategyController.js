@@ -8,6 +8,9 @@ class StrategyManager {
         if (strategy.key == 'StrategyBuyPopup') {
             return new StrategyBuyPopup(strategy);
         };
+        if (strategy.key == 'StrategyBuySD') {
+            return new StrategyBuySD(strategy);
+        }
         if (strategy.key == 'StrategySell') {
             return new StrategySell(strategy);
         };
@@ -161,6 +164,24 @@ class StrategyBuyPopup extends StrategyBuy {
             this.data.prePeekPrice = price;
         }
         return {match, stepInCritical, account: this.data.account};
+    }
+}
+
+class StrategyBuySD extends StrategyBuy {
+    guardLevel() {
+        return 'kline';
+    }
+
+    checkKlines(klines, updatedKlt, buydetails) {
+        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
+            return {match: false};
+        };
+
+        if (klines.isDecreaseStoppedStrict(this.kltype())) {
+            this.data.enabled = false;
+            return {match: true, tradeType:'B', count: 0, price: kl.c};
+        }
+        return {match: false};
     }
 }
 

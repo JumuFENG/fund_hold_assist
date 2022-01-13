@@ -7,6 +7,7 @@ let ComplexStrategyKeyNames = [
 
 let BuyStrategyKeyNames = [
 {key: 'StrategyBuy', name: '直接买入'}, 
+{key: 'StrategyBuySD', name: '止跌买入'},
 {key: 'StrategyBuyPopup', name: '反弹买入'}, 
 {key: 'StrategyBuyR', name: '反弹(重复)买入'}, 
 {key: 'StrategyBuyIPO', name: '开板反弹买入'}, 

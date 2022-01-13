@@ -8,6 +8,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyBuyPopup') {
             return new StrategyBuyPopupView(strategy);
         };
+        if (strategy.key == 'StrategyBuySD') {
+            return new StrategyBuyStopDecView(strategy);
+        }
         if (strategy.key == 'StrategySell') {
             return new StrategySellView(strategy);
         };
@@ -314,6 +317,18 @@ class StrategyBuyPopupView extends StrategyBaseView {
         view.appendChild(this.createPopbackInput('反弹幅度 '));
         view.appendChild(this.createBuyAccountSelector());
         return view;
+    }
+}
+
+class StrategyBuyStopDecView extends StrategyBuyMAView {
+    setDefaultKltype() {
+        if (this.klineSelector) {
+            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '15';
+        };
+    }
+
+    maDescription() {
+        return '止跌买入，下跌趋势中设置。直接买入的优化。';
     }
 }
 
