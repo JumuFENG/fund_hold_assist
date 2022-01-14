@@ -564,7 +564,7 @@ class StrategyGroup {
 
     doTrade(id, info) {
         var curStrategy = this.strategies[id];
-        if (!curStrategy || !curStrategy.enabled()) {
+        if (!curStrategy) {
             return;
         }
 

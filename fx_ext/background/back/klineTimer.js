@@ -20,11 +20,13 @@ class DailyAlarm {
     }
 
     onTimer() {
+        emjyBack.log('daily alarm start update daily kline');
         this.baseKlt.forEach(kltype => {
             this.stocks[kltype].forEach(s => {
                 emjyBack.fetchStockKline(s, kltype);
             });
         });
+        emjyBack.log('daily alarm update daily kline done!');
     }
 }
 
