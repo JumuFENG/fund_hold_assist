@@ -10,6 +10,12 @@ class KLine {
     }
 
     loadSaved(cb) {
+        if (this.code.startsWith('t')) {
+            if (typeof(cb) === 'function') {
+                cb();
+            }
+            return;
+        }
         chrome.storage.local.get(this.storeKey, item => {
             if (item && item[this.storeKey]) {
                 this.klines = item[this.storeKey];
@@ -26,6 +32,9 @@ class KLine {
     }
 
     save() {
+        if (this.code.startsWith('t')) {
+            return;
+        }
         if (this.klines) {
             var stockKlines = {};
             stockKlines[this.storeKey] = this.klines;

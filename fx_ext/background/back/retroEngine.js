@@ -66,20 +66,24 @@ class TradingData {
 
 let tradeAnalyzer = new TradingData();
 
-class RetroTradeClient extends TradeClient {
-    constructor() {
+class TestTradeClient extends TradeClient {
+    constructor(account) {
         super('');
+        this.bindingAccount = account;
     }
 
     trade(code, price, count, tradeType, jylx, cb) {
-        console.log('test trade', tradeType, code, price, count, jylx);
+        console.log(this.bindingAccount.keyword, 'trade', tradeType, code, price, count, jylx);
         if (price == 0 || count < 100) {
             console.log('please set correct price and count for test trade!');
             return;
         } else {
-            var time = emjyBack.retroAccount.tradeTime;
-            var sid = emjyBack.retroAccount.sid;
-            emjyBack.retroAccount.addDeal(code, price, count, tradeType);
+            var time = this.bindingAccount.tradeTime;
+            if (!time) {
+                time = emjyBack.getTodayDate('-');
+            }
+            var sid = this.bindingAccount.sid;
+            this.bindingAccount.addDeal(code, price, count, tradeType);
             if (typeof(cb) === 'function') {
                 cb({time, code, price, count, sid});
             }
@@ -145,7 +149,7 @@ class TrackingAccount extends NormalAccount {
     }
 
     createTradeClient() {
-        this.tradeClient = new TestTradeClient();
+        this.tradeClient = new TestTradeClient(this);
     }
 
     buyStock(code, price, count, cb) {
@@ -178,13 +182,102 @@ class RetrospectAccount extends TrackingAccount {
     }
 
     createTradeClient() {
-        this.tradeClient = new RetroTradeClient();
+        this.tradeClient = new TestTradeClient(this);
+    }
+
+    loadAssets() {
+        chrome.storage.local.get(this.key_deals, item => {
+            if (item && item[this.key_deals]) {
+                this.deals = item[this.key_deals];
+            }
+        });
+    }
+
+    save() {
+        var dsobj = {};
+        dsobj[this.key_deals] = this.deals;
+        chrome.storage.local.set(dsobj);
     }
 }
 
 class RetroEngine {
     constructor() {
 
+    }
+
+    runAllTests() {
+        if (!emjyBack.retroAccount) {
+            emjyBack.setupRetroAccount();
+        }
+
+        var checkDeal = function(name, expect, actual) {
+            if (!actual) {
+                console.log('Test Failed!', name, 'no actual deal!');
+                return;
+            }
+            if (expect.count != actual.count) {
+                console.log('Test Failed!', name, 'expect count', expect.count, 'actual', actual.count);
+                return;
+            }
+            if (expect.price != actual.price) {
+                console.log('Test Failed!', name, 'expect price', expect.price, 'actual', actual.price);
+                return;
+            }
+            if (expect.tradeType != actual.tradeType) {
+                console.log('Test Failed!', name, 'expect tradeType', expect.tradeType, 'actual', actual.tradeType);
+                return;
+            }
+            console.log('Test Passed!', name);
+        }
+
+        for (let i = 0; i < testMeta.length; i++) {
+            var code = testMeta[i].code;
+            var str = testMeta[i].strategy;
+            if (emjyBack.retroAccount.stocks.find(s=>s.code == code)) {
+                emjyBack.retroAccount.applyStrategy(code, str);
+            } else {
+                emjyBack.retroAccount.addWatchStock(code, str);
+            }
+            var stock = emjyBack.retroAccount.getStock(code)
+            if (testMeta[i].snapshot) {
+                for (let j = 0; j < testMeta[i].snapshot.length; j++) {
+                    stock.updateRtPrice(testMeta[i].snapshot[j].sn);
+                    var expect = testMeta[i].snapshot[j].expect;
+                    if (expect) {
+                        checkDeal(testMeta[i].testname, expect, emjyBack.retroAccount.deals[emjyBack.retroAccount.deals.length - 1]);
+                    }
+                }
+            } else if (testMeta[i].kdata) {
+                emjyBack.klines[code].klines = {};
+                for (let k = 0; k < testMeta[i].kdata.length; k++) {
+                    const datai = testMeta[i].kdata[k];
+                    var kltype = datai.kltype;
+                    emjyBack.klines[code].klines[kltype] = [];
+                }
+                while (testMeta[i].kdata.length > 0) {
+                    var earliest = testMeta[i].kdata[0];
+                    var earlk = 0;
+                    for (let k = 1; k < testMeta[i].kdata.length; k++) {
+                        const datai = testMeta[i].kdata[k].kldata[0];
+                        if (earliest.kldata[0].kl.time < datai.kl.time) {
+                            earlk = k;
+                            earliest = datai;
+                        }
+                    }
+                    var kldataj = testMeta[i].kdata[earlk].kldata.shift();
+                    var kltype = testMeta[i].kdata[earlk].kltype;
+                    if (testMeta[i].kdata[earlk].kldata.length == 0) {
+                        testMeta[i].kdata.splice(earlk, 1);
+                    }
+                    emjyBack.klines[code].klines[kltype].push(kldataj.kl);
+                    stock.strategies.checkKlines([kltype]);
+                    var expect = kldataj.expect;
+                    if (expect) {
+                        checkDeal(testMeta[i].testname, expect, emjyBack.retroAccount.deals[emjyBack.retroAccount.deals.length - 1]);
+                    }
+                }
+            }
+        }
     }
 
     initKlines(code, startDate) {
@@ -203,9 +296,6 @@ class RetroEngine {
 
     clearRetroDeals() {
         emjyBack.retroAccount.deals = [];
-        for (let i = emjyBack.retroAccount.stocks.length - 1; i >= 0; i--) {
-            emjyBack.retroAccount.removeStock(emjyBack.retroAccount.stocks[i].code);
-        }
     }
 
     saveRetroDeals() {
@@ -306,15 +396,6 @@ class RetroEngine {
         }
 
         this.startRetro();
-    }
-
-    retroAgainMa(kltype) {
-        emjyBack.retroAccount.deals = [];
-        emjyBack.retroAccount.stocks.forEach(s => {
-            s.strategies = null;
-            this.initStrategMaRetro(s.code, null, kltype);
-            this.startRetro();
-        });
     }
 
     startRetro() {

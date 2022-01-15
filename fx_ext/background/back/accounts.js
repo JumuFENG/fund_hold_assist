@@ -494,22 +494,6 @@ class CreditTradeClient extends CollatTradeClient {
     }
 }
 
-class TestTradeClient extends TradeClient {
-    constructor() {
-        super('');
-    }
-
-    trade(code, price, count, tradeType, jylx, cb) {
-        console.log('test trade', tradeType, code, price, count, jylx);
-        if (price == 0 || count < 100) {
-            console.log('please set correct price and count for test trade!');
-            return;
-        } else {
-            emjyBack.trackAccount.addDeal(code, price, count, tradeType);
-        }
-    }
-}
-
 class Account {
     constructor() {
         this.keyword = null;

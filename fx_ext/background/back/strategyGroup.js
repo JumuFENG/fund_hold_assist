@@ -550,9 +550,13 @@ class StrategyGroup {
     check(rtInfo) {
         for (var id in this.strategies) {
             var curStrategy = this.strategies[id];
-            if (!curStrategy.enabled() || curStrategy.guardLevel() == 'otp') {
+            if (!curStrategy.enabled()) {
                 continue;
-            };
+            }
+
+            if (curStrategy.guardLevel() == 'otp' && this.count0 > 0) {
+                continue;
+            }
 
             var checkResult = curStrategy.check(rtInfo, this.buydetail);
             if (checkResult.match) {
