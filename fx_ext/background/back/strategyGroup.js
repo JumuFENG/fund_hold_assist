@@ -264,6 +264,24 @@ class BuyDetail {
             }
         }
     }
+
+    averPrice() {
+        var buyrec = this.buyRecords();
+        if (!buyrec || buyrec.length == 0) {
+            return 0;
+        }
+
+        var amount = 0;
+        var count = 0;
+        for (let i = 1; i < buyrec.length; i++) {
+            amount += buyrec[i].price * buyrec[i].count
+            count -= buyrec[i].count;
+        }
+        if (count < 0) {
+            return -amount / count;
+        }
+        return 0;
+    }
 }
 
 class StrategyGroup {
@@ -386,19 +404,6 @@ class StrategyGroup {
         var data = {};
         data[this.storeKey] = this.tostring();
         chrome.storage.local.set(data);
-    }
-
-    setHoldCost(cost) {
-        if (cost === undefined || cost <= 0) {
-            return;
-        };
-
-        for (var id in this.strategies) {
-            var key = this.strategies[id].key();
-            if (key == 'StrategySellEL' || key == 'StrategySellMAD' || key == 'StrategySellELS') {
-                this.strategies[id].setHoldCost(cost);
-            };
-        };
     }
 
     setHoldCount(tcount, acount, price) {
@@ -549,7 +554,7 @@ class StrategyGroup {
                 continue;
             };
 
-            var checkResult = curStrategy.check(rtInfo);
+            var checkResult = curStrategy.check(rtInfo, this.buydetail);
             if (checkResult.match) {
                 var price = checkResult.price;
                 if (curStrategy.isBuyStrategy()) {
@@ -618,7 +623,6 @@ class StrategyGroup {
             this.onTradeMatch(id, {price});
         } else {
             var count = this.buydetail.availableCount();
-            var countAll = this.buydetail.totalCount();
             if (count > 0) {
                 emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', price, JSON.stringify(curStrategy));
                 emjyBack.trySellStock(this.code, price, count, this.account, sd => {
@@ -626,9 +630,6 @@ class StrategyGroup {
                     this.save();
                 });
                 this.onTradeMatch(id, {price});
-            } else if (countAll > 0) {
-                emjyBack.log('checkStrategies sell match, no available count to sell', this.code, JSON.stringify(curStrategy));
-                curStrategy.sellMatchUnavailable();
             }
         }
     }
@@ -673,20 +674,8 @@ class StrategyGroup {
                 if (matchResult.stepInCritical) {
                     this.save();
                 }
-                return;
             }
-            if (curStrategy.inCritical()) {
-                if (curStrategy.isBuyStrategy()) {
-                    var count = this.count0;
-                    if (count === undefined || count == 0) {
-                        count = this.getBuyCount(emjyBack.klines[this.code].getLatestKline(curStrategy.kltype()));
-                    }
-                    this.doTrade(id, {price: 0, count});
-                } else {
-                    this.doTrade(id, {price: 0});
-                }
-            }
-        };
+        }
     }
 }
 

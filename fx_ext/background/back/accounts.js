@@ -666,7 +666,6 @@ class NormalAccount extends Account {
             return;
         };
         var strategyGroup = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
-        strategyGroup.setHoldCost(stock.holdCost);
         strategyGroup.setHoldCount(stock.holdCount, stock.availableCount, stock.holdCost);
         strategyGroup.applyGuardLevel();
         stock.strategies = strategyGroup;

@@ -104,20 +104,11 @@ class Strategy {
     guardLevel() {
         return 'rtp'; // real time prices;
     }
-
-    matchResult(match, price0, pricebk) {
-        if (!match) {
-            return {match};
-        };
-        var price = (price0 == '-' ? pricebk : price0);
-        return {match, price};
-    }
 }
 
 class StrategyBuy extends Strategy {
     constructor(str) {
         super(str);
-        this.hitCount = 0;
     }
 
     guardLevel() {
@@ -129,11 +120,11 @@ class StrategyBuy extends Strategy {
     }
 
     check(rtInfo) {
-        if (this.hitCount > 1) {
+        if (!this.enabled()) {
             return {match: false};
-        };
-        this.hitCount++;
-        return this.matchResult(true, rtInfo.sellPrices[1], rtInfo.topprice);
+        }
+        this.setEnabled(false);
+        return {match: true, tradeType: 'B', count: 0, price: (rtInfo.sellPrices[1] == '-' ? rtInfo.topprice : rtInfo.sellPrices[1])};
     }
 }
 
@@ -152,15 +143,16 @@ class StrategyBuyPopup extends StrategyBuy {
                 stepInCritical = true
                 this.data.prePeekPrice = price;
             }
-            return {match, stepInCritical, account: this.data.account};
+            return {match, stepInCritical};
         }
         if (price >= this.data.prePeekPrice * (1 + this.data.backRate)) {
-            return this.matchResult(true, rtInfo.sellPrices[1], rtInfo.topprice);
+            this.setEnabled(false);
+            return {match: true, tradeType: 'B', count: 0, price: (rtInfo.sellPrices[1] == '-' ? rtInfo.topprice : rtInfo.sellPrices[1])};
         }
         if (price < this.data.prePeekPrice) {
             this.data.prePeekPrice = price;
         }
-        return {match, stepInCritical, account: this.data.account};
+        return {match, stepInCritical};
     }
 }
 
@@ -176,8 +168,8 @@ class StrategyBuySD extends StrategyBuy {
 
         if (klines.isDecreaseStoppedStrict(this.kltype())) {
             var kl = klines.getLatestKline(this.kltype());
-            this.data.enabled = false;
-            return {match: true, tradeType:'B', count: 0, price: kl.c};
+            this.setEnabled(false);
+            return {match: true, tradeType: 'B', count: 0, price: kl.c};
         }
         return {match: false};
     }
@@ -188,7 +180,7 @@ class StrategySell extends Strategy {
         return false;
     }
 
-    check(rtInfo) {
+    check(rtInfo, buydetail) {
         var price = rtInfo.latestPrice;
         var match = false;
         var stepInCritical = false;
@@ -198,15 +190,17 @@ class StrategySell extends Strategy {
                 this.data.prePeekPrice = price;
                 stepInCritical = true;
             }
-            return {match, stepInCritical, account: this.data.account};
+            return {match, stepInCritical};
         }
-        if (price <= this.data.prePeekPrice * (1 - this.data.backRate)) {
-            return this.matchResult(true, rtInfo.buyPrices[1], rtInfo.bottomprice);
+        var count = buydetail.availableCount();
+        if (price <= this.data.prePeekPrice * (1 - this.data.backRate) && count > 0) {
+            this.setEnabled(false);
+            return {match: true, tradeType: 'S', count, price: rtInfo.buyPrices[1] == '-' ? rtInfo.bottomprice : rtInfo.buyPrices[1]}
         }
         if (price > this.data.prePeekPrice) {
             this.data.prePeekPrice = price;
         }
-        return {match, stepInCritical, account: this.data.account};
+        return {match, stepInCritical};
     }
 
     sellMatchUnavailable() {
@@ -248,53 +242,51 @@ class StrategyBuyIPO extends StrategyBuy {
         var stepInCritical = false;
         var price = rtInfo.latestPrice;
         var topprice = rtInfo.topprice;
-        var bottomprice = rtInfo.bottomprice;
         if (!this.data.inCritical) {
             if (price < topprice) {
                 this.data.inCritical = true;
                 this.data.prePeekPrice = price;
                 stepInCritical = true;
             }
-            return {match, stepInCritical, account: this.data.account};
+            return {match, stepInCritical};
         }
         if (price >= this.data.prePeekPrice * (1 + this.data.backRate)) {
-            return this.matchResult(true, rtInfo.sellPrices[1], rtInfo.topprice);
+            this.setEnabled(false);
+            return {match: true, tradeType: 'B', count: 0, price: (rtInfo.sellPrices[1] == '-' ? rtInfo.topprice : rtInfo.sellPrices[1])};
         }
         if (price < this.data.prePeekPrice) {
             this.data.prePeekPrice = price;
         }
-        return {match, stepInCritical, account: this.data.account};
+        return {match, stepInCritical};
     }
 }
 
 class StrategySellIPO extends StrategySell {
-    check(rtInfo) {
-        var match = false;
+    check(rtInfo, buydetail) {
+        var count = buydetail.availableCount();
+
         if (rtInfo.openPrice == rtInfo.topprice) {
-            if (rtInfo.latestPrice < rtInfo.topprice) {
-                return this.matchResult(true, rtInfo.buyPrices[1], rtInfo.bottomprice);
+            if (rtInfo.latestPrice < rtInfo.topprice && count > 0) {
+                this.setEnabled(false);
+                return {match: true, tradeType: 'S', count, price: rtInfo.buyPrices[1] == '-'? rtInfo.bottomprice : rtInfo.buyPrices[1]};
             };
-            return {match};
+            return {match: false};
         };
 
-        if (rtInfo.openPrice == rtInfo.bottomprice) {
-            return this.matchResult(true, rtInfo.openPrice, rtInfo.bottomprice);
-        };
-        
-        if (!this.data.inCritical) {
-            this.data.guardPrice = rtInfo.latestPrice;
-            this.data.inCritical = true;
-            return {match};
+        if (rtInfo.openPrice == rtInfo.bottomprice && count > 0) {
+            this.setEnabled(false);
+            return {match: true, tradeType: 'S', count, price: rtInfo.bottomprice};
         };
 
-        if (rtInfo.latestPrice <= this.data.prePeekPrice * 0.99) {
-            return this.matchResult(true, rtInfo.buyPrices[1], rtInfo.bottomprice);
+        if (rtInfo.latestPrice <= this.data.prePeekPrice * 0.99 && count > 0) {
+            this.setEnabled(false);
+            return {match: true, tradeType: 'S', count, price: rtInfo.buyPrices[1] == '-'? rtInfo.bottomprice : rtInfo.buyPrices[1]};
         }
 
         if (rtInfo.latestPrice > this.data.prePeekPrice) {
             this.data.prePeekPrice = rtInfo.latestPrice;
         }
-        return {match};
+        return {match: false};
     }
 }
 
@@ -304,29 +296,16 @@ class StrategyBuyZTBoard extends StrategyBuy {
     }
 
     check(rtInfo) {
-        if (rtInfo.sellPrices[1] == '-' && rtInfo.sellPrices[0] == rtInfo.topprice) {
-            console.log(rtInfo);
-            return this.matchResult(true, rtInfo.sellPrices[1], rtInfo.topprice);
+        if (rtInfo.latestPrice == rtInfo.topprice || (rtInfo.sellPrices[1] == '-' && rtInfo.sellPrices[0] == rtInfo.topprice)) {
+            this.setEnabled(false);
+            return {match: true, tradeType: 'B', count: 0, price: rtInfo.topprice};
         };
-        if (rtInfo.latestPrice == rtInfo.topprice) {
-            console.log(rtInfo);
-            return this.matchResult(true, rtInfo.topprice, rtInfo.topprice);
-        };
-        return {match: false, stepInCritical: false, account: this.data.account};
+        return {match: false};
     }
 }
 
 class StrategySellEL extends StrategySell {
-    setHoldCost(price) {
-        this.data.averPrice = price;
-    }
-
     buyMatch(refer) {
-        if (!this.data.averPrice || this.data.averPrice == 0) {
-            this.data.averPrice = refer.price;
-        } else {
-            this.data.averPrice = (this.data.averPrice + refer.price) / 2;
-        };
         this.data.enabled = true;
     }
 
@@ -342,10 +321,10 @@ class StrategySellEL extends StrategySell {
         return '101';
     }
 
-    check(rtInfo) {
+    check(rtInfo, buydetail) {
         var latestPrice = rtInfo.latestPrice;
         var guardPrice = this.data.guardPrice;
-        var averPrice = this.data.averPrice;
+        var averPrice = buydetail.averPrice();
         if (latestPrice - averPrice * 1.18 >= 0 && latestPrice - averPrice * 0.1 - guardPrice > 0) {
             guardPrice = latestPrice - averPrice * 0.1;
         } else if (latestPrice - averPrice * 1.09 >= 0 && latestPrice - averPrice * 0.08 - guardPrice > 0 ) {
@@ -356,9 +335,10 @@ class StrategySellEL extends StrategySell {
         if (guardPrice - this.data.guardPrice > 0) {
             this.data.guardPrice = guardPrice;
         };
-        if (rtInfo.latestPrice - guardPrice <= 0) {
-            this.data.inCritical = true;
-            return this.matchResult(true, rtInfo.buyPrices[1], rtInfo.bottomprice);
+        var count = buydetail.availableCount();
+        if (rtInfo.latestPrice - guardPrice <= 0 && count > 0) {
+            this.setEnabled(false);
+            return {match: true, tradeType: 'S', count, price: (rtInfo.buyPrices[1] == '-' ? rtInfo.bottomprice : rtInfo.buyPrices[1])};
         };
         return {match: false};
     }
@@ -392,10 +372,6 @@ class StrategySellELShort extends StrategySellEL {
         return '1';
     }
 
-    check(rtInfo) {
-        return {match: false};
-    }
-
     checkKlines(klines, updatedKlt, buydetails) {
         if (klines === undefined || updatedKlt === undefined) {
             return {match: false};
@@ -406,9 +382,10 @@ class StrategySellELShort extends StrategySellEL {
         };
 
         var kl = klines.getLatestKline('1');
-        if (kl.c - this.data.guardPrice < 0) {
-            this.data.enabled = false;
-            return {match: true, tradeType: 'S', count: 1, price: kl.c};
+        var count = buydetails.availableCount();
+        if (kl.c - this.data.guardPrice < 0 && count > 0) {
+            this.setEnabled(false);
+            return {match: true, tradeType: 'S', count, price: kl.c};
         }
 
         var troughprice = klines.getLastTrough('1');
@@ -432,10 +409,6 @@ class StrategyBuyMA extends StrategyBuy {
         return 'kline';
     }
 
-    check(rtInfo) {
-        return {match:false};
-    }
-
     checkKlines(klines, updatedKlt, buydetails) {
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
             return {match: false};
@@ -443,7 +416,7 @@ class StrategyBuyMA extends StrategyBuy {
         if (updatedKlt.includes(this.kltype())) {
             var kl = klines.getLatestKline(this.kltype());
             if (kl && kl.bss18 == 'b') {
-                this.data.enabled = false;
+                this.setEnabled(false);
                 return {match: true, tradeType: 'B', count: 0, price: kl.c};
             }
         }
@@ -464,10 +437,6 @@ class StrategySellMA extends StrategySell {
         return 'kline';
     }
 
-    check(rtInfo) {
-        return {match:false};
-    }
-
     checkKlines(klines, updatedKlt, buydetails) {
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
             return;
@@ -475,9 +444,10 @@ class StrategySellMA extends StrategySell {
 
         if (updatedKlt.includes(this.kltype())) {
             var kl = klines.getLatestKline(this.kltype());
-            if (kl && kl.bss18 == 's') {
-                this.data.enabled = false;
-                return {match: true, tradeType: 'S', count: 1, price: kl.c};
+            var count = buydetails.availableCount();
+            if (kl && kl.bss18 == 's' && count > 0) {
+                this.setEnabled(false);
+                return {match: true, tradeType: 'S', count, price: kl.c};
             }
         }
     }
@@ -509,7 +479,7 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
         if (updatedKlt.includes(kltype)) {
             var kl = klines.getLatestKline(this.kltype());
             if (kl && kl.bss18 == 'b') {
-                this.data.enabled = false;
+                this.setEnabled(false);
                 return {match: true, tradeType: 'B', count: 0, price: kl.c};
             }
         }
@@ -550,12 +520,6 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
 }
 
 class StrategySellMADynamic extends StrategySellMA {
-    setHoldCost(price) {
-        if (this.data.price === undefined || this.data.price == 0) {
-            this.data.price = price;
-        };
-    }
-
     buyMatch(refer) {
         this.data.enabled = true;
         if (refer.kltype !== undefined) {
@@ -564,7 +528,6 @@ class StrategySellMADynamic extends StrategySellMA {
         if (refer.kltype - 100 > 0) {
             this.data.kltype = '60';
         }
-        this.data.price = refer.price;
     }
 
     sellMatch(refer) {
@@ -577,34 +540,40 @@ class StrategySellMADynamic extends StrategySellMA {
         };
 
         var kltype = this.kltype();
+        var averPrice = buydetails.averPrice();
         if (updatedKlt.includes(kltype)) {
             var kl = klines.getLatestKline(kltype);
             if (kl) {
+                var count = buydetails.availableCount();
                 if (this.data.guardPrice !== undefined && this.data.guardPrice > 0) {
                     if (kl.c - this.data.guardPrice >= 0) {
-                        if (kl.c - 1.05 * this.data.price > 0 && kl.bss18 == 's') {
-                            this.data.enabled = false;
-                            return {match: true, tradeType: 'S', count: 1, price: kl.c};
+                        if (kl.c - 1.05 * averPrice > 0 && kl.bss18 == 's') {
+                            if (count > 0) {
+                                this.setEnabled(false);
+                                return {match: true, tradeType: 'S', count, price: kl.c};
+                            } else if (buydetails.totalCount() > 0) {
+                                this.sellMatchUnavailable();
+                            }
                         }
                         return {match: false};
                     }
                 }
-                if (kl.bss18 == 's') {
-                    this.data.enabled = false;
-                    return {match: true, tradeType: 'S', count: 1, price: kl.c};
+                if (kl.bss18 == 's' && count > 0) {
+                    this.setEnabled(false);
+                    return {match: true, tradeType: 'S', count, price: kl.c};
                 }
                 return {match: false};
             };
         } else if (kltype != '4') {
             var mKlines = klines.getKline(1);
             var highPrice = mKlines[mKlines.length - 1].h;
-            if (this.data.price > 0 && highPrice > this.data.price * 1.2) {
+            if (averPrice > 0 && highPrice > averPrice * 1.2) {
                 this.data.kltype = '4';
             };
             var kl = klines.getLatestKline('101');
             if (kl) {
                 var lclose = kl.c;
-                if (this.data.price > 0 && highPrice > lclose * 1.085 && highPrice > this.data.price * 1.05) {
+                if (averPrice > 0 && highPrice > lclose * 1.085 && highPrice > averPrice * 1.05) {
                     this.data.kltype = '4';
                 };
             };
@@ -616,7 +585,7 @@ class StrategySellMADynamic extends StrategySellMA {
         var kltypeCandiList = {'4': '8', '8': '15', '15':'30', '30':'60', '60':'120', '120':'101', '101': '202', '202': '404'};
         var kltype = this.kltype();
         this.data.kltype = kltypeCandiList[kltype];
-        this.data.enabled = true;
+        this.setEnabled(true);
     }
 }
 
@@ -641,8 +610,8 @@ class StrategyBuyBeforeEnd extends StrategyBuyMA {
             var lkl = dKline[dKline.length - 1];
             if (lkl && lkl.c - lkl.o < 0 && inkl.c - inkl.o > 0) {
                 if (inkl.v - lkl.v * 0.98 < 0) {
-                    this.data.enabled = false;
-                    return {match: true, tradeType: 'B', count: 1, price: kl.c};
+                    this.setEnabled(false);
+                    return {match: true, tradeType: 'B', count: 0, price: kl.c};
                 }
             }
         }
@@ -667,7 +636,7 @@ class StrategyBuyMABeforeEnd extends StrategyBuyMA {
             var kl = klines.getLatestKline(this.kltype());
             if (kl) {
                 if (kl.bss18 == 'b') {
-                    this.data.enabled = false;
+                    this.setEnabled(false);
                     return {match: true, tradeType: 'B', count: 0, price: kl.c};
                 }
                 if (kl.bss18 == 'h') {
@@ -691,17 +660,18 @@ class StrategyBuyMABeforeEnd extends StrategyBuyMA {
                             }
                         }
                         if ((h - o) / o < 0.03 && c - o > 0) {
-                            this.data.enabled = false;
+                            this.setEnabled(false);
                             return {match: true, tradeType: 'B', count: 0, price: c};
                         }
                         if ((h - o) / o > 0.03 && (h - c) * 4 < h - o) {
-                            this.data.enabled = false;
+                            this.setEnabled(false);
                             return {match: true, tradeType: 'B', count: 0, price: c};
                         }
                     }
                 }
             };
         };
+        return {match: false};
     }
 }
 
@@ -735,7 +705,7 @@ class StrategyMA extends Strategy {
     }
 
     resetGuardPrice() {
-        this.data.guardPrice = undefined;
+        delete(this.data.guardPrice);
     }
 
     checkKlines(klines, updatedKlt, buydetails) {
@@ -826,7 +796,7 @@ class StrategyGE extends Strategy {
                 if (kl1.isDecreaseStopped(this.skltype)) {
                     this.data.inCritical = false;
                     this.data.guardPrice = kl.c;
-                    return {match: true, tradeType:'B', count: 0, price: kl.c};
+                    return {match: true, tradeType: 'B', count: 0, price: kl.c};
                 }
                 return {match: false};
             }
@@ -852,7 +822,7 @@ class StrategyGE extends Strategy {
                 var kl = klines.getLatestKline(kltype);
                 if (kl.bss18 == 'b') {
                     this.data.guardPrice = kl.c;
-                    return {match: true, tradeType:'B', count: 0, price: kl.c};
+                    return {match: true, tradeType: 'B', count: 0, price: kl.c};
                 }
                 return {match: false};
             }
@@ -870,7 +840,7 @@ class StrategyGE extends Strategy {
                 var count = buydetails.getCountLessThan(kl.c * (1 - this.data.stepRate));
                 if (count > 0) {
                     this.data.guardPrice = kl.c;
-                    return {match: true, tradeType:'S', count, price: kl.c};
+                    return {match: true, tradeType: 'S', count, price: kl.c};
                 }
             }
             return {match: false};
