@@ -449,7 +449,7 @@ class StrategyGroup {
                 emjyBack.dailyAlarm.addStock(this.code, this.strategies[id].kltype());
             } else if (gl == 'otp') {
                 if (this.count0 !== undefined && this.count0 > 0) {
-                    emjyBack.otpAlarm.addTask({params:{id}, exec: (params) => {
+                    emjyBack.otpAlarm.addTask({params:{id, code: this.code}, exec: (params) => {
                         this.onOtpAlarm(params.id);
                     }});
                 }
@@ -591,7 +591,7 @@ class StrategyGroup {
                 emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy))
                 emjyBack.tryBuyStock(this.code, price, count, account, bd => {
                     this.buydetail.addBuyDetail(bd);
-                    this.save();
+                    this.onTradeMatch(id, info);
                 });
             } else if (info.tradeType == 'S') {
                 var count = this.count0;
@@ -602,7 +602,7 @@ class StrategyGroup {
                     emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', price, JSON.stringify(curStrategy));
                     emjyBack.trySellStock(this.code, price, count, this.account, sd => {
                         this.buydetail.addSellDetail(sd);
-                        this.save();
+                        this.onTradeMatch(id, info);
                     });
                 }
             }
@@ -639,7 +639,6 @@ class StrategyGroup {
     }
 
     onTradeMatch(id, refer) {
-        this.strategies[id].setEnabled(false);
         var curStrategy = this.strategies[id];
         if (curStrategy.guardLevel() == 'kline') {
             refer.kltype = curStrategy.kltype();
@@ -648,9 +647,9 @@ class StrategyGroup {
             return;
         };
         var tid = this.transfers[id].getTransferId();
-        if (tid != -1) {
+        if (tid >= 0) {
             this.strategies[tid].setEnabled(true);
-            if (curStrategy.isBuyStrategy()) {
+            if (refer.tradeType == 'B' || curStrategy.isBuyStrategy()) {
                 this.strategies[tid].buyMatch(refer);
             } else {
                 this.strategies[tid].sellMatch(refer);

@@ -193,6 +193,22 @@ class RetrospectAccount extends TrackingAccount {
         });
     }
 
+    addWatchStock(code, strgrp) {
+        emjyBack.loadKlines(code);
+        var stock = this.stocks.find(s => {return s.code == code;});
+
+        if (stock) {
+            this.addStockStrategy(stock, strgrp);
+            return;
+        };
+
+        var name = '';
+        var market = '';
+        var stock = new StockInfo({ code, name, holdCount: 0, availableCount: 0, market});
+        this.addStockStrategy(stock, strgrp);
+        this.stocks.push(stock);
+    }
+
     save() {
         var dsobj = {};
         dsobj[this.key_deals] = this.deals;
@@ -205,78 +221,104 @@ class RetroEngine {
 
     }
 
-    runAllTests() {
+    checkTestResultDeal(code, name, expect, actual) {
+        if (!actual) {
+            console.log('Test Failed!', name, 'no actual deal!');
+            return;
+        }
+        var deals = actual.filter(d => d.code == code);
+        if (expect.dcount !== undefined) {
+            if (expect.dcount != deals.length) {
+                console.log('Test Failed!', name, 'expect deals count', expect.dcount, 'actual', actual.length);
+                return;
+            }
+        }
+
+        if (expect.deal !== undefined) {
+            var actdeal = deals[deals.length - 1];
+            var expdeal = expect.deal;
+            if (expdeal.count != actdeal.count) {
+                console.log('Test Failed!', name, 'expect count', expdeal.count, 'actual', actdeal.count);
+                return;
+            }
+            if (expdeal.price != actdeal.price) {
+                console.log('Test Failed!', name, 'expect price', expdeal.price, 'actual', actdeal.price);
+                return;
+            }
+            if (expdeal.tradeType != actdeal.tradeType) {
+                console.log('Test Failed!', name, 'expect tradeType', expdeal.tradeType, 'actual', actdeal.tradeType);
+                return;
+            }
+        }
+        console.log('Test Passed!', name);
+    }
+
+    doRunTest(testid) {
+        var code = testMeta[testid].code;
+        var str = JSON.parse(JSON.stringify(testMeta[testid].strategy));
+        emjyBack.retroAccount.removeStock(code);
+        emjyBack.retroAccount.addWatchStock(code, str);
+        var stock = emjyBack.retroAccount.getStock(code);
+        if (testMeta[testid].snapshot) {
+            for (let j = 0; j < testMeta[testid].snapshot.length; j++) {
+                stock.updateRtPrice(testMeta[testid].snapshot[j].sn);
+                var expect = testMeta[testid].snapshot[j].expect;
+                if (expect) {
+                    this.checkTestResultDeal(code, testMeta[testid].testname, expect, emjyBack.retroAccount.deals);
+                }
+            }
+        } else if (testMeta[testid].kdata) {
+            emjyBack.klines[code].klines = {};
+            for (let k = 0; k < testMeta[testid].kdata.length; k++) {
+                const datai = testMeta[testid].kdata[k];
+                var kltype = datai.kltype;
+                emjyBack.klines[code].klines[kltype] = [];
+            }
+            var testKdata = JSON.parse(JSON.stringify(testMeta[testid].kdata));
+            while (testKdata.length > 0) {
+                var earliest = testKdata[0];
+                var earlk = 0;
+                for (let k = 1; k < testKdata.length; k++) {
+                    const datai = testKdata[k].kldata[0];
+                    if (datai.kl.time < earliest.kldata[0].kl.time) {
+                        earlk = k;
+                        earliest = datai;
+                    }
+                }
+                var kldataj = testKdata[earlk].kldata.shift();
+                var kltype = testKdata[earlk].kltype;
+                if (testKdata[earlk].kldata.length == 0) {
+                    testKdata.splice(earlk, 1);
+                }
+                emjyBack.klines[code].klines[kltype].push(kldataj.kl);
+                emjyBack.retroAccount.tradeTime = kldataj.kl.time;
+                stock.strategies.checkKlines([kltype]);
+                var expect = kldataj.expect;
+                if (expect) {
+                    this.checkTestResultDeal(code, testMeta[testid].testname, expect, emjyBack.retroAccount.deals);
+                }
+            }
+        }
+    }
+
+    runTests(testid) {
         if (!emjyBack.retroAccount) {
             emjyBack.setupRetroAccount();
         }
 
-        var checkDeal = function(name, expect, actual) {
-            if (!actual) {
-                console.log('Test Failed!', name, 'no actual deal!');
-                return;
-            }
-            if (expect.count != actual.count) {
-                console.log('Test Failed!', name, 'expect count', expect.count, 'actual', actual.count);
-                return;
-            }
-            if (expect.price != actual.price) {
-                console.log('Test Failed!', name, 'expect price', expect.price, 'actual', actual.price);
-                return;
-            }
-            if (expect.tradeType != actual.tradeType) {
-                console.log('Test Failed!', name, 'expect tradeType', expect.tradeType, 'actual', actual.tradeType);
-                return;
-            }
-            console.log('Test Passed!', name);
+        emjyBack.retroAccount.deals = [];
+        if (testid !== undefined && testid >= 0) {
+            this.doRunTest(testid);
+            return;
         }
-
         for (let i = 0; i < testMeta.length; i++) {
-            var code = testMeta[i].code;
-            var str = testMeta[i].strategy;
-            if (emjyBack.retroAccount.stocks.find(s=>s.code == code)) {
-                emjyBack.retroAccount.applyStrategy(code, str);
-            } else {
-                emjyBack.retroAccount.addWatchStock(code, str);
-            }
-            var stock = emjyBack.retroAccount.getStock(code)
-            if (testMeta[i].snapshot) {
-                for (let j = 0; j < testMeta[i].snapshot.length; j++) {
-                    stock.updateRtPrice(testMeta[i].snapshot[j].sn);
-                    var expect = testMeta[i].snapshot[j].expect;
-                    if (expect) {
-                        checkDeal(testMeta[i].testname, expect, emjyBack.retroAccount.deals[emjyBack.retroAccount.deals.length - 1]);
-                    }
-                }
-            } else if (testMeta[i].kdata) {
-                emjyBack.klines[code].klines = {};
-                for (let k = 0; k < testMeta[i].kdata.length; k++) {
-                    const datai = testMeta[i].kdata[k];
-                    var kltype = datai.kltype;
-                    emjyBack.klines[code].klines[kltype] = [];
-                }
-                while (testMeta[i].kdata.length > 0) {
-                    var earliest = testMeta[i].kdata[0];
-                    var earlk = 0;
-                    for (let k = 1; k < testMeta[i].kdata.length; k++) {
-                        const datai = testMeta[i].kdata[k].kldata[0];
-                        if (earliest.kldata[0].kl.time < datai.kl.time) {
-                            earlk = k;
-                            earliest = datai;
-                        }
-                    }
-                    var kldataj = testMeta[i].kdata[earlk].kldata.shift();
-                    var kltype = testMeta[i].kdata[earlk].kltype;
-                    if (testMeta[i].kdata[earlk].kldata.length == 0) {
-                        testMeta[i].kdata.splice(earlk, 1);
-                    }
-                    emjyBack.klines[code].klines[kltype].push(kldataj.kl);
-                    stock.strategies.checkKlines([kltype]);
-                    var expect = kldataj.expect;
-                    if (expect) {
-                        checkDeal(testMeta[i].testname, expect, emjyBack.retroAccount.deals[emjyBack.retroAccount.deals.length - 1]);
-                    }
-                }
-            }
+            this.doRunTest(i);
+        }
+    }
+
+    listTests() {
+        for (let i = 0; i < testMeta.length; i++) {
+            console.log(i, testMeta[i].testname);
         }
     }
 
