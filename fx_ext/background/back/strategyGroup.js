@@ -273,7 +273,7 @@ class BuyDetail {
 
         var amount = 0;
         var count = 0;
-        for (let i = 1; i < buyrec.length; i++) {
+        for (let i = 0; i < buyrec.length; i++) {
             amount += buyrec[i].price * buyrec[i].count
             count -= buyrec[i].count;
         }
@@ -599,7 +599,7 @@ class StrategyGroup {
                     count = info.count;
                 }
                 if (count > 0) {
-                    emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', price, JSON.stringify(curStrategy));
+                    emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', info.price, JSON.stringify(curStrategy), 'aver price', this.buydetail.averPrice(), 'buy detail', JSON.stringify(this.buydetail.records));
                     emjyBack.trySellStock(this.code, price, count, this.account, sd => {
                         this.buydetail.addSellDetail(sd);
                         this.onTradeMatch(id, info);
