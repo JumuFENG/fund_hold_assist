@@ -760,6 +760,60 @@ class EmjyBack {
         }
     }
 
+    addMissedStocks(days = 1) {
+        var setMaGuardPrice = function(strategygrp, prc) {
+            for (var id in strategygrp) {
+                if (strategygrp[id].data.key == 'StrategyMA') {
+                    strategygrp[id].data.guardPrice = prc;
+                }
+            }
+        }
+
+        var fitBuyMA = function(code, cnt, strategies) {
+            if (!emjyBack.klines[code]) {
+                return false;
+            }
+
+            var kline = emjyBack.klines[code].getKline('101');
+            if (kline.length < 10) {
+                console.log('new stock!', code, kline);
+                return false;
+            }
+            for (let i = 1; i <= cnt; i++) {
+                const kl = kline[kline.length - i];
+                if (kl.bss18 == 'b') {
+                    var low = emjyBack.klines[code].getLowestInWaiting('101');
+                    var cutp = (kl.c - low) * 100 / kl.c;
+                    if (cutp >= 14 && cutp <= 27) {
+                        console.log(code, kl.c, low, cutp);
+                        if (code.startsWith('60') || code.startsWith('00')) {
+                            setMaGuardPrice(strategies, low);
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        var addMissed = function(account) {
+            for (let i = 0; i < account.stocks.length; i++) {
+                const stocki = account.stocks[i];
+                if (stocki.strategies && stocki.strategies.isLongTerm() && stocki.holdCount == 0 && fitBuyMA(stocki.code, days, stocki.strategies)) {
+                    var str = {"key":"StrategyBuy","enabled":true};
+                    if (account.keyword == 'collat') {
+                        str.account = 'credit';
+                    }
+                    console.log('addStrategy', account.keyword, stocki.code, str);
+                    stocki.strategies.addStrategy(str);
+                }
+            }
+        }
+
+        addMissed(this.normalAccount);
+        addMissed(this.collateralAccount);
+    }
+
     cheatExistingStocks() {
         var cheatOperation = function(account) {
             for (let i = 0; i < account.stocks.length; i++) {

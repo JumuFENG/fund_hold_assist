@@ -541,6 +541,7 @@ class StrategyGroup {
         }
 
         if (curStrategy.isBuyStrategy()) {
+            this.strategies[id].setEnabled(false);
             this.doTrade(id, {price:0, count: this.count0 === undefined ? 0 : this.count0});
         } else {
             emjyBack.log('!!!NOT IMPLEMENTED!!! onOtpAlarm sell match', this.code, JSON.stringify(curStrategy));

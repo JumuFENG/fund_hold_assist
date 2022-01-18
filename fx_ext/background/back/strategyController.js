@@ -723,7 +723,6 @@ class StrategyMA extends Strategy {
                     }
                 }
                 if (kl.bss18 == 's') {
-                    this.resetGuardPrice();
                     var count = buydetails.availableCount();
                     if (count > 0) {
                         this.resetGuardPrice();
