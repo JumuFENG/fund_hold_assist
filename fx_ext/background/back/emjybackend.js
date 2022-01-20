@@ -532,7 +532,7 @@ class EmjyBack {
         this.normalAccount.updateStockRtPrice(snapshot);
         this.collateralAccount.updateStockRtPrice(snapshot);
         this.ztBoardTimer.updateStockRtPrice(snapshot);
-        this.trackAccount.updateStockRtKline(snapshot);
+        this.trackAccount.updateStockRtPrice(snapshot);
     }
 
     isTradeTime() {
@@ -762,9 +762,9 @@ class EmjyBack {
 
     addMissedStocks(days = 1) {
         var setMaGuardPrice = function(strategygrp, prc) {
-            for (var id in strategygrp) {
-                if (strategygrp[id].data.key == 'StrategyMA') {
-                    strategygrp[id].data.guardPrice = prc;
+            for (var id in strategygrp.strategies) {
+                if (strategygrp.strategies[id].data.key == 'StrategyMA') {
+                    strategygrp.strategies[id].data.guardPrice = prc;
                 }
             }
         }

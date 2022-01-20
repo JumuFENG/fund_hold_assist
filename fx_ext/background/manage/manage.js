@@ -40,6 +40,15 @@ class Manager {
                 if (item['bkstocks_' + BkRZRQ]) {
                     this.rzrqStocks = new Set(item['bkstocks_' + BkRZRQ]);
                 }
+                if (item['ztbks']) {
+                    this.ztbks = item['ztbks'];
+                }
+                if (item['yzbuy1']) {
+                    this.yzbuy1 = item['yzbuy1'];
+                }
+                if (item['yzbuy3']) {
+                    this.yzbuy3 = item['yzbuy3'];
+                }
                 for (const key in item) {
                     if (!key.startsWith('kline_')) {
                         // console.log('key in storage', key);
@@ -408,6 +417,19 @@ class Manager {
 
     isRzRq(code) {
         return this.rzrqStocks && this.rzrqStocks.has(code);
+    }
+
+    getStockCode(name) {
+        for (const code in this.stockMarket) {
+            if (this.stockMarket[code].name == name) {
+                return code;
+            }
+            if (name.includes('ST') && ('*' + name == this.stockMarket[code].name || name == '*' + this.stockMarket[code].name)) {
+                return code;
+            }
+        }
+        console.log('cannot find code for name:', name);
+        return '';
     }
 
     stockEmLink(code) {

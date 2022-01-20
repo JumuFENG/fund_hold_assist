@@ -280,7 +280,7 @@ class PickupPanelPage extends RadioAnchorPage {
 
         this.filteredTable.reset();
         this.selectedFiltered.clear();
-        this.filteredTable.setClickableHeader('', '代码', '名称', '日期', '上板强度', '放量程度', '股价区间', '两融');
+        this.filteredTable.setClickableHeader('', '代码', '名称', '日期', '上板强度', '放量程度', '股价区间', '板块', '两融');
         for (let i = 0; i < filteredStocks.length; i++) {
             const stocki = filteredStocks[i];
 
@@ -309,6 +309,7 @@ class PickupPanelPage extends RadioAnchorPage {
                 stocki.zstrength,
                 vscaleDiv,
                 prngDiv,
+                stocki.bk,
                 rzrq
             );
         }

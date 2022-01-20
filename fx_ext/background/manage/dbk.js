@@ -33,6 +33,18 @@ class DbkQuestClient {
         });
     }
 
+    parseTodayDate(ele) {
+        var datecels = ele.querySelectorAll('div.card-body>div.row')[0].querySelectorAll('div');
+        var date = '';
+        for (let i = 0; i < datecels.length; i++) {
+            if (datecels[i].children.length == 0) {
+                date = datecels[i].innerText.substring(0, 10);
+                break;
+            }
+        }
+        return date;
+    }
+
     onZdtfxBack(zdthtml, cb) {
         var ele = document.createElement('html');
         ele.innerHTML = zdthtml;
@@ -119,13 +131,7 @@ class DbkQuestClient {
             addBkFullNum(zt[i].bk);
         }
 
-        var datecels = ele.querySelectorAll('div.card-body>div.row')[0].querySelectorAll('div');
-        var date = '';
-        for (let i = 0; i < datecels.length; i++) {
-            if (datecels[i].children.length == 0) {
-                date = datecels[i].innerText.substring(0, 10);
-            }
-        }
+        var date = this.parseTodayDate(ele);
         if (typeof(cb) === 'function') {
             cb(date, zt, dt, zts0, zts1, bkful);
         }
@@ -157,31 +163,39 @@ class DbkQuestClient {
         var getYzBuy = function(jgtbl) {
             var rows = jgtbl.querySelectorAll('tbody>tr');
             var jgrank = [];
+            var jgrank3 = [];
             for (var i = 0; i < rows.length; i++) {
                 var cels = rows[i].querySelectorAll('td');
                 var des = cels[0].innerText.trim();
                 var n = cels[1].innerText.trim();
+                var c = emjyManager.getStockCode(n);
                 var b = processAmount(cels[3].innerText.trim());
                 var s = processAmount(cels[4].innerText.trim());
-                var days = 1;
                 if (des.includes('(三日榜单)')) {
-                    days = 3;
+                    jgrank3.push({n, c, p:b-s, b, s});
+                } else {
+                    jgrank.push({n, c, p:b-s, b, s});
                 }
-                jgrank.push({n, p:b-s, days});
             }
-            return jgrank.sort((a, b) => {
+
+            jgrank.sort((a, b) => {
                 return a.p - b.p < 0;
             });
+            jgrank3.sort((a, b) => {
+                return a.p - b.p < 0;
+            });
+            return [jgrank, jgrank3];
         }
 
         var ele = document.createElement('html');
         ele.innerHTML = yzdthtml;
         var tbls = ele.querySelectorAll('table');
         var netbuy = [];
+        var date = this.parseTodayDate(ele);
         for (var i = 0; i < tbls.length; i++) {
             var name = tbls[i].querySelectorAll('thead>tr>th')[0].innerText.trim();
             var ranks = getYzBuy(tbls[i]);
-            netbuy.push({name, ranks});
+            netbuy.push({name, date, r1: ranks[0], r2: ranks[1]});
         }
         if (typeof(cb) === 'function') {
             cb(netbuy);

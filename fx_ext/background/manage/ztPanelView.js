@@ -178,6 +178,10 @@ class ZtPanelPage extends RadioAnchorPage {
         // });
         dbkCommon.getZdt((date, zt, dt, zts0, zts1, bkful) => {
             this.onDbkZTPoolBack(date, zt);
+            this.onDbkBkBack(date, bkful);
+        });
+        dbkCommon.getYzdt(yzbuy => {
+            this.onDbkYzBack(yzbuy);
         });
     }
 
@@ -213,12 +217,12 @@ class ZtPanelPage extends RadioAnchorPage {
                     this.ztData[stock.lbc] = [];
                 }
                 var bk = stock.bk;
-                if (stock.bk === undefined) {
-                    bk = stock.hybk;
-                }
+                var hybk = stock.hybk;
                 var stk = this.ztData[stock.lbc].find(s => {return s.code == stock.c && s.ztdate == ztdate;});
                 if (!stk) {
-                    this.ztData[stock.lbc].push({name, code, m, ltsz, zsz, hsl, zbc, price, ztdate, bk});
+                    this.ztData[stock.lbc].push({name, code, m, ltsz, zsz, hsl, zbc, price, ztdate, hybk, bk});
+                } else if (stock.bk) {
+                    stk.bk = stock.bk;
                 };
             }
         };
@@ -297,6 +301,19 @@ class ZtPanelPage extends RadioAnchorPage {
         this.mergeZTPool({ztdate, pool});
     }
 
+    onDbkBkBack(date, bks) {
+        bks.sort((a,b) => {return a.num < b.num;});
+        if (!emjyManager.ztbks) {
+            emjyManager.ztbks = [{date, bks}];
+        } else {
+            emjyManager.ztbks.push({date, bks});
+        }
+        for (let i = 0; i < bks.length; i++) {
+            this.container.appendChild(document.createTextNode(bks[i].bk + bks[i].num));
+        }
+        chrome.storage.local.set({'ztbks': emjyManager.ztbks});
+    }
+
     mergeZTPool(pool) {
         console.log(pool);
         var ep = this.ztpool.findIndex(p => p.ztdate == pool.ztdate);
@@ -368,6 +385,27 @@ class ZtPanelPage extends RadioAnchorPage {
                 }
             }
         };
+    }
+
+    onDbkYzBack(yzbuy) {
+        for (var i = 0; i < yzbuy.length; i++) {
+            var yzname = yzbuy[i].name;
+            var r1 = yzbuy[i].r1;
+            var r2 = yzbuy[i].r2;
+            var date = yzbuy[i].date;
+            if (!emjyManager.yzbuy1) {
+                emjyManager.yzbuy1 = [{yzname, date, buy: r1}];
+            } else {
+                emjyManager.yzbuy1.push({yzname, date, buy: r1});
+            }
+            if (!emjyManager.yzbuy3) {
+                emjyManager.yzbuy3 = [{yzname, date, buy: r2}];
+            } else {
+                emjyManager.yzbuy3.push({yzname, date, buy: r2});
+            }
+        }
+        chrome.storage.local.set({'yzbuy1': emjyManager.yzbuy1});
+        chrome.storage.local.set({'yzbuy3': emjyManager.yzbuy3});
     }
 
     onSavedZTPoolLoaded(ztpool) {

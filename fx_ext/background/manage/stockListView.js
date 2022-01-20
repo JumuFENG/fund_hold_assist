@@ -58,7 +58,7 @@ class StockView {
                     if (str.enabled && str.key.includes('Sell')) {
                         needfix =  true;
                         break;
-                    } else if (str.key.includes('Buy')) {
+                    } else if (str.enabled && str.key.includes('Buy')) {
                         buystrCount ++;
                     }
                 }
