@@ -71,9 +71,14 @@ class KLine {
         return null;
     }
 
+    getNowTime() {
+        return new Date();
+    }
+
     parseKlines(kline, stime = '0', kltype = '1') {
         var klines = [];
         this.incompleteKline[kltype] = null;
+        var now = this.getNowTime();
         for (var i = 0; kline && i < kline.length; i++) {
             var kl = kline[i].split(',');
             var time = kl[0];
@@ -89,11 +94,11 @@ class KLine {
             if (time <= stime) {
                 continue;
             }
-            if (new Date() < tDate) {
-                if (kltype == '15' && (tDate - new Date()) > 200000) {
+            if (now < tDate) {
+                if (kltype == '15' && (tDate - now) > 200000) {
                     continue;
                 }
-                if (kltype == '101' && (tDate - new Date()) > 600000) {
+                if (kltype == '101' && (tDate - now) > 600000) {
                     continue;
                 }
                 this.incompleteKline[kltype] = {time, o, c, h, l, v};
@@ -267,9 +272,9 @@ class KLine {
         };
         var klines = this.parseKlines(message.kline.data.klines, stime, kltype);
         var updatedKlt = [];
-        if (klines.length > 0) {
+        if (this.getIncompleteKline(kltype) || klines.length > 0) {
             updatedKlt.push(kltype);
-        };
+        }
         if (!this.klines) {
             this.klines = {};
         };
@@ -365,14 +370,13 @@ class KLine {
             var fklines = this.getFactoredKlines(kltype, fac);
             this.klines[fklt] = fklines;
             this.calcKlineMA(this.klines[fklt]);
-            return fklines.length > 0 || this.getIncompleteKline(fklt);
+            return fklines.length > 0 || Boolean(this.getIncompleteKline(fklt));
         } else {
             var stime = this.klines[fklt][this.klines[fklt].length - 1].time;
             var fklines = this.getFactoredKlines(kltype, fac, stime);
             this.appendKlines(this.klines[fklt], fklines);
-            return fklines.length > 0 || this.getIncompleteKline(fklt);
+            return fklines.length > 1 || Boolean(this.getIncompleteKline(fklt));
         };
-        return false;
     }
 
     getLastTrough(kltype) {
