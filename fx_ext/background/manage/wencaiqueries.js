@@ -79,6 +79,10 @@ class WencaiCommon {
         this.wencai('银行或地产或保险', cb);
     }
 
+    getStocksIncreaseTooMuch(cb) {
+        this.wencai('一年内最高价>8*三年内最低价', cb);
+    }
+
     getPriceMoreThan(prc, cb) {
         this.wencai('股价>'+prc, cb);
     }

@@ -29,7 +29,8 @@ class DealsPanelPage extends RadioAnchorPage {
             //this.countMaxAmount();
             //this.showDealsWithouYdb();
             //this.bsStatistics();
-            this.getMarketValued();
+            //this.getMarketValued();
+            this.getStocksIncreaseTooMuch();
         }
         this.container.appendChild(btnTest);
         this.dealsTable = new SortableTable(1, 0, false);
@@ -434,5 +435,15 @@ class DealsPanelPage extends RadioAnchorPage {
         });
         console.log(normal);
         console.log(collat);
+    }
+
+    getStocksIncreaseTooMuch() {
+        var increaseTooMuch = [];
+        this.dealsTable.reset();
+        this.dealsTable.setClickableHeader('','代码', '名称');
+        for (let i = 0; i < increaseTooMuch.length; i++) {
+            var anch = emjyManager.stockAnchor(increaseTooMuch[i]);
+            this.dealsTable.addRow(i, increaseTooMuch[i], anch);
+        }
     }
 }

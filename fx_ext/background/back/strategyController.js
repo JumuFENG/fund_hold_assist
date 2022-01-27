@@ -732,10 +732,12 @@ class StrategyMA extends Strategy {
                 return {match: false};
             } else if (this.data.guardPrice - kl.c > 0) {
                 if (kl.bss18 == 's' || kl.bss18 == 'w') {
-                    var count = buydetails.availableCount();
-                    if (count > 0) {
-                        this.resetGuardPrice();
-                        return {match: true, tradeType: 'S', count, price: kl.c};
+                    if (klines.continuouslyBellowDays(this.data.guardPrice, kltype) > 3) {
+                        var count = buydetails.availableCount();
+                        if (count > 0) {
+                            this.resetGuardPrice();
+                            return {match: true, tradeType: 'S', count, price: kl.c};
+                        }
                     }
                 }
                 return {match: false};
@@ -826,6 +828,9 @@ class StrategyGE extends Strategy {
                 return {match: false};
             }
             return {match: false};
+        }
+        if (buydetails.buyRecords().length > 0 && !this.data.guardPrice) {
+            this.data.guardPrice = buydetails.minBuyPrice();
         }
         if (updatedKlt.includes(this.skltype)) {
             var obj = this.checkMa1Buy(klines);

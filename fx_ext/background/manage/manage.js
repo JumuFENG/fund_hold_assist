@@ -460,11 +460,6 @@ class Manager {
         }
         return 'normal';
     }
-
-    runAllTests() {
-        var kt = new KlineTests();
-        kt.testParseKlines();
-    }
 }
 
 class ManagerPage {

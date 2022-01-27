@@ -49,7 +49,7 @@ class BuyDetail {
 
     addBuyDetail(detail) {
         var date = detail.time;
-        if (!date) {
+        if (date === undefined) {
             date = this.getTodayDate();
         }
         this.addRecord({date, count: detail.count, price: detail.price, sid: detail.sid, type:'B'});
@@ -93,10 +93,11 @@ class BuyDetail {
         var td = this.getTodayDate();
         for (let i = 0; i < soldrec.length; i++) {
             if (soldrec[i].date == td) {
-                tdcount += soldrec[i].count;
+                tdcount -= soldrec[i].count;
             }
         }
 
+        tdcount = -tdcount;
         for (var i = buyrec.length - 1; i >= 0 && tdcount > 0; i--) {
             if (buyrec[i].count >= tdcount) {
                 buyrec[i].date = td;
@@ -117,9 +118,9 @@ class BuyDetail {
 
         var count = 0;
         for (var i = 0; i < buyrec.length; i++) {
-            count += buyrec[i].count;
+            count -= buyrec[i].count;
         }
-        return count - this.pendingSoldCount();
+        return -count - this.pendingSoldCount();
     }
 
     availableCount() {
@@ -132,10 +133,10 @@ class BuyDetail {
         var count = 0;
         for (var i = 0; i < buyrec.length; i++) {
             if (buyrec[i].date < td) {
-                count += buyrec[i].count;
+                count -= buyrec[i].count;
             }
         }
-        return count - this.pendingSoldCount();
+        return -count - this.pendingSoldCount();
     }
 
     getCountLessThan(price) {
@@ -151,25 +152,25 @@ class BuyDetail {
         var td = this.getTodayDate();
         for (var i = 0; i < lessDetail.length; i++) {
             if (lessDetail[i].date < td) {
-                count += lessDetail[i].count;
+                count -= lessDetail[i].count;
             } else {
-                tdcount += lessDetail[i].count;
+                tdcount -= lessDetail[i].count;
             }
         }
 
-        if (tdcount > 0) {
+        if (tdcount < 0) {
             var morecount = 0;
             for (let i = 0; i < moreDetail.length; i++) {
                 const md = moreDetail[i];
-                morecount += md.count;
+                morecount -= md.count;
             }
-            if (morecount > tdcount) {
-                return count + tdcount;
+            if (morecount < tdcount) {
+                return -count - tdcount;
             } else {
-                return count + morecount;
+                return -count - morecount;
             }
         }
-        return count - this.pendingSoldCount();
+        return -count - this.pendingSoldCount();
     }
 
     pendingSoldCount() {
@@ -180,9 +181,9 @@ class BuyDetail {
 
         var count = 0;
         for (var i = 0; i < selrec.length; i++) {
-            count += selrec[i].count;
+            count -= selrec[i].count;
         }
-        return count;
+        return -count;
     }
 
     getMinBuyPrice() {
@@ -252,16 +253,20 @@ class BuyDetail {
             return;
         }
 
-        if (!this.records || this.totalCount() != tcount || this.availableCount() != acount) {
-            this.records = [];
-            if (acount == 0) {
-                this.addBuyDetail({count: tcount, price});
-            } else if (tcount == acount) {
-                this.addBuyDetail({date: '0', count: tcount, price});
-            } else {
-                this.addBuyDetail({date: '0', count: acount, price});
-                this.addBuyDetail({count: tcount - acount, price});
+        if (this.records && this.totalCount() == tcount) {
+            if (this.availableCount() == acount || (new Date()).getHours() > 15) {
+                return;
             }
+        }
+
+        this.records = [];
+        if (acount == 0) {
+            this.addBuyDetail({count: tcount, price});
+        } else if (tcount == acount) {
+            this.addBuyDetail({time: '0', count: tcount, price});
+        } else {
+            this.addBuyDetail({time: '0', count: acount, price});
+            this.addBuyDetail({count: tcount - acount, price});
         }
     }
 
@@ -281,6 +286,20 @@ class BuyDetail {
             return -amount / count;
         }
         return 0;
+    }
+
+    minBuyPrice() {
+        var buyrec = this.buyRecords();
+        if (!buyrec || buyrec.length == 0) {
+            return 0;
+        }
+        var mp = buyrec[0].price;
+        for (let i = 1; i < buyrec.length; i++) {
+            if (buyrec[i].price - mp < 0) {
+                mp = buyrec[i].price;
+            }
+        }
+        return mp;
     }
 }
 

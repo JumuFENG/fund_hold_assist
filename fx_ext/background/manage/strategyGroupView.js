@@ -241,7 +241,7 @@ class StrategyGroupView {
         }
 
         if (!this.strGrp || !this.strGrp.count0) {
-            var amount = 40000;
+            var amount = 10000;
             if (this.strGrp && this.strGrp.amount) {
                 amount = this.strGrp.amount;
             }

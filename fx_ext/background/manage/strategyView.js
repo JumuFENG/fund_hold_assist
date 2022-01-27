@@ -250,7 +250,7 @@ class StrategyBaseView {
         return ctDiv;
     }
 
-    createAmountDiv(text = '买入金额 ', amt = 40000) {
+    createAmountDiv(text = '买入金额 ', amt = 10000) {
         var amtDiv = document.createElement('div');
         amtDiv.appendChild(document.createTextNode(text));
         this.inputAmount = document.createElement('input');

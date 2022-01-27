@@ -40,7 +40,7 @@ class StockView {
             detailText += ' 总收益:' + emjyManager.getTotalEarned(this.stock.code).toFixed(2);
         }
         this.detailView.textContent = detailText;
-        if (this.deleteBtn && emjyManager.klines[this.stock.code] && emjyManager.klines[this.stock.code].continuouslyBellowDays() >= 5) {
+        if (this.deleteBtn && emjyManager.klines[this.stock.code] && emjyManager.klines[this.stock.code].continuouslyBellowMaDays() >= 5) {
             this.divTitle.style.borderBottom = '2px solid green';
             console.log('remove', this.stock.code);
         }

@@ -607,7 +607,7 @@ class KLine {
         return c - kline[tidx].l > 0 ? kline[tidx].l : c.toFixed(2);
     }
 
-    continuouslyBellowDays(kltype='101') {
+    continuouslyBellowMaDays(kltype='101') {
         if (!this.klines) {
             return 0;
         }
@@ -619,6 +619,26 @@ class KLine {
                 break;
             }
             if (kl.ma18 - kl.o < 0 || kl.ma18 - kl.c < 0) {
+                return n;
+            }
+            n++;
+        }
+        return n;
+    }
+
+    continuouslyBellowPrcDays(prc, kltype = '101') {
+        if (!this.klines) {
+            return 0;
+        }
+        var kline = this.klines[kltype];
+        var n = 0;
+        var inkl = this.getIncompleteKline(kltype);
+        if (inkl && inkl.h - prc < 0) {
+            n ++;
+        }
+        for (var i = kline.length - 1; i > 0; i--) {
+            var kl = kline[i];
+            if (prc - kl.h < 0) {
                 return n;
             }
             n++;
