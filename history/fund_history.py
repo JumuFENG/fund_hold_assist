@@ -1,6 +1,7 @@
 # Python 3
 # -*- coding:utf-8 -*-
 
+from sys import platform
 from utils import *
 from history import *
 import requests
@@ -11,7 +12,8 @@ import time
 from datetime import datetime, timedelta
 from decimal import Decimal
 from bs4 import BeautifulSoup 
-from selenium import webdriver
+if platform == 'win32':
+    from selenium import webdriver
 
 class AllFunds(InfoList):
     """get all funds' general info and save to db table allfund"""

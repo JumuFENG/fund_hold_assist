@@ -7,4 +7,4 @@ summary/json/*.json
 .vs/
 *.pyc
 *_local.py
-*.DS_Strore
+**/.DS_Store

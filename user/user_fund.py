@@ -3,8 +3,6 @@
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-import sys
-sys.path.append("../..")
 from utils import *
 from history import *
 

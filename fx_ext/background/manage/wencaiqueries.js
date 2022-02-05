@@ -83,6 +83,10 @@ class WencaiCommon {
         this.wencai('一年内最高价>8*三年内最低价', cb);
     }
 
+    getStocksMoreThan10Years(cb) {
+        this.wencai('上市时间大于10年', cb);
+    }
+
     getPriceMoreThan(prc, cb) {
         this.wencai('股价>'+prc, cb);
     }
