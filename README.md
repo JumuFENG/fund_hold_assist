@@ -6,6 +6,8 @@ modules need:
 
 pip3 install pymysql
 
+pip3 install cryptography
+
 pip3 install Image
 
 pip3 install requests
