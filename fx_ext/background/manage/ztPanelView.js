@@ -176,9 +176,14 @@ class ZtPanelPage extends RadioAnchorPage {
         // wencaiCommon.getWencaiZt(datas => {
         //     this.onWencaiZTPoolBack(datas);
         // });
-        dbkCommon.getZdt((date, zt, dt, zts0, zts1, bkful) => {
-            this.onDbkZTPoolBack(date, zt);
-            this.onDbkBkBack(date, bkful);
+        // dbkCommon.getZdt((date, zt, dt, zts0, zts1, bkful) => {
+        //     this.onDbkZTPoolBack(date, zt);
+        //     this.onDbkBkBack(date, bkful);
+        // });
+        var ztdate = date.substring(0, 4) + '-' + date.substring(4, 6) + '-' + date.substring(6, 8);
+        xlmCommon.getZt(ztdate, (zt, bkful) => {
+            this.onXlmZTPoolBack(ztdate, zt);
+            this.onZtBkBack(ztdate, bkful);
         });
         dbkCommon.getYzdt(yzbuy => {
             this.onDbkYzBack(yzbuy);
@@ -301,7 +306,26 @@ class ZtPanelPage extends RadioAnchorPage {
         this.mergeZTPool({ztdate, pool});
     }
 
-    onDbkBkBack(date, bks) {
+    onXlmZTPoolBack(ztdate, datas) {
+        if (!datas || datas.length == 0) {
+            return;
+        }
+
+        var pool = [];
+        for (let i = 0; i < datas.length; i++) {
+            const ztstk = datas[i];
+            var stock = {};
+            stock.bk = ztstk.bk;
+            stock.c = ztstk.c;
+            stock.n = ztstk.n;
+            stock.lbc = ztstk.lbc;
+            pool.push(stock);
+        }
+
+        this.mergeZTPool({ztdate, pool});
+    }
+
+    onZtBkBack(date, bks) {
         bks.sort((a,b) => {return a.num < b.num;});
         if (!emjyManager.ztbks) {
             emjyManager.ztbks = [{date, bks}];

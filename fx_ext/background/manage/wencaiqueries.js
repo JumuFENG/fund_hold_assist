@@ -52,9 +52,61 @@ class WencaiQuestClient {
     }
 }
 
+class WencaiQuestJClient {
+    constructor(question, cb, limit = 0) {
+        this.url = 'http://iwencai.com/customized/chart/get-robot-data';
+        this.pageLen = 100;
+        this.limit = limit;
+        this.completCb = cb;
+        this.question = question;
+    }
+
+    getJsonData(page = 1) {
+        var fd = {};
+        fd['question'] = this.question;
+        fd['perpage'] = this.pageLen;
+        fd['page'] = page;
+        fd['secondary_intent'] = "";
+        fd['log_info'] = {input_type:"typewrite"};
+        fd['source'] = "Ths_iwencai_Xuangu";
+        fd['version'] = "2.0";
+        fd['query_area'] = "";
+        fd['block_list'] = "";
+        fd['add_info'] = {urp:{scene:1,company:1,business:1},contentType:'json',searchInfo:true};
+        return fd;
+    }
+
+    getWencaiNext(page = 1) {
+        var fd = this.getJsonData(page);
+        utils.postJson(this.url, fd, response => {
+            this.onPostBack(response);
+        });
+    }
+
+    onPostBack(response) {
+        var ztdata = JSON.parse(response).data.answer[0].txt[0].content.components[0].data;
+        if (!this.data || this.data.length == 0) {
+            this.data = ztdata.datas;
+        } else {
+            this.data.push.apply(this.data, ztdata.datas);
+        }
+
+        console.log(JSON.parse(response).data.answer[0]);
+        if (ztdata.datas.length == this.pageLen && (this.limit <= 0 || this.data.length < this.limit)) {
+            var page = ztdata.meta.page;
+            this.getWencaiNext(++page);
+        } else {
+            console.log('wencai question done!', this.data.length);
+            if (typeof(this.completCb) === 'function') {
+                this.completCb(this.data);
+            }
+        }
+    }
+}
+
 class WencaiCommon {
     wencai(question, cb) {
-        var ztclt = new WencaiQuestClient(question, datas => {
+        var ztclt = new WencaiQuestJClient(question, datas => {
             if (typeof(cb) === 'function') {
                 cb(datas);
             }
@@ -63,7 +115,7 @@ class WencaiCommon {
     }
 
     wencaiLimit(question, limit, cb) {
-        var ztclt = new WencaiQuestClient(question, datas => {
+        var ztclt = new WencaiQuestJClient(question, datas => {
             if (typeof(cb) === 'function') {
                 cb(datas);
             }
