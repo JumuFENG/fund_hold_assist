@@ -520,7 +520,7 @@ class NormalAccount extends Account {
 
     loadWatchings() {
         var watchingStorageKey = this.keyword + '_watchings';
-        chrome.storage.local.get(watchingStorageKey, item => {
+        emjyBack.getFromLocal(watchingStorageKey, item => {
             emjyBack.log('get watching_stocks', JSON.stringify(item));
             if (item && item[watchingStorageKey]) {
                 item[watchingStorageKey].forEach(s => {
@@ -531,10 +531,10 @@ class NormalAccount extends Account {
     }
 
     fixWatchings() {
-        chrome.storage.local.get(null, items => {
+        emjyBack.getFromLocal(null, items => {
             for (var k in items) {
                 if (k == 'undefined') {
-                    chrome.storage.local.remove(k);
+                    emjyBack.removeLocal(k);
                     continue;
                 }
                 if (k.startsWith(this.keyword)) {
@@ -551,7 +551,7 @@ class NormalAccount extends Account {
     loadStrategies() {
         this.stocks.forEach(s => {
             var strStorageKey = this.keyword + '_' + s.code + '_strategies';
-            chrome.storage.local.get(strStorageKey, item => {
+            emjyBack.getFromLocal(strStorageKey, item => {
                 if (item && item[strStorageKey]) {
                     this.applyStrategy(s.code, JSON.parse(item[strStorageKey]));
                 };
@@ -662,7 +662,7 @@ class NormalAccount extends Account {
         };
 
         stock.strategies = null;
-        chrome.storage.local.remove(this.keyword + '_' + code + '_strategies');
+        emjyBack.removeLocal(this.keyword + '_' + code + '_strategies');
     }
 
     addStockStrategy(stock, strgrp) {
@@ -703,7 +703,7 @@ class NormalAccount extends Account {
         if (ic == -1) {
             return;
         };
-        chrome.storage.local.remove(this.keyword + '_' + code + '_strategies');
+        emjyBack.removeLocal(this.keyword + '_' + code + '_strategies');
         this.stocks.splice(ic, 1);
     }
 
@@ -719,7 +719,7 @@ class NormalAccount extends Account {
         });
         var watchingStocks = {};
         watchingStocks[this.keyword + '_watchings'] = stock_watching;
-        chrome.storage.local.set(watchingStocks);
+        emjyBack.saveToLocal(watchingStocks);
     }
 
     exportConfig() {

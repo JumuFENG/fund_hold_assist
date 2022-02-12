@@ -422,7 +422,7 @@ class StrategyGroup {
     save() {
         var data = {};
         data[this.storeKey] = this.tostring();
-        chrome.storage.local.set(data);
+        emjyBack.saveToLocal(data);
     }
 
     setHoldCount(tcount, acount, price) {
@@ -445,42 +445,7 @@ class StrategyGroup {
     }
 
     applyGuardLevel(allklt = true) {
-        var addToKlineAlarm = function(code, kl, isall) {
-            if (kl % 101 == 0) {
-                emjyBack.dailyAlarm.addStock(code, kl);
-            } else {
-                emjyBack.klineAlarms.addStock(code, kl, isall);
-            }
-        };
-
-        for (var id in this.strategies) {
-            if (!this.strategies[id].enabled()) {
-                continue;
-            };
-            var gl = this.strategies[id].guardLevel();
-            if (gl == 'kline') {
-                addToKlineAlarm(this.code, this.strategies[id].kltype(), allklt);
-            } else if (gl == 'klines') {
-                this.strategies[id].kltype().forEach(kl => {
-                    addToKlineAlarm(this.code, kl);
-                });
-            } else if (gl == 'kday') {
-                emjyBack.dailyAlarm.addStock(this.code, this.strategies[id].kltype());
-            } else if (gl == 'otp') {
-                if (this.count0 !== undefined && this.count0 > 0) {
-                    emjyBack.otpAlarm.addTask({params:{id, code: this.code}, exec: (params) => {
-                        this.onOtpAlarm(params.id);
-                    }});
-                }
-            } else if (gl == 'rtp') {
-                emjyBack.rtpTimer.addStock(this.code);
-            } else if (gl == 'zt') {
-                emjyBack.ztBoardTimer.addStock(this.code);
-            } else if (gl == 'kzt') {
-                emjyBack.rtpTimer.addStock(this.code);
-                emjyBack.klineAlarms.addStock(this.code);
-            };
-        };
+        emjyBack.applyGuardLevel(this, allklt);
     }
 
     applyKlines(klines) {

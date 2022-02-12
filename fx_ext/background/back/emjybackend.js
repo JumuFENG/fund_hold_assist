@@ -440,6 +440,45 @@ class EmjyBack {
         buyAccount.buyStock(code, price, count, cb);
     }
 
+    applyGuardLevel(strgrp, allklt) {
+        var addToKlineAlarm = function(code, kl, isall) {
+            if (kl % 101 == 0) {
+                emjyBack.dailyAlarm.addStock(code, kl);
+            } else {
+                emjyBack.klineAlarms.addStock(code, kl, isall);
+            }
+        };
+
+        for (var id in strgrp.strategies) {
+            if (!strgrp.strategies[id].enabled()) {
+                continue;
+            };
+            var gl = strgrp.strategies[id].guardLevel();
+            if (gl == 'kline') {
+                addToKlineAlarm(strgrp.code, strgrp.strategies[id].kltype(), allklt);
+            } else if (gl == 'klines') {
+                strgrp.strategies[id].kltype().forEach(kl => {
+                    addToKlineAlarm(strgrp.code, kl);
+                });
+            } else if (gl == 'kday') {
+                this.dailyAlarm.addStock(strgrp.code, strgrp.strategies[id].kltype());
+            } else if (gl == 'otp') {
+                if (strgrp.count0 !== undefined && strgrp.count0 > 0) {
+                    this.otpAlarm.addTask({params:{id, code: strgrp.code}, exec: (params) => {
+                        strgrp.onOtpAlarm(params.id);
+                    }});
+                }
+            } else if (gl == 'rtp') {
+                this.rtpTimer.addStock(strgrp.code);
+            } else if (gl == 'zt') {
+                this.ztBoardTimer.addStock(strgrp.code);
+            } else if (gl == 'kzt') {
+                this.rtpTimer.addStock(strgrp.code);
+                this.klineAlarms.addStock(strgrp.code);
+            };
+        };
+    }
+
     setupQuoteAlarms() {
         chrome.alarms.onAlarm.addListener(alarmInfo =>  {
             this.onAlarm(alarmInfo);
@@ -735,6 +774,22 @@ class EmjyBack {
         // conflictAction (uniquify, overwrite, prompt)
         var url = URL.createObjectURL(blob);
         chrome.downloads.download({url, filename, saveAs:false, conflictAction});
+    }
+
+    getFromLocal(key, cb) {
+        chrome.storage.local.get(key, item => {
+            if (typeof(cb) === 'function') {
+                cb(item);
+            }
+        });
+    }
+
+    saveToLocal(data) {
+        chrome.storage.local.set(data);
+    }
+
+    removeLocal(key) {
+        chrome.storage.local.remove(key);
     }
 
     listAllBuySellPrice() {
