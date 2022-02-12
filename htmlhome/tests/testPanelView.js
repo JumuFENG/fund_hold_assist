@@ -31,6 +31,13 @@ class TestsPanelPage extends RadioAnchorPage {
         }
         this.container.appendChild(btnRunAll);
 
+        var btnUt = document.createElement('button');
+        btnUt.textContent = 'UT';
+        btnUt.onclick =  e => {
+            this.testEngine.runUnitTests();
+        }
+        this.container.appendChild(btnUt);
+
         var btnClear = document.createElement('button');
         btnClear.textContent = '清空';
         btnClear.onclick = e => {
@@ -327,5 +334,10 @@ class TestEngine {
         for (let i = 0; i < testMeta.length; i++) {
             console.log(i, testMeta[i].testname);
         }
+    }
+
+    runUnitTests() {
+        var kt = new KlineTests();
+        kt.testKlines1();
     }
 }

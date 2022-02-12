@@ -145,14 +145,10 @@ class KlineTests {
         this.EQ('kline 1 baseon 2', false, this.kline.fillUpKlinesBaseOn('1', 2));
         this.EQ('kline 1 baseon 2', 10, this.kline.klines['2'].length);
         this.EQ('kl imcomplete 2', null, this.kline.getIncompleteKline('2'));
+        console.log('testKlines1 Pass!');
     }
 
     testKlines101() {
         
     }
-}
-
-function runAllTests() {
-    var kt = new KlineTests();
-    kt.testKlines1();
 }
