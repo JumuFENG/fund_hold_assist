@@ -37,14 +37,43 @@ class InfoList():
 class HistoryDowloaderBase():
     def __init__(self):
         self.sqldb = SqlHelper(password = db_pwd, database = history_db_name)
-        
+        self.colheaders = [column_date, column_close, column_high, column_low, column_open, column_price_change, column_p_change, column_volume, column_amount]
+
+    def getValidKltype(self, klt):
+        if klt == 'd':
+            return '101'
+        if klt == 'w':
+            return '102'
+        if klt == 'm':
+            return '103'
+        return klt
+
     def checkKtable(self, ktable):
         return self.sqldb.isExistTable(ktable)
 
-    def readKHistoryData(self, ktable):
+    def setupKtable(self, ktable):
+        if not self.sqldb.isExistTable(ktable):
+            attrs = {}
+            for c in self.colheaders:
+                attrs[c] = 'varchar(20) DEFAULT NULL'
+            constraint = 'PRIMARY KEY(`id`)'
+            self.sqldb.createTable(ktable, attrs, constraint)
+
+    def readKHistoryData(self, ktable, length = 0, start = None):
         if not self.checkKtable(ktable):
             return
-        return self.sqldb.select(ktable)
+
+        alldata = self.sqldb.select(ktable)
+        if start is None and length <= 0:
+            return alldata
+
+        if start is not None:
+            return tuple(filter(lambda d: d[1] >= start, alldata))
+
+        if len(alldata) <= length:
+            return alldata
+
+        return alldata[-length:-1]
 
 class HistoryFromSohu(HistoryDowloaderBase):
     """get history data from sohu api."""
@@ -88,6 +117,9 @@ class HistoryFromSohu(HistoryDowloaderBase):
     def getSohuCode(self):
         pass
 
+    def getEmSecCode(self):
+        pass
+
     def getHistoryFromSohu(self, code, sDate, eDate, period = None):
         # get fund k history from sohu
         params = {'code': code}
@@ -107,48 +139,58 @@ class HistoryFromSohu(HistoryDowloaderBase):
         return response
 
     def isSamePeriod(self, d1, d2, period):
-        if period == 'd':
-            return d1 == d2
-        dt1 = datetime.strptime(d1, '%Y-%m-%d')
-        dt2 = datetime.strptime(d2, '%Y-%m-%d')
-        if period == 'w':
-            dt3 = dt1 + timedelta(days = 6 - dt1.timetuple().tm_wday)
-            return dt1 <= dt2 and dt2 <= dt3
-        if period == 'm':
-            return dt1.timetuple().tm_mon == dt2.timetuple().tm_mon
+        if d1 == '' and d2 == '':
+            return True
 
-        return False
+        if d1 == '' or d2 == '':
+            return False
 
-    def samePeriodWithLastRec(self, ktable, kdata, period):
+        if period == 'w' or period == '102' or period == 'm' or period == '103':
+            dt1 = datetime.strptime(d1, '%Y-%m-%d')
+            dt2 = datetime.strptime(d2, '%Y-%m-%d')
+            if period == 'w' or period == '102':
+                dt3 = dt1 + timedelta(days = 6 - dt1.timetuple().tm_wday)
+                return dt1 <= dt2 and dt2 <= dt3
+            if period == 'm' or period == '103':
+                return dt1.timetuple().tm_mon == dt2.timetuple().tm_mon
+
+        return d1 == d2
+
+    def getLastRecDate(self, ktable, kdata, period):
+        '''
+        discard old data, update last on record, return new data
+        '''
         lastRow = self.sqldb.select(ktable, ['id', column_date], order = ' ORDER BY %s DESC LIMIT 1' % column_date)
         if lastRow is None or len(lastRow) == 0:
-            return False
-        (lid, ldate), = lastRow
-        (d,o,c,pr,p,l,h,v,a,x) = kdata
-        if self.isSamePeriod(ldate, d, period) and d >= ldate:
-            self.sqldb.update(ktable, {column_date: d, column_close: c, column_high: h, column_low: l, column_open: o, column_price_change: pr, column_p_change: p, column_volume: v, column_amount: a}, {'id': lid})
-            return True
-        return False
+            return ('', ''),
+        return lastRow
 
     def saveSohuData(self, ktable, data, period):
-        headers = [column_date, column_close, column_high, column_low, column_open, column_price_change, column_p_change, column_volume, column_amount]
-        if not self.sqldb.isExistTable(ktable):
-            attrs = {}
-            for c in headers:
-                attrs[c] = 'varchar(20) DEFAULT NULL'
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.createTable(ktable, attrs, constraint)
-
         if len(data) < 1:
             return
 
-        if self.samePeriodWithLastRec(ktable, data[0], period):
-            data = data[1:]
+        self.setupKtable(ktable)
 
+        (lid, ldate), = self.getLastRecDate(ktable, data, period)
         values = []
-        for (d,o,c,pr,p,l,h,v,a,x) in data:
-            values.append([d,c,h,l,o,pr,p.strip('%'),v,a])
-        self.sqldb.insertMany(ktable, headers, values)
+        for i in range(0, len(data)):
+            if data[i][0] < ldate:
+                continue
+
+            if len(data[i]) == 11:
+                d,o,c,pr,p,l,h,v,a,_x,_y = data[i]
+            elif len(data[i]) == 10:
+                d,o,c,pr,p,l,h,v,a,_x = data[i]
+            else:
+                print('cannot parse data', data[i])
+                continue
+
+            if self.isSamePeriod(ldate, d, period) and d >= ldate:
+                self.sqldb.update(ktable, {column_date: d, column_close: c, column_high: h, column_low: l, column_open: o, column_price_change: pr, column_p_change: p, column_volume: v, column_amount: a}, {'id': lid})
+            else:
+                values.append([d,c,h,l,o,pr,p.strip('%'),v,a])
+
+        self.sqldb.insertMany(ktable, self.colheaders, values)
 
     def getKHistoryFromSohu(self, ktable, period):
         se = self.getStartEnd(ktable)
@@ -169,6 +211,7 @@ class HistoryFromSohu(HistoryDowloaderBase):
         self.getKHistoryFromSohu(self.km_histable, 'm')
         self.getKHistoryFromSohu(self.kw_histable, 'w')
         self.getKHistoryFromSohu(self.k_histable, 'd')
+        self.getKHistoryFromEm(self.k15_histable, '15')
         
     def getKdHistoryFromSohuTillToday(self, code):
         self.setCode(code)
@@ -181,3 +224,50 @@ class HistoryFromSohu(HistoryDowloaderBase):
     def getKmHistoryFromSohuTillToday(self, code):
         self.setCode(code)
         self.getKHistoryFromSohu(self.km_histable, 'm')
+
+    def getKHistoryFromEm(self, ktable, kltype):
+        kltype = self.getValidKltype(kltype)
+        if int(kltype) > 60:
+            print('TODO get kline from east money for kltype', kltype)
+            return
+
+        # f51: date/time,f52:开盘,f53:收盘,f54:最高, f55:最低, f56: 成交量, f57: 成交额 ,f58: 振幅(%),f59:涨跌幅(%),f60:涨跌额,f61:换手率(%)
+        emurl = f'''http://28.push2his.eastmoney.com/api/qt/stock/kline/get?secid={self.getEmSecCode()}&ut=fa5fd1943c7b386f172d6893dbfba10b'''
+        emurl += f'''&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57,f59,f60&klt={kltype}&fqt=0&end=20500101&lmt=512'''
+        response = json.loads(self.getRequest(emurl))
+        if not response or response['data'] is None or len(response['data']['klines']) == 0:
+            print('getKHistoryFromEm error, response: ', response)
+            return
+
+        response = response['data']['klines']
+        self.saveEmData(ktable, response, kltype)
+
+    def saveEmData(self, ktable, data, kltpye):
+        if len(data) < 1:
+            return
+
+        self.setupKtable(ktable)
+
+        (lid, ldate),  = self.getLastRecDate(ktable, data, kltpye)
+        values = []
+        for i in range(0, len(data)):
+            kdata = data[i].split(',')
+            if kdata[0] < ldate:
+                continue
+
+            if len(kdata) == 9:
+                d,o,c,h,l,v,a,p,pr = kdata
+            else:
+                print('cannot parse data', data[i])
+                continue
+
+            if self.isSamePeriod(ldate, d, kltpye) and d >= ldate:
+                self.sqldb.update(ktable, {column_date: d, column_close: c, column_high: h, column_low: l, column_open: o, column_price_change: pr, column_p_change: p, column_volume: v, column_amount: a}, {'id': lid})
+            else:
+                values.append([d,c,h,l,o,pr,p,v,a])
+
+        self.sqldb.insertMany(ktable, self.colheaders, values)
+
+    def getK15HistoryFromEmTillToday(self, code):
+        self.setCode(code)
+        self.getKHistoryFromEm(self.k15_histable, '15')

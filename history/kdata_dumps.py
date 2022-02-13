@@ -3,8 +3,6 @@
 
 from utils import *
 from history import *
-import time
-import json
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -27,7 +25,17 @@ class KdataDumps():
 
     def get_all_his(self):
         return self.get_his()
-        
+
+    def read_kd_data(self, code, fqt = 0, length = 200, start = None):
+        kdtable = self.get_kd_table(code)
+        if self.history.checkKtable(kdtable):
+            return self.history.readKHistoryData(kdtable, length, start)
+
+    def read_kw_data(self, code, fqt = 0, length = 100, start = None):
+        kwtable = self.get_kw_table(code)
+        if self.history.checkKtable(kwtable):
+            return self.history.readKHistoryData(kwtable, length, start)
+
     def get_khl_m_his(self, code):
         mdata = self.read_km_data(code)
         khl_m = []
@@ -47,10 +55,10 @@ class KdataDumps():
         dt2 = datetime.strptime(d2, '%Y-%m-%d')
         return dt1.timetuple().tm_mon == dt2.timetuple().tm_mon and dt1.timetuple().tm_year == dt2.timetuple().tm_year
 
-    def read_km_data(self, code):
+    def read_km_data(self, code, fqt = 0, length = 60, start = None):
         kmtable = self.get_km_table(code)
         if self.history.checkKtable(kmtable):
-            return self.history.readKHistoryData(kmtable)
+            return self.history.readKHistoryData(kmtable, length, start)
 
         kdtable = self.get_kd_table(code)
         if not self.history.checkKtable(kdtable):
@@ -90,7 +98,16 @@ class KdataDumps():
             mp = 0
             mdata.append((k, md, mc, mh, ml, mo, mpr, mp, mv, ma))
 
-        return mdata
+        if start is None and length <= 0:
+            return mdata
+
+        if start is not None:
+            return tuple(filter(lambda d : d[1] >= start, mdata))
+
+        if len(mdata) <= length:
+            return mdata
+
+        return mdata[-length, -1]
 
     def process_kdata(self, kdata):
         proc_obj = {}
@@ -114,3 +131,25 @@ class KdataDumps():
         proc_obj['last_low'] = lastLow
         return proc_obj
         
+    def get_kl_data(self, code, klt, fqt = 0):
+        # {klt:'1', text:'1分钟'}, {klt:'15', text:'15分钟'}, {klt:'101', text:'1日'}, {klt:'102', text:'1周'}, {klt:'103', text:'1月'}, {klt:'104', text:'1季度'}, {klt:'105', text:'半年'}, {klt:'106', text:'年'}
+        # fqt: 复权 1: 前复权 2: 后复权 0: 不复权
+
+        if not code:
+            print('get kline data error, invalid code', code)
+            return
+
+        if not klt:
+            print('get kline data error, invalid klt', klt)
+            return
+
+        if klt == '103' or klt == 'm':
+            return self.read_km_data(code, fqt)
+
+        if klt == '102' or klt == 'w':
+            return self.read_kw_data(code, fqt)
+
+        if klt == '101' or klt == 'd':
+            return self.read_kd_data(code, fqt)
+
+        print('not implemented klt', klt)

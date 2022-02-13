@@ -28,6 +28,8 @@ class MonthlyUpdater():
         stocks = astk.sqldb.select(astk.infoTable, '*')
         sh = Stock_history()
         for (i, c, n, s, t, sn, m, st) in stocks:
+            if t == 'TSSTOCK':
+                continue
             sh.getKmHistoryFromSohuTillToday(c)
 
 if __name__ == '__main__':

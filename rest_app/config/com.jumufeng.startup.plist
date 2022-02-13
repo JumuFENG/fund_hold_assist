@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+   <dict>
+        <key>Label</key>
+        <string>com.jumufeng.startup.plist</string>
+        <key>ProgramArguments</key>
+        <array>
+                <string>/Users/chuazhou/dev/vEnv/bin/python</string>
+                <string>/Users/chuazhou/dev/fund_hold_assist/rest_app/startuptasks.py</string>
+        </array>
+        <key>KeepAlive</key>
+        <false/>
+        <key>RunAtLoad</key>
+        <true/>
+        <key>StandardErrorPath</key>
+        <string>/Users/chuazhou/dev/fund_hold_assist/rest_app/logs/startup.error.log</string>
+        <key>StandardOutPath</key>
+        <string>/Users/chuazhou/dev/fund_hold_assist/rest_app/logs/startup.access.log</string>
+    </dict>
+</plist>

@@ -10,7 +10,7 @@ from user import *
 from history import *
 
 class WeeklyUpdater():
-    """for daily update"""
+    """for weekly update"""
     def __init__(self):
         pass
 
@@ -35,6 +35,7 @@ class WeeklyUpdater():
         sh = Stock_history()
         for s in stocks:
             sh.getKwHistoryFromSohuTillToday(s)
+            sh.getK15HistoryFromEmTillToday(s)
 
 if __name__ == '__main__':
     wu = WeeklyUpdater()

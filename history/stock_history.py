@@ -3,14 +3,9 @@
 
 from utils import *
 from history import *
-import requests
-import html
-import os
-import re
 import time
 import json
 from datetime import datetime, timedelta
-from decimal import Decimal
 from bs4 import BeautifulSoup
 
 class AllStocks(InfoList):
@@ -20,24 +15,23 @@ class AllStocks(InfoList):
         self.check_table_column(column_shortterm_rate, 'varchar(10) DEFAULT NULL')
 
     def loadInfo(self, code):
-        url = "http://quote.eastmoney.com/" + code.lower() + ".html"
+        code = code.upper()
+        url = 'https://emweb.securities.eastmoney.com/PC_HSF10/CompanySurvey/CompanySurveyAjax?code=' + code
         c = self.getRequest(url)
         if c is None:
             print("getRequest", url, "failed")
             return
 
-        soup = BeautifulSoup(c, 'html.parser')
-        hdr2 = soup.find('span',{'class':'quote_title_0 wryh'})
-        if hdr2 is None:
-            print("can not find html element with 'class':'quote_title_0 wryh'")
-            hdr2 = soup.find('h2', {'class':'header-title-h2 fl'})
-            if hdr2 is None:
-                print("can not find html element with 'class':'header-title-h2 fl','id':'name'")
-                return
-
-        code = code.upper()
-        name = hdr2.get_text()
-        self.updateStockCol(code, column_name, name)
+        try:
+            cs = json.loads(c)
+            self.updateStockCol(code, column_name, cs['SecurityShortName'])
+            self.updateStockCol(code, column_type, cs['CodeType'])
+            self.updateStockCol(code, column_setup_date, cs['fxxg']['ssrq'])
+            self.updateStockCol(code, column_assets_scale, cs['jbzl']['zczb'])
+            self.updateStockCol(code, column_short_name, cs['jbzl']['agjc'])
+        except Exception as ex:
+            print('get CompanySurvey error', c)
+            print(ex)
 
     def updateStockCol(self, code, col, val):
         stockinfo = self.sqldb.select(gl_all_stocks_info_table, [column_code, col], "%s = '%s'" % (column_code, code))
@@ -71,7 +65,7 @@ class AllStocks(InfoList):
 
         if etflist['data']['total'] > pz:
             print('total more than', pz, 'retry')
-            return requestEtfListData(etflist['data']['total'])
+            return self.requestEtfListData(etflist['data']['total'])
 
         return etflist['data']['diff']
 
@@ -160,24 +154,136 @@ class AllStocks(InfoList):
 
         if loflist['data']['total'] > pz:
             print('total more than', pz, 'retry')
-            return requestLofListData(loflist['data']['total'])
+            return self.requestLofListData(loflist['data']['total'])
 
         return loflist['data']['diff']
+
+    def getAllStocks(self):
+        return self.sqldb.select(gl_all_stocks_info_table)
+
+    def removeStock(self, code):
+        self.sqldb.delete(gl_all_stocks_info_table, {column_code: code})
+
+class DividenBonus(EmDataCenterRequest):
+    def __init__(self):
+        super().__init__()
+
+    def getUrl(self):
+        return f'''https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_SHAREBONUS_DET&columns=ALL&quoteColumns=&pageNumber={self.page}&pageSize={self.pageSize}&sortColumns=PLAN_NOTICE_DATE&sortTypes=-1&source=WEB&client=WEB&filter={self._filter}'''
+
+    def saveFecthed(self):
+        if len(self.fecthed) == 0:
+            return
+
+        bn = StockShareBonus()
+        for sn in self.fecthed:
+            code = sn['SECUCODE'].split('.')
+            print('update bonus share table for', code)
+            code.reverse()
+            bn.setCode(''.join(code))
+            bn.getBonusHis()
+
+    def getBonusNotice(self):
+        date = datetime.now().strftime("%Y-%m-%d")
+        # date = '2021-12-20'
+        # (REPORT_DATE%3D%272021-12-31%27)(EX_DIVIDEND_DAYS%3C0)(EX_DIVIDEND_DATE%3D%272021-12-07%27)
+        self.setFilter(f'''(EX_DIVIDEND_DATE%3D%27{date}%27)''')
+        self.getNext()
 
 class Stock_history(HistoryFromSohu):
     """
     get stock history data
     """
     def setCode(self, code):
-        super().setCode(code)
         allstocks = AllStocks()
-        self.sg = StockGeneral(allstocks.sqldb, self.code)
+        self.sg = StockGeneral(allstocks.sqldb, code)
+        super().setCode(self.sg.code)
         self.km_histable = self.sg.stockKmtable
         self.kw_histable = self.sg.stockKwtable
         self.k_histable = self.sg.stockKtable
+        self.k15_histable = self.sg.stockK15table
 
     def getSetupDate(self):
         return (datetime.strptime(self.sg.setupdate, "%Y-%m-%d")).strftime("%Y%m%d")
 
     def getSohuCode(self):
         return self.sg.sohucode
+
+    def getEmSecCode(self):
+        return self.sg.emseccode
+
+    def kHistoryTableExists(self, stk):
+        self.setCode(stk)
+        return self.sqldb.isExistTable(self.k_histable)
+
+class StockShareBonus(EmDataCenterRequest):
+    """get bonus share data from datacenter-web.eastmoney.com. 
+    ref: https://data.eastmoney.com/yjfp/detail/000858.html
+    """
+    def __init__(self):
+        super().__init__()
+        self.columns = ['报告日前', '登记日期', '除权除息日期', '进度', '总送转', '送股', '转股', '派息', '股息率', '每股收益', '每股净资产', '总股本', '分红送配详情']
+
+    def setCode(self, code):
+        allstocks = AllStocks()
+        self.sg = StockGeneral(allstocks.sqldb, code)
+        self.code = self.sg.code
+        self.bonustable = self.sg.bonustable
+        self.bnData = []
+
+    def getUrl(self):
+        dcode = self.code[2:]
+        return f'''https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_SHAREBONUS_DET&columns=ALL&quoteColumns=&pageNumber={self.page}&pageSize={self.pageSize}&sortColumns=PLAN_NOTICE_DATE&sortTypes=1&source=WEB&client=WEB&filter=(SECURITY_CODE%3D%22{dcode}%22)&_={self.getTimeStamp()}'''
+
+    def saveFecthed(self):
+        self.saveFecthedBonus()
+
+    def getBonusHis(self):
+        if not self.checkBonusTable():
+            self.getNext()
+        else:
+            self.loadBonusTable()
+        return self.bnData
+
+    def loadBonusTable(self):
+        self.bnData = self.sqldb.select(self.bonustable, fields=self.columns)
+
+    def checkBonusTable(self):
+        self.sqldb = SqlHelper(password = db_pwd, database = history_db_name)
+        return self.sqldb.isExistTable(self.bonustable)
+
+    def createBonusTable(self):
+        attrs = {
+            self.columns[0]:'varchar(20) DEFAULT NULL', self.columns[1]:"varchar(20) DEFAULT NULL",
+            self.columns[2]:"varchar(20) DEFAULT NULL", self.columns[3]:"varchar(20) DEFAULT NULL",
+            self.columns[4]:'varchar(10) DEFAULT 0', self.columns[5]:'varchar(10) DEFAULT 0', self.columns[6]:'varchar(10) DEFAULT 0',
+            self.columns[7]:'varchar(10) DEFAULT 0', self.columns[8]:'varchar(10) DEFAULT 0',
+            self.columns[9]:'varchar(10) DEFAULT 0', self.columns[10]:'varchar(10) DEFAULT 0', self.columns[11]:'varchar(20) DEFAULT NULL',
+            self.columns[12]:'varchar(64) DEFAULT NULL'}
+        constraint = 'PRIMARY KEY(`id`)'
+        self.sqldb.createTable(self.bonustable, attrs, constraint)
+
+    def check_table_column(self, col, tp):
+        if not self.sqldb.isExistTableColumn(self.bonustable, col):
+            self.sqldb.addColumn(self.bonustable, col, tp)
+
+    def saveFecthedBonus(self):
+        if not self.checkBonusTable():
+            self.createBonusTable()
+
+        attrs = self.columns[1:]
+        values = []
+        self.bnData = []
+        for bn in self.fecthed:
+            rptdate = bn['REPORT_DATE'].split()[0]
+            rcddate = bn['EQUITY_RECORD_DATE'].split()[0]
+            dividdate = bn['EX_DIVIDEND_DATE'].split()[0]
+            values.append([rcddate, dividdate, bn['ASSIGN_PROGRESS'], 
+                bn['BONUS_IT_RATIO'], bn['BONUS_RATIO'], bn['IT_RATIO'], bn['PRETAX_BONUS_RMB'], bn['DIVIDENT_RATIO'],
+                bn['BASIC_EPS'], bn['BVPS'], bn['TOTAL_SHARES'], bn['IMPL_PLAN_PROFILE'], rptdate])
+            self.bnData.append((rptdate, rcddate, dividdate, bn['ASSIGN_PROGRESS'], 
+                bn['BONUS_IT_RATIO'], bn['BONUS_RATIO'], bn['IT_RATIO'], bn['PRETAX_BONUS_RMB'], bn['DIVIDENT_RATIO'],
+                bn['BASIC_EPS'], bn['BVPS'], bn['TOTAL_SHARES'], bn['IMPL_PLAN_PROFILE']))
+
+        self.sqldb.insertUpdateMany(self.bonustable, attrs, [self.columns[0]], values)
+        self.fecthed = []

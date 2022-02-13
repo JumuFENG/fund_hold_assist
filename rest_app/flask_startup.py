@@ -483,6 +483,18 @@ def userbind():
 def index():
     return "this is a root for api."
 
+@app.route('/api/stockhist', methods=['GET'])
+def stock_hist():
+    if request.method == 'GET':
+        code = request.args.get("code", type=str, default=None)
+        klt = request.args.get('kltype', type=str, default='101')
+        fqt = request.args.get('fqt', type=int, default=0)
+        if code:
+            sd = StockDumps()
+            kd = sd.get_kl_data(code, klt, fqt)
+            return json.dumps(kd)
+    return 'get stock history kline data, no valid args'
+
 @app.route('/api/get')
 def get_http_request():
     url = urllib.parse.unquote(request.args.get('url',''))
