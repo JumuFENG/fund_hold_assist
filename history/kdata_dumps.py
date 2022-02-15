@@ -20,11 +20,19 @@ class KdataDumps():
     def get_kd_table(self, code):
         pass
 
+    def get_k15_table(self, code):
+        pass
+
     def get_his(self, codes = None):
         pass
 
     def get_all_his(self):
         return self.get_his()
+
+    def read_k15_data(self, code, fqt = 0, length = 512, start = None):
+        k15table = self.get_k15_table(code)
+        if self.history.checkKtable(k15table):
+            return self.history.readKHistoryData(k15table, length, start)
 
     def read_kd_data(self, code, fqt = 0, length = 200, start = None):
         kdtable = self.get_kd_table(code)
@@ -131,7 +139,7 @@ class KdataDumps():
         proc_obj['last_low'] = lastLow
         return proc_obj
         
-    def get_kl_data(self, code, klt, fqt = 0):
+    def get_kl_data(self, code, klt, fqt = 0, length = 60, start = None):
         # {klt:'1', text:'1分钟'}, {klt:'15', text:'15分钟'}, {klt:'101', text:'1日'}, {klt:'102', text:'1周'}, {klt:'103', text:'1月'}, {klt:'104', text:'1季度'}, {klt:'105', text:'半年'}, {klt:'106', text:'年'}
         # fqt: 复权 1: 前复权 2: 后复权 0: 不复权
 
@@ -144,12 +152,23 @@ class KdataDumps():
             return
 
         if klt == '103' or klt == 'm':
-            return self.read_km_data(code, fqt)
+            if length is None:
+                length = 200
+            return self.read_km_data(code, fqt, length, start)
 
         if klt == '102' or klt == 'w':
-            return self.read_kw_data(code, fqt)
+            if length is None:
+                length = 100
+            return self.read_kw_data(code, fqt, length, start)
 
         if klt == '101' or klt == 'd':
-            return self.read_kd_data(code, fqt)
+            if length is None:
+                length = 60
+            return self.read_kd_data(code, fqt, length, start)
+
+        if klt == '15':
+            if length is None:
+                length = 512
+            return self.read_k15_data(code, fqt, length, start)
 
         print('not implemented klt', klt)

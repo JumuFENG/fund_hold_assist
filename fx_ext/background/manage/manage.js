@@ -16,6 +16,22 @@ class Manager {
         this.loadAllSavedData();
     }
 
+    getFromLocal(key, cb) {
+        chrome.storage.local.get(key, item => {
+            if (typeof(cb) === 'function') {
+                cb(item);
+            }
+        });
+    }
+
+    saveToLocal(data) {
+        chrome.storage.local.set(data);
+    }
+
+    removeLocal(key) {
+        chrome.storage.local.remove(key);
+    }
+
     loadAllSavedData() {
         chrome.storage.local.get(null, item => {
             if (item) {
@@ -539,4 +555,5 @@ function onExtensionBackMessage(message) {
 chrome.runtime.onMessage.addListener(onExtensionBackMessage);
 
 let emjyManager = new Manager(logInfo);
+let emjyBack = emjyManager;
 emjyManager.sendExtensionMessage({command: 'mngr.init'});

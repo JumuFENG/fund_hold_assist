@@ -489,11 +489,21 @@ def stock_hist():
         code = request.args.get("code", type=str, default=None)
         klt = request.args.get('kltype', type=str, default='101')
         fqt = request.args.get('fqt', type=int, default=0)
+        length = request.args.get('len', type=int, default=None)
+        start = request.args.get('start', type=str, default=None)
         if code:
             sd = StockDumps()
-            kd = sd.get_kl_data(code, klt, fqt)
+            kd = sd.get_kl_data(code, klt, fqt, length, start)
             return json.dumps(kd)
     return 'get stock history kline data, no valid args'
+
+@app.route('/api/allstockinfo', methods=['GET'])
+def stock_allinfo():
+    if request.method == 'GET':
+        astk = AllStocks()
+        stkmkts = astk.getAllStocksShortInfo()
+        return json.dumps(stkmkts)
+    return 'get stock info, no valid args'
 
 @app.route('/api/get')
 def get_http_request():

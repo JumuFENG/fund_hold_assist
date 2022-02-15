@@ -161,6 +161,17 @@ class AllStocks(InfoList):
     def getAllStocks(self):
         return self.sqldb.select(gl_all_stocks_info_table)
 
+    def getAllStocksShortInfo(self):
+        stksInfo = self.sqldb.select(gl_all_stocks_info_table, [column_code, column_name, column_type], "type != 'TSSTOCK'")
+        rslt = []
+        for (c, n, t) in stksInfo:
+            jobj = {}
+            jobj['c'] = c
+            jobj['n'] = n
+            jobj['t'] = 'AB' if t == 'ABStock' else 'E' if t == 'ETF' else 'L' if t == 'LOF' else ''
+            rslt.append(jobj)
+        return rslt
+
     def removeStock(self, code):
         self.sqldb.delete(gl_all_stocks_info_table, {column_code: code})
 

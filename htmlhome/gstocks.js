@@ -3,6 +3,15 @@
 class GlobalManager {
     constructor() {
         this.klines = {};
+        this.serverhost = 'http://localhost/';
+        this.getFromLocal('hsj_stocks', item => {
+            if (item && item['hsj_stocks']) {
+                this.stockMarket = item['hsj_stocks'];
+            } else {
+                this.stockMarket = {};
+                this.fetchStocksMarket();
+            }
+        });
     }
 
     log(...args) {
@@ -12,22 +21,24 @@ class GlobalManager {
     }
 
     saveToLocal(data) {
-        console.log('GlobalManager.saveToLocal');
-    }
-
-    getFromLocal(key, cb) {
-        console.log('chrome.storage.local.get(data);');
-        if (typeof(cb) === 'function') {
-            cb();
+        for (const k in data) {
+            if (Object.hasOwnProperty.call(data, k)) {
+                localStorage.setItem(k, JSON.stringify(data[k]));
+            }
         }
     }
 
-    saveToLocal(data) {
-        console.log('chrome.storage.local.set();');
+    getFromLocal(key, cb) {
+        var item = JSON.parse(localStorage.getItem(key));
+        if (typeof(cb) === 'function') {
+            var r = {};
+            r[key] = item;
+            cb(r);
+        }
     }
 
     removeLocal(key) {
-        console.log('chrome.storage.local.remove(', key, ');');
+        localStorage.removeItem(key);
     }
 
     applyGuardLevel(strgrp, allklt) {
@@ -35,21 +46,28 @@ class GlobalManager {
     }
 
     loadKlines(code) {
+        if (!this.klines[code]) {
+            this.klines[code] = new KLine(code);
+            this.klines[code].loadSaved();
+        }
+    }
 
+    setupTestAccount() {
+        this.testAccount = new TestingAccount();
+        this.testAccount.loadAssets();
     }
 
     setupRetroAccount() {
-        this.testAccount = new TestingAccount();
-        this.testAccount.loadAssets();
+        this.retroAccount = new RetrospectAccount();
+        this.retroAccount.loadAssets();
     }
 
     trySellStock(code, price, count, account, cb) {
         var sellAccount = this.normalAccount;
         if (account) {
-            // if (account == this.trackAccount.keyword) {
-            //     sellAccount = this.trackAccount;
-            // } else 
-            if (this.testAccount && account == this.testAccount.keyword) {
+            if (this.retroAccount && account == this.retroAccount.keyword) {
+                sellAccount = this.retroAccount;
+            } else if (this.testAccount && account == this.testAccount.keyword) {
                 sellAccount = this.testAccount;
             } else {
                 console.log('Error, no valid account', account);
@@ -63,10 +81,9 @@ class GlobalManager {
     tryBuyStock(code, price, count, account, cb) {
         var buyAccount = this.normalAccount;
         if (account) {
-            // if (account == this.trackAccount.keyword) {
-            //     buyAccount = this.trackAccount;
-            // } else 
-            if (this.testAccount && account == this.testAccount.keyword) {
+            if (this.retroAccount && account == this.retroAccount.keyword) {
+                buyAccount = this.retroAccount;
+            } else if (this.testAccount && account == this.testAccount.keyword) {
                 buyAccount = this.testAccount;
             } else {
                 console.log('Error, no valid account', account);
@@ -75,6 +92,52 @@ class GlobalManager {
         };
 
         buyAccount.buyStock(code, price, count, cb);
+    }
+
+    getMkCode(code) {
+        if (code.length == 6 && this.stockMarket[code]) {
+            return this.stockMarket[code].c;
+        }
+        return code;
+    }
+
+    fetchStocksMarket() {
+        utils.get(this.serverhost + 'api/allstockinfo', mkt => {
+            var mktInfo = JSON.parse(mkt);
+            for (var i = 0; i < mktInfo.length; ++i) {
+                this.stockMarket[mktInfo[i].c.substring(2)] = mktInfo[i];
+            }
+            this.saveToLocal({'hsj_stocks': this.stockMarket});
+        });
+    }
+
+    fetchStockKline(code, kltype, sdate) {
+        var mktCode = this.getMkCode(code);
+        var url = this.serverhost + 'api/stockhist?fqt=1&code=' + mktCode + '&kltype=' + kltype;
+        if (sdate !== undefined) {
+            if (sdate.length != 8 && sdate.length != 10) {
+                console.error('invalid start date', sdate);
+                return;
+            }
+            var dashdate = sdate;
+            if (!sdate.includes('-')) {
+                dashdate = sdate.substring(0,4) + '-' + sdate.substring(4,6) + '-' + sdate.substring(6,8);
+            }
+            url += '&start=' + dashdate;
+        }
+        utils.get(url, ksdata => {
+            var kdata = JSON.parse(ksdata);
+            console.log(kdata);
+            var klmessage = {kltype, kline:{data:{klines:[]}}};
+            kdata.forEach(kl => {
+                klmessage.kline.data.klines.push(kl[1] + ',' + kl[5] + ',' + kl[2] + ',' + kl[3] + ',' + kl[4] + ',' +kl[8]);
+            });
+            if (!this.klines[code]) {
+                this.klines[code] = new KLine(code);
+            }
+            this.klines[code].updateRtKline(klmessage);
+            this.klines[code].save();
+        });
     }
 }
 

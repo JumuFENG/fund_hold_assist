@@ -10,8 +10,13 @@ class TestsPanelPage extends RadioAnchorPage {
         this.testEngine.failcb = (id, code, name, msg) => {
             this.addTestFailedResult(id, code, name, msg);
         };
+    }
 
-        this.initTestPanel();
+    show() {
+        super.show();
+        if (this.iptTestId === undefined) {
+            this.initTestPanel();
+        }
     }
 
     initTestPanel() {
@@ -61,114 +66,6 @@ class TestsPanelPage extends RadioAnchorPage {
         var rdiv = document.createElement('div');
         rdiv.appendChild(document.createTextNode('Test ' + id + ' ' + name + ' ' + code + ' Failed! ' + msg));
         this.resultPanel.appendChild(rdiv);
-    }
-}
-
-class TestTradeClient extends TradeClient {
-    constructor(account) {
-        super('');
-        this.bindingAccount = account;
-    }
-
-    trade(code, price, count, tradeType, jylx, cb) {
-        console.log(this.bindingAccount.keyword, 'trade', tradeType, code, price, count, jylx);
-        if (price == 0 || count < 100) {
-            console.log('please set correct price and count for test trade!');
-            return;
-        } else {
-            var time = this.bindingAccount.tradeTime;
-            if (!time) {
-                time = emjyBack.getTodayDate('-');
-            }
-            var sid = this.bindingAccount.sid;
-            this.bindingAccount.addDeal(code, price, count, tradeType);
-            if (typeof(cb) === 'function') {
-                cb({time, code, price, count, sid});
-            }
-        }
-    }
-}
-
-class TrackingAccount extends NormalAccount {
-    constructor() {
-        super();
-        this.keyword = 'track';
-        this.key_deals = 'track_deals';
-        this.buyPath = null;
-        this.sellPath = null;
-        this.sid = 1;
-        this.deals = [];
-    }
-
-    applyStrategy(code, str) {
-        if (!str) {
-            return;
-        };
-        var stock = this.stocks.find(function(s) {return s.code == code; });
-        if (!stock) {
-            return;
-        };
-        var strategyGroup = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
-        strategyGroup.applyGuardLevel(false);
-        stock.strategies = strategyGroup;
-    }
-
-    loadAssets() {
-        var watchingStorageKey = this.keyword + '_watchings';
-        chrome.storage.local.get(watchingStorageKey, item => {
-            emjyBack.log('get watching_stocks', JSON.stringify(item));
-            if (item && item[watchingStorageKey]) {
-                item[watchingStorageKey].forEach(s => {
-                    this.addWatchStock(s);
-                    var strStorageKey = this.keyword + '_' + s + '_strategies';
-                    chrome.storage.local.get(strStorageKey, sitem => {
-                        if (sitem && sitem[strStorageKey]) {
-                            this.applyStrategy(s, JSON.parse(sitem[strStorageKey]));
-                        };
-                    });
-                });
-            };
-        });
-        chrome.storage.local.get(this.key_deals, item => {
-            if (item && item[this.key_deals]) {
-                this.deals = item[this.key_deals];
-            }
-        });
-    }
-
-    addDeal(code, price, count, tradeType) {
-        var time = this.tradeTime;
-        if (!time) {
-            time = emjyBack.getTodayDate('-');
-        }
-        this.deals.push({time, sid: this.sid, code, tradeType, price, count});
-        this.sid ++;
-        this.tradeTime = undefined;
-    }
-
-    createTradeClient() {
-        this.tradeClient = new TestTradeClient(this);
-    }
-
-    buyStock(code, price, count, cb) {
-        if (!this.tradeClient) {
-            this.createTradeClient();
-        }
-        this.tradeClient.buy(code, price, count, cb);
-    }
-
-    sellStock(code, price, count, cb) {
-        if (!this.tradeClient) {
-            this.createTradeClient();
-        }
-        this.tradeClient.sell(code, price, count, cb);
-    }
-
-    save() {
-        super.save();
-        var dsobj = {};
-        dsobj[this.key_deals] = this.deals;
-        chrome.storage.local.set(dsobj);
     }
 }
 
@@ -317,7 +214,7 @@ class TestEngine {
 
     runTests(testid) {
         if (!emjyBack.testAccount) {
-            emjyBack.setupRetroAccount();
+            emjyBack.setupTestAccount();
         }
 
         emjyBack.testAccount.deals = [];

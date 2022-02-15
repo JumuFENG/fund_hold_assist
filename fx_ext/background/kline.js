@@ -16,7 +16,7 @@ class KLine {
             }
             return;
         }
-        chrome.storage.local.get(this.storeKey, item => {
+        emjyBack.getFromLocal(this.storeKey, item => {
             if (item && item[this.storeKey]) {
                 this.klines = item[this.storeKey];
                 for (var i in this.klines) {
@@ -38,7 +38,7 @@ class KLine {
         if (this.klines) {
             var stockKlines = {};
             stockKlines[this.storeKey] = this.klines;
-            chrome.storage.local.set(stockKlines);
+            emjyBack.saveToLocal(stockKlines);
         };
     }
 
@@ -46,7 +46,7 @@ class KLine {
         if (this.klines !== undefined) {
             this.klines = {};
         };
-        chrome.storage.local.remove(this.storeKey);
+        emjyBack.removeLocal(this.storeKey);
     }
 
     getKline(kltype) {

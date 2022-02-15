@@ -136,11 +136,6 @@ class EmjyBack {
         this.log('EmjyBack initialized!');
     }
 
-    setupRetroAccount() {
-        this.retroAccount = new RetrospectAccount();
-        this.retroAccount.loadAssets();
-    }
-
     totalAssets() {
         return this.normalAccount.pureAssets + this.collateralAccount.pureAssets;
     }
@@ -407,8 +402,6 @@ class EmjyBack {
                 sellAccount = this.creditAccount;
             } else if (account == this.trackAccount.keyword) {
                 sellAccount = this.trackAccount;
-            } else if (this.retroAccount && account == this.retroAccount.keyword) {
-                sellAccount = this.retroAccount;
             } else {
                 console.log('Error, no valid account', account);
                 return;
@@ -429,8 +422,6 @@ class EmjyBack {
                 buyAccount = this.creditAccount;
             } else if (account == this.trackAccount.keyword) {
                 buyAccount = this.trackAccount;
-            } else if (this.retroAccount && account == this.retroAccount.keyword) {
-                buyAccount = this.retroAccount;
             } else {
                 console.log('Error, no valid account', account);
                 return;
@@ -602,9 +593,6 @@ class EmjyBack {
         this.normalAccount.updateStockRtKline(code, updatedKlt);
         this.collateralAccount.updateStockRtKline(code, updatedKlt);
         this.trackAccount.updateStockRtKline(code, updatedKlt);
-        if (this.retroAccount) {
-            this.retroAccount.updateStockRtKline(code, updatedKlt);
-        }
     }
 
     applyStrategy(account, code, str) {
@@ -800,18 +788,6 @@ class EmjyBack {
         for (var i = 0; i < this.collateralAccount.stocks.length; i++) {
             var stocki = this.collateralAccount.stocks[i];
             tradeAnalyzer.listAllBuySellPrice(emjyBack.klines[stocki.code].klines, stocki.code, stocki.name);
-        }
-    }
-
-    retro(code) {
-        if (!this.retroEngine) {
-            this.retroEngine = new RetroEngine();
-        }
-        if (!this.retroAccount) {
-            this.setupRetroAccount();
-        }
-        if (code) {
-            this.retroEngine.initRetro(code, {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000}, '2021-01-04');
         }
     }
 

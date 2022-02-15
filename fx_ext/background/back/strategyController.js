@@ -732,7 +732,7 @@ class StrategyMA extends Strategy {
                 return {match: false};
             } else if (this.data.guardPrice - kl.c > 0) {
                 if (kl.bss18 == 's' || kl.bss18 == 'w') {
-                    if (klines.continuouslyBellowDays(this.data.guardPrice, kltype) > 3) {
+                    if (klines.continuouslyBellowPrcDays(this.data.guardPrice, kltype) > 3) {
                         var count = buydetails.availableCount();
                         if (count > 0) {
                             this.resetGuardPrice();

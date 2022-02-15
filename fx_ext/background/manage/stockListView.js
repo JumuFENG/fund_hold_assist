@@ -46,6 +46,14 @@ class StockView {
         }
     }
 
+    isBuystrJson(str) {
+        return str.key.includes('Buy') || str.key == 'StrategyMA' || str.key == 'StrategyGE';
+    }
+
+    isSellstrJson(str) {
+        return str.key.includes('Sell') || str.key == 'StrategyMA' || str.key == 'StrategyGE';
+    }
+
     showWarningInTitle() {
         var strGrp = this.stock.strategies;
         var needfix = false;
@@ -58,7 +66,7 @@ class StockView {
                     if (str.enabled && str.key.includes('Sell')) {
                         needfix =  true;
                         break;
-                    } else if (str.enabled && str.key.includes('Buy')) {
+                    } else if (str.enabled && this.isBuystrJson(str)) {
                         buystrCount ++;
                     }
                 }
@@ -69,10 +77,14 @@ class StockView {
                 var sellstrCount = 0;
                 for (const i in strategies) {
                     const str = strategies[i];
+                    if (str.enabled && str.key == 'StrategyMA' && str.guardPrice - this.stock.latestPrice > 0) {
+                        needfix = true;
+                        break;
+                    }
                     if (str.enabled && (str.key.includes('Buy') || (str.kltype !== undefined && str.kltype - 30 < 0))) {
                         needfix =  true;
                         break;
-                    } else if (str.key.includes('Sell')) {
+                    } else if (this.isSellstrJson(str)) {
                         sellstrCount ++;
                     }
                 }

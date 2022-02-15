@@ -7,7 +7,7 @@ import requests
 from datetime import datetime, timedelta
 from decimal import Decimal
 from bs4 import BeautifulSoup 
-from pandas import *
+import pandas
 import json
 import os
 
@@ -97,7 +97,7 @@ class Index_history(HistoryFromSohu):
             params['start'] = sDate
             params['end'] = eDate
         params['fields'] = 'TCLOSE;HIGH;LOW;TOPEN;LCLOSE;CHG;PCHG;VOTURNOVER;VATURNOVER'
-        fname = code + '.csv'
+        fname = os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/' + code + '.csv')
         self.downloadFile(apiUrl_163, fname, params)
         self.csv163ToSql(fname)
         os.remove(fname)

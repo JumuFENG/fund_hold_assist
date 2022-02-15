@@ -4,6 +4,7 @@ utils/_pwd.py
 summary/json/*.json
 *.zip
 *.xpi
+*.log
 .vs/
 *.pyc
 *_local.py
