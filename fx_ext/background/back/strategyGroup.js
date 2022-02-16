@@ -36,6 +36,20 @@ class BuyDetail {
         return this.records.filter(r => r.type == 'B');
     }
 
+    lastBuyDate() {
+        var buyrec = this.buyRecords();
+        if (buyrec.length == 0) {
+            return '';
+        }
+        var date0 = buyrec[0].date;
+        for (let i = 1; i < buyrec.length; i++) {
+            if (buyrec[i].date > date0) {
+                date0 = buyrec[i].date;
+            }
+        }
+        return date0;
+    }
+
     sellRecords() {
         return this.records.filter(r => r.type == 'S');
     }

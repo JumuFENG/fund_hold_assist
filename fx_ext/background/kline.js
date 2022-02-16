@@ -649,4 +649,34 @@ class KLine {
         }
         return n;
     }
+
+    lowestPriceSince(date, kltype = '101') {
+        if (!this.klines) {
+            return 0;
+        }
+
+        var kline = this.klines[kltype];
+        var lprc = 0;
+        var lidx = kline.length - 1;
+        var inkl = this.getIncompleteKline(kltype);
+        if (inkl) {
+            lprc = inkl.l;
+        } else if (kline.length > 0) {
+            lprc = kline[kline.length - 1].l;
+            lidx--;
+        } else {
+            return 0;
+        }
+
+        for (let i = lidx; i >= 0; i--) {
+            const kl = kline[i];
+            if (kl.time < date) {
+                break;
+            }
+            if (kl.l - lprc < 0) {
+                lprc = kl.l;
+            }
+        }
+        return lprc;
+    }
 }

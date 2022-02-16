@@ -184,7 +184,7 @@ var testMeta = [{
 },{
     testname: 'StrategyMA_Buy_Sell',
     strategy: {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000},
-    code:'t10007',
+    code:'t10007', // 002460
     kdata:[{
         kltype:'101', 
         kldata:[{
@@ -352,6 +352,41 @@ var testMeta = [{
         },{
             kl:{"time": "2022-02-14", "o": "44.17", "c": "46.35", "h": "47.48", "l": "43.02", "v": "52866", "ma5": "46.768", "ma18": "53.854", "bss18": "w"},
             expect: {dcount: 2, deal: {count: 200, price:'46.35', tradeType:'S'}}
+        }]
+    }]
+},{
+    testname: 'StrategyMA_Buy_Buy',
+    strategy: {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000},
+    code:'t10011', // 000762
+    kdata:[{
+        kltype:'101', 
+        kldata:[{
+            kl:{"time": "2021-12-24", "o": "48.45", "c": "45.29", "h": "48.48", "l": "44.99", "v": "367189", "ma5": "48.430", "ma18": "52.772", "bss18": "w"},
+            expect: {dcount: 0}
+        },{
+            kl:{"time": "2021-12-27", "o": "45.50", "c": "45.63", "h": "46.50", "l": "44.53", "v": "262090", "ma5": "47.674", "ma18": "51.986", "bss18": "w"},
+            expect: {dcount: 0}
+        },{
+            kl:{"time": "2021-12-28", "o": "45.63", "c": "50.10", "h": "50.10", "l": "45.62", "v": "638740", "ma5": "47.712", "ma18": "51.532", "bss18": "w"},
+            expect: {dcount: 0}
+        },{
+            kl:{"time": "2022-01-10", "o": "51.56", "c": "52.66", "h": "54.78", "l": "50.33", "v": "600444", "ma5": "51.728", "ma18": "50.069", "bss18": "w"},
+            expect: {dcount: 0}
+        },{
+            kl:{"time": "2022-01-11", "o": "53.08", "c": "54.13", "h": "54.35", "l": "52.05", "v": "539929", "ma5": "51.814", "ma18": "50.208", "bss18": "b"},
+            expect: {dcount: 1, deal: {count: 200, price:'54.13', tradeType:'B'}}
+        },{
+            kl:{"time": "2022-01-12", "o": "56.00", "c": "52.84", "h": "56.79", "l": "51.10", "v": "674187", "ma5": "52.716", "ma18": "50.298", "bss18": "h"},
+            expect: {dcount: 1}
+        },{
+            kl:{"time": "2022-01-20", "o": "45.31", "c": "42.30", "h": "45.40", "l": "42.08", "v": "398024", "ma5": "46.488", "ma18": "49.684", "bss18": "w"},
+            expect: {dcount: 1}
+        },{
+            kl:{"time": "2022-01-21", "o": "41.99", "c": "43.10", "h": "44.27", "l": "41.62", "v": "312031", "ma5": "45.298", "ma18": "49.544", "bss18": "w"},
+            expect: {dcount: 1}
+        },{
+            kl:{"time": "2022-01-24", "o": "42.00", "c": "45.75", "h": "46.50", "l": "41.80", "v": "436960", "ma5": "44.750", "ma18": "49.302", "bss18": "w"},
+            expect: {dcount: 2, deal: {count: 200, price:'45.75', tradeType:'B'}}
         }]
     }]
 },{

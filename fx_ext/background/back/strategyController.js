@@ -716,13 +716,13 @@ class StrategyMA extends Strategy {
         var kltype = this.kltype();
         if (updatedKlt.includes(kltype)) {
             var kl = klines.getLatestKline(kltype);
-            if (!this.data.guardPrice || this.data.guardPrice == 0) {
+            if (!this.data.guardPrice || this.data.guardPrice == 0 || !buydetails || buydetails.totalCount() == 0) {
                 if (kl.bss18 == 'b') {
                     if (this.cutlineAcceptable(klines, kl)) {
                         return {match: true, tradeType: 'B', count: 0, price: kl.c};
                     }
                 }
-                if (kl.bss18 == 's') {
+                if (kl.bss18 == 's' && buydetails) {
                     var count = buydetails.availableCount();
                     if (count > 0) {
                         this.resetGuardPrice();
@@ -742,31 +742,19 @@ class StrategyMA extends Strategy {
                 }
                 return {match: false};
             } else {
-                if (kl.bss18 != 's' && kl.bss18 != 'b') {
-                    return {match: false};
-                }
-                if (!buydetails || buydetails.totalCount() == 0) {
-                    if (kl.bss18 == 'b') {
-                        if (this.cutlineAcceptable(klines, kl)) {
-                            return {match: true, tradeType: 'B', count: 0, price: kl.c};
-                        }
-                    }
-                    return {match: false};
-                }
-                var pmin = buydetails.getMinBuyPrice();
-                if (kl.bss18 == 'b') {
-                    if (kl.c - pmin * 0.95 < 0) {
-                        if (this.cutlineAcceptable(klines, kl)) {
-                            return {match: true, tradeType: 'B', count: 0, price: kl.c};
-                        }
-                    }
-                    return {match: false};
-                }
                 if (kl.bss18 == 's') {
                     var count = buydetails.getCountLessThan(kl.c * 0.95);
                     if (count > 0) {
                         this.resetGuardPrice();
                         return {match: true, tradeType: 'S', count, price: kl.c};
+                    }
+                    return {match: false};
+                }
+
+                if (kl.c - this.data.guardPrice > 0 && buydetails.buyRecords().length == 1) {
+                    var lastbuydate = buydetails.lastBuyDate();
+                    if (this.data.guardPrice - klines.lowestPriceSince(lastbuydate, kltype) > 0) {
+                        return {match: true, tradeType: 'B', count: 0, price: kl.c};
                     }
                     return {match: false};
                 }
