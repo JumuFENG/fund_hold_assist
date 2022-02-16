@@ -633,8 +633,12 @@ class KLine {
         var kline = this.klines[kltype];
         var n = 0;
         var inkl = this.getIncompleteKline(kltype);
-        if (inkl && inkl.h - prc < 0) {
-            n ++;
+        if (inkl) {
+            if (inkl.h - prc < 0) {
+                n ++;
+            } else {
+                return 0;
+            }
         }
         for (var i = kline.length - 1; i > 0; i--) {
             var kl = kline[i];

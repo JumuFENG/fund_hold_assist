@@ -82,28 +82,28 @@ class StockDumps(KdataDumps):
 
     def read_k15_data(self, code, fqt = 0, length = 512, start = None):
         f0data = super().read_k15_data(code, fqt, length, start)
-        if fqt == 0:
+        if f0data is None or fqt == 0:
             return f0data
 
         return self.fixPrice(code, f0data, fqt)
 
     def read_kd_data(self, code, fqt = 0, length = 200, start = None):
         f0data = super().read_kd_data(code, fqt, length, start)
-        if fqt == 0:
+        if f0data is None or fqt == 0:
             return f0data
 
         return self.fixPrice(code, f0data, fqt)
 
     def read_kw_data(self, code, fqt = 0, length = 100, start = None):
         f0data = super().read_kw_data(code, fqt, length, start)
-        if fqt == 0:
+        if f0data is None or fqt == 0:
             return f0data
 
         return self.fixPrice(code, f0data, fqt)
 
     def read_km_data(self, code, fqt = 0, length = 60, start = None):
         f0data = super().read_km_data(code, fqt, length, start)
-        if fqt == 0:
+        if f0data is None or fqt == 0:
             return f0data
 
         return self.fixPrice(code, f0data, fqt)

@@ -113,7 +113,15 @@ class GlobalManager {
 
     fetchStockKline(code, kltype, sdate) {
         var mktCode = this.getMkCode(code);
-        var url = this.serverhost + 'api/stockhist?fqt=1&code=' + mktCode + '&kltype=' + kltype;
+        var url = this.serverhost + 'api/stockhist?fqt=1&code=' + mktCode;
+        if (kltype == '30' || kltype == '60' || kltype == '120') {
+            url += '&kltype=15';
+        } else if (kltype == '202' || kltype == '404' || kltype == '808') {
+            url += '&kltype=101';
+        } else {
+            url += '&kltype=' + kltype;
+        }
+
         if (sdate !== undefined) {
             if (sdate.length != 8 && sdate.length != 10) {
                 console.error('invalid start date', sdate);
