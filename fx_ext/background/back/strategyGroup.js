@@ -315,6 +315,33 @@ class BuyDetail {
         }
         return mp;
     }
+
+    fixBuyRecords(deals) {
+        var sd = deals.filter(d => d.tradeType == 'S');
+        var bd = deals.filter(d => d.tradeType == 'B');
+        var scount = 0;
+        sd.forEach(d => {
+            scount -= d.count;
+        });
+
+        while(scount < 0) {
+            scount += bd[0].count;
+            bd.shift();
+        }
+
+        if (scount > 0) {
+            bd[0].count = -(-scount - bd[0].count);
+        }
+
+        this.records = [];
+        bd.forEach(b => {
+            var date = b.time.split(' ')[0];
+            var count = b.count;
+            var price = b.price;
+            var sid = b.sid;
+            this.records.push({date, count, price, type:'B', sid});
+        });
+    }
 }
 
 class StrategyGroup {

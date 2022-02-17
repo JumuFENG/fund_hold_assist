@@ -705,7 +705,13 @@ class StrategyMA extends Strategy {
     }
 
     resetGuardPrice() {
-        delete(this.data.guardPrice);
+        if (this.data.guardPrice !== undefined) {
+            delete(this.data.guardPrice);
+        }
+
+        if (this.data.guardDate !== undefined) {
+            delete(this.data.guardDate);
+        }
     }
 
     checkKlines(klines, updatedKlt, buydetails) {
@@ -745,15 +751,22 @@ class StrategyMA extends Strategy {
                 if (kl.bss18 == 's') {
                     var count = buydetails.getCountLessThan(kl.c * 0.95);
                     if (count > 0) {
-                        this.resetGuardPrice();
+                        if (count < buydetails.totalCount()) {
+                            this.data.guardDate = kl.time;
+                        } else {
+                            this.resetGuardPrice();
+                        }
                         return {match: true, tradeType: 'S', count, price: kl.c};
                     }
                     return {match: false};
                 }
 
-                if (kl.c - this.data.guardPrice > 0 && buydetails.buyRecords().length == 1) {
-                    var lastbuydate = buydetails.lastBuyDate();
-                    if (this.data.guardPrice - klines.lowestPriceSince(lastbuydate, kltype) > 0) {
+                if (buydetails.buyRecords().length == 1 && kl.c - this.data.guardPrice > 0 && buydetails.buyRecords()[0].price - kl.c > 2 * (kl.c - this.data.guardPrice)) {
+                    var guardDate = buydetails.lastBuyDate();
+                    if (this.data.guardDate !== undefined) {
+                        guardDate = this.data.guardDate;
+                    }
+                    if (this.data.guardPrice - klines.lowestPriceSince(guardDate, kltype) > 0) {
                         return {match: true, tradeType: 'B', count: 0, price: kl.c};
                     }
                     return {match: false};
