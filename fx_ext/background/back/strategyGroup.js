@@ -316,6 +316,20 @@ class BuyDetail {
         return mp;
     }
 
+    maxBuyPrice() {
+        var buyrec = this.buyRecords();
+        if (!buyrec || buyrec.length == 0) {
+            return 0;
+        }
+        var mp = buyrec[0].price;
+        for (let i = 1; i < buyrec.length; i++) {
+            if (buyrec[i].price - mp > 0) {
+                mp = buyrec[i].price;
+            }
+        }
+        return mp;
+    }
+
     fixBuyRecords(deals) {
         var sd = deals.filter(d => d.tradeType == 'S');
         var bd = deals.filter(d => d.tradeType == 'B');

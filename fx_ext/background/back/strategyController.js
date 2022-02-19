@@ -791,7 +791,7 @@ class StrategyGE extends Strategy {
         return [this.skltype, this.data.kltype];
     }
 
-    checkMa1Buy(kl1) {
+    checkMa1Buy(kl1, buydetails) {
         if (kl1) {
             var kl = kl1.getLatestKline(this.skltype);
             if (this.inCritical()) {
@@ -802,7 +802,11 @@ class StrategyGE extends Strategy {
                 }
                 return {match: false};
             }
-            if (kl.l - this.data.guardPrice * (1 - this.data.stepRate) <= 0) {
+            var maxP = buydetails.maxBuyPrice();
+            if (this.data.guardPrice - maxP > 0) {
+                maxP = this.data.guardPrice;
+            }
+            if (kl.l - (this.data.guardPrice - maxP * this.data.stepRate) <= 0) {
                 this.data.inCritical = true;
                 return {match: false, stepInCritical: true};
             }
@@ -816,7 +820,7 @@ class StrategyGE extends Strategy {
         if (holdCount == 0) {
             if (this.data.guardPrice) {
                 if (updatedKlt.includes(this.skltype)) {
-                    return this.checkMa1Buy(klines);
+                    return this.checkMa1Buy(klines, buydetails);
                 }
                 return {match: false};
             }
@@ -834,7 +838,7 @@ class StrategyGE extends Strategy {
             this.data.guardPrice = buydetails.minBuyPrice();
         }
         if (updatedKlt.includes(this.skltype)) {
-            var obj = this.checkMa1Buy(klines);
+            var obj = this.checkMa1Buy(klines, buydetails);
             if (obj.match || obj.stepInCritical) {
                 return obj;
             }
