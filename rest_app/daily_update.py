@@ -92,6 +92,11 @@ class DailyUpdater():
         dbns = DividenBonus()
         dbns.getBonusNotice()
 
+    def fetch_new_ipo_stocks(self):
+        print("update new IPO stocks")
+        stkall = AllStocks()
+        stkall.laodNewStock()
+
 if __name__ == '__main__':
     du = DailyUpdater()
     du.update_all()

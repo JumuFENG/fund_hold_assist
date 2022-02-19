@@ -114,7 +114,9 @@ class GlobalManager {
     fetchStockKline(code, kltype, sdate) {
         var mktCode = this.getMkCode(code);
         var url = this.serverhost + 'api/stockhist?fqt=1&code=' + mktCode;
-        if (kltype == '30' || kltype == '60' || kltype == '120') {
+        if (!kltype) {
+            url += '&kltype=101';
+        } else if (kltype == '30' || kltype == '60' || kltype == '120') {
             url += '&kltype=15';
         } else if (kltype == '202' || kltype == '404' || kltype == '808') {
             url += '&kltype=101';
@@ -133,8 +135,14 @@ class GlobalManager {
             }
             url += '&start=' + dashdate;
         }
+
         utils.get(url, ksdata => {
             var kdata = JSON.parse(ksdata);
+            if (!kdata || kdata.length == 0) {
+                console.error('no kline data for', code, 'kltype:', kltype);
+                return;
+            }
+
             console.log(kdata);
             var klmessage = {kltype, kline:{data:{klines:[]}}};
             kdata.forEach(kl => {

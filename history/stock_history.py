@@ -33,6 +33,72 @@ class AllStocks(InfoList):
             print('get CompanySurvey error', c)
             print(ex)
 
+    def laodNewStock(self, sdate = None):
+        # http://quote.eastmoney.com/center/gridlist.html#newshares
+        newstocks = []
+        pn = 1
+        today = datetime.now().strftime("%Y-%m-%d")
+        maxDate = self.sqldb.select(gl_all_stocks_info_table, f"max({column_setup_date})")
+        if maxDate is None or not len(maxDate) == 1:
+            sdate = today
+        else:
+            (sdate,), = maxDate
+
+        while True:
+            newstoksUrl = f'''http://18.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=20&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f26&fs=m:0+f:8,m:1+f:8&fields=f12,f13,f14,f21,f26&_={self.getTimeStamp()}'''
+            res = self.getRequest(newstoksUrl)
+            if res is None:
+                break
+
+            r = json.loads(res)
+            if r['data'] is None or len(r['data']['diff']) == 0:
+                break
+
+            ldate = None
+            for nsobj in r['data']['diff']:
+                c = nsobj['f12']
+                m = nsobj['f13']
+                n = nsobj['f14']
+                s = nsobj['f21']
+                d = str(nsobj['f26'])
+                if (m != 0 and m != 1):
+                    print('invalid market', m)
+                    continue
+                setdate = d[0:4] + '-' + d[4:6] + '-' + d[6:]
+                if ldate is None:
+                    ldate = setdate
+                elif setdate < ldate:
+                    ldate = setdate
+                if setdate < sdate or setdate == today or n.startswith('N'):
+                    continue
+                newstocks.append(('SH' + c if m == 1 else 'SZ' + c, n, s, setdate))
+
+            if ldate < sdate:
+                break
+
+            pn += 1
+
+        if len(newstocks) > 0:
+            self.addNewStocks(newstocks)
+
+    def addNewStocks(self, newstocks):
+        headers = [column_code, column_name, column_type, column_short_name, column_assets_scale, column_setup_date]
+        values = []
+        for code,name,assets_scale,setup_date in newstocks:
+            stockinfo = self.sqldb.select(gl_all_stocks_info_table, [column_code, column_short_name], "%s = '%s'" % (column_code, code))
+            if stockinfo is None or len(stockinfo) == 0:
+                values.append([code, name, 'ABStock', name, assets_scale, setup_date])
+            else:
+                (c, sn), = stockinfo
+                self.updateStockCol(code, column_name, name)
+                self.updateStockCol(code, column_type, 'ABStock')
+                self.updateStockCol(code, column_setup_date, setup_date)
+                self.updateStockCol(code, column_assets_scale, assets_scale)
+                if sn is None or sn == 'NULL' or sn == '':
+                    self.updateStockCol(code, column_short_name, name)
+        if len(values) > 0:
+            self.sqldb.insertMany(gl_all_stocks_info_table, headers, values)
+
     def updateStockCol(self, code, col, val):
         stockinfo = self.sqldb.select(gl_all_stocks_info_table, [column_code, col], "%s = '%s'" % (column_code, code))
         if stockinfo is None or len(stockinfo) == 0:

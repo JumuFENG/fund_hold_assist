@@ -586,6 +586,9 @@ class EmjyBack {
 
     updateStockRtKline(message) {
         var code = message.kline.data.code;
+        if (!this.klines[code]) {
+            this.klines[code] = new KLine(code);
+        }
         var updatedKlt = this.klines[code].updateRtKline(message);
         if (!this.isTradeTime()) {
             return;
