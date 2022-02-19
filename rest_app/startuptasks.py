@@ -12,6 +12,7 @@ from rest_app.weekly_update import WeeklyUpdater
 from rest_app.monthly_update import MonthlyUpdater
 
 startuplogfile = os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/startuptasks.log')
+perCount = 200
 
 def daily_should_run(lastrun, now):
     if lastrun == '':
@@ -57,17 +58,33 @@ def monthly_should_run(lastrun, now):
 
 
 if __name__ == '__main__':
-    startconfig = {'lastdaily_run_at':'', 'lastweekly_run_at':'', 'lastmonthly_run_at':''}
+    startconfig = {'lastdaily_run_at':'', 'lastweekly_run_at':'', 'lastmonthly_run_at':'', 'last_updated_id':0}
     if os.path.isfile(startuplogfile):
         with open(startuplogfile, 'r') as cfgfile:
             startconfig = json.load(cfgfile)
 
     dnow = datetime.now()
+    startIstk = 0
+    if 'last_updated_id' in startconfig:
+        startIstk = startconfig['last_updated_id']
 
     anyrun = False
     if daily_should_run(startconfig['lastdaily_run_at'], dnow):
         du = DailyUpdater()
         du.update_all()
+        sh = Stock_history()
+        astk = AllStocks()
+        stocks = astk.sqldb.select(astk.infoTable, '*')
+        for i in range(0, perCount):
+            upid = startIstk + i
+            if upid >= len(stocks):
+                upid -= len(stocks)
+            (i, c, n, s, t, sn, m, st) = stocks[upid]
+            if t == 'TSSTOCK':
+                continue
+            sh.getKHistoryFromSohuTillToday(c)
+
+        startconfig['last_updated_id'] = startIstk + perCount
         startconfig['lastdaily_run_at'] = dnow.strftime(f"%Y-%m-%d %H:%M")
         anyrun = True
 
@@ -78,8 +95,8 @@ if __name__ == '__main__':
         anyrun = True
 
     if monthly_should_run(startconfig['lastmonthly_run_at'], dnow):
-        mu = MonthlyUpdater()
-        mu.update_all()
+        # mu = MonthlyUpdater()
+        # mu.update_all()
         startconfig['lastmonthly_run_at'] = dnow.strftime(f"%Y-%m-%d %H:%M")
         anyrun = True
 

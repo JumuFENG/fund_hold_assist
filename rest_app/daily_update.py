@@ -55,6 +55,7 @@ class DailyUpdater():
 
         self.download_all_interested_stocks_khistory()
         self.download_newly_noticed_bonuses()
+        self.fetch_new_ipo_stocks()
 
     def download_all_fund_history(self, code):
         print("try to update fund history for:", code)
