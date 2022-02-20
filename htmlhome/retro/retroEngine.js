@@ -47,28 +47,6 @@ class RetroEngine {
 
     }
 
-    initKlines(code, startDate) {
-        emjyBack.loadKlines(code,() => {
-            if (!emjyBack.klines[code].klines) {
-                emjyBack.fetchStockKline(code, this.kltype, startDate);
-                return;
-            }
-            var dKline = emjyBack.klines[code].klines[this.kltype];
-            if (this.kltype == '101' && (!dKline || dKline[0].time > startDate)) {
-                emjyBack.klines[code].klines[this.kltype] = [];
-                emjyBack.fetchStockKline(code, this.kltype, startDate);
-            }
-        });
-    }
-
-    clearRetroDeals() {
-        emjyBack.retroAccount.deals = [];
-    }
-
-    saveRetroDeals() {
-        emjyBack.retroAccount.save();
-    }
-
     initRetro(code, str, startDate, endDate = null) {
         this.code = code;
         this.startDate = startDate;
@@ -84,12 +62,11 @@ class RetroEngine {
         this.initKlines(code, startDate);
     }
 
-    retroStrategyMa(code, startDate, kltype = '101', endDate = null) {
+    retroStrategySingleKlt(code, str, startDate, kltype = '101', endDate = null) {
         this.kltype = kltype;
         this.code = code;
         this.startDate = startDate;
         this.endDate = endDate;
-        var str = {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype}},"amount":40000};
         if (!emjyBack.retroAccount) {
             emjyBack.setupRetroAccount();
         }

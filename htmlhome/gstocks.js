@@ -83,6 +83,7 @@ class GlobalManager {
     setupRetroAccount() {
         this.retroAccount = new RetrospectAccount();
         this.retroAccount.loadAssets();
+        this.retroEngine = new RetroEngine();
     }
 
     trySellStock(code, price, count, account, cb) {
