@@ -21,34 +21,57 @@ class GlobalManager {
     }
 
     saveToLocal(data) {
-        for (const k in data) {
-            if (Object.hasOwnProperty.call(data, k)) {
-                localStorage.setItem(k, JSON.stringify(data[k]));
+        localforage.ready(() => {
+            for (const k in data) {
+                if (Object.hasOwnProperty.call(data, k)) {
+                    localforage.setItem(k, JSON.stringify(data[k]));
+                }
             }
-        }
+        });
     }
 
     getFromLocal(key, cb) {
-        var item = JSON.parse(localStorage.getItem(key));
-        if (typeof(cb) === 'function') {
-            var r = {};
-            r[key] = item;
-            cb(r);
-        }
+        localforage.ready(() => {
+            localforage.getItem(key).then((val)=>{
+                var item = null;
+                if (!val) {
+                    console.error('getItem', key, '=', val);
+                } else {
+                    item = JSON.parse(val);
+                }
+                if (typeof(cb) === 'function') {
+                    var r = {};
+                    r[key] = item;
+                    cb(r);
+                }
+            }, ()=> {
+                console.log('getItem error!', arguments);
+            });
+        });
     }
 
     removeLocal(key) {
-        localStorage.removeItem(key);
+        localforage.removeItem(key);
+    }
+
+    clearLocalStorage() {
+        localforage.keys().then(ks => {
+            console.log(ks);
+        });
     }
 
     applyGuardLevel(strgrp, allklt) {
         console.log('GlobalManager.applyGuardLevel();');
     }
 
-    loadKlines(code) {
+    loadKlines(code, cb) {
         if (!this.klines[code]) {
             this.klines[code] = new KLine(code);
-            this.klines[code].loadSaved();
+            this.klines[code].loadSaved(cb);
+        } else {
+            if (typeof(cb) === 'function') {
+                cb();
+            }
         }
     }
 
@@ -101,6 +124,20 @@ class GlobalManager {
         return code;
     }
 
+    stockAnchor(code) {
+        return this.stockMarket[code].n;
+    }
+
+    getCurrentHoldValue(code, count) {
+        if (count > 0) {
+            if (this.klines[code] && this.klines[code].klines) {
+                return count * this.klines[code].getLatestKline('101').c;
+            }
+            console.log(code, count, 'no kline data');
+        }
+        return 0;
+    }
+
     fetchStocksMarket() {
         utils.get(this.serverhost + 'api/allstockinfo', mkt => {
             var mktInfo = JSON.parse(mkt);
@@ -143,7 +180,6 @@ class GlobalManager {
                 return;
             }
 
-            console.log(kdata);
             var klmessage = {kltype, kline:{data:{klines:[]}}};
             kdata.forEach(kl => {
                 klmessage.kline.data.klines.push(kl[1] + ',' + kl[5] + ',' + kl[2] + ',' + kl[3] + ',' + kl[4] + ',' +kl[8]);

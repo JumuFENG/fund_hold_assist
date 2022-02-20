@@ -19,6 +19,7 @@
         <script src="../fx_ext/background/manage/dbk.js"></script>
         <script src="../fx_ext/background/manage/ztPanelView.js"></script>
 
+        <script src="../htmlhome/localforage.min.js"></script>
         <script src="../htmlhome/gstocks.js"></script>
 
         <script src="../htmlhome/tests/data.js"></script>
@@ -36,6 +37,10 @@
                 }
 
                 setupNavigators() {
+                    var retropage = new RetroPanelPage();
+                    this.navigator.addRadio(retropage);
+                    this.root.appendChild(retropage.container);
+
                     var testpage = new TestsPanelPage();
                     this.navigator.addRadio(testpage);
                     this.root.appendChild(testpage.container);
@@ -43,10 +48,6 @@
                     var ztpage = new ZtPanelPage();
                     this.navigator.addRadio(ztpage);
                     this.root.appendChild(ztpage.container);
-
-                    var retropage = new RetroPanelPage();
-                    this.navigator.addRadio(retropage);
-                    this.root.appendChild(retropage.container);
 
                     this.navigator.selectDefault();
                 }

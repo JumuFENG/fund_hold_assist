@@ -353,8 +353,8 @@ class StockShareBonus(EmDataCenterRequest):
         self.bnData = []
         for bn in self.fecthed:
             rptdate = bn['REPORT_DATE'].split()[0]
-            rcddate = bn['EQUITY_RECORD_DATE'].split()[0]
-            dividdate = bn['EX_DIVIDEND_DATE'].split()[0]
+            rcddate = bn['EQUITY_RECORD_DATE'].split()[0] if bn['EQUITY_RECORD_DATE'] is not None else ''
+            dividdate = bn['EX_DIVIDEND_DATE'].split()[0] if bn['EX_DIVIDEND_DATE'] is not None else ''
             values.append([rcddate, dividdate, bn['ASSIGN_PROGRESS'], 
                 bn['BONUS_IT_RATIO'], bn['BONUS_RATIO'], bn['IT_RATIO'], bn['PRETAX_BONUS_RMB'], bn['DIVIDENT_RATIO'],
                 bn['BASIC_EPS'], bn['BVPS'], bn['TOTAL_SHARES'], bn['IMPL_PLAN_PROFILE'], rptdate])

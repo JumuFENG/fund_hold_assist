@@ -26,11 +26,10 @@ class DealsPanelPage extends RadioAnchorPage {
         var btnTest = document.createElement('button');
         btnTest.textContent = '测试';
         btnTest.onclick = e => {
-            //this.countMaxAmount();
             //this.showDealsWithouYdb();
             //this.bsStatistics();
             //this.getMarketValued();
-            this.getStocksIncreaseTooMuch();
+            //this.getStocksIncreaseTooMuch();
         }
         this.container.appendChild(btnTest);
         this.dealsTable = new SortableTable(1, 0, false);
@@ -296,25 +295,6 @@ class DealsPanelPage extends RadioAnchorPage {
         } else {
             this.dealsTable.addRow('total', '', '', resCount, totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), '-');
         }
-    }
-
-    countMaxAmount() {
-        var allDeals = this.getAllDeals();
-        var amount = 0;
-        var maxMt = 0;
-        for (let i = 0; i < allDeals.length; i++) {
-            const deali = allDeals[i];
-            if (deali.tradeType == 'B') {
-                amount += (deali.count * deali.price);
-            } else {
-                amount -= (deali.count * deali.price);
-            }
-            if (amount > maxMt) {
-                maxMt = amount;
-            }
-        }
-        console.log(maxMt);
-        return maxMt;
     }
 
     bsStatistics() {
