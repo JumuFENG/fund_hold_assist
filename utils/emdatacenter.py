@@ -12,7 +12,9 @@ class EmDataCenterRequest():
         self.fecthed = []
 
     def getRequest(self, params=None, proxies=None):
-        rsp = requests.get(self.getUrl(), params=params, proxies=proxies)
+        url = self.getUrl()
+        print('EmDataCenterRequest, getRequest of', url)
+        rsp = requests.get(url, params=params, proxies=proxies)
         rsp.raise_for_status()
         return rsp.text
 
@@ -30,7 +32,7 @@ class EmDataCenterRequest():
     def getNext(self):
         bonus = json.loads(self.getRequest())
         if not bonus['success']:
-            print('getBonusHis Error, message', bonus['message'], 'code', bonus['code'])
+            print('EmDataCenterRequest Error, message', bonus['message'], 'code', bonus['code'])
             return
 
         if (bonus['result'] and bonus['result']['data']):

@@ -13,6 +13,7 @@ class AllStocks(InfoList):
     def __init__(self):
         self.checkInfoTable(stock_db_name, gl_all_stocks_info_table)
         self.check_table_column(column_shortterm_rate, 'varchar(10) DEFAULT NULL')
+        self.check_table_column('quit_date', 'varchar(10) DEFAULT NULL')
 
     def loadInfo(self, code):
         code = code.upper()
@@ -98,6 +99,33 @@ class AllStocks(InfoList):
                     self.updateStockCol(code, column_short_name, name)
         if len(values) > 0:
             self.sqldb.insertMany(gl_all_stocks_info_table, headers, values)
+
+    def checkNotices(self, code):
+        # https://data.eastmoney.com/notices/
+        url = f'''https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=10&page_index=1&ann_type=A&client_source=web&stock_list={code[2:]}&f_node=0&s_node=0'''
+        nres = self.getRequest(url)
+        if nres is None:
+            print('no notice for', code)
+            return
+
+        r = json.loads(nres)
+        if r['success'] != 1 or r['data'] is None or len(r['data']['list']) == 0:
+            print('cannot parse the response data', nres)
+            return
+
+        tsupdate = False
+        for ntc in r['data']['list']:
+            title = ntc['title']
+            colname = set([col['column_name'] for col in ntc['columns']])
+            ntdate = ntc['notice_date'].split(' ')[0]
+            if ('终止上市' in title or '摘牌' in title) and '终止上市' in colname:
+                self.updateStockCol(code, column_type, 'TSStock')
+                self.updateStockCol(code, 'quit_date', ntdate)
+                tsupdate = True
+                break
+
+        if not tsupdate:
+            print(code, 'check again!')
 
     def updateStockCol(self, code, col, val):
         stockinfo = self.sqldb.select(gl_all_stocks_info_table, [column_code, col], "%s = '%s'" % (column_code, code))

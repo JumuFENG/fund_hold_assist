@@ -76,7 +76,7 @@ class RetroPlan {
                     if (stk.t != 'AB') {
                         continue;
                     }
-    
+
                     emjyBack.loadKlines(code, ()=>{
                         if (!emjyBack.klines[code].klines) {
                             emjyBack.fetchStockKline(code, this.kltype, this.startDate);
