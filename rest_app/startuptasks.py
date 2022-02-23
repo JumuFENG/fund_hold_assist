@@ -10,6 +10,7 @@ import json
 from rest_app.daily_update import DailyUpdater
 from rest_app.weekly_update import WeeklyUpdater
 from rest_app.monthly_update import MonthlyUpdater
+from history.stock_history import *
 
 startuplogfile = os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/startuptasks.log')
 perCount = 200
@@ -58,6 +59,16 @@ def monthly_should_run(lastrun, now):
 
 
 if __name__ == '__main__':
+    retry = 0
+    while True:
+        nw = requests.get('https://www.eastmoney.com/js/index2018.js', timeout=2)
+        if nw is not None or retry > 100:
+            break
+        retry += 1
+
+    if retry > 100:
+        exit(0)
+
     startconfig = {'lastdaily_run_at':'', 'lastweekly_run_at':'', 'lastmonthly_run_at':'', 'last_updated_id':0}
     if os.path.isfile(startuplogfile):
         with open(startuplogfile, 'r') as cfgfile:
@@ -74,13 +85,13 @@ if __name__ == '__main__':
         du.update_all()
         sh = Stock_history()
         astk = AllStocks()
-        stocks = astk.sqldb.select(astk.infoTable, '*')
+        stocks = astk.getAllStocks()
         for i in range(0, perCount):
             upid = startIstk + i
             if upid >= len(stocks):
                 upid -= len(stocks)
-            (i, c, n, s, t, sn, m, st) = stocks[upid]
-            if t == 'TSSTOCK':
+            (i, c, n, s, t, sn, m, st, qt) = stocks[upid]
+            if t == 'TSSTOCK' or qt is not None:
                 continue
             sh.getKHistoryFromSohuTillToday(c)
 

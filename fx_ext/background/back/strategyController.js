@@ -56,6 +56,9 @@ class StrategyManager {
         if (strategy.key == 'StrategyMA') {
             return new StrategyMA(strategy);
         }
+        if (strategy.key == 'StrategyMAPick') {
+            return new StrategyMAPick(strategy);
+        }
         if (strategy.key == 'StrategyGE') {
             return new StrategyGE(strategy);
         }
@@ -761,17 +764,74 @@ class StrategyMA extends Strategy {
                     return {match: false};
                 }
 
-                if (buydetails.buyRecords().length == 1 && kl.c - this.data.guardPrice > 0 && buydetails.buyRecords()[0].price - kl.c > 2 * (kl.c - this.data.guardPrice)) {
-                    var guardDate = buydetails.lastBuyDate();
-                    if (this.data.guardDate !== undefined) {
-                        guardDate = this.data.guardDate;
+                // if (buydetails.buyRecords().length == 1 && kl.c - this.data.guardPrice > 0 && buydetails.buyRecords()[0].price - kl.c > 2 * (kl.c - this.data.guardPrice)) {
+                //     var guardDate = buydetails.lastBuyDate();
+                //     if (this.data.guardDate !== undefined) {
+                //         guardDate = this.data.guardDate;
+                //     }
+                //     if (this.data.guardPrice - klines.lowestPriceSince(guardDate, kltype) > 0) {
+                //         return {match: true, tradeType: 'B', count: 0, price: kl.c};
+                //     }
+                //     return {match: false};
+                // }
+            }
+        }
+        return {match: false};
+    }
+}
+
+class StrategyMAPick extends StrategyMA {
+    resetGuardPrice() {
+        super.resetGuardPrice();
+        if (this.data.markPrice !== undefined) {
+            delete(this.data.markPrice);
+        }
+    }
+
+    checkKlines(klines, updatedKlt, buydetails) {
+        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
+            return {match: false};
+        };
+
+        var kltype = this.kltype();
+        if (updatedKlt.includes(kltype)) {
+            var kl = klines.getLatestKline(kltype);
+            if (buydetails && buydetails.totalCount() > 0) {
+                if (this.data.guardPrice - kl.c > 0 && (kl.bss18 == 's' || kl.bss18 == 'w')) {
+                    if (klines.continuouslyBellowPrcDays(this.data.guardPrice, kltype) > 3) {
+                        var count = buydetails.availableCount();
+                        if (count > 0) {
+                            this.resetGuardPrice();
+                            return {match: true, tradeType: 'S', count, price: kl.c};
+                        }
                     }
-                    if (this.data.guardPrice - klines.lowestPriceSince(guardDate, kltype) > 0) {
-                        return {match: true, tradeType: 'B', count: 0, price: kl.c};
+                } else if (kl.bss18 == 's') {
+                    var count = buydetails.getCountLessThan(kl.c * 0.95);
+                    if (count > 0) {
+                        this.resetGuardPrice();
+                        return {match: true, tradeType: 'S', count, price: kl.c};
                     }
-                    return {match: false};
+                }
+                return {match: false};
+            }
+
+            if (kl.bss18 == 'b') {
+                if (this.cutlineAcceptable(klines, kl)) {
+                    this.data.guardDate = kl.time;
+                    this.data.markPrice = kl.c;
+                    return {match: false, stepInCritical: true};
                 }
             }
+            if (kl.c - this.data.guardPrice > 0) {
+                var guardDate = this.data.guardDate;
+                if (this.data.guardPrice - klines.lowestPriceSince(guardDate, kltype) > 0) {
+                    return {match: true, tradeType: 'B', count: 0, price: kl.c};
+                }
+            }
+            if (kl.bss18 == 's' && kl.c - this.data.markPrice * 1.05 > 0) {
+                this.resetGuardPrice();
+            }
+            return {match: false};
         }
         return {match: false};
     }

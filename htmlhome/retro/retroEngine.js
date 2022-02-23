@@ -12,11 +12,6 @@ class RetrospectAccount extends TrackingAccount {
     }
 
     loadAssets() {
-        emjyBack.getFromLocal(this.key_deals, item => {
-            if (item && item[this.key_deals]) {
-                this.deals = item[this.key_deals];
-            }
-        });
     }
 
     addWatchStock(code, strgrp) {
@@ -36,9 +31,6 @@ class RetrospectAccount extends TrackingAccount {
     }
 
     save() {
-        var dsobj = {};
-        dsobj[this.key_deals] = this.deals;
-        emjyBack.saveToLocal(dsobj);
     }
 }
 

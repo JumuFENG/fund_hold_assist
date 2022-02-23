@@ -515,20 +515,23 @@ class KLine {
             klend = kline[lastIdx];
             lastIdx = kline.length - 2;
         }
+
         var popCount = 0;
         for (let i = lastIdx; i >= 0; i--) {
             const klpre = kline[i];
-            if (klend.c - klpre.c > 0 ) {
-                popCount++;
-                if (popCount >= 2) {
-                    return true;
-                }
-                klend = klpre;
-                continue;
-            }
             if (i < kline.length - 5) {
                 break;
             }
+
+            if (klend.c - klpre.c <= 0 ) {
+                break;
+            }
+
+            popCount++;
+            if (popCount >= 2) {
+                return true;
+            }
+            klend = klpre;
         }
         return false;
     }

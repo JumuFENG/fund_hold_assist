@@ -617,7 +617,7 @@ class StrategyGroup {
             return;
         }
 
-        if (!this.count0 && this.amount) {
+        if (this.amount) {
             this.count0 = this.calcBuyCount(this.amount, info.price);
         }
         var price = info.price === undefined ? 0 : info.price;

@@ -167,7 +167,7 @@ class Manager {
     }
 
     addZt1Stock(stkzt) {
-        var stk = this.zt1stocks.find(s => s.code == stkzt.code && (stk.rmvdate === undefined || stk.rmvdate == stk.ztdate));
+        var stk = this.zt1stocks.find(s => s.code == stkzt.code && (s.rmvdate === undefined || s.rmvdate == s.ztdate));
         if (!stk) {
             if (stkzt.name.startsWith('N')) {
                 console.log('not add new stocks');
