@@ -129,7 +129,7 @@ class StockListPanelPage extends RadioAnchorPage {
                 var strategyObj = stocks[i].strategies.strategies;
                 if (strategyObj && Object.keys(strategyObj).length == 1) {
                     var key = Object.keys(strategyObj)[0];
-                    if (strategyObj[key].period == 'l') {
+                    if (strategyObj[key].key == 'StrategyMA') { // strategyObj[key].period == 'l' && 
                         continue;
                     }
                 }

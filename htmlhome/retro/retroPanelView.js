@@ -3,99 +3,207 @@
 class RetroPanelPage extends RadioAnchorPage {
     constructor() {
         super('回测');
+        this.plans = [];
+        emjyBack.getFromLocal('retro_plans', item => {
+            if (item && item['retro_plans']) {
+                item['retro_plans'].forEach(r => {
+                    this.plans.push(new RetroPlan(r));
+                });
+                if (this.plansListPanel && this.plansListPanel.childElementCount == 0) {
+                    this.showPlanItems();
+                }
+            }
+        });
     }
 
     show() {
         super.show();
-        if (this.iptRetroCode === undefined) {
-            this.initRetroPanel();
+        if (this.leftPanel === undefined) {
+            this.initRetroView();
         }
     }
 
-    initRetroPanel() {
-        this.iptRetroCode = document.createElement('input');
-        this.iptRetroCode.placeholder = '股票代码';
-        this.container.appendChild(this.iptRetroCode);
+    initRetroView() {
+        this.container.style = 'display: flex; flex-direction: row; height: 100%;';
 
-        var btnStartRetro = document.createElement('button');
-        btnStartRetro.textContent = '初始化';
-        btnStartRetro.onclick = e => {
-            this.initRetroPlan();
+        this.leftPanel = document.createElement('div');
+        this.leftPanel.style.width = '15%';
+        this.container.appendChild(this.leftPanel);
+        this.plansListPanel = document.createElement('div');
+        this.leftPanel.appendChild(this.plansListPanel);
+        if (this.plans.length > 0) {
+            this.showPlanItems();
         }
-        this.container.appendChild(btnStartRetro);
+        this.newPlanBox = document.createElement('div');
+        this.leftPanel.appendChild(this.newPlanBox);
+        this.initNewPlanBox();
 
-        var btnRetroDeals = document.createElement('button');
-        btnRetroDeals.textContent = '准备';
-        btnRetroDeals.onclick = e => {
-            this.preRetro();
+        this.contentPanel = document.createElement('div');
+        this.container.appendChild(this.contentPanel);
+
+        this.topControlBox = document.createElement('div');
+        this.contentPanel.appendChild(this.topControlBox);
+        this.initControlBoxPanel();
+
+        this.dealsTable = new SortableTable(1, 0, false);
+        this.contentPanel.appendChild(this.dealsTable.container);
+    }
+
+    showPlanItems() {
+        if (!this.plansListPanel) {
+            return;
         }
-        this.container.appendChild(btnRetroDeals);
+
+        utils.removeAllChild(this.plansListPanel);
+
+        for (let idx = 0; idx < this.plans.length; idx++) {
+            const pl = this.plans[idx];
+            var pleftItem = document.createElement('div');
+            pleftItem.appendChild(document.createTextNode(pl.retroname));
+            pleftItem.plid = idx;
+            pleftItem.onclick = e => {
+                e.target.style.borderColor = 'deepskyblue';
+                e.target.style.borderStyle = 'solid';
+                e.target.style.borderWidth = '2px';
+                this.refreshPlanView(e.target.plid);
+            }
+            this.plansListPanel.appendChild(pleftItem);
+        }
+    }
+
+    initNewPlanBox() {
+        var addInput = function(fath, ele, text) {
+            var eleout = document.createElement('div');
+            eleout.appendChild(document.createTextNode(text));
+            eleout.appendChild(ele);
+            fath.appendChild(eleout);
+        }
+
+        this.newPlan_Id = document.createElement('input');
+        addInput(this.newPlanBox, this.newPlan_Id, 'Plan Id');
+        this.newPlan_Desc = document.createElement('input');
+        addInput(this.newPlanBox, this.newPlan_Desc, '说明');
+        this.newPlan_kltypes = document.createElement('input');
+        addInput(this.newPlanBox, this.newPlan_kltypes, 'kltype');
+        this.newPlan_StartDate = document.createElement('input');
+        addInput(this.newPlanBox, this.newPlan_StartDate, '始于');
+        this.newPlan_Strategy = document.createElement('textarea');
+        this.newPlan_Strategy.style.width = '90%';
+        addInput(this.newPlanBox, this.newPlan_Strategy, '策略');
+        this.newPlan_Stocks = document.createElement('input');
+        addInput(this.newPlanBox, this.newPlan_Stocks, 'Stocks');
+
+        this.savePlanBtn = document.createElement('button');
+        this.savePlanBtn.textContent = '添加/保存';
+        this.savePlanBtn.onclick = e => {
+            this.addCurrentRetroPlan();
+        }
+
+        this.newPlanBox.appendChild(this.savePlanBtn);
+    }
+
+    refreshPlanView(id) {
+        if (this.selectedPlid !== undefined && this.selectedPlid != -1 && this.selectedPlid != id) {
+            this.plansListPanel.childNodes[this.selectedPlid].style.border = '';
+        }
+
+        if (id != this.selectedPlid) {
+            this.selectedPlid = id;
+            if (emjyBack.retroAccount) {
+                emjyBack.retroAccount.deals = [];
+            }
+        }
+        var pl = this.plans[id];
+        this.newPlan_Id.value = pl.retroname;
+        this.newPlan_Desc.value = pl.retrodesc;
+        this.newPlan_kltypes.value = pl.kltype;
+        this.newPlan_StartDate.value = pl.startDate;
+        this.newPlan_Strategy.value = JSON.stringify(pl.strategy);
+        if (pl.stocks && pl.stocks.length > 0) {
+            this.newPlan_Stocks.value = pl.stocks.join(',');
+        }
+    }
+
+    addCurrentRetroPlan() {
+        if (this.newPlan_Id.value == '') {
+            return;
+        }
+
+        var id = this.newPlan_Id.value;
+        var pl = this.plans.find(p => p.retroname == id);
+        if (!pl) {
+            pl = new RetroPlan(this.newPlan_Id.value);
+            this.plans.push(pl);
+            this.savePlanNames();
+        }
+
+        pl.retrodesc = this.newPlan_Desc.value;
+        pl.kltype = this.newPlan_kltypes.value;
+        pl.startDate = this.newPlan_StartDate.value;
+        pl.strategy = JSON.parse(this.newPlan_Strategy.value);
+        var stkval = this.newPlan_Stocks.value.trim();
+        if (stkval != '' || (pl.stocks && pl.stocks.join(',') != stkval)) {
+            pl.stocks = stkval.length > 0 ? stkval.split(',') : [];
+        }
+        pl.save();
+    }
+
+    initControlBoxPanel() {
+        var btnPrepareRetro = document.createElement('button');
+        btnPrepareRetro.textContent = '准备';
+        btnPrepareRetro.onclick = e => {
+            this.prepareRetro();
+        }
+        this.topControlBox.appendChild(btnPrepareRetro);
 
         var btnDoRetro = document.createElement('button');
         btnDoRetro.textContent = '执行';
         btnDoRetro.onclick = e => {
             this.doRetro();
         }
-        this.container.appendChild(btnDoRetro);
+        this.topControlBox.appendChild(btnDoRetro);
 
-        var btnSavePlan = document.createElement('button');
-        btnSavePlan.textContent = '保存';
-        btnSavePlan.onclick = e => {
-            this.savePlan();
-        }
-        this.container.appendChild(btnSavePlan);
-
-        var btnShowDeals = document.createElement('button');
-        btnShowDeals.textContent = '显示交易记录';
-        btnShowDeals.onclick = e => {
-            if (this.retroPlan) {
-                this.showDeals(this.retroPlan.deals);
-            }
-        }
-        this.container.appendChild(btnShowDeals);
-
-        var btnMaxDayCost = document.createElement('button');
-        btnMaxDayCost.textContent = '最大单日成本:';
-        btnMaxDayCost.onclick = e => {
-            if (!this.retroPlan) {
+        var btnShowResults = document.createElement('button');
+        btnShowResults.textContent = '成交记录';
+        btnShowResults.onclick = e => {
+            if (this.selectedPlid === undefined || this.selectedPlid == -1 || !this.plans[this.selectedPlid]) {
                 return;
             }
-            e.target.textContent = '最大单日成本: ' + this.retroPlan.countMaxAmount().toFixed(2);
-        }
-        this.container.appendChild(btnMaxDayCost);
 
-        this.dealsTable = new SortableTable(1, 0, false);
-        this.container.appendChild(this.dealsTable.container);
+            this.showDeals(this.plans[this.selectedPlid]);
+        }
+        this.topControlBox.appendChild(btnShowResults);
+
+        var btnComparePlans = document.createElement('button');
+        btnComparePlans.textContent = '统计对比';
+        btnComparePlans.onclick = e => {
+            this.showStatsTable();
+        }
+        this.topControlBox.appendChild(btnComparePlans);
     }
 
-    initRetroPlan() {
-        if (!this.retroPlan) {
-            this.retroPlan = new RetroPlan('strategyMA');
-            // this.retroPlan = new RetroPlan('strategyMAPick1');
-            // this.retroPlan.retrodesc = '';
-            // this.retroPlan.kltype = '101';
-            // this.retroPlan.startDate = '2020-01-01';
-            // this.retroPlan.strategy = { "grptype": "GroupStandard", "strategies": { "0": { "key": "StrategyMAPick", "enabled": true, "kltype": "101" } }, "amount": 40000 };
-            // this.retroPlan.stocks = [];
+    prepareRetro() {
+        if (this.selectedPlid === undefined || this.selectedPlid == -1) {
+            return;
         }
-    }
 
-    preRetro() {
-        if (this.retroPlan) {
-            this.retroPlan.retroPrepare();
-        }
+        this.plans[this.selectedPlid].retroPrepare();
     }
 
     doRetro() {
-        if (this.retroPlan) {
-            this.retroPlan.retro();
+        if (this.selectedPlid === undefined || this.selectedPlid == -1) {
+            return;
         }
+
+        this.plans[this.selectedPlid].retro();
     }
 
-    savePlan() {
-        if (this.retroPlan) {
-            this.retroPlan.save();
-        }
+    savePlanNames() {
+        var retros = [];
+        this.plans.forEach(pl => {
+            retros.push(pl.retroname);
+        });
+        emjyBack.saveToLocal({'retro_plans': retros});
     }
 
     addDealsOf(allDeals, code) {
@@ -162,7 +270,12 @@ class RetroPanelPage extends RadioAnchorPage {
         return {cost: totalCost, earn: totalEarned, fee: totalFee};
     }
 
-    showDeals(alldeals, ignored, filtered) {
+    showDeals(retroplan, ignored, filtered) {
+        if (!retroplan.deals || retroplan.deals.length == 0) {
+            retroplan.save();
+        }
+
+        var alldeals = retroplan.deals;
         if (!alldeals || alldeals.length == 0) {
             return;
         }
@@ -202,6 +315,33 @@ class RetroPanelPage extends RadioAnchorPage {
             totalFee += collecti.fee;
             this.dealsTable.addRow(i, collecti.code, emjyBack.stockAnchor(collecti.code), '', collecti.cost.toFixed(2), collecti.fee.toFixed(2), collecti.earn.toFixed(2), (100 * (collecti.earn / collecti.cost)).toFixed(2) + '%');
         }
-        this.dealsTable.addRow('TOTAL', '', '', '', totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), (100 * (totalEarned / totalCost)).toFixed(2) + '%');
+        this.dealsTable.addRow('总收益', '', '', '', totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), (100 * (totalEarned / totalCost)).toFixed(2) + '%');
+        retroplan.setTotalEarned(totalCost, totalEarned - totalFee);
+        var stats = retroplan.checkDealsStatistics();
+        this.dealsTable.addRow('盈亏比', '', '', '', stats.earned.toFixed(2), '', stats.lost.toFixed(2), (stats.earned / stats.lost).toFixed(2));
+        this.dealsTable.addRow('胜率', '', '', '', stats.tradeCountE, '', stats.tradeCountL, (100 * stats.tradeCountE / (stats.tradeCountL + stats.tradeCountE)).toFixed(2) + '%');
+        this.dealsTable.addRow('单日最大成本', '', '', '', stats.maxSdc.toFixed(2), '', '收益率', (100 * stats.netEarned / stats.maxSdc).toFixed(2) + '%');
+        this.dealsTable.addRow();
+    }
+
+    showStatsTable() {
+        this.dealsTable.reset();
+        this.dealsTable.setClickableHeader('模拟交易', '总成本', '总收益', '总收益率', '盈亏比', '清仓次数', '胜率', '最大单日成本', '综合收益率');
+        this.plans.forEach(pl => {
+            if (!pl.stats) {
+                return;
+            }
+            this.dealsTable.addRow(
+                pl.retroname,
+                pl.stats.totalCost.toFixed(2),
+                pl.stats.netEarned.toFixed(2),
+                (100 * (pl.stats.netEarned / pl.stats.totalCost)).toFixed(2) + '%',
+                (pl.stats.earned / pl.stats.lost).toFixed(2),
+                pl.stats.tradeCountL + pl.stats.tradeCountE,
+                (100 * pl.stats.tradeCountE / (pl.stats.tradeCountL + pl.stats.tradeCountE)).toFixed(2) + '%',
+                pl.stats.maxSdc.toFixed(2),
+                (100 * pl.stats.netEarned / pl.stats.maxSdc).toFixed(2) + '%'
+            );
+        });
     }
 }

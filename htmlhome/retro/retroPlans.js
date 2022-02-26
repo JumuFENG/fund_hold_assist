@@ -18,6 +18,10 @@ class RetroPlan {
         return 'retro_deals_' + this.retroname;
     }
 
+    retroStatsKey() {
+        return 'retro_stats_' + this.retroname;
+    }
+
     loadSaved() {
         emjyBack.getFromLocal(this.retroStoreKey(), item => {
             if (item && item[this.retroStoreKey()]) {
@@ -38,6 +42,11 @@ class RetroPlan {
                 this.deals = item[this.retroDealsKey()];
             }
         });
+        emjyBack.getFromLocal(this.retroStatsKey(), item => {
+            if (item && item[this.retroStatsKey()]) {
+                this.stats = item[this.retroStatsKey()];
+            }
+        });
     }
 
     save() {
@@ -49,12 +58,13 @@ class RetroPlan {
         retroPlanObj.strategy = this.strategy;
         var saveObj = {};
         saveObj[this.retroStoreKey()] = retroPlanObj;
-        if (this.stocks && this.stocks.length > 0) {
-            saveObj[this.retroStocksKey()] = this.stocks;
+        saveObj[this.retroStocksKey()] = this.stocks;
+        if (emjyBack.retroAccount !== undefined) {
+            this.deals = this.getCompletedDeals();
         }
-        this.deals = this.getCompletedDeals();
-        if (this.deals && this.deals.length > 0) {
-            saveObj[this.retroDealsKey()] = this.deals;
+        saveObj[this.retroDealsKey()] = this.deals;
+        if (this.stats !== undefined) {
+            saveObj[this.retroStatsKey()] = this.stats;
         }
         emjyBack.saveToLocal(saveObj);
     }
@@ -145,7 +155,7 @@ class RetroPlan {
         return alldeals;
     }
 
-    countMaxAmount() {
+    maxSingleDayCost() {
         if (!this.deals || this.deals.length == 0) {
             return 0;
         }
@@ -166,5 +176,80 @@ class RetroPlan {
             }
         }
         return maxMt;
+    }
+
+    checkDealsStatistics() {
+        if (!this.deals || this.deals.length == 0) {
+            return;
+        }
+
+        var dealsEarned = (dls) => {
+            var cost = 0;
+            var sold = 0;
+            var tfee = 0;
+            dls.forEach(d => {
+                var fee = -(-d.fee - d.feeGh - d.feeYh);
+                if (isNaN(fee)) {
+                    fee = 0;
+                }
+                tfee += fee;
+                if (d.tradeType == 'B') {
+                    cost += d.count * d.price;
+                } else {
+                    sold += d.count * d.price;
+                }
+            });
+            return sold - cost - tfee;
+        }
+
+        var i = 0;
+        var tdeal = [];
+        var tcount = 0;
+        var earned = 0, lost = 0;
+        var tradeCountE = 0, tradeCountL = 0;
+
+        while (i < this.deals.length) {
+            tdeal.push(this.deals[i]);
+            if (this.deals[i].tradeType == 'B') {
+                tcount -= -this.deals[i].count;
+            } else {
+                tcount -= this.deals[i].count;
+            }
+            if (tcount == 0) {
+                var ed = dealsEarned(tdeal);
+                if (ed > 0) {
+                    earned += ed;
+                    tradeCountE ++;
+                } else if (ed < 0) {
+                    lost += ed;
+                    tradeCountL ++;
+                }
+
+                tdeal = [];
+            }
+            i++;
+        }
+
+        lost = -lost;
+        var maxSdc = this.maxSingleDayCost();
+        if (this.stats === undefined) {
+            this.stats = {earned, lost, tradeCountE, tradeCountL, maxSdc};
+        } else {
+            this.stats.earned = earned;
+            this.stats.lost = lost;
+            this.stats.tradeCountE = tradeCountE;
+            this.stats.tradeCountL = tradeCountL;
+            this.stats.maxSdc = maxSdc;
+        }
+        return this.stats;
+    }
+
+    setTotalEarned(cost, earned) {
+        if (this.stats === undefined) {
+            this.stats = {totalCost: cost, netEarned: earned};
+        } else {
+            this.stats.totalCost = cost;
+            this.stats.netEarned = earned;
+        }
     }
 }

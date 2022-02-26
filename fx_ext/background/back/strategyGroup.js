@@ -635,7 +635,7 @@ class StrategyGroup {
                 });
             } else if (info.tradeType == 'S') {
                 var count = this.count0;
-                if (info.count >= 100) {
+                if (info.count - 10 >= 0) {
                     count = info.count;
                 }
                 if (count > 0) {
