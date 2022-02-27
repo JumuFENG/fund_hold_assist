@@ -727,6 +727,9 @@ class StrategyMA extends Strategy {
             var kl = klines.getLatestKline(kltype);
             if (!this.data.guardPrice || this.data.guardPrice == 0 || !buydetails || buydetails.totalCount() == 0) {
                 if (kl.bss18 == 'b') {
+                    if (klines.latestKlineDrawback(kltype) > 0.1) {
+                        return {match: false};
+                    }
                     if (this.cutlineAcceptable(klines, kl)) {
                         return {match: true, tradeType: 'B', count: 0, price: kl.c};
                     }
@@ -741,7 +744,7 @@ class StrategyMA extends Strategy {
                 return {match: false};
             } else if (this.data.guardPrice - kl.c > 0) {
                 if (kl.bss18 == 's' || kl.bss18 == 'w') {
-                    if (klines.continuouslyBellowPrcDays(this.data.guardPrice, kltype) > 3) {
+                    if (klines.continuouslyBellowPrcDays(this.data.guardPrice, kltype) > 10) {
                         var count = buydetails.availableCount();
                         if (count > 0) {
                             this.resetGuardPrice();
@@ -763,17 +766,6 @@ class StrategyMA extends Strategy {
                     }
                     return {match: false};
                 }
-
-                // if (buydetails.buyRecords().length == 1 && kl.c - this.data.guardPrice > 0 && buydetails.buyRecords()[0].price - kl.c > 2 * (kl.c - this.data.guardPrice)) {
-                //     var guardDate = buydetails.lastBuyDate();
-                //     if (this.data.guardDate !== undefined) {
-                //         guardDate = this.data.guardDate;
-                //     }
-                //     if (this.data.guardPrice - klines.lowestPriceSince(guardDate, kltype) > 0) {
-                //         return {match: true, tradeType: 'B', count: 0, price: kl.c};
-                //     }
-                //     return {match: false};
-                // }
             }
         }
         return {match: false};
@@ -798,7 +790,7 @@ class StrategyMAPick extends StrategyMA {
             var kl = klines.getLatestKline(kltype);
             if (buydetails && buydetails.totalCount() > 0) {
                 if (this.data.guardPrice - kl.c > 0 && (kl.bss18 == 's' || kl.bss18 == 'w')) {
-                    if (klines.continuouslyBellowPrcDays(this.data.guardPrice, kltype) > 3) {
+                    if (klines.continuouslyBellowPrcDays(this.data.guardPrice, kltype) > 10) {
                         var count = buydetails.availableCount();
                         if (count > 0) {
                             this.resetGuardPrice();

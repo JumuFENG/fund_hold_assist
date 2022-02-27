@@ -71,6 +71,21 @@ class KLine {
         return null;
     }
 
+    latestKlineDrawback(kltype) {
+        var kl = this.getIncompleteKline(kltype);
+        var prevId = this.klines[kltype].length - 1;
+        if (!kl) {
+            kl = this.klines[kltype][prevId];
+            prevId --;
+        }
+        var lc = this.klines[kltype][prevId].c;
+        var o = kl.o;
+        var h = kl.h;
+        var c = kl.c;
+        var start = lc - o > 0 ? o : lc;
+        return (h - c) / (h - start);
+    }
+
     getNowTime() {
         return new Date();
     }
