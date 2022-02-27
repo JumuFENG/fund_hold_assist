@@ -69,32 +69,52 @@ class RetroPlan {
         emjyBack.saveToLocal(saveObj);
     }
 
-    retroPrepare() {
-        if (this.stocks && this.stocks.length > 0) {
-            this.stocks.forEach(code => {
-                emjyBack.loadKlines(code,() => {
-                    if (!emjyBack.klines[code].klines) {
-                        emjyBack.fetchStockKline(code, this.kltype, this.startDate);
-                        return;
-                    }
-                });
-            });
-        } else {
-            for (const code in emjyBack.stockMarket) {
-                if (Object.hasOwnProperty.call(emjyBack.stockMarket, code)) {
-                    const stk = emjyBack.stockMarket[code];
-                    if (stk.t != 'AB') {
-                        continue;
-                    }
+    getActualStocks() {
+        var stocks = [];
+        var stype = 'ALL';
+        if (this.stocks && this.stocks.length == 1) {
+            stype = this.stocks[0].toUpperCase();
+        }
 
-                    emjyBack.loadKlines(code, ()=>{
-                        if (!emjyBack.klines[code].klines) {
-                            emjyBack.fetchStockKline(code, this.kltype, this.startDate);
-                        }
-                    });
+        for (const code in emjyBack.stockMarket) {
+            if (Object.hasOwnProperty.call(emjyBack.stockMarket, code)) {
+                const stk = emjyBack.stockMarket[code];
+                if (stype == 'ALL') {
+                    if (stk.t == 'AB') {
+                        stocks.push(code);
+                    }
+                } else if (stype == 'ZB') {
+                    if (code.startsWith('00') || code.startsWith('60')) {
+                        stocks.push(code);
+                    }
+                } else if (stype == 'CYB') {
+                    if (code.startsWith('30')) {
+                        stocks.push(code);
+                    }
+                } else if (stype == 'KCB') {
+                    if (code.startsWith('68')) {
+                        stocks.push(code);
+                    }
                 }
             }
         }
+        return stocks;
+    }
+
+    retroPrepare() {
+        var stocks = this.stocks;
+        if (!this.stocks || (this.stocks.length == 1 && this.stocks[0].length < 6)) {
+            stocks = this.getActualStocks();
+        }
+
+        stocks.forEach(code => {
+            emjyBack.loadKlines(code,() => {
+                if (!emjyBack.klines[code].klines) {
+                    emjyBack.fetchStockKline(code, this.kltype, this.startDate);
+                    return;
+                }
+            });
+        });
     }
 
     retro() {
@@ -104,22 +124,14 @@ class RetroPlan {
 
         emjyBack.retroAccount.deals = [];
 
-        if (this.stocks && this.stocks.length > 0) {
-            this.stocks.forEach(code => {
-                emjyBack.retroEngine.retroStrategySingleKlt(code, this.strategy, this.startDate);
-            });
-        } else {
-            for (const code in emjyBack.stockMarket) {
-                if (Object.hasOwnProperty.call(emjyBack.stockMarket, code)) {
-                    const stk = emjyBack.stockMarket[code];
-                    if (stk.t != 'AB') {
-                        continue;
-                    }
-
-                    emjyBack.retroEngine.retroStrategySingleKlt(code, this.strategy, this.startDate);
-                }
-            }
+        var stocks = this.stocks;
+        if (!this.stocks || (this.stocks.length == 1 && this.stocks[0].length < 6)) {
+            stocks = this.getActualStocks();
         }
+
+        stocks.forEach(code => {
+            emjyBack.retroEngine.retroStrategySingleKlt(code, this.strategy, this.startDate);
+        });
     }
     
     getCompletedDeals() {

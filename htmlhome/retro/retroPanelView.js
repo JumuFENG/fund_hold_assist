@@ -47,6 +47,9 @@ class RetroPanelPage extends RadioAnchorPage {
 
         this.dealsTable = new SortableTable(1, 0, false);
         this.contentPanel.appendChild(this.dealsTable.container);
+
+        this.statsTable = new SortableTable();
+        this.contentPanel.appendChild(this.statsTable.container);
     }
 
     showPlanItems() {
@@ -131,10 +134,12 @@ class RetroPanelPage extends RadioAnchorPage {
 
         var id = this.newPlan_Id.value;
         var pl = this.plans.find(p => p.retroname == id);
+        var addNew = false;
         if (!pl) {
             pl = new RetroPlan(this.newPlan_Id.value);
             this.plans.push(pl);
             this.savePlanNames();
+            addNew = true;
         }
 
         pl.retrodesc = this.newPlan_Desc.value;
@@ -146,6 +151,10 @@ class RetroPanelPage extends RadioAnchorPage {
             pl.stocks = stkval.length > 0 ? stkval.split(',') : [];
         }
         pl.save();
+        if (addNew) {
+            this.showPlanItems();
+            this.plansListPanel.lastElementChild.click();
+        }
     }
 
     initControlBoxPanel() {
@@ -326,12 +335,13 @@ class RetroPanelPage extends RadioAnchorPage {
 
     showStatsTable() {
         this.dealsTable.reset();
-        this.dealsTable.setClickableHeader('模拟交易', '总成本', '总收益', '总收益率', '盈亏比', '清仓次数', '胜率', '最大单日成本', '综合收益率');
+        this.statsTable.reset();
+        this.statsTable.setClickableHeader('模拟交易', '总成本', '总收益', '总收益率', '盈亏比', '清仓次数', '胜率', '最大单日成本', '综合收益率');
         this.plans.forEach(pl => {
             if (!pl.stats) {
                 return;
             }
-            this.dealsTable.addRow(
+            this.statsTable.addRow(
                 pl.retroname,
                 pl.stats.totalCost.toFixed(2),
                 pl.stats.netEarned.toFixed(2),
