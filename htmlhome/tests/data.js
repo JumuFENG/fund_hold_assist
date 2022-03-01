@@ -121,7 +121,7 @@ var testMeta = [{
         }]
     }]
 },{
-    testname: 'StrategyMA_NotBuy',
+    testname: 'StrategyMA_NotBuy_InvalidCutRange',
     strategy: {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000},
     code:'t10005',
     kdata:[{
@@ -152,37 +152,52 @@ var testMeta = [{
 },{
     testname: 'StrategyMA_Buy',
     strategy: {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000},
-    code:'t10006',
+    code:'t10006', // 601865
     kdata:[{
         kltype:'101', 
         kldata:[{
-            kl:{"time": "2021-12-24", "o": "3.65", "c": "3.55", "h": "3.66", "l": "3.52", "v": "738428", "ma5": "3.646", "ma18": "3.781", "bss18": "w"},
+            kl:{"time": "2022-02-10", "o": "46.58", "c": "44.19", "h": "46.86", "l": "42.90", "v": "142634", "ma5": "47.226", "ma18": "49.401", "bss18": "w"},
             expect: {dcount: 0}
         },{
-            kl:{"time": "2021-12-27", "o": "3.54", "c": "3.55", "h": "3.60", "l": "3.50", "v": "479187", "ma5": "3.630", "ma18": "3.768", "bss18": "w"},
+            kl:{"time": "2022-02-11", "o": "43.79", "c": "41.45", "h": "43.79", "l": "41.30", "v": "117739", "ma5": "45.748", "ma18": "49.029", "bss18": "w"},
             expect: {dcount: 0}
         },{
-            kl:{"time": "2021-12-28", "o": "3.54", "c": "3.54", "h": "3.56", "l": "3.49", "v": "621023", "ma5": "3.602", "ma18": "3.757", "bss18": "w"},
+            kl:{"time": "2022-02-14", "o": "41.12", "c": "41.17", "h": "42.36", "l": "39.35", "v": "107340", "ma5": "44.124", "ma18": "48.484", "bss18": "w"},
             expect: {dcount: 0}
         },{
-            kl:{"time": "2021-12-29", "o": "3.53", "c": "3.52", "h": "3.65", "l": "3.52", "v": "728270", "ma5": "3.566", "ma18": "3.743", "bss18": "w"},
+            kl:{"time": "2022-02-15", "o": "41.39", "c": "43.61", "h": "43.80", "l": "41.00", "v": "103319", "ma5": "43.456", "ma18": "48.171", "bss18": "w"},
             expect: {dcount: 0}
         },{
-            kl:{"time": "2021-12-30", "o": "3.51", "c": "3.54", "h": "3.56", "l": "3.50", "v": "577038", "ma5": "3.540", "ma18": "3.728", "bss18": "w"},
+            kl:{"time": "2022-02-16", "o": "43.63", "c": "43.19", "h": "44.22", "l": "42.00", "v": "71868", "ma5": "42.722", "ma18": "47.748", "bss18": "w"},
             expect: {dcount: 0}
         },{
-            kl:{"time": "2021-12-31", "o": "3.54", "c": "3.89", "h": "3.89", "l": "3.53", "v": "2885075", "ma5": "3.608", "ma18": "3.731", "bss18": "w"},
+            kl:{"time": "2022-02-17", "o": "43.00", "c": "44.47", "h": "44.61", "l": "42.26", "v": "89011", "ma5": "42.778", "ma18": "47.384", "bss18": "w"},
             expect: {dcount: 0}
         },{
-            kl:{"time": "2022-01-04", "o": "3.93", "c": "4.28", "h": "4.28", "l": "3.90", "v": "4227053", "ma5": "3.754", "ma18": "3.754", "bss18": "w"},
+            kl:{"time": "2022-02-18", "o": "43.96", "c": "43.95", "h": "44.18", "l": "43.30", "v": "45043", "ma5": "43.278", "ma18": "46.951", "bss18": "w"},
             expect: {dcount: 0}
         },{
-            kl:{"time": "2022-01-05", "o": "4.30", "c": "4.30", "h": "4.50", "l": "4.20", "v": "3761533", "ma5": "3.906", "ma18": "3.778", "bss18": "b"},
-            expect: {dcount: 1, deal: {count: 2300, price:'4.30', tradeType:'B'}}
+            kl:{"time": "2022-02-21", "o": "43.80", "c": "42.97", "h": "44.03", "l": "42.43", "v": "73541", "ma5": "43.638", "ma18": "46.592", "bss18": "w"},
+            expect: {dcount: 0}
+        },{
+            kl:{"time": "2022-02-22", "o": "42.97", "c": "43.49", "h": "43.60", "l": "41.60", "v": "99092", "ma5": "43.614", "ma18": "46.352", "bss18": "w"},
+            expect: {dcount: 0}
+        },{
+            kl:{"time": "2022-02-23", "o": "43.10", "c": "44.99", "h": "45.28", "l": "42.85", "v": "120331", "ma5": "43.974", "ma18": "46.196", "bss18": "w"},
+            expect: {dcount: 0}
+        },{
+            kl:{"time": "2022-02-24", "o": "44.50", "c": "45.50", "h": "47.17", "l": "44.31", "v": "127521", "ma5": "44.180", "ma18": "45.874", "bss18": "w"},
+            expect: {dcount: 0}
+        },{
+            kl:{"time": "2022-02-25", "o": "46.44", "c": "46.68", "h": "48.20", "l": "45.77", "v": "101713", "ma5": "44.726", "ma18": "45.621", "bss18": "w"},
+            expect: {dcount: 0}
+        },{
+            kl:{"time": "2022-02-28", "o": "47.49", "c": "49.00", "h": "49.02", "l": "45.80", "v": "110006", "ma5": "45.932", "ma18": "45.410", "bss18": "b"},
+            expect: {dcount: 1, deal: {count: 200, price:'49.00', tradeType:'B'}}
         }]
     }]
 },{
-    testname: 'StrategyMA_Buy_Sell',
+    testname: 'StrategyMA_NotBuy_InvalidDrawback',
     strategy: {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000},
     code:'t10007', // 002460
     kdata:[{
@@ -210,20 +225,11 @@ var testMeta = [{
             expect: {dcount: 0}
         },{
             kl:{"time": "2021-07-06", "o": "135.69", "c": "135.69", "h": "141.63", "l": "129.80", "v": "664877", "ma5": "125.874", "ma18": "121.500", "bss18": "b"},
-            expect: {dcount: 1, deal: {count: 100, price:'135.69', tradeType:'B'}}
-        },{
-            kl:{"time": "2021-08-10", "o": "181.40", "c": "177.00", "h": "188.88", "l": "170.58", "v": "407862", "ma5": "184.758", "ma18": "183.317", "bss18": "h"},
-            expect: {dcount: 1}
-        },{
-            kl:{"time": "2021-08-11", "o": "179.30", "c": "179.07", "h": "182.23", "l": "174.88", "v": "268342", "ma5": "182.572", "ma18": "184.099", "bss18": "h"},
-            expect: {dcount: 1}
-        },{
-            kl:{"time": "2021-08-12", "o": "176.00", "c": "179.86", "h": "181.36", "l": "170.85", "v": "279220", "ma5": "181.632", "ma18": "184.835", "bss18": "s"},
-            expect: {dcount: 2, deal: {count: 100, price:'179.86', tradeType:'S'}}
+            expect: {dcount: 0}
         }]
     }]
 },{
-    testname: 'StrategyMA_Buy_NotSell',
+    testname: 'StrategyMA_Buy_Sell', // TODO
     strategy: {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000},
     code:'t10008',
     kdata:[{
@@ -255,7 +261,7 @@ var testMeta = [{
         }]
     }]
 },{
-    testname: 'StrategyMA_Buy_NotSell_NotBuy_Sell',
+    testname: 'StrategyMA_Buy_NotSell', // TODO
     strategy: {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000},
     code:'t10009',
     kdata:[{
@@ -305,7 +311,7 @@ var testMeta = [{
         }]
     }]
 },{
-    testname: 'StrategyMA_Buy_Cut',
+    testname: 'StrategyMA_Buy_Cut', // TODO
     strategy: {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000},
     code:'t10010',
     kdata:[{
@@ -355,7 +361,7 @@ var testMeta = [{
         }]
     }]
 },{
-    testname: 'StrategyMA_Buy_Buy',
+    testname: 'StrategyMA_Buy_NotSell_Sell', // TODO
     strategy: {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyMA","enabled":true, kltype:'101'}},"amount":10000},
     code:'t10011', // 000762
     kdata:[{
@@ -628,6 +634,64 @@ var testMeta = [{
             expect: {dcount: 1}
         }]
     }]
+},{
+    testname: 'StrategyGE_Record_Buy_NotBuy', // 002045
+    strategy: {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyGE","enabled":true, kltype:'30', stepRate: 0.1}},"amount":10000, buydetail:[{"date": "2022-02-18", "count": "800", "price": "11.270000", "sid": "900071", "type": "B"}]},
+    code:'t11008',
+    kdata:[{
+        kltype:'1',
+        kldata:[{
+            kl:{"time": "2022-02-28 09:54", "o": "10.16", "c": "10.15", "h": "10.17", "l": "10.15", "v": "232", "ma5": "10.162", "ma18": "10.168", "bss18": "w"},
+            expect:{dcount: 0}
+        },{
+            kl:{"time": "2022-02-28 09:55", "o": "10.15", "c": "10.15", "h": "10.16", "l": "10.14", "v": "191", "ma5": "10.158", "ma18": "10.161", "bss18": "w"},
+            expect:{dcount: 0}
+        },{
+            kl:{"time": "2022-02-28 09:56", "o": "10.15", "c": "10.15", "h": "10.16", "l": "10.14", "v": "194", "ma5": "10.154", "ma18": "10.155", "bss18": "w"},
+            expect:{dcount: 0}
+        },{
+            kl:{"time": "2022-02-28 09:57", "o": "10.15", "c": "10.13", "h": "10.15", "l": "10.12", "v": "2029", "ma5": "10.148", "ma18": "10.150", "bss18": "w"},
+            expect:{dcount: 0}
+        },{
+            kl:{"time": "2022-02-28 09:58", "o": "10.12", "c": "10.13", "h": "10.13", "l": "10.12", "v": "421", "ma5": "10.142", "ma18": "10.147", "bss18": "w"},
+            expect:{dcount: 0}
+        },{
+            kl:{"time": "2022-02-28 09:59", "o": "10.13", "c": "10.14", "h": "10.14", "l": "10.12", "v": "391", "ma5": "10.140", "ma18": "10.147", "bss18": "w"},
+            expect:{dcount: 0}
+        },{
+            kl:{"time": "2022-02-28 10:00", "o": "10.14", "c": "10.15", "h": "10.16", "l": "10.13", "v": "544", "ma5": "10.140", "ma18": "10.147", "bss18": "w"},
+            expect:{dcount: 1, deal:{count: 900, price:'10.15', tradeType:'B'}}
+        },{
+            kl:{"time": "2022-02-28 11:11", "o": "10.12", "c": "10.13", "h": "10.13", "l": "10.12", "v": "279", "ma5": "10.126", "ma18": "10.131", "bss18": "w"},
+            expect:{dcount: 1}
+        },{
+            kl:{"time": "2022-02-28 11:12", "o": "10.13", "c": "10.13", "h": "10.14", "l": "10.12", "v": "364", "ma5": "10.128", "ma18": "10.131", "bss18": "w"},
+            expect:{dcount: 1}
+        },{
+            kl:{"time": "2022-02-28 11:13", "o": "10.13", "c": "10.14", "h": "10.14", "l": "10.13", "v": "60", "ma5": "10.130", "ma18": "10.131", "bss18": "w"},
+            expect:{dcount: 1}
+        },{
+            kl:{"time": "2022-02-28 11:14", "o": "10.13", "c": "10.13", "h": "10.14", "l": "10.13", "v": "105", "ma5": "10.132", "ma18": "10.131", "bss18": "w"},
+            expect:{dcount: 1}
+        },{
+            kl:{"time": "2022-02-28 11:15", "o": "10.13", "c": "10.12", "h": "10.13", "l": "10.12", "v": "104", "ma5": "10.130", "ma18": "10.129", "bss18": "w"},
+            expect:{dcount: 1}
+        },{
+            kl:{"time": "2022-02-28 11:16", "o": "10.12", "c": "10.12", "h": "10.13", "l": "10.12", "v": "240", "ma5": "10.128", "ma18": "10.129", "bss18": "w"},
+            expect:{dcount: 1}
+        },{
+            kl:{"time": "2022-02-28 11:17", "o": "10.12", "c": "10.15", "h": "10.15", "l": "10.12", "v": "479", "ma5": "10.132", "ma18": "10.129", "bss18": "w"},
+            expect:{dcount: 1}
+        },{
+            kl:{"time": "2022-02-28 11:18", "o": "10.16", "c": "10.17", "h": "10.17", "l": "10.16", "v": "119", "ma5": "10.138", "ma18": "10.131", "bss18": "w"},
+            expect:{dcount: 1}
+        },{
+            kl:{"time": "2022-02-28 11:19", "o": "10.17", "c": "10.17", "h": "10.17", "l": "10.16", "v": "47", "ma5": "10.146", "ma18": "10.133", "bss18": "b"},
+            expect:{dcount: 1}
+        },{
+            kl:{"time": "2022-02-28 11:20", "o": "10.17", "c": "10.16", "h": "10.17", "l": "10.16", "v": "42", "ma5": "10.154", "ma18": "10.135", "bss18": "h"},
+            expect:{dcount: 1}
+    }]}]
 },{
     testname: 'StrategyBuySellMAD_Buy',
     strategy: {"grptype":"GroupStandard","strategies":{"0":{"key": "StrategyBuyMAD", "enabled": true, "kltype": "60"},"1":{"key": "StrategySellMAD", "enabled": false, "kltype": "60", "guardPrice": 12.71}},transfers:{'0':{transfer:'1'},'1':{transfer:-1}}, "amount":10000},

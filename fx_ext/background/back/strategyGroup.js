@@ -628,7 +628,7 @@ class StrategyGroup {
             if (info.tradeType == 'B') {
                 var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
                 var count = this.count0;
-                emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy))
+                emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy), 'buy detail', JSON.stringify(this.buydetail.records))
                 emjyBack.tryBuyStock(this.code, price, count, account, bd => {
                     this.buydetail.addBuyDetail(bd);
                     this.onTradeMatch(id, info);

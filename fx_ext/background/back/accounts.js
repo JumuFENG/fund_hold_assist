@@ -355,8 +355,8 @@ class TradeClient {
     }
 
     tradeValidPrice(code, price, count, tradeType, jylx, cb) {
-        if (count < 100) {
-            if (count < 1 || count > 10) {
+        if (count < 10) {
+            if (count < 1) {
                 emjyBack.log(code, tradeType, 'unknwn count', count);
                 return;
             }

@@ -59,6 +59,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyGE') {
             return new StrategyGridEarningView(strategy);
         }
+        if (strategy.key == 'StrategyGEMid') {
+            return new StrategyGridEarningMidView(strategy);
+        }
     }
 
     getStrategyName(key) {
@@ -574,6 +577,10 @@ class StrategyGridEarningView extends StrategyBaseView {
         };
     }
 
+    defaultStepRate() {
+        return '10';
+    }
+
     maDescription() {
         return '买入条件:网格法逢低止跌买入. 卖出条件:18周期均线跌破卖出盈利部分';
     }
@@ -582,7 +589,7 @@ class StrategyGridEarningView extends StrategyBaseView {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode(this.maDescription()));
-        view.appendChild(this.createStepsInput('网格波幅 '));
+        view.appendChild(this.createStepsInput('网格波幅 ', this.defaultStepRate()));
         view.appendChild(this.createBuyAccountSelector());
 
         view.appendChild(this.createKlineTypeSelector('卖出K线类型'));
@@ -597,6 +604,16 @@ class StrategyGridEarningView extends StrategyBaseView {
             changed = true;
         }
         return changed;
+    }
+}
+
+class StrategyGridEarningMidView extends StrategyGridEarningView {
+    defaultStepRate() {
+        return '15';
+    }
+
+    maDescription() {
+        return '网格买入,盈利卖出, 波段策略,不建仓不清仓';
     }
 }
 

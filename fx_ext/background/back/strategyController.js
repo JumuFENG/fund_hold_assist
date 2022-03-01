@@ -62,6 +62,9 @@ class StrategyManager {
         if (strategy.key == 'StrategyGE') {
             return new StrategyGE(strategy);
         }
+        if (strategy.key == 'StrategyGEMid') {
+            return new StrategyGEMid(strategy);
+        }
     }
 }
 
@@ -866,6 +869,24 @@ class StrategyGE extends Strategy {
         return {match: false};
     }
 
+    checkIfSellMatch(klines, buydetails) {
+        var kltype = this.data.kltype;
+        var kl = klines.getLatestKline(kltype);
+        if (kl.bss18 == 's') {
+            var fac = this.data.stepRate;
+            if (fac - 0.05 > 0) {
+                fac = 0.05 + (this.data.stepRate - 0.05) / 2;
+            }
+
+            var count = buydetails.getCountLessThan(kl.c * (1 - fac));
+            if (count > 0) {
+                this.data.guardPrice = kl.c;
+                return {match: true, tradeType: 'S', count, price: kl.c};
+            }
+        }
+        return {match: false};
+    }
+
     checkKlines(klines, updatedKlt, buydetails) {
         var holdCount = buydetails.totalCount();
         var kltype = this.data.kltype;
@@ -886,7 +907,7 @@ class StrategyGE extends Strategy {
             }
             return {match: false};
         }
-        if (buydetails.buyRecords().length > 0 && !this.data.guardPrice) {
+        if (buydetails.buyRecords().length > 0 && (!this.data.guardPrice || buydetails.minBuyPrice() - this.data.guardPrice > 0)) {
             this.data.guardPrice = buydetails.minBuyPrice();
         }
         if (updatedKlt.includes(this.skltype)) {
@@ -896,15 +917,32 @@ class StrategyGE extends Strategy {
             }
         }
         if (updatedKlt.includes(kltype)) {
-            var kl = klines.getLatestKline(kltype);
-            if (kl.bss18 == 's') {
-                var count = buydetails.getCountLessThan(kl.c * (1 - this.data.stepRate));
-                if (count > 0) {
-                    this.data.guardPrice = kl.c;
-                    return {match: true, tradeType: 'S', count, price: kl.c};
-                }
-            }
+            return this.checkIfSellMatch(klines, buydetails);
+        }
+        return {match: false};
+    }
+}
+
+class StrategyGEMid extends StrategyGE {
+    checkKlines(klines, updatedKlt, buydetails) {
+        if (!buydetails || buydetails.totalCount() == 0) {
             return {match: false};
+        }
+
+        var numBuyRec = buydetails.buyRecords().length;
+        if (numBuyRec > 0 && (!this.data.guardPrice || buydetails.minBuyPrice() - this.data.guardPrice > 0)) {
+            this.data.guardPrice = buydetails.minBuyPrice();
+        }
+
+        var kltype = this.data.kltype;
+        if (updatedKlt.includes(this.skltype) && numBuyRec > 0) {
+            var obj = this.checkMa1Buy(klines, buydetails);
+            if (obj.match || obj.stepInCritical) {
+                return obj;
+            }
+        }
+        if (updatedKlt.includes(kltype) && numBuyRec > 1) {
+            return this.checkIfSellMatch(klines, buydetails);
         }
         return {match: false};
     }
