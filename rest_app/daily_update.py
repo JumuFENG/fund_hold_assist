@@ -96,7 +96,7 @@ class DailyUpdater():
     def fetch_new_ipo_stocks(self):
         print("update new IPO stocks")
         stkall = AllStocks()
-        stkall.laodNewStock()
+        stkall.loadNewStock()
 
 if __name__ == '__main__':
     du = DailyUpdater()

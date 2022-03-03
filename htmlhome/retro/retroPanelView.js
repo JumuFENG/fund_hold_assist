@@ -34,6 +34,9 @@ class RetroPanelPage extends RadioAnchorPage {
         if (this.plans.length > 0) {
             this.showPlanItems();
         }
+        this.plansListCtrls = document.createElement('div');
+        this.leftPanel.appendChild(this.plansListCtrls);
+        this.initPlansListControls();
         this.newPlanBox = document.createElement('div');
         this.leftPanel.appendChild(this.newPlanBox);
         this.initNewPlanBox();
@@ -62,16 +65,57 @@ class RetroPanelPage extends RadioAnchorPage {
         for (let idx = 0; idx < this.plans.length; idx++) {
             const pl = this.plans[idx];
             var pleftItem = document.createElement('div');
+            var plchk = document.createElement('input');
+            plchk.type = 'checkbox';
+            pleftItem.appendChild(plchk);
             pleftItem.appendChild(document.createTextNode(pl.retroname));
             pleftItem.plid = idx;
             pleftItem.onclick = e => {
-                e.target.style.borderColor = 'deepskyblue';
-                e.target.style.borderStyle = 'solid';
-                e.target.style.borderWidth = '2px';
-                this.refreshPlanView(e.target.plid);
+                e.currentTarget.style.borderColor = 'deepskyblue';
+                e.currentTarget.style.borderStyle = 'solid';
+                e.currentTarget.style.borderWidth = '2px';
+                this.refreshPlanView(e.currentTarget.plid);
+                if (e.target == e.currentTarget) {
+                    e.target.firstElementChild.checked = !e.target.firstElementChild.checked;
+                }
             }
             this.plansListPanel.appendChild(pleftItem);
         }
+    }
+
+    initPlansListControls() {
+        var selAllBtn = document.createElement('button');
+        selAllBtn.textContent = '全选';
+        selAllBtn.onclick = e => {
+            this.plansListPanel.childNodes.forEach(p => {
+                p.firstElementChild.checked = true;
+            });
+        }
+        this.plansListCtrls.appendChild(selAllBtn);
+
+        var uncheckBtn = document.createElement('button');
+        uncheckBtn.textContent = '清空';
+        uncheckBtn.onclick = e => {
+            this.plansListPanel.childNodes.forEach(p => {
+                p.firstElementChild.checked = false;
+            });
+        }
+        this.plansListCtrls.appendChild(uncheckBtn);
+
+        var deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '删除所选';
+        deleteBtn.onclick = e => {
+            var toDelPl = [];
+            this.plansListPanel.childNodes.forEach(p => {
+                if (p.firstElementChild.checked) {
+                    toDelPl.push(this.plans[p.plid].retroname);
+                }
+            });
+            if (toDelPl.length > 0) {
+                this.removePlans(toDelPl);
+            }
+        }
+        this.plansListCtrls.appendChild(deleteBtn);
     }
 
     initNewPlanBox() {
@@ -215,6 +259,22 @@ class RetroPanelPage extends RadioAnchorPage {
         emjyBack.saveToLocal({'retro_plans': retros});
     }
 
+    removePlans(names) {
+        var resPlans = [];
+        while (this.plans.length > 0) {
+            var pl = this.plans.shift();
+            if (names.find(n => n == pl.retroname)) {
+                pl.removeAll();
+                continue;
+            }
+            resPlans.push(pl);
+        }
+
+        this.plans = resPlans;
+        this.savePlanNames();
+        this.showPlanItems();
+    }
+
     addDealsOf(allDeals, code) {
         if (!allDeals || allDeals.length == 0) {
             return;
@@ -337,8 +397,12 @@ class RetroPanelPage extends RadioAnchorPage {
         this.dealsTable.reset();
         this.statsTable.reset();
         this.statsTable.setClickableHeader('模拟交易', '总成本', '总收益', '总收益率', '盈亏比', '清仓次数', '胜率', '最大单日成本', '综合收益率');
-        this.plans.forEach(pl => {
+        var showChecked = Array.from(this.plansListPanel.childNodes).find(p => p.firstElementChild.checked) !== undefined;
+        this.plans.forEach((pl, idx) => {
             if (!pl.stats) {
+                return;
+            }
+            if (showChecked && !this.plansListPanel.childNodes[idx].firstElementChild.checked) {
                 return;
             }
             this.statsTable.addRow(

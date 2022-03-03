@@ -34,7 +34,13 @@ class AllStocks(InfoList):
             print('get CompanySurvey error', c)
             print(ex)
 
-    def laodNewStock(self, sdate = None):
+    def loadNewMarkedStocks(self):
+        allstks = self.getAllStocks()
+        for s in allstks:
+            if s[2].startswith('N') or s[2].startswith('C'):
+                self.loadInfo(s[1])
+
+    def loadNewStock(self, sdate = None):
         # http://quote.eastmoney.com/center/gridlist.html#newshares
         newstocks = []
         pn = 1
@@ -70,7 +76,7 @@ class AllStocks(InfoList):
                     ldate = setdate
                 elif setdate < ldate:
                     ldate = setdate
-                if setdate < sdate or setdate == today or n.startswith('N'):
+                if setdate < sdate or setdate == today:
                     continue
                 newstocks.append(('SH' + c if m == 1 else 'SZ' + c, n, s, setdate))
 

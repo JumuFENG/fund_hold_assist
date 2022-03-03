@@ -69,6 +69,13 @@ class RetroPlan {
         emjyBack.saveToLocal(saveObj);
     }
 
+    removeAll() {
+        emjyBack.removeLocal(this.retroStoreKey());
+        emjyBack.removeLocal(this.retroStocksKey());
+        emjyBack.removeLocal(this.retroDealsKey());
+        emjyBack.removeLocal(this.retroStatsKey());
+    }
+
     getActualStocks() {
         var stocks = [];
         var stype = 'ALL';

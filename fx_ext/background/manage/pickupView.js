@@ -324,6 +324,7 @@ class PickupPanelPage extends RadioAnchorPage {
         var zt1stocks = [];
         var ztdels = emjyManager.delstocks;
         for (var i = 0; i < emjyManager.zt1stocks.length; i++) {
+            emjyManager.checkDelDate(i);
             var stocki = emjyManager.zt1stocks[i];
             if (stocki.rmvdate !== undefined && stocki.rmvdate > stocki.ztdate) {
                 if (!ztdels.find(s => {s.code == stocki.code && s.ztdate == stocki.ztdate})) {

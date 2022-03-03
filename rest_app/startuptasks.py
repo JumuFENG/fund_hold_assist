@@ -80,11 +80,11 @@ if __name__ == '__main__':
         startIstk = startconfig['last_updated_id']
 
     anyrun = False
+    astk = AllStocks()
     if daily_should_run(startconfig['lastdaily_run_at'], dnow):
         du = DailyUpdater()
         du.update_all()
         sh = Stock_history()
-        astk = AllStocks()
         stocks = astk.getAllStocks()
         for i in range(0, perCount):
             upid = startIstk + i
@@ -108,6 +108,7 @@ if __name__ == '__main__':
     if monthly_should_run(startconfig['lastmonthly_run_at'], dnow):
         # mu = MonthlyUpdater()
         # mu.update_all()
+        astk.loadNewMarkedStocks()
         startconfig['lastmonthly_run_at'] = dnow.strftime(f"%Y-%m-%d %H:%M")
         anyrun = True
 

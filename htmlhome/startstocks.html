@@ -42,13 +42,13 @@
                     this.navigator.addRadio(retropage);
                     this.root.appendChild(retropage.container);
 
-                    var testpage = new TestsPanelPage();
-                    this.navigator.addRadio(testpage);
-                    this.root.appendChild(testpage.container);
-
                     var ztpage = new ZtPanelPage();
                     this.navigator.addRadio(ztpage);
                     this.root.appendChild(ztpage.container);
+
+                    var testpage = new TestsPanelPage();
+                    this.navigator.addRadio(testpage);
+                    this.root.appendChild(testpage.container);
 
                     this.navigator.selectDefault();
                 }
