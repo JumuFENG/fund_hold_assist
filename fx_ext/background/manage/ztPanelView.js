@@ -195,7 +195,8 @@ class ZtPanelPage extends RadioAnchorPage {
             var ztdate = ztpool[k].ztdate;
             for (var i = 0; i < ztpool[k].pool.length; ++i) {
                 var stock = ztpool[k].pool[i];
-                if (stock.c.startsWith('68') || stock.c.startsWith('30')) {
+                if (stock.c.startsWith('68') || stock.c.startsWith('30') || stock.c.startsWith('8') || stock.c.startsWith('4')) {
+                    console.log('ingored', stock.c);
                     continue;
                 }
                 if (stock.n.includes("ST")) {

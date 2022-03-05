@@ -59,7 +59,7 @@ class RetroPlan {
         var saveObj = {};
         saveObj[this.retroStoreKey()] = retroPlanObj;
         saveObj[this.retroStocksKey()] = this.stocks;
-        if (emjyBack.retroAccount !== undefined) {
+        if (emjyBack.retroAccount !== undefined && emjyBack.retroAccount.deals && emjyBack.retroAccount.deals.length > 0) {
             this.deals = this.getCompletedDeals();
         }
         saveObj[this.retroDealsKey()] = this.deals;
@@ -171,6 +171,7 @@ class RetroPlan {
                 }
             }
         });
+        emjyBack.retroAccount.deals = [];
         return alldeals;
     }
 
@@ -179,7 +180,7 @@ class RetroPlan {
             return 0;
         }
 
-        var allDeals = this.deals;
+        var allDeals = this.deals.slice(0);
         allDeals.sort((a, b) => {return a.time > b.time});
         var amount = 0;
         var maxMt = 0;

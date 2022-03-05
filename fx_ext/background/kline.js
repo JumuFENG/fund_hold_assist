@@ -71,6 +71,42 @@ class KLine {
         return null;
     }
 
+    closeIsTopMost(kl, kltype = '101') {
+        if (kl.h - kl.c > 0) {
+            return false;
+        }
+
+        var tm = kl.time;
+        var inkl = this.getIncompleteKline(kltype);
+        var kline = this.klines[kltype];
+        var preId = kline.length - 1;
+        if (!inkl || inkl.time != tm) {
+            while (preId > 0) {
+                if (kline[preId].time == tm) {
+                    preId--;
+                    break;
+                }
+                preId--;
+            }
+        }
+        if (preId >= 0) {
+            var prekl = kline[preId];
+            if (kl.c - (prekl.c * 0.1).toFixed(2) - prekl.c >= 0) {
+                return true;
+            }
+            if (kl.c - (prekl.c * 1.1).toFixed(2) >= 0) {
+                return true;
+            }
+            if (kl.c - (prekl.c * 0.05).toFixed(2) - prekl.c >= 0) {
+                return true;
+            }
+            if (kl.c - (prekl.c * 1.05).toFixed(2) >= 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     latestKlineDrawback(kltype) {
         var kl = this.getIncompleteKline(kltype);
         var prevId = this.klines[kltype].length - 1;
@@ -78,12 +114,33 @@ class KLine {
             kl = this.klines[kltype][prevId];
             prevId --;
         }
-        var lc = this.klines[kltype][prevId].c;
+        var lc = kl.o;
+        if (prevId >= 0) {
+            lc = this.klines[kltype][prevId].c;
+        }
         var o = kl.o;
         var h = kl.h;
         var c = kl.c;
         var start = lc - o > 0 ? o : lc;
         return (h - c) / (h - start);
+    }
+
+    latestKlinePopup(kltype) {
+        var kl = this.getIncompleteKline(kltype);
+        var prevId = this.klines[kltype].length - 1;
+        if (!kl) {
+            kl = this.klines[kltype][prevId];
+            prevId --;
+        }
+        var lc = kl.o;
+        if (prevId >= 0) {
+            lc = this.klines[kltype][prevId].c;
+        }
+        var o = kl.o;
+        var l = kl.l;
+        var c = kl.c;
+        var start = lc - o > 0 ? lc : o;
+        return (c - l) / (start - l);
     }
 
     getNowTime() {
@@ -623,6 +680,48 @@ class KLine {
         }
         var c = kline[tidx].c * 0.9;
         return c - kline[tidx].l > 0 ? kline[tidx].l : c.toFixed(2);
+    }
+
+    continuouslyIncreaseDays(kltype='101') {
+        if (!this.klines) {
+            return 0;
+        }
+        var kline = this.klines[kltype];
+        var n = 0;
+        var lidx = kline.length - 1;
+        var kl = this.getIncompleteKline(kltype);
+        if (!kl) {
+            kl = kline[lidx];
+            lidx--;
+        }
+        for (var i = lidx; i >= 0; i--) {
+            if (kline[i].c - kl.c >= 0) {
+                break;
+            }
+            n++;
+        }
+        return n;
+    }
+
+    continuouslyDecreaseDays(kltype='101') {
+        if (!this.klines) {
+            return 0;
+        }
+        var kline = this.klines[kltype];
+        var n = 0;
+        var lidx = kline.length - 1;
+        var kl = this.getIncompleteKline(kltype);
+        if (!kl) {
+            kl = kline[lidx];
+            lidx--;
+        }
+        for (var i = lidx; i >= 0; i--) {
+            if (kline[i].c - kl.c <= 0) {
+                break;
+            }
+            n++;
+        }
+        return n;
     }
 
     continuouslyBellowMaDays(kltype='101') {

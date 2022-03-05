@@ -159,6 +159,7 @@ class RetroEngine {
         for (var i = 0; i < resKline.length; i++) {
             dKline.push(resKline[i]);
             emjyBack.retroAccount.tradeTime = resKline[i].time;
+            stock.strategies.buydetail.archiveRecords();
             stock.strategies.checkKlines([this.kltype]);
         }
     }

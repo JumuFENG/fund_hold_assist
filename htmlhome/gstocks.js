@@ -1,4 +1,6 @@
 'use strict';
+let emStockUrl = 'http://quote.eastmoney.com/concept/';
+let emStockUrlTail = '.html#fschart-k';
 
 class GlobalManager {
     constructor() {
@@ -125,8 +127,23 @@ class GlobalManager {
         return code;
     }
 
+    stockEmLink(code) {
+        if (this.stockMarket && this.stockMarket[code]) {
+            return emStockUrl + this.stockMarket[code].c.toLowerCase() + emStockUrlTail;
+        }
+        return emStockUrl + (code.startsWith('00') ? 'sz' : 'sh') + code + emStockUrlTail;
+    }
+
     stockAnchor(code) {
-        return this.stockMarket[code].n;
+        var anchor = document.createElement('a');
+        if (this.stockMarket && this.stockMarket[code]) {
+            anchor.textContent = this.stockMarket[code].n;
+        } else {
+            anchor.textContent = code;
+        }
+        anchor.href = this.stockEmLink(code);
+        anchor.target = '_blank';
+        return anchor;
     }
 
     getCurrentHoldValue(code, count) {

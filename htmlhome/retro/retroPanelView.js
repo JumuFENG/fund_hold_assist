@@ -151,7 +151,9 @@ class RetroPanelPage extends RadioAnchorPage {
 
     refreshPlanView(id) {
         if (this.selectedPlid !== undefined && this.selectedPlid != -1 && this.selectedPlid != id) {
-            this.plansListPanel.childNodes[this.selectedPlid].style.border = '';
+            if (this.selectedPlid < this.plansListPanel.childNodes.length) {
+                this.plansListPanel.childNodes[this.selectedPlid].style.border = '';
+            }
         }
 
         if (id != this.selectedPlid) {
@@ -275,7 +277,7 @@ class RetroPanelPage extends RadioAnchorPage {
         this.showPlanItems();
     }
 
-    addDealsOf(allDeals, code) {
+    addDealsOf(allDeals, code, full) {
         if (!allDeals || allDeals.length == 0) {
             return;
         }
@@ -309,32 +311,36 @@ class RetroPanelPage extends RadioAnchorPage {
                 totalEarned += amount;
             }
             amount = amount.toFixed(2);
-            this.dealsTable.addRow(
-                deali.time,
-                deali.code,
-                anchor,
-                deali.tradeType,
-                deali.price,
-                deali.count,
-                fee,
-                amount
-            );
+            if (full) {
+                this.dealsTable.addRow(
+                    deali.time,
+                    deali.code,
+                    anchor,
+                    deali.tradeType,
+                    deali.price,
+                    deali.count,
+                    fee,
+                    amount
+                );
+            }
             if (deali.tradeType == 'S') {
                 resCount -= deali.count;
             } else if (deali.tradeType == 'B') {
                 resCount -= -deali.count;
             }
             if (resCount == 0) {
-                this.dealsTable.addRow('part', '', '', '', '', '', partEarned.toFixed(2), (100 * (partEarned / partCost)).toFixed(2) + '%');
+                if (full) {
+                    this.dealsTable.addRow('part', '', '', '', '', '', partEarned.toFixed(2), (100 * (partEarned / partCost)).toFixed(2) + '%');
+                }
                 partEarned = 0;
                 partCost = 0;
             }
         }
         totalEarned += emjyBack.getCurrentHoldValue(code, resCount); // filtered.values().next().value
         if (resCount == 0) {
-            this.dealsTable.addRow('total', '', '', resCount, totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), (100 * (totalEarned / totalCost)).toFixed(2) + '%');
+            this.dealsTable.addRow('total', code, '', resCount, totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), (100 * (totalEarned / totalCost)).toFixed(2) + '%');
         } else {
-            this.dealsTable.addRow('total', '', '', resCount, totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), '-');
+            this.dealsTable.addRow('total', code, '', resCount, totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), '-');
         }
         return {cost: totalCost, earn: totalEarned, fee: totalFee};
     }
@@ -367,7 +373,7 @@ class RetroPanelPage extends RadioAnchorPage {
         var collections = [];
         toShow.forEach(ds => {
             if (!ignored || !ignored.has(ds)) {
-                var result = this.addDealsOf(alldeals, ds);
+                var result = this.addDealsOf(alldeals, ds, false);
                 if (!result || result.cost == 0) {
                     return;
                 }
@@ -396,7 +402,7 @@ class RetroPanelPage extends RadioAnchorPage {
     showStatsTable() {
         this.dealsTable.reset();
         this.statsTable.reset();
-        this.statsTable.setClickableHeader('模拟交易', '总成本', '总收益', '总收益率', '盈亏比', '清仓次数', '胜率', '最大单日成本', '综合收益率');
+        this.statsTable.setClickableHeader('模拟交易', '总成本', '总收益', '总收益率', '盈亏比', '清仓次数', '盈利次数', '亏损次数', '胜率', '最大单日成本', '综合收益率');
         var showChecked = Array.from(this.plansListPanel.childNodes).find(p => p.firstElementChild.checked) !== undefined;
         this.plans.forEach((pl, idx) => {
             if (!pl.stats) {
@@ -412,6 +418,8 @@ class RetroPanelPage extends RadioAnchorPage {
                 (100 * (pl.stats.netEarned / pl.stats.totalCost)).toFixed(2) + '%',
                 (pl.stats.earned / pl.stats.lost).toFixed(2),
                 pl.stats.tradeCountL + pl.stats.tradeCountE,
+                pl.stats.tradeCountE,
+                pl.stats.tradeCountL,
                 (100 * pl.stats.tradeCountE / (pl.stats.tradeCountL + pl.stats.tradeCountE)).toFixed(2) + '%',
                 pl.stats.maxSdc.toFixed(2),
                 (100 * pl.stats.netEarned / pl.stats.maxSdc).toFixed(2) + '%'
