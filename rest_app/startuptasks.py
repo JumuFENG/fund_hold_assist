@@ -59,6 +59,8 @@ def monthly_should_run(lastrun, now):
 
 
 if __name__ == '__main__':
+    dnow = datetime.now()
+    print('startuptasks', dnow.strftime(f"%Y-%m-%d %H:%M"))
     retry = 0
     while True:
         nw = requests.get('https://www.eastmoney.com/js/index2018.js', timeout=2)
@@ -67,6 +69,7 @@ if __name__ == '__main__':
         retry += 1
 
     if retry > 100:
+        print('network not available, retry = ', retry)
         exit(0)
 
     startconfig = {'lastdaily_run_at':'', 'lastweekly_run_at':'', 'lastmonthly_run_at':'', 'last_updated_id':0}
@@ -74,7 +77,6 @@ if __name__ == '__main__':
         with open(startuplogfile, 'r') as cfgfile:
             startconfig = json.load(cfgfile)
 
-    dnow = datetime.now()
     startIstk = 0
     if 'last_updated_id' in startconfig:
         startIstk = startconfig['last_updated_id']

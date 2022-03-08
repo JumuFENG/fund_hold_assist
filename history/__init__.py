@@ -6,3 +6,5 @@ from history.stock_history import *
 from history.kdata_dumps import *
 from history.index_dumps import *
 from history.stock_dumps import *
+from history.stockzt_history import *
+from history.stockdt_history import *

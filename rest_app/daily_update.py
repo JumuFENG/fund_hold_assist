@@ -45,6 +45,8 @@ class DailyUpdater():
                 self.download_all_index_history(c)
 
         if not morningOnetime:
+            self.fetch_new_ipo_stocks()
+            self.fetch_zdt_stocks()
             print("gold only update in the morning")
             return
 
@@ -55,7 +57,6 @@ class DailyUpdater():
 
         self.download_all_interested_stocks_khistory()
         self.download_newly_noticed_bonuses()
-        self.fetch_new_ipo_stocks()
 
     def download_all_fund_history(self, code):
         print("try to update fund history for:", code)
@@ -97,6 +98,15 @@ class DailyUpdater():
         print("update new IPO stocks")
         stkall = AllStocks()
         stkall.loadNewStock()
+
+    def fetch_zdt_stocks(self):
+        print('update zt info')
+        ztinfo = StockZtInfo()
+        ztinfo.getNext()
+
+        print('update dt info')
+        dtinfo = StockDtInfo()
+        dtinfo.getNext()
 
 if __name__ == '__main__':
     du = DailyUpdater()

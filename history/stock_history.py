@@ -259,7 +259,7 @@ class AllStocks(InfoList):
         return loflist['data']['diff']
 
     def getAllStocks(self):
-        return self.sqldb.select(gl_all_stocks_info_table)
+        return self.readAll()
 
     def getAllStocksShortInfo(self):
         stksInfo = self.sqldb.select(gl_all_stocks_info_table, [column_code, column_name, column_type], "type != 'TSSTOCK'")
@@ -276,6 +276,9 @@ class AllStocks(InfoList):
         self.sqldb.delete(gl_all_stocks_info_table, {column_code: code})
 
 class DividenBonus(EmDataCenterRequest):
+    '''get bonus share notice datacenter-web.eastmoney.com.
+    ref: https://data.eastmoney.com/yjfp/
+    '''
     def __init__(self):
         super().__init__()
 
@@ -295,7 +298,7 @@ class DividenBonus(EmDataCenterRequest):
             bn.getBonusHis()
 
     def getBonusNotice(self):
-        date = datetime.now().strftime("%Y-%m-%d")
+        date = self.getTodayString()
         # date = '2021-12-20'
         # (REPORT_DATE%3D%272021-12-31%27)(EX_DIVIDEND_DAYS%3C0)(EX_DIVIDEND_DATE%3D%272021-12-07%27)
         self.setFilter(f'''(EX_DIVIDEND_DATE%3D%27{date}%27)''')
