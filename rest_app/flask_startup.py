@@ -497,6 +497,24 @@ def stock_hist():
             return json.dumps(kd)
     return 'get stock history kline data, no valid args'
 
+@app.route('/api/stockzthist', methods=['GET'])
+def stock_zthist():
+    if request.method == 'GET':
+        date = request.args.get('date', type=str, default=None)
+        szi = StockZtInfo()
+        zt = szi.dumpDataByDate(date)
+        return json.dumps(zt)
+    return 'get stock zt history, error!'
+
+@app.route('/api/stockdthist', methods=['GET'])
+def stock_dthist():
+    if request.method == 'GET':
+        date = request.args.get('date', type=str, default=None)
+        sdi = StockDtInfo()
+        dt = sdi.dumpDataByDate(date)
+        return json.dumps(dt)
+    return 'get stock zt history, error!'
+
 @app.route('/api/allstockinfo', methods=['GET'])
 def stock_allinfo():
     if request.method == 'GET':

@@ -67,18 +67,22 @@ class StockZtInfo(EmRequest):
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.createTable(tablename, attrs, constraint)
 
+    def _max_date(self):
+        if self.sqldb.isExistTable(self.tablename):
+            maxDate = self.sqldb.select(self.tablename, f"max({column_date})")
+            if maxDate is None or not len(maxDate) == 1 or maxDate[0][0] is None:
+                return None
+            else:
+                (mdate,), = maxDate
+                return mdate
+
     def getUrl(self):
         if self.date is None:
-            if self.sqldb.isExistTable(self.tablename):
-                maxDate = self.sqldb.select(self.tablename, f"max({column_date})")
-                if maxDate is None or not len(maxDate) == 1 or maxDate[0][0] is None:
-                    self.date = self.getTodayString('%Y%m%d')
-                else:
-                    (mdate,), = maxDate
-                    self.date = (datetime.strptime(mdate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
-            else:
+            mdate = self._max_date()
+            if mdate is None:
                 self.date = self.getTodayString('%Y%m%d')
-
+            else:
+                self.date = (datetime.strptime(mdate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
         return self.urlroot + self.date
 
     def getNext(self):
@@ -144,3 +148,14 @@ class StockZtInfo(EmRequest):
 
         self.sqldb.insertMany(self.tablename, self.colheaders, self.ztdata)
 
+    def getDumpKeys(self):
+        return f'{column_code}, 板块, 概念'
+
+    def dumpDataByDate(self, date = None):
+        if date is None:
+            date = self._max_date()
+
+        data = {'date': date}
+        pool = self.sqldb.select(self.tablename,self.getDumpKeys(), [f'{column_date}="{date}"', '连板数="1"'])
+        data['pool'] = pool
+        return data

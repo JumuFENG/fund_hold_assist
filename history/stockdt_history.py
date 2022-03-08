@@ -49,3 +49,6 @@ class StockDtInfo(StockZtInfo):
         self.check_table_column(self.colheaders[7], 'varchar(63) DEFAULT NULL')
 
         self.sqldb.insertMany(self.tablename, self.colheaders, self.dtdata)
+
+    def getDumpKeys(self):
+        return f'{column_code}, 板块'
