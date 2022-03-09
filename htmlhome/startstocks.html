@@ -17,7 +17,6 @@
         <script src="../fx_ext/background/manage/views.js"></script>
         <script src="../fx_ext/background/manage/xilimao.js"></script>
         <script src="../fx_ext/background/manage/dbk.js"></script>
-        <script src="../fx_ext/background/manage/ztPanelView.js"></script>
 
         <script src="../htmlhome/localforage.min.js"></script>
         <script src="../htmlhome/gstocks.js"></script>
@@ -29,6 +28,8 @@
         <script src="../htmlhome/retro/retroEngine.js"></script>
         <script src="../htmlhome/retro/retroPlans.js"></script>
         <script src="../htmlhome/retro/retroPanelView.js"></script>
+
+        <script src="../htmlhome/zdt/ztPanelView.js"></script>
         <script>
             class StockRoot {
                 constructor() {
@@ -38,13 +39,13 @@
                 }
 
                 setupNavigators() {
-                    var retropage = new RetroPanelPage();
-                    this.navigator.addRadio(retropage);
-                    this.root.appendChild(retropage.container);
-
                     var ztpage = new ZtPanelPage();
                     this.navigator.addRadio(ztpage);
                     this.root.appendChild(ztpage.container);
+
+                    var retropage = new RetroPanelPage();
+                    this.navigator.addRadio(retropage);
+                    this.root.appendChild(retropage.container);
 
                     var testpage = new TestsPanelPage();
                     this.navigator.addRadio(testpage);

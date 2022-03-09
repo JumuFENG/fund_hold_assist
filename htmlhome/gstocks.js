@@ -5,7 +5,7 @@ let emStockUrlTail = '.html#fschart-k';
 class GlobalManager {
     constructor() {
         this.klines = {};
-        this.serverhost = 'http://localhost/';
+        this.fhaserver = 'http://localhost/';
         this.getFromLocal('hsj_stocks', item => {
             if (item && item['hsj_stocks']) {
                 this.stockMarket = item['hsj_stocks'];
@@ -157,7 +157,7 @@ class GlobalManager {
     }
 
     fetchStocksMarket() {
-        utils.get(this.serverhost + 'api/allstockinfo', mkt => {
+        utils.get(this.fhaserver + 'api/allstockinfo', mkt => {
             var mktInfo = JSON.parse(mkt);
             for (var i = 0; i < mktInfo.length; ++i) {
                 this.stockMarket[mktInfo[i].c.substring(2)] = mktInfo[i];
@@ -168,7 +168,7 @@ class GlobalManager {
 
     fetchStockKline(code, kltype, sdate) {
         var mktCode = this.getMkCode(code);
-        var url = this.serverhost + 'api/stockhist?fqt=1&code=' + mktCode;
+        var url = this.fhaserver + 'api/stockhist?fqt=1&code=' + mktCode;
         if (!kltype) {
             url += '&kltype=101';
         } else if (kltype == '30' || kltype == '60' || kltype == '120') {

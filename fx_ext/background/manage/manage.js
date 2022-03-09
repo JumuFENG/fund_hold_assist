@@ -35,6 +35,9 @@ class Manager {
     loadAllSavedData() {
         chrome.storage.local.get(null, item => {
             if (item) {
+                if (item['fha_server']) {
+                    this.fhaserver =  item['fha_server'];
+                }
                 if (item['hsj_stocks']) {
                     this.stockMarket = item['hsj_stocks'];
                 }
