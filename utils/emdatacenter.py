@@ -18,9 +18,7 @@ class EmRequest():
         return int(stamp)
 
     def getRequest(self, params=None, proxies=None):
-        url = self.getUrl()
-        print('EmRequest, getRequest of', url)
-        rsp = requests.get(url, params=params, proxies=proxies)
+        rsp = requests.get(self.getUrl(), params=params, proxies=proxies)
         rsp.raise_for_status()
         return rsp.text
 
@@ -50,6 +48,7 @@ class EmDataCenterRequest(EmRequest):
     def getNext(self):
         bonus = json.loads(self.getRequest())
         if not bonus['success']:
+            print('EmDataCenterRequest getUrl', self.getUrl())
             print('EmDataCenterRequest Error, message', bonus['message'], 'code', bonus['code'])
             return
 

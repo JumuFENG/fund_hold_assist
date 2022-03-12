@@ -44,19 +44,20 @@ class DailyUpdater():
             for (c,) in indexcodes:
                 self.download_all_index_history(c)
 
-        if not morningOnetime:
+        if morningOnetime:
+            print("update in the morning")
+            goldcodes = self.sqldb.select(gl_gold_info_table, fields=[column_code, column_table_history])
+            if goldcodes:
+                for (c, h) in goldcodes:
+                    self.download_all_gold_history(c)
+        else:
+            print("update in the afternoon")
+            self.download_newly_noticed_bonuses()
+            self.download_all_interested_stocks_khistory()
             self.fetch_new_ipo_stocks()
             self.fetch_zdt_stocks()
-            print("gold only update in the morning")
-            return
+            self.fetch_dfsorg_stocks()
 
-        goldcodes = self.sqldb.select(gl_gold_info_table, fields=[column_code, column_table_history])
-        if goldcodes:
-            for (c, h) in goldcodes:
-                self.download_all_gold_history(c)
-
-        self.download_all_interested_stocks_khistory()
-        self.download_newly_noticed_bonuses()
 
     def download_all_fund_history(self, code):
         print("try to update fund history for:", code)
@@ -107,6 +108,11 @@ class DailyUpdater():
         print('update dt info')
         dtinfo = StockDtInfo()
         dtinfo.getNext()
+
+    def fetch_dfsorg_stocks(self):
+        dfsorg = StockDfsorg()
+        dfsorg.updateNextDate()
+
 
 if __name__ == '__main__':
     du = DailyUpdater()
