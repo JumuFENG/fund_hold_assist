@@ -40,18 +40,21 @@ def login():
     elif request.method == 'POST':
         # username = request.form['username']
         email = request.form['email']
-        password = request.form['password']
-
         user = usermodel.user_by_email(email)
 
         if user and usermodel.check_password(user, request.form['password']):
             session['logged_in'] = True
             session['useremail'] = user.email
             session['username'] = user.name
+            if request.form['back'] == 'object':
+                return json.dumps({'login': 'true', 'id':user.id})
             return render_template('home.html')
         else:
             #print(user.to_string(), request.form['password'], user.password)
-            flash('wrong username or password')
+            loginerror = 'wrong username or password'
+            if request.form['back'] == 'object':
+                return json.dumps({'loggin': 'false', 'message': loginerror})
+            flash(loginerror)
             return render_template('login.html', loginsignup = True) 
 
 @app.route("/signup", methods=['GET', 'POST'])
@@ -318,6 +321,10 @@ def stock():
             date = request.form.get('date', type=str, default=None)
             earned = float(request.form.get('earned', type=str, default=None))
             user.set_earned(date, earned)
+            return 'OK', 200
+        if actype == 'deals':
+            deals = request.form.get('data', type=str, default=None)
+            user.add_deals(json.loads(deals))
             return 'OK', 200
     else:
         actype = request.args.get("act", type=str, default=None)

@@ -34,7 +34,7 @@ class DailyUpdater():
             print("update in the morning at", datetoday.hour)
 
         fundcodes = self.sqldb.select(gl_all_funds_info_table, [column_code, column_table_history, column_qdii], " %s is not null and %s != ''" % (column_table_history, column_table_history))
-        if fundcodes :
+        if fundcodes:
             for (c, h, qd) in fundcodes:
                 if (morningOnetime and qd) or not morningOnetime:
                     self.download_all_fund_history(c)
@@ -46,9 +46,9 @@ class DailyUpdater():
 
         if morningOnetime:
             print("update in the morning")
-            goldcodes = self.sqldb.select(gl_gold_info_table, fields=[column_code, column_table_history])
+            goldcodes = self.sqldb.select(gl_gold_info_table, fields=[column_code, column_name])
             if goldcodes:
-                for (c, h) in goldcodes:
+                for (c, n) in goldcodes:
                     self.download_all_gold_history(c)
         else:
             print("update in the afternoon")

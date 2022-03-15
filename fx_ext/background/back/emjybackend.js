@@ -82,6 +82,7 @@ class EmjyBack {
         this.quoteWorker = null;
         this.manager = null;
         this.klines = {};
+        this.fha = null;
     }
 
     log(...args) {
@@ -131,6 +132,12 @@ class EmjyBack {
             this.normalAccount.loadWatchings();
             this.collateralAccount.loadWatchings();
             this.trackAccount.loadAssets();
+        });
+        chrome.storage.local.get('fha_server', item => {
+            if (item && item['fha_server']) {
+                this.fha = JSON.parse(item['fha_server']);
+                this.fha.login = false;
+            }
         });
         this.setupQuoteAlarms();
         this.log('EmjyBack initialized!');
@@ -225,6 +232,10 @@ class EmjyBack {
             this.log('getValidateKey =', message.key);
             this.validateKey = message.key;
             this.loadAssets();
+            if ((new Date()).getDay() == 1 && (new Date()).getHours() <= 9) {
+                // update history deals every Monday morning.
+                this.updateHistDeals();
+            }
         } else if (message.command == 'emjy.trade') {
             this.log('trade message: result =', message.result, ', what =', message.what);
         } else if (message.command == 'emjy.addwatch') {
@@ -345,7 +356,7 @@ class EmjyBack {
 //     "Wtbh": "319719", 委托编号
 //     "Gddm": "E062854229", 股东代码
 //     "Dwc": "",
-//     "Xyjylx": "卖出担保品" 交易类型
+//     "Xyjylx": "卖出担保品" 信用交易类型
 // }
     addHistDeals(deals) {
         var fetchedDeals = [];
@@ -376,19 +387,84 @@ class EmjyBack {
         }
 
         fetchedDeals.reverse();
+        var uptosvrDeals = [];
         if (!this.savedDeals || this.savedDeals.length == 0) {
             this.savedDeals = fetchedDeals;
+            uptosvrDeals = fetchedDeals;
         } else {
             for (let i = 0; i < fetchedDeals.length; i++) {
                 const deali = fetchedDeals[i];
                 if (!this.savedDeals.find(d => d.time == deali.time && d.code == deali.code && d.sid == deali.sid)) {
                     this.savedDeals.push(deali);
+                    uptosvrDeals.push(deali);
                 }
             }
             this.savedDeals.sort((a, b) => a.time > b.time);
         }
         chrome.storage.local.set({'hist_deals': this.savedDeals});
-        console.log(this.savedDeals);
+        this.uploadHistDeals(uptosvrDeals);
+    }
+
+    uploadTodayDeals(deals) {
+        var fetchedDeals = [];
+        for (let i = 0; i < deals.length; i++) {
+            const deali = deals[i];
+            if (deali.Wtzt != '已成') {
+                emjyBack.log('uploadTodayDeals unknown deal:', JSON.stringify(deali));
+                continue;
+            }
+            if (deali.Mmsm == '担保品划入' || deali.Mmsm == '担保品划出' || deali.Mmsm == '融券') {
+                emjyBack.log('uploadTodayDeals ignore deal:', JSON.stringify(deali));
+                continue;
+            }
+
+            var tradeType = '';
+            if (deali.Mmsm == '证券卖出') {
+                tradeType = 'S';
+            } else if (deali.Mmsm == '证券买入' || deali.Mmsm == '配售申购' || deali.Mmsm == '配股缴款' || deali.Mmsm == '网上认购') {
+                tradeType = 'B';
+            } else {
+                emjyBack.log('unknown trade type', deali.Mmsm, JSON.stringify(deali));
+                continue;
+            }
+            var code = deali.Zqdm;
+            var time = this.getDealTime(deali.Wtrq, deali.Wtsj);
+            var count = deali.Cjsl;
+            var price = deali.Cjjg;
+            var sid = deali.Wtbh;
+            fetchedDeals.push({time, sid, code, tradeType, price, count});
+        }
+        fetchedDeals.reverse();
+        this.uploadHistDeals(fetchedDeals);
+    }
+
+    uploadHistDeals(deals) {
+        if (deals.length == 0) {
+            return;
+        }
+
+        if (!this.fha) {
+            return;
+        }
+
+        var postStockDeals = function(url, deals) {
+            var dfd = new FormData();
+            dfd.append('act', 'deals');
+            dfd.append('data', JSON.stringify(deals));
+            xmlHttpPost(url, dfd, p => {
+                emjyBack.log('upload deals to server,', p);
+            });
+        }
+
+        emjyBack.log('uploadHistDeals', JSON.stringify(deals));
+        var url = this.fha.server + 'stock'
+        if (!this.fha.login) {
+            this.loginToFhaServer(() => {
+                postStockDeals(url, deals);
+            });
+        } else {
+            postStockDeals(url, deals)
+        }
     }
 
     trySellStock(code, price, count, account, cb) {
@@ -859,6 +935,30 @@ class EmjyBack {
         cheatOperation(this.normalAccount);
         console.log('collat');
         cheatOperation(this.collateralAccount);
+    }
+
+    loginToFhaServer(cb) {
+        if (!this.fha) {
+            return;
+        }
+
+        var url = this.fha.server + 'login';
+        var loginfd = new FormData();
+        loginfd.append('email', this.fha.uemail);
+        loginfd.append('password', this.fha.pwd);
+        loginfd.append('back', 'object');
+        xmlHttpPost(url, loginfd, p => {
+            var logObj = JSON.parse(p);
+            if (logObj['login']) {
+                console.log('login success!');
+                this.fha.login = true;
+                if (typeof(cb) === 'function') {
+                    cb();
+                }
+            } else {
+                console.log('login error', logObj);
+            }
+        });
     }
 }
 

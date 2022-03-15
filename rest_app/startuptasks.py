@@ -98,6 +98,8 @@ if __name__ == '__main__':
             sh.getKHistoryFromSohuTillToday(c)
 
         startconfig['last_updated_id'] = startIstk + perCount
+        if len(stocks) < startconfig['last_updated_id']:
+            startconfig['last_updated_id'] -= len(stocks)
         startconfig['lastdaily_run_at'] = dnow.strftime(f"%Y-%m-%d %H:%M")
         anyrun = True
 

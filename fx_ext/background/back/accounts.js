@@ -791,6 +791,7 @@ class NormalAccount extends Account {
     }
 
     handleDeals(deals) {
+        emjyBack.uploadTodayDeals(deals);
         var tradedCode = new Set();
         var bdeals = deals.filter(d => d.Mmsm.includes('买入'));
         for (let i = 0; i < bdeals.length; i++) {

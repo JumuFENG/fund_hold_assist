@@ -536,6 +536,29 @@ class SettingsPanelPage extends RadioAnchorPage {
         importDiv.appendChild(document.createTextNode('导入'));
         importDiv.appendChild(fileIpt);
         this.container.appendChild(importDiv);
+
+        var svrDiv = document.createElement('div');
+        var addInput = function(fath, ele, text) {
+            var eleout = document.createElement('div');
+            eleout.appendChild(document.createTextNode(text));
+            eleout.appendChild(ele);
+            fath.appendChild(eleout);
+        }
+        this.svrHost = document.createElement('input');
+        addInput(svrDiv, this.svrHost, 'Server Host');
+        this.userEmail = document.createElement('input');
+        addInput(svrDiv, this.userEmail, 'Account(e-mail)');
+        this.pwd = document.createElement('input');
+        addInput(svrDiv, this.pwd, 'Password');
+        var saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Save';
+        saveBtn.onclick = e => {
+            var fhaInfo = {server: this.svrHost.value, uemail: this.userEmail.value, pwd: this.pwd.value};
+            console.log(fhaInfo);
+            emjyManager.saveToLocal({'fha_server': JSON.stringify(fhaInfo)});
+        }
+        svrDiv.appendChild(saveBtn);
+        this.container.appendChild(svrDiv);
     }
 }
 

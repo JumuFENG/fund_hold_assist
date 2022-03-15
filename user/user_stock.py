@@ -21,9 +21,8 @@ class UserStock():
         elif not self.check_code_exists():
             self.init_user_stock_in_db()
 
-        pre_uid = "u" + str(user.id) + "_"
-        self.buy_table = pre_uid + self.code + "_buy"
-        self.sell_table = pre_uid + self.code + "_sell"
+        self.buy_table = f'u{user.id}_{self.code}_buy'
+        self.sell_table = f'u{user.id}_{self.code}_sell'
 
     def check_code_exists(self):
         details = self.sqldb.select(self.stocks_table, "*", "%s = '%s'" % (column_code, self.code))
@@ -72,21 +71,43 @@ class UserStock():
 
     def setup_buytable(self):
         if not self.sqldb.isExistTable(self.buy_table) :
-            attrs = {column_date:'varchar(20) DEFAULT NULL',column_portion:'int DEFAULT NULL',column_price:'double(16,4) DEFAULT NULL', column_cost:'double(16,2) DEFAULT NULL',column_soldout:'tinyint(1) DEFAULT 0'}
+            attrs = {
+                column_date:'varchar(20) DEFAULT NULL',
+                column_portion:'int DEFAULT NULL',
+                column_price:'double(16,4) DEFAULT NULL',
+                column_cost:'double(16,2) DEFAULT NULL',
+                column_soldout:'tinyint(1) DEFAULT 0'
+            }
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.createTable(self.buy_table, attrs, constraint)
-            
+
         self.check_table_column(self.buy_table, column_soldout, 'tinyint(1) DEFAULT 0')
         self.check_table_column(self.buy_table, column_sold_portion, 'int DEFAULT 0')
+        self.check_table_column(self.buy_table, '委托编号', 'varchar(10) DEFAULT NULL')
+        self.check_table_column(self.buy_table, column_fee, 'double(8,2) DEFAULT NULL')
+        self.check_table_column(self.buy_table, '印花税', 'double(8,2) DEFAULT NULL')
+        self.check_table_column(self.buy_table, '过户费', 'double(8,2) DEFAULT NULL')
 
     def setup_selltable(self):
         if not self.sqldb.isExistTable(self.sell_table):
-            attrs = {column_date:'varchar(20) DEFAULT NULL',column_portion:'int DEFAULT NULL', column_price:'double(16,4) DEFAULT NULL', column_money_sold:'double(16,2) DEFAULT NULL', column_cost_sold:'double(16,2) DEFAULT NULL', column_earned:'double(16,2) DEFAULT NULL', column_return_percentage:'double(8,6) DEFAULT NULL'}
+            attrs = {
+                column_date:'varchar(20) DEFAULT NULL',
+                column_portion:'int DEFAULT NULL',
+                column_price:'double(16,4) DEFAULT NULL',
+                column_money_sold:'double(16,2) DEFAULT NULL',
+                column_cost_sold:'double(16,2) DEFAULT NULL',
+                column_earned:'double(16,2) DEFAULT NULL',
+                column_return_percentage:'double(8,6) DEFAULT NULL'
+            }
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.createTable(self.sell_table, attrs, constraint)
 
         self.check_table_column(self.sell_table, column_rolled_in, 'int DEFAULT NULL')
         self.check_table_column(self.sell_table, column_roll_in_value, 'double(16,4) DEFAULT NULL')
+        self.check_table_column(self.sell_table, '委托编号', 'varchar(10) DEFAULT NULL')
+        self.check_table_column(self.sell_table, column_fee, 'double(8,2) DEFAULT NULL')
+        self.check_table_column(self.sell_table, '印花税', 'double(8,2) DEFAULT NULL')
+        self.check_table_column(self.sell_table, '过户费', 'double(8,2) DEFAULT NULL')
 
     def check_exist_in_allstocks(self):
         stocks = AllStocks()
@@ -381,3 +402,59 @@ class UserStock():
         stock_stats_obj['srct'] = (len(sell_recs) if sell_recs else 0) + (1 if self.cost_hold > 0 else 0) # sell record count
 
         return stock_stats_obj
+
+    def _add_or_update_deals(self, buy_table, values):
+        attrs = [column_date, '委托编号', column_price, column_portion, column_fee, '印花税', '过户费']
+
+        nvalues = []
+        for val in values:
+            odls = self.sqldb.select(buy_table, ['id', column_date], f'委托编号={val[1]}')
+            if odls is None or len(odls) == 0:
+                nvalues.append(val)
+            else:
+                updated = False
+                for id, date in odls:
+                    if date.split()[0] == val[0].split()[0]:
+                        atrdic = {
+                            column_date: val[0], '委托编号': val[1], column_price: val[2], column_portion: val[3],
+                            column_fee: val[4], '印花税': val[5], '过户费': val[6]
+                        }
+                        self.sqldb.update(buy_table, atrdic, {'id':id})
+                        updated = True
+                        break
+                if not updated:
+                    nvalues.append(val)
+
+        if len(nvalues) > 0:
+            self.sqldb.insertMany(buy_table, attrs, nvalues)
+
+    def add_deals(self, deals):
+        bvalues = []
+        svalues = []
+        for deal in deals:
+            if deal['tradeType'] == 'B':
+                bvalues.append(
+                    [deal['time'], deal['sid'], deal['price'], deal['count'],
+                    deal['fee'] if 'fee' in deal else '0',
+                    deal['feeYh'] if 'feeYh' in deal else '0',
+                    deal['feeGh'] if 'feeYh' in deal else '0'
+                ])
+            else:
+                svalues.append(
+                    [deal['time'], deal['sid'], deal['price'], deal['count'],
+                    deal['fee'] if 'fee' in deal else '0',
+                    deal['feeYh'] if 'feeYh' in deal else '0',
+                    deal['feeGh'] if 'feeYh' in deal else '0'
+                ])
+
+        if len(bvalues) > 0:
+            if not self.sqldb.isExistTable(self.buy_table):
+                self.setup_buytable()
+
+            self._add_or_update_deals(self.buy_table, bvalues)
+
+        if len(svalues) > 0:
+            if not self.sqldb.isExistTable(self.sell_table):
+                self.setup_selltable()
+
+            self._add_or_update_deals(self.sell_table, svalues)

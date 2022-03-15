@@ -33,19 +33,21 @@ class User():
         return self.id == 11
 
     def funds_info_table(self):
-        return "u" + str(self.id) + "_" + gl_fund_info_table
+        return f'u{self.id}_{gl_fund_info_table}'
 
     def stocks_info_table(self):
-        return "u" + str(self.id) + "_stocks";
+        return f'u{self.id}_stocks'
 
     def stocks_earned_table(self):
-        return "u" + str(self.id) + "_earned";
+        return f'u{self.id}_earned'
+
+    def stocks_unknown_deals_table(self):
+        return f'u{self.id}_unknown_deals'
 
     def to_string(self):
-        return 'id: ' + str(self.id) + ' name: ' + self.name + ' email: ' + self.email;
+        return f'id: {self.id} name: {self.name} email: {self.email}'
 
     def add_budget(self, code, budget, date = ""):
-        sqldb = self.fund_center_db()
         uf = UserFund(self, code)
         uf.add_budget(budget, date)
 
@@ -167,7 +169,6 @@ class User():
         if not sqldb.isExistTable(self.funds_info_table()):
             print("can not find fund info DB.")
             return
-
 
         fund_codes = sqldb.select(self.funds_info_table(), [column_code])
 
@@ -431,6 +432,60 @@ class User():
     def get_interested_stocks_his(self):
         sd = StockDumps()
         return sd.get_his(self.get_interested_stocks_code())
+
+    def add_deals(self, hdeals):
+        cdeals = {}
+        for deal in hdeals:
+            if deal['code'] in cdeals:
+                cdeals[deal['code']]['deals'].append(deal)
+            else :
+                cdeals[deal['code']] = {'deals': []}
+                cdeals[deal['code']]['deals'].append(deal)
+
+        astk = AllStocks()
+        stocks = astk.getAllStocks()
+        for k in cdeals.keys():
+            for _, c, *d in stocks:
+                if c == 'SH' + k or c == 'SZ' + k:
+                    cdeals[k]['code'] = c
+                    break
+
+        for k, v in cdeals.items():
+            if 'code' not in v:
+                self.add_unknown_code_deal(v['deals'])
+            else:
+                us = UserStock(self, v['code'])
+                us.add_deals(v['deals'])
+
+    def check_unknown_deals_table(self):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_unknown_deals_table()):
+            attrs = {
+                column_date:'varchar(20) DEFAULT NULL',
+                column_code:'varchar(10) DEFAULT NULL',
+                column_type:'varchar(10) DEFAULT NULL',
+                '委托编号':'varchar(10) DEFAULT NULL',
+                column_price:'double(16,4) DEFAULT NULL',
+                column_portion:'int DEFAULT NULL',
+                column_fee:'double(8,2) DEFAULT NULL',
+                '印花税':'double(8,2) DEFAULT NULL',
+                '过户费':'double(8,2) DEFAULT NULL'
+            }
+            constraint = 'PRIMARY KEY(`id`)'
+            sqldb.createTable(self.stocks_unknown_deals_table(), attrs, constraint)
+
+    def add_unknown_code_deal(self, deals):
+        '''
+        无法识别的成交记录，新股新债
+        '''
+        self.check_unknown_deals_table()
+        sqldb = self.stock_center_db()
+        values = []
+        attrs = [column_date, column_code, column_type, '委托编号', column_price, column_portion, column_fee, '印花税', '过户费']
+
+        for deal in deals:
+            values.append([deal['time'], deal['code'], deal['tradeType'], deal['sid'], deal['price'], deal['count'], deal['fee'], deal['feeYh'], deal['feeGh']])
+        sqldb.insertMany(self.stocks_unknown_deals_table(), attrs, values)
 
 class UserModel():
     def __init__(self):
