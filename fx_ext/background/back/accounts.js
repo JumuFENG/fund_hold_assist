@@ -266,7 +266,7 @@ class TradeClient {
 
     getFormData(code, price, count, tradeType) {
         var fd = this.getBasicFormData(code, price, count, tradeType);
-        fd.append('zqmc', emjyBack.stockMarket[code].name);
+        fd.append('zqmc', emjyBack.stockMarket[code].n);
         return fd;
     }
 
@@ -309,7 +309,7 @@ class TradeClient {
         fd.append('tradeType', tradeType);
         var market = stock.mkt == '0' ? 'SA' : 'HA';
         fd.append('market', market);
-        fd.append('stockName', stock.name);
+        fd.append('stockName', stock.n);
         fd.append('gddm', '');
         return fd;
     }
@@ -422,7 +422,7 @@ class CollatTradeClient extends TradeClient {
 
     getFormData(code, price, count, tradeType, jylx) {
         var fd = super.getBasicFormData(code, price, count, tradeType);
-        fd.append('stockName', emjyBack.stockMarket[code].name);
+        fd.append('stockName', emjyBack.stockMarket[code].n);
         fd.append('xyjylx', jylx); // 信用交易类型
         return fd;
     }
@@ -439,7 +439,7 @@ class CollatTradeClient extends TradeClient {
         fd.append('tradeType', tradeType);
         fd.append('xyjylx', jylx); // 信用交易类型
         fd.append('moneyType', 'RMB');
-        fd.append('stockName', stock.name);
+        fd.append('stockName', stock.n);
         var market = stock.mkt == '0' ? 'SA' : 'HA';
         fd.append('market', market);
         return fd;
@@ -687,7 +687,7 @@ class NormalAccount extends Account {
         var name = '';
         var market = '';
         if (emjyBack.stockMarket[code]) {
-            name = emjyBack.stockMarket[code].name;
+            name = emjyBack.stockMarket[code].n;
             market = emjyBack.getStockMarketHS(code);
         } else {
             emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code});

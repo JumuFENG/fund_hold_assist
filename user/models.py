@@ -527,6 +527,12 @@ class User():
         sd = StockDumps()
         return sd.get_his(self.get_interested_stocks_code())
 
+    def is_exist_in_allstocks(self, code):
+        sg = StockGeneral(self.stock_center_db(), code)
+        if not sg.name:
+            return False
+        return True
+
     def add_deals(self, hdeals):
         cdeals = {}
         for deal in hdeals:
@@ -536,17 +542,17 @@ class User():
                 cdeals[deal['code']] = {'deals': []}
                 cdeals[deal['code']]['deals'].append(deal)
 
-        astk = AllStocks()
-        stocks = astk.getAllStocks()
-        for k in cdeals.keys():
-            for _, c, *d in stocks:
-                if c == 'SH' + k or c == 'SZ' + k:
-                    cdeals[k]['code'] = c
-                    break
+        # astk = AllStocks()
+        # stocks = astk.getAllStocks()
+        # for k in cdeals.keys():
+        #     for _, c, *d in stocks:
+        #         if c == 'SH' + k or c == 'SZ' + k:
+        #             cdeals[k]['code'] = c
+        #             break
 
         updatefee = False
-        for k, v in cdeals.items():
-            if 'code' not in v:
+        for v in cdeals.values():
+            if self.is_exist_in_allstocks(v['code']):
                 self.add_unknown_code_deal(v['deals'])
             else:
                 us = UserStock(self, v['code'])

@@ -440,10 +440,10 @@ class Manager {
 
     getStockCode(name) {
         for (const code in this.stockMarket) {
-            if (this.stockMarket[code].name == name) {
+            if (this.stockMarket[code].n == name) {
                 return code;
             }
-            if (name.includes('ST') && ('*' + name == this.stockMarket[code].name || name == '*' + this.stockMarket[code].name)) {
+            if (name.includes('ST') && ('*' + name == this.stockMarket[code].n || name == '*' + this.stockMarket[code].n)) {
                 return code;
             }
         }
@@ -453,6 +453,9 @@ class Manager {
 
     stockEmLink(code) {
         if (this.stockMarket && this.stockMarket[code]) {
+            if (this.stockMarket[code].c) {
+                return emStockUrl + this.stockMarket[code].c.toLowerCase() + emStockUrlTail;
+            }
             return emStockUrl + (this.stockMarket[code].mkt == '0' ? 'sz' : 'sh') + code + emStockUrlTail;
         }
         return emStockUrl + (code.startsWith('00') ? 'sz' : 'sh') + code + emStockUrlTail;

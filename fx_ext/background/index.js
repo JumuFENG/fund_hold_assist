@@ -16,6 +16,24 @@ function xmlHttpPost(url, form, cb) {
     }
 }
 
+function xmlHttpGet(url, cb) {
+    var httpRequest = new XMLHttpRequest();//第一步：建立所需的对象
+    httpRequest.open('GET', url, true);//第二步：打开连接 
+    httpRequest.send();//第三步：发送请求 
+    /**
+     * 获取数据后的处理程序
+     */
+    httpRequest.onreadystatechange = function () {
+        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+            if (typeof(cb) === 'function') {
+                cb(httpRequest.responseText);
+            } else {
+                eval(httpRequest.responseText);
+            }
+        }
+    };
+}
+
 (function () {
     'use strict';
 

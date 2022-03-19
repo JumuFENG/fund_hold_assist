@@ -56,11 +56,32 @@ function queryStockInfo(code) {
     });
 }
 
+function getHQSecIdByCode(code){  // 300059 //1.300059
+    let i = code.substring(0, 1);
+    let k = code.substring(0, 2);
+    let j = code.substring(0, 3);
+    if (i == "5" || i == "6" || i == "9"){
+        //上证股票
+        return "1"
+    } else if(k.toLowerCase()=="bk"){
+        return "90"
+    }
+    if (code == "000300"){
+        //上证股票
+        return "1"
+    }
+    if (j == "009" || j == "126" || j == "110"){
+        //上证股票
+        return "1"
+    }
+    return "0"
+}
+
 function codeToSecid(code, market) {
     if (market !== undefined) {
         return (market == 'SH' ? '1.' : '0.') + code;
     };
-    return ((code.startsWith('00') || code.startsWith('30')) ? '0.' : '1.') + code;
+    return getHQSecIdByCode(code) + code;
 }
 
 function quoteSnapshot(code) {

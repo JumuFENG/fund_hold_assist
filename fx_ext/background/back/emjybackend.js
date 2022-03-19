@@ -448,12 +448,16 @@ class EmjyBack {
         }
 
         var postStockDeals = function(url, deals) {
+            deals.forEach(d => {
+                d.code = emjyBack.getLongStockCode(d.code);
+            });
             var dfd = new FormData();
             dfd.append('act', 'deals');
             dfd.append('data', JSON.stringify(deals));
             xmlHttpPost(url, dfd, p => {
                 emjyBack.log('upload deals to server,', p);
             });
+            emjyBack.clearCompletedDeals();
         }
 
         emjyBack.log('uploadHistDeals', JSON.stringify(deals));
@@ -465,6 +469,36 @@ class EmjyBack {
         } else {
             postStockDeals(url, deals)
         }
+    }
+
+    clearCompletedDeals() {
+        if (!this.savedDeals) {
+            this.getFromLocal('hist_deals', item => {
+                if (item && item['hist_deals']) {
+                    this.savedDeals = item['hist_deals'];
+                    this.clearCompletedDeals();
+                }
+            });
+            return;
+        }
+
+        var codes = new Set();
+        for (let i = 0; i < this.savedDeals.length; i++) {
+            codes.add((this.savedDeals[i].code));
+        }
+        var curDeals = [];
+        codes.forEach(c => {
+            var stk = this.normalAccount.getStock(c);
+            if (!stk) {
+                stk = this.collateralAccount.getStock(c);
+            }
+            if (stk && stk.holdCount > 0) {
+                curDeals.push.apply(curDeals, this.savedDeals.filter(d => d.code == c));
+            }
+        });
+        curDeals.sort((a, b) => a.time > b.time);
+        this.savedDeals = curDeals;
+        this.saveToLocal({'hist_deals': this.savedDeals});
     }
 
     trySellStock(code, price, count, account, cb) {
@@ -629,7 +663,7 @@ class EmjyBack {
         this.normalAccount.updateStockMarketInfo(sdata);
         this.collateralAccount.updateStockMarketInfo(sdata);
         var mkt = sdata.market == 'SH' ? 1 : 0;
-        this.stockMarket[sdata.code] = {name:sdata.name, mkt};
+        this.stockMarket[sdata.code] = {c: sdata.market + sdata.code, n:sdata.name, mkt};
         this.marketInfoUpdated = true;
     }
 
@@ -718,7 +752,23 @@ class EmjyBack {
         if (!stk) {
             return (code.startsWith('00') || code.startsWith('30')) ? 'SZ' : 'SH';
         }
+
+        if (stk.c) {
+            return stk.c.substring(0, 2);
+        }
         return stk.mkt == '0' ? 'SZ' : 'SH';
+    }
+
+    getLongStockCode(code) {
+        if (code.startsWith('S')) {
+            return code;
+        }
+
+        var stk = this.stockMarket[code];
+        if (stk && stk.c) {
+            return stk.c;
+        }
+        return this.getStockMarketHS(code) + code;
     }
 
     fetchStockKline(code, kltype, sdate) {
@@ -744,8 +794,21 @@ class EmjyBack {
     }
 
     fetchAllStocksMktInfo() {
-        this.fetchingBKstocks = new BkStocksMarketFetch();
-        this.fetchingBKstocks.fetchBkStcoks();
+        if (this.fha && this.fha.server) {
+            var url = this.fha.server + 'api/allstockinfo';
+            xmlHttpGet(url, mkt => {
+                var mktInfo = JSON.parse(mkt);
+                this.stockMarket = {};
+                for (var i = 0; i < mktInfo.length; ++i) {
+                    mktInfo[i].mkt = mktInfo[i].c.startsWith('SZ') ? '0' : '1';
+                    this.stockMarket[mktInfo[i].c.substring(2)] = mktInfo[i];
+                }
+                this.saveToLocal({'hsj_stocks': this.stockMarket});
+            });
+        } else {
+            this.fetchingBKstocks = new BkStocksMarketFetch();
+            this.fetchingBKstocks.fetchBkStcoks();
+        }
         this.log('fetch all stock market info!');
     }
 
@@ -960,6 +1023,19 @@ class EmjyBack {
             }
         });
     }
+
+    getBuyHist(code) {
+        if (!this.fha) {
+            return;
+        }
+
+        if (!this.fha.login) {
+            var url = this.fha.server + 'stock?act=buy&code=' + code;
+            xmlHttpGet(url, rsp => {
+                console.log(rsp);
+            });
+        }
+    }
 }
 
 class BkStocksFetch {
@@ -1002,11 +1078,12 @@ class BkStocksMarketFetch extends BkStocksFetch {
     updateBkStocks(message) {
         for (var i in message.data) {
             var code = message.data[i].f12;
-            var name = message.data[i].f14;
+            var n = message.data[i].f14;
             var mkt = message.data[i].f13;
+            var c = (mkt == '1'? 'SH': 'SZ') + code;
             if (!this.stocks.has(code)) {
                 this.stocks.add(code);
-                this.stockDetails[code] = {name, mkt};
+                this.stockDetails[code] = {c, n, mkt};
             }
         }
 
