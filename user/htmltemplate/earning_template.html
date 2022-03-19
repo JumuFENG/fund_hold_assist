@@ -1,0 +1,41 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            table {
+                border: solid 1px;
+                border-collapse: collapse;
+            }
+            table th {
+                border: solid 1px;
+            }
+            table td {
+                border: solid 1px lightgray;
+            }
+        </style>
+    </head>
+    <body>
+        <table>
+            <thead>
+                <th>日期</th>
+                <th>持仓成本</th>
+                <th>总市值</th>
+                <th>浮盈</th>
+                <th>实盈</th>
+                <th>总盈亏</th>
+                <th>当日盈亏</th>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{r[0]}</td>
+                    <td>{r[1]}</td>
+                    <td>{r[2]}</td>
+                    <td>{round(r[3], 2)}</td>
+                    <td>{r[4]}</td>
+                    <td>{round(r[5], 2)}</td>
+                    <td>{round(r[6], 2)}</td>
+                </tr>
+            </tbody>
+        </table>
+    </body>
+</html>

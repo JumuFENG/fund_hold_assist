@@ -329,6 +329,9 @@ class SqlHelper():
         ((result,),) = self.select("information_schema.columns","count(*)",["table_name = '%s'" % tablename, "column_name = '%s'" % column_name, "table_schema = '%s'" % self.database])
         return result and result != 0
 
+    def getCloumns(self, tablename):
+        return [c for c, in self.select("information_schema.columns","column_name",["table_name = '%s'" % tablename, "table_schema = '%s'" % self.database])]
+
     def addColumn(self, tablename, col, tp):
         sql = "alter table %s add %s %s" % (tablename, col, tp)
         self.executeCommit(sql)
@@ -336,3 +339,15 @@ class SqlHelper():
     def deleteColumn(self, tablename, col):
         sql = "alter table %s drop column %s" % (tablename, col)
         self.executeCommit(sql)
+
+    def sortTable(self, tablename, col):
+        cols = self.getCloumns(tablename)
+        cols.remove('id')
+        cols.remove(col)
+        cols.insert(0, col)
+        frecs = self.select(tablename, cols)
+        ids = self.select(tablename, 'id')
+        frecs = sorted(list(frecs), key=lambda x: x[0])
+        for i in range(0, len(ids)):
+            frecs[i] += ids[i]
+        self.updateMany(tablename, cols, ['id'], frecs)

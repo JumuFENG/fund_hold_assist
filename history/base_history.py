@@ -73,7 +73,7 @@ class HistoryDowloaderBase():
         if len(alldata) <= length:
             return alldata
 
-        return alldata[-length:-1]
+        return alldata[-length:]
 
 class HistoryFromSohu(HistoryDowloaderBase):
     """get history data from sohu api."""

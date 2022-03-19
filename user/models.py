@@ -41,6 +41,9 @@ class User():
     def stocks_earned_table(self):
         return f'u{self.id}_earned'
 
+    def stocks_earning_table(self):
+        return f'u{self.id}_earning'
+
     def stocks_unknown_deals_table(self):
         return f'u{self.id}_unknown_deals'
 
@@ -382,6 +385,97 @@ class User():
             totalEarned += earned
             sqldb.insert(self.stocks_earned_table(), {column_date: date, column_earned: str(earned), column_total_earned: str(totalEarned)})
 
+    def calc_earned(self, date = None):
+        '''
+        从买卖成交记录计算历史收益详情
+        '''
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_info_table()):
+            print("can not find stock info DB.")
+            return
+
+        codes = sqldb.select(self.stocks_info_table(), [column_code])
+        earndic = {}
+        for c, in codes:
+            us = UserStock(self, c)
+            cearn = us.get_each_sell_earned() if date is None else us.get_sell_earned_after(date)
+            if cearn is None:
+                continue
+            for k in cearn:
+                if k in earndic:
+                    earndic[k] += cearn[k]
+                else:
+                    earndic[k] = cearn[k]
+
+        date_conv = DateConverter()
+        for k in sorted(earndic.keys()):
+            self.set_earned(date_conv.date_by_delta(k), earndic[k])
+
+    def update_earned(self):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_earned_table()):
+            return
+
+        maxdate = sqldb.select(self.stocks_earned_table(), f"max({column_date})")
+        if maxdate is None or not len(maxdate) == 1:
+            maxdate = None
+        else:
+            (maxdate,), = maxdate
+
+        self.calc_earned(maxdate)
+
+    def update_earning(self):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_info_table()):
+            print("can not find stock info DB.")
+            return
+
+        codes = sqldb.select(self.stocks_info_table(), [column_code])
+
+        uss = {}
+        for (c, ) in codes:
+            us = UserStock(self, c)
+            if us.cost_hold > 0 or us.portion_hold > 0:
+                uss[c] = {'cost': us.cost_hold, 'ptn': us.portion_hold}
+
+        hcodes = [('0' if uc[0:2] == 'SH' else '1') + uc[2:] for uc in uss.keys()]
+        jcode = ','.join(hcodes)
+        quoteUrl = f'http://api.money.126.net/data/feed/{jcode},money.api?callback=_'
+        rsp = requests.get(quoteUrl)
+        rsp.raise_for_status()
+        lpobj = json.loads(rsp.content.decode('utf-8')[2:-2])
+        date = ''
+        for v in lpobj.values():
+            uss[v['type'] + v['symbol']]['price'] = v['price']
+            d = datetime.strptime(v['time'].split()[0], '%Y/%m/%d').strftime('%Y-%m-%d')
+            if d != date:
+                date = d
+        cost = 0
+        value = 0
+        for v in uss.values():
+            cost += v['cost']
+            value += v['ptn'] * float(v['price'])
+
+        if not sqldb.isExistTable(self.stocks_earning_table()):
+            attrs = {column_date:'varchar(20) DEFAULT NULL',column_cost:'double(16,2) DEFAULT NULL', '市值':'double(16,2) DEFAULT NULL'}
+            constraint = 'PRIMARY KEY(`id`)'
+            sqldb.createTable(self.stocks_earning_table(), attrs, constraint)
+            sqldb.insert(self.stocks_earning_table(), {column_date: date, column_cost:str(cost), '市值':str(value)})
+        else:
+            lastEarned = sqldb.select(self.stocks_earning_table(), [column_date], order = ' ORDER BY %s DESC LIMIT 1' % column_date)
+            if lastEarned is None or len(lastEarned) == 0:
+                sqldb.insert(self.stocks_earning_table(), {column_date: date, column_cost:str(cost), '市值':str(value)})
+                return
+            (dt,), = lastEarned
+            if dt > date:
+                print('can not set earning for date earlier than', dt)
+                return
+            if dt == date:
+                print('earned already exists:', dt)
+                sqldb.update(self.stocks_earning_table(), {column_cost: cost, '市值':value}, {column_date: date})
+                return
+            sqldb.insert(self.stocks_earning_table(), {column_date: date, column_cost:str(cost), '市值':str(value)})
+
     def get_earned_arr(self, all_earned, days = 0):
         startIdx = 0
         if days > 0:
@@ -450,12 +544,18 @@ class User():
                     cdeals[k]['code'] = c
                     break
 
+        updatefee = False
         for k, v in cdeals.items():
             if 'code' not in v:
                 self.add_unknown_code_deal(v['deals'])
             else:
                 us = UserStock(self, v['code'])
                 us.add_deals(v['deals'])
+                if not updatefee:
+                    updatefee = 'fee' in v['deals'][0]
+
+        if updatefee:
+            self.update_earned()
 
     def check_unknown_deals_table(self):
         sqldb = self.stock_center_db()
@@ -486,6 +586,76 @@ class User():
         for deal in deals:
             values.append([deal['time'], deal['code'], deal['tradeType'], deal['sid'], deal['price'], deal['count'], deal['fee'], deal['feeYh'], deal['feeGh']])
         sqldb.insertMany(self.stocks_unknown_deals_table(), attrs, values)
+
+    def get_stocks_earning_static_html(self):
+        sqldb = self.stock_center_db()
+        earnedrecs = list(sqldb.select(self.stocks_earned_table(), [column_date, column_earned, column_total_earned]))
+        earningrecs = list(sqldb.select(self.stocks_earning_table(), [column_date, column_cost, '市值']))
+        earningrecs.reverse()
+        statstable = []
+        earned = earnedrecs.pop()
+        for d, c, v in earningrecs:
+            if earned[0] > d:
+                earned = earnedrecs.pop()
+            statstable.append([d, c, v, v - c, earned[2], v + earned[2] - c])
+
+        for i in range(0, len(statstable) - 1):
+            statstable[i].append(statstable[i][5] - statstable[i + 1][5])
+
+        if len(statstable) > 0:
+            statstable[-1].append(0)
+
+        while len(earnedrecs) > 0:
+            statstable.append([earned[0], 0, 0, 0, earned[1], earned[2], 0])
+            earned = earnedrecs.pop()
+
+        ehtml = '''<html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            table {
+                border: solid 1px;
+                border-collapse: collapse;
+            }
+            table th {
+                border: solid 1px;
+            }
+            table td {
+                border: solid 1px lightgray;
+            }
+        </style>
+    </head>
+    <body>
+        <table>
+            <thead>
+                <th>日期</th>
+                <th>持仓成本</th>
+                <th>总市值</th>
+                <th>浮盈</th>
+                <th>实盈</th>
+                <th>总盈亏</th>
+                <th>当日盈亏</th>
+            </thead>
+            <tbody>'''
+ 
+        for r in statstable:
+            ehtml += f'''
+                <tr>
+                    <td>{r[0]}</td>
+                    <td>{r[1]}</td>
+                    <td>{r[2]}</td>
+                    <td>{round(r[3], 2)}</td>
+                    <td>{r[4]}</td>
+                    <td>{round(r[5], 2)}</td>
+                    <td>{round(r[6], 2)}</td>
+                </tr>'''
+        ehtml +='''
+            </tbody>
+        </table>
+    </body>
+</html>
+'''
+        return ehtml
 
 class UserModel():
     def __init__(self):

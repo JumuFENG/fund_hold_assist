@@ -28,6 +28,8 @@ class Holiday():
 
 class DateConverter():
     def days_since_2000(self, date):
+        if ' ' in date:
+            date = date.split(' ')[0]
         d = datetime.strptime("2000-01-01", "%Y-%m-%d")
         if isinstance(date, str):
             dt = datetime.strptime(date, "%Y-%m-%d")

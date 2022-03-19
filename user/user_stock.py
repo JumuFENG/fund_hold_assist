@@ -115,24 +115,86 @@ class UserStock():
         if not sg.name:
             stocks.loadInfo(self.code)
 
+    def _fix_buy_sell_portion(self, buys, sells):
+        portion = Decimal(0)
+        cost = Decimal(0)
+        sells = None if sells is None else list(sells)
+        remsell = None
+        soldcost = 0
+        for (bid, bdate, bprice, bportion, bsoldportion, bcost) in buys:
+            if bcost is None:
+                binfo = {column_cost: Decimal(str(bprice * bportion))}
+                self.sqldb.update(self.buy_table, binfo, {'id':f'{bid}'})
+
+            rembportion = bportion
+            while rembportion > 0:
+                if remsell is None or remsell[3] == 0:
+                    if remsell is not None and soldcost > 0:
+                        sinfo = self._get_sell_info({column_cost_sold: str(Decimal(soldcost)), column_money_sold:remsell[4]})
+                        self.sqldb.update(self.sell_table, sinfo, {'id':f'{remsell[0]}'})
+                    soldcost = 0
+                    if sells is None or len(sells) == 0:
+                        break
+                    remsell = list(sells.pop(0))
+                    (sid, sdate, sprice, sportion, smoney) = remsell
+                    remsell[4] = Decimal(sprice) * Decimal(sportion)
+
+                (sid, sdate, sprice, sportion, smoney) = remsell
+                if sportion >= rembportion:
+                    binfo = {column_sold_portion: str(bportion), column_soldout:'1'}
+                    self.sqldb.update(self.buy_table, binfo, {'id':f'{bid}'})
+                    if sportion == rembportion:
+                        remsell[3] = 0
+                    else:
+                        remsell = list(remsell)
+                        remsell[3] = sportion - rembportion
+                    soldcost += (rembportion * bprice)
+                    rembportion = 0
+                    break
+                else:
+                    remsell[3] = 0
+                    soldcost += (sportion * bprice)
+                    rembportion -= sportion
+
+            if rembportion > 0:
+                if bportion > rembportion:
+                    binfo = {column_sold_portion: str(bportion - rembportion)}
+                    self.sqldb.update(self.buy_table, binfo, {'id':f'{bid}'})
+
+                portion += rembportion
+                cost += Decimal(rembportion * bprice)
+
+        if remsell is not None and remsell[3] == 0 and soldcost > 0:
+            sinfo = self._get_sell_info({column_cost_sold: str(Decimal(soldcost)), column_money_sold: remsell[4]})
+            self.sqldb.update(self.sell_table, sinfo, {'id':f'{remsell[0]}'})
+            soldcost = 0
+        if remsell is not None and remsell[3] > 0:
+            portion -= remsell[3]
+        if sells is not None:
+            for sr in sells:
+                portion -= sr[3]
+
+        average = (cost/portion).quantize(Decimal("0.0000")) if not portion == 0 else 0
+        newinfo = {column_cost_hold:str(cost), column_portion_hold:str(portion), column_averagae_price:str(average)}
+        if portion > 0:
+            newinfo[column_keepeyeon] = '1'
+
+        self.sqldb.update(self.stocks_table, newinfo, {column_code: self.code})
+
     def fix_cost_portion_hold(self):
         if not self.sqldb.isExistTable(self.buy_table):
             print("UserStock.fix_cost_portion_hold", self.buy_table, "not exists.")
             return
 
-        buy_rec =self.sqldb.select(self.buy_table, [column_price, column_portion, column_sold_portion], "%s = 0" % column_soldout)
-        if buy_rec is not None:
-            portion = Decimal(0)
-            cost = Decimal(0)
-            for (pr, p, sp) in buy_rec:
-                portion += Decimal(str(p)) - Decimal(str(sp))
-                cost += Decimal(pr) * (Decimal(str(p)) - Decimal(str(sp)))
+        buy_rec = self.sqldb.select(self.buy_table, ['id', column_date, column_price, column_portion, column_sold_portion, column_cost])
+        if buy_rec is None or len(buy_rec) == 0:
+            return
 
-            average = (cost/portion).quantize(Decimal("0.0000")) if not portion == 0 else 0
-            newinfo = {column_cost_hold:str(cost), column_portion_hold:str(portion), column_averagae_price:str(average)}
-            if portion > 0:
-                newinfo[column_keepeyeon] = '1'
-            self.sqldb.update(self.stocks_table, newinfo, {column_code: self.code})
+        sell_rec = None
+        if self.sqldb.isExistTable(self.sell_table):
+            sell_rec = self.sqldb.select(self.sell_table, ['id', column_date, column_price, column_portion, column_money_sold])
+
+        self._fix_buy_sell_portion(buy_rec, sell_rec)
 
     def update_rollin(self, portion, rid):
         rolled_in = self.sqldb.select(self.sell_table, [column_portion, column_rolled_in, column_roll_in_value], "id = '%s'" % str(rid))
@@ -193,7 +255,7 @@ class UserStock():
             return
 
         nb = {}
-        (i, nb[column_date], nb[column_portion], nb[column_price], nb[column_cost], s, sp), = buy_rec
+        (i, nb[column_date], nb[column_portion], nb[column_price], nb[column_cost], s, sp, sid, sxf, yh, gh), = buy_rec
         if price:
             nb[column_price] = price
         if portion:
@@ -275,16 +337,21 @@ class UserStock():
 
         self.fix_cost_portion_hold()
 
+    def _get_sell_info(self, ns):
+        ns[column_earned] = float(ns[column_money_sold]) - float(ns[column_cost_sold])
+        ns[column_return_percentage] = float(ns[column_earned]) / float(ns[column_cost_sold])
+        return ns
+
     def fix_sell(self, id, price, portion = None, cost = None, date = None):
         if not self.sqldb.isExistTable(self.sell_table):
             return
 
-        sell_rec = self.sqldb.select(self.sell_table, [column_date, column_portion, column_price, column_cost_sold], conds = "id = '%s'" % str(id))
+        sell_rec = self.sqldb.select(self.sell_table, ['id', column_date, column_price, column_portion, column_money_sold, column_cost_sold], conds = "id = '%s'" % str(id))
         if not sell_rec:
             print("no sell record found, use UserStock.sell() instead.")
             return
         ns = {}
-        (ns[column_date], ns[column_portion], ns[column_price], ns[column_cost_sold]), = sell_rec
+        (_, ns[column_date], ns[column_price], ns[column_portion], _, ns[column_cost_sold]), = sell_rec
         if price:
             ns[column_price] = price
         if portion:
@@ -294,8 +361,7 @@ class UserStock():
         if date:
             ns[column_date] = date
         ns[column_money_sold] = int(ns[column_portion]) * float(ns[column_price]) * (1 - float(self.fee))
-        ns[column_earned] = float(ns[column_money_sold]) - float(ns[column_cost_sold])
-        ns[column_return_percentage] = float(ns[column_earned]) / float(ns[column_cost_sold])
+        ns = self._get_sell_info(ns)
 
         self.sqldb.update(self.sell_table, ns, {'id':str(id)})
 
@@ -349,7 +415,7 @@ class UserStock():
         values = []
         date_conv = DateConverter()
         dtoday = datetime.now().strftime("%Y-%m-%d")
-        for (i,d,p,pr,c,s,sp) in buy_rec:
+        for (i,d,p,pr,c,s,sp,sid,sxf,yh,gh) in buy_rec:
             if d == dtoday or s == 0:
                 values.append({'id':i, 'date': date_conv.days_since_2000(d), 'price':pr, 'cost':c, 'ptn': p - sp, 'sold': s})
         return values
@@ -362,15 +428,99 @@ class UserStock():
         sg = StockGeneral(self.sqldb, self.code)
         sell_rec = self.sqldb.select(self.sell_table, '*')
         date_conv = DateConverter()
-        for (i, d, p, pr, m, c, e, per, r, np) in sell_rec:
+        for (i, d, p, pr, m, c, e, per, r, np, sid, sxf, yh, gh) in sell_rec:
             if not r:
                 r = 0
             to_rollin = p - r
             max_price_to_buy = np if np else None
             if to_rollin > 0 and not max_price_to_buy:
                 max_price_to_buy = round(pr * (1 - sg.short_term_rate), 4)
+            fee = 0 if sxf is None else sxf
+            fee += 0 if yh is None else yh
+            fee += 0 if gh is None else gh
             values.append({'id':i, 'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'cost': c})
         return values
+
+    def _sell_earned_by_day(self, buys, sells):
+        rembuy = None
+        earndic = {}
+        for s in sells:
+            if s['date'] not in earndic:
+                earndic[s['date']] = 0
+
+            remsold = s['ptn']
+            earned = s['ptn'] * s['price'] - s['fee']
+            while remsold > 0:
+                if rembuy is None or rembuy['ptn'] == 0:
+                    rembuy = buys.pop(0)
+                if remsold >= rembuy['ptn']:
+                    earned -= rembuy['fee']
+                    earned -= rembuy['ptn'] * rembuy['price']
+                    remsold -= rembuy['ptn']
+                    rembuy = None
+                else:
+                    earned -= remsold * rembuy['price']
+                    rembuy['ptn'] -= remsold
+                    remsold = 0
+                if remsold == 0:
+                    earndic[s['date']] += earned
+        return earndic
+
+    def get_sell_earned_after(self, date):
+        if not self.sell_table or not self.sqldb.isExistTable(self.sell_table):
+            return None
+
+        if not self.buy_table or not self.sqldb.isExistTable(self.buy_table):
+            return None
+
+        sell_rec = self.sqldb.select(self.sell_table, [column_date, column_portion, column_price, column_fee, '印花税', '过户费'], f'{column_date} > {date}')
+        if sell_rec is None or len(sell_rec) == 0:
+            return None
+
+        sells = []
+        date_conv = DateConverter()
+        for (d, p, pr, sxf, yh, gh) in sell_rec:
+            fee = 0 if sxf is None else sxf
+            fee += 0 if yh is None else yh
+            fee += 0 if gh is None else gh
+            sells.append({'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'fee': fee})
+
+        buy_rec = self.sqldb.select(self.buy_table, [column_date, column_portion, column_price, column_sold_portion, column_fee, '印花税', '过户费'], f'{column_soldout} = 0')
+        buys = []
+        for (d,p,pr,sp,sxf,yh,gh) in buy_rec:
+            fee = 0 if sxf is None else sxf
+            fee += 0 if yh is None else yh
+            fee += 0 if gh is None else gh
+            buys.append({'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p - sp, 'fee': fee})
+        return self._sell_earned_by_day(buys, sells)
+
+    def get_each_sell_earned(self):
+        if not self.sell_table or not self.sqldb.isExistTable(self.sell_table):
+            return None
+
+        if not self.buy_table or not self.sqldb.isExistTable(self.buy_table):
+            return None
+
+        sells = []
+        sell_rec = self.sqldb.select(self.sell_table, [column_date, column_portion, column_price, column_fee, '印花税', '过户费'])
+        if sell_rec is None:
+            return None
+
+        date_conv = DateConverter()
+        for (d, p, pr, sxf, yh, gh) in sell_rec:
+            fee = 0 if sxf is None else sxf
+            fee += 0 if yh is None else yh
+            fee += 0 if gh is None else gh
+            sells.append({'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'fee': fee})
+
+        buy_rec = self.sqldb.select(self.buy_table, [column_date, column_portion, column_price, column_fee, '印花税', '过户费'])
+        buys = []
+        for (d,p,pr,sxf,yh,gh) in buy_rec:
+            fee = 0 if sxf is None else sxf
+            fee += 0 if yh is None else yh
+            fee += 0 if gh is None else gh
+            buys.append({'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'fee': fee})
+        return self._sell_earned_by_day(buys, sells)
 
     def get_cost_sold_stats(self, sell_recs):
         if sell_recs is None or len(sell_recs) == 0:
@@ -395,6 +545,7 @@ class UserStock():
 
         stock_stats_obj["name"] = sg.name
         stock_stats_obj["cost"] = self.cost_hold
+        stock_stats_obj['ptn'] = self.portion_hold
         
         sell_recs = self.sqldb.select(self.sell_table, [column_money_sold, column_cost_sold])
         stock_stats_obj["cs"] = self.get_cost_sold_stats(sell_recs)
@@ -458,3 +609,19 @@ class UserStock():
                 self.setup_selltable()
 
             self._add_or_update_deals(self.sell_table, svalues)
+
+        buy_rec = self.sqldb.select(self.buy_table, ['id', column_date, column_price, column_portion, column_sold_portion, column_cost], f'{column_soldout} = 0')
+        if buy_rec is None or len(buy_rec) == 0:
+            return
+
+        sell_rec = None
+        if self.sqldb.isExistTable(self.sell_table):
+            sell_rec = self.sqldb.select(self.sell_table, ['id', column_date, column_price, column_portion, column_money_sold], f'{column_cost_sold} is NULL')
+
+        self._fix_buy_sell_portion(buy_rec, sell_rec)
+
+    def sort_buysell(self):
+        if self.sqldb.isExistTable(self.buy_table):
+            self.sqldb.sortTable(self.buy_table, column_date)
+        if self.sqldb.isExistTable(self.sell_table):
+            self.sqldb.sortTable(self.sell_table, column_date)

@@ -5,12 +5,16 @@ import sys
 import os
 sys.path.insert(0, os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/..'))
 from datetime import datetime, timedelta
+from threading import Timer
+import time
 import json
 
 from rest_app.daily_update import DailyUpdater
 from rest_app.weekly_update import WeeklyUpdater
 from rest_app.monthly_update import MonthlyUpdater
 from history.stock_history import *
+from user.models import *
+from user.user_stock import *
 
 startuplogfile = os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/startuptasks.log')
 perCount = 200
@@ -57,9 +61,19 @@ def monthly_should_run(lastrun, now):
 
     return False
 
+def trade_closed_task():
+    dnow = datetime.now()
+    print('trade_closed_task', dnow.strftime(f"%Y-%m-%d %H:%M:%s"))
+    um = UserModel()
+    user = um.user_by_id(11)
+    user.update_earning()
+    ehtml = user.get_stocks_earning_static_html()
+    with open(earning_cloud_file, 'w') as f:
+        f.write(ehtml)
 
 if __name__ == '__main__':
     dnow = datetime.now()
+    time.sleep(10)
     print('startuptasks', dnow.strftime(f"%Y-%m-%d %H:%M"))
     retry = 0
     while True:
@@ -119,3 +133,8 @@ if __name__ == '__main__':
     if anyrun:
         with open(startuplogfile, 'w') as cfgfile:
             json.dump(startconfig, cfgfile)
+
+    if dnow.weekday() < 5 and dnow.hour < 15:
+        secs = (datetime.strptime(dnow.strftime('%Y-%m-%d') + ' 15:01', '%Y-%m-%d %H:%M') - dnow).seconds
+        ttask = Timer(secs, trade_closed_task)
+        ttask.start()
