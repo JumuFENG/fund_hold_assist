@@ -218,6 +218,34 @@ class KLine {
         };
     }
 
+    singleTd(kl, k4, td) {
+        var rtd = td;
+        if (kl.c - k4.c > 0) {
+            if (td >= 0) {
+                rtd += 1;
+            } else {
+                rtd = 0;
+            }
+        } else if (kl.c - k4.c < 0) {
+            if (td <= 0) {
+                rtd -= 1;
+            } else {
+                rtd = 0;
+            }
+        }
+        return rtd;
+    }
+
+    calcKlineTd(klines) {
+        for (var i = 0; i < klines.length; ++i) {
+            if (i < 4) {
+                klines[i].td = 0;
+                continue;
+            }
+            klines[i].td = this.singleTd(klines[i], klines[i - 4], klines[i - 1].td);
+        }
+    }
+
     incompleteMA(klines, kl, len) {
         var ma = parseFloat(kl.c);
         if (klines.length < len - 1) {
@@ -232,6 +260,16 @@ class KLine {
         return ma / len;
     }
 
+    incompleteTd(klines, kl) {
+        if (klines.length < 4) {
+            return 0;
+        }
+
+        var td = klines[klines.length - 1].td;
+        var k4 = klines[klines.length - 4];
+        return this.singleTd(kl, k4, td);
+    }
+
     calcIncompleteKlineMA() {
         for (var kltype in this.incompleteKline) {
             var kl = this.incompleteKline[kltype];
@@ -243,12 +281,18 @@ class KLine {
                 this.incompleteKline[kltype].ma5 = kl.c;
                 this.incompleteKline[kltype].ma18 = kl.c;
                 this.incompleteKline[kltype].bss18 = 'u';
+                this.incompleteKline[kltype].td = 0;
             } else {
                 kl.ma5 = this.incompleteMA(klines, kl, 5);
                 kl.ma18 = this.incompleteMA(klines, kl, 18);
                 this.incompleteKline[kltype].ma5 = kl.ma5;
                 this.incompleteKline[kltype].ma18 = kl.ma18;
                 this.incompleteKline[kltype].bss18 = this.getBss18(klines[klines.length - 1], kl);
+                if (klines.length < 4) {
+                    this.incompleteKline[kltype].td = 0;
+                } else {
+                    this.incompleteKline[kltype].td = this.singleTd(this.incompleteKline[kltype], klines[klines.length - 4], klines[klines.length - 1].td);
+                }
             };
         };
     }
@@ -284,6 +328,11 @@ class KLine {
                 k.ma18 = (sum18 / len18).toFixed(3);
 
                 k.bss18 = this.getBss18(klines[klines.length - 1], k);
+                if (klines.length < 4) {
+                    k.td = 0;
+                } else {
+                    k.td = this.singleTd(k, klines[klines.length - 4], klines[klines.length - 1].td);
+                }
                 klines.push(k);
             };
         });
@@ -353,6 +402,7 @@ class KLine {
         if (this.klines[kltype] === undefined || this.klines[kltype].length == 0) {
             this.klines[kltype] = klines;
             this.calcKlineMA(this.klines[kltype]);
+            this.calcKlineTd(this.klines[kltype]);
         } else {
             this.appendKlines(this.klines[kltype], klines);
         };
@@ -615,12 +665,16 @@ class KLine {
         }
 
         var nKlines = this.klines[kltype];
+        var hcount = 0;
         if (nKlines && nKlines.length > 0) {
             var low = nKlines[nKlines.length - 1].l;
             for (let i = nKlines.length - 1; i > 0; i--) {
                 const kl = nKlines[i];
-                if (kl.bss18 == 's') {
-                    break;
+                if (kl.bss18 == 'h') {
+                    hcount++
+                    if (hcount > 3) {
+                        break;
+                    }
                 }
                 if (kl.l - low < 0) {
                     low = kl.l;
