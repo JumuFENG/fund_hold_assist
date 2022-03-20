@@ -200,21 +200,6 @@ class BuyDetail {
         return -count;
     }
 
-    getMinBuyPrice() {
-        var buyrec = this.buyRecords();
-        if (!buyrec || buyrec.length == 0) {
-            return 0;
-        }
-
-        var pmin = buyrec[0].price;
-        for (let i = 1; i < buyrec.length; i++) {
-            if (buyrec[i].price - pmin < 0) {
-                pmin = buyrec[i].price;
-            }
-        }
-        return pmin;
-    }
-
     updateBuyDetail(sid, price, count) {
         if (!this.records) {
             if (count != 0) {

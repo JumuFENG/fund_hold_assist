@@ -108,6 +108,7 @@ class KLine {
     }
 
     latestKlineDrawback(kltype) {
+        // 上影线比例
         var kl = this.getIncompleteKline(kltype);
         var prevId = this.klines[kltype].length - 1;
         if (!kl) {
