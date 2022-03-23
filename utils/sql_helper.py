@@ -202,9 +202,8 @@ class SqlHelper():
         consql = ' '
         if cond_dict!='':
             for k, v in cond_dict.items():
-                if isinstance(v, str):
-                    v = "\'" + v + "\'"
-                consql = consql + tablename + "." + k + '=' + v + ' and '
+                v = "\'" + str(v) + "\'"
+                consql = consql + tablename + "." + str(k) + '=' + v + ' and '
         consql = consql + ' 1=1 '
         sql = "DELETE FROM %s where%s" % (tablename, consql)
         #print (sql)

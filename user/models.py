@@ -47,8 +47,19 @@ class User():
     def stocks_unknown_deals_table(self):
         return f'u{self.id}_unknown_deals'
 
+    def stocks_archived_deals_table(self):
+        return f'u{self.id}_archived_deals'
+
     def to_string(self):
         return f'id: {self.id} name: {self.name} email: {self.email}'
+
+    def _all_user_stocks(self):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_info_table()):
+            print("can not find stock info DB.")
+            return ()
+
+        return tuple([c for c, in sqldb.select(self.stocks_info_table(), [column_code])])
 
     def add_budget(self, code, budget, date = ""):
         uf = UserFund(self, code)
@@ -290,15 +301,9 @@ class User():
         return fund_stats
 
     def get_holding_stocks_summary(self):
-        sqldb = self.stock_center_db()
-        if not sqldb.isExistTable(self.stocks_info_table()):
-            print("can not find stock info DB.")
-            return {}
-
-        codes = sqldb.select(self.stocks_info_table(), [column_code])
-
+        codes = self._all_user_stocks()
         stocks_json = {}
-        for (c, ) in codes:
+        for c in codes:
             us = UserStock(self, c)
             stock_json_obj = None
             if us.still_hold() and us.keep_eye_on:
@@ -327,16 +332,19 @@ class User():
 
         sqldb.update(self.stocks_info_table(), {column_keepeyeon:str(0)}, {column_code: str(code)})
 
-    def get_stocks_stats(self):
+    def forget_stocks(self):
         sqldb = self.stock_center_db()
-        if not sqldb.isExistTable(self.stocks_info_table()):
-            print("can not find stock info DB.")
-            return {}
+        if not sqldb.isExistTable(self.stocks_earned_table()):
+            return
 
-        stock_codes = sqldb.select(self.stocks_info_table(), [column_code])
+        codes = sqldb.select(self.stocks_info_table(), [column_code], f'{column_portion_hold} = 0 and {column_keepeyeon} = 1')
+        for c, in codes:
+            sqldb.update(self.stocks_info_table(), {column_keepeyeon:str(0)}, {column_code: str(c)})
 
+    def get_stocks_stats(self):
+        stock_codes = self._all_user_stocks()
         stock_stats = {}
-        for (c, ) in stock_codes:
+        for c in stock_codes:
             us = UserStock(self, c)
             stock_stats_obj = None
             if us.ever_hold():
@@ -389,14 +397,9 @@ class User():
         '''
         从买卖成交记录计算历史收益详情
         '''
-        sqldb = self.stock_center_db()
-        if not sqldb.isExistTable(self.stocks_info_table()):
-            print("can not find stock info DB.")
-            return
-
-        codes = sqldb.select(self.stocks_info_table(), [column_code])
+        codes = self._all_user_stocks()
         earndic = {}
-        for c, in codes:
+        for c in codes:
             us = UserStock(self, c)
             cearn = us.get_each_sell_earned() if date is None else us.get_sell_earned_after(date)
             if cearn is None:
@@ -416,24 +419,12 @@ class User():
         if not sqldb.isExistTable(self.stocks_earned_table()):
             return
 
-        maxdate = sqldb.select(self.stocks_earned_table(), f"max({column_date})")
-        if maxdate is None or not len(maxdate) == 1:
-            maxdate = None
-        else:
-            (maxdate,), = maxdate
-
-        self.calc_earned(maxdate)
+        self.calc_earned()
 
     def update_earning(self):
-        sqldb = self.stock_center_db()
-        if not sqldb.isExistTable(self.stocks_info_table()):
-            print("can not find stock info DB.")
-            return
-
-        codes = sqldb.select(self.stocks_info_table(), [column_code])
-
+        codes = self._all_user_stocks()
         uss = {}
-        for (c, ) in codes:
+        for c in codes:
             us = UserStock(self, c)
             if us.cost_hold > 0 or us.portion_hold > 0:
                 uss[c] = {'cost': us.cost_hold, 'ptn': us.portion_hold}
@@ -456,6 +447,7 @@ class User():
             cost += v['cost']
             value += v['ptn'] * float(v['price'])
 
+        sqldb = self.stock_center_db()
         if not sqldb.isExistTable(self.stocks_earning_table()):
             attrs = {column_date:'varchar(20) DEFAULT NULL',column_cost:'double(16,2) DEFAULT NULL', '市值':'double(16,2) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
@@ -501,7 +493,7 @@ class User():
                 total = t
                 earned_obj['tot'] = total
             earr.append({'dt':date_conv.days_since_2000(d), 'ed':e})
-        earned_obj['e_a'] = earr;
+        earned_obj['e_a'] = earr
         return earned_obj
 
     def get_earned(self, days):
@@ -542,26 +534,19 @@ class User():
                 cdeals[deal['code']] = {'deals': []}
                 cdeals[deal['code']]['deals'].append(deal)
 
-        # astk = AllStocks()
-        # stocks = astk.getAllStocks()
-        # for k in cdeals.keys():
-        #     for _, c, *d in stocks:
-        #         if c == 'SH' + k or c == 'SZ' + k:
-        #             cdeals[k]['code'] = c
-        #             break
-
         updatefee = False
-        for v in cdeals.values():
-            if self.is_exist_in_allstocks(v['code']):
+        for k, v in cdeals.items():
+            if not self.is_exist_in_allstocks(k):
                 self.add_unknown_code_deal(v['deals'])
             else:
-                us = UserStock(self, v['code'])
+                us = UserStock(self, k)
                 us.add_deals(v['deals'])
                 if not updatefee:
                     updatefee = 'fee' in v['deals'][0]
 
+        self.update_earned()
         if updatefee:
-            self.update_earned()
+            self.forget_stocks()
 
     def check_unknown_deals_table(self):
         sqldb = self.stock_center_db()
@@ -590,8 +575,53 @@ class User():
         attrs = [column_date, column_code, column_type, '委托编号', column_price, column_portion, column_fee, '印花税', '过户费']
 
         for deal in deals:
-            values.append([deal['time'], deal['code'], deal['tradeType'], deal['sid'], deal['price'], deal['count'], deal['fee'], deal['feeYh'], deal['feeGh']])
-        sqldb.insertMany(self.stocks_unknown_deals_table(), attrs, values)
+            if 'fee' in deal:
+                values.append([deal['time'], deal['code'], deal['tradeType'], deal['sid'], deal['price'], deal['count'], deal['fee'], deal['feeYh'], deal['feeGh']])
+
+        if len(values) > 0:
+            sqldb.insertMany(self.stocks_unknown_deals_table(), attrs, values)
+
+    def add_to_archive_deals_table(self, values):
+        sqldb = self.stock_center_db()
+        cols = [column_code, column_date, column_type, column_portion, column_price, column_fee, '印花税', '过户费', '委托编号']
+        if not sqldb.isExistTable(self.stocks_archived_deals_table()):
+            attrs = {
+                column_code:'varchar(10) DEFAULT NULL',
+                column_date:'varchar(20) DEFAULT NULL',
+                column_type:'varchar(10) DEFAULT NULL',
+                column_portion:'int DEFAULT NULL',
+                column_price:'double(16,4) DEFAULT NULL',
+                column_fee:'double(8,2) DEFAULT NULL',
+                '印花税':'double(8,2) DEFAULT NULL',
+                '过户费':'double(8,2) DEFAULT NULL',
+                '委托编号':'varchar(10) DEFAULT NULL'
+            }
+            constraint = 'PRIMARY KEY(`id`)'
+            sqldb.createTable(self.stocks_archived_deals_table(), attrs, constraint)
+            sqldb.insertMany(self.stocks_archived_deals_table(), cols, values)
+        else:
+            newval = []
+            for d in values:
+                ad = sqldb.select(self.stocks_archived_deals_table(), ['id', column_portion], [f'{column_code}="{d[0]}"', f'{column_date}="{d[1]}"', f'{column_type}="{d[2]}"',f'委托编号="{d[8]}"'])
+                if ad is None or len(ad) == 0:
+                    newval.append(d)
+                else:
+                    sqldb.update(self.stocks_archived_deals_table(), {column_portion: ad[0][1] + d[3]}, {'id':ad[0][0]})
+            if len(newval) > 0:
+                sqldb.insertMany(self.stocks_archived_deals_table(), cols, newval)
+
+    def archive_deals(self, edate):
+        codes = self._all_user_stocks()
+        consumed = ()
+        for c in codes:
+            us = UserStock(self, c)
+            ucsmd = us.deals_before(edate)
+            if len(ucsmd) > 0:
+                consumed += ucsmd
+                us.remove_empty_table()
+
+        if len(consumed) > 0:
+            self.add_to_archive_deals_table(consumed)
 
     def get_stocks_earning_static_html(self):
         sqldb = self.stock_center_db()

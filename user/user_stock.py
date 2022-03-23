@@ -473,17 +473,23 @@ class UserStock():
         if not self.buy_table or not self.sqldb.isExistTable(self.buy_table):
             return None
 
-        sell_rec = self.sqldb.select(self.sell_table, [column_date, column_portion, column_price, column_fee, '印花税', '过户费'], f'{column_date} > {date}')
+        date = (datetime.strptime(date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
+        sell_rec = self.sqldb.select(self.sell_table, [column_date, column_portion, column_price, column_fee, '印花税', '过户费'], f'{column_date} > "{date}"')
         if sell_rec is None or len(sell_rec) == 0:
             return None
 
         sells = []
         date_conv = DateConverter()
         for (d, p, pr, sxf, yh, gh) in sell_rec:
+            if (d < date):
+                continue
             fee = 0 if sxf is None else sxf
             fee += 0 if yh is None else yh
             fee += 0 if gh is None else gh
             sells.append({'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'fee': fee})
+
+        if len(sells) == 0:
+            return None
 
         buy_rec = self.sqldb.select(self.buy_table, [column_date, column_portion, column_price, column_sold_portion, column_fee, '印花税', '过户费'], f'{column_soldout} = 0')
         buys = []
@@ -625,3 +631,60 @@ class UserStock():
             self.sqldb.sortTable(self.buy_table, column_date)
         if self.sqldb.isExistTable(self.sell_table):
             self.sqldb.sortTable(self.sell_table, column_date)
+
+    def deals_before(self, date):
+        '''
+        获取卖出日期早于date的所有卖出记录以及对应的买入记录
+        '''
+        if not self.sqldb.isExistTable(self.sell_table):
+            return ()
+
+        sell_rec = self.sqldb.select(self.sell_table, ['id', column_date, column_portion, column_price, column_fee, '印花税', '过户费', '委托编号'], f'{column_date} < "{date}"')
+        if sell_rec is None or len(sell_rec) == 0:
+            return ()
+
+        buy_rec = self.sqldb.select(self.buy_table, ['id', column_date, column_portion, column_price, column_fee, '印花税', '过户费', '委托编号'], f'{column_date} < "{date}"')
+        buy_rec = list(buy_rec)
+        consumed = ()
+        rembuy = None
+        bportion = 0
+        delbuy = []
+        for srec in sell_rec:
+            consumed += (self.code, srec[1], 'S', srec[2], srec[3], srec[4], srec[5], srec[6], srec[7]),
+            self.sqldb.delete(self.sell_table, {'id': srec[0]})
+            sportion = srec[2]
+            while sportion > 0:
+                if bportion == 0:
+                    if rembuy is not None:
+                        consumed += (self.code, rembuy[1], 'B', rembuy[2], rembuy[3], rembuy[4], rembuy[5], rembuy[6], rembuy[7]),
+                        delbuy.append(rembuy[0])
+                    rembuy = buy_rec.pop(0)
+                    bportion = rembuy[2]
+                if bportion <= sportion:
+                    sportion -= bportion
+                    bportion = 0
+                    consumed += (self.code, rembuy[1], 'B', rembuy[2], rembuy[3], rembuy[4], rembuy[5], rembuy[6], rembuy[7]),
+                    delbuy.append(rembuy[0])
+                    rembuy = None
+                else:
+                    bportion -= sportion
+                    sportion = 0
+
+        if rembuy is not None:
+            if bportion > 0:
+                consumed += (self.code, rembuy[1], 'B', rembuy[2] - bportion, rembuy[3], rembuy[4], rembuy[5], rembuy[6], rembuy[7]),
+                self.sqldb.update(self.buy_table, {column_portion: bportion}, {'id': rembuy[0]})
+        for d in delbuy:
+            self.sqldb.delete(self.buy_table, {'id': d})
+
+        return consumed
+
+    def remove_empty_table(self):
+        if self.sqldb.isExistTable(self.buy_table):
+            bt = self.sqldb.select(self.buy_table)
+            if bt is None or len(bt) == 0:
+                self.sqldb.dropTable(self.buy_table)
+        if self.sqldb.isExistTable(self.sell_table):
+            st = self.sqldb.select(self.sell_table)
+            if st is None or len(st) == 0:
+                self.sqldb.dropTable(self.sell_table)
