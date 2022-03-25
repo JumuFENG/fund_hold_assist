@@ -693,6 +693,12 @@ class User():
 '''
         return ehtml
 
+    def save_stocks_eaning_html(self, cfile):
+        self.update_earning()
+        ehtml = self.get_stocks_earning_static_html()
+        with open(cfile, 'w') as f:
+            f.write(ehtml)
+
 class UserModel():
     def __init__(self):
         self.tablename = 'users'

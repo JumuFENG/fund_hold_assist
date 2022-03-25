@@ -285,11 +285,16 @@ def stocksummary():
 
 @app.route('/stock', methods=['GET', 'POST'])
 def stock():
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-
     usermodel = UserModel()
-    user = usermodel.user_by_email(session['useremail'])
+    if not session.get('logged_in'):
+        uemail = request.form.get('email', type=str, default=None)
+        upwd = request.form.get('password', type=str, default=None)
+        user = usermodel.user_by_email(uemail)
+        if not usermodel.check_password(user, upwd):
+            return redirect(url_for('login'))
+    else:
+        user = usermodel.user_by_email(session['useremail'])
+
     actype = None
     if request.method == 'POST':
         actype = request.form.get("act", type=str, default=None)
@@ -329,6 +334,8 @@ def stock():
     else:
         actype = request.args.get("act", type=str, default=None)
         code = request.args.get("code", type=str, default=None)
+        if actype == 'test':
+            return 'OK', 200
         if actype == 'summary':
             if code:
                 us = UserStock(user, code)

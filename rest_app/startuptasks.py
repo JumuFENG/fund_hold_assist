@@ -66,15 +66,9 @@ def trade_closed_task():
     print('trade_closed_task', dnow.strftime(f"%Y-%m-%d %H:%M:%s"))
     um = UserModel()
     user = um.user_by_id(11)
-    user.update_earning()
-    ehtml = user.get_stocks_earning_static_html()
-    with open(earning_cloud_file, 'w') as f:
-        f.write(ehtml)
+    user.save_stocks_eaning_html(earning_cloud_file)
 
-if __name__ == '__main__':
-    dnow = datetime.now()
-    time.sleep(10)
-    print('startuptasks', dnow.strftime(f"%Y-%m-%d %H:%M"))
+def run_regular_tasks(dnow):
     retry = 0
     while True:
         nw = requests.get('https://www.eastmoney.com/js/index2018.js', timeout=2)
@@ -84,7 +78,7 @@ if __name__ == '__main__':
 
     if retry > 100:
         print('network not available, retry = ', retry)
-        exit(0)
+        return
 
     startconfig = {'lastdaily_run_at':'', 'lastweekly_run_at':'', 'lastmonthly_run_at':'', 'last_updated_id':0}
     if os.path.isfile(startuplogfile):
@@ -127,6 +121,9 @@ if __name__ == '__main__':
         # mu = MonthlyUpdater()
         # mu.update_all()
         astk.loadNewMarkedStocks()
+        um = UserModel()
+        user = um.user_by_id(11)
+        user.archive_deals(dnow.strftime(f"%Y-%m"))
         startconfig['lastmonthly_run_at'] = dnow.strftime(f"%Y-%m-%d %H:%M")
         anyrun = True
 
@@ -134,7 +131,16 @@ if __name__ == '__main__':
         with open(startuplogfile, 'w') as cfgfile:
             json.dump(startconfig, cfgfile)
 
+
+if __name__ == '__main__':
+    dnow = datetime.now()
+    time.sleep(10)
+    print('startuptasks', dnow.strftime(f"%Y-%m-%d %H:%M"))
+
+    run_regular_tasks(dnow)
+
     if dnow.weekday() < 5 and dnow.hour < 15:
+        print('start timer task!')
         secs = (datetime.strptime(dnow.strftime('%Y-%m-%d') + ' 15:01', '%Y-%m-%d %H:%M') - dnow).seconds
         ttask = Timer(secs, trade_closed_task)
         ttask.start()
