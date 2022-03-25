@@ -402,7 +402,8 @@ class EmjyBack {
             this.savedDeals.sort((a, b) => a.time > b.time);
         }
         chrome.storage.local.set({'hist_deals': this.savedDeals});
-        this.uploadHistDeals(uptosvrDeals);
+        this.uploadDeals(uptosvrDeals);
+        this.clearCompletedDeals();
     }
 
     uploadTodayDeals(deals) {
@@ -435,10 +436,19 @@ class EmjyBack {
             fetchedDeals.push({time, sid, code, tradeType, price, count});
         }
         fetchedDeals.reverse();
-        this.uploadHistDeals(fetchedDeals);
+        this.uploadDeals(fetchedDeals);
     }
 
-    uploadHistDeals(deals) {
+    testFhaServer() {
+        var url = this.fha.server + 'stock?act=test';
+        xmlHttpGet(url, r => {
+            if (r == 'OK') {
+                emjyBack.log('testFhaServer,Good!');
+            }
+        });
+    }
+
+    uploadDeals(deals) {
         if (deals.length == 0) {
             return;
         }
@@ -447,27 +457,22 @@ class EmjyBack {
             return;
         }
 
-        var postStockDeals = function(url, deals) {
+        this.testFhaServer();
+        if (this.fha) {
+            var url = this.fha.server + 'stock'
             deals.forEach(d => {
                 d.code = emjyBack.getLongStockCode(d.code);
             });
             var dfd = new FormData();
             dfd.append('act', 'deals');
             dfd.append('data', JSON.stringify(deals));
-            xmlHttpPost(url, dfd, p => {
-                emjyBack.log('upload deals to server,', p);
-            });
-            emjyBack.clearCompletedDeals();
-        }
+            dfd.append('email', this.fha.uemail);
+            dfd.append('password', this.fha.pwd);
 
-        emjyBack.log('uploadHistDeals', JSON.stringify(deals));
-        var url = this.fha.server + 'stock'
-        if (!this.fha.login) {
-            this.loginToFhaServer(() => {
-                postStockDeals(url, deals);
+            this.log('uploadDeals', JSON.stringify(deals));
+            xmlHttpPost(url, dfd, p => {
+                this.log('upload deals to server,', p);
             });
-        } else {
-            postStockDeals(url, deals)
         }
     }
 
@@ -1000,30 +1005,6 @@ class EmjyBack {
         cheatOperation(this.collateralAccount);
     }
 
-    loginToFhaServer(cb) {
-        if (!this.fha) {
-            return;
-        }
-
-        var url = this.fha.server + 'login';
-        var loginfd = new FormData();
-        loginfd.append('email', this.fha.uemail);
-        loginfd.append('password', this.fha.pwd);
-        loginfd.append('back', 'object');
-        xmlHttpPost(url, loginfd, p => {
-            var logObj = JSON.parse(p);
-            if (logObj['login']) {
-                console.log('login success!');
-                this.fha.login = true;
-                if (typeof(cb) === 'function') {
-                    cb();
-                }
-            } else {
-                console.log('login error', logObj);
-            }
-        });
-    }
-
     getBuyHist(code) {
         if (!this.fha) {
             return;
@@ -1035,6 +1016,12 @@ class EmjyBack {
                 console.log(rsp);
             });
         }
+    }
+
+    dumpTestKl(code, kltype = '101') {
+        var r = [];
+        this.klines[code].klines[kltype].forEach(kl => {r.push({kl:kl, expect:{dcount:0}})});
+        console.log(JSON.stringify(r));
     }
 }
 
