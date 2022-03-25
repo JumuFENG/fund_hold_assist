@@ -62,6 +62,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyGEMid') {
             return new StrategyGridEarningMidView(strategy);
         }
+        if (strategy.key == 'StrategyTD') {
+            return new StrategyTDView(strategy);
+        }
     }
 
     getStrategyName(key) {
@@ -132,8 +135,16 @@ class StrategyBaseView {
             if (!this.isEqualNum(this.strategy.backRate, backRate)) {
                 changed = true;
                 this.strategy.backRate = backRate;
-            };
-        };
+            }
+        }
+
+        if (this.inputUpEarn) {
+            var upRate = parseFloat(this.inputUpEarn.value) / 100;
+            if (!this.isEqualNum(this.strategy.upRate, upRate)) {
+                changed = true;
+                this.strategy.upRate = upRate;
+            }
+        }
 
         if (this.inputStep) {
             var stepRate = parseFloat(this.inputStep.value) / 100;
@@ -229,7 +240,7 @@ class StrategyBaseView {
         var popDiv = document.createElement('div');
         popDiv.appendChild(document.createTextNode(text));
         this.inputPop = document.createElement('input');
-        if (this.backRate) {
+        if (this.strategy.backRate) {
             this.inputPop.value = 100 * this.strategy.backRate;
         } else {
             this.inputPop.value = rate;
@@ -237,6 +248,20 @@ class StrategyBaseView {
         popDiv.appendChild(this.inputPop);
         popDiv.appendChild(document.createTextNode('%'));
         return popDiv;
+    }
+
+    createUpEarnedInput(text, rate = 25) {
+        var upDiv = document.createElement('div');
+        upDiv.appendChild(document.createTextNode(text));
+        this.inputUpEarn = document.createElement('input');
+        if (this.strategy.upRate) {
+            this.inputUpEarn.value = 100 * this.strategy.upRate;
+        } else {
+            this.inputUpEarn.value = rate;
+        }
+        upDiv.appendChild(this.inputUpEarn);
+        upDiv.appendChild(document.createTextNode('%'));
+        return upDiv;
     }
 
     createCountDiv(text = '卖出数量 ', cnt = 0) {
@@ -614,6 +639,19 @@ class StrategyGridEarningMidView extends StrategyGridEarningView {
 
     maDescription() {
         return '网格买入,盈利卖出, 波段策略,不建仓不清仓';
+    }
+}
+
+class StrategyTDView extends StrategyBaseView {
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('TD点买卖组合策略(长期)'));
+        view.appendChild(this.createBuyAccountSelector());
+        view.appendChild(this.createStepsInput('波段盈亏比例', 8));
+        view.appendChild(this.createPopbackInput('加仓亏损比例', 15));
+        view.appendChild(this.createUpEarnedInput('最低止盈比例', 25));
+        return view;
     }
 }
 

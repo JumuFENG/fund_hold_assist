@@ -4,7 +4,7 @@ let ComplexStrategyKeyNames = [
 {key: 'StrategyMA', name: 'MA突破买卖'},
 {key: 'StrategyGE', name: '网格买入,盈利卖出'},
 {key: 'StrategyGEMid', name: '网格买入 (波段)'},
-{key: 'StrategyMAPick', name: 'MA突破之补仓'},
+{key: 'StrategyTD', name: 'TD点买卖'},
 ]
 
 let BuyStrategyKeyNames = [

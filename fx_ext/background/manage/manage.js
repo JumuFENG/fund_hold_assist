@@ -468,7 +468,7 @@ class Manager {
         } else {
             anchor.textContent = code;
             if (this.stockMarket && this.stockMarket[code]) {
-                anchor.textContent = this.stockMarket[code].name;
+                anchor.textContent = this.stockMarket[code].n;
             }
         }
         anchor.href = this.stockEmLink(code);

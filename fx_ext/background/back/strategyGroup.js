@@ -602,65 +602,40 @@ class StrategyGroup {
             return;
         }
 
+        if (info.tradeType === undefined) {
+            emjyBack.log('error in doTrade! info.tradeType is undefined');
+            return;
+        }
+
         if (this.amount) {
             this.count0 = this.calcBuyCount(this.amount, info.price);
         }
         var price = info.price === undefined ? 0 : info.price;
-        if (info.tradeType) {
-            if (this.account == 'normal' || this.account == 'collat') {
-                price = 0;
-            }
-            if (info.tradeType == 'B') {
-                var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
-                var count = this.count0;
-                emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy), 'buy detail', JSON.stringify(this.buydetail.records))
-                emjyBack.tryBuyStock(this.code, price, count, account, bd => {
-                    this.buydetail.addBuyDetail(bd);
-                    this.onTradeMatch(id, info);
-                });
-            } else if (info.tradeType == 'S') {
-                var count = this.count0;
-                if (info.count - 10 >= 0) {
-                    count = info.count;
-                }
-                if (count > 0) {
-                    emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', info.price, JSON.stringify(curStrategy), 'aver price', this.buydetail.averPrice(), 'buy detail', JSON.stringify(this.buydetail.records));
-                    emjyBack.trySellStock(this.code, price, count, this.account, sd => {
-                        this.buydetail.addSellDetail(sd);
-                        this.onTradeMatch(id, info);
-                    });
-                }
-            }
-            this.save();
-        } else if (curStrategy.isBuyStrategy()) {
-            var count = info.count;
-            if (count === undefined && price > 0) {
-                count = this.getBuyCount(info.price);
-            }
+        if (this.account == 'normal' || this.account == 'collat') {
+            price = 0;
+        }
+        if (info.tradeType == 'B') {
             var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
-            emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy));
+            var count = this.count0;
+            emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy), 'buy detail', JSON.stringify(this.buydetail.records))
             emjyBack.tryBuyStock(this.code, price, count, account, bd => {
                 this.buydetail.addBuyDetail(bd);
-                this.save();
+                this.onTradeMatch(id, info);
             });
-            if (curStrategy.guardLevel() == 'zt') {
-                emjyBack.ztBoardTimer.removeStock(this.code);
-            };
-            if (curStrategy.guardLevel() == 'opt') {
-                emjyBack.otpAlarm.removeStock(this.code);
+        } else if (info.tradeType == 'S') {
+            var count = this.count0;
+            if (info.count - 10 >= 0) {
+                count = info.count;
             }
-            this.onTradeMatch(id, {price});
-        } else {
-            var count = this.buydetail.availableCount();
             if (count > 0) {
-                emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', price, JSON.stringify(curStrategy));
+                emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', info.price, JSON.stringify(curStrategy), 'aver price', this.buydetail.averPrice(), 'buy detail', JSON.stringify(this.buydetail.records));
                 emjyBack.trySellStock(this.code, price, count, this.account, sd => {
                     this.buydetail.addSellDetail(sd);
-                    this.save();
+                    this.onTradeMatch(id, info);
                 });
-                this.onTradeMatch(id, {price});
             }
         }
+        this.save();
     }
 
     onTradeMatch(id, refer) {

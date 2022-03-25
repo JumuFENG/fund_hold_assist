@@ -56,8 +56,8 @@ class StrategyManager {
         if (strategy.key == 'StrategyMA') {
             return new StrategyMA(strategy);
         }
-        if (strategy.key == 'StrategyMAPick') {
-            return new StrategyMAPick(strategy);
+        if (strategy.key == 'StrategyTD') {
+            return new StrategyTD(strategy);
         }
         if (strategy.key == 'StrategyGE') {
             return new StrategyGE(strategy);
@@ -798,12 +798,9 @@ class StrategyMA extends Strategy {
     }
 }
 
-class StrategyMAPick extends StrategyMA {
-    resetGuardPrice() {
-        super.resetGuardPrice();
-        if (this.data.markPrice !== undefined) {
-            delete(this.data.markPrice);
-        }
+class StrategyTD extends Strategy {
+    kltype() {
+        return ['15', '101'];
     }
 
     checkKlines(klines, updatedKlt, buydetails) {
@@ -811,45 +808,87 @@ class StrategyMAPick extends StrategyMA {
             return {match: false};
         };
 
-        var kltype = this.kltype();
-        if (updatedKlt.includes(kltype)) {
-            var kl = klines.getLatestKline(kltype);
-            if (buydetails && buydetails.totalCount() > 0) {
-                if (this.data.guardPrice - kl.c > 0 && (kl.bss18 == 's' || kl.bss18 == 'w')) {
-                    if (klines.continuouslyBellowPrcDays(this.data.guardPrice, kltype) > 10) {
-                        var count = buydetails.availableCount();
-                        if (count > 0) {
-                            this.resetGuardPrice();
-                            return {match: true, tradeType: 'S', count, price: kl.c};
-                        }
-                    }
-                } else if (kl.bss18 == 's') {
-                    var count = buydetails.getCountLessThan(kl.c * 0.95);
-                    if (count > 0) {
-                        this.resetGuardPrice();
-                        return {match: true, tradeType: 'S', count, price: kl.c};
-                    }
-                }
-                return {match: false};
+        if (!this.data.meta) {
+            this.data.meta = {};
+            if (!buydetails || buydetails.totalCount() == 0) {
+                this.data.meta.state = 's0';
+            } else {
+                this.data.meta.state = 's1';
+                this.data.meta.s0price = buydetails.minBuyPrice();
+            }
+        }
+
+        if (!this.data.backRate) {
+            this.data.backRate = 0.15;
+        }
+        if (!this.data.upRate) {
+            this.data.upRate = 0.25;
+        }
+        if (!this.data.stepRate) {
+            this.data.stepRate = 0.08;
+        }
+
+        var kltypes = ['30'];// ['15', '30', '60', '120']; //
+        for (var i in kltypes) {
+            var kltype = klines[i];
+            if (!updatedKlt.includes(kltype)) {
+                continue;
             }
 
-            if (kl.bss18 == 'b') {
-                if (this.cutlineAcceptable(klines, kl)) {
-                    this.data.guardDate = kl.time;
-                    this.data.markPrice = kl.c;
-                    return {match: false, stepInCritical: true};
+            var kl = klines.getLatestKline(kltype);;
+            if (kl.td > 6) {
+                if (!this.data.meta.uptd || kl.td > this.data.meta.uptd) {
+                    this.data.meta.uptd = kl.td;
+                }
+            } else if (kl.td < -6) {
+                if (!this.data.meta.downtd || kl.td < this.data.meta.downtd) {
+                    this.data.meta.downtd = kl.td;
                 }
             }
-            if (kl.c - this.data.guardPrice > 0) {
-                var guardDate = this.data.guardDate;
-                if (this.data.guardPrice - klines.lowestPriceSince(guardDate, kltype) > 0) {
+            var buyref = this.data.meta.s0price;
+            if (this.data.meta.state == 's1' || this.data.meta.state == 's2' || this.data.meta.state == 's3') {
+                var minbuy = buydetails.minBuyPrice();
+                if (buyref - minbuy > 0 && minbuy > 0) {
+                    buyref = minbuy;
+                }
+            }
+            if (this.data.meta.state == 's4' || this.data.meta.state == 's5') {
+                buyref = this.data.meta.s4price;
+            }
+            if (this.data.meta.downtd < -8 && kl.td > -1 && kl.td < 3 && klines.isDecreaseStopped(kltype)) {
+                if (kl.c - (buyref - this.data.meta.s0price * this.data.backRate) < 0) {
+                    if (this.data.meta.state == 's4') {
+                        this.data.meta.state = 's5';
+                    } else {
+                        this.data.meta.state = 's2';
+                    }
+                    delete(this.data.meta.downtd);
+                    delete(this.data.meta.uptd);
+                    return {match: true, tradeType: 'B', count: 0, price: kl.c};
+                }
+                if (this.data.meta.state == 's0') {
+                    this.data.meta.state = 's1';
+                    delete(this.data.meta.downtd);
+                    delete(this.data.meta.uptd);
+                    this.data.meta.s0price = kl.c;
                     return {match: true, tradeType: 'B', count: 0, price: kl.c};
                 }
             }
-            if (kl.bss18 == 's' && kl.c - this.data.markPrice * 1.05 > 0) {
-                this.resetGuardPrice();
+
+            if (this.data.meta.uptd > 8 && kl.td < 1 && kl.td > -3 && klines.continuouslyDecreaseDays(kltype) > 1) {
+                var count = buydetails.getCountLessThan(kl.c * (1 - (buydetails.buyRecords().length > 1 ? this.data.stepRate : this.data.upRate)));
+                if (count > 0) {
+                    if (this.data.meta.state == 's1') {
+                        this.data.meta.s4price = kl.c;
+                        this.data.meta.state = 's4';
+                    } else if (this.data.meta.state == 's2') {
+                        this.data.meta.state = 's1';
+                    }
+                    delete(this.data.meta.downtd);
+                    delete(this.data.meta.uptd);
+                    return {match: true, tradeType: 'S', count, price: kl.c};
+                }
             }
-            return {match: false};
         }
         return {match: false};
     }

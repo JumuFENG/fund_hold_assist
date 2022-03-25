@@ -202,6 +202,7 @@ class TestEngine {
                     testKdata.splice(earlk, 1);
                 }
                 emjyBack.klines[code].klines[kltype].push(kldataj.kl);
+                console.log(kldataj.kl.time);
                 emjyBack.testAccount.tradeTime = kldataj.kl.time;
                 stock.strategies.checkKlines([kltype]);
                 var expect = kldataj.expect;
