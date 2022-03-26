@@ -564,9 +564,12 @@ class StrategyGroup {
             return;
         }
 
-        if (curStrategy.isBuyStrategy()) {
-            this.strategies[id].setEnabled(false);
-            this.doTrade(id, {price:0, count: this.count0 === undefined ? 0 : this.count0});
+        if (curStrategy) {
+            curStrategy.check({id, rtInfo: {latestPrice:0, count: this.count0 === undefined ? 0 : this.count0}, buydetail: this.buydetail}, (matchResult, cb) => {
+                if (matchResult) {
+                    this.doTrade(matchResult, cb);
+                }
+            });
         } else {
             emjyBack.log('!!!NOT IMPLEMENTED!!! onOtpAlarm sell match', this.code, JSON.stringify(curStrategy));
         }
@@ -583,21 +586,21 @@ class StrategyGroup {
                 continue;
             }
 
-            var checkResult = curStrategy.check(rtInfo, this.buydetail);
-            if (checkResult.match) {
-                var price = checkResult.price;
-                if (curStrategy.isBuyStrategy()) {
-                    var count = this.getBuyCount(price);
-                    this.doTrade(id, {price, count});
-                } else {
-                    this.doTrade(id, {price});
+            curStrategy.check({id, rtInfo, buydetail: this.buydetail}, (matchResult, cb) => {
+                if (matchResult) {
+                    this.doTrade(matchResult, cb);
                 }
-            }
+            });
         };
     }
 
-    doTrade(id, info) {
-        var curStrategy = this.strategies[id];
+    doTrade(info, tradeCb) {
+        if (info.tradeType === undefined) {
+            this.save();
+            return;
+        }
+
+        var curStrategy = this.strategies[info.id];
         if (!curStrategy) {
             return;
         }
@@ -620,7 +623,10 @@ class StrategyGroup {
             emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy), 'buy detail', JSON.stringify(this.buydetail.records))
             emjyBack.tryBuyStock(this.code, price, count, account, bd => {
                 this.buydetail.addBuyDetail(bd);
-                this.onTradeMatch(id, info);
+                if (typeof(tradeCb) === 'function') {
+                    tradeCb(bd);
+                }
+                this.onTradeMatch(info);
             });
         } else if (info.tradeType == 'S') {
             var count = this.count0;
@@ -631,25 +637,28 @@ class StrategyGroup {
                 emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', info.price, JSON.stringify(curStrategy), 'aver price', this.buydetail.averPrice(), 'buy detail', JSON.stringify(this.buydetail.records));
                 emjyBack.trySellStock(this.code, price, count, this.account, sd => {
                     this.buydetail.addSellDetail(sd);
-                    this.onTradeMatch(id, info);
+                    if (typeof(tradeCb) === 'function') {
+                        tradeCb(sd);
+                    }
+                    this.onTradeMatch(info);
                 });
             }
         }
         this.save();
     }
 
-    onTradeMatch(id, refer) {
-        var curStrategy = this.strategies[id];
+    onTradeMatch(refer) {
+        var curStrategy = this.strategies[refer.id];
         if (curStrategy.guardLevel() == 'kline') {
             refer.kltype = curStrategy.kltype();
         };
-        if (!this.transfers || !this.transfers[id]) {
+        if (!this.transfers || !this.transfers[refer.id]) {
             return;
         };
-        var tid = this.transfers[id].getTransferId();
+        var tid = this.transfers[refer.id].getTransferId();
         if (tid >= 0) {
             this.strategies[tid].setEnabled(true);
-            if (refer.tradeType == 'B' || curStrategy.isBuyStrategy()) {
+            if (refer.tradeType == 'B') {
                 this.strategies[tid].buyMatch(refer);
             } else {
                 this.strategies[tid].sellMatch(refer);
@@ -669,15 +678,11 @@ class StrategyGroup {
                 continue;
             }
 
-            var matchResult = curStrategy.checkKlines(emjyBack.klines[this.code], updatedKlt, this.buydetail);
-            if (matchResult) {
-                if (matchResult.match) {
-                    this.doTrade(id, matchResult);
+            curStrategy.checkKlines({id, code:this.code, kltypes: updatedKlt, buydetail: this.buydetail}, (matchResult, cb) => {
+                if (matchResult) {
+                    this.doTrade(matchResult, cb);
                 }
-                if (matchResult.stepInCritical) {
-                    this.save();
-                }
-            }
+            });
         }
     }
 }
