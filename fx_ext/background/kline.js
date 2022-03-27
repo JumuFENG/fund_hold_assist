@@ -624,41 +624,6 @@ class KLine {
         return upCount >= 2;
     }
 
-    isDecreaseStopped(kltype) {
-        // 止跌，连续2根K线收盘价上涨。主要用于网格法加仓买入，有价格区间限制
-        if (!this.klines || !this.klines[kltype]) {
-            console.log('no klins data for kltype', kltype);
-            return false;
-        }
-
-        var kline = this.getKline(kltype);
-        var lastIdx = kline.length - 1;
-        var klend = this.getIncompleteKline(kltype);
-        if (!klend) {
-            klend = kline[lastIdx];
-            lastIdx = kline.length - 2;
-        }
-
-        var popCount = 0;
-        for (let i = lastIdx; i >= 0; i--) {
-            const klpre = kline[i];
-            if (i < kline.length - 5) {
-                break;
-            }
-
-            if (klend.c - klpre.c <= 0 ) {
-                break;
-            }
-
-            popCount++;
-            if (popCount >= 2) {
-                return true;
-            }
-            klend = klpre;
-        }
-        return false;
-    }
-
     getLowestInWaiting(kltype) {
         if (!this.klines || !this.klines[kltype]) {
             console.log('no klins data for kltype', kltype);
@@ -738,7 +703,8 @@ class KLine {
     }
 
     continuouslyIncreaseDays(kltype='101') {
-        if (!this.klines) {
+        // 止跌，连续2根K线收盘价上涨。主要用于网格法加仓买入，有价格区间限制
+        if (!this.klines || !this.klines[kltype]) {
             return 0;
         }
         var kline = this.klines[kltype];
@@ -750,8 +716,11 @@ class KLine {
             lidx--;
         }
         for (var i = lidx; i >= 0; i--) {
-            if (kline[i].c - kl.c >= 0) {
+            if (kline[i].c - kl.c > 0) {
                 break;
+            }
+            if (kline[i].c - kl.c == 0) {
+                continue;
             }
             n++;
         }
@@ -759,7 +728,7 @@ class KLine {
     }
 
     continuouslyDecreaseDays(kltype='101') {
-        if (!this.klines) {
+        if (!this.klines || !this.klines[kltype]) {
             return 0;
         }
         var kline = this.klines[kltype];
@@ -771,8 +740,11 @@ class KLine {
             lidx--;
         }
         for (var i = lidx; i >= 0; i--) {
-            if (kline[i].c - kl.c <= 0) {
+            if (kline[i].c - kl.c < 0) {
                 break;
+            }
+            if (kline[i].c - kl.c == 0) {
+                continue;
             }
             n++;
         }

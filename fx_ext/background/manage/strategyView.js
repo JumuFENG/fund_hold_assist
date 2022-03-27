@@ -575,22 +575,18 @@ class StrategySellMADynamicView extends StrategySellMAView {
     }
 }
 
-class StrategyMAView extends StrategyBuyMAView {
-    maDescription() {
-        return '18周期MA均线买卖组合策略(长期)';
-    }
-
-    setDefaultKltype() {
-        if (this.klineSelector) {
-            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '30';
-        };
-    }
-
+class StrategyMAView extends StrategyBaseView {
     createView() {
-        var view = super.createView();
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('MA建仓清仓, TD点波段买卖组合策略(长期)'));
+        view.appendChild(this.createBuyAccountSelector());
         var inputGuard = this.createGuardInput('安全线');
         inputGuard.appendChild(document.createTextNode('安全线以上盈利>5%且满足卖出条件才卖出，避免横盘震荡中反复割肉。'));
         view.appendChild(inputGuard);
+        view.appendChild(this.createStepsInput('波段盈亏比例', 8));
+        view.appendChild(this.createPopbackInput('加仓亏损比例', 15));
+        view.appendChild(this.createUpEarnedInput('最低止盈比例', 25));
         return view;
     }
 }
@@ -646,7 +642,7 @@ class StrategyTDView extends StrategyBaseView {
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
-        view.appendChild(document.createTextNode('TD点买卖组合策略(长期)'));
+        view.appendChild(document.createTextNode('TD点买卖组合策略, 无止损'));
         view.appendChild(this.createBuyAccountSelector());
         view.appendChild(this.createStepsInput('波段盈亏比例', 8));
         view.appendChild(this.createPopbackInput('加仓亏损比例', 15));

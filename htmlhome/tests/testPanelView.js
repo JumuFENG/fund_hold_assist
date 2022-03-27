@@ -220,6 +220,12 @@ class TestEngine {
 
         emjyBack.testAccount.deals = [];
         if (testid !== undefined && testid >= 0) {
+            if (testid >= testMeta.length) {
+                if (typeof(this.failcb) === 'function') {
+                    this.failcb(testid, '', '', 'No test data!!');
+                }
+                return;
+            }
             this.doRunTest(testid);
             return;
         }
