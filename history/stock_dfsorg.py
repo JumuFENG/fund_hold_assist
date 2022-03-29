@@ -176,9 +176,6 @@ class StockDfsorg(EmDataCenterRequest):
                 dtop = DailyTradeOPERATEDEPT(self.reasonTable, c, self.date)
                 dtop.getBuySellDetails()
 
-        nextdate = (datetime.strptime(self.date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
-        self.updateNextDate(nextdate)
-
     def checkInfoTable(self):
         self.sqldb = SqlHelper(password = db_pwd, database = history_db_name)
         if not self.sqldb.isExistTable(self.tablename):
@@ -211,7 +208,7 @@ class StockDfsorg(EmDataCenterRequest):
                 (mdate,), = maxDate
                 return mdate
 
-    def updateNextDate(self, date = None):
+    def updateDfsorg(self, date = None):
         todaystr = self.getTodayString()
         if date is None:
             mdate = self._max_date()
@@ -220,8 +217,9 @@ class StockDfsorg(EmDataCenterRequest):
             else:
                 date = (datetime.strptime(mdate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
 
-        if date <= todaystr:
+        while date <= todaystr:
             self.fecthed = []
             self.date = date
             self.getNext()
+            date = (datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
 

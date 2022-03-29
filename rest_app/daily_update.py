@@ -111,7 +111,7 @@ class DailyUpdater():
 
     def fetch_dfsorg_stocks(self):
         dfsorg = StockDfsorg()
-        dfsorg.updateNextDate()
+        dfsorg.updateDfsorg()
 
 
 if __name__ == '__main__':
