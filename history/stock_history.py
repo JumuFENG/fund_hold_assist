@@ -295,10 +295,11 @@ class DividenBonus(EmDataCenterRequest):
             print('update bonus share table for', code)
             code.reverse()
             bn.setCode(''.join(code))
-            bn.getBonusHis()
+            bn.getNext()
 
-    def getBonusNotice(self):
-        date = self.getTodayString()
+    def getBonusNotice(self, date = None):
+        if date is None:
+            date = self.getTodayString()
         # date = '2021-12-20'
         # (REPORT_DATE%3D%272021-12-31%27)(EX_DIVIDEND_DAYS%3C0)(EX_DIVIDEND_DATE%3D%272021-12-07%27)
         self.setFilter(f'''(EX_DIVIDEND_DATE%3D%27{date}%27)''')

@@ -1195,7 +1195,14 @@ class StrategyMA extends StrategyTD {
         var buydetails = chkInfo.buydetail;
         var kltype = '30';
         if (this.ma18SellMatch(chkInfo, kltype)) {
-            var count = buydetails.getCountLessThan(kl.c * (1 - (buydetails.buyRecords().length > 1 ? this.data.stepRate : this.data.upRate)));
+            var upRate = this.data.upRate;
+            if (this.data.meta && this.data.meta.tcount) {
+                upRate = this.data.upRate - this.data.meta.tcount * this.data.stepRate;
+                if (upRate - this.data.stepRate < 0) {
+                    upRate = this.data.stepRate;
+                }
+            }
+            var count = buydetails.getCountLessThan(kl.c * (1 - (buydetails.buyRecords().length > 1 ? this.data.stepRate : upRate)));
             if (count > 0) {
                 this.tmps2price = kl.c;
                 this.tmpnextstate = buydetails.totalCount() > count ? 's1' : 's2';

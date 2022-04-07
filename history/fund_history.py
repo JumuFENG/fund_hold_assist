@@ -293,9 +293,12 @@ class FundHistoryDataDownloader(HistoryDowloaderBase):
         self.fund_db_table = allfund.get_fund_history_table(self.code)
 
     def getRequest(self, url, params=None, proxies=None):
-        rsp = requests.get(url, params=params, proxies=proxies)
-        rsp.raise_for_status()
-        return rsp.text
+        try:
+            rsp = requests.get(url, params=params, proxies=proxies)
+            rsp.raise_for_status()
+            return rsp.text
+        except Exception as e:
+            print(e)
 
     def paraseFundRecords(self, records):
         soup = BeautifulSoup(records, 'html.parser')
