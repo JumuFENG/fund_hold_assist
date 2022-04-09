@@ -136,7 +136,6 @@ class EmjyBack {
         chrome.storage.local.get('fha_server', item => {
             if (item && item['fha_server']) {
                 this.fha = JSON.parse(item['fha_server']);
-                this.fha.login = false;
             }
         });
         this.setupQuoteAlarms();
@@ -441,7 +440,11 @@ class EmjyBack {
 
     testFhaServer() {
         var url = this.fha.server + 'stock?act=test';
-        xmlHttpGet(url, r => {
+        var header = {}
+        if (this.fha) {
+            header['Authorization'] = 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd);
+        }
+        xmlHttpGet(url, header, r => {
             if (r == 'OK') {
                 emjyBack.log('testFhaServer,Good!');
             }
@@ -466,11 +469,10 @@ class EmjyBack {
             var dfd = new FormData();
             dfd.append('act', 'deals');
             dfd.append('data', JSON.stringify(deals));
-            dfd.append('email', this.fha.uemail);
-            dfd.append('password', this.fha.pwd);
+            var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)};
 
             this.log('uploadDeals', JSON.stringify(deals));
-            xmlHttpPost(url, dfd, p => {
+            xmlHttpPost(url, dfd, header, p => {
                 this.log('upload deals to server,', p);
             });
         }
@@ -801,7 +803,7 @@ class EmjyBack {
     fetchAllStocksMktInfo() {
         if (this.fha && this.fha.server) {
             var url = this.fha.server + 'api/allstockinfo';
-            xmlHttpGet(url, mkt => {
+            xmlHttpGet(url, null, mkt => {
                 var mktInfo = JSON.parse(mkt);
                 this.stockMarket = {};
                 for (var i = 0; i < mktInfo.length; ++i) {
@@ -1005,14 +1007,15 @@ class EmjyBack {
         cheatOperation(this.collateralAccount);
     }
 
-    getBuyHist(code) {
+    getEarned(code) {
         if (!this.fha) {
             return;
         }
 
-        if (!this.fha.login) {
-            var url = this.fha.server + 'stock?act=buy&code=' + code;
-            xmlHttpGet(url, rsp => {
+        if (this.fha) {
+            var url = this.fha.server + 'stock?act=getearned&code=' + this.getLongStockCode(code);
+            var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)}
+            xmlHttpGet(url, header, rsp => {
                 console.log(rsp);
             });
         }

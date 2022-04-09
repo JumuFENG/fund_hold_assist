@@ -32,7 +32,7 @@ class DealsClient {
     GetNext() {
         var fd = this.getFormData();
         this.updateDwc();
-        xmlHttpPost(this.getUrl(), fd, response => {
+        xmlHttpPost(this.getUrl(), fd, null, response => {
             this.onResponse(response);
         });
     }
@@ -175,7 +175,7 @@ class AssetsClient {
         var url = 'https://jywg.18.cn/Com/queryAssetAndPositionV1?validatekey=' + this.validateKey;
         var fd = new FormData();
         fd.append('moneyType', this.moneyType);
-        xmlHttpPost(url, fd, response => {
+        xmlHttpPost(url, fd, null, response => {
             this.onResponse(response);
         });
     }
@@ -212,12 +212,12 @@ class MarginAssetsClient extends AssetsClient {
         var url = 'https://jywg.18.cn/MarginSearch/GetRzrqAssets?validatekey=' + this.validateKey;
         var fd = new FormData();
         fd.append('hblx', this.moneyType);
-        xmlHttpPost(url, fd, response => {
+        xmlHttpPost(url, fd, null, response => {
             this.onAssetsResponse(response);
         });
 
         var slUrl = 'https://jywg.18.cn/MarginSearch/GetStockList?validatekey=' + this.validateKey;
-        xmlHttpPost(slUrl, new FormData(), response => {
+        xmlHttpPost(slUrl, new FormData(), null, response => {
             this.onStockListResponse(response);
         });
     }

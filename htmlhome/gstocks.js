@@ -5,7 +5,7 @@ let emStockUrlTail = '.html#fschart-k';
 class GlobalManager {
     constructor() {
         this.klines = {};
-        this.fhaserver = 'http://localhost/';
+        this.fha = {'server':'http://localhost/'};
         this.getFromLocal('hsj_stocks', item => {
             if (item && item['hsj_stocks']) {
                 this.stockMarket = item['hsj_stocks'];
@@ -120,7 +120,7 @@ class GlobalManager {
         buyAccount.buyStock(code, price, count, cb);
     }
 
-    getMkCode(code) {
+    getLongStockCode(code) {
         if (code.length == 6 && this.stockMarket[code]) {
             return this.stockMarket[code].c;
         }
@@ -157,7 +157,7 @@ class GlobalManager {
     }
 
     fetchStocksMarket() {
-        utils.get(this.fhaserver + 'api/allstockinfo', mkt => {
+        utils.get(this.fha.server + 'api/allstockinfo', null, mkt => {
             var mktInfo = JSON.parse(mkt);
             for (var i = 0; i < mktInfo.length; ++i) {
                 this.stockMarket[mktInfo[i].c.substring(2)] = mktInfo[i];
@@ -167,8 +167,8 @@ class GlobalManager {
     }
 
     fetchStockKline(code, kltype, sdate) {
-        var mktCode = this.getMkCode(code);
-        var url = this.fhaserver + 'api/stockhist?fqt=1&code=' + mktCode;
+        var mktCode = this.getLongStockCode(code);
+        var url = this.fha.server + 'api/stockhist?fqt=1&code=' + mktCode;
         if (!kltype) {
             url += '&kltype=101';
         } else if (kltype == '30' || kltype == '60' || kltype == '120') {
@@ -191,7 +191,7 @@ class GlobalManager {
             url += '&start=' + dashdate;
         }
 
-        utils.get(url, ksdata => {
+        utils.get(url, null, ksdata => {
             var kdata = JSON.parse(ksdata);
             if (!kdata || kdata.length == 0) {
                 console.error('no kline data for', code, 'kltype:', kltype);

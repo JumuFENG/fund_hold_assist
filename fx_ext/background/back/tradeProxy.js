@@ -4,28 +4,6 @@ let NewStockPurchaseUrl = 'https://jywg.18.cn/Trade/NewBatBuy';
 let NewBondsPurchaseUrl = 'https://jywg.18.cn/Trade/XzsgBatPurchase';
 let BondRepurchaseUrl = 'https://jywg.18.cn/BondRepurchase/SecuritiesLendingRepurchase';
 
-function xmlHttpPostJson(url, json, cb) {
-    var httpRequest = new XMLHttpRequest();//第一步：建立所需的对象
-    httpRequest.open('POST', url, true);//第二步：打开连接
-    httpRequest.setRequestHeader("Content-Type", "application/json");
-    /**
-     * 获取数据后的处理程序
-     */
-    httpRequest.onreadystatechange = function () {
-        if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                if (typeof(cb) === 'function') {
-                    cb(httpRequest.responseText);
-                } else {
-                    eval(httpRequest.responseText);
-                }
-            }
-        }
-    }
-
-    httpRequest.send(json);//第三步：发送请求
-}
-
 class CommanderBase {
     constructor() {
         this.tabid = null;
@@ -346,7 +324,7 @@ class NewStocksClient {
 
     GetCanBuy() {
         var url = 'https://jywg.18.cn/Trade/GetCanBuyNewStockListV3?validatekey=' + this.validateKey;
-        xmlHttpPost(url, null, response => {
+        xmlHttpPost(url, null, null, response => {
             var robj = JSON.parse(response);
             if (robj.NewStockList && robj.NewStockList.length > 0) {
                 this.buyNewStocks(robj.NewStockList);
@@ -383,7 +361,8 @@ class NewStocksClient {
         var jdata = JSON.stringify(data);
         emjyBack.log('buyNewStocks', jdata);
         var url = 'https://jywg.18.cn/Trade/SubmitBatTradeV2?validatekey=' + this.validateKey;
-        xmlHttpPostJson(url, jdata, response => {
+        var header = {"Content-Type": "application/json"}
+        xmlHttpPost(url, jdata, header, response => {
             var robj = JSON.parse(response);
             if (robj.Status == 0) {
                 emjyBack.log('buyNewStocks success', robj.Message);
@@ -409,7 +388,7 @@ class NewBondsClient {
 
     GetCanBuy() {
         var url = 'https://jywg.18.cn/Trade/GetConvertibleBondListV2?validatekey=' + this.validateKey;
-        xmlHttpPost(url, null, response => {
+        xmlHttpPost(url, null, null, response => {
             var robj = JSON.parse(response);
             if (robj.Status != 0) {
                 emjyBack.log('unknown error', response);
@@ -447,7 +426,8 @@ class NewBondsClient {
         var jdata = JSON.stringify(data);
         emjyBack.log('buyNewStocks', jdata);
         var url = 'https://jywg.18.cn/Trade/SubmitBatTradeV2?validatekey=' + this.validateKey;
-        xmlHttpPostJson(url, jdata, response => {
+        var header = {"Content-Type": "application/json"}
+        xmlHttpPost(url, jdata, header, response => {
             var robj = JSON.parse(response);
             if (robj.Status == 0) {
                 emjyBack.log('buyNewBonds success', robj.Message);
@@ -484,7 +464,7 @@ class BondRepurchaseClient {
         fd.append('stockCode', code);
         fd.append('price', price);
         fd.append('tradeType', '0S');
-        xmlHttpPost(url, fd, response => {
+        xmlHttpPost(url, fd, null, response => {
             var robj = JSON.parse(response);
             if (robj.Status != 0) {
                 emjyBack.log('unknown error', response);
@@ -507,7 +487,7 @@ class BondRepurchaseClient {
         fd.append('rqjg', price);
         fd.append('rqsl', count);
         emjyBack.log('bondRepurchase', code, price, count);
-        xmlHttpPost(url, fd, response => {
+        xmlHttpPost(url, fd, null, response => {
             var robj = JSON.parse(response);
             if (robj.Status != 0) {
                 emjyBack.log('repurchase error', response);
@@ -549,7 +529,7 @@ class RepaymentClient {
         var url = 'https://jywg.18.cn/MarginSearch/GetRzrqAssets?validatekey=' + this.validateKey;
         var fd = new FormData();
         fd.append('hblx', 'RMB');
-        xmlHttpPost(url, fd, response => {
+        xmlHttpPost(url, fd, null, response => {
             var robj = JSON.parse(response);
             if (robj.Status != 0 || !robj.Data) {
                 emjyBack.log(response);
@@ -587,7 +567,7 @@ class RepaymentClient {
         fd.append('hbdm', 'RMB');
         fd.append('hkje', hkje);
         fd.append('bzxx', ''); // 备注信息
-        xmlHttpPost(url, fd, response => {
+        xmlHttpPost(url, fd, null, response => {
             var robj = JSON.parse(response);
             if (robj.Status == 0) {
                 emjyBack.log('Repayment success!', robj.Data[0].Sjhkje);

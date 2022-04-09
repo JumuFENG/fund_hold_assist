@@ -36,7 +36,7 @@ class Manager {
         chrome.storage.local.get(null, item => {
             if (item) {
                 if (item['fha_server']) {
-                    this.fhaserver =  item['fha_server'];
+                    this.fha = JSON.parse(item['fha_server']);
                 }
                 if (item['hsj_stocks']) {
                     this.stockMarket = item['hsj_stocks'];
@@ -124,7 +124,11 @@ class Manager {
         zdate.setHours(15);
         if (new Date() - zdate > 24 * 3600000) {
             var date = utils.dateToString(zdate);
-            this.sendExtensionMessage({command:'mngr.getkline', code, date});
+            if (this.fha) {
+                this.fetchStockKline(code, '101', date);
+            } else {
+                this.sendExtensionMessage({command:'mngr.getkline', code, date});
+            }
         }
     }
 
@@ -133,7 +137,11 @@ class Manager {
         ldate.setDate(ldate.getDate() + 1);
         if (ldate < new Date()) {
             var date = utils.dateToString(ldate);
-            this.sendExtensionMessage({command:'mngr.getkline', code, date});
+            if (this.fha) {
+                this.fetchStockKline(code, '101', date);
+            } else {
+                this.sendExtensionMessage({command:'mngr.getkline', code, date});
+            }
             return true;
         }
         return false;
@@ -330,9 +338,16 @@ class Manager {
         this.zt1stocks[idx].rmvdate = date;
     }
 
-    getTotalEarned(code) {
+    getTotalEarned(code, cb) {
+        if (this.fha) {
+            this.getEarned(code, cb);
+        }
+
         if (!emjyManager.savedDeals || emjyManager.savedDeals.length == 0) {
-            return 0;
+            if (typeof(cb) === 'function') {
+                cb(0);
+            }
+            return;
         }
 
         var allDeals = emjyManager.savedDeals.filter(d => d.code == code);
@@ -349,7 +364,9 @@ class Manager {
                 earned += amount;
             }
         }
-        return earned;
+        if (typeof(cb) === 'function') {
+            cb(earned);
+        }
     }
 
     getCurrentHoldValue(code, count = 0) {
@@ -461,6 +478,30 @@ class Manager {
         return emStockUrl + (code.startsWith('00') ? 'sz' : 'sh') + code + emStockUrlTail;
     }
 
+    getStockMarketHS(code) {
+        var stk = this.stockMarket[code];
+        if (!stk) {
+            return (code.startsWith('00') || code.startsWith('30')) ? 'SZ' : 'SH';
+        }
+
+        if (stk.c) {
+            return stk.c.substring(0, 2);
+        }
+        return stk.mkt == '0' ? 'SZ' : 'SH';
+    }
+
+    getLongStockCode(code) {
+        if (code.startsWith('S')) {
+            return code;
+        }
+
+        var stk = this.stockMarket[code];
+        if (stk && stk.c) {
+            return stk.c;
+        }
+        return this.getStockMarketHS(code) + code;
+    }
+
     stockAnchor(code, text) {
         var anchor = document.createElement('a');
         if (text) {
@@ -481,6 +522,66 @@ class Manager {
             return 'collat';
         }
         return 'normal';
+    }
+
+    getEarned(code, cb) {
+        if (this.fha) {
+            var url = this.fha.server + 'stock?act=getearned&code=' + this.getLongStockCode(code);
+            var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)}
+            utils.get(url, header, rsp => {
+                if (typeof(cb) === 'function') {
+                    cb(rsp);
+                }
+            });
+            return;
+        }
+        if (typeof(cb) === 'function') {
+            cb(0);
+        }
+    }
+
+    fetchStockKline(code, kltype, sdate) {
+        var mktCode = this.getLongStockCode(code);
+        var url = this.fha.server + 'api/stockhist?fqt=1&code=' + mktCode;
+        if (!kltype) {
+            url += '&kltype=101';
+        } else if (kltype == '30' || kltype == '60' || kltype == '120') {
+            url += '&kltype=15';
+        } else if (kltype == '202' || kltype == '404' || kltype == '808') {
+            url += '&kltype=101';
+        } else {
+            url += '&kltype=' + kltype;
+        }
+
+        if (sdate !== undefined) {
+            if (sdate.length != 8 && sdate.length != 10) {
+                console.error('invalid start date', sdate);
+                return;
+            }
+            var dashdate = sdate;
+            if (!sdate.includes('-')) {
+                dashdate = sdate.substring(0,4) + '-' + sdate.substring(4,6) + '-' + sdate.substring(6,8);
+            }
+            url += '&start=' + dashdate;
+        }
+
+        utils.get(url, null, ksdata => {
+            var kdata = JSON.parse(ksdata);
+            if (!kdata || kdata.length == 0) {
+                console.error('no kline data for', code, 'kltype:', kltype);
+                return;
+            }
+
+            var klmessage = {kltype, kline:{data:{klines:[]}}};
+            kdata.forEach(kl => {
+                klmessage.kline.data.klines.push(kl[1] + ',' + kl[5] + ',' + kl[2] + ',' + kl[3] + ',' + kl[4] + ',' +kl[8]);
+            });
+            if (!this.klines[code]) {
+                this.klines[code] = new KLine(code);
+            }
+            this.klines[code].updateRtKline(klmessage);
+            this.klines[code].save();
+        });
     }
 }
 

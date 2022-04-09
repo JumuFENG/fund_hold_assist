@@ -18,7 +18,7 @@ class ZtPanelPage extends RadioAnchorPage {
 
     getZTPool() {
         var ztUrl = emjyBack.fhaserver + 'api/stockzthist';
-        utils.get(ztUrl, zt => {
+        utils.get(ztUrl, null, zt => {
             this.ztdata = JSON.parse(zt);
             this.showZtTable();
         });

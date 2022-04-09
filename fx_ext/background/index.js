@@ -1,6 +1,11 @@
-function xmlHttpPost(url, form, cb) {
+function xmlHttpPost(url, form, exheader, cb) {
     var httpRequest = new XMLHttpRequest();//第一步：建立所需的对象
     httpRequest.open('POST', url, true);//第二步：打开连接 
+    for (const k in exheader) {
+        if (Object.hasOwnProperty.call(exheader, k)) {
+            httpRequest.setRequestHeader(k, exheader[k]);
+        }
+    }
     httpRequest.send(form);//第三步：发送请求
     /**
      * 获取数据后的处理程序
@@ -16,9 +21,14 @@ function xmlHttpPost(url, form, cb) {
     }
 }
 
-function xmlHttpGet(url, cb) {
+function xmlHttpGet(url, exheader, cb) {
     var httpRequest = new XMLHttpRequest();//第一步：建立所需的对象
     httpRequest.open('GET', url, true);//第二步：打开连接 
+    for (const k in exheader) {
+        if (Object.hasOwnProperty.call(exheader, k)) {
+            httpRequest.setRequestHeader(k, exheader[k]);
+        }
+    }
     httpRequest.send();//第三步：发送请求 
     /**
      * 获取数据后的处理程序

@@ -26,7 +26,7 @@ class WencaiQuestClient {
 
     getWencaiNext(page = 1) {
         var fd = this.getFormData(page);
-        utils.post(this.url, fd, response => {
+        utils.post(this.url, fd, null, response => {
             this.onPostBack(response);
         });
     }
@@ -77,8 +77,9 @@ class WencaiQuestJClient {
     }
 
     getWencaiNext(page = 1) {
-        var fd = this.getJsonData(page);
-        utils.postJson(this.url, fd, response => {
+        var fd = JSON.stringify(this.getJsonData(page));
+        var header = {"Content-Type": "application/json"}
+        utils.post(this.url, fd, header, response => {
             this.onPostBack(response);
         });
     }
