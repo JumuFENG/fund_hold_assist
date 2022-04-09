@@ -560,6 +560,16 @@ class UserStock():
 
         return stock_stats_obj
 
+    def get_sold_earned(self):
+        if not self.sqldb.isExistTable(self.sell_table):
+            return 0
+
+        sum_earn = self.sqldb.select(self.sell_table, f'sum({column_earned})')
+        if sum_earn is None or len(sum_earn) == 0:
+            return 0
+        (e,), = sum_earn
+        return e
+
     def _add_or_update_deals(self, buy_table, values):
         attrs = [column_date, '委托编号', column_price, column_portion, column_fee, '印花税', '过户费']
 

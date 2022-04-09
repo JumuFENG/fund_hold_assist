@@ -515,6 +515,48 @@ class User():
 
         return earned_obj
 
+    def get_hold_earned(self, code):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_info_table()):
+            return 0
+
+        stk = sqldb.select(self.stocks_info_table(), [column_cost_hold, column_portion_hold], f"{column_code} = '{code}'")
+        if stk is None or len(stk) == 0:
+            return 0
+
+        (cost, portion), = stk
+        if portion > 0:
+            sd = StockDumps()
+            kl = sd.read_kd_data(code, length=1)[0]
+            return portion * float(kl[2]) - cost
+        return 0
+
+    def get_earned_of(self, code):
+        earned = 0
+        us = UserStock(self, code)
+        earned += us.get_sold_earned()
+        earned += self.get_hold_earned(code)
+
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_archived_deals_table()):
+            return earned
+
+        bsdeals = sqldb.select(self.stocks_archived_deals_table(), [column_type, column_portion, column_price, column_fee, '印花税', '过户费'], f'{column_code}="{code}"')
+        if bsdeals is None or len(bsdeals) == 0:
+            return earned
+
+        bmon = 0
+        smon = 0
+        fee = 0
+        for tp, ptn, prc, f, yh, gh in bsdeals:
+            if tp == 'B':
+                bmon += ptn * prc
+            else:
+                smon += ptn * prc
+            fee += (f + yh + gh)
+
+        return earned + (smon - bmon - fee)
+
     def get_interested_stocks_his(self):
         sd = StockDumps()
         return sd.get_his(self.get_interested_stocks_code())

@@ -29,6 +29,11 @@ def logout():
     session['username'] = "Guest"
     return redirect(url_for('guest'))
 
+def update_session_userinfo(user):
+    session['logged_in'] = True
+    session['useremail'] = user.email
+    session['username'] = user.name
+
 @app.route('/login', methods=['GET','POST'])
 def login():
     usermodel = UserModel()
@@ -43,17 +48,11 @@ def login():
         user = usermodel.user_by_email(email)
 
         if user and usermodel.check_password(user, request.form['password']):
-            session['logged_in'] = True
-            session['useremail'] = user.email
-            session['username'] = user.name
-            if request.form['back'] == 'object':
-                return json.dumps({'login': 'true', 'id':user.id})
+            update_session_userinfo(user)
             return render_template('home.html')
         else:
             #print(user.to_string(), request.form['password'], user.password)
             loginerror = 'wrong username or password'
-            if request.form['back'] == 'object':
-                return json.dumps({'loggin': 'false', 'message': loginerror})
             flash(loginerror)
             return render_template('login.html', loginsignup = True) 
 
@@ -70,9 +69,7 @@ def signup():
         if password == request.form['confirm']:
             if existing_user is None:
                 user = usermodel.add_new(username, password, email)
-                session['logged_in'] = True
-                session['useremail'] = user.email
-                session['username'] = user.name
+                update_session_userinfo(user)
                 return render_template('home.html')
 
             flash('A user already exists with that email address.')
@@ -286,12 +283,18 @@ def stocksummary():
 @app.route('/stock', methods=['GET', 'POST'])
 def stock():
     usermodel = UserModel()
+    # return request.authorization.username + '++++' + request.authorization.password
     if not session.get('logged_in'):
-        uemail = request.form.get('email', type=str, default=None)
-        upwd = request.form.get('password', type=str, default=None)
+        auth = request.authorization
+        uemail = auth.username
+        upwd = auth.password
+        if uemail is None:
+            return 401, 'Unauthenticated'
         user = usermodel.user_by_email(uemail)
-        if not usermodel.check_password(user, upwd):
-            return redirect(url_for('login'))
+        if usermodel.check_password(user, upwd):
+            update_session_userinfo(user)
+        else:
+            return 401, 'Unauthenticated'
     else:
         user = usermodel.user_by_email(session['useremail'])
 
@@ -347,8 +350,11 @@ def stock():
         if actype == 'interstedstks':
             return json.dumps(user.get_interested_stocks_code())
         if actype == 'getearned':
-            dates = int(request.args.get('days',type=str, default=None))
-            return json.dumps(user.get_earned(dates))
+            if code is None:
+                dates = int(request.args.get('days',type=str, default=None))
+                return json.dumps(user.get_earned(dates))
+            else:
+                return str(round(user.get_earned_of(code), 2))
         if actype == 'allstks':
             interested = request.args.get('interested', type=str, default=None)
             if interested is not None and interested == '1':
@@ -484,9 +490,7 @@ def userbind():
             curUser = usermodel.user_by_email(session['useremail'])
             tarUser = bind_user
             if usermodel.is_combined(curUser, tarUser):
-                session['logged_in'] = True
-                session['useremail'] = tarUser.email
-                session['username'] = tarUser.name
+                update_session_userinfo(tarUser)
                 return 'OK', 200
             else:
                 return '{wrongarg}'
