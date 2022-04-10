@@ -282,6 +282,18 @@ def stocksummary():
 
 @app.route('/stock', methods=['GET', 'POST'])
 def stock():
+    actype = None
+    if request.method == 'POST':
+        actype = request.form.get("act", type=str, default=None)
+    else:
+        actype = request.args.get("act", type=str, default=None)
+        if actype == 'test':
+            return 'OK', 200
+        if actype == 'checkdividen':
+            code = request.args.get("code", type=str, default=None)
+            date = request.args.get('date', type=str, default=None)
+            return stock_dividen_later_than(code, date)
+
     usermodel = UserModel()
     # return request.authorization.username + '++++' + request.authorization.password
     if not session.get('logged_in'):
@@ -289,18 +301,16 @@ def stock():
         uemail = auth.username
         upwd = auth.password
         if uemail is None:
-            return 401, 'Unauthenticated'
+            return 'Unauthenticated', 401
         user = usermodel.user_by_email(uemail)
         if usermodel.check_password(user, upwd):
             update_session_userinfo(user)
         else:
-            return 401, 'Unauthenticated'
+            return 'Unauthenticated', 401
     else:
         user = usermodel.user_by_email(session['useremail'])
 
-    actype = None
     if request.method == 'POST':
-        actype = request.form.get("act", type=str, default=None)
         if actype == 'buy':
             return stock_buy(user, request.form)
         if actype == 'sell':
@@ -335,10 +345,7 @@ def stock():
             user.add_deals(json.loads(deals))
             return 'OK', 200
     else:
-        actype = request.args.get("act", type=str, default=None)
         code = request.args.get("code", type=str, default=None)
-        if actype == 'test':
-            return 'OK', 200
         if actype == 'summary':
             if code:
                 us = UserStock(user, code)
@@ -514,6 +521,13 @@ def stock_hist():
             kd = sd.get_kl_data(code, klt, fqt, length, start)
             return json.dumps(kd)
     return 'get stock history kline data, no valid args'
+
+def stock_dividen_later_than(code, date):
+    if code is not None:
+        ssb = StockShareBonus()
+        ssb.setCode(code)
+        return str(ssb.dividenDateLaterThan(date))
+    return 'False'
 
 @app.route('/api/stockzthist', methods=['GET'])
 def stock_zthist():

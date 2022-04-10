@@ -339,6 +339,10 @@ class SqlHelper():
         sql = "alter table %s drop column %s" % (tablename, col)
         self.executeCommit(sql)
 
+    def renameColumn(self, tablename, col, ncol, tp):
+        sql = f'alter table {tablename} change {col} {ncol} {tp}'
+        self.executeCommit(sql)
+
     def sortTable(self, tablename, col):
         cols = self.getCloumns(tablename)
         cols.remove('id')

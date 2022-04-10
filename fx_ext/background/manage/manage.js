@@ -540,7 +540,37 @@ class Manager {
         }
     }
 
+    checkDividened(code, sdate) {
+        var mktCode = this.getLongStockCode(code);
+        if (this.fha) {
+            var url = this.fha.server + 'stock?act=checkdividen&code=' + mktCode + '&date=' + sdate;
+            utils.get(url, null, rd => {
+                if (rd === 'True') {
+                    this.klines[code].klines = {};
+                    var zdate = new Date(sdate);
+                    zdate.setMonth(zdate.getMonth() - 1);
+                    var ndate = utils.dateToString(zdate, '-');
+                    this.doFetchKline(code, '101', sdate < ndate ? sdate : ndate);
+                } else {
+                    this.doFetchKline(code, '101', sdate);
+                }
+            });
+            return;
+        }
+        if (typeof(cb) === 'function') {
+            this.doFetchKline(code, '101', sdate);
+        }
+    }
+
     fetchStockKline(code, kltype, sdate) {
+        if (this.klines[code] && kltype == '101' && sdate !== undefined) {
+            this.checkDividened(code, sdate);
+            return;
+        }
+        this.doFetchKline(code, kltype, sdate);
+    }
+
+    doFetchKline(code, kltype, sdate) {
         var mktCode = this.getLongStockCode(code);
         var url = this.fha.server + 'api/stockhist?fqt=1&code=' + mktCode;
         if (!kltype) {

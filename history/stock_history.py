@@ -337,7 +337,7 @@ class StockShareBonus(EmDataCenterRequest):
     """
     def __init__(self):
         super().__init__()
-        self.columns = ['报告日前', '登记日期', '除权除息日期', '进度', '总送转', '送股', '转股', '派息', '股息率', '每股收益', '每股净资产', '总股本', '分红送配详情']
+        self.columns = ['报告日期', '登记日期', '除权除息日期', '进度', '总送转', '送股', '转股', '派息', '股息率', '每股收益', '每股净资产', '总股本', '分红送配详情']
 
     def setCode(self, code):
         allstocks = AllStocks()
@@ -402,3 +402,18 @@ class StockShareBonus(EmDataCenterRequest):
 
         self.sqldb.insertUpdateMany(self.bonustable, attrs, [self.columns[0]], values)
         self.fecthed = []
+
+    def dividenDateLaterThan(self, date):
+        if not self.checkBonusTable():
+            return False
+        if date is None:
+            date = datetime.now().strftime("%Y-%m-%d")
+        result = self.sqldb.select(self.bonustable, 'count(*)', f'除权除息日期 > "{date}"')
+        if result is None or len(result) == 0:
+            return False
+        (count,), = result
+        return count > 0
+
+    def fixColunm(self):
+        if self.sqldb.isExistTableColumn(self.bonustable, '报告日前'):
+            self.sqldb.renameColumn(self.bonustable, '报告日前', '报告日期', 'varchar(20)')

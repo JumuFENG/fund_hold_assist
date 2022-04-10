@@ -5,7 +5,7 @@ class XlmQuestClient {
     }
 
     getZt(date, cb) {
-        utils.get(this.ztUrl + date + '.html', response => {
+        utils.get(this.ztUrl + date + '.html', null, response => {
             this.onZtBack(response, cb);
         });
     }

@@ -317,7 +317,7 @@ class TradeClient {
     getCount(code, price, tradeType, jylx, cb) {
         var url = this.countUrl();
         var fd = this.countFormData(code, price, tradeType, jylx);
-        xmlHttpPost(url, fd, response => {
+        xmlHttpPost(url, fd, null, response => {
             var robj = JSON.parse(response);
             if (robj.Status != 0) {
                 emjyBack.log(code, tradeType, 'trade getCount error');
@@ -338,7 +338,7 @@ class TradeClient {
 
     doTrade(code, price, count, tradeType, jylx, cb) {
         emjyBack.log('doTrade', tradeType, code, price, count, jylx);
-        xmlHttpPost(this.getUrl(), this.getFormData(code, price, count, tradeType, jylx), response => {
+        xmlHttpPost(this.getUrl(), this.getFormData(code, price, count, tradeType, jylx), null, response => {
             var robj = JSON.parse(response);
             if (robj.Status != 0) {
                 emjyBack.log(code, tradeType, response);

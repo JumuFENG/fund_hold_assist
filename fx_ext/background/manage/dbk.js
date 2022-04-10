@@ -6,7 +6,7 @@ class DbkQuestClient {
     }
 
     getRanks(cb) {
-        utils.get(this.rankUrl, response => {
+        utils.get(this.rankUrl, null, response => {
             this.onRankBack(response, cb);
         })
     }
@@ -28,7 +28,7 @@ class DbkQuestClient {
     }
 
     getZdt(cb) {
-        utils.get(this.ztUrl, response => {
+        utils.get(this.ztUrl, null, response => {
             this.onZdtfxBack(response, cb);
         });
     }
@@ -138,7 +138,7 @@ class DbkQuestClient {
     }
 
     getYzdt(cb) {
-        utils.get(this.yzUrl, response => {
+        utils.get(this.yzUrl, null, response => {
             this.onYzdtBack(response, cb);
         });
     }
