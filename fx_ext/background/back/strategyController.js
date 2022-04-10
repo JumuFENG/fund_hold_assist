@@ -1247,7 +1247,16 @@ class StrategyGE extends Strategy {
         var buydetails = chkInfo.buydetail;
         if (kl1) {
             var kl = kl1.getLatestKline(this.skltype);
+            var maxP = buydetails.maxBuyPrice();
+            if (this.data.guardPrice - maxP > 0) {
+                maxP = this.data.guardPrice;
+            }
             if (this.inCritical()) {
+                if (kl.c - (this.data.guardPrice - maxP * this.data.stepRate * 0.8) > 0) {
+                    this.data.inCritical = false;
+                    matchCb({id: chkInfo.id});
+                    return;
+                }
                 if (kl1.continuouslyIncreaseDays(this.skltype) > 2) {
                     this.tmpGuardPrice = kl.c;
                     matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
@@ -1256,10 +1265,6 @@ class StrategyGE extends Strategy {
                     });
                 }
                 return;
-            }
-            var maxP = buydetails.maxBuyPrice();
-            if (this.data.guardPrice - maxP > 0) {
-                maxP = this.data.guardPrice;
             }
             if (kl.l - (this.data.guardPrice - maxP * this.data.stepRate) <= 0) {
                 this.data.inCritical = true;
