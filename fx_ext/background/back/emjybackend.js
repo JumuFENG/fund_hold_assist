@@ -848,6 +848,7 @@ class EmjyBack {
         this.klineAlarms.stocks['15'].forEach(s => s101.add(s));
         this.klineAlarms.stocks['101'].forEach(s => s101.add(s));
         s101.forEach(s => {this.fetchStockKline(s, '101')});
+        this.updateEarning();
         setTimeout(()=> {
             this.normalAccount.save();
             this.collateralAccount.save();
@@ -1007,16 +1008,16 @@ class EmjyBack {
         cheatOperation(this.collateralAccount);
     }
 
-    getEarned(code) {
+    updateEarning() {
         if (!this.fha) {
             return;
         }
 
         if (this.fha) {
-            var url = this.fha.server + 'stock?act=getearned&code=' + this.getLongStockCode(code);
+            var url = this.fha.server + 'stock?act=userearning';
             var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)}
             xmlHttpGet(url, header, rsp => {
-                console.log(rsp);
+                this.log('updateEarning', rsp);
             });
         }
     }

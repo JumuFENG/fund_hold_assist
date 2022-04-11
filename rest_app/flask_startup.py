@@ -345,6 +345,13 @@ def stock():
             user.add_deals(json.loads(deals))
             return 'OK', 200
     else:
+        if actype == 'stats':
+            return json.dumps(user.get_stocks_stats())
+        if actype == 'interstedstks':
+            return json.dumps(user.get_interested_stocks_code())
+        if actype == 'userearning':
+            user.save_stocks_eaning_html(earning_cloud_file)
+            return 'OK', 200
         code = request.args.get("code", type=str, default=None)
         if actype == 'summary':
             if code:
@@ -352,10 +359,6 @@ def stock():
                 return json.dumps({code: us.get_stock_summary()})
             else:
                 return json.dumps(user.get_holding_stocks_summary())
-        if actype == 'stats':
-            return json.dumps(user.get_stocks_stats())
-        if actype == 'interstedstks':
-            return json.dumps(user.get_interested_stocks_code())
         if actype == 'getearned':
             if code is None:
                 dates = int(request.args.get('days',type=str, default=None))
