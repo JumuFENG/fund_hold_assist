@@ -570,6 +570,8 @@ class User():
     def add_deals(self, hdeals):
         cdeals = {}
         for deal in hdeals:
+            if self._archived(deal):
+                continue
             if deal['code'] in cdeals:
                 cdeals[deal['code']]['deals'].append(deal)
             else :
@@ -651,6 +653,16 @@ class User():
                     sqldb.update(self.stocks_archived_deals_table(), {column_portion: ad[0][1] + d[3]}, {'id':ad[0][0]})
             if len(newval) > 0:
                 sqldb.insertMany(self.stocks_archived_deals_table(), cols, newval)
+
+    def _archived(self, deal):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_archived_deals_table()):
+            return False
+
+        ad = sqldb.select(self.stocks_archived_deals_table(), conds=[f'''{column_code} = \"{deal['code']}\"''', f'''{column_type} = "{deal['tradeType']}"''', f'''委托编号="{deal['sid']}"'''])
+        if ad is None or len(ad) == 0:
+            return False
+        return True
 
     def archive_deals(self, edate):
         codes = self._all_user_stocks()
