@@ -39,8 +39,11 @@ class StockView {
         this.detailView.textContent = detailText;
         if (this.stock.holdCount == 0) {
             emjyManager.getTotalEarned(this.stock.code, e => {
+                if (e == 0) {
+                    return;
+                }
                 var detailText = this.detailView.textContent;
-                detailText += ' 总收益:' + e.toFixed(2);
+                detailText += ' 总收益:' + e;
                 this.detailView.textContent = detailText;
             });
         }

@@ -564,11 +564,11 @@ class UserStock():
         if not self.sqldb.isExistTable(self.sell_table):
             return 0
 
-        sum_earn = self.sqldb.select(self.sell_table, f'sum({column_earned})')
-        if sum_earn is None or len(sum_earn) == 0:
-            return 0
-        (e,), = sum_earn
-        return e
+        se = self.get_each_sell_earned()
+        sum_earn = 0
+        for v in se.values():
+            sum_earn += v
+        return sum_earn
 
     def _add_or_update_deals(self, buy_table, values):
         attrs = [column_date, '委托编号', column_price, column_portion, column_fee, '印花税', '过户费']
