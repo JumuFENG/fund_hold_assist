@@ -848,8 +848,8 @@ class EmjyBack {
         this.klineAlarms.stocks['15'].forEach(s => s101.add(s));
         this.klineAlarms.stocks['101'].forEach(s => s101.add(s));
         s101.forEach(s => {this.fetchStockKline(s, '101')});
-        this.updateEarning();
         setTimeout(()=> {
+            this.updateEarning();
             this.normalAccount.save();
             this.collateralAccount.save();
             this.trackAccount.save();
