@@ -285,6 +285,12 @@ def stock():
     actype = None
     if request.method == 'POST':
         actype = request.form.get("act", type=str, default=None)
+        if actype == 'dtmap':
+            date = request.form.get('date', type=str, default=None)
+            dtmap = request.form.get('map', type=str, default=None)
+            sdm = StockDtMap()
+            sdm.addDtMap(date, dtmap)
+            return 'OK', 200
     else:
         actype = request.args.get("act", type=str, default=None)
         if actype == 'test':
@@ -293,9 +299,26 @@ def stock():
             code = request.args.get("code", type=str, default=None)
             date = request.args.get('date', type=str, default=None)
             return stock_dividen_later_than(code, date)
+        if actype == 'dtmap':
+            date = request.args.get('date', type=str, default=None)
+            sdm = StockDtMap()
+            dtmap = sdm.dumpDataByDate(date)
+            if dtmap is not None:
+                sh = Stock_history()
+                dtmapobj = json.loads(dtmap['map'])
+                stks = set()
+                for v in dtmapobj.values():
+                    if 'suc' in v:
+                        for s in v['suc']:
+                            stks.add(s)
+                    if 'fai' in v:
+                        for s in v['fai']:
+                            stks.add(s)
+                for s in stks:
+                    sh.getKdHistoryFromSohuTillToday(s)
+            return json.dumps(dtmap)
 
     usermodel = UserModel()
-    # return request.authorization.username + '++++' + request.authorization.password
     if not session.get('logged_in'):
         auth = request.authorization
         uemail = auth.username

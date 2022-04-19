@@ -18,6 +18,7 @@ class RetroPanelPage extends RadioAnchorPage {
 
     show() {
         super.show();
+        this.container.style.display = 'flex';
         if (this.leftPanel === undefined) {
             this.initRetroView();
         }

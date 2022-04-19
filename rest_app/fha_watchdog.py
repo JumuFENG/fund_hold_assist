@@ -18,7 +18,7 @@ def check_local_server():
             sleep(20)
             tr = requests.get('http://localhost/stock?act=test', timeout=3)
             if tr.status_code == 200:
-                print('local server work fine!')
+                print('local server works fine!')
                 return
         except ConnectionError as ce:
             print(str(ce))

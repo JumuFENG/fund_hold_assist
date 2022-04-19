@@ -30,6 +30,7 @@
         <script src="../htmlhome/retro/retroPanelView.js"></script>
 
         <script src="../htmlhome/zdt/ztPanelView.js"></script>
+        <script src="../htmlhome/zdt/dtPanelView.js"></script>
         <script>
             class StockRoot {
                 constructor() {
@@ -46,6 +47,10 @@
                     var ztpage = new ZtPanelPage();
                     this.navigator.addRadio(ztpage);
                     this.root.appendChild(ztpage.container);
+
+                    var dtpage = new DtPanelPage();
+                    this.navigator.addRadio(dtpage);
+                    this.root.appendChild(dtpage.container);
 
                     var testpage = new TestsPanelPage();
                     this.navigator.addRadio(testpage);

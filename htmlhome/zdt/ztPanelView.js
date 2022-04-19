@@ -3,7 +3,6 @@
 class ZtPanelPage extends RadioAnchorPage {
     constructor() {
         super('涨停一览');
-        this.getZTPool();
     }
 
     show() {
@@ -11,13 +10,14 @@ class ZtPanelPage extends RadioAnchorPage {
         if (this.ztTable === undefined) {
             this.ztTable = new SortableTable();
             this.container.appendChild(this.ztTable.container);
+            this.getZTPool();
         }
 
         this.showZtTable();
     }
 
     getZTPool() {
-        var ztUrl = emjyBack.fhaserver + 'api/stockzthist';
+        var ztUrl = emjyBack.fha.server + 'api/stockzthist';
         utils.get(ztUrl, null, zt => {
             this.ztdata = JSON.parse(zt);
             this.showZtTable();

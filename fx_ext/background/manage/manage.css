@@ -7,6 +7,11 @@ hr {
     border-top:2px dotted #535759;
 }
 
+a {
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
 .radio_anchor_div a {
     display: inline-block;
     padding: 2px 10px;

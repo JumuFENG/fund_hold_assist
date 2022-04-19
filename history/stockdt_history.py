@@ -51,4 +51,65 @@ class StockDtInfo(StockZtInfo):
         self.sqldb.insertMany(self.tablename, self.colheaders, self.dtdata)
 
     def getDumpKeys(self):
-        return f'{column_code}, 板块'
+        return f'{column_code}, 连板数, 板块'
+
+    def getDumpCondition(self, date):
+        return [f'{column_date}="{date}"']
+
+
+class StockDtMap():
+    '''跌停进度表
+    '''
+    def __init__(self) -> None:
+        self.initConstrants()
+        self.checkInfoTable(history_db_name, self.tablename)
+
+    def initConstrants(self):
+        self.tablename = 'day_dt_maps'
+        self.colheaders = [column_date, '跌停进度数据']
+
+    def checkInfoTable(self, dbname, tablename):
+        self.sqldb = SqlHelper(password = db_pwd, database = dbname)
+        if not self.sqldb.isExistTable(tablename):
+            attrs = {column_date:'varchar(20) DEFAULT NULL', '跌停进度数据':"varchar(8192) DEFAULT NULL"}
+            constraint = 'PRIMARY KEY(`id`)'
+            self.sqldb.createTable(tablename, attrs, constraint)
+
+    def _max_date(self):
+        if self.sqldb.isExistTable(self.tablename):
+            maxDate = self.sqldb.select(self.tablename, f"max({column_date})")
+            if maxDate is None or not len(maxDate) == 1 or maxDate[0][0] is None:
+                return None
+            else:
+                (mdate,), = maxDate
+                return mdate
+
+    def addDtMap(self, date, mp):
+        dtmp = self.sqldb.select(self.tablename, '*', f'{column_date}="{date}"')
+        if dtmp is None or len(dtmp) == 0:
+            self.sqldb.insert(self.tablename, {self.colheaders[0]: date, self.colheaders[1]:mp})
+        else:
+            self.sqldb.update(self.tablename, {self.colheaders[1]:mp}, {self.colheaders[0]: date})
+
+    def getDumpKeys(self):
+        return f'跌停进度数据'
+
+    def getDumpCondition(self, date):
+        return [f'{column_date}="{date}"']
+
+    def dumpDataByDate(self, date = None):
+        if date is None:
+            date = self._max_date()
+
+        if date is None:
+            return None
+
+        while date <= datetime.now().strftime(r'%Y-%m-%d'):
+            mp = self.sqldb.select(self.tablename, self.getDumpKeys(), self.getDumpCondition(date))
+            if mp is not None and len(mp) == 1:
+                data = {'date': date}
+                data['map'] = mp[0][0]
+                return data
+            date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
+
+        return self.dumpDataByDate()

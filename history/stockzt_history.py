@@ -151,11 +151,19 @@ class StockZtInfo(EmRequest):
     def getDumpKeys(self):
         return f'{column_code}, 板块, 概念'
 
+    def getDumpCondition(self, date):
+        return [f'{column_date}="{date}"', '连板数="1"']
+
     def dumpDataByDate(self, date = None):
         if date is None:
             date = self._max_date()
 
-        data = {'date': date}
-        pool = self.sqldb.select(self.tablename,self.getDumpKeys(), [f'{column_date}="{date}"', '连板数="1"'])
-        data['pool'] = pool
-        return data
+        while date <= datetime.now().strftime(r'%Y-%m-%d'):
+            pool = self.sqldb.select(self.tablename, self.getDumpKeys(), self.getDumpCondition(date))
+            if pool is not None and len(pool) > 0:
+                data = {'date': date}
+                data['pool'] = pool
+                return data
+            date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
+
+        return self.dumpDataByDate()
