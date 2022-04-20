@@ -20,6 +20,9 @@ def check_local_server():
             if tr.status_code == 200:
                 print('local server works fine!')
                 return
+        except ConnectionResetError as ce:
+            print(str(ce))
+            continue
         except ConnectionError as ce:
             print(str(ce))
             continue

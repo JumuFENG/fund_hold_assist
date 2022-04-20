@@ -52,8 +52,6 @@ class DtPanelPage extends RadioAnchorPage {
             premap = {date: '0', map: {}};
         }
 
-        var dtmap = {date: dtdata.date, map: {}}
-        var mp = dtmap.map;
         var getExistingCt = function(mp, code) {
             for (const ct in mp) {
                 if (Object.hasOwnProperty.call(mp, ct)) {
@@ -66,6 +64,10 @@ class DtPanelPage extends RadioAnchorPage {
             }
             return 0;
         }
+
+        var dtmap = {date: dtdata.date, map: {}, details: {}}
+        var mp = dtmap.map;
+        var dtl = dtmap.details;
         for (var i = 0; i < dtdata.pool.length; ++i) {
             var code = dtdata.pool[i][0];
             var dtct = dtdata.pool[i][1];
@@ -81,6 +83,12 @@ class DtPanelPage extends RadioAnchorPage {
                 } else if (premap.map[exct] && premap.map[exct].suc && premap.map[exct].suc.has(code)) {
                     premap.map[exct].suc.delete(code);
                 }
+                if (premap.details[code]) {
+                    dtl[code] = premap.details[code];
+                    dtl[code].push({ct: ndtct, date: dtdata.date});
+                } else {
+                    dtl[code] = [{ct: ndtct, date: dtdata.date}];
+                }
             } else {
                 if (!mp[dtct]) {
                     mp[dtct] = {suc: new Set(), fai: new Set()};
@@ -88,6 +96,7 @@ class DtPanelPage extends RadioAnchorPage {
                 } else {
                     mp[dtct].suc.add(code);
                 }
+                dtl[code] = [{ct: 1, date: dtdata.date}];
             }
         }
 
@@ -122,11 +131,20 @@ class DtPanelPage extends RadioAnchorPage {
 
     makeFailedSuccess(code, ct) {
         this.dtmap.map[ct].suc.add(code);
+        if (this.dtmap.details[code]) {
+            this.dtmap.details[code].push({ct, date: this.dtmap.date});
+        } else {
+            this.dtmap.details[code] = [{ct, date: this.dtmap.date}];
+        }
+
         this.dtmap.map[ct].fai.delete(code);
     }
 
     removeFailed(code, ct) {
         this.dtmap.map[ct].fai.delete(code);
+        if (this.dtmap.details[code]) {
+            delete(this.dtmap.details[code]);
+        }
     }
 
     initDt(dtdata) {
@@ -140,6 +158,11 @@ class DtPanelPage extends RadioAnchorPage {
             if (Object.keys(mct).length > 0) {
                 dtmap.map[ct] = mct;
             }
+        }
+        if (dtdata.details) {
+            dtmap.details = JSON.parse(dtdata.details);
+        } else {
+            dtmap.details = {};
         }
         this.dtmap = dtmap;
     }
@@ -163,7 +186,7 @@ class DtPanelPage extends RadioAnchorPage {
     }
 
     saveDtMap() {
-        if (!this.dtmap || this.dtmap.length == 0) {
+        if (!this.dtmap) {
             return;
         }
 
@@ -192,6 +215,7 @@ class DtPanelPage extends RadioAnchorPage {
             }
         }
         fd.append('map', JSON.stringify(fmp));
+        fd.append('details', JSON.stringify(this.dtmap.details));
         utils.post(mapUrl, fd, null, dt => {
             console.log('save dt map', dt);
         });

@@ -288,8 +288,9 @@ def stock():
         if actype == 'dtmap':
             date = request.form.get('date', type=str, default=None)
             dtmap = request.form.get('map', type=str, default=None)
+            details = request.form.get('details', type=str, default=None)
             sdm = StockDtMap()
-            sdm.addDtMap(date, dtmap)
+            sdm.addDtMap(date, dtmap, details)
             return 'OK', 200
     else:
         actype = request.args.get("act", type=str, default=None)
@@ -303,19 +304,6 @@ def stock():
             date = request.args.get('date', type=str, default=None)
             sdm = StockDtMap()
             dtmap = sdm.dumpDataByDate(date)
-            if dtmap is not None:
-                sh = Stock_history()
-                dtmapobj = json.loads(dtmap['map'])
-                stks = set()
-                for v in dtmapobj.values():
-                    if 'suc' in v:
-                        for s in v['suc']:
-                            stks.add(s)
-                    if 'fai' in v:
-                        for s in v['fai']:
-                            stks.add(s)
-                for s in stks:
-                    sh.getKdHistoryFromSohuTillToday(s)
             return json.dumps(dtmap)
 
     usermodel = UserModel()

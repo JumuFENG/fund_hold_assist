@@ -66,14 +66,24 @@ class StockDtMap():
 
     def initConstrants(self):
         self.tablename = 'day_dt_maps'
-        self.colheaders = [column_date, '跌停进度数据']
+        self.colheaders = [column_date, '跌停进度数据', '详情']
+
+    def check_table_column(self, col, tp):
+        if not self.sqldb.isExistTableColumn(self.tablename, col):
+            self.sqldb.addColumn(self.tablename, col, tp)
 
     def checkInfoTable(self, dbname, tablename):
         self.sqldb = SqlHelper(password = db_pwd, database = dbname)
         if not self.sqldb.isExistTable(tablename):
-            attrs = {column_date:'varchar(20) DEFAULT NULL', '跌停进度数据':"varchar(8192) DEFAULT NULL"}
+            attrs = {
+                column_date:'varchar(20) DEFAULT NULL',
+                '跌停进度数据':"varchar(8192) DEFAULT NULL",
+                '详情':"varchar(4096) DEFAULT NULL"
+            }
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.createTable(tablename, attrs, constraint)
+
+        self.check_table_column(self.colheaders[2], 'varchar(4096) DEFAULT NULL')
 
     def _max_date(self):
         if self.sqldb.isExistTable(self.tablename):
@@ -84,15 +94,15 @@ class StockDtMap():
                 (mdate,), = maxDate
                 return mdate
 
-    def addDtMap(self, date, mp):
+    def addDtMap(self, date, mp, details):
         dtmp = self.sqldb.select(self.tablename, '*', f'{column_date}="{date}"')
         if dtmp is None or len(dtmp) == 0:
-            self.sqldb.insert(self.tablename, {self.colheaders[0]: date, self.colheaders[1]:mp})
+            self.sqldb.insert(self.tablename, {self.colheaders[0]: date, self.colheaders[1]:mp, self.colheaders[2]:details})
         else:
-            self.sqldb.update(self.tablename, {self.colheaders[1]:mp}, {self.colheaders[0]: date})
+            self.sqldb.update(self.tablename, {self.colheaders[1]:mp, self.colheaders[2]:details}, {self.colheaders[0]: date})
 
     def getDumpKeys(self):
-        return f'跌停进度数据'
+        return f'{self.colheaders[1]}, {self.colheaders[2]}'
 
     def getDumpCondition(self, date):
         return [f'{column_date}="{date}"']
@@ -109,6 +119,7 @@ class StockDtMap():
             if mp is not None and len(mp) == 1:
                 data = {'date': date}
                 data['map'] = mp[0][0]
+                data['details'] = mp[0][1]
                 return data
             date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
 

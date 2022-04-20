@@ -102,12 +102,38 @@ class DailyUpdater():
 
     def fetch_zdt_stocks(self):
         print('update zt info')
+        zdtcodes = set()
         ztinfo = StockZtInfo()
         ztinfo.getNext()
+        ztdata = ztinfo.dumpDataByDate()
+        if 'pool' in ztdata:
+            for zt in ztdata['pool']:
+                zdtcodes.add(zt[0])
 
         print('update dt info')
         dtinfo = StockDtInfo()
         dtinfo.getNext()
+        dtdata = dtinfo.dumpDataByDate()
+        if 'pool' in dtdata:
+            for dt in dtdata['pool']:
+                zdtcodes.add(dt[0])
+
+        sdm = StockDtMap()
+        dtmap = sdm.dumpDataByDate()
+        if dtmap is not None:
+            dtmapobj = json.loads(dtmap['map'])
+            for v in dtmapobj.values():
+                if 'suc' in v:
+                    for s in v['suc']:
+                        zdtcodes.add(s)
+                if 'fai' in v:
+                    for s in v['fai']:
+                        zdtcodes.add(s)
+
+        print('update zdt stocks kline data.')
+        sh = Stock_history()
+        for s in zdtcodes:
+            sh.getKdHistoryFromSohuTillToday(s)
 
     def fetch_dfsorg_stocks(self):
         dfsorg = StockDfsorg()
