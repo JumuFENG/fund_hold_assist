@@ -15,18 +15,19 @@ def kill_old_proc():
 def check_local_server():
     while True:
         try:
-            sleep(20)
+            sleep(5)
             tr = requests.get('http://localhost/stock?act=test', timeout=3)
             if tr.status_code == 200:
                 print('local server works fine!')
                 return
-        except ConnectionResetError as ce:
+        except requests.ConnectionError as ce:
             print(str(ce))
             continue
-        except ConnectionError as ce:
+        except requests.RequestException as ce:
             print(str(ce))
             continue
         except Exception as e:
+            print(type(e))
             print(e)
         sleep(180)
         kill_old_proc()

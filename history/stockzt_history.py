@@ -97,7 +97,7 @@ class StockZtInfo(EmRequest):
         self.ztdata = []
         date = datetime.strptime(self.date, "%Y%m%d").strftime('%Y-%m-%d')
         for ztobj in emback['data']['pool']:
-            code = ('SZ' if ztobj['m'] == '0' else 'SH') + ztobj['c'] # code
+            code = ('SZ' if ztobj['m'] == '0' or ztobj['m'] == 0 else 'SH') + ztobj['c'] # code
             hsl = ztobj['hs'] # 换手率 %
             fund = ztobj['fund'] # 封单金额
             zbc = ztobj['zbc'] # 炸板次数
@@ -167,3 +167,9 @@ class StockZtInfo(EmRequest):
             date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
 
         return self.dumpDataByDate()
+
+    def fixCodePrefix(self):
+        allzdt = self.sqldb.select(self.tablename, f'id, {column_code}')
+        for id, code in allzdt:
+            if code.startswith('SH00') or code.startswith('SH30'):
+                self.sqldb.update(self.tablename, {column_code:'SZ'+code[2:]}, {'id': str(id)})

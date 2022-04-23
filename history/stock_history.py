@@ -318,6 +318,10 @@ class Stock_history(HistoryFromSohu):
         self.k_histable = self.sg.stockKtable
         self.k15_histable = self.sg.stockK15table
 
+    def getHistoryFailed(self):
+        allstocks = AllStocks()
+        allstocks.checkNotices(self.code)
+
     def getSetupDate(self):
         return (datetime.strptime(self.sg.setupdate, "%Y-%m-%d")).strftime("%Y%m%d")
 

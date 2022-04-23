@@ -22,16 +22,27 @@ class DtPanelPage extends RadioAnchorPage {
             this.contentPanel = document.createElement('div');
             this.contentPanel.style.maxWidth = '75%';
             this.container.appendChild(this.contentPanel);
-            this.dtMapTable = new SortableTable();
+            this.dtMapTable = new SortableTable(false);
             this.contentPanel.appendChild(document.createTextNode('跌停进度'));
+            var btnDtMerge = document.createElement('button');
+            btnDtMerge.textContent = '合并进度';
+            btnDtMerge.onclick = () => {
+                this.mergePredtmap();
+                this.showDtMaps();
+            }
+            this.contentPanel.appendChild(btnDtMerge);
             this.contentPanel.appendChild(this.dtMapTable.container);
             var btnSaveDtMap = document.createElement('button');
             btnSaveDtMap.textContent = '保存';
-            btnSaveDtMap.onclick = e => {
+            btnSaveDtMap.onclick = () => {
                 this.saveDtMap();
             }
             this.contentPanel.appendChild(btnSaveDtMap);
-
+            this.predtMapPanel = document.createElement('div');
+            this.contentPanel.appendChild(this.predtMapPanel);
+            this.predtMapTable = new SortableTable(false);
+            this.predtMapPanel.appendChild(document.createTextNode('待定'));
+            this.predtMapPanel.appendChild(this.predtMapTable.container);
             this.getDtMap();
         }
     }
@@ -49,7 +60,7 @@ class DtPanelPage extends RadioAnchorPage {
             }
         }
         if (!premap) {
-            premap = {date: '0', map: {}};
+            premap = {date: '0', map: {}, details: {}};
         }
 
         var getExistingCt = function(mp, code) {
@@ -68,6 +79,11 @@ class DtPanelPage extends RadioAnchorPage {
         var dtmap = {date: dtdata.date, map: {}, details: {}}
         var mp = dtmap.map;
         var dtl = dtmap.details;
+        if (premap && premap.details) {
+            for (var k in premap.details) {
+                dtl[k] = premap.details[k];
+            }
+        }
         for (var i = 0; i < dtdata.pool.length; ++i) {
             var code = dtdata.pool[i][0];
             var dtct = dtdata.pool[i][1];
@@ -83,8 +99,7 @@ class DtPanelPage extends RadioAnchorPage {
                 } else if (premap.map[exct] && premap.map[exct].suc && premap.map[exct].suc.has(code)) {
                     premap.map[exct].suc.delete(code);
                 }
-                if (premap.details[code]) {
-                    dtl[code] = premap.details[code];
+                if (dtl[code]) {
                     dtl[code].push({ct: ndtct, date: dtdata.date});
                 } else {
                     dtl[code] = [{ct: ndtct, date: dtdata.date}];
@@ -98,50 +113,150 @@ class DtPanelPage extends RadioAnchorPage {
                 }
                 dtl[code] = [{ct: 1, date: dtdata.date}];
             }
+            this.getDtStockKlines(code, dtmap.date);
         }
 
-        var addToFail = function(dtmp, dtcodes, ct) {
-            if (!dtmp[ct]) {
-                dtmp[ct] = {suc: new Set(), fai: dtcodes};
-            } else {
-                dtcodes.forEach(c => {dtmp[ct].fai.add(c)});
-            }
-        }
-        var premap = premap.map;
-        for (var prect in premap) {
-            if (premap[prect].suc) {
-                var fcodes = new Set();
-                premap[prect].suc.forEach(c => {
-                    fcodes.add(c);
-                });
-                addToFail(dtmap.map, fcodes, prect - 1 + 2);
-            }
-            if (premap[prect].fai) {
-                var fcodes = new Set();
-                premap[prect].fai.forEach(c => {
-                    fcodes.add(c);
-                });
-                addToFail(dtmap.map, fcodes, prect);
-            }
-        }
-        premap = null;
+        this.premap = premap;
         this.dtmap = dtmap;
+        this.mergePredtmap();
         this.showDtMaps();
     }
 
-    makeFailedSuccess(code, ct) {
-        this.dtmap.map[ct].suc.add(code);
-        if (this.dtmap.details[code]) {
-            this.dtmap.details[code].push({ct, date: this.dtmap.date});
+    mergePredtmap() {
+        if (!this.premap) {
+            return;
+        }
+        var premap = this.premap.map;
+        for (var prect in premap) {
+            if (premap[prect].suc) {
+                var fcodes = this.calcPredtSuc(premap[prect].suc, prect - 1 + 2);
+                fcodes.forEach(c => {
+                    premap[prect].suc.delete(c);
+                });
+                if (premap[prect].suc.size == 0) {
+                    delete(premap[prect].suc);
+                }
+            }
+            if (premap[prect].fai) {
+                var fcodes = this.calcPredtSuc(premap[prect].fai, prect);
+                fcodes.forEach(c => {
+                    premap[prect].fai.delete(c);
+                });
+                if (premap[prect].fai.size == 0) {
+                    delete(premap[prect].fai);
+                }
+            }
+            if (!premap[prect].suc && !premap[prect].fai) {
+                delete(premap[prect]);
+            }
+        }
+        if (Object.keys(this.premap.map).length == 0) {
+            this.premap = null;
+        }
+    }
+
+    calcPredtSuc(sfset, nct) {
+        var addToFail = function(dtmp, code, ct) {
+            if (!dtmp[ct]) {
+                dtmp[ct] = {suc: new Set(), fai: new Set()};
+            }
+            dtmp[ct].fai.add(code);
+        }
+        var addToSuc = function(dtmp, code, ct) {
+            if (!dtmp[ct]) {
+                dtmp[ct] = {suc: new Set(), fai: new Set()};
+            }
+            dtmp[ct].suc.add(code);
+        }
+        var klOfDate = function(klines, date) {
+            for (var i = klines.length - 1; i >= 0; i--) {
+                if (klines[i].time == date) {
+                    return klines[i];
+                }
+            }
+        }
+        var waitDays = function(klines, sdate, edate) {
+            var eidx = klines.findIndex(kl => kl.time == edate);
+            var sidx = klines.findIndex(kl => kl.time == sdate);
+            return eidx - sidx;
+        }
+        var fcodes = [];
+        var dtmap = this.dtmap;
+        var premap = this.premap;
+        sfset.forEach(c => {
+            if (!emjyBack.klines[c] || !emjyBack.klines[c].klines) {
+                this.getDtStockKlines(c, premap.date);
+                return;
+            }
+            var klines = emjyBack.klines[c].getKline('101');
+            var kl = klOfDate(klines, dtmap.date);
+            if (!kl) {
+                if (klines[klines.length - 1].time < dtmap.date) {
+                    this.getDtStockKlines(c, dtmap.date);
+                }
+                return;
+            }
+            var predate = premap.date;
+            if (premap.details && premap.details[c] && premap.details[c].length > 0) {
+                predate = premap.details[c][premap.details[c].length - 1].date;
+            }
+            var prekl = klOfDate(klines, predate);
+            var dtl = dtmap.details;
+            if (prekl.c * 0.9 - kl.l >= 0) {
+                addToSuc(dtmap.map, c, nct);
+                if (dtl[c]) {
+                    dtl[c].push({ct:  nct, date:this.dtmap.date});
+                } else {
+                    dtl[c] = [{ct:  nct, date:this.dtmap.date}];
+                }
+            } else {
+                if (premap.details && premap.details[c] && premap.details[c].length > 0) {
+                    if (kl.c - prekl.c * 1.08 > 0 || waitDays(klines, predate, dtmap.date) > 3) {
+                        console.log(c, 'remove from dtmap');
+                        this.removeFailed(c, nct);
+                        fcodes.push(c);
+                        return;
+                    }
+                }
+                addToFail(dtmap.map, c, nct);
+            }
+            fcodes.push(c);
+        });
+        return fcodes;
+    }
+
+    manualMergePremap(code, prect, presuc, ct, suc) {
+        if (suc == 'suc') {
+            this.dtmap.map[ct].suc.add(code);
+            if (this.dtmap.details[code]) {
+                this.dtmap.details[code].push({ct, date: this.dtmap.date});
+            } else {
+                this.dtmap.details[code] = [{ct, date: this.dtmap.date}];
+            }
         } else {
-            this.dtmap.details[code] = [{ct, date: this.dtmap.date}];
+            this.dtmap.map[ct].fai.add(code);
         }
 
-        this.dtmap.map[ct].fai.delete(code);
+        if (presuc == 'suc') {
+            this.premap.map[prect].suc.delete(code);
+            if (this.premap.map[prect].suc.size == 0) {
+                delete(this.premap.map[prect].suc);
+            }
+        } else {
+            this.premap.map[prect].fai.delete(code);
+            if (this.premap.map[prect].fai.size == 0) {
+                delete(this.premap.map[prect].fai);
+            }
+        }
+        if (this.premap.map[prect].suc === undefined && this.premap.map[prect].fai === undefined) {
+            delete(this.premap[prect]);
+        }
     }
 
     removeFailed(code, ct) {
-        this.dtmap.map[ct].fai.delete(code);
+        if (this.dtmap.map[ct]) {
+            this.dtmap.map[ct].fai.delete(code);
+        }
         if (this.dtmap.details[code]) {
             delete(this.dtmap.details[code]);
         }
@@ -164,17 +279,23 @@ class DtPanelPage extends RadioAnchorPage {
         } else {
             dtmap.details = {};
         }
+        for (var c in dtmap.details) {
+            this.getDtStockKlines(c, dtmap.date);
+        }
         this.dtmap = dtmap;
     }
 
     getDtMap() {
         var mapUrl = emjyBack.fha.server + 'stock?act=dtmap';
+        if (this.startdate) {
+            mapUrl += '&date=' + this.startdate;
+        }
         utils.get(mapUrl, null, dt => {
             var dtdata = JSON.parse(dt);
             if (dtdata) {
                 this.initDt(dtdata);
             }
-            var date = '2022-03-07';
+            var date = undefined;
             if (this.dtmap) {
                 date = this.dtmap.date;
                 var dtdate = new Date(date);
@@ -233,6 +354,19 @@ class DtPanelPage extends RadioAnchorPage {
         });
     }
 
+    getDtStockKlines(code, date) {
+        emjyBack.loadKlines(code, () => {
+            if (!emjyBack.klines[code] || !emjyBack.klines[code].klines|| !emjyBack.klines[code].klines['101'] || emjyBack.klines[code].klines['101'].length == 0) {
+                emjyBack.fetchStockKline(code);
+            } else {
+                var klines = emjyBack.klines[code].klines['101'];
+                if (klines[klines.length - 1].time < date) {
+                    emjyBack.fetchStockKline(code, '101', klines[klines.length - 1].time);
+                }
+            }
+        });
+    }
+
     showDtTable() {
         if (!this.dtdata || !this.dtTable) {
             return;
@@ -275,9 +409,9 @@ class DtPanelPage extends RadioAnchorPage {
         return d;
     }
 
-    createEditAnchors(codes, ect) {
-        if (ect == 1) {
-            return this.createDeleteBlock();
+    createEditAnchors(codes, ect, sucfai) {
+        if (codes === undefined) {
+            codes = new Set();
         }
         var d = document.createElement('div');
         d.style = 'display: contents;';
@@ -286,6 +420,7 @@ class DtPanelPage extends RadioAnchorPage {
             var a = emjyBack.stockAnchor(c.substring(2));
             a.code = c;
             a.ect = ect;
+            a.sucfail = sucfai;
             a.ondragstart = e => {
                 this.dragging = e.target;
             }
@@ -302,9 +437,13 @@ class DtPanelPage extends RadioAnchorPage {
         return d;
     }
 
-    createAnchors(codes, sct) {
+    createAnchors(codes, sct, sucfai) {
+        if (codes === undefined) {
+            codes = new Set();
+        }
         var d = document.createElement('div');
         d.sct = sct;
+        d.sucfail = sucfai;
         d.ondragover = e => {
             e.preventDefault();
         }
@@ -314,7 +453,7 @@ class DtPanelPage extends RadioAnchorPage {
             if (e.target.tagName == 'A') {
                 adiv = e.target.parentElement;
             }
-            if (adiv.sct == this.dragging.ect) {
+            if (adiv.sct >= this.dragging.ect) {
                 this.dragging.parentElement.removeChild(this.dragging);
                 adiv.appendChild(this.dragging);
                 for (var i = 0; ; i++) {
@@ -330,7 +469,7 @@ class DtPanelPage extends RadioAnchorPage {
                 if (adiv.style.height != '') {
                     adiv.style.height = '';
                 }
-                this.makeFailedSuccess(this.dragging.code, this.dragging.ect);
+                this.manualMergePremap(this.dragging.code, this.dragging.ect, this.dragging.sucfail, adiv.sct, adiv.sucfail);
             }
         }
         var ct = 0;
@@ -368,12 +507,25 @@ class DtPanelPage extends RadioAnchorPage {
 
         for (var ct in dtmap.map) {
             var ctName = getCtName(ct);
-            var scodes = dtmap.map[ct].suc;
-            var fcodes = new Set();
-            dtmap.map[ct].fai.forEach(c => {
-                fcodes.add(c);
-            });
-            this.dtMapTable.addRow(ctName, this.createAnchors(scodes, ct), this.createEditAnchors(fcodes, ct));
+            this.dtMapTable.addRow(ctName,
+                this.createAnchors(dtmap.map[ct].suc, ct, 'suc'),
+                ct == 1 ? this.createDeleteBlock() : this.createAnchors(dtmap.map[ct].fai, ct, 'fai')
+            );
+        }
+
+        this.predtMapTable.reset();
+        if (this.premap && this.premap.map) {
+            this.predtMapPanel.style.display = 'block';
+            this.predtMapTable.setClickableHeader(this.premap.date, '成', '败');
+            for (var ct in this.premap.map) {
+                var ctName = getCtName(ct);
+                this.predtMapTable.addRow(ctName,
+                    this.createEditAnchors(this.premap.map[ct].suc, ct, 'suc'),
+                    this.createEditAnchors(this.premap.map[ct].fai, ct, 'fai')
+                );
+            }
+        } else {
+            this.predtMapPanel.style.display = 'none';
         }
     }
 }

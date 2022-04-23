@@ -120,6 +120,9 @@ class HistoryFromSohu(HistoryDowloaderBase):
     def getEmSecCode(self):
         pass
 
+    def getHistoryFailed(self):
+        pass
+
     def getHistoryFromSohu(self, code, sDate, eDate, period = None):
         # get fund k history from sohu
         params = {'code': code}
@@ -202,6 +205,7 @@ class HistoryFromSohu(HistoryDowloaderBase):
 
         sohudata = self.getHistoryFromSohu(self.getSohuCode(), s, e, period)
         if sohudata is None:
+            self.getHistoryFailed()
             return
 
         self.saveSohuData(ktable, sohudata, period)

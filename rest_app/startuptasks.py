@@ -73,6 +73,7 @@ def run_regular_tasks(dnow):
     while True:
         nw = requests.get('https://www.eastmoney.com/js/index2018.js', timeout=2)
         if nw is not None or retry > 100:
+            print(nw)
             break
         retry += 1
 

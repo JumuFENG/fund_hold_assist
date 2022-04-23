@@ -26,7 +26,7 @@ class StockDtInfo(StockZtInfo):
         self.dtdata = []
         date = datetime.strptime(self.date, "%Y%m%d").strftime('%Y-%m-%d')
         for dtobj in emback['data']['pool']:
-            code = ('SZ' if dtobj['m'] == '0' else 'SH') + dtobj['c'] # code
+            code = ('SZ' if dtobj['m'] == '0' or dtobj['m'] == 0 else 'SH') + dtobj['c'] # code
             hsl = dtobj['hs'] # 换手率 %
             fund = dtobj['fund'] # 封单金额
             fba = dtobj['fba'] # 板上成交额
@@ -77,13 +77,13 @@ class StockDtMap():
         if not self.sqldb.isExistTable(tablename):
             attrs = {
                 column_date:'varchar(20) DEFAULT NULL',
-                '跌停进度数据':"varchar(8192) DEFAULT NULL",
-                '详情':"varchar(4096) DEFAULT NULL"
+                '跌停进度数据':"TEXT(8192) DEFAULT NULL",
+                '详情':"TEXT(8192) DEFAULT NULL"
             }
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.createTable(tablename, attrs, constraint)
 
-        self.check_table_column(self.colheaders[2], 'varchar(4096) DEFAULT NULL')
+        self.check_table_column(self.colheaders[2], 'TEXT(8192) DEFAULT NULL')
 
     def _max_date(self):
         if self.sqldb.isExistTable(self.tablename):
@@ -124,3 +124,15 @@ class StockDtMap():
             date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
 
         return self.dumpDataByDate()
+
+    def fixCodePrefix(self):
+        allzdt = self.sqldb.select(self.tablename, f'id,{self.colheaders[1]}, {self.colheaders[2]}')
+        for id, mp, dtl in allzdt:
+            mp = mp.replace('SH00', 'SZ00')
+            mp = mp.replace('SH30', 'SZ30')
+            if dtl is not None:
+                dtl = dtl.replace('SH00', 'SZ00')
+                dtl = dtl.replace('SH30', 'SZ30')
+                self.sqldb.update(self.tablename, {self.colheaders[1]:mp, self.colheaders[2]: dtl}, {'id': str(id)})
+            else:
+                self.sqldb.update(self.tablename, {self.colheaders[1]:mp}, {'id': str(id)})
