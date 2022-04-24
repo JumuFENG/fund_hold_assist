@@ -2,6 +2,7 @@ from sys import platform
 from utils._pwd import *
 from utils.commons import *
 from utils.sql_helper import *
+from utils.tablebase import *
 from utils.ftp_helper import *
 from utils.table_manager import *
 if platform == 'win32':

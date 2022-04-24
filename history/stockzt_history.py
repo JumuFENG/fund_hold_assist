@@ -45,36 +45,30 @@ class StockZtXlm(EmRequest):
         return xlzt
 
 
-class StockZtInfo(EmRequest):
+class StockZtInfo(EmRequest, TableBase):
     '''涨停
     ref: http://quote.eastmoney.com/ztb/detail#type=ztgc
     '''
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
+        super(EmRequest, self).__init__()
         self.date = None
-        self.initConstrants()
-        self.checkInfoTable(history_db_name, self.tablename)
 
     def initConstrants(self):
+        self.dbname = history_db_name
         self.tablename = 'day_zt_stocks'
-        self.colheaders = [column_code, column_date, '涨停封单', '换手率', '连板数', '炸板数', '板块', '概念']
+        self.colheaders = [
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+            {'col':'涨停封单','type':'varchar(20) DEFAULT NULL'},
+            {'col':'换手率','type':'varchar(20) DEFAULT NULL'},
+            {'col':'连板数','type':'varchar(20) DEFAULT NULL'},
+            {'col':'炸板数','type':'varchar(20) DEFAULT NULL'},
+            {'col':'板块','type':'varchar(63) DEFAULT NULL'},
+            {'col':'概念','type':'varchar(255) DEFAULT NULL'}
+        ]
+
         self.urlroot = f'http://push2ex.eastmoney.com/getTopicZTPool?ut=7eea3edcaed734bea9cbfc24409ed989&sort=fbt%3Aasc&Pageindex=0&dpt=wz.ztzt&date='
-
-    def checkInfoTable(self, dbname, tablename):
-        self.sqldb = SqlHelper(password = db_pwd, database = dbname)
-        if not self.sqldb.isExistTable(tablename):
-            attrs = {column_code:'varchar(20) DEFAULT NULL', column_date:"varchar(20) DEFAULT NULL"}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.createTable(tablename, attrs, constraint)
-
-    def _max_date(self):
-        if self.sqldb.isExistTable(self.tablename):
-            maxDate = self.sqldb.select(self.tablename, f"max({column_date})")
-            if maxDate is None or not len(maxDate) == 1 or maxDate[0][0] is None:
-                return None
-            else:
-                (mdate,), = maxDate
-                return mdate
 
     def getUrl(self):
         if self.date is None:
@@ -131,32 +125,24 @@ class StockZtInfo(EmRequest):
 
             self.saveFetched()
 
-    def check_table_column(self, col, tp):
-        if not self.sqldb.isExistTableColumn(self.tablename, col):
-            self.sqldb.addColumn(self.tablename, col, tp)
-
     def saveFetched(self):
         if self.ztdata is None or len(self.ztdata) == 0:
             return
 
-        self.check_table_column(self.colheaders[2], 'varchar(20) DEFAULT NULL')
-        self.check_table_column(self.colheaders[3], 'varchar(20) DEFAULT NULL')
-        self.check_table_column(self.colheaders[4], 'varchar(20) DEFAULT NULL')
-        self.check_table_column(self.colheaders[5], 'varchar(20) DEFAULT NULL')
-        self.check_table_column(self.colheaders[6], 'varchar(63) DEFAULT NULL')
-        self.check_table_column(self.colheaders[7], 'varchar(255) DEFAULT NULL')
-
-        self.sqldb.insertMany(self.tablename, self.colheaders, self.ztdata)
+        self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], self.ztdata)
 
     def getDumpKeys(self):
-        return f'{column_code}, 板块, 概念'
+        return self._select_keys([f'{column_code}, 板块, 概念'])
 
     def getDumpCondition(self, date):
-        return [f'{column_date}="{date}"', '连板数="1"']
+        return self._select_condition([f'{column_date}="{date}"', '连板数="1"'])
 
     def dumpDataByDate(self, date = None):
         if date is None:
             date = self._max_date()
+
+        if date is None:
+            return None
 
         while date <= datetime.now().strftime(r'%Y-%m-%d'):
             pool = self.sqldb.select(self.tablename, self.getDumpKeys(), self.getDumpCondition(date))
@@ -167,9 +153,3 @@ class StockZtInfo(EmRequest):
             date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
 
         return self.dumpDataByDate()
-
-    def fixCodePrefix(self):
-        allzdt = self.sqldb.select(self.tablename, f'id, {column_code}')
-        for id, code in allzdt:
-            if code.startswith('SH00') or code.startswith('SH30'):
-                self.sqldb.update(self.tablename, {column_code:'SZ'+code[2:]}, {'id': str(id)})

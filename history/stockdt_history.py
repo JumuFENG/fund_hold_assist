@@ -10,8 +10,19 @@ class StockDtInfo(StockZtInfo):
         super().__init__()
 
     def initConstrants(self):
+        self.dbname = history_db_name
         self.tablename = 'day_dt_stocks'
-        self.colheaders = [column_code, column_date, '封单资金', '板上成交额', '换手率', '连板数', '开板数', '板块']
+        self.colheaders = [
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+            {'col':'封单资金','type':'varchar(20) DEFAULT NULL'},
+            {'col':'板上成交额','type':'varchar(20) DEFAULT NULL'},
+            {'col':'换手率','type':'varchar(20) DEFAULT NULL'},
+            {'col':'连板数','type':'varchar(20) DEFAULT NULL'},
+            {'col':'开板数','type':'varchar(20) DEFAULT NULL'},
+            {'col':'板块','type':'varchar(63) DEFAULT NULL'},
+        ]
+
         self.urlroot = f'http://push2ex.eastmoney.com/getTopicDTPool?ut=7eea3edcaed734bea9cbfc24409ed989&dpt=wz.ztzt&Pageindex=0&sort=fund%3Aasc&date='
 
     def getNext(self):
@@ -41,71 +52,36 @@ class StockDtInfo(StockZtInfo):
         if self.dtdata is None or len(self.dtdata) == 0:
             return
     
-        self.check_table_column(self.colheaders[2], 'varchar(20) DEFAULT NULL')
-        self.check_table_column(self.colheaders[3], 'varchar(20) DEFAULT NULL')
-        self.check_table_column(self.colheaders[4], 'varchar(20) DEFAULT NULL')
-        self.check_table_column(self.colheaders[5], 'varchar(20) DEFAULT NULL')
-        self.check_table_column(self.colheaders[6], 'varchar(20) DEFAULT NULL')
-        self.check_table_column(self.colheaders[7], 'varchar(63) DEFAULT NULL')
-
-        self.sqldb.insertMany(self.tablename, self.colheaders, self.dtdata)
+        self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], self.dtdata)
 
     def getDumpKeys(self):
-        return f'{column_code}, 连板数, 板块'
+        return self._select_keys([f'{column_code}, 连板数, 板块']) 
 
     def getDumpCondition(self, date):
-        return [f'{column_date}="{date}"']
+        return self._select_condition(f'{column_date}="{date}"')
 
 
-class StockDtMap():
+class StockDtMap(TableBase):
     '''跌停进度表
     '''
     def __init__(self) -> None:
-        self.initConstrants()
-        self.checkInfoTable(history_db_name, self.tablename)
+        super().__init__()
 
     def initConstrants(self):
+        self.dbname = history_db_name
         self.tablename = 'day_dt_maps'
-        self.colheaders = [column_date, '跌停进度数据', '详情']
-
-    def check_table_column(self, col, tp):
-        if not self.sqldb.isExistTableColumn(self.tablename, col):
-            self.sqldb.addColumn(self.tablename, col, tp)
-
-    def checkInfoTable(self, dbname, tablename):
-        self.sqldb = SqlHelper(password = db_pwd, database = dbname)
-        if not self.sqldb.isExistTable(tablename):
-            attrs = {
-                column_date:'varchar(20) DEFAULT NULL',
-                '跌停进度数据':"TEXT(8192) DEFAULT NULL",
-                '详情':"TEXT(8192) DEFAULT NULL"
-            }
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.createTable(tablename, attrs, constraint)
-
-        self.check_table_column(self.colheaders[2], 'TEXT(8192) DEFAULT NULL')
-
-    def _max_date(self):
-        if self.sqldb.isExistTable(self.tablename):
-            maxDate = self.sqldb.select(self.tablename, f"max({column_date})")
-            if maxDate is None or not len(maxDate) == 1 or maxDate[0][0] is None:
-                return None
-            else:
-                (mdate,), = maxDate
-                return mdate
+        self.colheaders = [
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+            {'col':'跌停进度数据','type':'TEXT(8192) DEFAULT NULL'},
+            {'col':'详情','type':'TEXT(8192) DEFAULT NULL'}
+        ]
 
     def addDtMap(self, date, mp, details):
         dtmp = self.sqldb.select(self.tablename, '*', f'{column_date}="{date}"')
         if dtmp is None or len(dtmp) == 0:
-            self.sqldb.insert(self.tablename, {self.colheaders[0]: date, self.colheaders[1]:mp, self.colheaders[2]:details})
+            self.sqldb.insert(self.tablename, {self.colheaders[0]['col']: date, self.colheaders[1]['col']: mp, self.colheaders[2]['col']:details})
         else:
-            self.sqldb.update(self.tablename, {self.colheaders[1]:mp, self.colheaders[2]:details}, {self.colheaders[0]: date})
-
-    def getDumpKeys(self):
-        return f'{self.colheaders[1]}, {self.colheaders[2]}'
-
-    def getDumpCondition(self, date):
-        return [f'{column_date}="{date}"']
+            self.sqldb.update(self.tablename, {self.colheaders[1]['col']: mp, self.colheaders[2]['col']: details}, {self.colheaders[0]['col']: date})
 
     def dumpDataByDate(self, date = None):
         if date is None:
@@ -115,7 +91,7 @@ class StockDtMap():
             return None
 
         while date <= datetime.now().strftime(r'%Y-%m-%d'):
-            mp = self.sqldb.select(self.tablename, self.getDumpKeys(), self.getDumpCondition(date))
+            mp = self._dump_data(self._select_keys([self.colheaders[1]['col'], self.colheaders[2]['col']]), self._select_condition(f'{column_date}="{date}"'))
             if mp is not None and len(mp) == 1:
                 data = {'date': date}
                 data['map'] = mp[0][0]
@@ -124,15 +100,3 @@ class StockDtMap():
             date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
 
         return self.dumpDataByDate()
-
-    def fixCodePrefix(self):
-        allzdt = self.sqldb.select(self.tablename, f'id,{self.colheaders[1]}, {self.colheaders[2]}')
-        for id, mp, dtl in allzdt:
-            mp = mp.replace('SH00', 'SZ00')
-            mp = mp.replace('SH30', 'SZ30')
-            if dtl is not None:
-                dtl = dtl.replace('SH00', 'SZ00')
-                dtl = dtl.replace('SH30', 'SZ30')
-                self.sqldb.update(self.tablename, {self.colheaders[1]:mp, self.colheaders[2]: dtl}, {'id': str(id)})
-            else:
-                self.sqldb.update(self.tablename, {self.colheaders[1]:mp}, {'id': str(id)})

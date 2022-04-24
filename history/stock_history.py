@@ -335,19 +335,37 @@ class Stock_history(HistoryFromSohu):
         self.setCode(stk)
         return self.sqldb.isExistTable(self.k_histable)
 
-class StockShareBonus(EmDataCenterRequest):
+class StockShareBonus(EmDataCenterRequest, TableBase):
     """get bonus share data from datacenter-web.eastmoney.com. 
     ref: https://data.eastmoney.com/yjfp/detail/000858.html
     """
     def __init__(self):
         super().__init__()
-        self.columns = ['报告日期', '登记日期', '除权除息日期', '进度', '总送转', '送股', '转股', '派息', '股息率', '每股收益', '每股净资产', '总股本', '分红送配详情']
+        super(EmRequest, self).__init__(False)
+
+    def initConstrants(self):
+        self.dbname = history_db_name
+        self.colheaders = [
+            {'col':'报告日期','type':'varchar(20) DEFAULT NULL'},
+            {'col':'报告日期','type':'varchar(20) DEFAULT NULL'},
+            {'col':'除权除息日期','type':'varchar(20) DEFAULT NULL'},
+            {'col':'进度','type':'varchar(20) DEFAULT NULL'},
+            {'col':'总送转','type':'varchar(10) DEFAULT 0'},
+            {'col':'送股','type':'varchar(10) DEFAULT 0'},
+            {'col':'转股','type':'varchar(10) DEFAULT 0'},
+            {'col':'派息','type':'varchar(10) DEFAULT 0'},
+            {'col':'股息率','type':'varchar(10) DEFAULT 0'},
+            {'col':'每股收益','type':'varchar(10) DEFAULT 0'},
+            {'col':'每股净资产','type':'varchar(10) DEFAULT 0'},
+            {'col':'总股本','type':'varchar(20) DEFAULT NULL'},
+            {'col':'分红送配详情','type':'varchar(64) DEFAULT NULL'},
+        ]
 
     def setCode(self, code):
         allstocks = AllStocks()
         self.sg = StockGeneral(allstocks.sqldb, code)
         self.code = self.sg.code
-        self.bonustable = self.sg.bonustable
+        self.tablename = self.sg.bonustable
         self.bnData = []
 
     def getUrl(self):
@@ -358,39 +376,19 @@ class StockShareBonus(EmDataCenterRequest):
         self.saveFecthedBonus()
 
     def getBonusHis(self):
-        if not self.checkBonusTable():
+        if not self._check_table_exists():
             self.getNext()
         else:
             self.loadBonusTable()
         return self.bnData
 
     def loadBonusTable(self):
-        self.bnData = self.sqldb.select(self.bonustable, fields=self.columns)
-
-    def checkBonusTable(self):
-        self.sqldb = SqlHelper(password = db_pwd, database = history_db_name)
-        return self.sqldb.isExistTable(self.bonustable)
-
-    def createBonusTable(self):
-        attrs = {
-            self.columns[0]:'varchar(20) DEFAULT NULL', self.columns[1]:"varchar(20) DEFAULT NULL",
-            self.columns[2]:"varchar(20) DEFAULT NULL", self.columns[3]:"varchar(20) DEFAULT NULL",
-            self.columns[4]:'varchar(10) DEFAULT 0', self.columns[5]:'varchar(10) DEFAULT 0', self.columns[6]:'varchar(10) DEFAULT 0',
-            self.columns[7]:'varchar(10) DEFAULT 0', self.columns[8]:'varchar(10) DEFAULT 0',
-            self.columns[9]:'varchar(10) DEFAULT 0', self.columns[10]:'varchar(10) DEFAULT 0', self.columns[11]:'varchar(20) DEFAULT NULL',
-            self.columns[12]:'varchar(64) DEFAULT NULL'}
-        constraint = 'PRIMARY KEY(`id`)'
-        self.sqldb.createTable(self.bonustable, attrs, constraint)
-
-    def check_table_column(self, col, tp):
-        if not self.sqldb.isExistTableColumn(self.bonustable, col):
-            self.sqldb.addColumn(self.bonustable, col, tp)
+        self.bnData = self.sqldb.select(self.tablename, fields=self.colheaders)
 
     def saveFecthedBonus(self):
-        if not self.checkBonusTable():
-            self.createBonusTable()
+        self._check_or_create_table()
 
-        attrs = self.columns[1:]
+        attrs = self.colheaders[1:]
         values = []
         self.bnData = []
         for bn in self.fecthed:
@@ -404,20 +402,16 @@ class StockShareBonus(EmDataCenterRequest):
                 bn['BONUS_IT_RATIO'], bn['BONUS_RATIO'], bn['IT_RATIO'], bn['PRETAX_BONUS_RMB'], bn['DIVIDENT_RATIO'],
                 bn['BASIC_EPS'], bn['BVPS'], bn['TOTAL_SHARES'], bn['IMPL_PLAN_PROFILE']))
 
-        self.sqldb.insertUpdateMany(self.bonustable, attrs, [self.columns[0]], values)
+        self.sqldb.insertUpdateMany(self.tablename, attrs, [self.colheaders[0]], values)
         self.fecthed = []
 
     def dividenDateLaterThan(self, date):
-        if not self.checkBonusTable():
+        if not self._check_table_exists():
             return False
         if date is None:
             date = datetime.now().strftime("%Y-%m-%d")
-        result = self.sqldb.select(self.bonustable, 'count(*)', f'除权除息日期 > "{date}"')
+        result = self.sqldb.select(self.tablename, 'count(*)', f'除权除息日期 > "{date}"')
         if result is None or len(result) == 0:
             return False
         (count,), = result
         return count > 0
-
-    def fixColunm(self):
-        if self.sqldb.isExistTableColumn(self.bonustable, '报告日前'):
-            self.sqldb.renameColumn(self.bonustable, '报告日前', '报告日期', 'varchar(20)')
