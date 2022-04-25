@@ -75,9 +75,9 @@ class DailyTradeOPERATEDEPT(EmDataCenterRequest, TableBase):
     '''
     def __init__(self, rtable, code, date) -> None:
         super().__init__()
+        self.code = code
         super(EmRequest, self).__init__()
         self.reasonTable = rtable
-        self.code = code
         self.date = date
         self.buyfetched = False
         self.opnameTable = DfsorgNames()

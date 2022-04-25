@@ -347,7 +347,7 @@ class StockShareBonus(EmDataCenterRequest, TableBase):
         self.dbname = history_db_name
         self.colheaders = [
             {'col':'报告日期','type':'varchar(20) DEFAULT NULL'},
-            {'col':'报告日期','type':'varchar(20) DEFAULT NULL'},
+            {'col':'登记日期','type':'varchar(20) DEFAULT NULL'},
             {'col':'除权除息日期','type':'varchar(20) DEFAULT NULL'},
             {'col':'进度','type':'varchar(20) DEFAULT NULL'},
             {'col':'总送转','type':'varchar(10) DEFAULT 0'},
@@ -383,12 +383,12 @@ class StockShareBonus(EmDataCenterRequest, TableBase):
         return self.bnData
 
     def loadBonusTable(self):
-        self.bnData = self.sqldb.select(self.tablename, fields=self.colheaders)
+        self.bnData = self.sqldb.select(self.tablename, fields=[col['col'] for col in self.colheaders])
 
     def saveFecthedBonus(self):
         self._check_or_create_table()
 
-        attrs = self.colheaders[1:]
+        attrs = [col['col'] for col in self.colheaders[1:]]
         values = []
         self.bnData = []
         for bn in self.fecthed:
@@ -402,7 +402,7 @@ class StockShareBonus(EmDataCenterRequest, TableBase):
                 bn['BONUS_IT_RATIO'], bn['BONUS_RATIO'], bn['IT_RATIO'], bn['PRETAX_BONUS_RMB'], bn['DIVIDENT_RATIO'],
                 bn['BASIC_EPS'], bn['BVPS'], bn['TOTAL_SHARES'], bn['IMPL_PLAN_PROFILE']))
 
-        self.sqldb.insertUpdateMany(self.tablename, attrs, [self.colheaders[0]], values)
+        self.sqldb.insertUpdateMany(self.tablename, attrs, [self.colheaders[0]['col']], values)
         self.fecthed = []
 
     def dividenDateLaterThan(self, date):
