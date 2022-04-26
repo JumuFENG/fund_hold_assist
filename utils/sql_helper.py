@@ -150,6 +150,12 @@ class SqlHelper():
             if isinstance(conds, list):
                 conds = ' and '.join(conds)
                 consql = 'where ' + conds
+            elif isinstance(conds, dict):
+                consql = 'where '
+                for k, v in conds.items():
+                    v = ' is NULL' if v is None else "=\'" + str(v) + "\'"
+                    consql += str(k) + v + ' and '
+                consql += ' 1=1 '
             else:
                 consql = 'where ' + conds
 
@@ -202,8 +208,8 @@ class SqlHelper():
         consql = ' '
         if cond_dict!='':
             for k, v in cond_dict.items():
-                v = "\'" + str(v) + "\'"
-                consql = consql + tablename + "." + str(k) + '=' + v + ' and '
+                v = ' is NULL' if v is None else "=\'" + str(v) + "\'"
+                consql = consql + tablename + "." + str(k) + v + ' and '
         consql = consql + ' 1=1 '
         sql = "DELETE FROM %s where%s" % (tablename, consql)
         #print (sql)
@@ -226,13 +232,13 @@ class SqlHelper():
         attrs_list = []
         consql = ' '
         for tmpkey, tmpvalue in attrs_dict.items():
-            attrs_list.append("`" + tmpkey + "`" + "=" +"\'" + str(tmpvalue) + "\'")
+            attrs_list.append("`" + tmpkey + "`" + (' = NULL' if tmpvalue is None else "=\'" + str(tmpvalue) + "\'"))
         attrs_sql = ",".join(attrs_list)
         #print("attrs_sql:", attrs_sql)
         if cond_dict!='':
             for k, v in cond_dict.items():
-                v = "\'" + str(v) + "\'"
-                consql = consql + "`" + tablename +"`." + "`" + str(k) + "`" + '=' + v + ' and '
+                v = ' is NULL' if v is None else "=\'" + str(v) + "\'"
+                consql = consql + "`" + tablename +"`." + "`" + str(k) + "`" + v + ' and '
         consql = consql + ' 1=1 '
         sql = "UPDATE %s SET %s where%s" % (tablename, attrs_sql, consql)
         #print(sql)
@@ -276,7 +282,8 @@ class SqlHelper():
         for v in values:
             cond_list = []
             for i in range(0, len(conkeys)):
-                cond_list.append('%s = \'%s\'' % (conkeys[i], str(v[len(attrs) + i])))
+                tmpv = v[len(attrs) + i]
+                cond_list.append(f'{conkeys[i]} is NULL' if tmpv is None else f'{conkeys[i]} = \'{str(tmpv)}\'')
             cond_sql = ' or '.join(cond_list)
             selectrows = self.select(table, conkeys, conds = cond_sql)
             if selectrows is None or len(selectrows) == 0:

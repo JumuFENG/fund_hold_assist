@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.realpath(os.path.dirname(os.path.realpath(__file__)) 
 from utils import *
 from user import *
 from history import *
+from pickup import *
 
 class DailyUpdater():
     """for daily update"""
@@ -107,16 +108,14 @@ class DailyUpdater():
         ztinfo.getNext()
         ztdata = ztinfo.dumpDataByDate()
         if 'pool' in ztdata:
-            for zt in ztdata['pool']:
-                zdtcodes.add(zt[0])
+            [zdtcodes.add(zt[0]) for zt in ztdata['pool']]
 
         print('update dt info')
         dtinfo = StockDtInfo()
         dtinfo.getNext()
         dtdata = dtinfo.dumpDataByDate()
         if 'pool' in dtdata:
-            for dt in dtdata['pool']:
-                zdtcodes.add(dt[0])
+            [zdtcodes.add(dt[0]) for dt in dtdata['pool']]
 
         sdm = StockDtMap()
         dtmap = sdm.dumpDataByDate()
@@ -124,16 +123,16 @@ class DailyUpdater():
             dtmapobj = json.loads(dtmap['map'])
             for v in dtmapobj.values():
                 if 'suc' in v:
-                    for s in v['suc']:
-                        zdtcodes.add(s)
+                    [zdtcodes.add(s) for s in v['suc']]
                 if 'fai' in v:
-                    for s in v['fai']:
-                        zdtcodes.add(s)
+                    [zdtcodes.add(s) for s in v['fai']]
+
+        szt1 = StockZt1Selector()
+        [zdtcodes.add(c) for c in szt1.get_inprogress_stocks()]
 
         print('update zdt stocks kline data.')
         sh = Stock_history()
-        for s in zdtcodes:
-            sh.getKdHistoryFromSohuTillToday(s)
+        [sh.getKdHistoryFromSohuTillToday(s) for s in zdtcodes]
 
     def fetch_dfsorg_stocks(self):
         dfsorg = StockDfsorg()

@@ -132,8 +132,8 @@ class StockZt1Selector(TableBase):
 
         return records
 
-    def get_inprogress_stocks(self, date):
-        stks = self.sqldb.select(self.tablename, f'{column_code}', f'清仓日期 > "{date}" or 清仓日期 is NULL')
+    def get_inprogress_stocks(self, date=None):
+        stks = self.sqldb.select(self.tablename, f'{column_code}', '清仓日期 is NULL' if date is None else f'清仓日期 > "{date}" or 清仓日期 is NULL')
         if stks is None or len(stks) == 0:
             return set()
         return set([c for c, in stks])
@@ -166,5 +166,46 @@ class StockZt1Selector(TableBase):
 
             self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
             date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
-            if date == '2022-04-22':
+            if date >= datetime.now().strftime(r"%Y-%m-%d"):
                 break
+
+    def check_incomplete_records(self):
+        incomplete = self.sqldb.select(self.tablename, f'id,{column_code},{column_date}', ['建仓日期 is not NULL', '清仓日期 is NULL'])
+        sd = StockDumps()
+        for id, code, date in incomplete:
+            ksdate = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=-30)).strftime(r"%Y-%m-%d")
+            kd = sd.read_kd_data(code, start=ksdate)
+            recs = self.check_trade_records(kd, date)
+            if recs is None or len(recs) < 2:
+                print('check_incomplete_records invalid recs', code, date)
+                continue
+            else:
+                sdate = recs[0]['date']
+                edate = recs[len(recs) - 1]['date']
+                self.sqldb.update(self.tablename, {'建仓日期':sdate, '清仓日期':edate, '交易记录':json.dumps(recs)}, {'id':id})
+
+    def check_noncreated_records(self):
+        non_created = self.sqldb.select(self.tablename, f'id,{column_code},{column_date}', '建仓日期 is NULL')
+        sd = StockDumps()
+        for id, code, date in non_created:
+            ksdate = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=-30)).strftime(r"%Y-%m-%d")
+            kd = sd.read_kd_data(code, start=ksdate)
+            st = self.get_zt_strengh(kd, date)
+            vs = self.get_vol_scale(kd, date)
+            recs = self.check_trade_records(kd, date)
+            if recs is None or len(recs) == 0:
+                print('check_noncreated_records invalid recs', code, date)
+                continue
+            else:
+                sdate = recs[0]['date']
+                edate = recs[len(recs) - 1]['date'] if len(recs) > 1 else None
+                self.sqldb.update(self.tablename, {'上板强度':st, '放量程度':vs, '建仓日期':sdate, '清仓日期':edate, '交易记录':json.dumps(recs)}, {'id':id})
+
+    def add_latest_zt1_stocks(self):
+        date = self._max_date()
+        self.walkOnHistory(date)
+
+    def updateZt1(self):
+        self.check_incomplete_records()
+        self.check_noncreated_records()
+        self.add_latest_zt1_stocks()

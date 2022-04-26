@@ -321,6 +321,9 @@ class FundHistoryDataDownloader(HistoryDowloaderBase):
         while True:
             params = {'type': 'lsjz', 'code': self.code, 'page': curpage, 'per': 49, 'sdate': start, 'edate': end}
             response = self.getRequest(f10DataApiUrl, params)
+            if response is None:
+                print(params, response, 'getRequest error')
+                break
             content = str(response[13:-2])
             content_split = content.split(',')
             # obtain the info of data, curpage, pages, records
