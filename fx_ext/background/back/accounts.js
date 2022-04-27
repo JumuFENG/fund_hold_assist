@@ -520,10 +520,10 @@ class NormalAccount extends Account {
 
     loadWatchings() {
         var watchingStorageKey = this.keyword + '_watchings';
-        emjyBack.getFromLocal(watchingStorageKey, item => {
-            emjyBack.log('get watching_stocks', JSON.stringify(item));
-            if (item && item[watchingStorageKey]) {
-                item[watchingStorageKey].forEach(s => {
+        emjyBack.getFromLocal(watchingStorageKey, watchings => {
+            emjyBack.log('get watching_stocks', JSON.stringify(watchings));
+            if (watchings) {
+                watchings.forEach(s => {
                     this.addWatchStock(s);
                 });
             };
@@ -551,9 +551,9 @@ class NormalAccount extends Account {
     loadStrategies() {
         this.stocks.forEach(s => {
             var strStorageKey = this.keyword + '_' + s.code + '_strategies';
-            emjyBack.getFromLocal(strStorageKey, item => {
-                if (item && item[strStorageKey]) {
-                    this.applyStrategy(s.code, JSON.parse(item[strStorageKey]));
+            emjyBack.getFromLocal(strStorageKey, str => {
+                if (str) {
+                    this.applyStrategy(s.code, JSON.parse(str));
                 };
             });
         });

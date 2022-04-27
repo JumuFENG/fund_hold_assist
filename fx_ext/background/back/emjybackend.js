@@ -125,17 +125,22 @@ class EmjyBack {
         this.collateralAccount = new CollateralAccount();
         this.creditAccount = new CreditAccount();
         this.trackAccount = new TrackingAccount();
-        chrome.storage.local.get('hsj_stocks', item => {
-            if (item && item['hsj_stocks']) {
-                this.stockMarket = item['hsj_stocks'];
+        this.getFromLocal('hsj_stocks', hsj => {
+            if (hsj) {
+                this.stockMarket = hsj;
             }
             this.normalAccount.loadWatchings();
             this.collateralAccount.loadWatchings();
             this.trackAccount.loadAssets();
         });
-        chrome.storage.local.get('fha_server', item => {
-            if (item && item['fha_server']) {
-                this.fha = JSON.parse(item['fha_server']);
+        this.getFromLocal('fha_server', fhaInfo => {
+            if (fhaInfo) {
+                this.fha = fhaInfo;
+            }
+        })
+        this.getFromLocal('smilist', smi => {
+            if (smi) {
+                this.smiList = smi;
             }
         });
         this.setupQuoteAlarms();
@@ -315,10 +320,10 @@ class EmjyBack {
     }
 
     updateHistDeals() {
-        chrome.storage.local.get('hist_deals', item => {
+        this.getFromLocal('hist_deals', hdl => {
             var startDate = null;
-            if (item && item['hist_deals']) {
-                this.savedDeals = item['hist_deals'];
+            if (hdl) {
+                this.savedDeals = hdl;
                 if (this.savedDeals && this.savedDeals.length > 0) {
                     startDate = new Date(this.savedDeals[this.savedDeals.length - 1].time);
                     startDate.setDate(startDate.getDate() + 1);
@@ -480,9 +485,9 @@ class EmjyBack {
 
     clearCompletedDeals() {
         if (!this.savedDeals) {
-            this.getFromLocal('hist_deals', item => {
-                if (item && item['hist_deals']) {
-                    this.savedDeals = item['hist_deals'];
+            this.getFromLocal('hist_deals', sdeals => {
+                if (sdeals) {
+                    this.savedDeals = sdeals;
                     this.clearCompletedDeals();
                 }
             });
@@ -506,6 +511,25 @@ class EmjyBack {
         curDeals.sort((a, b) => a.time > b.time);
         this.savedDeals = curDeals;
         this.saveToLocal({'hist_deals': this.savedDeals});
+    }
+
+    getSmiOffset(date) {
+        if (!this.smiList || this.smiList.length == 0 || !date) {
+            return 0;
+        }
+
+        var buySmi = this.smiList[0].value;
+        for (var i = 1; i < this.smiList.length; ++i) {
+            if (date <= this.smiList[i].date) {
+                break;
+            }
+            buySmi = this.smiList[i].value;
+        }
+        var curSmi = this.smiList[this.smiList.length - 1].value;
+        if (buySmi == curSmi) {
+            return 0;
+        }
+        return (curSmi - buySmi) / buySmi;
     }
 
     trySellStock(code, price, count, account, cb) {
@@ -917,7 +941,13 @@ class EmjyBack {
     getFromLocal(key, cb) {
         chrome.storage.local.get(key, item => {
             if (typeof(cb) === 'function') {
-                cb(item);
+                if (!key) {
+                    cb(item);
+                } else if (item && item[key]) {
+                    cb(item[key]);
+                } else {
+                    cb(item);
+                }
             }
         });
     }

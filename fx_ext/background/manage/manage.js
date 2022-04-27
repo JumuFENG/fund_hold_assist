@@ -19,7 +19,13 @@ class Manager {
     getFromLocal(key, cb) {
         chrome.storage.local.get(key, item => {
             if (typeof(cb) === 'function') {
-                cb(item);
+                if (!key) {
+                    cb(item);
+                } else if (item && item[key]) {
+                    cb(item[key]);
+                } else {
+                    cb(item);
+                }
             }
         });
     }
@@ -646,53 +652,6 @@ class ManagerPage {
         this.root.appendChild(settingsPage.container);
 
         this.navigator.selectDefault();
-    }
-}
-
-class SettingsPanelPage extends RadioAnchorPage {
-    constructor(text) {
-        super(text);
-        var btnExport = document.createElement('button');
-        btnExport.textContent = '导出';
-        btnExport.onclick = e => {
-            emjyManager.sendExtensionMessage({command:'mngr.export'});
-        };
-        this.container.appendChild(btnExport);
-        var importDiv = document.createElement('div');
-        var fileIpt = document.createElement('input');
-        fileIpt.type = 'file';
-        fileIpt.multiple = false;
-        fileIpt.onchange = e => {
-            e.target.files[0].text().then(text => {
-                emjyManager.sendExtensionMessage({command:'mngr.import', config: JSON.parse(text)});
-            });
-        };
-        importDiv.appendChild(document.createTextNode('导入'));
-        importDiv.appendChild(fileIpt);
-        this.container.appendChild(importDiv);
-
-        var svrDiv = document.createElement('div');
-        var addInput = function(fath, ele, text) {
-            var eleout = document.createElement('div');
-            eleout.appendChild(document.createTextNode(text));
-            eleout.appendChild(ele);
-            fath.appendChild(eleout);
-        }
-        this.svrHost = document.createElement('input');
-        addInput(svrDiv, this.svrHost, 'Server Host');
-        this.userEmail = document.createElement('input');
-        addInput(svrDiv, this.userEmail, 'Account(e-mail)');
-        this.pwd = document.createElement('input');
-        addInput(svrDiv, this.pwd, 'Password');
-        var saveBtn = document.createElement('button');
-        saveBtn.textContent = 'Save';
-        saveBtn.onclick = e => {
-            var fhaInfo = {server: this.svrHost.value, uemail: this.userEmail.value, pwd: this.pwd.value};
-            console.log(fhaInfo);
-            emjyManager.saveToLocal({'fha_server': JSON.stringify(fhaInfo)});
-        }
-        svrDiv.appendChild(saveBtn);
-        this.container.appendChild(svrDiv);
     }
 }
 

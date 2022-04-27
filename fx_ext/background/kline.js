@@ -16,9 +16,9 @@ class KLine {
             }
             return;
         }
-        emjyBack.getFromLocal(this.storeKey, item => {
-            if (item && item[this.storeKey]) {
-                this.klines = item[this.storeKey];
+        emjyBack.getFromLocal(this.storeKey, klines => {
+            if (klines) {
+                this.klines = klines;
                 for (var i in this.klines) {
                     if (this.klines[i].length > 600 && i - 15 < 0) {
                         this.klines[i] = this.klines[i].slice(this.klines[i].length - 600);

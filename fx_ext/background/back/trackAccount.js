@@ -117,23 +117,23 @@ class TrackingAccount extends NormalAccount {
 
     loadAssets() {
         var watchingStorageKey = this.keyword + '_watchings';
-        emjyBack.getFromLocal(watchingStorageKey, item => {
-            emjyBack.log('get watching_stocks', JSON.stringify(item));
-            if (item && item[watchingStorageKey]) {
-                item[watchingStorageKey].forEach(s => {
+        emjyBack.getFromLocal(watchingStorageKey, watchings => {
+            emjyBack.log('get watching_stocks', JSON.stringify(watchings));
+            if (watchings) {
+                watchings.forEach(s => {
                     this.addWatchStock(s);
                     var strStorageKey = this.keyword + '_' + s + '_strategies';
-                    emjyBack.getFromLocal(strStorageKey, sitem => {
-                        if (sitem && sitem[strStorageKey]) {
-                            this.applyStrategy(s, JSON.parse(sitem[strStorageKey]));
+                    emjyBack.getFromLocal(strStorageKey, str => {
+                        if (str) {
+                            this.applyStrategy(s, JSON.parse(str));
                         };
                     });
                 });
             };
         });
-        emjyBack.getFromLocal(this.key_deals, item => {
-            if (item && item[this.key_deals]) {
-                this.deals = item[this.key_deals];
+        emjyBack.getFromLocal(this.key_deals, tdeals => {
+            if (tdeals) {
+                this.deals = tdeals;
             }
         });
     }
