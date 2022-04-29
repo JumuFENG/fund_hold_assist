@@ -203,6 +203,20 @@ class StrategyBaseView {
         return checkLbl;
     }
 
+    createSellAllCheckbox() {
+        var checkLbl = document.createElement('label');
+        checkLbl.textContent = '全部卖出'
+        this.sellAllCheck = document.createElement('input');
+        this.sellAllCheck.type = 'checkbox';
+        if (this.strategy.sellall === undefined) {
+            this.sellAllCheck.checked = false;
+        } else {
+            this.sellAllCheck.checked = this.strategy.sellall;
+        }
+        checkLbl.appendChild(this.sellAllCheck);
+        return checkLbl;
+    }
+
     createGuardInput(text) {
         var guardDiv = document.createElement('div');
         guardDiv.appendChild(document.createTextNode(text));
@@ -461,6 +475,8 @@ class StrategySellELSView extends StrategyBaseView {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('低点抬高法, 1分钟，短线收益不错时设置该策略'));
+        view.appendChild(document.createElement('br'));
+        view.appendChild(this.createSellAllCheckbox());
         view.appendChild(this.createGuardInput('止损点 '));
         return view;
     }

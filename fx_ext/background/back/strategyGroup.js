@@ -315,6 +315,21 @@ class BuyDetail {
         return mp;
     }
 
+    latestBuyDate() {
+        var buyrec = this.buyRecords();
+        if (!buyrec || buyrec.length == 0) {
+            return this.getTodayDate();
+        }
+
+        var date = buyrec[0].date;
+        for (var i = 1; i < buyrec.length; i++) {
+            if (buyrec[i].date > date) {
+                date = buyrec[i].date;
+            }
+        }
+        return date;
+    }
+
     fixBuyRecords(deals) {
         var sd = deals.filter(d => d.tradeType == 'S');
         var bd = deals.filter(d => d.tradeType == 'B');
