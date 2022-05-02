@@ -10,6 +10,7 @@ import os
 sys.path.insert(0, os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/..'))
 from utils import *
 from user import *
+from pickup import *
 
 app = Flask(__name__)
 app.secret_key = "any_string_make_secret_key"
@@ -305,6 +306,14 @@ def stock():
             sdm = StockDtMap()
             dtmap = sdm.dumpDataByDate(date)
             return json.dumps(dtmap)
+        if actype == 'pickup':
+            date = request.args.get('date', type=str, default=None)
+            key = request.args.get('key', type=str, default=None)
+            if key == 'zt1':
+                zts = StockZt1Selector()
+                zt1 = zts.dumpDataByDate(date)
+                return json.dumps(zt1)
+            return key, 404
 
     usermodel = UserModel()
     if not session.get('logged_in'):

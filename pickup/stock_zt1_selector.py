@@ -22,9 +22,6 @@ class StockZt1Selector(TableBase):
             {'col':'交易记录','type':'varchar(255) DEFAULT NULL'}
         ]
 
-    def dumpDataByDate(self, date=None):
-        return super().dumpDataByDate(date)
-
     def get_vol_scale(self, klines, date, n = 10):
         ''' 放量程度, {date}日成交量/10日均量
         '''
@@ -203,9 +200,22 @@ class StockZt1Selector(TableBase):
 
     def add_latest_zt1_stocks(self):
         date = self._max_date()
+        date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
         self.walkOnHistory(date)
 
     def updateZt1(self):
         self.check_incomplete_records()
         self.check_noncreated_records()
         self.add_latest_zt1_stocks()
+
+    def getDumpKeys(self):
+        return self._select_keys([column_code, column_date, '上板强度', '放量程度', '交易记录','实盘'])
+
+    def getDumpCondition(self, date):
+        return self._select_condition('清仓日期 is NULL' if date is None else f'清仓日期 > "{date}" or 清仓日期 is NULL')
+
+    def dumpDataByDate(self, date=None):
+        pool = self.sqldb.select(self.tablename, self.getDumpKeys(), self.getDumpCondition(date))
+        if pool is None or len(pool) == 0:
+            return ''
+        return pool

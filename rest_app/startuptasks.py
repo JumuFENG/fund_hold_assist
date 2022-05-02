@@ -2,10 +2,11 @@
 # -*- coding:utf-8 -*-
 
 import sys
-import os
+import os,signal
 sys.path.insert(0, os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/..'))
 from datetime import datetime, timedelta
 from threading import Timer
+from time import sleep
 import time
 import json
 
@@ -18,6 +19,33 @@ from user.user_stock import *
 
 startuplogfile = os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/startuptasks.log')
 perCount = 200
+
+def kill_old_proc():
+    fpid = os.path.join(os.path.dirname(__file__), 'gunicorn.pid')
+    with open(fpid) as f:
+        pid = f.read().strip()
+        print('kill old proc',pid)
+        os.kill(int(pid), signal.SIGKILL)
+
+def check_local_server():
+    while True:
+        try:
+            sleep(5)
+            tr = requests.get('http://localhost/stock?act=test', timeout=3)
+            if tr.status_code == 200:
+                print('local server works fine!')
+                return
+        except requests.ConnectionError as ce:
+            print(str(ce))
+            continue
+        except requests.RequestException as ce:
+            print(str(ce))
+            continue
+        except Exception as e:
+            print(type(e))
+            print(e)
+        sleep(180)
+        kill_old_proc()
 
 def daily_should_run(lastrun, now):
     if lastrun == '':
@@ -71,11 +99,16 @@ def trade_closed_task():
 def run_regular_tasks(dnow):
     retry = 0
     while True:
-        nw = requests.get('https://www.eastmoney.com/js/index2018.js', timeout=2)
-        if nw is not None or retry > 100:
-            print(nw)
-            break
-        retry += 1
+        try:
+            nw = requests.get('https://www.eastmoney.com/js/index2018.js', timeout=2)
+            if nw is not None or retry > 100:
+                print(nw)
+                break
+        except Exception as e:
+            print(e)
+            if retry > 100:
+                break
+            retry += 1
 
     if retry > 100:
         print('network not available, retry = ', retry)
@@ -134,8 +167,8 @@ def run_regular_tasks(dnow):
 
 
 if __name__ == '__main__':
+    check_local_server()
     dnow = datetime.now()
-    time.sleep(10)
     print('startuptasks', dnow.strftime(f"%Y-%m-%d %H:%M"))
 
     run_regular_tasks(dnow)

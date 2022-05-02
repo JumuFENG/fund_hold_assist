@@ -22,7 +22,7 @@ class DtPanelPage extends RadioAnchorPage {
             this.contentPanel = document.createElement('div');
             this.contentPanel.style.maxWidth = '75%';
             this.container.appendChild(this.contentPanel);
-            this.dtMapTable = new SortableTable(false);
+            this.dtMapTable = new SortableTable(1, 0, false);
             this.contentPanel.appendChild(document.createTextNode('跌停进度'));
             var btnDtMerge = document.createElement('button');
             btnDtMerge.textContent = '合并进度';
