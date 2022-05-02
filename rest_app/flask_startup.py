@@ -313,7 +313,11 @@ def stock():
                 zts = StockZt1Selector()
                 zt1 = zts.dumpDataByDate(date)
                 return json.dumps(zt1)
-            return key, 404
+            if key == 'dt3':
+                dts = StockDt3Selector()
+                dt3 = dts.dumpDataByDate(date)
+                return json.dumps(dt3)
+            return f'Unknown key {key}', 404
 
     usermodel = UserModel()
     if not session.get('logged_in'):

@@ -38,12 +38,21 @@ class DtPanelPage extends RadioAnchorPage {
                 this.saveDtMap();
             }
             this.contentPanel.appendChild(btnSaveDtMap);
+
             this.predtMapPanel = document.createElement('div');
             this.contentPanel.appendChild(this.predtMapPanel);
-            this.predtMapTable = new SortableTable(false);
+            this.predtMapTable = new SortableTable(1, 0, false);
             this.predtMapPanel.appendChild(document.createTextNode('待定'));
             this.predtMapPanel.appendChild(this.predtMapTable.container);
+
+            this.dt3Panel = document.createElement('div');
+            this.contentPanel.appendChild(this.dt3Panel);
+            this.dt3Table = new SortableTable(1, 0, false);
+            this.dt3Panel.appendChild(document.createTextNode('跌停三进四买入'));
+            this.dt3Panel.appendChild(this.dt3Table.container);
+
             this.getDtMap();
+            this.getDt3Stocks();
         }
     }
 
@@ -367,6 +376,14 @@ class DtPanelPage extends RadioAnchorPage {
         });
     }
 
+    getDt3Stocks() {
+        var zt1Url = emjyBack.fha.server + 'stock?act=pickup&key=dt3';
+        utils.get(zt1Url, null, dt3 => {
+            this.dt3stocks = JSON.parse(dt3);
+            this.showDt3Table();
+        });
+    }
+
     showDtTable() {
         if (!this.dtdata || !this.dtTable) {
             return;
@@ -526,6 +543,21 @@ class DtPanelPage extends RadioAnchorPage {
             }
         } else {
             this.predtMapPanel.style.display = 'none';
+        }
+    }
+
+    showDt3Table() {
+        if (!this.dt3stocks || !this.dt3Table) {
+            return;
+        }
+
+        this.dt3Table.reset();
+        this.dt3Table.setClickableHeader('序号', '日期', '名称(代码)', '建仓日期', '实盘', '买卖记录');
+        for (var i = 0; i < this.dt3stocks.length; ++i) {
+            var dt3i = this.dt3stocks[i];
+            var anchor = emjyBack.stockAnchor(dt3i[0].substring(2));
+            var traderecs = JSON.parse(dt3i[2]);
+            this.dt3Table.addRow(i, dt3i[1], anchor, traderecs && traderecs.length > 0 ? traderecs[0].date : '', dt3i[3]?'是':'否', dt3i[2]);
         }
     }
 }

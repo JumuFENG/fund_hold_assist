@@ -66,4 +66,7 @@ class TableBase():
         return self.sqldb.select(self.tablename, keys, conds)
 
     def dumpDataByDate(self, date = None):
-        pass
+        pool = self.sqldb.select(self.tablename, self.getDumpKeys(), self.getDumpCondition(date))
+        if pool is None or len(pool) == 0:
+            return ''
+        return pool

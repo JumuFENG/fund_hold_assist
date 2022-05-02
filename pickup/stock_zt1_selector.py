@@ -213,9 +213,3 @@ class StockZt1Selector(TableBase):
 
     def getDumpCondition(self, date):
         return self._select_condition('清仓日期 is NULL' if date is None else f'清仓日期 > "{date}" or 清仓日期 is NULL')
-
-    def dumpDataByDate(self, date=None):
-        pool = self.sqldb.select(self.tablename, self.getDumpKeys(), self.getDumpCondition(date))
-        if pool is None or len(pool) == 0:
-            return ''
-        return pool
