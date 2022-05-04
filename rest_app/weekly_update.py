@@ -33,9 +33,11 @@ class WeeklyUpdater():
                 stocks = stocks + ustks
 
         sh = Stock_history()
+        sfh = Stock_Fflow_History()
         for s in stocks:
             sh.getKwHistoryFromSohuTillToday(s)
             sh.getK15HistoryFromEmTillToday(s)
+            sfh.getFflowFromEm(s)
 
 if __name__ == '__main__':
     wu = WeeklyUpdater()

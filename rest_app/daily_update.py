@@ -88,8 +88,10 @@ class DailyUpdater():
                 stocks = stocks + ustks
 
         sh = Stock_history()
+        sfh = Stock_Fflow_History()
         for s in stocks:
             sh.getKdHistoryFromSohuTillToday(s)
+            sfh.getFflowFromEm(s)
 
     def download_newly_noticed_bonuses(self):
         print("update noticed bonuses")
@@ -132,7 +134,10 @@ class DailyUpdater():
 
         print('update zdt stocks kline data.')
         sh = Stock_history()
-        [sh.getKdHistoryFromSohuTillToday(s) for s in zdtcodes]
+        sfh = Stock_Fflow_History()
+        for s in zdtcodes:
+            sh.getKdHistoryFromSohuTillToday(s)
+            sfh.getFflowFromEm(s)
 
     def fetch_dfsorg_stocks(self):
         dfsorg = StockDfsorg()

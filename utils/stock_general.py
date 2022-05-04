@@ -46,6 +46,7 @@ class StockGeneral():
         self.stockKmtable = 's_km_his_' + self.code
         self.stockK15table = 's_k15_his_' + self.code
         self.bonustable = 's_bonus_' + self.code
+        self.fflowtable = 's_fflow_' + self.code
 
     def get_stock_hist_data(self):
         pass

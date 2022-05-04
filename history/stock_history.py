@@ -415,3 +415,61 @@ class StockShareBonus(EmDataCenterRequest, TableBase):
             return False
         (count,), = result
         return count > 0
+
+class Stock_Fflow_History(TableBase, EmRequest):
+    '''get fflow from em pushhis 资金流向
+    '''
+    def __init__(self) -> None:
+        super().__init__(False)
+
+    def initConstrants(self):
+        self.dbname = history_db_name
+        self.colheaders = [
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+            {'col':'main','type':'double DEFAULT NULL'},
+            {'col':'small','type':'double DEFAULT NULL'},
+            {'col':'middle','type':'double DEFAULT NULL'},
+            {'col':'big','type':'double DEFAULT 0'},
+            {'col':'super','type':'double DEFAULT 0'},
+            {'col':'mainp','type':'float DEFAULT 0'},
+            {'col':'smallp','type':'float DEFAULT 0'},
+            {'col':'midllep','type':'float DEFAULT 0'},
+            {'col':'bigp','type':'float DEFAULT 0'},
+            {'col':'superp','type':'float DEFAULT 0'}
+        ]
+
+    def setCode(self, code):
+        allstocks = AllStocks()
+        self.sg = StockGeneral(allstocks.sqldb, code)
+        self.code = self.sg.code
+        self.tablename = self.sg.fflowtable
+
+    def getUrl(self):
+        emsecid = self.sg.emseccode
+        return f'''https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get?lmt=0&klt=101&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65&ut=b2884a393a59ad64002292a3e90d46a5&secid={emsecid}&_={self.getTimeStamp()}'''
+
+    def getNext(self):
+        rsp = self.getRequest()
+        fflow = json.loads(rsp)
+        if fflow is None or 'data' not in fflow or 'klines' not in fflow['data']:
+            print(rsp)
+            return
+
+        fflow = [f.split(',') for f in fflow['data']['klines']]
+        if fflow is None or len(fflow) == 0:
+            return
+
+        self._check_or_create_table()
+        maxdate = self._max_date()
+        values = []
+        for f in fflow:
+            if maxdate is None or f[0] > maxdate:
+                values.append(f[0:-4])
+        if len(fflow) == 0:
+            return
+
+        self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
+
+    def getFflowFromEm(self, code):
+        self.setCode(code)
+        self.getNext()
