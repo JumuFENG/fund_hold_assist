@@ -636,6 +636,29 @@ class UserStock():
 
         self._fix_buy_sell_portion(buy_rec, sell_rec)
 
+    def fix_buy_deal(self, deal, count):
+        if not self.sqldb.isExistTable(self.buy_table):
+            self.setup_buytable()
+
+        ad = self.sqldb.select(self.buy_table, conds=f'''委托编号="{deal['sid']}"''')
+        dealfix = {
+            column_date: deal['time'],
+            column_price: deal['price'],
+            column_portion: deal['count'],
+            column_cost: str(float(deal['price']) * float(deal['count'])),
+            column_soldout:'0',
+            column_sold_portion:str(count),
+            '委托编号': deal['sid'],
+            column_fee: deal['fee'] if 'fee' in deal else '0',
+            '印花税': deal['feeYh'] if 'feeYh' in deal else '0',
+            '过户费': deal['feeGh'] if 'feeYh' in deal else '0'
+        }
+
+        if ad is None or len(ad) == 0:
+            self.sqldb.insert(self.buy_table, dealfix)
+        else:
+            self.sqldb.update(self.buy_table, dealfix, {'委托编号':deal['sid']})
+
     def sort_buysell(self):
         if self.sqldb.isExistTable(self.buy_table):
             self.sqldb.sortTable(self.buy_table, column_date)

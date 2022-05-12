@@ -659,9 +659,13 @@ class User():
         if not sqldb.isExistTable(self.stocks_archived_deals_table()):
             return False
 
-        ad = sqldb.select(self.stocks_archived_deals_table(), conds=[f'''{column_code} = \"{deal['code']}\"''', f'''{column_type} = "{deal['tradeType']}"''', f'''委托编号="{deal['sid']}"'''])
+        ad = sqldb.select(self.stocks_archived_deals_table(), conds=[f'''{column_code} = \"{deal['code']}\"''', f'''{column_date}="{deal['time']}"''', f'''{column_type} = "{deal['tradeType']}"''', f'''委托编号="{deal['sid']}"'''])
         if ad is None or len(ad) == 0:
             return False
+        (_, c, t, tt, count, *x), = ad
+        if count < int(deal['count']):
+            us = UserStock(self, c)
+            us.fix_buy_deal(deal, count)
         return True
 
     def archive_deals(self, edate):
