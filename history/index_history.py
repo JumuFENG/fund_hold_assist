@@ -59,10 +59,15 @@ class Index_history(HistoryFromSohu):
         return "zs_" + self.code
 
     def downloadFile(self, url, fname, params = None, proxies = None):
-        rsp = requests.get(url,params=params, proxies=proxies,stream = True)
-        rsp.raise_for_status()
-        with open(fname,'wb') as f:
-            f.write(rsp.content)
+        try:
+            rsp = requests.get(url, params=params, proxies=proxies,stream = True)
+            rsp.raise_for_status()
+            with open(fname,'wb') as f:
+                f.write(rsp.content)
+        except requests.ConnectionError as ce:
+            print(ce)
+        except Exception as e:
+            print(e)
 
     def saveIndexHistoryData(self, values):
         headers = [column_date, column_close, column_high, column_low, column_open, column_price_change, column_p_change, column_volume, column_amount]
@@ -99,6 +104,7 @@ class Index_history(HistoryFromSohu):
         params['fields'] = 'TCLOSE;HIGH;LOW;TOPEN;LCLOSE;CHG;PCHG;VOTURNOVER;VATURNOVER'
         fname = os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/' + code + '.csv')
         self.downloadFile(apiUrl_163, fname, params)
-        self.csv163ToSql(fname)
-        os.remove(fname)
+        if os.path.isfile(fname):
+            self.csv163ToSql(fname)
+            os.remove(fname)
 

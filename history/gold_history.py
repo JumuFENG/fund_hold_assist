@@ -182,13 +182,16 @@ class Gold_history(HistoryDowloaderBase):
                     print("it is weekend, no data to update.")
                     return
 
-        params={'code':gold_code_jjb[self.code],'pageSize':'100'}
-        response = self.getJijinHaoRequest(apiUrl_jijinhao_kdata, params)
-        rsp = response[len("var  KLC_KL = "):]
-        jresp = json.loads(rsp)
-        self.saveJijinhaoHistory(jresp['data'][0][0:-1], self.goldk_history_table)
-        self.saveJijinhaoHistory(jresp['data'][2][0:-1], self.goldkweek_history_table)
-        self.saveJijinhaoHistory(jresp['data'][1][0:-1], self.goldkmonth_history_table)
+        try:
+            params={'code':gold_code_jjb[self.code],'pageSize':'100'}
+            response = self.getJijinHaoRequest(apiUrl_jijinhao_kdata, params)
+            rsp = response[len("var  KLC_KL = "):]
+            jresp = json.loads(rsp)
+            self.saveJijinhaoHistory(jresp['data'][0][0:-1], self.goldk_history_table)
+            self.saveJijinhaoHistory(jresp['data'][2][0:-1], self.goldkweek_history_table)
+            self.saveJijinhaoHistory(jresp['data'][1][0:-1], self.goldkmonth_history_table)
+        except Exception as e:
+            print('getJijinhaoHistory exception:', e)
 
     def saveJijinhaoRtHistory(self, values):
         headers = [column_date, column_price, column_averagae_price, column_volume]
@@ -211,45 +214,54 @@ class Gold_history(HistoryDowloaderBase):
         if not maxDate:
             maxDate = ""
 
-        params = {'code':gold_code_jjb[self.code]}
-        response = self.getJijinHaoRequest(apiUrl_jijinhao_fourDays, params)        
-        rsp = response[len("var KLC_ML = "):]
-        jresp = json.loads(rsp)
-        values = []
-        for x in jresp[0:-1]:
-            for d in x:
-                if not d['volume'] == 0:
-                    date = datetime.fromtimestamp(d['date']/1000).strftime("%Y-%m-%d %H:%M")
-                    if date > maxDate:
-                        values.append([date, d['price'], d['avg_price'], d['volume']])
-        self.saveJijinhaoRtHistory(values)
-        self.pickupDayPrice()
+        try:
+            params = {'code':gold_code_jjb[self.code]}
+            response = self.getJijinHaoRequest(apiUrl_jijinhao_fourDays, params)
+            rsp = response[len("var KLC_ML = "):]
+            jresp = json.loads(rsp)
+            values = []
+            for x in jresp[0:-1]:
+                for d in x:
+                    if not d['volume'] == 0:
+                        date = datetime.fromtimestamp(d['date']/1000).strftime("%Y-%m-%d %H:%M")
+                        if date > maxDate:
+                            values.append([date, d['price'], d['avg_price'], d['volume']])
+            self.saveJijinhaoRtHistory(values)
+            self.pickupDayPrice()
+        except Exception as e:
+            print('getJijinhaoRtHistory Exception', e)
 
     def getJijinhaoRealtime(self, code):
         self.setGoldCode(code)
         curTime = datetime.now()
         stamp = time.mktime(curTime.timetuple()) * 1000 + curTime.microsecond
-        params = {'code':gold_code_jjb[self.code]}#, '_':str(int(stamp))
-        response = self.getJijinHaoRequest(apiUrl_jijinhao_realtime, params)
-        rsp = response[len("var hq_str = "):].split(',')
-        print(rsp)
+        try:
+            params = {'code':gold_code_jjb[self.code]}#, '_':str(int(stamp))
+            response = self.getJijinHaoRequest(apiUrl_jijinhao_realtime, params)
+            rsp = response[len("var hq_str = "):].split(',')
+            print(rsp)
+        except Exception as e:
+            print('getJijinhaoRealtime Exception', e)
 
     def getJijinhaoTodayMin(self, code):
         self.setGoldCode(code)
 
-        params = {'code':gold_code_jjb[self.code]}
-        response = self.getJijinHaoRequest(apiUrl_jijinhao_today, params)        
-        rsp = response[len("var hq_str_ml = "):]
-        jresp = json.loads(rsp)
-        values = []
-        maxDate = ""
-        for d in jresp['data']:
-            if not d['volume'] == 0:
-                date = datetime.fromtimestamp(d['date']/1000).strftime("%Y-%m-%d %H:%M")
-                if date > maxDate and not d['price'] == -1:
-                    values.append([date, d['price'], d['avg_price'], d['volume']])
-        self.gold_rt_history_table = "g_rt_day_min_au9999"
-        self.saveJijinhaoRtHistory(values)
+        try:
+            params = {'code':gold_code_jjb[self.code]}
+            response = self.getJijinHaoRequest(apiUrl_jijinhao_today, params)
+            rsp = response[len("var hq_str_ml = "):]
+            jresp = json.loads(rsp)
+            values = []
+            maxDate = ""
+            for d in jresp['data']:
+                if not d['volume'] == 0:
+                    date = datetime.fromtimestamp(d['date']/1000).strftime("%Y-%m-%d %H:%M")
+                    if date > maxDate and not d['price'] == -1:
+                        values.append([date, d['price'], d['avg_price'], d['volume']])
+            self.gold_rt_history_table = "g_rt_day_min_au9999"
+            self.saveJijinhaoRtHistory(values)
+        except Exception as e:
+            print('getJijinhaoTodayMin Exception', e)
 
     def pickupDayPrice(self):
         if not self.sqldb.isExistTable(self.gold_rt_history_table):

@@ -131,15 +131,23 @@ class HistoryFromSohu(HistoryDowloaderBase):
             params['end'] = eDate
         if period is not None:
             params['period'] = period
-        response = json.loads(self.getRequest(sohuApiUrl, params))
-        if not response or response[0]['status'] == 2:
-            print('getHistoryFromSohu error, response: ', response)
-            print('params', params)
-            return
 
-        response = response[0]['hq']
-        response.reverse()
-        return response
+        try:
+            response = json.loads(self.getRequest(sohuApiUrl, params))
+            if not response or response[0]['status'] == 2:
+                print('getHistoryFromSohu error, response: ', response)
+                print('params', params)
+                return
+
+            response = response[0]['hq']
+            response.reverse()
+            return response
+        except requests.ConnectionError as ce:
+            print('getHistoryFromSohu ConnectionError, params: ', params)
+            return
+        except Exception as e:
+            print('getHistoryFromSohu Exception, params: ', params)
+            return
 
     def isSamePeriod(self, d1, d2, period):
         if d1 == '' and d2 == '':
@@ -236,15 +244,18 @@ class HistoryFromSohu(HistoryDowloaderBase):
             return
 
         # f51: date/time,f52:开盘,f53:收盘,f54:最高, f55:最低, f56: 成交量, f57: 成交额 ,f58: 振幅(%),f59:涨跌幅(%),f60:涨跌额,f61:换手率(%)
-        emurl = f'''http://28.push2his.eastmoney.com/api/qt/stock/kline/get?secid={self.getEmSecCode()}&ut=fa5fd1943c7b386f172d6893dbfba10b'''
-        emurl += f'''&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57,f59,f60&klt={kltype}&fqt=0&end=20500101&lmt=512'''
-        response = json.loads(self.getRequest(emurl))
-        if not response or response['data'] is None or len(response['data']['klines']) == 0:
-            print('getKHistoryFromEm error, response: ', response)
-            return
+        try:
+            emurl = f'''http://28.push2his.eastmoney.com/api/qt/stock/kline/get?secid={self.getEmSecCode()}&ut=fa5fd1943c7b386f172d6893dbfba10b'''
+            emurl += f'''&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57,f59,f60&klt={kltype}&fqt=0&end=20500101&lmt=512'''
+            response = json.loads(self.getRequest(emurl))
+            if not response or response['data'] is None or len(response['data']['klines']) == 0:
+                print('getKHistoryFromEm error, response: ', response)
+                return
 
-        response = response['data']['klines']
-        self.saveEmData(ktable, response, kltype)
+            response = response['data']['klines']
+            self.saveEmData(ktable, response, kltype)
+        except Exception as e:
+            print('getKHistoryFromEm Exception: ', e)
 
     def saveEmData(self, ktable, data, kltpye):
         if len(data) < 1:
