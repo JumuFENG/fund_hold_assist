@@ -23,29 +23,22 @@ class RetroPlan {
     }
 
     loadSaved() {
-        emjyBack.getFromLocal(this.retroStoreKey(), item => {
-            if (item && item[this.retroStoreKey()]) {
-                var rpo = item[this.retroStoreKey()];
+        emjyBack.getFromLocal(this.retroStoreKey(), rpo => {
+            if (rpo) {
                 this.retrodesc = rpo.desc;
                 this.kltype = rpo.kltype;
                 this.startDate = rpo.startDate;
                 this.strategy = rpo.strategy;
             }
         });
-        emjyBack.getFromLocal(this.retroStocksKey(), item => {
-            if (item && item[this.retroStocksKey()]) {
-                this.stocks = item[this.retroStocksKey()];
-            }
+        emjyBack.getFromLocal(this.retroStocksKey(), stocks => {
+            this.stocks = stocks;
         });
-        emjyBack.getFromLocal(this.retroDealsKey(), item => {
-            if (item && item[this.retroDealsKey()]) {
-                this.deals = item[this.retroDealsKey()];
-            }
+        emjyBack.getFromLocal(this.retroDealsKey(), deals => {
+            this.deals = deals;
         });
-        emjyBack.getFromLocal(this.retroStatsKey(), item => {
-            if (item && item[this.retroStatsKey()]) {
-                this.stats = item[this.retroStatsKey()];
-            }
+        emjyBack.getFromLocal(this.retroStatsKey(), stats => {
+            this.stats = stats;
         });
     }
 

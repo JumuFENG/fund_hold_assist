@@ -4,9 +4,9 @@ class RetroPanelPage extends RadioAnchorPage {
     constructor() {
         super('回测');
         this.plans = [];
-        emjyBack.getFromLocal('retro_plans', item => {
-            if (item && item['retro_plans']) {
-                item['retro_plans'].forEach(r => {
+        emjyBack.getFromLocal('retro_plans', retros => {
+            if (retros) {
+                retros.forEach(r => {
                     this.plans.push(new RetroPlan(r));
                 });
                 if (this.plansListPanel && this.plansListPanel.childElementCount == 0) {

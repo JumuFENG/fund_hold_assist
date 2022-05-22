@@ -42,9 +42,7 @@ class GlobalManager {
                     item = JSON.parse(val);
                 }
                 if (typeof(cb) === 'function') {
-                    var r = {};
-                    r[key] = item;
-                    cb(r);
+                    cb(item);
                 }
             }, ()=> {
                 console.log('getItem error!', arguments);
@@ -62,6 +60,10 @@ class GlobalManager {
         });
     }
 
+    getSmiOffset() {
+        return 0;
+    }
+
     applyGuardLevel(strgrp, allklt) {
         console.log('GlobalManager.applyGuardLevel();');
     }
@@ -74,6 +76,12 @@ class GlobalManager {
             if (typeof(cb) === 'function') {
                 cb();
             }
+        }
+    }
+
+    clearKlines() {
+        for (var c in this.klines) {
+            this.klines[c].removeAll();
         }
     }
 
