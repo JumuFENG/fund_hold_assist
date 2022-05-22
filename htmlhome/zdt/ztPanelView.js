@@ -25,11 +25,16 @@ class ZtPanelPage extends RadioAnchorPage {
             this.container.appendChild(this.contentPanel);
 
             this.contentPanel.appendChild(document.createTextNode('首板次日买入'));
+            var btnUpdateZt1 = document.createElement('button');
+            btnUpdateZt1.textContent = '更新';
+            btnUpdateZt1.onclick = e => {
+                this.updateZt1Selections();
+            }
+            this.contentPanel.appendChild(btnUpdateZt1);
             this.zt1Table = new SortableTable(1, 0, false);
             this.contentPanel.appendChild(this.zt1Table.container);
             
             this.getZt1Stocks();
-
         }
     }
 
@@ -46,6 +51,14 @@ class ZtPanelPage extends RadioAnchorPage {
         utils.get(zt1Url, null, zt1 => {
             this.zt1stocks = JSON.parse(zt1);
             this.showZt1Table();
+        });
+    }
+
+    updateZt1Selections() {
+        var zt1Url = emjyBack.fha.server + 'stock?act=updatepickup&key=zt1';
+        utils.get(zt1Url, null, r => {
+            console.log(r);
+            this.getZt1Stocks();
         });
     }
 

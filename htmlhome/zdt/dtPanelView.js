@@ -193,7 +193,7 @@ class DtPanelPage extends RadioAnchorPage {
         var dtmap = this.dtmap;
         var premap = this.premap;
         sfset.forEach(c => {
-            if (!emjyBack.klines[c] || !emjyBack.klines[c].klines) {
+            if (!emjyBack.klines[c] || !emjyBack.klines[c].klines || !emjyBack.klines[c].klines['101']) {
                 this.getDtStockKlines(c, premap.date);
                 return;
             }
@@ -348,6 +348,7 @@ class DtPanelPage extends RadioAnchorPage {
         fd.append('details', JSON.stringify(this.dtmap.details));
         utils.post(mapUrl, fd, null, dt => {
             console.log('save dt map', dt);
+            this.updateDt3Selections();
         });
     }
 
@@ -377,10 +378,18 @@ class DtPanelPage extends RadioAnchorPage {
     }
 
     getDt3Stocks() {
-        var zt1Url = emjyBack.fha.server + 'stock?act=pickup&key=dt3';
-        utils.get(zt1Url, null, dt3 => {
+        var dt3Url = emjyBack.fha.server + 'stock?act=pickup&key=dt3';
+        utils.get(dt3Url, null, dt3 => {
             this.dt3stocks = JSON.parse(dt3);
             this.showDt3Table();
+        });
+    }
+
+    updateDt3Selections() {
+        var dt3Url = emjyBack.fha.server + 'stock?act=updatepickup&key=dt3';
+        utils.get(dt3Url, null, r => {
+            console.log(r);
+            this.getDt3Stocks();
         });
     }
 
