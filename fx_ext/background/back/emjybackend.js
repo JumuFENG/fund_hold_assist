@@ -329,9 +329,17 @@ class EmjyBack {
                     startDate.setDate(startDate.getDate() + 1);
                 }
             }
-            this.normalAccount.loadHistDeals(startDate, deals => {this.addHistDeals(deals);});
-            this.collateralAccount.loadHistDeals(startDate, deals => {this.addHistDeals(deals);});
+            this.doUpdateHistDeals(startDate);
         });
+    }
+
+    doUpdateHistDeals(date) {
+        var startDate = date;
+        if (typeof(date) === 'string') {
+            startDate = new Date(date);
+        }
+        this.normalAccount.loadHistDeals(startDate, deals => {this.addHistDeals(deals);});
+        this.collateralAccount.loadHistDeals(startDate, deals => {this.addHistDeals(deals);});
     }
 
     getDealTime(cjrq, cjsj) {
