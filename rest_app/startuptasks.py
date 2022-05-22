@@ -97,6 +97,7 @@ def trade_closed_task():
     user.save_stocks_eaning_html(earning_cloud_file)
 
 def run_regular_tasks(dnow):
+    print('run_regular_tasks begin', datetime.now().strftime(f"%Y-%m-%d %H:%M"))
     retry = 0
     while True:
         try:
@@ -164,6 +165,8 @@ def run_regular_tasks(dnow):
     if anyrun:
         with open(startuplogfile, 'w') as cfgfile:
             json.dump(startconfig, cfgfile)
+
+    print('run_regular_tasks done', datetime.now().strftime(f"%Y-%m-%d %H:%M"), 'time used', datetime.now() - dnow)
 
 
 if __name__ == '__main__':

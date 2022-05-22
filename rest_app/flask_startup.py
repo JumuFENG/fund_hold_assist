@@ -318,6 +318,17 @@ def stock():
                 dt3 = dts.dumpDataByDate(date)
                 return json.dumps(dt3)
             return f'Unknown key {key}', 404
+        if actype == 'updatepickup':
+            key = request.args.get('key', type=str, default=None)
+            if key == 'zt1':
+                zts = StockZt1Selector()
+                zts.updateZt1()
+                return 'OK', 200
+            if key == 'dt3':
+                dts = StockDt3Selector()
+                dts.updateDt3()
+                return 'OK', 200
+            return f'Unknown key {key}', 404
 
     usermodel = UserModel()
     if not session.get('logged_in'):

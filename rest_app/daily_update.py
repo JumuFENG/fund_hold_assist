@@ -4,6 +4,7 @@
 import sys
 from datetime import datetime, timedelta
 import os
+import random
 sys.path.insert(0, os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/..'))
 from utils import *
 from user import *
@@ -89,9 +90,15 @@ class DailyUpdater():
 
         sh = Stock_history()
         sfh = Stock_Fflow_History()
+        i = 0
         for s in stocks:
             sh.getKdHistoryFromSohuTillToday(s)
-            sfh.getFflowFromEm(s)
+            i += (1 if sfh.updateFflow(s) else 0)
+            if i == 200:
+                tick = random.randint(65, 130)
+                print('request 100 stocks. sleep random = ', tick)
+                time.sleep(tick)
+                i = 0
 
     def download_newly_noticed_bonuses(self):
         print("update noticed bonuses")
@@ -134,10 +141,18 @@ class DailyUpdater():
 
         print('update zdt stocks kline data.')
         sh = Stock_history()
-        sfh = Stock_Fflow_History()
         for s in zdtcodes:
             sh.getKdHistoryFromSohuTillToday(s)
-            sfh.getFflowFromEm(s)
+
+        sfh = Stock_Fflow_History()
+        i = 0
+        for s in zdtcodes:
+            i += (1 if sfh.updateFflow(s) else 0)
+            if i == 200:
+                tick = random.randint(65, 130)
+                print(f'request {i} stocks. sleep random = {tick}')
+                time.sleep(tick)
+                i = 0
 
     def fetch_dfsorg_stocks(self):
         dfsorg = StockDfsorg()

@@ -418,11 +418,13 @@ class StockShareBonus(EmDataCenterRequest, TableBase):
 
 class Stock_Fflow_History(TableBase, EmRequest):
     '''get fflow from em pushhis 资金流向
+       ref: https://data.eastmoney.com/zjlx/600777.html
     '''
     def __init__(self) -> None:
         super().__init__(False)
 
     def initConstrants(self):
+        self.sqldb = None
         self.dbname = history_db_name
         self.colheaders = [
             {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
@@ -449,7 +451,16 @@ class Stock_Fflow_History(TableBase, EmRequest):
         return f'''https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get?lmt=0&klt=101&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65&ut=b2884a393a59ad64002292a3e90d46a5&secid={emsecid}&_={self.getTimeStamp()}'''
 
     def getNext(self):
-        rsp = self.getRequest()
+        headers = {
+            'Host': 'push2.eastmoney.com',
+            'Referer': 'http://quote.eastmoney.com/',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
+            'Accept': '/',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
+        }
+        rsp = self.getRequest(params=headers)
         fflow = json.loads(rsp)
         if fflow is None or 'data' not in fflow or 'klines' not in fflow['data']:
             print(rsp)
@@ -473,3 +484,16 @@ class Stock_Fflow_History(TableBase, EmRequest):
     def getFflowFromEm(self, code):
         self.setCode(code)
         self.getNext()
+
+    def updateFflow(self, code):
+        if self.sqldb is None:
+            self.getFflowFromEm(code)
+            return True
+
+        date = self._max_date()
+        if date == self.getTodayString():
+            print(f'fflow already updated to {date}')
+            return False
+
+        self.getFflowFromEm(code)
+        return True
