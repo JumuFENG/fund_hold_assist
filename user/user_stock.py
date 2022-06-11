@@ -126,7 +126,7 @@ class UserStock():
                 binfo = {column_cost: Decimal(str(bprice * bportion))}
                 self.sqldb.update(self.buy_table, binfo, {'id':f'{bid}'})
 
-            rembportion = bportion
+            rembportion = bportion - bsoldportion
             while rembportion > 0:
                 if remsell is None or remsell[3] == 0:
                     if remsell is not None and soldcost > 0:
@@ -575,7 +575,7 @@ class UserStock():
 
         nvalues = []
         for val in values:
-            odls = self.sqldb.select(buy_table, ['id', column_date], f'委托编号={val[1]}')
+            odls = self.sqldb.select(buy_table, ['id', column_date], f'委托编号="{val[1]}"')
             if odls is None or len(odls) == 0:
                 nvalues.append(val)
             else:
@@ -637,17 +637,33 @@ class UserStock():
         self._fix_buy_sell_portion(buy_rec, sell_rec)
 
     def fix_buy_deal(self, deal, count):
+        # deal: to be fixed deal
+        # count: archived count
+        soldptn = 0
         if not self.sqldb.isExistTable(self.buy_table):
+            if deal['count'] == count:
+                return
             self.setup_buytable()
+        else:
+            od = self.sqldb.select(self.buy_table, f'{column_portion},{column_sold_portion}', conds=f'''委托编号="{deal['sid']}"''')
+            if od is None or len(od) == 0:
+                if deal['count'] == count:
+                    return
+            if len(od) == 1:
+                (ptn,soldptn),= od
+                if ptn == deal['count'] - count:
+                    return
+            if len(od) > 1:
+                raise Exception(f'more than one deals found: 委托编号={deal["sid"]}')
 
         ad = self.sqldb.select(self.buy_table, conds=f'''委托编号="{deal['sid']}"''')
         dealfix = {
             column_date: deal['time'],
             column_price: deal['price'],
-            column_portion: deal['count'],
+            column_portion: deal['count'] - count,
             column_cost: str(float(deal['price']) * float(deal['count'])),
             column_soldout:'0',
-            column_sold_portion:str(count),
+            column_sold_portion:str(soldptn),
             '委托编号': deal['sid'],
             column_fee: deal['fee'] if 'fee' in deal else '0',
             '印花税': deal['feeYh'] if 'feeYh' in deal else '0',
@@ -676,7 +692,7 @@ class UserStock():
         if sell_rec is None or len(sell_rec) == 0:
             return ()
 
-        buy_rec = self.sqldb.select(self.buy_table, ['id', column_date, column_portion, column_price, column_fee, '印花税', '过户费', '委托编号'], f'{column_date} < "{date}"')
+        buy_rec = self.sqldb.select(self.buy_table, ['id', column_date, column_portion, column_price, column_fee, '印花税', '过户费', '委托编号', column_sold_portion], f'{column_date} < "{date}"')
         buy_rec = list(buy_rec)
         consumed = ()
         rembuy = None
@@ -706,7 +722,7 @@ class UserStock():
         if rembuy is not None:
             if bportion > 0:
                 consumed += (self.code, rembuy[1], 'B', rembuy[2] - bportion, rembuy[3], rembuy[4], rembuy[5], rembuy[6], rembuy[7]),
-                self.sqldb.update(self.buy_table, {column_portion: bportion}, {'id': rembuy[0]})
+                self.sqldb.update(self.buy_table, {column_portion: bportion, column_sold_portion: rembuy[8] - rembuy[2] + bportion}, {'id': rembuy[0]})
         for d in delbuy:
             self.sqldb.delete(self.buy_table, {'id': d})
 

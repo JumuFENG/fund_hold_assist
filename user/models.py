@@ -306,7 +306,7 @@ class User():
         for c in codes:
             us = UserStock(self, c)
             stock_json_obj = None
-            if us.still_hold() and us.keep_eye_on:
+            if us.keep_eye_on:
                 stock_json_obj = us.get_stock_summary()
 
             if stock_json_obj:
@@ -662,10 +662,15 @@ class User():
         ad = sqldb.select(self.stocks_archived_deals_table(), conds=[f'''{column_code} = \"{deal['code']}\"''', f'''{column_date}="{deal['time']}"''', f'''{column_type} = "{deal['tradeType']}"''', f'''委托编号="{deal['sid']}"'''])
         if ad is None or len(ad) == 0:
             return False
-        (_, c, t, tt, count, *x), = ad
-        if count < int(deal['count']):
-            us = UserStock(self, c)
-            us.fix_buy_deal(deal, count)
+        (_, c, t, tt, count, p, f, fYh, fGh, sid), = ad
+        if count > int(deal['count']):
+            raise Exception(f'Archived count > deal count, please check the database, table:{self.stocks_archived_deals_table()}, {deal["code"]}, 委托编号={deal["sid"]}')
+        us = UserStock(self, c)
+        us.fix_buy_deal(deal, count)
+        if not f == deal['fee'] or not fYh == deal['feeYh'] or not fGh == deal['feeGh'] or not p == deal['price']:
+            sqldb.update(self.stocks_archived_deals_table(),
+                {f'{column_price}':deal['price'], f'{column_fee}':deal['fee'], '印花税':deal['feeYh'], '过户费':deal['feeGh']},
+                {f'{column_code}':deal['code'], f'{column_date}': deal['time'], f'''{column_type}''': deal['tradeType'], '委托编号':deal['sid']})
         return True
 
     def archive_deals(self, edate):
