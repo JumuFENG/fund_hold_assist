@@ -902,7 +902,7 @@ class StrategyMABackup extends Strategy {
                     matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c});
                 } else if ( kl.c - this.data.guardPrice > 0) {
                     // 有安全线
-                    var xcount = buydetails.getCountLessThan(kl.c * 0.95);
+                    var xcount = buydetails.getCountLessThan(kl.c, 0.05);
                     if (xcount > 0) {
                         if (xcount < buydetails.totalCount()) {
                             this.tmpGuardDate = kl.time;
@@ -1057,7 +1057,7 @@ class StrategyTD extends Strategy {
             }
 
             if (this.data.meta.uptd && this.data.meta.uptd[kltype] > 8 && kl.td < 1 && kl.td > -3 && klines.continuouslyDecreaseDays(kltype) > 2) {
-                var count = buydetails.getCountLessThan(kl.c * (1 - (buydetails.buyRecords().length > 1 ? this.data.stepRate : this.data.upRate) - smioff));
+                var count = buydetails.getCountLessThan(kl.c, buydetails.buyRecords().length > 1 ? this.data.stepRate : this.data.upRate);
                 if (count > 0) {
                     // 减仓
                     this.tmps2price = kl.c;
@@ -1207,7 +1207,7 @@ class StrategyMA extends StrategyTD {
                 }
             }
 
-            var count = buydetails.getCountLessThan(kl.c * (1 - (buydetails.buyRecords().length > 1 ? this.data.stepRate : upRate) - smioff));
+            var count = buydetails.getCountLessThan(kl.c, buydetails.buyRecords().length > 1 ? this.data.stepRate : upRate);
             if (count > 0) {
                 this.tmps2price = kl.c;
                 this.tmpnextstate = buydetails.totalCount() > count ? 's1' : 's2';
@@ -1311,8 +1311,7 @@ class StrategyGE extends Strategy {
             if (fac - 0.05 > 0) {
                 fac = 0.05 + (this.data.stepRate - 0.05) / 2;
             }
-            var smioff = emjyBack.getSmiOffset(buydetails.latestBuyDate());
-            var count = buydetails.getCountLessThan(kl.c * (1 - fac - smioff));
+            var count = buydetails.getCountLessThan(kl.c, fac);
             if (count > 0) {
                 this.tmpGuardPrice = kl.c;
                 matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {

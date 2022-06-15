@@ -802,7 +802,7 @@ var testMeta = [{
             {"kl":{"time":"2022-03-18","o":"23.85","c":"24.07","h":"24.43","l":"23.67","v":"97016","ma5":"24.568","ma18":"26.624","bss18":"w","td":-3},"expect":{"dcount":1}}
         ]
     }]
-}, {
+},{
     testname: 'StrategyTD_Record_NotBuy',
     strategy: {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyTD","enabled":true,"kltype":"101"}},"transfers":{"0":{"transfer":"-1"}},"amount":10000, buydetail:[{"date": "2022-02-10", count: 300, price:'31.13', type:'B'}]},
     code: 't13003', // 002727
@@ -821,7 +821,7 @@ var testMeta = [{
             {"kl":{"time":"2022-03-18","o":"23.85","c":"24.07","h":"24.43","l":"23.67","v":"97016","ma5":"24.568","ma18":"26.624","bss18":"w","td":-3},"expect":{"dcount":0}}
         ]
     }]
-}, {
+},{
     testname: 'StrategyTD_Record_Buy',
     strategy: {"grptype":"GroupStandard","strategies":{"0":{"key":"StrategyTD","enabled":true,"kltype":"101"}},"transfers":{"0":{"transfer":"-1"}},"amount":10000, buydetail:[{"date": "2022-02-10", count: 300, price:'34.13', type:'B'}]},
     code: 't13004', // 002727
@@ -839,6 +839,36 @@ var testMeta = [{
             {"kl":{"time":"2022-03-11","o":"25.69","c":"28.20","h":"28.34","l":"25.39","v":"241309","ma5":"26.314","ma18":"28.106","bss18":"w","td":0},"expect":{"dcount":1, deal: {count: 400, price: 28.20, tradeType:'B'}}},
             {"kl":{"time":"2022-03-14","o":"28.99","c":"26.83","h":"28.99","l":"26.60","v":"257785","ma5":"26.302","ma18":"27.892","bss18":"w","td":1},"expect":{"dcount":1}},
             {"kl":{"time":"2022-03-15","o":"25.55","c":"24.15","h":"25.87","l":"24.15","v":"209645","ma5":"25.978","ma18":"27.562","bss18":"w","td":0},"expect":{"dcount":1}}
+        ]
+    }]
+},{
+    testname: 'StrategyGE_Record_Sell',
+    strategy: {
+        "grptype":"GroupStandard","strategies":{"0":{"key":"StrategyGE","enabled":true,"stepRate":0.04,"account":"credit","kltype":"30","guardPrice":"0.696000","period":"l","inCritical":false}},"transfers":{"0":{"transfer":"-1"}},
+        "amount":10000,
+        buydetail:[
+            {"date":"2021-11-19","count":"5600","price":".8870","type":"B","sid":"527694"},
+            {"date":"2021-09-24","count":"5800","price":".8580","type":"B","sid":"87198"},
+            {"date":"2021-09-24","count":"5800","price":".8580","type":"B","sid":"87292"},
+            {"date":"2021-09-24","count":"5800","price":".8580","type":"B","sid":"87305"},
+            {"date":"2022-01-04","count":"7000","price":".8280","type":"B","sid":"840993"},
+            {"date":"2022-01-06","count":"10000","price":"0.796","type":"B","sid":"330656"},
+            {"date":"2022-01-07","count":"12500","price":"0.795","type":"B","sid":"232892"},
+            {"date":"2022-01-06","count":"5600","price":".7940","type":"B","sid":"822210"},
+            {"date":"2022-01-26","count":"5600","price":".7700","type":"B","sid":"718618"},
+            {"date":"2022-01-26","count":"12600","price":"0.765","type":"B","sid":"172538"},
+            {"date":"2022-02-08","count":"12600","price":"0.723","type":"B","sid":"115589"},
+            {"date":"2022-03-07","count":"14300","price":"0.696000","sid":"111980","type":"B"},
+            {"date":"2022-04-12","count":"15600","price":"0.637000","sid":"25796","type":"B"}]},
+    code: 't14001', // 588300
+    smi: [{"date": "2021-09-01","value": "3500"},{"date": "2022-03-16","value": "3200"},{"date": "2022-04-27","value": "3000"}],
+    kdata: [{
+        kltype:'30',
+        kldata: [
+            {"kl":{"time":"2022-06-09 10:00","o":"0.669","c":"0.663","h":"0.669","l":"0.660","v":188109,"ma5":"0.665","ma18":"0.665","bss18":"h","td":2},"expect":{"dcount":0}},
+            {"kl":{"time":"2022-06-09 10:30","o":"0.663","c":"0.657","h":"0.663","l":"0.656","v":225828,"ma5":"0.665","ma18":"0.665","bss18":"h","td":0},"expect":{"dcount":0}},
+            {"kl":{"time":"2022-06-09 11:00","o":"0.657","c":"0.658","h":"0.659","l":"0.655","v":225140,"ma5":"0.663","ma18":"0.664","bss18":"s","td":-1},"expect":{"dcount":1, deal: {count: 42500, price: 0.658, tradeType:'S'}}},
+            {"kl":{"time":"2022-06-09 11:30","o":"0.658","c":"0.656","h":"0.660","l":"0.655","v":77527,"ma5":"0.661","ma18":"0.664","bss18":"w","td":-2},"expect":{"dcount":1}},
         ]
     }]
 }];

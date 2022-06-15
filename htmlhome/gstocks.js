@@ -60,8 +60,23 @@ class GlobalManager {
         });
     }
 
-    getSmiOffset() {
-        return 0;
+    getSmiOffset(date) {
+        if (!this.smiList || this.smiList.length == 0 || !date) {
+            return 0;
+        }
+
+        var buySmi = this.smiList[0].value;
+        for (var i = 1; i < this.smiList.length; ++i) {
+            if (date <= this.smiList[i].date) {
+                break;
+            }
+            buySmi = this.smiList[i].value;
+        }
+        var curSmi = this.smiList[this.smiList.length - 1].value;
+        if (buySmi == curSmi) {
+            return 0;
+        }
+        return (curSmi - buySmi) / buySmi;
     }
 
     applyGuardLevel(strgrp, allklt) {

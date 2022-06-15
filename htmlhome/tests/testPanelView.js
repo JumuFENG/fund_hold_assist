@@ -168,6 +168,10 @@ class TestEngine {
         var str = JSON.parse(JSON.stringify(testMeta[testid].strategy));
         emjyBack.testAccount.removeStock(code);
         emjyBack.testAccount.addWatchStock(code, str);
+        emjyBack.smiList = []
+        if (testMeta[testid].smi) {
+            emjyBack.smiList = testMeta[testid].smi;
+        }
         var stock = emjyBack.testAccount.getStock(code);
         if (testMeta[testid].snapshot) {
             for (let j = 0; j < testMeta[testid].snapshot.length; j++) {
