@@ -327,9 +327,13 @@ class EmjyBack {
                 if (this.savedDeals && this.savedDeals.length > 0) {
                     startDate = new Date(this.savedDeals[this.savedDeals.length - 1].time);
                     startDate.setDate(startDate.getDate() + 1);
+                } else {
+                    startDate = new Date();
+                    startDate.setDate(startDate.getDate() - 20);
                 }
             }
             this.doUpdateHistDeals(startDate);
+            this.loadOtherDeals(startDate);
         });
     }
 
@@ -342,8 +346,20 @@ class EmjyBack {
         this.collateralAccount.loadHistDeals(startDate, deals => {this.addHistDeals(deals);});
     }
 
+    loadOtherDeals(date) {
+        var startDate = date;
+        if (typeof(startDate) === 'string') {
+            startDate = new Date(date);
+        }
+        this.normalAccount.loadOtherDeals(startDate, deals => {this.addOtherDeals(deals)});
+        this.collateralAccount.loadOtherDeals(startDate, deals => {this.addOtherDeals(deals)});
+    }
+
     getDealTime(cjrq, cjsj) {
         var date = cjrq.slice(0, 4) + "-" + cjrq.slice(4, 6) + "-" + cjrq.slice(6, 8);
+        if (cjsj.length == 8) {
+            cjsj = cjsj.substring(0, 6);
+        }
         if (cjsj.length != 6) {
             return date + ' 0:0';
         }
@@ -416,6 +432,93 @@ class EmjyBack {
         chrome.storage.local.set({'hist_deals': this.savedDeals});
         this.uploadDeals(uptosvrDeals);
         this.clearCompletedDeals();
+    }
+
+    dateToString(dt, sep = '-') {
+        return dt.getFullYear() + sep + ('' + (dt.getMonth() + 1)).padStart(2, '0') + sep + ('' + dt.getDate()).padStart(2, '0');
+    }
+
+    mergeCumDeals(deals) {
+        // 合并时间相同的融资利息
+        var tdeals = {};
+        deals.forEach(d => {
+            if (Object.keys(tdeals).includes(d.time)) {
+                tdeals[d.time].price += parseFloat(d.price);
+            } else {
+                tdeals[d.time] = d;
+                tdeals[d.time].price = parseFloat(d.price);
+            }
+        });
+        return Object.values(tdeals);
+    }
+
+    addOtherDeals(deals) {
+        var fetchedDeals = [];
+        var dealsTobeCum = [];
+        var ignoredSm = ['融资买入', '融资借入', '偿还融资负债本金', '担保品卖出', '担保品买入', '担保物转入', '担保物转出', '融券回购', '融券购回', '证券卖出', '证券买入', '股份转出', '股份转入', '配股权证', '配股缴款']
+        var otherBuySm = ['红股入账', '配股入帐'];
+        var otherSellSm = [];
+        var otherSm = ['配售缴款', '新股入帐', '股息红利差异扣税', '偿还融资利息', '偿还融资逾期利息', '红利入账', '银行转证券', '证券转银行', '利息归本'];
+        var fsjeSm = ['股息红利差异扣税', '偿还融资利息', '偿还融资逾期利息', '红利入账', '银行转证券', '证券转银行', '利息归本'];
+        for (let i = 0; i < deals.length; i++) {
+            const deali = deals[i];
+            var sm = deali.Ywsm;
+            if (ignoredSm.includes(sm)) {
+                continue;
+            }
+            var tradeType = '';
+            if (otherBuySm.includes(sm)) {
+                tradeType = 'B';
+            } else if (otherSellSm.includes(sm)) {
+                tradeType = 'S';
+            } else if (otherSm.includes(sm)) {
+                console.log(deali);
+                tradeType = sm;
+                if (sm == '股息红利差异扣税') {
+                    tradeType = '扣税';
+                }
+                if (sm == '偿还融资利息' || sm == '偿还融资逾期利息') {
+                    tradeType = '融资利息';
+                }
+            } else {
+                console.log('unknow deals', sm, JSON.stringify(deali));
+                continue;
+            }
+            var code = deali.Zqdm;
+            var time = this.getDealTime(
+                deali.Fsrq === undefined || deali.Fsrq == '0' ? deali.Ywrq : deali.Fsrq,
+                deali.Fssj === undefined || deali.Fssj == '0' ? deali.Cjsj : deali.Fssj);
+            if (sm == '红利入账' && time.endsWith('0:0')) {
+                time = this.getDealTime(deali.Fsrq === undefined || deali.Fsrq == '0' ? deali.Ywrq : deali.Fsrq,'150000');
+            }
+            var count = deali.Cjsl;
+            var price = deali.Cjjg;
+            if (fsjeSm.includes(sm)) {
+                count = 1;
+                price = deali.Fsje;
+            }
+            var fee = deali.Sxf;
+            var feeYh = deali.Yhs;
+            var feeGh = deali.Ghf;
+            var sid = deali.Htbh;
+            if (sm == '配股入帐' && sid == '') {
+                continue;
+            }
+            if (tradeType == '融资利息') {
+                dealsTobeCum.push({time, sid, code, tradeType, price, count, fee, feeYh, feeGh});
+            } else {
+                fetchedDeals.push({time, sid, code, tradeType, price, count, fee, feeYh, feeGh});
+            }
+        }
+        fetchedDeals.reverse();
+        if (dealsTobeCum.length > 0) {
+            var ndeals = this.mergeCumDeals(dealsTobeCum);
+            ndeals.forEach(d => {
+                fetchedDeals.push(d);
+            });
+        }
+        // console.log(fetchedDeals);
+        this.uploadDeals(fetchedDeals);
     }
 
     uploadTodayDeals(deals) {

@@ -163,6 +163,27 @@ class MarginOrdersClient extends DealsClient {
     }
 }
 
+class SxlHistClient extends HistDealsClient {
+    // Stock Exchange List
+    constructor(validateKey, cb) {
+        super(validateKey, cb);
+    }
+
+    getUrl() {
+        return 'https://jywg.18.cn/Search/GetFundsFlow?validatekey=' + this.validateKey;
+    }
+}
+
+class MarginSxlHistClient extends HistDealsClient {
+    constructor(validateKey, cb) {
+        super(validateKey, cb);
+    }
+
+    getUrl() {
+        return 'https://jywg.18.cn/MarginSearch/GetWaterBill?validatekey=' + this.validateKey;
+    }
+}
+
 class AssetsClient {
     constructor(validateKey, cb, pcb) {
         this.validateKey = validateKey;
@@ -543,6 +564,7 @@ class NormalAccount extends Account {
                         this.addWatchStock(keys[1]);
                         this.applyStrategy(keys[1], JSON.parse(items[k]));
                     }
+                    console.log('fix', keys[1]);
                 }
             }
         });
@@ -842,13 +864,29 @@ class NormalAccount extends Account {
             } else {
                 this.fecthedDeals.push.apply(this.fecthedDeals, deals);
             }
-            if (typeof(cb) == 'function' && (!deals || deals.length == 0) && this.fecthedDeals && this.fecthedDeals.length > 0) {
+            if (typeof(cb) === 'function' && (!deals || deals.length == 0) && this.fecthedDeals && this.fecthedDeals.length > 0) {
                 cb(this.fecthedDeals);
                 this.fecthedDeals = [];
             }
         });
         dealclt.setStartDate(startDate);
         dealclt.GetNext();
+    }
+
+    loadOtherDeals(startDate, cb) {
+        var sxlclt = new SxlHistClient(emjyBack.validateKey, deals => {
+            if (!this.otherDeals || this.otherDeals.length == 0) {
+                this.otherDeals = deals;
+            } else {
+                this.otherDeals.push.apply(this.otherDeals, deals);
+            }
+            if (typeof(cb) === 'function' && (!deals || deals.length == 0) && this.otherDeals && this.otherDeals.length > 0) {
+                cb(this.otherDeals);
+                this.otherDeals = [];
+            }
+        });
+        sxlclt.setStartDate(startDate);
+        sxlclt.GetNext();
     }
 
     loadAssets() {
@@ -982,13 +1020,29 @@ class CollateralAccount extends NormalAccount {
             } else {
                 this.fecthedDeals.push.apply(this.fecthedDeals, deals);
             }
-            if (typeof(cb) == 'function' && (!deals || deals.length == 0) && this.fecthedDeals && this.fecthedDeals.length > 0) {
+            if (typeof(cb) === 'function' && (!deals || deals.length == 0) && this.fecthedDeals && this.fecthedDeals.length > 0) {
                 cb(this.fecthedDeals);
                 this.fecthedDeals = [];
             }
         });
         dealclt.setStartDate(startDate);
         dealclt.GetNext();
+    }
+
+    loadOtherDeals(startDate, cb) {
+        var sxlclt = new MarginSxlHistClient(emjyBack.validateKey, deals => {
+            if (!this.otherDeals || this.otherDeals.length == 0) {
+                this.otherDeals = deals;
+            } else {
+                this.otherDeals.push.apply(this.otherDeals, deals);
+            }
+            if (typeof(cb) === 'function' && (!deals  || deals.length == 0) && this.otherDeals && this.otherDeals.length > 0) {
+                cb(this.otherDeals);
+                this.otherDeals = [];
+            }
+        });
+        sxlclt.setStartDate(startDate);
+        sxlclt.GetNext();
     }
 
     loadAssets(cb) {
