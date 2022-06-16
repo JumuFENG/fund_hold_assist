@@ -336,8 +336,8 @@ class PickupPanelPage extends RadioAnchorPage {
         }
         chrome.storage.local.set({'ztstocks': zt1stocks});
         chrome.storage.local.set({'ztdels': ztdels});
-        emjyManager.zt1stocks = zt1stocks;
-        emjyManager.delstocks = ztdels;
+        // emjyManager.zt1stocks = zt1stocks;
+        // emjyManager.delstocks = ztdels;
         this.showSelectedTable();
     }
 }

@@ -9,7 +9,6 @@ class Manager {
         this.log = log;
         this.page = null;
         this.stockList = null;
-        this.ztPool = null;
         this.klines = {};
         this.accountNames = {'normal':'普通账户', 'collat': '担保品账户', 'credit': '融资账户'};
         this.accountsMap = {'normal': ['normal'], 'collat': ['credit', 'collat']};
@@ -44,12 +43,6 @@ class Manager {
                 if (item['hsj_stocks']) {
                     this.stockMarket = item['hsj_stocks'];
                 }
-                if (item['ztstocks']) {
-                    this.zt1stocks = item['ztstocks'];
-                }
-                if (item['ztdels']) {
-                    this.delstocks = item['ztdels'];
-                }
                 if (item['hist_deals']) {
                     this.savedDeals = item['hist_deals'];
                 }
@@ -61,15 +54,6 @@ class Manager {
                 }
                 if (item['bkstocks_' + BkRZRQ]) {
                     this.rzrqStocks = new Set(item['bkstocks_' + BkRZRQ]);
-                }
-                if (item['ztbks']) {
-                    this.ztbks = item['ztbks'];
-                }
-                if (item['yzbuy1']) {
-                    this.yzbuy1 = item['yzbuy1'];
-                }
-                if (item['yzbuy3']) {
-                    this.yzbuy3 = item['yzbuy3'];
                 }
                 for (const key in item) {
                     if (!key.startsWith('kline_')) {
@@ -100,10 +84,6 @@ class Manager {
     handleExtensionMessage(message) {
         if (message.command == 'mngr.stocks') {
             this.initStocks(message.stocks);
-        } else if (message.command == 'mngr.getZTPool') {
-            if (this.ztPool) {
-                this.ztPool.onZTPoolback(message.ztpool);
-            };
         } else if (message.command == 'mngr.getkline') {
             var code = message.kline.data.code;
             if (this.klines[code] === undefined) {
@@ -111,7 +91,6 @@ class Manager {
             }
             this.klines[code].updateRtKline(message);
             this.klines[code].save();
-            this.updateZt1stockInfo(code);
             this.stockList.updateStockPrice(code);
         }
     }
@@ -136,6 +115,10 @@ class Manager {
     }
 
     updateKlineDaily(code) {
+        if (!this.klines[code].getLatestKline('101')) {
+            console.log(code, 'kline not exists!');
+            return false;
+        }
         var ldate = new Date(this.klines[code].getLatestKline('101').time);
         ldate.setDate(ldate.getDate() + 1);
         if (ldate < new Date()) {
@@ -162,15 +145,6 @@ class Manager {
                 this.stockList.updateStockPrice(code);
             }
         }
-        
-        for (var i = 0; this.zt1stocks && i < this.zt1stocks.length; i++) {
-            var code = this.zt1stocks[i].code;
-            if (this.klines[code].klines === undefined) {
-                this.getDailyKlineSinceMonthAgo(code, this.zt1stocks[i].ztdate);
-                continue;
-            }
-            this.updateKlineDaily(code);
-        }
     }
 
     loadKlines(code) {
@@ -178,23 +152,6 @@ class Manager {
             this.klines[code] = new KLine(code);
         }
         this.klines[code].loadSaved();
-    }
-
-    addZt1Stock(stkzt) {
-        var stk = this.zt1stocks.find(s => s.code == stkzt.code && (s.rmvdate === undefined || s.rmvdate == s.ztdate));
-        if (!stk) {
-            if (stkzt.name.startsWith('N')) {
-                console.log('not add new stocks');
-                return;
-            }
-            this.zt1stocks.push(stkzt);
-        } else {
-            console.log('addZt1Stock existing stock code ', stk.code, 'zt date ', stk.ztdate);
-        }
-        if (!this.klines[stkzt.code] || !this.klines[stkzt.code].klines) {
-            this.getDailyKlineSinceMonthAgo(stkzt.code, stkzt.ztdate);
-        }
-        this.page.pickupPage.showSelectedTable();
     }
 
     toVscale(vs) {
@@ -208,46 +165,6 @@ class Manager {
             return 3;
         }
         return 4;
-    }
-
-    updateZt1stockInfo(code) {
-        this.zt1stocks.forEach((s, idx) => {
-            if (s.code == code) {
-                if (s.vscale === undefined) {
-                    var vscale = this.klines[code].getVolScale('101', s.ztdate, 10);
-                    s.vscale = this.toVscale(vscale);
-                    s.zstrength = this.klines[s.code].getZtStrength(s.ztdate);
-                }
-                this.checkDelDate(idx);
-            }
-        });
-    }
-
-    updateAllVolScale() {
-        this.zt1stocks.forEach(s => {
-            var vscale = this.klines[s.code].getVolScale('101', s.ztdate, 10);
-            s.vscale = this.toVscale(vscale);
-            s.zstrength = this.klines[s.code].getZtStrength(s.ztdate);
-            s.cut = this.klines[s.code].getCutPrice(s.ztdate);
-            if (s.zstrength === undefined) {
-                if (this.klines[s.code]) {
-                    this.klines[s.code].klines['101'] = [];
-                }
-                this.getDailyKlineSinceMonthAgo(s.code, s.ztdate);
-            }
-        });
-        this.delstocks.forEach(s => {
-            var vscale = this.klines[s.code].getVolScale('101', s.ztdate, 10);
-            s.vscale = this.toVscale(vscale);
-            s.zstrength = this.klines[s.code].getZtStrength(s.ztdate);
-            s.cut = this.klines[s.code].getCutPrice(s.ztdate);
-            if (s.zstrength === undefined) {
-                if (this.klines[s.code] && this.klines[s.code].klines) {
-                    this.klines[s.code].klines['101'] = [];
-                }
-                this.getDailyKlineSinceMonthAgo(s.code, s.ztdate);
-            }
-        });
     }
 
     checkDelDate(idx) {
@@ -427,10 +344,6 @@ class Manager {
 
         if (!this.stockList) {
             this.stockList = new StockListPanelPage();
-        };
-
-        if (!this.ztPool) {
-            this.ztPool = new ZtPanelPage();
         };
 
         this.page.setupNavigators();
@@ -628,9 +541,6 @@ class ManagerPage {
     setupNavigators() {
         this.navigator.addRadio(emjyManager.stockList);
         this.root.appendChild(emjyManager.stockList.container);
-
-        this.navigator.addRadio(emjyManager.ztPool);
-        this.root.appendChild(emjyManager.ztPool.container);
 
         this.pickupPage = new PickupPanelPage();
         this.navigator.addRadio(this.pickupPage);
