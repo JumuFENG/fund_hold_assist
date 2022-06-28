@@ -314,6 +314,15 @@ class User():
 
         return stocks_json
 
+    def get_holding_stocks_portions(self):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_info_table()):
+            print("can not find stock info DB.")
+            return
+
+        stocks = sqldb.select(self.stocks_info_table(), f'{column_code},{column_portion_hold}', f'{column_portion_hold}>0')
+        return {c:p for c,p in stocks}
+
     def interest_stock(self, code):
         sqldb = self.stock_center_db()
         if not sqldb.isExistTable(self.stocks_info_table()) or not sqldb.isExistTableColumn(self.stocks_info_table(), column_keepeyeon):
@@ -402,6 +411,90 @@ class User():
         for c in codes:
             us = UserStock(self, c)
             cearn = us.get_each_sell_earned() if date is None else us.get_sell_earned_after(date)
+            if cearn is None:
+                continue
+            for k in cearn:
+                if k in earndic:
+                    earndic[k] += cearn[k]
+                else:
+                    earndic[k] = cearn[k]
+
+        date_conv = DateConverter()
+        for k in sorted(earndic.keys()):
+            self.set_earned(date_conv.date_by_delta(k), earndic[k])
+
+    def recalc_earned(self):
+        '''
+        重新计算历史收益详情
+        '''
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_archived_deals_table()):
+            print('archive table not exists!', self.stocks_archived_deals_table())
+            self.calc_earned()
+            return
+
+        if sqldb.isExistTable(self.stocks_earned_table()):
+            sqldb.dropTable(self.stocks_earned_table())
+
+        codes = self._all_user_stocks()
+        earndic = {}
+        archived = sqldb.select(self.stocks_archived_deals_table())
+        date_conv = DateConverter()
+        for c in codes:
+            # archived buy records
+            abuy = filter(lambda x: x[1] == c and x[3] == 'B', archived)
+
+            us = UserStock(self, c)
+            # not archived buy records
+            cbuy = []
+            if sqldb.isExistTable(us.buy_table):
+                cbuy = sqldb.select(us.buy_table)
+            buys = []
+            arsids = set()
+            for _id, _code, _date, _tp, _ptn, _pr, _fee, _fYh, _fGh, _sid in abuy:
+                fee = 0 if _fee is None else _fee
+                fee += 0 if _fYh is None else _fYh
+                fee += 0 if _fGh is None else _fGh
+                _cb = filter(lambda x: x[7] == _sid and x[1] == _date and x[3] == _pr, cbuy)
+                arsids.add(_sid)
+                if _cb is None:
+                    buys.append({'date': date_conv.days_since_2000(_date), 'price': _pr, 'ptn': _ptn, 'fee': fee})
+                else:
+                    ptn = _ptn
+                    # get the total portion of partial archived deals.
+                    for _id, _date, _cptn, _pr, _cs, _so, _sp, _sid, _cfee, _cfYh, _cfGh in _cb:
+                        ptn += _cptn
+                    buys.append({'date': date_conv.days_since_2000(_date), 'price': _pr, 'ptn': ptn, 'fee': fee})
+
+            for _id, _date, _cptn, _pr, _cs, _so, _sp, _sid, _cfee, _cfYh, _cfGh in cbuy:
+                if _sid in arsids:
+                    continue
+
+                fee = 0 if _cfee is None else _cfee
+                fee += 0 if _cfYh is None else _cfYh
+                fee += 0 if _cfGh is None else _cfGh
+                buys.append({'date': date_conv.days_since_2000(_date), 'price': _pr, 'ptn': _cptn, 'fee': fee})
+
+            # archived sell records
+            asell = filter(lambda x: x[1] == c and x[3] == 'S', archived)
+            sells = []
+            for _id, _code, _date, _tp, _ptn, _pr, _fee, _fYh, _fGh, _sid in asell:
+                fee = 0 if _fee is None else _fee
+                fee += 0 if _fYh is None else _fYh
+                fee += 0 if _fGh is None else _fGh
+                sells.append({'date': date_conv.days_since_2000(_date), 'price': _pr, 'ptn': _ptn, 'fee': fee})
+
+            # not archived sell records
+            csell = []
+            if sqldb.isExistTable(us.sell_table):
+                csell = sqldb.select(us.sell_table)
+            for _id, _date, _ptn, _pr, _ms, _cs, _e, _rp, _ri, _rn, _sid, _fee, _fYh, _fGh in csell:
+                fee = 0 if _fee is None else _fYh
+                fee += 0 if _fYh is None else _fYh
+                fee += 0 if _fGh is None else _fGh
+                sells.append({'date': date_conv.days_since_2000(_date), 'price': _pr, 'ptn': _ptn, 'fee': fee})
+
+            cearn = us.sell_earned_by_day(buys, sells)
             if cearn is None:
                 continue
             for k in cearn:
@@ -583,10 +676,21 @@ class User():
             if not self.is_exist_in_allstocks(k):
                 self.add_unknown_code_deal(v['deals'])
             else:
+                deals = []
+                udeals = []
+                for deal in v['deals']:
+                    if deal['tradeType'] == 'B' or deal['tradeType'] == 'S':
+                        if deal['sid'] == '':
+                            deal['sid'] = '0'
+                        deals.append(deal)
+                    else:
+                        udeals.append(deal)
+                if len(udeals) > 0:
+                    self.add_unknown_code_deal(udeals)
                 us = UserStock(self, k)
-                us.add_deals(v['deals'])
+                us.add_deals(deals)
                 if not updatefee:
-                    updatefee = 'fee' in v['deals'][0]
+                    updatefee = len(deals) > 0 and 'fee' in deals[0]
 
         self.update_earned()
         if updatefee:
@@ -609,20 +713,111 @@ class User():
             constraint = 'PRIMARY KEY(`id`)'
             sqldb.createTable(self.stocks_unknown_deals_table(), attrs, constraint)
 
+    def remove_repeat_unknown_deals_配售缴款(self, existdeals, deal):
+        eid = 0
+        ecode = deal['code']
+        sqldb = self.stock_center_db()
+        for id,date,code,type,sid,price,count,fee,fYh,fGh in existdeals:
+            if date < deal['time']:
+                continue
+            if code[-6:] != deal['code'][-6:]:
+                continue
+            if sid != '0' and sid != deal['sid']:
+                continue
+            if len(code) > len(ecode):
+                ecode = code
+            if eid == 0:
+                eid = id
+            else:
+                sqldb.delete(self.stocks_unknown_deals_table(), {'id': id})
+
+        if eid == 0:
+            for id, date,code,type,sid,*x in existdeals:
+                if sid == deal['sid']:
+                    return
+            dtype = 'B'
+            sqldb.insert(self.stocks_unknown_deals_table(), {
+                f'{column_date}':deal['time'], f'{column_code}':ecode,
+                f'{column_type}':dtype, '委托编号':deal['sid'],
+                f'{column_price}':deal['price'], f'{column_portion}':deal['count'],
+                f'{column_fee}':deal['fee'], '印花税':deal['feeYh'], '过户费':deal['feeGh']})
+        else:
+            sqldb.update(self.stocks_unknown_deals_table(), {f'{column_code}':ecode, '委托编号':deal['sid']}, {'id': eid})
+
+    def remove_repeat_unknown_deals_新股入帐(self, existdeals, deal):
+        eid = 0
+        ecode = deal['code']
+        sqldb = self.stock_center_db()
+        for id,date,code,type,sid,price,count,fee,fYh,fGh in existdeals:
+            if date < deal['time']:
+                continue
+            if sid != deal['sid']:
+                continue
+            if len(code) > len(ecode) and code[-6:] == deal['code']:
+                ecode = code
+            if eid == 0:
+                eid = id
+            else:
+                sqldb.delete(self.stocks_unknown_deals_table(), {'id': id})
+
+        if eid == 0:
+            dtype = 'B'
+            sqldb.insert(self.stocks_unknown_deals_table(), {
+                f'{column_date}':deal['time'], f'{column_code}':ecode,
+                f'{column_type}':dtype, '委托编号':deal['sid'],
+                f'{column_price}':deal['price'], f'{column_portion}':deal['count'],
+                f'{column_fee}':deal['fee'], '印花税':deal['feeYh'], '过户费':deal['feeGh']})
+        else:
+            sqldb.update(self.stocks_unknown_deals_table(), {f'{column_code}':ecode, '委托编号':deal['sid']}, {'id': eid})
+
+    def remove_repeat_unknown_deals_commontype(self, existdeals, deal):
+        eid = 0
+        sqldb = self.stock_center_db()
+        for id,date,code,type,sid,price,count,fee,fYh,fGh in existdeals:
+            if date != deal['time']:
+                continue
+            if eid == 0:
+                eid = id
+            else:
+                sqldb.delete(self.stocks_unknown_deals_table(), {'id': id})
+
+        if eid == 0:
+            sqldb.insert(self.stocks_unknown_deals_table(), {
+                f'{column_date}':deal['time'], f'{column_code}':deal['code'],
+                f'{column_type}':deal['tradeType'], '委托编号':deal['sid'],
+                f'{column_price}':deal['price'], f'{column_portion}':deal['count'],
+                f'{column_fee}':deal['fee'], '印花税':deal['feeYh'], '过户费':deal['feeGh']})
+        else:
+            sqldb.update(self.stocks_unknown_deals_table(), {f'{column_code}':deal['code'], '委托编号':deal['sid']}, {'id': eid})
+
     def add_unknown_code_deal(self, deals):
         '''
         无法识别的成交记录，新股新债
         '''
         self.check_unknown_deals_table()
         sqldb = self.stock_center_db()
-        values = []
-        attrs = [column_date, column_code, column_type, '委托编号', column_price, column_portion, column_fee, '印花税', '过户费']
 
+        values = []
+        commontype = ['利息归本', '银行转证券', '证券转银行', '红利入账', '扣税', '融资利息']
         for deal in deals:
             if 'fee' in deal:
+                if deal['tradeType'] == '配售缴款':
+                    existdeals = sqldb.select(self.stocks_unknown_deals_table(), conds={'委托编号': 0})
+                    existdeals += sqldb.select(self.stocks_unknown_deals_table(), conds={'委托编号': deal['sid']})
+                    self.remove_repeat_unknown_deals_配售缴款(existdeals, deal)
+                    continue
+                if deal['tradeType'] == '新股入帐':
+                    existdeals = sqldb.select(self.stocks_unknown_deals_table(), conds={'委托编号': deal['sid']})
+                    self.remove_repeat_unknown_deals_新股入帐(existdeals, deal)
+                    continue
+                if deal['tradeType'] in commontype:
+                    existdeals = sqldb.select(self.stocks_unknown_deals_table(), conds={f'{column_date}':deal['time']})
+                    self.remove_repeat_unknown_deals_commontype(existdeals, deal)
+                    continue
                 values.append([deal['time'], deal['code'], deal['tradeType'], deal['sid'], deal['price'], deal['count'], deal['fee'], deal['feeYh'], deal['feeGh']])
 
         if len(values) > 0:
+            attrs = [column_date, column_code, column_type, '委托编号', column_price, column_portion, column_fee, '印花税', '过户费']
             sqldb.insertMany(self.stocks_unknown_deals_table(), attrs, values)
 
     def add_to_archive_deals_table(self, values):
@@ -659,18 +854,22 @@ class User():
         if not sqldb.isExistTable(self.stocks_archived_deals_table()):
             return False
 
-        ad = sqldb.select(self.stocks_archived_deals_table(), conds=[f'''{column_code} = \"{deal['code']}\"''', f'''{column_date}="{deal['time']}"''', f'''{column_type} = "{deal['tradeType']}"''', f'''委托编号="{deal['sid']}"'''])
+        dsid = '0' if deal['sid'] == '' else deal['sid']
+        ad = sqldb.select(self.stocks_archived_deals_table(), conds=[f'''{column_code} = \"{deal['code']}\"''', f'''{column_type} = "{deal['tradeType']}"''', f'''委托编号="{dsid}"'''])
         if ad is None or len(ad) == 0:
             return False
         (_, c, t, tt, count, p, f, fYh, fGh, sid), = ad
+        if dsid == '0' and t.partition(' ')[0] != deal['time'].partition(' ')[0]:
+            return False
+
         if count > int(deal['count']):
             raise Exception(f'Archived count > deal count, please check the database, table:{self.stocks_archived_deals_table()}, {deal["code"]}, 委托编号={deal["sid"]}')
         us = UserStock(self, c)
         us.fix_buy_deal(deal, count)
-        if not f == deal['fee'] or not fYh == deal['feeYh'] or not fGh == deal['feeGh'] or not p == deal['price']:
+        if not f == float(deal['fee']) or not fYh == float(deal['feeYh']) or not fGh == float(deal['feeGh']) or not p == float(deal['price']):
             sqldb.update(self.stocks_archived_deals_table(),
                 {f'{column_price}':deal['price'], f'{column_fee}':deal['fee'], '印花税':deal['feeYh'], '过户费':deal['feeGh']},
-                {f'{column_code}':deal['code'], f'{column_date}': deal['time'], f'''{column_type}''': deal['tradeType'], '委托编号':deal['sid']})
+                {f'{column_code}':deal['code'], f'{column_date}': deal['time'], f'''{column_type}''': deal['tradeType'], '委托编号':dsid})
         return True
 
     def archive_deals(self, edate):
@@ -705,7 +904,8 @@ class User():
             statstable[-1].append(0)
 
         while len(earnedrecs) > 0:
-            statstable.append([earned[0], 0, 0, 0, earned[1], earned[2], 0])
+            if earned[0] < statstable[-1][0]:
+                statstable.append([earned[0], 0, 0, 0, earned[1], earned[2], 0])
             earned = earnedrecs.pop()
 
         ehtml = '''<html>

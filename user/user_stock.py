@@ -441,7 +441,7 @@ class UserStock():
             values.append({'id':i, 'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'cost': c})
         return values
 
-    def _sell_earned_by_day(self, buys, sells):
+    def sell_earned_by_day(self, buys, sells):
         rembuy = None
         earndic = {}
         for s in sells:
@@ -498,7 +498,7 @@ class UserStock():
             fee += 0 if yh is None else yh
             fee += 0 if gh is None else gh
             buys.append({'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p - sp, 'fee': fee})
-        return self._sell_earned_by_day(buys, sells)
+        return self.sell_earned_by_day(buys, sells)
 
     def get_each_sell_earned(self):
         if not self.sell_table or not self.sqldb.isExistTable(self.sell_table):
@@ -526,7 +526,7 @@ class UserStock():
             fee += 0 if yh is None else yh
             fee += 0 if gh is None else gh
             buys.append({'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'fee': fee})
-        return self._sell_earned_by_day(buys, sells)
+        return self.sell_earned_by_day(buys, sells)
 
     def get_cost_sold_stats(self, sell_recs):
         if sell_recs is None or len(sell_recs) == 0:
@@ -575,7 +575,13 @@ class UserStock():
 
         nvalues = []
         for val in values:
-            odls = self.sqldb.select(buy_table, ['id', column_date], f'委托编号="{val[1]}"')
+            odls = None
+            if val[1] == '0':
+                dealtime = val[0].partition(' ')[0]
+                val[0] = dealtime
+                odls = self.sqldb.select(buy_table, ['id', column_date], f'{column_date}="{dealtime}"')
+            else:
+                odls = self.sqldb.select(buy_table, ['id', column_date], f'委托编号="{val[1]}"')
             if odls is None or len(odls) == 0:
                 nvalues.append(val)
             else:
@@ -583,7 +589,7 @@ class UserStock():
                 for id, date in odls:
                     if date.split()[0] == val[0].split()[0]:
                         atrdic = {
-                            column_date: val[0], '委托编号': val[1], column_price: val[2], column_portion: val[3],
+                            column_date: (val[0].partition(' ')[0] if val[1] == '0' else val[0]), '委托编号': val[1], column_price: val[2], column_portion: val[3],
                             column_fee: val[4], '印花税': val[5], '过户费': val[6]
                         }
                         self.sqldb.update(buy_table, atrdic, {'id':id})
@@ -641,17 +647,17 @@ class UserStock():
         # count: archived count
         soldptn = 0
         if not self.sqldb.isExistTable(self.buy_table):
-            if deal['count'] == count:
+            if int(deal['count']) == count:
                 return
             self.setup_buytable()
         else:
             od = self.sqldb.select(self.buy_table, f'{column_portion},{column_sold_portion}', conds=f'''委托编号="{deal['sid']}"''')
             if od is None or len(od) == 0:
-                if deal['count'] == count:
+                if int(deal['count']) == count:
                     return
             if len(od) == 1:
                 (ptn,soldptn),= od
-                if ptn == deal['count'] - count:
+                if ptn == int(deal['count']) - count:
                     return
             if len(od) > 1:
                 raise Exception(f'more than one deals found: 委托编号={deal["sid"]}')
@@ -660,7 +666,7 @@ class UserStock():
         dealfix = {
             column_date: deal['time'],
             column_price: deal['price'],
-            column_portion: deal['count'] - count,
+            column_portion: int(deal['count']) - count,
             column_cost: str(float(deal['price']) * float(deal['count'])),
             column_soldout:'0',
             column_sold_portion:str(soldptn),

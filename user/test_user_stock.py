@@ -17,6 +17,8 @@ class TestUserStock(object):
         assert sqldb.isExistTable(tablename), f'{tablename} not exists!'
         assert isinstance(checks, dict), 'checks should be a dict'
         sql = ','.join(checks.keys())
+        if isinstance(conds, list):
+            conds = ' AND '.join(conds)
         query = sqldb.select(tablename, sql, conds)
         assert len(query) == 1, f'{len(query)} rows got, expect 1 row!'
         vals = list(checks.values())
@@ -294,14 +296,103 @@ class TestUserStock(object):
         self.testuser.add_deals([{"code":"SH588300", "time":"2021-07-30", "tradeType":"S", "count":5000, "price":0.9710, "fee":0.58, "feeYh":0.00, "feeGh":0.00, "sid":"77329" }])
         self.__check_table_row(sqldb, archivetable, f'委托编号="77329"', {f'{column_portion}':5000, f'{column_price}':0.9710, f'{column_fee}':0.58})
 
+        print(Fore.GREEN + 'PASS: test_update_archived_fee' + Fore.RESET)
+
+    def test_archive_update(self):
+        sqldb = self.testuser.stock_center_db()
+        userstockstable = self.testuser.stocks_info_table()
+        archivetable = self.testuser.stocks_archived_deals_table()
+        earnedtable = self.testuser.stocks_earned_table()
+        us = UserStock(self.testuser, 'SH603726')
+
+        self.__cleanup_tables(sqldb, [userstockstable, earnedtable, archivetable, us.buy_table, us.sell_table])
+
+        self.testuser.add_deals([
+            {"time":"2021-12-15","sid":"90546","code":"SH603726","tradeType":"B","price":"16.2600","count":"300","fee":"5.00","feeYh":".00","feeGh":".10"},
+            {"time":"2021-12-23","sid":"344117","code":"SH603726","tradeType":"S","price":"14.5060","count":"300","fee":"5.00","feeYh":"4.35","feeGh":".09"},
+            {"time":"2021-12-31","sid":"1156657","code":"SH603726","tradeType":"B","price":"14.1900","count":"300","fee":"5.00","feeYh":".00","feeGh":".09"},
+            {"time":"2022-01-05","sid":"1830500","code":"SH603726","tradeType":"S","price":"14.0800","count":"300","fee":"5.00","feeYh":"4.22","feeGh":".08"},
+            {"time":"2022-01-06","sid":"1321420","code":"SH603726","tradeType":"B","price":"14.3100","count":"300","fee":"5.00","feeYh":".00","feeGh":".09"},
+            {"time":"2022-04-01","sid":"344750","code":"SH603726","tradeType":"B","price":"13.1800","count":"400","fee":"5.00","feeYh":".00","feeGh":".12"},
+            {"time":"2022-04-26","sid":"148257","code":"SH603726","tradeType":"B","price":"11.4000","count":"400","fee":"5.00","feeYh":".00","feeGh":".10"},
+            {"time":"2022-05-27","sid":"1317012","code":"SH603726","tradeType":"S","price":"11.9100","count":"400","fee":"5.00","feeYh":"4.76","feeGh":".05"}
+        ])
+
+        self.testuser.archive_deals('2022-06')
+        self.__check_table_row(sqldb, userstockstable, f'{column_code}="SH603726"', {f'{column_portion_hold}':700,f'{column_averagae_price}':12.1629})
+        self.testuser.add_deals([
+            {"time":"2021-12-15","sid":"90546","code":"SH603726","tradeType":"B","price":"16.2600","count":"300","fee":"5.00","feeYh":".00","feeGh":".10"},
+            {"time":"2021-12-23","sid":"344117","code":"SH603726","tradeType":"S","price":"14.5060","count":"300","fee":"5.00","feeYh":"4.35","feeGh":".09"},
+            {"time":"2021-12-31","sid":"1156657","code":"SH603726","tradeType":"B","price":"14.1900","count":"300","fee":"5.00","feeYh":".00","feeGh":".09"},
+            {"time":"2022-01-05","sid":"1830500","code":"SH603726","tradeType":"S","price":"14.0800","count":"300","fee":"5.00","feeYh":"4.22","feeGh":".08"},
+            {"time":"2022-01-06","sid":"1321420","code":"SH603726","tradeType":"B","price":"14.3100","count":"300","fee":"5.00","feeYh":".00","feeGh":".09"},
+            {"time":"2022-04-01","sid":"344750","code":"SH603726","tradeType":"B","price":"13.1800","count":"400","fee":"5.00","feeYh":".00","feeGh":".12"},
+            {"time":"2022-04-26","sid":"148257","code":"SH603726","tradeType":"B","price":"11.4000","count":"400","fee":"5.00","feeYh":".00","feeGh":".10"},
+            {"time":"2022-05-27","sid":"1317012","code":"SH603726","tradeType":"S","price":"11.9100","count":"400","fee":"5.00","feeYh":"4.76","feeGh":".05"}
+        ])
+        self.__check_table_row(sqldb, userstockstable, f'{column_code}="SH603726"', {f'{column_portion_hold}':700,f'{column_averagae_price}':12.1629})
+
+        print(Fore.GREEN + 'PASS: test_archive_update' + Fore.RESET)
+
+    def test_archive_update_1(self):
+        sqldb = self.testuser.stock_center_db()
+        userstockstable = self.testuser.stocks_info_table()
+        archivetable = self.testuser.stocks_archived_deals_table()
+        earnedtable = self.testuser.stocks_earned_table()
+        us = UserStock(self.testuser, 'SZ000055')
+
+        self.__cleanup_tables(sqldb, [userstockstable, earnedtable, archivetable, us.buy_table, us.sell_table])
+
+        self.testuser.add_deals([
+            {"code":"SZ000055", "time": "2021-12-30", "tradeType":"B", "count":1000, "price":"4.8800", "fee":"5.00", "feeYh":"0.00", "feeGh":0.00, "sid":"1003933"},
+            {"code":"SZ000055", "time": "2022-01-27", "tradeType":"B", "count":1000, "price":"4.4200", "fee":"5.00", "feeYh":"0.00", "feeGh":0.00, "sid":"246834"},
+            {"code":"SZ000055", "time": "2022-04-26", "tradeType":"B", "count":1200, "price":"3.9100", "fee":"5.00", "feeYh":"0.00", "feeGh":0.00, "sid":"210151"},
+            {"code":"SZ000055", "time": "2022-05-12", "tradeType":"S", "count":1200, "price":"4.0900", "fee":"5.00", "feeYh":"4.91", "feeGh":0.00, "sid":"1265386"}
+        ])
+
+        self.testuser.archive_deals('2022-06')
+        self.__check_table_row(sqldb, userstockstable, f'{column_code}="SZ000055"', {f'{column_portion_hold}':2000,f'{column_averagae_price}':4.114})
+        self.testuser.add_deals([{"code":"SZ000055", "time": "2022-06-09", "tradeType":"S", "count":1000, "price":"4.2400", "fee":"5.00", "feeYh":"4.24", "feeGh":0.00, "sid":"884840"}])
+        self.__check_table_row(sqldb, userstockstable, f'{column_code}="SZ000055"', {f'{column_portion_hold}':1000,f'{column_averagae_price}':3.91})
+        self.__check_table_row(sqldb, us.buy_table, f'委托编号="246834"', {f'{column_portion}':800, f'{column_soldout}':1, f'{column_sold_portion}':800})
+        self.__check_table_row(sqldb, us.buy_table, f'委托编号="210151"', {f'{column_portion}':1200, f'{column_soldout}':0, f'{column_sold_portion}':200})
+
+        print(Fore.GREEN + 'PASS: test_archive_update_1' + Fore.RESET)
+
+    def test_add_dividen_shares(self):
+        sqldb = self.testuser.stock_center_db()
+        userstockstable = self.testuser.stocks_info_table()
+        us = UserStock(self.testuser, 'SZ002459')
+
+        self.__cleanup_tables(sqldb, [userstockstable, us.buy_table])
+
+        self.testuser.add_deals([
+            {"time":"2022-06-16 15:00:00","sid":"","code":"SZ002459","tradeType":"B","price":".0000","count":"40","fee":".00","feeYh":".00","feeGh":".00"}
+        ])
+
+        self.__check_table_row(sqldb, userstockstable, f'{column_code}="SZ002459"', {f'{column_portion_hold}':40,f'{column_averagae_price}':0})
+        self.__check_table_row(sqldb, us.buy_table, [f'委托编号="0"', f'{column_date}="2022-06-16"'], {f'{column_portion}':40})
+
+        self.testuser.add_deals([
+            {"time":"2022-06-16 15:00:00","sid":"","code":"SZ002459","tradeType":"B","price":".0000","count":"40","fee":".00","feeYh":".00","feeGh":".00"}
+        ])
+
+        self.__check_table_row(sqldb, userstockstable, f'{column_code}="SZ002459"', {f'{column_portion_hold}':40,f'{column_averagae_price}':0})
+        self.__check_table_row(sqldb, us.buy_table, [f'委托编号="0"', f'{column_date}="2022-06-16"'], {f'{column_portion}':40})
+
+        print(Fore.GREEN + 'PASS: test_add_dividen_shares' + Fore.RESET)
+
     def run(self):
-        # self.test_add_buy_deal()
-        # self.test_add_buy_sell_deals()
-        # self.test_add_buy_buy_deals()
-        # self.test_add_buy_buy_sell_deals()
-        # self.test_buy_buy_sell_partial()
-        # self.test_archive_deals_1()
-        # self.test_archive_deals_2()
-        # self.test_archive_deals_3()
-        # self.test_archive_deals_4()
+        self.test_add_buy_deal()
+        self.test_add_buy_sell_deals()
+        self.test_add_buy_buy_deals()
+        self.test_add_buy_buy_sell_deals()
+        self.test_buy_buy_sell_partial()
+        self.test_archive_deals_1()
+        self.test_archive_deals_2()
+        self.test_archive_deals_3()
+        self.test_archive_deals_4()
         self.test_update_archived_fee()
+        self.test_archive_update()
+        self.test_archive_update_1()
+        self.test_add_dividen_shares()
