@@ -625,7 +625,7 @@ class EmjyBack {
     }
 
     getSmiOffset(date) {
-        if (!this.smiList || this.smiList.length == 0 || !date) {
+        if (!this.smiList || this.smiList.length == 0 || !date || date == '0') {
             return 0;
         }
 
@@ -902,7 +902,7 @@ class EmjyBack {
     }
 
     getLongStockCode(code) {
-        if (code.startsWith('S')) {
+        if (code.startsWith('S') || code == '') {
             return code;
         }
 
@@ -1156,7 +1156,7 @@ class EmjyBack {
 
         if (this.fha) {
             var url = this.fha.server + 'stock?act=userearning';
-            var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)}
+            var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)};
             xmlHttpGet(url, header, rsp => {
                 this.log('updateEarning', rsp);
             });

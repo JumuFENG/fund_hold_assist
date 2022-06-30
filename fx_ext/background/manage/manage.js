@@ -42,6 +42,10 @@ class Manager {
             if (item) {
                 if (item['hsj_stocks']) {
                     this.stockMarket = item['hsj_stocks'];
+                    this.sendExtensionMessage({command: 'mngr.init'});
+                }
+                if (item['fha_server']) {
+                    this.fha = item['fha_server'];
                 }
                 if (item['hist_deals']) {
                     this.savedDeals = item['hist_deals'];
@@ -529,6 +533,27 @@ class Manager {
             this.klines[code].save();
         });
     }
+
+    checkHoldingStocks() {
+        var url = this.fha.server + 'stock?act=allstkscount';
+        var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)};
+        utils.get(url, header, hstks => {
+            hstks = JSON.parse(hstks);
+            emjyBack.stockList.stocks.forEach(stk => {
+                var stkinfo = stk.stock;
+                var code = stkinfo.market + stkinfo.code;
+                var mgrCount = stkinfo.holdCount;
+                var svrCount = 0;
+                if (Object.keys(hstks).includes(code)) {
+                    svrCount = hstks[code];
+                }
+                if (svrCount - mgrCount != 0) {
+                    alert(stkinfo.name + stkinfo.code + 'not consitent svr:' + svrCount + ' act:' + mgrCount);
+                }
+            });
+            console.log('Check done!');
+        });
+    }
 }
 
 class ManagerPage {
@@ -582,4 +607,3 @@ chrome.runtime.onMessage.addListener(onExtensionBackMessage);
 
 let emjyManager = new Manager(logInfo);
 let emjyBack = emjyManager;
-emjyManager.sendExtensionMessage({command: 'mngr.init'});

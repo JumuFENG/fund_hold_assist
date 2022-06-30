@@ -28,14 +28,16 @@ class StockView {
         };
         this.container.appendChild(this.divTitle);
         var divDetails = document.createElement('div');
-        this.detailView = document.createTextNode('最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost + ' 数量：' + this.stock.holdCount);
+        this.detailView = document.createTextNode('最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost 
+            + ' 数量：' + this.stock.holdCount + ' 市值: ' + (this.stock.latestPrice * this.stock.holdCount).toFixed(2));
         divDetails.appendChild(this.detailView);
         this.container.appendChild(divDetails);
         this.showWarningInTitle();
     }
 
     refresh() {
-        var detailText = '最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost + ' 数量：' + this.stock.holdCount;
+        var detailText = '最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost
+            + ' 数量：' + this.stock.holdCount  + ' 市值: ' + (this.stock.latestPrice * this.stock.holdCount).toFixed(2);
         this.detailView.textContent = detailText;
         if (this.stock.holdCount == 0) {
             emjyManager.getTotalEarned(this.stock.code, e => {
@@ -224,6 +226,13 @@ class StockListPanelPage extends RadioAnchorPage {
             emjyManager.updateShownStocksDailyKline();
         }
         this.container.appendChild(updateBtn);
+
+        var checkCountBtn = document.createElement('button');
+        checkCountBtn.textContent = '检查数量';
+        checkCountBtn.onclick = e => {
+            emjyManager.checkHoldingStocks();
+        }
+        this.container.appendChild(checkCountBtn);
         
         this.listContainer = document.createElement('div');
         this.container.appendChild(this.listContainer);
