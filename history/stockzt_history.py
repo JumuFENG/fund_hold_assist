@@ -144,11 +144,15 @@ class StockZtInfo(EmRequest, TableBase):
         if date is None:
             return None
 
+        hld = Holiday()
         while date <= datetime.now().strftime(r'%Y-%m-%d'):
             pool = self.sqldb.select(self.tablename, self.getDumpKeys(), self.getDumpCondition(date))
             if pool is not None and len(pool) > 0:
                 data = {'date': date}
                 data['pool'] = pool
+                return data
+            elif datetime.strptime(date, r'%Y-%m-%d').weekday() < 5 and not hld.isholiday(date):
+                data = {'date': date,'pool':[]}
                 return data
             date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
 

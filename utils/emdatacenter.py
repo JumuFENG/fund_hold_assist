@@ -25,7 +25,7 @@ class EmRequest():
     def getUrl(self):
         pass
 
-    def getNext(self):
+    def getNext(self, params=None, proxies=None):
         pass
 
     def saveFetched(self):
@@ -45,8 +45,8 @@ class EmDataCenterRequest(EmRequest):
     def getUrl(self):
         pass
 
-    def getNext(self):
-        bonus = json.loads(self.getRequest())
+    def getNext(self, params=None, proxies=None):
+        bonus = json.loads(self.getRequest(params, proxies))
         if not bonus['success']:
             print('EmDataCenterRequest getUrl', self.getUrl())
             print('EmDataCenterRequest Error, message', bonus['message'], 'code', bonus['code'])
@@ -60,7 +60,7 @@ class EmDataCenterRequest(EmRequest):
 
         if (bonus['result']['pages'] > self.page):
             self.page += 1
-            self.getNext()
+            self.getNext(params, proxies)
 
     def saveFecthed(self):
         print(self.fecthed)

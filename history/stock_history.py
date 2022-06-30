@@ -290,12 +290,22 @@ class DividenBonus(EmDataCenterRequest):
             return
 
         bn = StockShareBonus()
+        bnheaders = {
+            'Host': 'datacenter-web.eastmoney.com',
+            'Referer': 'https://data.eastmoney.com/',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
+            'Accept': '/',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive'
+        }
+
         for sn in self.fecthed:
             code = sn['SECUCODE'].split('.')
             print('update bonus share table for', code)
             code.reverse()
             bn.setCode(''.join(code))
-            bn.getNext()
+            bn.getNext(params=bnheaders)
 
     def getBonusNotice(self, date = None):
         if date is None:

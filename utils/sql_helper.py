@@ -118,7 +118,7 @@ class SqlHelper():
             if isinstance(tmpvalue, str):
                 value.append("\'" + tmpvalue + "\'")
             else:
-                value.append(tmpvalue)
+                value.append("\'" + str(tmpvalue) + "\'")
         attrs_sql = '('+','.join(key)+')'
         values_sql = ' values('+','.join(value)+')'
         sql = 'insert into %s'%tablename
