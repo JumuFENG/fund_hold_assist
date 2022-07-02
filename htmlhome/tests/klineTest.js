@@ -37,7 +37,7 @@ class KlineTests {
 
     EQ(tname, expect, act) {
         if (expect != act) {
-            console.log(tname, 'Failed! expect', expect, 'actual', act );
+            console.error(tname, 'Failed! expect', expect, 'actual', act );
         }
     }
 
@@ -148,7 +148,52 @@ class KlineTests {
         console.log('testKlines1 Pass!');
     }
 
+    testCalcBias() {
+        var oldKline =
+        [{ "time": "2022-01-21 14:41", "o": "46.33", "c": "46.26", "h": "46.41", "l": "46.26", "v": "1235", "ma5": "46.282", "ma18": "46.402", "bss18": "w" },
+        { "time": "2022-01-21 14:42", "o": "46.27", "c": "46.28", "h": "46.33", "l": "46.25", "v": "1221", "ma5": "46.288", "ma18": "46.386", "bss18": "w" },
+        { "time": "2022-01-21 14:43", "o": "46.29", "c": "46.36", "h": "46.40", "l": "46.27", "v": "1597", "ma5": "46.306", "ma18": "46.378", "bss18": "w" },
+        { "time": "2022-01-21 14:44", "o": "46.35", "c": "46.26", "h": "46.35", "l": "46.26", "v": "911", "ma5": "46.304", "ma18": "46.365", "bss18": "w" },
+        { "time": "2022-01-21 14:45", "o": "46.25", "c": "46.22", "h": "46.29", "l": "46.21", "v": "1403", "ma5": "46.276", "ma18": "46.350", "bss18": "w" },
+        { "time": "2022-01-21 14:46", "o": "46.22", "c": "46.21", "h": "46.30", "l": "46.10", "v": "3186", "ma5": "46.266", "ma18": "46.336", "bss18": "w" },
+        { "time": "2022-01-21 14:47", "o": "46.20", "c": "46.19", "h": "46.24", "l": "46.02", "v": "2521", "ma5": "46.248", "ma18": "46.322", "bss18": "w" },
+        { "time": "2022-01-21 14:48", "o": "46.21", "c": "46.17", "h": "46.24", "l": "46.17", "v": "1967", "ma5": "46.210", "ma18": "46.298", "bss18": "w" },
+        { "time": "2022-01-21 14:49", "o": "46.18", "c": "46.12", "h": "46.19", "l": "46.12", "v": "1664", "ma5": "46.182", "ma18": "46.277", "bss18": "w" },
+        { "time": "2022-01-21 14:50", "o": "46.12", "c": "46.16", "h": "46.19", "l": "46.11", "v": "2403", "ma5": "46.170", "ma18": "46.264", "bss18": "w" },
+        { "time": "2022-01-21 14:51", "o": "46.16", "c": "46.17", "h": "46.25", "l": "46.10", "v": "3243", "ma5": "46.162", "ma18": "46.248", "bss18": "w" },
+        { "time": "2022-01-21 14:52", "o": "46.16", "c": "46.10", "h": "46.16", "l": "46.08", "v": "2457", "ma5": "46.144", "ma18": "46.235", "bss18": "w" },
+        { "time": "2022-01-21 14:53", "o": "46.12", "c": "46.13", "h": "46.17", "l": "46.12", "v": "2946", "ma5": "46.136", "ma18": "46.228", "bss18": "w" },
+        { "time": "2022-01-21 14:54", "o": "46.12", "c": "46.04", "h": "46.12", "l": "46.02", "v": "1830", "ma5": "46.120", "ma18": "46.212", "bss18": "w" },
+        { "time": "2022-01-21 14:55", "o": "46.03", "c": "46.05", "h": "46.10", "l": "46.03", "v": "1900", "ma5": "46.098", "ma18": "46.201", "bss18": "w" }];
+        this.kline.monkSetKlines('1', oldKline);
+        this.EQ('Bias 0', undefined, this.kline.getKline('1')[0].bias10);
+        this.kline.calcKlineBias(this.kline.klines['1'], 10);
+        this.EQ('Bias 1', 0, this.kline.getKline('1')[0].bias10);
+
+        this.kline.parseKlVars();
+        this.EQ('Bias vars', true, this.kline.klvars.has('bias10'));
+        var klmessage1 = {"rc":0,"rt":17,"svr":181669475,"lt":1,"full":0,"data":{"code":"600085","market":1,"name":"同仁堂","klines":["2022-01-21 14:56,46.04,46.05,46.07,45.99,5327", "2022-01-21 14:57,46.05,46.02,46.07,46.02,2325"]}};
+        this.kline.setNowTime(new Date('2022-01-21 14:56:50'));
+        var pklines = this.kline.parseKlines(klmessage1.data.klines, '2022-01-21 14:55', '1');
+
+        this.kline.appendKlines(this.kline.klines['1'], pklines);
+        this.kline.calcIncompleteKlineMA();
+        var kl = this.kline.getIncompleteKline('1');
+        if (!kl) {
+            console.error('parseKlines error');
+            return;
+        }
+        this.EQ('Bias incomplete kl', '-0.18', kl.bias10.toFixed(2));
+        console.log('testCalcBias Pass!');
+    }
+
     testKlines101() {
         
+    }
+
+    runAllUTs() {
+        this.testKlines1();
+        this.testKlines101();
+        this.testCalcBias();
     }
 }

@@ -246,6 +246,6 @@ class TestEngine {
 
     runUnitTests() {
         var kt = new KlineTests();
-        kt.testKlines1();
+        kt.runAllUTs();
     }
 }
