@@ -245,7 +245,7 @@ class KLine {
         klines[0]['bss' + mlen] = 'u';
         klines[1]['bss' + mlen] = 'u';
         for (var i = 1; i < klines.length; i++) {
-            klines[i]['bss' + mlen] = this.getBss18(klines[i - 1], klines[i]);
+            klines[i]['bss' + mlen] = this.getNextKlBss(klines.slice(0, i), klines[i], mlen);
         };
     }
 
@@ -281,21 +281,13 @@ class KLine {
         for (var i = 0; i < klines.length; ++i) {
             var ma = klines[i]['ma' + mlen];
             if (!ma) {
-                ma = this.incompleteMA(klines.slice(0, i), klines[i], mlen);
+                ma = this.getNextKlMA(klines.slice(0, i), klines[i], mlen);
             }
             klines[i]['bias' + mlen] = (klines[i].c - ma) * 100 / ma;
         }
     }
 
-    incompleteBias(klines, kl, mlen) {
-        var ma = kl['ma' + mlen];
-        if (!ma) {
-            ma = this.incompleteMA(klines, kl, mlen);
-        }
-        return (kl.c - ma) * 100 / ma;
-    }
-
-    incompleteMA(klines, kl, len) {
+    getNextKlMA(klines, kl, len) {
         var ma = parseFloat(kl.c);
         if (klines.length < len - 1) {
             for (var i = 0; i < klines.length; i++) {
@@ -309,7 +301,68 @@ class KLine {
         return ma / len;
     }
 
-    incompleteTd(klines, kl) {
+    klineApproximatelyAboveMa(klines, kl, mlen) {
+        var ma = kl['ma' + mlen];
+        if (!ma) {
+            ma = this.getNextKlMA(klines, kl, mlen);
+        }
+        if (kl.l - ma > 0) {
+            return true;
+        };
+
+        if (Math.min(kl.o, kl.c) - ma > 0 && (kl.h - kl.l) * 0.8 <= Math.abs(kl.o - kl.c)) {
+            return true;
+        };
+        return false;
+    }
+
+    klineApproximatelyBellowMa(klines, kl, mlen) {
+        var ma = kl['ma' + mlen];
+        if (!ma) {
+            ma = this.getNextKlMA(klines, kl, mlen);
+        }
+        if (kl.h - ma < 0) {
+            return true;
+        };
+
+        if (Math.max(kl.o, kl.c) - ma < 0 && (kl.h - kl.l) * 0.8 <= Math.abs(kl.o - kl.c)) {
+            return true;
+        };
+        return false;
+    }
+
+    getNextKlBss(klines, klnew, mlen) {
+        var bss = 'u';
+        var klpre = klines[klines.length - 1];
+        var ma = klnew['ma' + mlen];
+        if (!ma) {
+            ma = this.getNextKlMA(klines, klnew, mlen);
+        }
+        var vbss = 'bss' + mlen;
+        if (klnew.l - ma > 0 && this.klineApproximatelyAboveMa(klines.slice(0, klines.length - 1), klpre, mlen)) {
+            if (klpre[vbss] == 'u') {
+                bss = 'b';
+            } else {
+                bss = klpre[vbss] == 'w' ? 'b' : 'h';
+            };
+        } else if (klnew.h - ma < 0 && this.klineApproximatelyBellowMa(klines.slice(0, klines.length - 1), klpre, mlen)) {
+            if (klpre[vbss] == 'u') {
+                bss = 's';
+            } else {
+                bss = klpre[vbss] == 'h' ? 's' : 'w';
+            };
+        } else {
+            bss = klpre[vbss];
+            if (klpre[vbss] == 'b') {
+                bss = 'h';
+            } else if (klpre[vbss] == 's') {
+                bss = 'w';
+            };
+        };
+        return bss;
+    }
+
+    getNextKlTd(klines, kl) {
         if (klines.length < 4) {
             return 0;
         }
@@ -317,6 +370,14 @@ class KLine {
         var td = klines[klines.length - 1].td;
         var k4 = klines[klines.length - 4];
         return this.singleTd(kl, k4, td);
+    }
+
+    getNextKlBias(klines, kl, mlen) {
+        var ma = kl['ma' + mlen];
+        if (!ma) {
+            ma = this.getNextKlMA(klines, kl, mlen);
+        }
+        return (kl.c - ma) * 100 / ma;
     }
 
     calcIncompleteKlineMA() {
@@ -328,17 +389,17 @@ class KLine {
             var klines = this.klines[kltype];
             this.klvars.forEach(x => {
                 if (x.startsWith('ma')) {
-                    this.incompleteKline[kltype]['ma' + x.substring(2)] = this.incompleteMA(klines, kl, parseInt(x.substring(2)));
+                    this.incompleteKline[kltype][x] = this.getNextKlMA(klines, kl, parseInt(x.substring(2)));
                 } else if (x.startsWith('bss')) {
                     if (!klines || klines.length < 1) {
-                        this.incompleteKline[kltype]['bss' + x.substring(3)] = 'u';
+                        this.incompleteKline[kltype][x] = 'u';
                     } else {
-                        this.incompleteKline[kltype]['bss' + x.substring(3)] = this.getBss18(klines[klines.length - 1], kl);
+                        this.incompleteKline[kltype][x] = this.getNextKlBss(klines, kl, parseInt(x.substring(3)));
                     }
                 } else if (x == 'td') {
-                    this.incompleteKline[kltype].td = this.incompleteTd(klines, kl);
+                    this.incompleteKline[kltype].td = this.getNextKlTd(klines, kl);
                 } else if (x.startsWith('bias')) {
-                    this.incompleteKline[kltype]['bias' + x.substring(4)] = this.incompleteBias(klines, kl, parseInt(x.substring(4)));
+                    this.incompleteKline[kltype][x] = this.getNextKlBias(klines, kl, parseInt(x.substring(4)));
                 } else {
                     console.warn('Unknown klvar:', x);
                 }
@@ -358,65 +419,18 @@ class KLine {
     appendCalcedKline(klines, kl) {
         this.klvars.forEach(x => {
             if (x.startsWith('ma')) {
-                kl['ma' + x.substring(2)] = this.incompleteMA(klines, kl, parseInt(x.substring(2)));
+                kl[x] = this.getNextKlMA(klines, kl, parseInt(x.substring(2)));
             } else if (x.startsWith('bss')) {
-                kl['bss' + x.substring(3)] = this.getBss18(klines[klines.length - 1], kl);
+                kl[x] = this.getNextKlBss(klines, kl, parseInt(x.substring(3)));
             } else if (x == 'td') {
-                kl.td = this.incompleteTd(klines, kl);
+                kl.td = this.getNextKlTd(klines, kl);
             } else if (x.startsWith('bias')) {
-                kl['bias' + x.substring(4)] = this.incompleteBias(klines, kl, parseInt(x.substring(4)))
+                kl[x] = this.getNextKlBias(klines, kl, parseInt(x.substring(4)))
             } else {
                 console.warn('Unknown klvar:', x);
             }
         });
         klines.push(kl);
-    }
-
-    klineApproximatelyAboveMa18(kl) {
-        if (kl.l - kl.ma18 > 0) {
-            return true;
-        };
-        
-        if (Math.min(kl.o, kl.c) - kl.ma18 > 0 && (kl.h - kl.l) * 0.8 <= Math.abs(kl.o - kl.c)) {
-            return true;
-        };
-        return false;
-    }
-
-    klineApproximatelyBellowMa18(kl) {
-        if (kl.h - kl.ma18 < 0) {
-            return true;
-        };
-
-        if (Math.max(kl.o, kl.c) - kl.ma18 < 0 && (kl.h - kl.l) * 0.8 <= Math.abs(kl.o - kl.c)) {
-            return true;
-        };
-        return false;
-    }
-
-    getBss18(klpre, klnew) {
-        var bss18 = 'u';
-        if (klnew.l - klnew.ma18 > 0 && this.klineApproximatelyAboveMa18(klpre)) {
-            if (klpre.bss18 == 'u') {
-                bss18 = 'b';
-            } else {
-                bss18 = klpre.bss18 == 'w' ? 'b' : 'h';
-            };
-        } else if (klnew.h - klnew.ma18 < 0 && this.klineApproximatelyBellowMa18(klpre)) {
-            if (klpre.bss18 == 'u') {
-                bss18 = 's';
-            } else {
-                bss18 = klpre.bss18 == 'h' ? 's' : 'w';
-            };
-        } else {
-            bss18 = klpre.bss18;
-            if (klpre.bss18 == 'b') {
-                bss18 = 'h';
-            } else if (klpre.bss18 == 's') {
-                bss18 = 'w';
-            };
-        };
-        return bss18;
     }
 
     updateRtKline(message) {
