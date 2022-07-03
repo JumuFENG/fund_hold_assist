@@ -683,6 +683,12 @@ class EmjyBack {
         buyAccount.buyStock(code, price, count, cb);
     }
 
+    applyKlVars(code, klvars) {
+        if (this.klines[code]) {
+            this.klines[code].addKlvars(klvars);
+        }
+    }
+
     applyGuardLevel(strgrp, allklt) {
         var addToKlineAlarm = function(code, kl, isall) {
             if (kl % 101 == 0) {
@@ -696,6 +702,8 @@ class EmjyBack {
             if (!strgrp.strategies[id].enabled()) {
                 continue;
             };
+
+            this.applyKlVars(strgrp.code, strgrp.strategies[id].klvars());
             var gl = strgrp.strategies[id].guardLevel();
             if (gl == 'kline') {
                 addToKlineAlarm(strgrp.code, strgrp.strategies[id].kltype(), allklt);

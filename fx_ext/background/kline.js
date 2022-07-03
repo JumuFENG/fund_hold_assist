@@ -24,9 +24,21 @@ class KLine {
                 }
             }
         }
-        if (this.klvars.size == 0) {
-            this.klvars = new Set(['ma18', 'bss18']);
+    }
+
+    addKlvars(kvs) {
+        if (!kvs) {
+            return;
         }
+
+        if (typeof(kvs) === 'string') {
+            this.klvars.add(kvs);
+            return;
+        }
+
+        kvs.forEach(k => {
+            this.klvars.add(k);
+        });
     }
 
     loadSaved(cb) {
