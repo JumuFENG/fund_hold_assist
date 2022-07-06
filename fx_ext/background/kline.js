@@ -785,6 +785,33 @@ class KLine {
         return n;
     }
 
+    continuouslyZtDays() {
+        // 连续涨停天数
+        var kltype = '101';
+        if (!this.klines || !this.klines[kltype]) {
+            return 0;
+        }
+
+        var kline = this.klines[kltype];
+        var n = 0;
+        var lidx = kline.length - 1;
+        var kl = this.getIncompleteKline(kltype);
+        if (!kl) {
+            kl = kline[lidx];
+            lidx--;
+        }
+        for (var i = lidx; i >= 0; i--) {
+            if (kl.h - kl.c > 0) {
+                break;
+            }
+            if (kline[i].c * 1.09 - kl.c > 0) {
+                break;
+            }
+            n++;
+        }
+        return n;
+    }
+
     continuouslyDecreaseDays(kltype='101') {
         if (!this.klines || !this.klines[kltype]) {
             return 0;
@@ -880,5 +907,54 @@ class KLine {
             }
         }
         return lprc;
+    }
+
+    bottomRegionDays(kltype='101') {
+        // 低位横盘k线数
+        // 查找最近最低点，且当前价在最低点30%区间内
+        if (!this.klines || !this.klines[kltype]) {
+            return 0;
+        }
+
+        var kline = this.klines[kltype];
+        var latestPrice = this.getLatestKline(kltype).c;
+        var lowPrice = kline[kline.length - 1].l;
+        var lowId = kline.length - 1;
+        // 查找最新100根k线的最小值
+        for (var i = kline.length - 1; i >= 0 && i > kline.length - 100; i--) {
+            if (kline[i].l - lowPrice < 0) {
+                lowPrice = kline[i].l;
+                lowId = i;
+            }
+        }
+        if (lowPrice * 1.15 - latestPrice < 0) {
+            // 最新价 > 1.2 * 最低价
+            return 0;
+        }
+        var bigCount = 0;
+        var hCount = kline.length - lowId - 1;
+        for (var i = lowId; i < kline.length; ++i) {
+            if (kline[i].c - lowPrice * 1.3 > 0) {
+                bigCount++;
+            }
+        }
+        if (bigCount > hCount * 0.1) {
+            return 0;
+        }
+        return hCount;
+    }
+
+    isWaitingBss(kltype='101', mlen=18) {
+        if (!this.klines || !this.klines[kltype]) {
+            return false;
+        }
+
+        var kl = this.getLatestKline(kltype);
+        var kline = this.klines[kltype];
+        if (kl['bss' + mlen] === undefined) {
+            this.calcKlineBss(kline, mlen);
+        }
+
+        return kline[kline.length - 1]['bss' + mlen] == 'w';
     }
 }

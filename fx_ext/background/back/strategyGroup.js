@@ -153,7 +153,7 @@ class BuyDetail {
         return -count - this.pendingSoldCount();
     }
 
-    getCountLessThan(price, fac = 0) {
+    getCountLessThan(price, fac = 0, smi=true) {
         var buyrec = this.buyRecords();
         if (!buyrec || buyrec.length == 0) {
             return 0;
@@ -162,7 +162,7 @@ class BuyDetail {
         var lessDetail = []; // buyrec.filter(bd => bd.price - price <= 0);
         var moreDetail = []; //buyrec.filter(bd => bd.price - price > 0);
         buyrec.forEach(c => {
-            var smioff = emjyBack.getSmiOffset(c.date);
+            var smioff = smi ? emjyBack.getSmiOffset(c.date) : 0;
             if (c.price - price * (1 - fac - smioff) <= 0) {
                 lessDetail.push(c);
             } else {

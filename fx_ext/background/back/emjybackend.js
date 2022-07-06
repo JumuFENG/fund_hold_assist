@@ -991,6 +991,9 @@ class EmjyBack {
         this.klineAlarms.stocks['15'].forEach(s => s101.add(s));
         this.klineAlarms.stocks['101'].forEach(s => s101.add(s));
         s101.forEach(s => {this.fetchStockKline(s, '101')});
+        var s15 = new Set();
+        this.dailyAlarm.stocks['101'].forEach(s => s15.add(s));
+        s15.forEach(s => {this.fetchStockKline(s, '15')});
         setTimeout(()=> {
             this.updateEarning();
             this.normalAccount.save();

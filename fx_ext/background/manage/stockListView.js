@@ -3,6 +3,7 @@
 class StockView {
     constructor(stock, click) {
         this.container = document.createElement('div');
+        this.container.appendChild(document.createElement('hr'));
         this.stock = stock;
         this.onStockClicked = click;
         this.container.acccode = stock.acccode;
@@ -46,6 +47,7 @@ class StockView {
                 }
                 var detailText = this.detailView.textContent;
                 detailText += ' 总收益:' + e;
+                this.stock.earned = e;
                 this.detailView.textContent = detailText;
             });
         }
@@ -55,35 +57,12 @@ class StockView {
         }
     }
 
-    isBuystrJson(str) {
-        return str.key.includes('Buy') || str.key == 'StrategyMA' || str.key == 'StrategyGE';
-    }
-
-    isSellstrJson(str) {
-        return str.key.includes('Sell') || str.key == 'StrategyMA' || str.key == 'StrategyGE';
-    }
-
     showWarningInTitle() {
         var strGrp = this.stock.strategies;
         var needfix = false;
         if (strGrp && strGrp.strategies) {
             var strategies = strGrp.strategies;
-            if (this.stock.holdCount == 0) {
-                var buystrCount = 0;
-                for (const i in strategies) {
-                    const str = strategies[i];
-                    if (str.enabled && str.key.includes('Sell')) {
-                        needfix =  true;
-                        break;
-                    } else if (str.enabled && this.isBuystrJson(str)) {
-                        buystrCount ++;
-                    }
-                }
-                if (buystrCount == 0) {
-                    needfix = true;
-                }
-            } else {
-                var sellstrCount = 0;
+            if (this.stock.holdCount > 0) {
                 for (const i in strategies) {
                     const str = strategies[i];
                     if (str.enabled && str.key == 'StrategyMA' && str.guardPrice - this.stock.latestPrice > 0) {
@@ -93,16 +72,9 @@ class StockView {
                     if (str.enabled && (str.key.includes('Buy') || (str.kltype !== undefined && str.kltype - 30 < 0))) {
                         needfix =  true;
                         break;
-                    } else if (this.isSellstrJson(str)) {
-                        sellstrCount ++;
                     }
                 }
-                if (sellstrCount == 0) {
-                    needfix = true;
-                }
             }
-        } else {
-            needfix = true;
         }
 
         if (needfix) {
@@ -134,19 +106,106 @@ class StockListPanelPage extends RadioAnchorPage {
         utils.removeAllChild(this.listContainer);
         for (var i = 0; i < stocks.length; i++) {
             stocks[i].strategies = JSON.parse(stocks[i].strategies);
-            if (stocks[i].holdCount == 0 && stocks[i].strategies) {
-                var strategyObj = stocks[i].strategies.strategies;
-                if (strategyObj && Object.keys(strategyObj).length == 1) {
-                    var key = Object.keys(strategyObj)[0];
-                    if (strategyObj[key].key == 'StrategyMA') { // strategyObj[key].period == 'l' && 
-                        continue;
-                    }
-                }
-            }
             this.addStock(stocks[i]);
         };
-        
+        this.onFiltered(0);
         this.listContainer.lastElementChild.click();
+    }
+
+    getFilterItems() {
+        return [
+            '持仓',
+            '<安全线',
+            '无/误策略',
+            '低位横盘',
+            '持仓连板',
+            '割肉'
+        ];
+    }
+
+    isBuystrJson(str) {
+        return str.key.includes('Buy') || str.key == 'StrategyMA' || str.key == 'StrategyGE' || str.key == 'StrategyTD';
+    }
+
+    isSellstrJson(str) {
+        return str.key.includes('Sell') || str.key == 'StrategyMA' || str.key == 'StrategyGE' || str.key == 'StrategyTD';
+    }
+
+    onFiltered(fid) {
+        for (var i = 0; i < this.stocks.length; ++i) {
+            var stocki = this.stocks[i].stock;
+            this.stocks[i].container.style.display = 'none';
+            if (fid == 0) { // '持仓'
+                if (stocki.holdCount > 0) {
+                    this.stocks[i].container.style.display = 'block';
+                }
+            } else if (fid == 1) { // <安全线
+                if (stocki.holdCount > 0) {
+                    for (var k in stocki.strategies.strategies) {
+                        const str = stocki.strategies.strategies[k];
+                        if (str.guardPrice && str.guardPrice - stocki.latestPrice > 0) {
+                            this.stocks[i].container.style.display = 'block';
+                            break;
+                        }
+                    }
+                }
+            } else if (fid == 2) { // 无/误策略
+                if (!stocki.strategies || !stocki.strategies.strategies || Object.keys(stocki.strategies.strategies).length == 0) {
+                    this.stocks[i].container.style.display = 'block';
+                    continue;
+                }
+                var needfix = false;
+                if (stocki.holdCount > 0) {
+                    var sellstrCount = 0;
+                    for (const i in stocki.strategies.strategies) {
+                        const str = stocki.strategies.strategies[i];
+                        if (this.isSellstrJson(str)) {
+                            sellstrCount ++;
+                        }
+                    }
+                    if (sellstrCount == 0) {
+                        needfix = true;
+                    }
+                } else {
+                    var buystrCount = 0;
+                    for (const i in stocki.strategies.strategies) {
+                        const str = stocki.strategies.strategies[i];
+                        if (str.enabled && str.key.includes('Sell')) {
+                            needfix =  true;
+                            break;
+                        } else if (str.enabled && this.isBuystrJson(str)) {
+                            buystrCount ++;
+                        }
+                    }
+                    if (buystrCount == 0) {
+                        needfix = true;
+                    }
+                }
+                if (needfix) {
+                    this.stocks[i].container.style.display = 'block';
+                    continue;
+                }
+            } else if (fid == 3) { // 低位横盘, 无持仓
+                if (stocki.holdCount == 0) {
+                    if (emjyBack.klines[stocki.code] && emjyBack.klines[stocki.code].bottomRegionDays('101') > 15) {
+                        if (Object.keys(stocki.strategies.strategies).length > 1) {
+                            continue;
+                        }
+                        if (emjyBack.klines[stocki.code].isWaitingBss('30')) {
+                            this.stocks[i].container.style.display = 'block';
+                        }
+                    }
+                }
+            } else if (fid == 4) { // 持仓连板
+                if (stocki.holdCount > 0 && emjyBack.klines[stocki.code].continuouslyZtDays() > 1) {
+                    this.stocks[i].container.style.display = 'block';
+                }
+            } else if (fid == 5) { // 无持仓割肉股
+                if (stocki.holdCount == 0 && stocki.earned < 0) {
+                    this.stocks[i].container.style.display = 'block';
+                }
+            }
+        }
     }
 
     onStrategyGroupChanged(code, strGrp) {
@@ -202,7 +261,6 @@ class StockListPanelPage extends RadioAnchorPage {
                 this.strategyGroupView.initUi(stk.account, stk.code, stk.strategies);
             };
         });
-        this.listContainer.appendChild(document.createElement('hr'));
         this.listContainer.appendChild(divContainer.container);
         this.stocks.push(divContainer);
     }
@@ -233,7 +291,17 @@ class StockListPanelPage extends RadioAnchorPage {
             emjyManager.checkHoldingStocks();
         }
         this.container.appendChild(checkCountBtn);
-        
+
+        var filter = document.createElement('select');
+        var fitems = this.getFilterItems();
+        fitems.forEach(f => {
+            filter.options.add(new Option(f));
+        });
+        filter.onchange = e => {
+            this.onFiltered(e.target.selectedIndex);
+        }
+        this.container.appendChild(filter);
+
         this.listContainer = document.createElement('div');
         this.container.appendChild(this.listContainer);
         this.container.appendChild(document.createElement('hr'));
@@ -244,12 +312,8 @@ class StockListPanelPage extends RadioAnchorPage {
         var inputCode = document.createElement('input');
         watchDiv.appendChild(inputCode);
         var watchAccountSelector = document.createElement('select');
-        var accounts = ['normal', 'collat'];
         for (var i in emjyManager.accountsMap) {
-            var opt = document.createElement('option');
-            opt.value = i;
-            opt.textContent = emjyManager.accountNames[i];
-            watchAccountSelector.appendChild(opt);
+            watchAccountSelector.options.add(new Option(emjyBack.accountNames[i], i));
         };
         watchDiv.appendChild(watchAccountSelector);
         var btnOk = document.createElement('button');
