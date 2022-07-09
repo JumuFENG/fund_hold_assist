@@ -29,6 +29,9 @@
 
         <script src="../htmlhome/zdt/ztPanelView.js"></script>
         <script src="../htmlhome/zdt/dtPanelView.js"></script>
+
+        <script src="../htmlhome/strategy/training.js"></script>
+
         <script>
             class StockRoot {
                 constructor() {
@@ -38,9 +41,9 @@
                 }
 
                 setupNavigators() {
-                    var retropage = new RetroPanelPage();
-                    this.navigator.addRadio(retropage);
-                    this.root.appendChild(retropage.container);
+                    var tnpage = new TrainingPanelPage();
+                    this.navigator.addRadio(tnpage);
+                    this.root.appendChild(tnpage.container);
 
                     var ztpage = new ZtPanelPage();
                     this.navigator.addRadio(ztpage);
@@ -49,6 +52,10 @@
                     var dtpage = new DtPanelPage();
                     this.navigator.addRadio(dtpage);
                     this.root.appendChild(dtpage.container);
+
+                    var retropage = new RetroPanelPage();
+                    this.navigator.addRadio(retropage);
+                    this.root.appendChild(retropage.container);
 
                     var testpage = new TestsPanelPage();
                     this.navigator.addRadio(testpage);

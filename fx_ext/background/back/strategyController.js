@@ -65,6 +65,9 @@ class StrategyManager {
         if (strategy.key == 'StrategyGEMid') {
             return new StrategyGEMid(strategy);
         }
+        if (strategy.key == 'StrategyBH') {
+            return new StrategyBarginHunting(strategy);
+        }
         if (strategy.key == 'StrategyBias') {
             return new StrategyBias(strategy);
         }
@@ -1360,6 +1363,224 @@ class StrategyGE extends Strategy {
 class StrategyGEMid extends StrategyGE {
     buyrecRemains() {
         return 1;
+    }
+}
+
+class StrategyBarginHunting extends Strategy {
+    constructor(str) {
+        super(str);
+        this.skltype = '4';
+    }
+
+    guardLevel() {
+        return 'klines';
+    }
+
+    kltype() {
+        if (!this.data.meta || this.data.meta.state == 's0') {
+            return [this.data.kltype];
+        }
+        return [this.skltype, this.data.kltype];
+    }
+
+    checkMeta(buydetails) {
+        if (!this.data.meta) {
+            this.data.meta = {};
+            // s0: 未建仓/清仓， s1: 进入观察期 s2: 买入有持仓
+            if (!buydetails || buydetails.totalCount() == 0) {
+                this.data.meta.state = 's0';
+            } else {
+                this.data.meta.state = 's2';
+            }
+        }
+
+        if (!this.data.backRate) {
+            this.data.backRate = 0.02;
+        }
+        if (!this.data.upRate) {
+            this.data.upRate = 0.02;
+        }
+    }
+
+    resetToS0() {
+        this.data.meta.state = 's0';
+        if (this.data.meta.s2price !== undefined) {
+            delete(this.data.meta.s2price);
+        }
+        if (this.data.topprice !== undefined) {
+            delete(this.data.topprice);
+        }
+        if (this.data.guardPrice !== undefined) {
+            delete(this.data.guardPrice);
+        }
+        if (this.data.guardDate !== undefined) {
+            delete(this.data.guardDate);
+        }
+    }
+
+    changeTopPrice(klines, kltype) {
+        var lper = klines.latestKlinePercentage(kltype);
+        if (lper <= -0.03 && lper >= -0.07) {
+            var kl = klines.getLatestKline(kltype);
+            var pkl = klines.getPrevKline(kltype);
+            var topprice = kl.o;
+            if (pkl && pkl.c - kl.o > 0) {
+                topprice = pkl.c;
+            }
+            this.data.topprice = topprice;
+            this.data.guardPrice = kl.l;
+            this.data.guardDate = kl.time;
+            return true;
+        }
+        return false;
+    }
+
+    checkPreparing(chkInfo, matchCb) {
+        var klines = emjyBack.klines[chkInfo.code];
+        var updatedKlt = chkInfo.kltypes;
+        var kltype = this.data.kltype;
+        if (!updatedKlt.includes(kltype)) {
+            return;
+        }
+
+        if (this.changeTopPrice(klines, kltype)) {
+            this.data.meta.state = 's1';
+            matchCb({id: chkInfo.id});
+            return;
+        }
+    }
+
+    checkCreateBuy(chkInfo, matchCb) {
+        var klines = emjyBack.klines[chkInfo.code];
+        var updatedKlt = chkInfo.kltypes;
+        var kltype = this.data.kltype;
+        if (!updatedKlt.includes(kltype)) {
+            return;
+        }
+
+        var kl = klines.getLatestKline(kltype);
+        if (kl.l - this.data.guardPrice < 0) {
+            // 新低
+            if (!this.changeTopPrice(klines, kltype)) {
+                // 不满足中阴线
+                this.data.guardPrice = kl.l;
+                this.data.guardDate = kl.time;
+            }
+            matchCb({id: chkInfo.id});
+            return;
+        }
+        if (kl.l - this.data.guardPrice > 0) {
+            if ((kl.c - this.data.guardPrice) / this.data.guardPrice < this.data.backRate) {
+                // buy.
+                matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
+                    this.data.meta.state = 's2';
+                });
+                return;
+            }
+        }
+        if (this.changeTopPrice(klines, kltype)) {
+            // 新的中阴线，重新设置topprice
+            matchCb({id: chkInfo.id});
+            return;
+        }
+        if (kl.h - this.data.topprice > 0 || klines.KlineNumSince(this.data.guardDate, kltype) > 5) {
+            // give up.
+            this.resetToS0();
+            matchCb({id: chkInfo.id});
+            return;
+        }
+        // wait.
+    }
+
+    checkCutOrSellShort(chkInfo, matchCb) {
+        var klines = emjyBack.klines[chkInfo.code];
+        var updatedKlt = chkInfo.kltypes;
+        var kltype = this.skltype;
+        if (!updatedKlt.includes(kltype)) {
+            return;
+        }
+
+        var kl = klines.getLatestKline(kltype);
+        var count = chkInfo.buydetail.availableCount();
+        if (kl.c - this.data.guardPrice < 0) {
+            // cut
+            matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                this.resetToS0();
+            });
+            return;
+        }
+
+        if (!this.data.meta.s2price && kl.h - this.data.topprice < 0) {
+            // wait.
+            return;
+        }
+
+        if (this.data.meta.s2price && kl.l - this.data.meta.s2price < 0) {
+            // sell.
+            delete(this.data.meta.s2price);
+            matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                this.resetToS0();
+            });
+            return;
+        }
+        this.data.meta.s2price = kl.l;
+        matchCb({id: chkInfo.id});
+    }
+
+    checkCutOrSell(chkInfo, matchCb) {
+        var klines = emjyBack.klines[chkInfo.code];
+        var updatedKlt = chkInfo.kltypes;
+        var kltype = this.data.kltype;
+        if (!updatedKlt.includes(kltype)) {
+            this.checkCutOrSellShort(chkInfo, matchCb);
+            return;
+        }
+
+        var kl = klines.getLatestKline(kltype);
+        var count = chkInfo.buydetail.availableCount();
+        if ((this.data.topprice - kl.h) / this.data.topprice < this.data.upRate) {
+            // sell
+            matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                this.resetToS0();
+            });
+            return;
+        }
+        if (kl.l - this.data.guardPrice < 0) {
+            // cut
+            matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                this.resetToS0();
+            });
+            return;
+        }
+        // wait
+    }
+
+    checkKlines(chkInfo, matchCb) {
+        if (typeof(matchCb) !== 'function') {
+            return;
+        }
+
+        var klines = emjyBack.klines[chkInfo.code];
+        var updatedKlt = chkInfo.kltypes;
+        var buydetails = chkInfo.buydetail;
+        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
+            return;
+        }
+
+        this.checkMeta(buydetails);
+        if (this.data.meta.state == 's0') {
+            this.checkPreparing(chkInfo, matchCb);
+            return;
+        }
+
+        if (this.data.meta.state == 's1') {
+            this.checkCreateBuy(chkInfo, matchCb);
+            return;
+        }
+
+        if (this.data.meta.state == 's2') {
+            this.checkCutOrSell(chkInfo, matchCb);
+        }
     }
 }
 

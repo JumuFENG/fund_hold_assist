@@ -104,6 +104,20 @@ class KLine {
         return null;
     }
 
+    getPrevKline(kltype) {
+        var kl = this.getIncompleteKline(kltype);
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            return kl;
+        }
+
+        var prevId = this.klines[kltype].length - 1;
+        if (!kl) {
+            prevId --;
+        }
+
+        return this.klines[kltype][prevId];
+    }
+
     closeIsTopMost(kl, kltype = '101') {
         if (kl.h - kl.c > 0) {
             return false;
@@ -175,6 +189,22 @@ class KLine {
         var c = kl.c;
         var start = lc - o > 0 ? lc : o;
         return (c - l) / (start - l);
+    }
+
+    latestKlinePercentage(kltype) {
+        var kl = this.getIncompleteKline(kltype);
+        var prevId = this.klines[kltype].length - 1;
+        if (!kl) {
+            kl = this.klines[kltype][prevId];
+            prevId --;
+        }
+
+        var lc = kl.o;
+        if (prevId >= 0) {
+            lc = this.klines[kltype][prevId].c;
+        }
+
+        return (kl.c - lc) / lc;
     }
 
     getNowTime() {
@@ -877,6 +907,27 @@ class KLine {
             n++;
         }
         return n;
+    }
+
+    KlineNumSince(date, kltype = '101') {
+        if (!this.klines) {
+            return 0;
+        }
+
+        var klNum = 0;
+        var inkl = this.getIncompleteKline(kltype);
+        if (inkl && inkl.time > date) {
+            klNum ++;
+        }
+
+        var kline = this.klines[kltype];
+        for (var i = kline.length - 1; i >= 0; i--) {
+            if (kline[i].time <= date) {
+                break;
+            }
+            klNum ++;
+        }
+        return klNum;
     }
 
     lowestPriceSince(date, kltype = '101') {
