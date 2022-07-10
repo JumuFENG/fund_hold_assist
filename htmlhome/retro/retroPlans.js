@@ -118,7 +118,7 @@ class RetroPlan {
     }
 
     retro() {
-        if (!emjyBack.retroEngine || emjyBack.retroAccount) {
+        if (!emjyBack.retroEngine || !emjyBack.retroAccount) {
             emjyBack.setupRetroAccount();
         }
 
@@ -166,103 +166,5 @@ class RetroPlan {
         });
         emjyBack.retroAccount.deals = [];
         return alldeals;
-    }
-
-    maxSingleDayCost() {
-        if (!this.deals || this.deals.length == 0) {
-            return 0;
-        }
-
-        var allDeals = this.deals.slice(0);
-        allDeals.sort((a, b) => {return a.time > b.time});
-        var amount = 0;
-        var maxMt = 0;
-        for (let i = 0; i < allDeals.length; i++) {
-            const deali = allDeals[i];
-            if (deali.tradeType == 'B') {
-                amount += (deali.count * deali.price);
-            } else {
-                amount -= (deali.count * deali.price);
-            }
-            if (amount > maxMt) {
-                maxMt = amount;
-            }
-        }
-        return maxMt;
-    }
-
-    checkDealsStatistics() {
-        if (!this.deals || this.deals.length == 0) {
-            return;
-        }
-
-        var dealsEarned = (dls) => {
-            var cost = 0;
-            var sold = 0;
-            var tfee = 0;
-            dls.forEach(d => {
-                var fee = -(-d.fee - d.feeGh - d.feeYh);
-                if (isNaN(fee)) {
-                    fee = 0;
-                }
-                tfee += fee;
-                if (d.tradeType == 'B') {
-                    cost += d.count * d.price;
-                } else {
-                    sold += d.count * d.price;
-                }
-            });
-            return sold - cost - tfee;
-        }
-
-        var i = 0;
-        var tdeal = [];
-        var tcount = 0;
-        var earned = 0, lost = 0;
-        var tradeCountE = 0, tradeCountL = 0;
-
-        while (i < this.deals.length) {
-            tdeal.push(this.deals[i]);
-            if (this.deals[i].tradeType == 'B') {
-                tcount -= -this.deals[i].count;
-            } else {
-                tcount -= this.deals[i].count;
-            }
-            if (tcount == 0) {
-                var ed = dealsEarned(tdeal);
-                if (ed > 0) {
-                    earned += ed;
-                    tradeCountE ++;
-                } else if (ed < 0) {
-                    lost += ed;
-                    tradeCountL ++;
-                }
-
-                tdeal = [];
-            }
-            i++;
-        }
-
-        lost = -lost;
-        var maxSdc = this.maxSingleDayCost();
-        if (this.stats === undefined) {
-            this.stats = {earned, lost, tradeCountE, tradeCountL, maxSdc};
-        } else {
-            this.stats.earned = earned;
-            this.stats.lost = lost;
-            this.stats.tradeCountE = tradeCountE;
-            this.stats.tradeCountL = tradeCountL;
-            this.stats.maxSdc = maxSdc;
-        }
-        return this.stats;
-    }
-
-    setTotalEarned(cost, earned) {
-        if (this.stats === undefined) {
-            this.stats = {totalCost: cost, netEarned: earned};
-        } else {
-            this.stats.totalCost = cost;
-            this.stats.netEarned = earned;
-        }
     }
 }

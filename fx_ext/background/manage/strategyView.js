@@ -65,6 +65,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyTD') {
             return new StrategyTDView(strategy);
         }
+        if (strategy.key == 'StrategyBH') {
+            return new StrategyBarginHuntingView(strategy);
+        }
     }
 
     getStrategyName(key) {
@@ -663,6 +666,16 @@ class StrategyTDView extends StrategyBaseView {
         view.appendChild(this.createStepsInput('波段盈亏比例', 8));
         view.appendChild(this.createPopbackInput('加仓亏损比例', 15));
         view.appendChild(this.createUpEarnedInput('最低止盈比例', 25));
+        return view;
+    }
+}
+
+class StrategyBarginHuntingView extends StrategyBaseView {
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('中长阴线之后止跌买入，并在反弹时卖出。止损点为中长阴线之后的最低点。'));
+        view.appendChild(this.createBuyAccountSelector());
         return view;
     }
 }

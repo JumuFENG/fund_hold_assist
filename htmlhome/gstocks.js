@@ -14,6 +14,8 @@ class GlobalManager {
                 this.fetchStocksMarket();
             }
         });
+        this.statsReport = new StatisticsReport();
+        this.strategyManager = new MockStrategyManager();
     }
 
     log(...args) {
@@ -215,6 +217,9 @@ class GlobalManager {
                 dashdate = sdate.substring(0,4) + '-' + sdate.substring(4,6) + '-' + sdate.substring(6,8);
             }
             url += '&start=' + dashdate;
+        } else if (emjyBack.klines[code] && emjyBack.klines[code].klines && emjyBack.klines[code].klines[kltype]) {
+            var ltime = emjyBack.klines[code].klines[kltype][emjyBack.klines[code].klines[kltype].length - 1].time;
+            url += '&start=' + ltime.split(' ')[0];
         }
 
         utils.get(url, null, ksdata => {

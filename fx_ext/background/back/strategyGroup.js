@@ -397,7 +397,7 @@ class StrategyGroup {
 
     initStrategies(strs) {
         for (var id in strs) {
-            this.strategies[id] = strategyManager.create(strs[id]);
+            this.strategies[id] = emjyBack.strategyManager.create(strs[id]);
         };
     }
 
@@ -426,7 +426,7 @@ class StrategyGroup {
 
     addStrategy(str) {
         var id = this.getNextValidId();
-        this.strategies[id] = strategyManager.create(str);
+        this.strategies[id] = emjyBack.strategyManager.create(str);
         this.save();
     }
 
@@ -434,7 +434,7 @@ class StrategyGroup {
         var id = this.getNextValidId();
         var idmap = {'-1':'-1'};
         for (var oid in strgrp.strategies) {
-            this.strategies[id] = strategyManager.create(strgrp.strategies[oid]);
+            this.strategies[id] = emjyBack.strategyManager.create(strgrp.strategies[oid]);
             idmap[oid] = id;
             ++id;
         }

@@ -124,11 +124,13 @@ class StockListPanelPage extends RadioAnchorPage {
     }
 
     isBuystrJson(str) {
-        return str.key.includes('Buy') || str.key == 'StrategyMA' || str.key == 'StrategyGE' || str.key == 'StrategyTD';
+        var cskid = ComplexStrategyKeyNames.findIndex(x => x.key == str.key);
+        return str.key.includes('Buy') || cskid != -1;
     }
 
     isSellstrJson(str) {
-        return str.key.includes('Sell') || str.key == 'StrategyMA' || str.key == 'StrategyGE' || str.key == 'StrategyTD';
+        var cskid = ComplexStrategyKeyNames.findIndex(x => x.key == str.key);
+        return str.key.includes('Sell') || cskid != -1;
     }
 
     onFiltered(fid) {

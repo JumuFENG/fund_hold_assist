@@ -73,30 +73,19 @@ class StrategySelectorView {
         opt0.disabled = true;
         strategySelector.appendChild(opt0);
         for (var i = 0; i < ComplexStrategyKeyNames.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = ComplexStrategyKeyNames[i].key;
-            opt.textContent = ComplexStrategyKeyNames[i].name;
-            strategySelector.appendChild(opt);
+            strategySelector.appendChild(new Option(ComplexStrategyKeyNames[i].name, ComplexStrategyKeyNames[i].key));
         }
-        var opt1 = document.createElement('option');
-        opt1.textContent = '==========';
+        var opt1 = new Option('==========');
         opt1.disabled = true;
         strategySelector.appendChild(opt1);
         for (var i = 0; i < BuyStrategyKeyNames.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = BuyStrategyKeyNames[i].key;
-            opt.textContent = BuyStrategyKeyNames[i].name;
-            strategySelector.appendChild(opt);
+            strategySelector.appendChild(new Option(BuyStrategyKeyNames[i].name, BuyStrategyKeyNames[i].key));
         };
-        var opt2 = document.createElement('option');
-        opt2.textContent = '==========';
+        var opt2 = new Option('==========');
         opt2.disabled = true;
         strategySelector.appendChild(opt2);
         for (var i = 0; i < SellStrategyKeyNames.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = SellStrategyKeyNames[i].key;
-            opt.textContent = SellStrategyKeyNames[i].name;
-            strategySelector.appendChild(opt);
+            strategySelector.appendChild(new Option(SellStrategyKeyNames[i].name, SellStrategyKeyNames[i].key));
         };
         var strategyName = '添加新策略';
         if (this.strategy) {

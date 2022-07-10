@@ -121,6 +121,7 @@ class EmjyBack {
             this.log('update rzrq BK stcoks, BK0596');
             this.fetchingBKstocks.fetchBkStcoks();
         }
+        this.strategyManager = new StrategyManager();
         this.normalAccount = new NormalAccount();
         this.collateralAccount = new CollateralAccount();
         this.creditAccount = new CreditAccount();

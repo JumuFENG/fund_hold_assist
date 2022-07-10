@@ -1377,10 +1377,10 @@ class StrategyBarginHunting extends Strategy {
     }
 
     kltype() {
-        if (!this.data.meta || this.data.meta.state == 's0') {
-            return [this.data.kltype];
+        if (this.data.meta && this.data.meta.state == 's2') {
+            return [this.skltype, this.data.kltype];
         }
-        return [this.skltype, this.data.kltype];
+        return [this.data.kltype];
     }
 
     checkMeta(buydetails) {
@@ -1611,5 +1611,3 @@ class StrategyBias extends Strategy {
 
     }
 }
-
-let strategyManager = new StrategyManager();

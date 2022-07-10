@@ -278,74 +278,6 @@ class RetroPanelPage extends RadioAnchorPage {
         this.showPlanItems();
     }
 
-    addDealsOf(allDeals, code, full) {
-        if (!allDeals || allDeals.length == 0) {
-            return;
-        }
-
-        var resCount = 0;
-        var totalFee = 0;
-        var totalEarned = 0;
-        var totalCost = 0;
-        var partEarned = 0;
-        var partCost = 0;
-        var deals = allDeals.filter(d => d.code == code);
-        for (let i = 0; i < deals.length; i++) {
-            const deali = deals[i];
-            var anchor = emjyBack.stockAnchor(deali.code);
-            var fee = -(-deali.fee - deali.feeGh - deali.feeYh);
-            if (isNaN(fee)) {
-                fee = 0;
-            }
-            totalFee += fee;
-            fee  = fee.toFixed(2);
-            var amount = deali.price * deali.count;
-            if (deali.tradeType == 'B') {
-                amount = -(-amount - fee);
-                totalEarned -= amount;
-                totalCost += amount;
-                partEarned -= amount;
-                partCost += amount;
-            } else {
-                amount -= fee;
-                partEarned += amount;
-                totalEarned += amount;
-            }
-            amount = amount.toFixed(2);
-            if (full) {
-                this.dealsTable.addRow(
-                    deali.time,
-                    deali.code,
-                    anchor,
-                    deali.tradeType,
-                    deali.price,
-                    deali.count,
-                    fee,
-                    amount
-                );
-            }
-            if (deali.tradeType == 'S') {
-                resCount -= deali.count;
-            } else if (deali.tradeType == 'B') {
-                resCount -= -deali.count;
-            }
-            if (resCount == 0) {
-                if (full) {
-                    this.dealsTable.addRow('part', '', '', '', '', '', partEarned.toFixed(2), (100 * (partEarned / partCost)).toFixed(2) + '%');
-                }
-                partEarned = 0;
-                partCost = 0;
-            }
-        }
-        totalEarned += emjyBack.getCurrentHoldValue(code, resCount); // filtered.values().next().value
-        if (resCount == 0) {
-            this.dealsTable.addRow('total', code, '', resCount, totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), (100 * (totalEarned / totalCost)).toFixed(2) + '%');
-        } else {
-            this.dealsTable.addRow('total', code, '', resCount, totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), '-');
-        }
-        return {cost: totalCost, earn: totalEarned, fee: totalFee};
-    }
-
     showDeals(retroplan, ignored, filtered) {
         if (!retroplan.deals || retroplan.deals.length == 0) {
             retroplan.save();
@@ -356,48 +288,7 @@ class RetroPanelPage extends RadioAnchorPage {
             return;
         }
 
-        var toShow = new Set();
-        if (filtered && filtered.size > 0) {
-            toShow = filtered;
-        } else {
-            for (let i = 0; i < alldeals.length; i++) {
-                const deali = alldeals[i];
-                if (ignored && ignored.has(deali.code)) {
-                    continue;
-                }
-                toShow.add(deali.code);
-            }
-        }
-
-        this.dealsTable.reset();
-        this.dealsTable.setClickableHeader('日期', '代码', '名称', '买卖', '价格', '数量', '手续费', '金额');
-        var collections = [];
-        toShow.forEach(ds => {
-            if (!ignored || !ignored.has(ds)) {
-                var result = this.addDealsOf(alldeals, ds, false);
-                if (!result || result.cost == 0) {
-                    return;
-                }
-                result.code = ds;
-                collections.push(result);
-            }
-        });
-        var totalCost = 0, totalEarned = 0, totalFee = 0;
-        collections.sort((a, b) => {return a.earn - b.earn > 0;});
-        for (let i = 0; i < collections.length; i++) {
-            const collecti = collections[i];
-            totalCost += collecti.cost;
-            totalEarned += collecti.earn;
-            totalFee += collecti.fee;
-            this.dealsTable.addRow(i, collecti.code, emjyBack.stockAnchor(collecti.code), '', collecti.cost.toFixed(2), collecti.fee.toFixed(2), collecti.earn.toFixed(2), (100 * (collecti.earn / collecti.cost)).toFixed(2) + '%');
-        }
-        this.dealsTable.addRow('总收益', '', '', '', totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), (100 * (totalEarned / totalCost)).toFixed(2) + '%');
-        retroplan.setTotalEarned(totalCost, totalEarned - totalFee);
-        var stats = retroplan.checkDealsStatistics();
-        this.dealsTable.addRow('盈亏比', '', '', '', stats.earned.toFixed(2), '', stats.lost.toFixed(2), (stats.earned / stats.lost).toFixed(2));
-        this.dealsTable.addRow('胜率', '', '', '', stats.tradeCountE, '', stats.tradeCountL, (100 * stats.tradeCountE / (stats.tradeCountL + stats.tradeCountE)).toFixed(2) + '%');
-        this.dealsTable.addRow('单日最大成本', '', '', '', stats.maxSdc.toFixed(2), '', '收益率', (100 * stats.netEarned / stats.maxSdc).toFixed(2) + '%');
-        this.dealsTable.addRow();
+        emjyBack.statsReport.showDeals(this.dealsTable, alldeals, false, ignored, filtered);
     }
 
     showStatsTable() {
