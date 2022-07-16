@@ -152,15 +152,16 @@ class StockListPanelPage extends RadioAnchorPage {
                     }
                 }
             } else if (fid == 2) { // 无/误策略
-                if (!stocki.strategies || !stocki.strategies.strategies || Object.keys(stocki.strategies.strategies).length == 0) {
+                if (!stocki.strategies || !stocki.strategies.strategies || Object.keys(stocki.strategies.strategies).length == 0 || stocki.strategies.amount - 5000 < 0) {
                     this.stocks[i].container.style.display = 'block';
                     continue;
                 }
+
                 var needfix = false;
                 if (stocki.holdCount > 0) {
                     var sellstrCount = 0;
-                    for (const i in stocki.strategies.strategies) {
-                        const str = stocki.strategies.strategies[i];
+                    for (const k in stocki.strategies.strategies) {
+                        const str = stocki.strategies.strategies[k];
                         if (this.isSellstrJson(str)) {
                             sellstrCount ++;
                         }
@@ -170,8 +171,8 @@ class StockListPanelPage extends RadioAnchorPage {
                     }
                 } else {
                     var buystrCount = 0;
-                    for (const i in stocki.strategies.strategies) {
-                        const str = stocki.strategies.strategies[i];
+                    for (const k in stocki.strategies.strategies) {
+                        const str = stocki.strategies.strategies[k];
                         if (str.enabled && str.key.includes('Sell')) {
                             needfix =  true;
                             break;
@@ -206,7 +207,20 @@ class StockListPanelPage extends RadioAnchorPage {
                 if (stocki.holdCount == 0 && stocki.earned < 0) {
                     this.stocks[i].container.style.display = 'block';
                 }
+            } else if (typeof(fid) === 'string') {
+                for (const k in stocki.strategies.strategies) {
+                    const str = stocki.strategies.strategies[k];
+                    if (str.key == fid) {
+                        this.stocks[i].container.style.display = 'block';
+                        break;
+                    }
+                }
             }
+        }
+        if (typeof(fid) === 'string') {
+            this.selectionFilter.selectedIndex = -1;
+        } else {
+            this.strategyFilter.selectedIndex = -1;
         }
     }
 
@@ -294,15 +308,36 @@ class StockListPanelPage extends RadioAnchorPage {
         }
         this.container.appendChild(checkCountBtn);
 
-        var filter = document.createElement('select');
+        this.selectionFilter = document.createElement('select');
         var fitems = this.getFilterItems();
         fitems.forEach(f => {
-            filter.options.add(new Option(f));
+            this.selectionFilter.options.add(new Option(f));
         });
-        filter.onchange = e => {
+        this.selectionFilter.onchange = e => {
             this.onFiltered(e.target.selectedIndex);
         }
-        this.container.appendChild(filter);
+        this.container.appendChild(this.selectionFilter);
+
+        this.strategyFilter = document.createElement('select');
+        ComplexStrategyKeyNames.forEach(s=>{
+            this.strategyFilter.options.add(new Option(s.name, s.key));
+        });
+        var sepOpt = new Option('------------');
+        sepOpt.disabled = true;
+        this.strategyFilter.options.add(sepOpt);
+        BuyStrategyKeyNames.forEach(s=>{
+            this.strategyFilter.options.add(new Option(s.name, s.key));
+        });
+        var sepOpt1 = new Option('------------');
+        sepOpt1.disabled = true;
+        this.strategyFilter.options.add(sepOpt1);
+        SellStrategyKeyNames.forEach(s=>{
+            this.strategyFilter.options.add(new Option(s.name, s.key));
+        });
+        this.strategyFilter.onchange = e => {
+            this.onFiltered(e.target.value);
+        }
+        this.container.appendChild(this.strategyFilter);
 
         this.listContainer = document.createElement('div');
         this.container.appendChild(this.listContainer);

@@ -326,6 +326,10 @@ class StrategyBaseView {
         return acctDiv;
     }
 
+    getDefaultKltype() {
+        return '101';
+    }
+
     createKlineTypeSelector(text = 'K线类型 ') {
         var kltDiv = document.createElement('div');
         kltDiv.appendChild(document.createTextNode(text));
@@ -333,12 +337,13 @@ class StrategyBaseView {
         var kltypes = [{klt:'4', text:'4分钟'}, {klt:'8', text:'8分钟'}, {klt:'15', text:'15分钟'}, {klt:'30', text:'30分钟'}, {klt:'60', text:'1小时'}, {klt:'120', text:'2小时'}, {klt:'101', text:'1日'}, {klt:'202', text:'2日'}];
         //{klt:'1', text:'1分钟'}, {klt:'2', text:'2分钟'}, , {klt:'404', text:'4日'}, {klt:'808', text:'8日'}, {klt:'102', text:'1周'}, {klt:'103', text:'1月'}, {klt:'104', text:'1季度'}, {klt:'105', text:'半年'}, {klt:'106', text:'年'}
 
-        for (var i = 0; i < kltypes.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = kltypes[i].klt;
-            opt.textContent = kltypes[i].text;
-            this.klineSelector.appendChild(opt);
-        };
+        kltypes.forEach(klt => {
+            this.klineSelector.options.add(new Option(klt.text, klt.klt));
+        });
+        if (this.klineSelector) {
+            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : this.getDefaultKltype();
+        }
+
         kltDiv.appendChild(this.klineSelector);
         return kltDiv;
     }
@@ -486,10 +491,8 @@ class StrategySellELSView extends StrategyBaseView {
 }
 
 class StrategyBuyMAView extends StrategyBaseView {
-    setDefaultKltype() {
-        if (this.klineSelector) {
-            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '60';
-        };
+    getDefaultKltype() {
+        return '60';
     }
 
     maDescription() {
@@ -501,17 +504,14 @@ class StrategyBuyMAView extends StrategyBaseView {
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode(this.maDescription()));
         view.appendChild(this.createKlineTypeSelector());
-        this.setDefaultKltype();
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }
 }
 
 class StrategyBuyStopDecView extends StrategyBuyMAView {
-    setDefaultKltype() {
-        if (this.klineSelector) {
-            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '15';
-        };
+    getDefaultKltype() {
+        return '15';
     }
 
     maDescription() {
@@ -520,10 +520,8 @@ class StrategyBuyStopDecView extends StrategyBuyMAView {
 }
 
 class StrategySellMAView extends StrategyBaseView {
-    setDefaultKltype() {
-        if (this.klineSelector) {
-            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '60';
-        };
+    getDefaultKltype() {
+        return '60';
     }
 
     maDescription() {
@@ -535,7 +533,6 @@ class StrategySellMAView extends StrategyBaseView {
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode(this.maDescription()));
         view.appendChild(this.createKlineTypeSelector());
-        this.setDefaultKltype();
         return view;
     }
 }
@@ -555,10 +552,8 @@ class StrategyBuyMABeforeEndView extends StrategyBuyMAView {
         return '尾盘突破18周期均线，或最高价回撤幅度<1/3时尾盘买入';
     }
 
-    setDefaultKltype() {
-        if (this.klineSelector) {
-            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '60';
-        };
+    getDefaultKltype() {
+        return '60';
     }
 }
 
@@ -567,10 +562,8 @@ class StrategyBuyMADynamicView extends StrategyBuyMAView {
         return '连续2根K线>18周期均线, 以第3根K线开盘时买入, 动态调整K线类型';
     }
 
-    setDefaultKltype() {
-        if (this.klineSelector) {
-            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '30';
-        };
+    getDefaultKltype() {
+        return '30';
     }
 }
 
@@ -579,10 +572,8 @@ class StrategySellMADynamicView extends StrategySellMAView {
         return '连续2根K线<18周期均线,以第3根K线开盘时(全部)卖出, 累计收益>20%或单日涨幅>8.5% 调整K线类型为4分钟';
     }
 
-    setDefaultKltype() {
-        if (this.klineSelector) {
-            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '30';
-        };
+    getDefaultKltype() {
+        return '30';
     }
 
     createView() {
@@ -611,10 +602,8 @@ class StrategyMAView extends StrategyBaseView {
 }
 
 class StrategyGridEarningView extends StrategyBaseView {
-    setDefaultKltype() {
-        if (this.klineSelector) {
-            this.klineSelector.value = this.strategy.kltype ? this.strategy.kltype : '30';
-        };
+    getDefaultKltype() {
+        return '30';
     }
 
     defaultStepRate() {
@@ -633,7 +622,6 @@ class StrategyGridEarningView extends StrategyBaseView {
         view.appendChild(this.createBuyAccountSelector());
 
         view.appendChild(this.createKlineTypeSelector('卖出K线类型'));
-        this.setDefaultKltype();
         return view;
     }
 
@@ -676,6 +664,7 @@ class StrategyBarginHuntingView extends StrategyBaseView {
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('中长阴线之后止跌买入，并在反弹时卖出。止损点为中长阴线之后的最低点。'));
         view.appendChild(this.createBuyAccountSelector());
+        view.appendChild(this.createKlineTypeSelector());
         return view;
     }
 }

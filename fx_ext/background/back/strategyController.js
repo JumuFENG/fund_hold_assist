@@ -79,6 +79,27 @@ class Strategy {
         this.data = str;
     }
 
+    getconfig() {
+    }
+
+    initconfig() {
+        var cfgs = this.getconfig();
+        if (!cfgs) {
+            return;
+        }
+        for (var k in cfgs) {
+            if (this.data[k] === undefined) {
+                this.data[k] = cfgs[k].val;
+            }
+        }
+    }
+
+    setconfig(cfgs) {
+        for (var k in cfgs) {
+            this.data[k] = cfgs[k];
+        }
+    }
+
     check(chkInfo, matchCb) {
         return;
     }
@@ -1213,7 +1234,7 @@ class StrategyMA extends StrategyTD {
             }
         }
         var count = buydetails ? buydetails.availableCount() : 0;
-        var smioff = emjyBack.getSmiOffset(buydetails.latestBuyDate());
+        var smioff = emjyBack.getSmiOffset(buydetails.highestBuyDate());
         if (count > 0 && this.bss18CutMatch(chkInfo, kltype, this.data.guardPrice * (1 + smioff))) {
             // 止损
             matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
@@ -1372,6 +1393,16 @@ class StrategyBarginHunting extends Strategy {
         this.skltype = '4';
     }
 
+    getconfig() {
+        return {
+            backRate: {min:0.01, max:0.05, step:0.005, val:0.02},
+            upRate: {min:0.01, max:0.05, step:0.005, val:0.02},
+            trackDays: {min:1, max:10, step:1, val:5},
+            upBound: {min:-0.05, max:-0.01, step:0.01, val:-0.03},
+            lowBound: {min:-0.11, max:-0.06, step:0.01, val:-0.07}
+        }
+    }
+
     guardLevel() {
         return 'klines';
     }
@@ -1394,12 +1425,7 @@ class StrategyBarginHunting extends Strategy {
             }
         }
 
-        if (!this.data.backRate) {
-            this.data.backRate = 0.02;
-        }
-        if (!this.data.upRate) {
-            this.data.upRate = 0.02;
-        }
+        this.initconfig();
     }
 
     resetToS0() {
@@ -1420,7 +1446,7 @@ class StrategyBarginHunting extends Strategy {
 
     changeTopPrice(klines, kltype) {
         var lper = klines.latestKlinePercentage(kltype);
-        if (lper <= -0.03 && lper >= -0.07) {
+        if (lper <= this.data.upBound && lper >= this.data.lowBound) {
             var kl = klines.getLatestKline(kltype);
             var pkl = klines.getPrevKline(kltype);
             var topprice = kl.o;
@@ -1483,7 +1509,8 @@ class StrategyBarginHunting extends Strategy {
             matchCb({id: chkInfo.id});
             return;
         }
-        if (kl.h - this.data.topprice > 0 || klines.KlineNumSince(this.data.guardDate, kltype) > 5) {
+        if ((this.data.topprice - kl.h) / this.data.topprice < this.data.upRate
+            || klines.KlineNumSince(this.data.guardDate, kltype) > this.data.trackDays) {
             // give up.
             this.resetToS0();
             matchCb({id: chkInfo.id});
