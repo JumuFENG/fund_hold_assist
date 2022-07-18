@@ -287,9 +287,11 @@ class StrategyGroupView {
         if (this.changed || this.strategySelectors.length > 0) {
             if (this.inputCount) {
                 var count = parseInt(this.inputCount.value);
-                if (!this.strGrp.count0 || count != this.strGrp.count0) {
-                    this.strGrp.count0 = count;
-                    this.changed = true;
+                if (!Number.isNaN(count)) {
+                    if (!this.strGrp.count0 || count != this.strGrp.count0) {
+                        this.strGrp.count0 = count;
+                        this.changed = true;
+                    }
                 }
             }
             if (this.inputAmount) {

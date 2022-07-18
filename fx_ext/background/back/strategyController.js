@@ -1396,10 +1396,10 @@ class StrategyBarginHunting extends Strategy {
     getconfig() {
         return {
             backRate: {min:0.01, max:0.05, step:0.005, val:0.02},
-            upRate: {min:0.01, max:0.05, step:0.005, val:0.02},
+            upRate: {min:0.01, max:0.05, step:0.005, val:0.01},
             trackDays: {min:1, max:10, step:1, val:5},
             upBound: {min:-0.05, max:-0.01, step:0.01, val:-0.03},
-            lowBound: {min:-0.11, max:-0.06, step:0.01, val:-0.07}
+            lowBound: {min:-0.11, max:-0.06, step:0.01, val:-0.11}
         }
     }
 
@@ -1496,7 +1496,7 @@ class StrategyBarginHunting extends Strategy {
             return;
         }
         if (kl.l - this.data.guardPrice > 0) {
-            if ((kl.c - this.data.guardPrice) / this.data.guardPrice < this.data.backRate) {
+            if ((kl.c - this.data.guardPrice) / this.data.guardPrice - this.data.backRate < 0) {
                 // buy.
                 matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
                     this.data.meta.state = 's2';
@@ -1509,8 +1509,8 @@ class StrategyBarginHunting extends Strategy {
             matchCb({id: chkInfo.id});
             return;
         }
-        if ((this.data.topprice - kl.h) / this.data.topprice < this.data.upRate
-            || klines.KlineNumSince(this.data.guardDate, kltype) > this.data.trackDays) {
+        if ((this.data.topprice - kl.h) / this.data.topprice - this.data.upRate < 0
+            || klines.KlineNumSince(this.data.guardDate, kltype) - this.data.trackDays > 0) {
             // give up.
             this.resetToS0();
             matchCb({id: chkInfo.id});
@@ -1565,7 +1565,7 @@ class StrategyBarginHunting extends Strategy {
 
         var kl = klines.getLatestKline(kltype);
         var count = chkInfo.buydetail.availableCount();
-        if ((this.data.topprice - kl.h) / this.data.topprice < this.data.upRate) {
+        if ((this.data.topprice - kl.h) / this.data.topprice - this.data.upRate < 0) {
             // sell
             matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
                 this.resetToS0();

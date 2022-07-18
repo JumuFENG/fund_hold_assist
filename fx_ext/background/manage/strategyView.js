@@ -189,6 +189,27 @@ class StrategyBaseView {
             };
         };
 
+        if (this.inputData) {
+            var dtext = this.inputData.value;
+            if (dtext.length > 0) {
+                if (!dtext.startsWith('{')) {
+                    dtext = '{' + dtext;
+                }
+                if (!dtext.endsWith('}')) {
+                    dtext += '}';
+                }
+
+                var data = JSON.parse(dtext);
+                var changes = 0;
+                for (var k in data) {
+                    if (this.strategy[k] != data[k]) {
+                        this.strategy[k] = data[k];
+                        changes++;
+                    }
+                }
+                changed = changes > 0;
+            }
+        }
         return changed;
     }
 
@@ -346,6 +367,15 @@ class StrategyBaseView {
 
         kltDiv.appendChild(this.klineSelector);
         return kltDiv;
+    }
+
+    createDataInput() {
+        var dataDiv = document.createElement('div');
+        this.inputData = document.createElement('input');
+        this.inputData.style.width = 600;
+        dataDiv.appendChild(document.createTextNode('data:'));
+        dataDiv.appendChild(this.inputData);
+        return dataDiv;
     }
 }
 
@@ -665,6 +695,7 @@ class StrategyBarginHuntingView extends StrategyBaseView {
         view.appendChild(document.createTextNode('中长阴线之后止跌买入，并在反弹时卖出。止损点为中长阴线之后的最低点。'));
         view.appendChild(this.createBuyAccountSelector());
         view.appendChild(this.createKlineTypeSelector());
+        view.appendChild(this.createDataInput());
         return view;
     }
 }

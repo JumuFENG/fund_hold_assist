@@ -12,6 +12,10 @@ a {
     margin-right: 2px;
 }
 
+div {
+    margin: 2px;
+}
+
 .radio_anchor_div a {
     display: inline-block;
     padding: 2px 10px;
