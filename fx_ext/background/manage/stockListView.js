@@ -119,7 +119,8 @@ class StockListPanelPage extends RadioAnchorPage {
             '无/误策略',
             '低位横盘',
             '持仓连板',
-            '割肉'
+            '割肉',
+            '盈利清仓'
         ];
     }
 
@@ -205,6 +206,10 @@ class StockListPanelPage extends RadioAnchorPage {
                 }
             } else if (fid == 5) { // 无持仓割肉股
                 if (stocki.holdCount == 0 && stocki.earned < 0) {
+                    this.stocks[i].container.style.display = 'block';
+                }
+            } else if (fid == 6) { // 盈利清仓股
+                if (stocki.holdCount == 0 && stocki.earned > 0) {
                     this.stocks[i].container.style.display = 'block';
                 }
             } else if (typeof(fid) === 'string') {
@@ -304,7 +309,8 @@ class StockListPanelPage extends RadioAnchorPage {
         var checkCountBtn = document.createElement('button');
         checkCountBtn.textContent = '检查数量';
         checkCountBtn.onclick = e => {
-            emjyManager.checkHoldingStocks();
+            emjyBack.checkHoldingStocks();
+            emjyBack.checkKl1Expired();
         }
         this.container.appendChild(checkCountBtn);
 

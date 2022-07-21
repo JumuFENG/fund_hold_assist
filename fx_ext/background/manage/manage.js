@@ -554,6 +554,29 @@ class Manager {
             console.log('Check done!');
         });
     }
+
+    checkKl1Expired() {
+        var kltimeExpired = function(kt) {
+            var t = new Date();
+            if (t.getDay() == 1 && t - new Date(kt) > 72*36000000) {
+                return true;
+            }
+            return t - new Date(kt) > 24*36000000;
+        }
+        for (var c in this.klines) {
+            if (!this.klines[c] || !this.klines[c].klines || !this.klines[c].klines['1'] || this.klines[c].klines['1'].length == 0) {
+                continue;
+            }
+            var kl1 = this.klines[c].klines['1'].slice(-1)[0];
+            if (kltimeExpired(kl1.time)) {
+                this.klines[c].klines['1'] = [];
+                this.klines[c].klines['2'] = [];
+                this.klines[c].klines['4'] = [];
+                this.klines[c].klines['8'] = [];
+                this.klines[c].save();
+            }
+        }
+    }
 }
 
 class ManagerPage {
