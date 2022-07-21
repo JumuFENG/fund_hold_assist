@@ -93,6 +93,21 @@ class KLine {
         return null;
     }
 
+    getLastNKlines(kltype, n) {
+        // 获取最新k线之前n个k线, 配合getLatestKline使用
+        var inkl = this.getIncompleteKline(kltype);
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            return [];
+        }
+
+        var kline = this.klines[kltype];
+        var lidx = kline.length - 1;
+        if (!inkl) {
+            lidx--;
+        }
+        return kline.slice(lidx - n >= 0 ? lidx - n : 0, lidx);
+    }
+
     getLatestKline(kltype) {
         var kl = this.getIncompleteKline(kltype);
         if (kl) {
@@ -152,6 +167,27 @@ class KLine {
             }
         }
         return false;
+    }
+
+    lastClosePrice(date, kltype = '101') {
+        // date之前一天的收盘价, 没有则返回当日开盘价
+        var inkl = this.getIncompleteKline(kltype);
+        if (inkl) {
+            if (inkl.time < date) {
+                return inkl.c;
+            }
+        }
+
+        var kline = this.klines[kltype];
+        if (kline.length == 0) {
+            return 0;
+        }
+        for (var i = kline.length - 1; i >= 0; i--) {
+            if (kline[i].time < date) {
+                return kline[i].c;
+            }
+        }
+        return kline[0].o;
     }
 
     latestKlineDrawback(kltype) {
@@ -590,6 +626,36 @@ class KLine {
         };
     }
 
+    getLastPeak(kltype='101') {
+        // 获取最新的波峰
+        var inkl = this.getIncompleteKline(kltype);
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            return inkl ? inkl.h : 0;
+        }
+
+        var kline = this.klines[kltype];
+        var lidx = kline.length - 1;
+        var lastkl = inkl;
+        if (!inkl) {
+            lastkl = kline[lidx];
+            lidx--;
+        }
+
+        var stopl = lastkl.l;
+        var peak = lastkl.h;
+        while (lidx >= 0) {
+            var prekl = kline[lidx];
+            if (prekl.h - peak > 0) {
+                peak = prekl.h;
+            }
+            if (prekl.l - stopl <= 0) {
+                break;
+            }
+            lidx--;
+        }
+        return peak;
+    }
+
     getLastTrough(kltype) {
         if (!this.klines || !this.klines[kltype]) {
             console.log('no klins data for kltype', kltype);
@@ -636,6 +702,24 @@ class KLine {
             }
         }
         return 0;
+    }
+
+    isLowPriceStopIncreasing(kltype='101') {
+        // 低点不再增加
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            return false;
+        }
+
+        var inkl = this.getIncompleteKline(kltype);
+        var kline = this.klines[kltype];
+        var lidx = kline.length - 1;
+        if (inkl) {
+            return inkl.l - kline[lidx].l < 0;
+        }
+        if (kline.length < 2) {
+            return false;
+        }
+        return kline[lidx].l - kline[lidx - 1].l < 0;
     }
 
     isDecreaseStoppedStrict(kltype) {
@@ -930,6 +1014,27 @@ class KLine {
         return klNum;
     }
 
+    everRunAboveSince(date, price, kltype='101') {
+        // 从date开始的k线是否存在最大值>=price
+        if (!this.klines || !this.klines[kltype]) {
+            return false;
+        }
+        var inkl = this.getIncompleteKline(kltype);
+        if (inkl && inkl.time > date && inkl.h - price >= 0) {
+            return true
+        }
+        var kline = this.klines[kltype];
+        for (var i = kline.length - 1; i >= 0; i--) {
+            if (kline[i].time < date) {
+                break;
+            }
+            if (kline[i].h - price >= 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     lowestPriceSince(date, kltype = '101') {
         if (!this.klines) {
             return 0;
@@ -958,6 +1063,38 @@ class KLine {
             }
         }
         return lprc;
+    }
+
+    lowestKlSince(date, kltype = '101') {
+        // 返回最小值所在的k线数据
+        if (!this.klines) {
+            return;
+        }
+
+        var kline = this.klines[kltype];
+        var inkl = this.getIncompleteKline(kltype);
+        if (kline.length == 0) {
+            return inkl;
+        }
+
+        var lprc = kline[kline.length - 1].l;
+        var lidx = kline.length - 1;
+        for (let i = kline.length - 2; i >= 0; i--) {
+            const kl = kline[i];
+            if (kl.time < date) {
+                break;
+            }
+            if (kl.l - lprc < 0) {
+                lprc = kl.l;
+                lidx = i;
+            }
+        }
+
+        if (!inkl) {
+            return kline[lidx];
+        }
+
+        return kline[lidx].l - inkl.l > 0 ? inkl : kline[lidx];
     }
 
     bottomRegionDays(kltype='101') {
@@ -1007,5 +1144,35 @@ class KLine {
         }
 
         return kline[kline.length - 1]['bss' + mlen] == 'w';
+    }
+
+    lastDownKlBetween(upBound, lowBound, kltype='101') {
+        // 最新k线之前一次跌幅介于upBound, lowBound之间的k线
+        if (!this.klines || !this.klines[kltype]) {
+            return;
+        }
+        var kline = this.klines[kltype];
+        var lidx = kline.length - 1;
+        var inkl = this.getIncompleteKline(kltype);
+        if (!inkl && kline.length > 1) {
+            lidx--;
+        }
+
+        while(lidx >= 0) {
+            var kl = kline[lidx];
+            var lc = kl.o;
+            var preId = lidx - 1;
+            if (preId >= 0) {
+                lc = kline[lidx - 1].c;
+            }
+
+            var pct = (kl.c - lc) / lc;
+            if (pct - upBound <= 0 && pct - lowBound >= 0) {
+                return kl;
+            }
+            lidx --;
+        }
+
+        return;
     }
 }

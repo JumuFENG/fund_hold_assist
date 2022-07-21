@@ -35,6 +35,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategySellELS') {
             return new StrategySellELSView(strategy);
         };
+        if (strategy.key == 'StrategySellELTop') {
+            return new StrategySellElTopView(strategy);
+        }
         if (strategy.key == 'StrategyBuyMA') {
             return new StrategyBuyMAView(strategy);
         };
@@ -189,6 +192,14 @@ class StrategyBaseView {
             };
         };
 
+        if (this.sellCntSelector) {
+            var selltype = this.sellCntSelector.value;
+            if (selltype != this.strategy.selltype) {
+                changed = true;
+                this.strategy.selltype = selltype;
+            }
+        }
+
         if (this.inputData) {
             var dtext = this.inputData.value;
             if (dtext.length > 0) {
@@ -227,18 +238,22 @@ class StrategyBaseView {
         return checkLbl;
     }
 
-    createSellAllCheckbox() {
+    createSellCountTypeSelector() {
+        var sellCntDiv = document.createElement('div');
         var checkLbl = document.createElement('label');
-        checkLbl.textContent = '全部卖出'
-        this.sellAllCheck = document.createElement('input');
-        this.sellAllCheck.type = 'checkbox';
-        if (this.strategy.sellall === undefined) {
-            this.sellAllCheck.checked = false;
+        checkLbl.textContent = '卖出量'
+        this.sellCntSelector = document.createElement('select');
+        this.sellCntSelector.options.add(new Option('全部卖出', 'all'));
+        this.sellCntSelector.options.add(new Option('盈利部分卖出', 'earned'));
+        this.sellCntSelector.options.add(new Option('单次买入', 'single'));
+        if (this.strategy.selltype === undefined) {
+            this.sellCntSelector.value = 'earned';
         } else {
-            this.sellAllCheck.checked = this.strategy.sellall;
+            this.sellCntSelector.value = this.strategy.selltype;
         }
-        checkLbl.appendChild(this.sellAllCheck);
-        return checkLbl;
+        checkLbl.appendChild(this.sellCntSelector);
+        sellCntDiv.appendChild(checkLbl);
+        return sellCntDiv;
     }
 
     createGuardInput(text) {
@@ -369,9 +384,12 @@ class StrategyBaseView {
         return kltDiv;
     }
 
-    createDataInput() {
+    createDataInput(text) {
         var dataDiv = document.createElement('div');
         this.inputData = document.createElement('input');
+        if (text) {
+            this.inputData.placeholder = text;
+        }
         this.inputData.style.width = 600;
         dataDiv.appendChild(document.createTextNode('data:'));
         dataDiv.appendChild(this.inputData);
@@ -514,9 +532,42 @@ class StrategySellELSView extends StrategyBaseView {
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('低点抬高法, 1分钟，短线收益不错时设置该策略'));
         view.appendChild(document.createElement('br'));
-        view.appendChild(this.createSellAllCheckbox());
+        view.appendChild(this.createSellCountTypeSelector());
         view.appendChild(this.createGuardInput('止损点 '));
         return view;
+    }
+}
+
+class StrategySellElTopView extends StrategyBaseView {
+    getDefaultKltype() {
+        return '4';
+    }
+
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('达到目标价(或设置可选参数upRate, 距离目标价百分比)之后以低点抬高法卖出，止损价格(不设置则不止损)。'));
+        view.appendChild(this.createSellCountTypeSelector());
+        view.appendChild(this.createKlineTypeSelector());
+        view.appendChild(this.createReferedInput('目标价 '))
+        if (this.strategy.topprice) {
+            this.inputRefer.value = this.strategy.topprice;
+        }
+        view.appendChild(this.createGuardInput('止损点 '));
+        view.appendChild(this.createDataInput());
+        return view;
+    }
+
+    isChanged() {
+        var changed = super.isChanged();
+        if (this.inputRefer && this.inputRefer.value) {
+            var topprice = this.inputRefer.value;
+            if (this.strategy.topprice != topprice) {
+                this.strategy.topprice = topprice;
+                changed = true;
+            };
+        };
+        return changed;
     }
 }
 

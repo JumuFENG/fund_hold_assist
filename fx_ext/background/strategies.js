@@ -28,6 +28,7 @@ let SellStrategyKeyNames = [
 {key: 'StrategySellIPO', name: '开板卖出'},
 {key: 'StrategySellEL', name: '止损止盈'},
 {key: 'StrategySellELS', name: '止损止盈(超短)'},
+{key: 'StrategySellELTop', name: '目标价止盈'},
 {key: 'StrategySellMA', name: 'MA突破卖出'},
 {key: 'StrategySellMAD', name: 'MA突破(动态)卖出'},
 ];

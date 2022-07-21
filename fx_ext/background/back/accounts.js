@@ -777,7 +777,7 @@ class NormalAccount extends Account {
         var code = this.bondRepurchaseList.shift();
         this.tradeClient.getRtPrice(code, pobj => {
             var p = pobj.cp;
-            p = pobj.s5 == '-' ? pobj.tp : pobj.s5;
+            p = pobj.b5 == '-' ? pobj.bp : pobj.b5;
             this.brClient.buy(code, p);
         });
     }

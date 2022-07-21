@@ -196,6 +196,25 @@ class BuyDetail {
         return -count - this.pendingSoldCount();
     }
 
+    getCountMatched(selltype, price, fac=0, smi=false) {
+        if (selltype == 'all') {
+            return this.availableCount();
+        }
+
+        if (selltype == 'earned') {
+            return this.getCountLessThan(price, fac, smi);
+        }
+
+        var buyrec = this.buyRecords();
+        if (!buyrec || buyrec.length == 0) {
+            return 0;
+        }
+
+        var count = buyrec[buyrec.length - 1].count;
+        var aCount = this.availableCount();
+        return count - aCount <= 0 ? count : aCount;
+    }
+
     pendingSoldCount() {
         var selrec = this.sellRecords();
         if (!selrec || selrec.length == 0) {
