@@ -71,6 +71,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyBH') {
             return new StrategyBarginHuntingView(strategy);
         }
+        if (strategy.key == 'StrategyIncDec') {
+            return new StrategyIncDecView(strategy);
+        }
     }
 
     getStrategyName(key) {
@@ -746,6 +749,21 @@ class StrategyBarginHuntingView extends StrategyBaseView {
         view.appendChild(document.createTextNode('中长阴线之后止跌买入，并在反弹时卖出。止损点为中长阴线之后的最低点。'));
         view.appendChild(this.createBuyAccountSelector());
         view.appendChild(this.createKlineTypeSelector());
+        view.appendChild(this.createDataInput());
+        return view;
+    }
+}
+
+class StrategyIncDecView extends StrategyBaseView {
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('大跌买入，大涨卖出，累计跌幅大于1.5倍stepRate时买入'));
+        view.appendChild(this.createBuyAccountSelector());
+        view.appendChild(this.createKlineTypeSelector());
+        view.appendChild(this.createUpEarnedInput('涨幅'));
+        view.appendChild(this.createPopbackInput('跌幅'));
+        view.appendChild(this.createStepsInput('区间涨跌幅'));
         view.appendChild(this.createDataInput());
         return view;
     }

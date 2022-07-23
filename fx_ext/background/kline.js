@@ -133,6 +133,24 @@ class KLine {
         return this.klines[kltype][prevId];
     }
 
+    getKlineByTime(t, kltype) {
+        var inkl = this.getIncompleteKline(kltype);
+        if (inkl && inkl.time == t) {
+            return inkl;
+        }
+
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            return;
+        }
+
+        var kline = this.klines[kltype];
+        for (var i = kline.length - 1; i >= 0; i--) {
+            if (kline[i].time == t) {
+                return kline[i];
+            }
+        }
+    }
+
     closeIsTopMost(kl, kltype = '101') {
         if (kl.h - kl.c > 0) {
             return false;
@@ -1146,6 +1164,10 @@ class KLine {
         return kline[kline.length - 1]['bss' + mlen] == 'w';
     }
 
+    lastDownKl(upBound, kltype='101') {
+        return this.lastDownKlBetween(upBound, undefined, kltype);
+    }
+
     lastDownKlBetween(upBound, lowBound, kltype='101') {
         // 最新k线之前一次跌幅介于upBound, lowBound之间的k线
         if (!this.klines || !this.klines[kltype]) {
@@ -1167,7 +1189,7 @@ class KLine {
             }
 
             var pct = (kl.c - lc) / lc;
-            if (pct - upBound <= 0 && pct - lowBound >= 0) {
+            if (pct - upBound <= 0 && (lowBound === undefined || pct - lowBound >= 0)) {
                 return kl;
             }
             lidx --;

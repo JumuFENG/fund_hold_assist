@@ -74,6 +74,9 @@ class StrategyManager {
         if (strategy.key == 'StrategyBias') {
             return new StrategyBias(strategy);
         }
+        if (strategy.key == 'StrategyIncDec') {
+            return new StrategyIncDec(strategy);
+        }
     }
 }
 
@@ -220,16 +223,13 @@ class Strategy {
         if (!this.data.upBound) {
             this.data.upBound = -0.03;
         }
-        if (!this.data.lowBound) {
-            this.data.lowBound = -0.9;
-        }
         if (!this.data.trackDays) {
             this.data.trackDays = 5;
         }
 
         if (updatedKlt.includes(kltype)) {
             var kl = klines.getLatestKline(kltype);
-            var s0kl = klines.lastDownKlBetween(this.data.upBound, this.data.lowBound, kltype);
+            var s0kl = klines.lastDownKl(this.data.upBound, kltype);
             if (!s0kl) {
                 return false;
             }
@@ -248,6 +248,49 @@ class Strategy {
             if ((kl.c - lowkl.l) / lowkl.l - this.data.backRate < 0) {
                 this.data.topprice = topprice;
                 this.data.guardPrice = lowkl.l;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    decBuyMatch(chkInfo, kltype) {
+        var klines = emjyBack.klines[chkInfo.code];
+        var updatedKlt = chkInfo.kltypes;
+        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
+            return false;
+        }
+
+        if (!this.data.backRate) {
+            this.data.backRate = 0.03;
+        }
+
+        if (updatedKlt.includes(kltype)) {
+            var downRate = -this.data.backRate;
+            var kl = klines.getLatestKline(kltype);
+            var lc = klines.lastClosePrice(kl.time, kltype);
+            if ((kl.c - lc) / lc - downRate < 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    incSellMatch(chkInfo, kltype) {
+        var klines = emjyBack.klines[chkInfo.code];
+        var updatedKlt = chkInfo.kltypes;
+        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
+            return false;
+        }
+
+        if (!this.data.upRate) {
+            this.data.upRate = 0.05;
+        }
+
+        if (updatedKlt.includes(kltype)) {
+            var kl = klines.getLatestKline(kltype);
+            var lc = klines.lastClosePrice(kl.time, kltype);
+            if ((kl.c - lc) / lc - this.data.upRate > 0) {
                 return true;
             }
         }
@@ -288,6 +331,45 @@ class Strategy {
             kl.bias18 = klines.getNextKlBias(prekls, kl, 18);
         }
         return kl.bias18 - this.data.upBias > 0;
+    }
+}
+
+class StrategyComplexBase extends Strategy {
+    checkCreateBuy(chkInfo, matchCb) {
+        return false;
+    }
+
+    checkCutOrSell(chkInfo, matchCb) {
+        return false;
+    }
+
+    checkConsecutiveBuySell(chkInfo, matchCb) {
+        return false;
+    }
+
+    checkKlines(chkInfo, matchCb) {
+        if (typeof(matchCb) !== 'function') {
+            return;
+        }
+
+        var klines = emjyBack.klines[chkInfo.code];
+        var updatedKlt = chkInfo.kltypes;
+        var buydetails = chkInfo.buydetail;
+        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
+            return;
+        }
+
+        this.checkMeta(buydetails);
+        if (this.data.meta.state == 's0') {
+            this.checkCreateBuy(chkInfo, matchCb);
+            return;
+        }
+
+        if (this.checkCutOrSell(chkInfo, matchCb)) {
+            return;
+        }
+
+        this.checkConsecutiveBuySell(chkInfo, matchCb);
     }
 }
 
@@ -1127,7 +1209,7 @@ class StrategyMABackup extends Strategy {
     }
 }
 
-class StrategyTD extends Strategy {
+class StrategyTD extends StrategyComplexBase {
     guardLevel() {
         return 'klines';
     }
@@ -1277,31 +1359,6 @@ class StrategyTD extends Strategy {
             }
         }
         return false;
-    }
-
-    checkKlines(chkInfo, matchCb) {
-        if (typeof(matchCb) !== 'function') {
-            return;
-        }
-
-        var klines = emjyBack.klines[chkInfo.code];
-        var updatedKlt = chkInfo.kltypes;
-        var buydetails = chkInfo.buydetail;
-        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
-            return;
-        }
-
-        this.checkMeta(buydetails);
-        if (this.data.meta.state == 's0') {
-            this.checkCreateBuy(chkInfo, matchCb);
-            return;
-        }
-
-        if (this.checkCutOrSell(chkInfo, matchCb)) {
-            return;
-        }
-
-        this.checkConsecutiveBuySell(chkInfo, matchCb);
     }
 }
 
@@ -1536,7 +1593,7 @@ class StrategyGEMid extends StrategyGE {
     }
 }
 
-class StrategyBarginHunting extends Strategy {
+class StrategyBarginHunting extends StrategyComplexBase {
     constructor(str) {
         super(str);
         this.skltype = '4';
@@ -1547,8 +1604,7 @@ class StrategyBarginHunting extends Strategy {
             backRate: {min:0.01, max:0.05, step:0.005, val:0.02},
             upRate: {min:0.01, max:0.05, step:0.005, val:0.01},
             trackDays: {min:1, max:10, step:1, val:5},
-            upBound: {min:-0.05, max:-0.01, step:0.01, val:-0.03},
-            lowBound: {min:-0.11, max:-0.06, step:0.01, val:-0.11}
+            upBound: {min:-0.05, max:-0.01, step:0.01, val:-0.03}
         }
     }
 
@@ -1661,38 +1717,14 @@ class StrategyBarginHunting extends Strategy {
         }
         // wait
     }
-
-    checkKlines(chkInfo, matchCb) {
-        if (typeof(matchCb) !== 'function') {
-            return;
-        }
-
-        var klines = emjyBack.klines[chkInfo.code];
-        var updatedKlt = chkInfo.kltypes;
-        var buydetails = chkInfo.buydetail;
-        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
-            return;
-        }
-
-        this.checkMeta(buydetails);
-        if (this.data.meta.state == 's0') {
-            this.checkCreateBuy(chkInfo, matchCb);
-            return;
-        }
-
-        if (this.data.meta.state == 's1') {
-            this.checkCutOrSell(chkInfo, matchCb);
-        }
-    }
 }
 
-class StrategyBias extends Strategy {
+class StrategyBias extends StrategyComplexBase {
     getconfig() {
         return {
             upBias: {min: 5, max: 15, step: 1, val: 10},
             backRate: {min: 0.01, max: 0.05, step: 0.01, val: 0.02},
             upBound: {min:-0.05, max:-0.01, step:0.01, val:-0.03},
-            lowBound: {min:-0.11, max:-0.06, step:0.01, val:-0.11},
             stepRate: {min: 0.03, max: 0.15, step:0.01, val: 0.06}
        }
     }
@@ -1772,29 +1804,94 @@ class StrategyBias extends Strategy {
 
         return this.checkCutOrSell(chkInfo, matchCb);
     }
+}
 
-    checkKlines(chkInfo, matchCb) {
-        if (typeof(matchCb) !== 'function') {
-            return;
+class StrategyIncDec extends StrategyComplexBase {
+    getconfig() {
+        return {
+            upRate: {min: 0.01, max: 0.08, step: 0.01, val: 0.05},
+            backRate: {min: 0.01, max: 0.08, step: 0.01, val: 0.03},
+            stepRate: {min: 0.03, max: 0.10, step:0.01, val: 0.05}
+       }
+    }
+
+    guardLevel() {
+        return 'kline';
+    }
+
+    checkMeta(buydetails) {
+        if (!this.data.meta) {
+            this.data.meta = {};
+            // s0: 未建仓/清仓， s1: 买入有持仓
+            if (!buydetails || buydetails.totalCount() == 0) {
+                this.data.meta.state = 's0';
+            } else {
+                this.data.meta.state = 's1';
+            }
+        }
+        if (!this.data.kltype) {
+            this.data.kltype = '101';
         }
 
+        this.initconfig();
+    }
+
+    checkCreateBuy(chkInfo, matchCb) {
+        var kltype = this.data.kltype;
+        if (this.decBuyMatch(chkInfo, kltype)) {
+            var klines = emjyBack.klines[chkInfo.code];
+            var kl = klines.getLatestKline(kltype);
+            matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
+                this.data.meta.state = 's1';
+            });
+            return true;
+        }
+        return false;
+    }
+
+    checkCutOrSell(chkInfo, matchCb) {
+        var kltype = this.data.kltype;
         var klines = emjyBack.klines[chkInfo.code];
-        var updatedKlt = chkInfo.kltypes;
-        var buydetails = chkInfo.buydetail;
-        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
-            return;
+        if (this.incSellMatch(chkInfo, kltype)) {
+            var kl = klines.getLatestKline(kltype);
+            var count = chkInfo.buydetail.getCountLessThan(kl.c, this.data.stepRate);
+            if (count > 0) {
+                if (chkInfo.buydetail.totalCount() - count == 0) {
+                    this.tmpnextstate = 's0';
+                }
+                matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                    if (this.tmpnextstate) {
+                        this.data.meta.state = this.tmpnextstate;
+                    }
+                });
+                return true;
+            }
+        }
+        return false;
+    }
+
+    checkConsecutiveBuySell(chkInfo, matchCb) {
+        var kltype = this.data.kltype;
+        var klines = emjyBack.klines[chkInfo.code];
+        var kl = klines.getLatestKline(kltype);
+        if (this.decBuyMatch(chkInfo, kltype)) {
+            var minp = chkInfo.buydetail.minBuyPrice();
+            if (minp * (1 - this.data.stepRate) - kl.c >= 0) {
+                matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
+                    this.data.meta.state = 's1';
+                });
+                return true;
+            }
+        }
+        var ldate = chkInfo.buydetail.latestBuyDate();
+        var lkl = klines.getKlineByTime(ldate);
+        if (lkl && lkl.c * (1 - this.data.stepRate * 1.5) - kl.c >= 0) {
+            matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
+                this.data.meta.state = 's1';
+            });
+            return true;
         }
 
-        this.checkMeta(buydetails);
-        if (this.data.meta.state == 's0') {
-            this.checkCreateBuy(chkInfo, matchCb);
-            return;
-        }
-
-        if (this.checkCutOrSell(chkInfo, matchCb)) {
-            return;
-        }
-
-        this.checkConsecutiveBuySell(chkInfo, matchCb);
+        return this.checkCutOrSell(chkInfo, matchCb);
     }
 }
