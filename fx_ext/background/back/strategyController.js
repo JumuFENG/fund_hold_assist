@@ -1852,9 +1852,9 @@ class StrategyIncDec extends StrategyComplexBase {
     checkCutOrSell(chkInfo, matchCb) {
         var kltype = this.data.kltype;
         var klines = emjyBack.klines[chkInfo.code];
+        var kl = klines.getLatestKline(kltype);
+        var count = chkInfo.buydetail.getCountLessThan(kl.c, this.data.stepRate);
         if (this.incSellMatch(chkInfo, kltype)) {
-            var kl = klines.getLatestKline(kltype);
-            var count = chkInfo.buydetail.getCountLessThan(kl.c, this.data.stepRate);
             if (count > 0) {
                 if (chkInfo.buydetail.totalCount() - count == 0) {
                     this.tmpnextstate = 's0';
@@ -1866,6 +1866,18 @@ class StrategyIncDec extends StrategyComplexBase {
                 });
                 return true;
             }
+        }
+        count = chkInfo.buydetail.getCountLessThan(kl.c, this.data.stepRate * 2);
+        if (count > 0) {
+            if (chkInfo.buydetail.totalCount() - count == 0) {
+                this.tmpnextstate = 's0';
+            }
+            matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                if (this.tmpnextstate) {
+                    this.data.meta.state = this.tmpnextstate;
+                }
+            });
+            return true;
         }
         return false;
     }

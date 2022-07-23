@@ -1,12 +1,12 @@
 'use strict';
 
 class StatisticsReport {
-    maxSingleDayCost(alldeals) {
-        if (!alldeals || alldeals.length == 0) {
+    maxSingleDayCost(deals) {
+        if (!deals || deals.length == 0) {
             return 0;
         }
 
-        var allDeals = alldeals.slice(0);
+        var allDeals = deals.slice(0);
         allDeals.sort((a, b) => {return a.time > b.time});
         var amount = 0;
         var maxMt = 0;
@@ -24,8 +24,8 @@ class StatisticsReport {
         return maxMt;
     }
 
-    checkDealsStatistics(alldeals) {
-        if (!alldeals || alldeals.length == 0) {
+    checkDealsStatistics(deals) {
+        if (!deals || deals.length == 0) {
             return;
         }
 
@@ -54,12 +54,12 @@ class StatisticsReport {
         var earned = 0, lost = 0;
         var tradeCountE = 0, tradeCountL = 0;
 
-        while (i < alldeals.length) {
-            tdeal.push(alldeals[i]);
-            if (alldeals[i].tradeType == 'B') {
-                tcount -= -alldeals[i].count;
+        while (i < deals.length) {
+            tdeal.push(deals[i]);
+            if (deals[i].tradeType == 'B') {
+                tcount -= -deals[i].count;
             } else {
-                tcount -= alldeals[i].count;
+                tcount -= deals[i].count;
             }
             if (tcount == 0) {
                 var ed = dealsEarned(tdeal);
@@ -77,12 +77,13 @@ class StatisticsReport {
         }
 
         lost = -lost;
-        var maxSdc = this.maxSingleDayCost(alldeals);
-        return {earned, lost, tradeCountE, tradeCountL, maxSdc};
+        var maxSdc = this.maxSingleDayCost(deals);
+        var netEarned = earned - lost;
+        return {earned, lost, netEarned, tradeCountE, tradeCountL, maxSdc};
     }
 
-    addDealsOf(dealsTable, allDeals, code, full) {
-        if (!allDeals || allDeals.length == 0) {
+    addDealsOf(dealsTable, deals, code, full) {
+        if (!deals || deals.length == 0) {
             return;
         }
 
@@ -92,9 +93,9 @@ class StatisticsReport {
         var totalCost = 0;
         var partEarned = 0;
         var partCost = 0;
-        var deals = allDeals.filter(d => d.code == code);
-        for (let i = 0; i < deals.length; i++) {
-            const deali = deals[i];
+        var allDeals = deals.filter(d => d.code == code);
+        for (let i = 0; i < allDeals.length; i++) {
+            const deali = allDeals[i];
             var anchor = emjyBack.stockAnchor(deali.code);
             var fee = -(-deali.fee - deali.feeGh - deali.feeYh);
             if (isNaN(fee)) {
@@ -149,13 +150,13 @@ class StatisticsReport {
         return {cost: totalCost, earn: totalEarned, fee: totalFee};
     }
 
-    showDeals(dealsTable, alldeals, showFullDeals, ignored, filtered) {
+    showDeals(dealsTable, deals, showFullDeals, ignored, filtered) {
         var toShow = new Set();
         if (filtered && filtered.size > 0) {
             toShow = filtered;
         } else {
-            for (let i = 0; i < alldeals.length; i++) {
-                const deali = alldeals[i];
+            for (let i = 0; i < deals.length; i++) {
+                const deali = deals[i];
                 if (ignored && ignored.has(deali.code)) {
                     continue;
                 }
@@ -168,7 +169,7 @@ class StatisticsReport {
         var collections = [];
         toShow.forEach(ds => {
             if (!ignored || !ignored.has(ds)) {
-                var result = this.addDealsOf(dealsTable, alldeals, ds, showFullDeals);
+                var result = this.addDealsOf(dealsTable, deals, ds, showFullDeals);
                 if (!result || result.cost == 0) {
                     return;
                 }
@@ -186,10 +187,46 @@ class StatisticsReport {
             dealsTable.addRow(i, collecti.code, emjyBack.stockAnchor(collecti.code), '', collecti.cost.toFixed(2), collecti.fee.toFixed(2), collecti.earn.toFixed(2), (100 * (collecti.earn / collecti.cost)).toFixed(2) + '%');
         }
         dealsTable.addRow('总收益', '', '', '', totalCost.toFixed(2), totalFee.toFixed(2), totalEarned.toFixed(2), (100 * (totalEarned / totalCost)).toFixed(2) + '%');
-        var stats = this.checkDealsStatistics(alldeals);
-        stats.netEarned = totalEarned - totalFee;
+        var stats = this.checkDealsStatistics(deals);
         dealsTable.addRow('盈亏比', '', '', '', stats.earned.toFixed(2), '', stats.lost.toFixed(2), (stats.earned / stats.lost).toFixed(2));
         dealsTable.addRow('胜率', '', '', '', stats.tradeCountE, '', stats.tradeCountL, (100 * stats.tradeCountE / (stats.tradeCountL + stats.tradeCountE)).toFixed(2) + '%');
-        dealsTable.addRow('单日最大成本', '', '', '', stats.maxSdc.toFixed(2), '', '收益率', (100 * stats.netEarned / stats.maxSdc).toFixed(2) + '%');
+        dealsTable.addRow('单日最大成本', '', '', '', stats.maxSdc.toFixed(2), '', '收益率', (100 * (stats.netEarned) / stats.maxSdc).toFixed(2) + '%');
+    }
+
+    showStrategyStats(stable, stats) {
+        if (!stats || stats.length == 0) {
+            return;
+        }
+        if (stats[0].length < 2) {
+            return;
+        }
+
+        console.log(stats);
+        stable.reset();
+        stable.setClickableHeader('策略', '收益','亏损', '净收益', '盈利次数', '亏损次数', '胜率(%)', '单日最大成本', '收益率(%)');
+        stats.forEach(s => {
+            var stati = s[1];
+            if (!stati) {
+                return;
+            }
+            if (stati.tradeCountE + stati.tradeCountL < 5) {
+                return;
+            }
+            var earn_percent = stati.tradeCountE * 100 / (stati.tradeCountE + stati.tradeCountL);
+            if (earn_percent < 35) {
+                return;
+            }
+            stable.addRow(
+                JSON.stringify(s[0]),
+                stati.earned.toFixed(2),
+                stati.lost.toFixed(2),
+                stati.netEarned.toFixed(2),
+                stati.tradeCountE,
+                stati.tradeCountL,
+                earn_percent.toFixed(2),
+                stati.maxSdc.toFixed(2),
+                (100 * (stati.netEarned) / stati.maxSdc).toFixed(2)
+                );
+        });
     }
 }

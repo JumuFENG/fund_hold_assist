@@ -14,6 +14,10 @@ class MockStrategyBarginHunting extends StrategyBarginHunting {
         var klines = emjyBack.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         var kltype = this.data.kltype;
+        if (updatedKlt.includes(this.skltype)) {
+            return super.checkCutOrSell(chkInfo, matchCb);
+        }
+
         if (!updatedKlt.includes(kltype)) {
             return;
         }

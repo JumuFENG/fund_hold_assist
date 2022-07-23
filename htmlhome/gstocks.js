@@ -7,8 +7,8 @@ class GlobalManager {
         this.klines = {};
         this.fha = {'server':'http://localhost/'};
         this.getFromLocal('hsj_stocks', item => {
-            if (item && item['hsj_stocks']) {
-                this.stockMarket = item['hsj_stocks'];
+            if (item) {
+                this.stockMarket = item;
             } else {
                 this.stockMarket = {};
                 this.fetchStocksMarket();
