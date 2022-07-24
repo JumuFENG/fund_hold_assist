@@ -77,6 +77,9 @@ class StrategyManager {
         if (strategy.key == 'StrategyIncDec') {
             return new StrategyIncDec(strategy);
         }
+        if (strategy.key == 'StrategyZt1') {
+            return new StrategyZt1(strategy);
+        }
     }
 }
 
@@ -156,8 +159,8 @@ class Strategy {
         }
 
         if (updatedKlt.includes(kltype)) {
-            var kl = klines.getLatestKline(kltype);
-            if (kl && kl.bss18 == 'b') {
+            var bss = klines.getLatestBss(18, kltype);
+            if (bss == 'b') {
                 return true;
             }
         }
@@ -172,8 +175,21 @@ class Strategy {
         }
 
         if (updatedKlt.includes(kltype)) {
-            var kl = klines.getLatestKline(kltype);
-            if (kl && kl.bss18 == 's') {
+            var bss = 'u';
+            if (!this.bss0date) {
+                bss = klines.getLatestBss(18, kltype);
+            } else {
+                var kline = klines.getKlinesSince(this.bss0date, kltype);
+                var kl = klines.getIncompleteKline(kltype);
+                var okline = kline;
+                if (!kl) {
+                    kl = kline[kline.length - 1];
+                    okline = kline.slice(0, kline.length - 1);
+                }
+                klines.calcKlineBss(okline, 18);
+                bss = klines.getNextKlBss(okline, kl, 18);
+            }
+            if (bss == 's') {
                 return true;
             }
         }
@@ -1905,5 +1921,61 @@ class StrategyIncDec extends StrategyComplexBase {
         }
 
         return this.checkCutOrSell(chkInfo, matchCb);
+    }
+}
+
+class StrategyZt1 extends StrategyComplexBase {
+    getconfig() {
+        return {
+            upRate: {min: 0.01, max: 0.08, step: 0.01, val: 0.05},
+            backRate: {min: 0.01, max: 0.08, step: 0.01, val: 0.03},
+            stepRate: {min: 0.03, max: 0.10, step:0.01, val: 0.05}
+       }
+    }
+
+    guardLevel() {
+        return 'kline';
+    }
+
+    checkMeta(buydetails) {
+        if (!this.data.meta) {
+            this.data.meta = {};
+            // s0: 未建仓/清仓， s1: 买入有持仓
+            if (!buydetails || buydetails.totalCount() == 0) {
+                this.data.meta.state = 's0';
+            } else {
+                this.data.meta.state = 's1';
+            }
+        }
+        if (!this.data.kltype) {
+            this.data.kltype = '101';
+        }
+
+        this.initconfig();
+    }
+
+    checkCreateBuy(chkInfo, matchCb) {
+        // not create buy.
+        return false;
+    }
+
+    checkCutOrSell(chkInfo, matchCb) {
+        this.bss0date = this.data.zt0date;
+        if (this.bss18SellMatch(chkInfo, '101')) {
+            var count = chkInfo.buydetail.availableCount();
+            if (count > 0) {
+                var klines = emjyBack.klines[chkInfo.code];
+                var kl = klines.getLatestKline(this.kltype());
+                matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                    this.setEnabled(false);
+                });
+                return true;
+            }
+        }
+        return false;
+    }
+
+    checkConsecutiveBuySell(chkInfo, matchCb) {
+        return false;
     }
 }

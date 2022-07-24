@@ -31,6 +31,7 @@
 
         <script src="../htmlhome/zdt/ztPanelView.js"></script>
         <script src="../htmlhome/zdt/dtPanelView.js"></script>
+        <script src="../htmlhome/zdt/stkDataPanelView.js"></script>
 
         <script src="../htmlhome/strategy/training.js"></script>
 
@@ -43,9 +44,9 @@
                 }
 
                 setupNavigators() {
-                    var tnpage = new TrainingPanelPage();
-                    this.navigator.addRadio(tnpage);
-                    this.root.appendChild(tnpage.container);
+                    var sdpage = new StkDataPanelPage();
+                    this.navigator.addRadio(sdpage);
+                    this.root.appendChild(sdpage.container);
 
                     var ztpage = new ZtPanelPage();
                     this.navigator.addRadio(ztpage);
@@ -54,6 +55,10 @@
                     var dtpage = new DtPanelPage();
                     this.navigator.addRadio(dtpage);
                     this.root.appendChild(dtpage.container);
+
+                    var tnpage = new TrainingPanelPage();
+                    this.navigator.addRadio(tnpage);
+                    this.root.appendChild(tnpage.container);
 
                     var retropage = new RetroPanelPage();
                     this.navigator.addRadio(retropage);

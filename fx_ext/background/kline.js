@@ -101,7 +101,7 @@ class KLine {
         }
 
         var kline = this.klines[kltype];
-        var lidx = kline.length - 1;
+        var lidx = kline.length;
         if (!inkl) {
             lidx--;
         }
@@ -149,6 +149,45 @@ class KLine {
                 return kline[i];
             }
         }
+    }
+
+    getKlinesSince(t, kltype) {
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            return [];
+        }
+
+        var kline = this.klines[kltype];
+        if (kline[kline.length - 1].time < t) {
+            return [];
+        }
+        for (var i = kline.length - 1; i >= 0; i--) {
+            if (kline[i].time == t) {
+                return kline.slice(i);
+            }
+        }
+        return kline;
+    }
+
+    getLatestBss(mlen, kltype='101') {
+        // 最新k线的bss值
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            return 'u';
+        }
+
+        var inkl = this.getIncompleteKline(kltype);
+        if (inkl && inkl['bss'+mlen] !== undefined) {
+            return inkl['bss'+mlen];
+        }
+
+        var kline = this.klines[kltype];
+        if (kline[kline.length - 1]['bss' + mlen] === undefined) {
+            this.calcKlineBss(kline, mlen);
+        }
+
+        if (!inkl) {
+            return kline[kline.length - 1]['bss' + mlen];
+        }
+        return this.getNextKlBss(kline, inkl, mlen);
     }
 
     closeIsTopMost(kl, kltype = '101') {
