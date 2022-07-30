@@ -133,7 +133,7 @@ class KLine {
         return this.klines[kltype][prevId];
     }
 
-    getKlineByTime(t, kltype) {
+    getKlineByTime(t, kltype='101') {
         var inkl = this.getIncompleteKline(kltype);
         if (inkl && inkl.time == t) {
             return inkl;
@@ -147,6 +147,24 @@ class KLine {
         for (var i = kline.length - 1; i >= 0; i--) {
             if (kline[i].time == t) {
                 return kline[i];
+            }
+        }
+    }
+
+    getPrevKlineByTime(t, kltype='101') {
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            return;
+        }
+
+        var inkl = this.getIncompleteKline(kltype);
+        var kline = this.klines[kltype];
+        if (inkl && inkl.time == t) {
+            return kline[kline.length - 1];
+        }
+
+        for (var i = kline.length - 1; i > 0; i--) {
+            if (kline[i].time == t) {
+                return kline[i-1];
             }
         }
     }

@@ -387,6 +387,10 @@ class StrategyBaseView {
         return kltDiv;
     }
 
+    skippedDataInput() {
+        return ['enabled', 'kltype', 'key', 'meta'];
+    }
+
     createDataInput(text) {
         var dataDiv = document.createElement('div');
         this.inputData = document.createElement('input');
@@ -396,6 +400,15 @@ class StrategyBaseView {
         this.inputData.style.width = 600;
         dataDiv.appendChild(document.createTextNode('data:'));
         dataDiv.appendChild(this.inputData);
+        var skipped = this.skippedDataInput();
+        var kv = [];
+        for (var k in this.strategy) {
+            if (skipped.includes(k)) {
+                continue;
+            }
+            kv.push('"' + k + '": "' + this.strategy[k] + '"');
+        }
+        this.inputData.value = '{' + kv.join(',') + '}';
         return dataDiv;
     }
 }
@@ -544,6 +557,10 @@ class StrategySellELSView extends StrategyBaseView {
 class StrategySellElTopView extends StrategyBaseView {
     getDefaultKltype() {
         return '4';
+    }
+
+    skippedDataInput() {
+        return ['enabled', 'kltype', 'key', 'guardPrice', 'topprice', 'selltype'];
     }
 
     createView() {

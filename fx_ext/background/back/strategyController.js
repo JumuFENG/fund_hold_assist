@@ -1639,17 +1639,16 @@ class StrategyBarginHunting extends StrategyComplexBase {
         if (!this.data.meta) {
             this.data.meta = {};
             // s0: 未建仓/清仓， s1: 买入有持仓
-            if (!buydetails || buydetails.totalCount() == 0) {
-                this.data.meta.state = 's0';
-            } else {
-                this.data.meta.state = 's1';
-            }
+            this.data.meta.state = 's0';
         }
         if (!this.data.kltype) {
             this.data.kltype = '101';
         }
 
         this.initconfig();
+        if (!this.data.selltype) {
+            this.data.selltype = 'single';
+        }
     }
 
     resetToS0() {
@@ -1688,7 +1687,7 @@ class StrategyBarginHunting extends StrategyComplexBase {
         }
 
         var kl = klines.getLatestKline(kltype);
-        var count = chkInfo.buydetail.availableCount();
+        var count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
         if (this.cutPriceReached(kl, this.data.guardPrice)) {
             // cut
             matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
