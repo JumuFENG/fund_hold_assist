@@ -71,8 +71,17 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyBH') {
             return new StrategyBarginHuntingView(strategy);
         }
+        if (strategy.key == 'StrategySD') {
+            return new StrategyStopDecView(strategy);
+        }
         if (strategy.key == 'StrategyIncDec') {
             return new StrategyIncDecView(strategy);
+        }
+        if (strategy.key == 'StrategyZt0') {
+            return new StrategyZt0View(strategy);
+        }
+        if (strategy.key == 'StrategyZt1') {
+            return new StrategyZt1View(strategy);
         }
     }
 
@@ -162,6 +171,25 @@ class StrategyBaseView {
                 changed = true;
             };
         };
+
+        if (this.inputVolGuard) {
+            var guardVol = parseInt(this.inputVolGuard.value);
+            if (!this.isEqualNum(this.strategy.guardVol, guardVol)) {
+                this.strategy.guardVol = guardVol;
+                changed = true;
+            }
+        }
+
+        if (this.inputZt0Date) {
+            var date = this.inputZt0Date.value;
+            if (date.length == 8) {
+                date = date.substring(0,4) + '-' + date.substring(4, 6) + '-' + date.substring(6);
+            }
+            if (this.strategy.zt0date != date) {
+                changed = true;
+                this.strategy.zt0date = date;
+            }
+        }
 
         if (this.inputCount) {
             var count = parseInt(this.inputCount.value);
@@ -318,6 +346,28 @@ class StrategyBaseView {
         upDiv.appendChild(this.inputUpEarn);
         upDiv.appendChild(document.createTextNode('%'));
         return upDiv;
+    }
+
+    createVolGuardInput(text) {
+        var vDiv = document.createElement('div');
+        vDiv.appendChild(document.createTextNode(text));
+        this.inputVolGuard = document.createElement('input');
+        if (this.strategy.guardVol) {
+            this.inputVolGuard.value = this.strategy.guardVol;
+        }
+        vDiv.appendChild(this.inputVolGuard);
+        return vDiv;
+    }
+
+    createZt0DateInput(text) {
+        var dDiv = document.createElement('div');
+        dDiv.appendChild(document.createTextNode(text));
+        this.inputZt0Date = document.createElement('input');
+        if (this.strategy.zt0date) {
+            this.inputZt0Date.value = this.strategy.zt0date;
+        }
+        dDiv.appendChild(this.inputZt0Date);
+        return dDiv;
     }
 
     createCountDiv(text = '卖出数量 ', cnt = 0) {
@@ -560,7 +610,7 @@ class StrategySellElTopView extends StrategyBaseView {
     }
 
     skippedDataInput() {
-        return ['enabled', 'kltype', 'key', 'guardPrice', 'topprice', 'selltype'];
+        return ['enabled', 'kltype', 'key', 'guardPrice', 'topprice', 'selltype', 'meta'];
     }
 
     createView() {
@@ -771,16 +821,77 @@ class StrategyBarginHuntingView extends StrategyBaseView {
     }
 }
 
+class StrategyStopDecView extends StrategyBaseView {
+    skippedDataInput() {
+        return ['enabled', 'kltype', 'key', 'guardPrice', 'topprice', 'selltype'];
+    }
+
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('设置止损价和目标止盈价, 在止损价附近买入, 止盈价附近卖出。'));
+        view.appendChild(this.createBuyAccountSelector());
+        view.appendChild(this.createKlineTypeSelector());
+        view.appendChild(this.createReferedInput('目标点'));
+        if (this.strategy.topprice) {
+            this.inputRefer.value = this.strategy.topprice;
+        }
+        view.appendChild(this.createGuardInput('止损点'));
+        view.appendChild(this.createDataInput());
+        return view;
+    }
+
+    isChanged() {
+        var changed = super.isChanged();
+        if (this.inputRefer && this.inputRefer.value) {
+            var topprice = this.inputRefer.value;
+            if (this.strategy.topprice != topprice) {
+                this.strategy.topprice = topprice;
+                changed = true;
+            };
+        };
+        return changed;
+    }
+}
+
 class StrategyIncDecView extends StrategyBaseView {
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
-        view.appendChild(document.createTextNode('大跌买入，大涨卖出，累计跌幅大于1.5倍stepRate时买入'));
+        view.appendChild(document.createTextNode('大跌买入, 大涨卖出, 累计跌幅大于1.5倍stepRate时买入'));
         view.appendChild(this.createBuyAccountSelector());
         view.appendChild(this.createKlineTypeSelector());
         view.appendChild(this.createUpEarnedInput('涨幅'));
         view.appendChild(this.createPopbackInput('跌幅'));
         view.appendChild(this.createStepsInput('区间涨跌幅'));
+        view.appendChild(this.createDataInput());
+        return view;
+    }
+}
+
+class StrategyZt0View extends StrategyBaseView {
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('首板战法'));
+        view.appendChild(this.createBuyAccountSelector());
+        view.appendChild(this.createZt0DateInput('首板日期'));
+        return view;
+    }
+}
+
+class StrategyZt1View extends StrategyBaseView {
+    skippedDataInput() {
+        return ['enabled', 'kltype', 'key', 'meta', 'guardVol', 'zt0date'];
+    }
+
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('首板一字涨停, 次日巨量阴线, 缩量止跌买入, 股价回升超过涨停之后的最高价之后不再关注。'));
+        view.appendChild(this.createBuyAccountSelector());
+        view.appendChild(this.createZt0DateInput('一字涨停日'));
+        view.appendChild(this.createVolGuardInput('成交量前低'));
         view.appendChild(this.createDataInput());
         return view;
     }

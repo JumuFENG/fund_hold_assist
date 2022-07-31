@@ -440,6 +440,22 @@ class KLine {
         }
     }
 
+    calcKlineMV(klines, mlen) {
+        var len = 0;
+        var sum = 0;
+        for (var i = 0; i < klines.length; i++) {
+            sum += parseFloat(klines[i].v);
+            if (len < mlen) {
+                len ++;
+            } else {
+                if (i >= mlen) {
+                    sum -= klines[i - mlen].v;
+                }
+            }
+            klines[i]['ma' + mlen] = (sum / len).toFixed(3);
+        }
+    }
+
     getNextKlMA(klines, kl, len) {
         var ma = parseFloat(kl.c);
         if (klines.length < len - 1) {
@@ -452,6 +468,20 @@ class KLine {
             ma += parseFloat(klines[i].c);
         };
         return ma / len;
+    }
+
+    getNextKlMV(klines, kl, len) {
+        var mv = parseInt(kl.v);
+        if (klines.length < len - 1) {
+            for (var i = 0; i < klines.length; i++) {
+                mv += parseInt(klines[i].v);
+            }
+            return mv / (klines.length + 1);
+        }
+        for (var i = klines.length - len + 1; i < klines.length; i++) {
+            mv += parseInt(klines[i].v);
+        }
+        return mv / len;
     }
 
     klineApproximatelyAboveMa(klines, kl, mlen) {
@@ -898,6 +928,66 @@ class KLine {
         return 0;
     }
 
+    getMinVolBefore(t, n, kltype='101') {
+        // 获取t日之前n天的最小成交量
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            return 0;
+        }
+
+        var inkl = this.getIncompleteKline(kltype);
+        var mVol = 0;
+        var m = 0;
+        if (inkl && inkl.time <= t) {
+            mVol = inkl.v;
+            m = 1;
+        }
+        var kline = this.klines[kltype];
+        for (var i = kline.length - 1; i >= 0; i--) {
+            if (kline[i].time > t) {
+                continue;
+            }
+            if (mVol == 0 || mVol - kline[i].v > 0) {
+                mVol = kline[i].v;
+            }
+            m++;
+            if (m >= n) {
+                break;
+            }
+        }
+        return mVol;
+    }
+
+    minVolKlSince(t, kltype='101') {
+        // 获取t日之后成交量最小的k线
+        var inkl = this.getIncompleteKline(kltype);
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            if (inkl && inkl.time >= t) {
+                return inkl;
+            }
+            return;
+        }
+
+        var kline = this.klines[kltype];
+        var lidx = kline.length - 1;
+        var mVol = kline[kline.length - 1].v;
+        var kl = kline[kline.length - 1];
+        if (inkl && inkl.time >= t) {
+            lidx--;
+            mVol = inkl.v;
+            kl = inkl;
+        }
+        for (var i = lidx; i >= 0; i--) {
+            if (kline[i].time <= t) {
+                break;
+            }
+            if (kline[i].v - mVol < 0) {
+                mVol = kline[i].v;
+                kl = kline[i];
+            }
+        }
+        return kl;
+    }
+
     getVolScale(kltype, time, n) {
         // get v scale for time based on mvol(n)
         var kline = this.klines[kltype];
@@ -1026,7 +1116,7 @@ class KLine {
     }
 
     continuouslyBellowMaDays(kltype='101') {
-        if (!this.klines) {
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
             return 0;
         }
         var kline = this.klines[kltype];
@@ -1110,22 +1200,50 @@ class KLine {
         return false;
     }
 
-    lowestPriceSince(date, kltype = '101') {
-        if (!this.klines) {
+    highestPriceSince(date, kltype='101') {
+        var inkl = this.getIncompleteKline(kltype);
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            if (inkl && inkl.time >= date) {
+                return inkl.h;
+            }
             return 0;
         }
 
         var kline = this.klines[kltype];
-        var lprc = 0;
-        var lidx = kline.length - 1;
+        var hprc = kline[kline.length - 1].h;
+        var lidx = kline.length - 2;
+        if (inkl)  {
+            hprc = inkl.h;
+            lidx = kline.length - 1;
+        }
+
+        for (var i = lidx; i >= 0; i--) {
+            var kl = kline[i];
+            if (kl.time < date) {
+                break;
+            }
+            if (kl.h - hprc > 0) {
+                hprc = kl.h;
+            }
+        }
+        return hprc;
+    }
+
+    lowestPriceSince(date, kltype = '101') {
         var inkl = this.getIncompleteKline(kltype);
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            if (inkl && inkl.time >= date) {
+                return inkl.l;
+            }
+            return 0;
+        }
+
+        var kline = this.klines[kltype];
+        var lprc = kline[kline.length - 1].l;
+        var lidx = kline.length - 2;
         if (inkl) {
             lprc = inkl.l;
-        } else if (kline.length > 0) {
-            lprc = kline[kline.length - 1].l;
-            lidx--;
-        } else {
-            return 0;
+            lidx = kline.length - 1;
         }
 
         for (let i = lidx; i >= 0; i--) {

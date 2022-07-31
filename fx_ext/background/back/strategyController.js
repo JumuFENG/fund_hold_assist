@@ -71,11 +71,17 @@ class StrategyManager {
         if (strategy.key == 'StrategyBH') {
             return new StrategyBarginHunting(strategy);
         }
+        if (strategy.key == 'StrategySD') {
+            return new StrategySD(strategy);
+        }
         if (strategy.key == 'StrategyBias') {
             return new StrategyBias(strategy);
         }
         if (strategy.key == 'StrategyIncDec') {
             return new StrategyIncDec(strategy);
+        }
+        if (strategy.key == 'StrategyZt0') {
+            return new StrategyZt0(strategy);
         }
         if (strategy.key == 'StrategyZt1') {
             return new StrategyZt1(strategy);
@@ -313,6 +319,14 @@ class Strategy {
         return false;
     }
 
+    targetPriceReachBuy(kl, price, backRate = 0) {
+        // 收盘价接近目标价, 收盘买入
+        if ((price - kl.l) / price - backRate > 0) {
+            return false;
+        }
+        return (kl.c - price) / price - backRate <= 0;
+    }
+
     targetPriceReachSell(kl, price, upRate = 0) {
         // 最高价接近目标价, 收盘卖出
         return (price - kl.h) / price - upRate < 0;
@@ -348,6 +362,56 @@ class Strategy {
         }
         return kl.bias18 - this.data.upBias > 0;
     }
+
+    zt1VolMinBuyMatch(chkInfo, kltype) {
+        // 首板一字涨停， 缩量买入
+        var klines = emjyBack.klines[chkInfo.code];
+        var updatedKlt = chkInfo.kltypes;
+        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
+            return false;
+        }
+
+        if (!this.data.guardVol) {
+            this.data.guardVol = 10000;
+        }
+        if (!this.data.backRate) {
+            this.data.backRate = 0.02;
+        }
+
+        if (updatedKlt.includes(kltype)) {
+            var lowvkl = klines.minVolKlSince(this.data.zt0date, kltype);
+            var hprc = klines.highestPriceSince(this.data.zt0date, kltype);
+            var lprc = klines.lowestPriceSince(this.data.zt0date, kltype);
+            var kl = klines.getLatestKline(kltype);
+            if (kl.l - lprc <= 0) {
+                return false;
+            }
+            var prekl = klines.getPrevKline(kltype);
+            if (prekl.time == this.data.zt0date) {
+                return false;
+            }
+            if (kl.h - hprc >= 0) {
+                this.setEnabled(false);
+                return false;
+            }
+            // ((kl.c - lowvkl.l <= 0 && (kl.c - lprc) / lprc <= this.data.backRate) ||
+            // (kl.c - lowvkl.l > 0 && (kl.c - lowvkl.c) / lowvkl.c <= this.data.backRate))
+            if (lowvkl.v - this.data.guardVol <= 0 && (kl.c - lowvkl.c) / lowvkl.c <= this.data.backRate) {
+                this.data.topprice = hprc;
+                this.data.guardPrice = lprc;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    volSellMatch(klines, kltype) {
+        // 成交量 > 1.5 * 10日均量的阳线
+        var kl = klines.getLatestKline(kltype);
+        var kline = klines.getLastNKlines(kltype, 10);
+        var mv10 = klines.getNextKlMV(kline, kl, 10);
+        return kl.v - 1.5 * mv10 > 0 && kl.c - kl.o > 0;
+    }
 }
 
 class StrategyComplexBase extends Strategy {
@@ -361,6 +425,10 @@ class StrategyComplexBase extends Strategy {
 
     checkConsecutiveBuySell(chkInfo, matchCb) {
         return false;
+    }
+
+    onCutDone(code) {
+        return;
     }
 
     checkKlines(chkInfo, matchCb) {
@@ -1687,16 +1755,18 @@ class StrategyBarginHunting extends StrategyComplexBase {
         }
 
         var kl = klines.getLatestKline(kltype);
-        var count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
-        if (this.cutPriceReached(kl, this.data.guardPrice)) {
+        var count = chkInfo.buydetail.availableCount();
+        if (this.cutPriceReached(kl, this.data.guardPrice) && count > 0) {
             // cut
-            matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+            matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, cutdeal => {
+                this.onCutDone(cutdeal.code);
                 this.resetToS0();
             });
             return;
         }
 
-        if (this.lowPriceStopGrowingSell(klines, kltype, this.data.topprice)) {
+        count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
+        if (this.lowPriceStopGrowingSell(klines, kltype, this.data.topprice) && count > 0) {
             // sell.
             matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
                 this.resetToS0();
@@ -1715,22 +1785,48 @@ class StrategyBarginHunting extends StrategyComplexBase {
         }
 
         var kl = klines.getLatestKline(kltype);
-        var count = chkInfo.buydetail.availableCount();
-        if (this.targetPriceReachSell(kl, this.data.topprice, this.data.upRate)) {
+        var count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
+        if (this.targetPriceReachSell(kl, this.data.topprice, this.data.upRate) && count > 0) {
             // sell
             matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
                 this.resetToS0();
             });
             return;
         }
-        if (this.cutPriceReached(kl, this.data.guardPrice)) {
+        count = chkInfo.buydetail.availableCount();
+        if (this.cutPriceReached(kl, this.data.guardPrice) && count > 0) {
             // cut
-            matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+            matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, cutdeal => {
+                this.onCutDone(cutdeal.code);
                 this.resetToS0();
             });
             return;
         }
         // wait
+    }
+}
+
+class StrategySD extends StrategyBarginHunting {
+    getconfig() {
+        return {
+            backRate: {min:0.01, max:0.05, step:0.005, val:0.02},
+            upRate: {min:0.01, max:0.05, step:0.005, val:0.01}
+        }
+    }
+
+    checkCreateBuy(chkInfo, matchCb) {
+        var kltype = this.data.kltype;
+        var klines = emjyBack.klines[chkInfo.code];
+        var kl = klines.getLatestKline(kltype);
+        if (!this.data.guardPrice) {
+            return false;
+        }
+
+        if (this.targetPriceReachBuy(kl, this.data.guardPrice, this.data.backRate)) {
+            matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
+                this.data.meta.state = 's1';
+            });
+        }
     }
 }
 
@@ -1923,7 +2019,7 @@ class StrategyIncDec extends StrategyComplexBase {
     }
 }
 
-class StrategyZt1 extends StrategyComplexBase {
+class StrategyZt0 extends StrategyComplexBase {
     getconfig() {
         return {
             upRate: {min: 0.01, max: 0.08, step: 0.01, val: 0.05},
@@ -1976,5 +2072,52 @@ class StrategyZt1 extends StrategyComplexBase {
 
     checkConsecutiveBuySell(chkInfo, matchCb) {
         return false;
+    }
+}
+
+class StrategyZt1 extends StrategyBarginHunting {
+    getconfig() {
+        return {
+            backRate: {min:0.01, max:0.05, step:0.005, val:0.02},
+            upRate: {min:0.01, max:0.05, step:0.005, val:0.01}
+        }
+    }
+
+    checkVol(code) {
+        if (!this.data.zt0date) {
+            return;
+        }
+        this.data.guardVol = emjyBack.klines[code].getMinVolBefore(this.data.zt0date, 30, this.data.kltype);
+    }
+
+    checkCreateBuy(chkInfo, matchCb) {
+        if (!this.data.guardVol) {
+            this.checkVol(chkInfo.code);
+        }
+
+        var kltype = this.data.kltype;
+        if (this.zt1VolMinBuyMatch(chkInfo, kltype)) {
+            var klines = emjyBack.klines[chkInfo.code];
+            var kl = klines.getLatestKline(kltype);
+            matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
+                this.data.meta.state = 's1';
+            });
+            return true;
+        }
+        return false;
+    }
+
+    onCutDone(code) {
+        if (!this.data.meta.cutNum) {
+            this.data.meta.cutNum = 1;
+        } else {
+            this.data.meta.cutNum++;
+        }
+        if (this.data.meta.cutNum > 5) {
+            this.setEnabled(false);
+            return;
+        }
+        var mvkl = emjyBack.klines[code].minVolKlSince(this.data.zt0date, this.data.kltype);
+        this.data.guardVol = mvkl.v - this.data.guardVol < 0 ? mvkl.v : this.data.guardVol;
     }
 }
