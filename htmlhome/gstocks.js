@@ -240,6 +240,23 @@ class GlobalManager {
             this.klines[code].save();
         });
     }
+
+    getDailyKlineSinceMonthAgo(code, kltype, sdate) {
+        var zdate = new Date(sdate);
+        zdate.setMonth(zdate.getMonth() - 1);
+        this.fetchStockKline(code, kltype, utils.dateToString(zdate));
+    }
+
+    checkExistingKlines(code, sdate, kltype, klnocheckold) {
+        if (klnocheckold && this.klines[code].klines[kltype][0].time == sdate) {
+            return
+        }
+        if (this.klines[code].klines[kltype][0].time >= sdate) {
+            this.klines[code].klines[kltype] = [];
+            console.log(code, sdate);
+            this.getDailyKlineSinceMonthAgo(code, kltype, sdate);
+        }
+    }
 }
 
 var emjyBack = new GlobalManager();

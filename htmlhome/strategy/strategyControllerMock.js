@@ -5,8 +5,8 @@ class MockStrategyManager extends StrategyManager {
         if (strategy.key == 'StrategyBH') {
             return new MockStrategyBarginHunting(strategy);
         }
-        if (strategy.key == 'StrategyZt1') {
-            return new MockStrategyZt1(strategy);
+        if (strategy.key == 'StrategyZt0') {
+            return new MockStrategyZt0(strategy);
         }
         return super.create(strategy);
     }
@@ -49,7 +49,7 @@ class MockStrategyBarginHunting extends StrategyBarginHunting {
     }
 }
 
-class MockStrategyZt1 extends StrategyZt1 {
+class MockStrategyZt0 extends StrategyZt0 {
     checkCreateBuy(chkInfo, matchCb) {
         var updatedKlt = chkInfo.kltypes;
         var kltype = '101';

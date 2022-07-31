@@ -1039,5 +1039,20 @@ var testMeta = [{
             {"kl":{"time":"2022-05-31 13:15","o":"2.26","c":"2.25","h":"2.26","l":"2.24","v":"17990","ma5":"2.254","ma18":"2.203","bss18":"h","td":3},"expect":{"dcount":1}}
         ]
     }]
+},{
+    testname: 'StrategySD_BuySell',
+    strategy: {
+        "grptype":"GroupStandard","strategies":{"0":{"key":"StrategySD","enabled":true,"guardPrice":66.66,"kltype":"101","topprice":"72.83"}},"transfers":{"0":{"transfer":"-1"}},
+        "amount":10000
+    },
+    code: 't17001', //600745
+    kdata: [{
+        kltype:'101',
+        kldata: [
+            {"kl":{"time":"2022-07-27","o":"67.71","c":"67.57","h":"68.49","l":"67.48","v":"103152","ma5":69.38,"ma18":72.67,"bss18":"w","td":-3},"expect":{"dcount":1, deal: {count: 200, price:67.57, tradeType:'B'}}},
+            {"kl":{"time":"2022-07-28","o":"68.00","c":"71.26","h":"73.00","l":"68.00","v":"330496","ma5":69.044,"ma18":72.36,"bss18":"w","td":0},"expect":{"dcount":2, deal: {count: 200, price:71.26, tradeType:'S'}}},
+            {"kl":{"time":"2022-07-29","o":"70.88","c":"68.60","h":"71.28","l":"68.44","v":"193874","ma5":68.598,"ma18":71.825,"bss18":"w","td":1},"expect":{"dcount":2}}
+        ]
+    }]
 }];
 

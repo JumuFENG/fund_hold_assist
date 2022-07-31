@@ -29,9 +29,11 @@
         <script src="../htmlhome/retro/retroPlans.js"></script>
         <script src="../htmlhome/retro/retroPanelView.js"></script>
 
+        <script src="../htmlhome/data/ztstocks.json.js"></script>
         <script src="../htmlhome/zdt/ztPanelView.js"></script>
         <script src="../htmlhome/zdt/dtPanelView.js"></script>
         <script src="../htmlhome/zdt/stkDataPanelView.js"></script>
+        <script src="../htmlhome/zdt/localsavedDataPanelView.js"></script>
 
         <script src="../htmlhome/strategy/training.js"></script>
 
@@ -44,6 +46,10 @@
                 }
 
                 setupNavigators() {
+                    var lsspage = new localSavedViewPage();
+                    this.navigator.addRadio(lsspage);
+                    this.root.appendChild(lsspage.container);
+
                     var sdpage = new StkDataPanelPage();
                     this.navigator.addRadio(sdpage);
                     this.root.appendChild(sdpage.container);
