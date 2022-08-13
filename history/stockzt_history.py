@@ -98,7 +98,7 @@ class StockZtInfo(EmRequest, TableBase):
             lbc = ztobj['lbc'] 
             hybk = ztobj['hybk'] # 行业板块
             # other sections: c->code, n->name, m->market(0=SZ,1=SH), p->涨停价*1000, zdp->涨跌幅,
-            # amount->成交额, ltsz->流通市值, tshare->总市值, lbc->连板次数, fbt->首次封板时间, lbt-》最后封板时间
+            # amount->成交额, ltsz->流通市值, tshare->总市值, lbc->连板次数, fbt->首次封板时间, lbt->最后封板时间
             # zttj->涨停统计 {days->天数, ct->涨停次数}
             self.ztdata.append([code, date, fund, hsl, lbc, zbc, hybk, ''])
 

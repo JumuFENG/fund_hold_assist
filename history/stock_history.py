@@ -272,6 +272,9 @@ class AllStocks(InfoList):
             rslt.append(jobj)
         return rslt
 
+    def getAllTsStocks(self):
+        return self.sqldb.select(gl_all_stocks_info_table, '*', 'type = "TSSTOCK"')
+
     def removeStock(self, code):
         self.sqldb.delete(gl_all_stocks_info_table, {column_code: code})
 

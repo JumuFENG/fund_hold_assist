@@ -21,6 +21,7 @@ class StockZt1Selector(TableBase):
             {'col':'实盘',   'type':'tinyint DEFAULT 0'},
             {'col':'交易记录','type':'varchar(255) DEFAULT NULL'}
         ]
+        self.__tsstocks = None
 
     def get_vol_scale(self, klines, date, n = 10):
         ''' 放量程度, {date}日成交量/10日均量
@@ -61,7 +62,9 @@ class StockZt1Selector(TableBase):
                 break
 
         if idx is None:
-            return 0
+            if l is None or c is None:
+                return 0
+            return round(100 * (c - l) / l, 2)
 
         return round(100 * (c - l) / float(klines[-idx - 1][2]), 2)
 
@@ -166,6 +169,34 @@ class StockZt1Selector(TableBase):
             if date >= datetime.now().strftime(r"%Y-%m-%d"):
                 break
 
+    def check_quit_stock(self, kd, code, date):
+        if kd and kd[-1]:
+            kl = kd[-1]
+            if kl and kl[1]:
+                ldate = kl[1]
+                date = self._max_date()
+                if ldate >= date:
+                    return
+
+        if self.__tsstocks is None:
+            allstk = AllStocks()
+            self.__tsstocks = allstk.getAllTsStocks()
+
+        if self.__tsstocks and len(self.__tsstocks) > 0:
+            stk = list(filter(lambda x: x[1] == code, self.__tsstocks))
+            if (len(stk) == 0):
+                return
+            stk = stk[0]
+            if stk and stk[8]:
+                print(code, 'already quit on', stk[8])
+                zt1info = self.sqldb.select(self.tablename, 'id,建仓日期', {f'{column_code}': code, f'{column_date}': date})
+                if zt1info and len(zt1info) == 1:
+                    (id, sdate), = zt1info
+                    if sdate is None:
+                        self.sqldb.update(self.tablename, {'建仓日期':'0', '清仓日期':'0'},  {'id':id})
+                    else:
+                        self.sqldb.update(self.tablename, {'清仓日期': stk[8]},  {'id':id})
+
     def check_incomplete_records(self):
         incomplete = self.sqldb.select(self.tablename, f'id,{column_code},{column_date}', ['建仓日期 is not NULL', '清仓日期 is NULL'])
         sd = StockDumps()
@@ -175,6 +206,7 @@ class StockZt1Selector(TableBase):
             recs = self.check_trade_records(kd, date)
             if recs is None or len(recs) < 2:
                 print('check_incomplete_records invalid recs', code, date)
+                self.check_quit_stock(kd, code, date)
                 continue
             else:
                 sdate = recs[0]['date']
@@ -191,6 +223,7 @@ class StockZt1Selector(TableBase):
             vs = self.get_vol_scale(kd, date)
             recs = self.check_trade_records(kd, date)
             if recs is None or len(recs) == 0:
+                self.check_quit_stock(kd, code, date)
                 print('check_noncreated_records invalid recs', code, date)
                 continue
             else:
@@ -213,3 +246,11 @@ class StockZt1Selector(TableBase):
 
     def getDumpCondition(self, date):
         return self._select_condition('清仓日期 is NULL' if date is None else f'清仓日期 > "{date}" or 清仓日期 is NULL')
+
+    def dumpFinishedRecords(self):
+        dmpkeys = self._select_keys([column_code, column_date, '上板强度', '放量程度', '建仓日期', '清仓日期', '交易记录'])
+        conds = self._select_condition(['清仓日期 is not NULL', 'not 清仓日期 = "0"'])
+        recs = self.sqldb.select(self.tablename, dmpkeys, conds)
+        if recs is None or len(recs) == 0:
+            return ''
+        return recs
