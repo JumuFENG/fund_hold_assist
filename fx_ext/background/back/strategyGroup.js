@@ -211,6 +211,9 @@ class BuyDetail {
         }
 
         var count = buyrec[buyrec.length - 1].count;
+        if (selltype == 'half') {
+            count = 100 * Math.ceil(count / 200);
+        }
         var aCount = this.availableCount();
         return count - aCount <= 0 ? count : aCount;
     }
@@ -435,15 +438,6 @@ class StrategyGroup {
         for (var id in strs) {
             this.strategies[id] = emjyBack.strategyManager.create(strs[id]);
         };
-    }
-
-    isLongTerm() {
-        for (var id in this.strategies) {
-            if (this.strategies[id].data.period == 'l') {
-                return true;
-            }
-        }
-        return false;
     }
 
     getNextValidId() {

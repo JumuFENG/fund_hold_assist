@@ -688,9 +688,7 @@ class NormalAccount extends Account {
     }
 
     addStockStrategy(stock, strgrp) {
-        if (stock.strategies && strgrp && stock.strategies.isLongTerm()) {
-            stock.strategies.addStrategyGroup(strgrp);
-        } else if (strgrp) {
+        if (strgrp) {
             var strategyGroup = strategyGroupManager.create(strgrp, this.keyword, stock.code, this.keyword + '_' + stock.code + '_strategies');
             strategyGroup.applyGuardLevel();
             stock.strategies = strategyGroup;

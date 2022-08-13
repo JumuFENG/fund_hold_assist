@@ -44,7 +44,7 @@ class KLine {
     loadSaved(cb) {
         if (this.code.startsWith('t')) {
             if (typeof(cb) === 'function') {
-                cb();
+                cb(this.code);
             }
             return;
         }
@@ -59,7 +59,7 @@ class KLine {
                 this.parseKlVars();
             };
             if (typeof(cb) === 'function') {
-                cb();
+                cb(this.code);
             }
         });
     }

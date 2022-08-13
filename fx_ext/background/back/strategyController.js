@@ -333,7 +333,7 @@ class Strategy {
     }
 
     cutPriceReached(kl, cutprice) {
-        return kl.l - cutprice < 0;
+        return kl.c - cutprice < 0;
     }
 
     lowPriceStopGrowingSell(klines, kltype, topprice=0) {

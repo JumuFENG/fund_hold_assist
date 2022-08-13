@@ -1133,7 +1133,7 @@ class EmjyBack {
         var addMissed = function(account) {
             for (let i = 0; i < account.stocks.length; i++) {
                 const stocki = account.stocks[i];
-                if (stocki.strategies && stocki.strategies.isLongTerm() && stocki.holdCount == 0 && fitBuyMA(stocki.code, days, stocki.strategies)) {
+                if (stocki.strategies && stocki.holdCount == 0 && fitBuyMA(stocki.code, days, stocki.strategies)) {
                     var str = {"key":"StrategyBuy","enabled":true};
                     if (account.keyword == 'collat') {
                         str.account = 'credit';

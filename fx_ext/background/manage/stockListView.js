@@ -11,9 +11,9 @@ class StockView {
             this.onStockClicked(e.currentTarget, this.stock);
         };
         this.divTitle = document.createElement('div');
-        var titleText = stock.name + '(' + stock.code + ') '+ emjyManager.accountNames[stock.account];
+        var titleText = stock.name + '(' + stock.code + ') '+ emjyBack.accountNames[stock.account];
         this.divTitle.appendChild(document.createTextNode(titleText));
-        var anchor = emjyManager.stockAnchor(stock.code, '行情');
+        var anchor = emjyBack.stockAnchor(stock.code, '行情');
         this.divTitle.appendChild(anchor);
         
         if (stock.holdCount == 0) {
@@ -22,8 +22,8 @@ class StockView {
             this.deleteBtn.code = stock.code;
             this.deleteBtn.account = stock.account;
             this.deleteBtn.onclick = e => {
-                emjyManager.sendExtensionMessage({command:'mngr.rmwatch', code: e.target.code, account: e.target.account});
-                emjyManager.stockList.deleteStock(e.target.account, e.target.code);
+                emjyBack.sendExtensionMessage({command:'mngr.rmwatch', code: e.target.code, account: e.target.account});
+                emjyBack.stockList.deleteStock(e.target.account, e.target.code);
             }
             this.divTitle.appendChild(this.deleteBtn);
         };
@@ -41,7 +41,7 @@ class StockView {
             + ' 数量：' + this.stock.holdCount  + ' 市值: ' + (this.stock.latestPrice * this.stock.holdCount).toFixed(2);
         this.detailView.textContent = detailText;
         if (this.stock.holdCount == 0) {
-            emjyManager.getTotalEarned(this.stock.code, e => {
+            emjyBack.getTotalEarned(this.stock.code, e => {
                 if (e == 0) {
                     return;
                 }
@@ -51,7 +51,7 @@ class StockView {
                 this.detailView.textContent = detailText;
             });
         }
-        if (this.deleteBtn && emjyManager.klines[this.stock.code] && emjyManager.klines[this.stock.code].continuouslyBellowMaDays() >= 5) {
+        if (this.deleteBtn && emjyBack.klines[this.stock.code] && emjyBack.klines[this.stock.code].continuouslyBellowMaDays() >= 5) {
             this.divTitle.style.borderBottom = '2px solid green';
             console.log('remove', this.stock.code);
         }
@@ -82,7 +82,7 @@ class StockView {
             this.divTitle.style.paddingLeft = '10px';
         }
 
-        if (emjyManager.klines[this.stock.code]) {
+        if (emjyBack.klines[this.stock.code]) {
             this.refresh();
         }
     }
@@ -99,7 +99,7 @@ class StockListPanelPage extends RadioAnchorPage {
     }
 
     initUi(stocks) {
-        emjyManager.log('init StockList');
+        emjyBack.log('init StockList');
         if (this.strategyGroupView.root.parentElement) {
             this.strategyGroupView.root.parentElement.removeChild(this.strategyGroupView.root);
         }
@@ -255,7 +255,7 @@ class StockListPanelPage extends RadioAnchorPage {
     updateStockPrice(code) {
         for (var i = 0; i < this.stocks.length; i++) {
             if (this.stocks[i].stock.code == code) {
-                this.stocks[i].stock.latestPrice = emjyManager.klines[code].getLatestKline('101').c;
+                this.stocks[i].stock.latestPrice = emjyBack.klines[code].getLatestKline('101').c;
                 this.stocks[i].refresh();
             }
         }
@@ -263,7 +263,7 @@ class StockListPanelPage extends RadioAnchorPage {
 
     addStock(stock) {
         if (this.accStockExists(stock.acccode)) {
-            emjyManager.log(stock.acccode, 'already exists');
+            emjyBack.log(stock.acccode, 'already exists');
             return;
         };
         
@@ -302,7 +302,7 @@ class StockListPanelPage extends RadioAnchorPage {
         var updateBtn = document.createElement('button');
         updateBtn.textContent = '更新数据';
         updateBtn.onclick = e => {
-            emjyManager.updateShownStocksDailyKline();
+            emjyBack.updateShownStocksDailyKline();
         }
         this.container.appendChild(updateBtn);
 
@@ -352,25 +352,52 @@ class StockListPanelPage extends RadioAnchorPage {
 
     addWatchArea() {
         var watchDiv = document.createElement('div');
-        var inputCode = document.createElement('input');
-        watchDiv.appendChild(inputCode);
-        var watchAccountSelector = document.createElement('select');
-        for (var i in emjyManager.accountsMap) {
-            watchAccountSelector.options.add(new Option(emjyBack.accountNames[i], i));
+        this.inputWatchCode = document.createElement('input');
+        watchDiv.appendChild(this.inputWatchCode);
+        this.watchCodeAccountSelector = document.createElement('select');
+        for (var i in emjyBack.accountsMap) {
+            this.watchCodeAccountSelector.options.add(new Option(emjyBack.accountNames[i], i));
         };
-        watchDiv.appendChild(watchAccountSelector);
-        var btnOk = document.createElement('button');
-        btnOk.textContent = '新增观察股票';
-        btnOk.parentPage = this;
-        btnOk.onclick = (e) => {
-            if (inputCode.value.length != 6) {
+        watchDiv.appendChild(this.watchCodeAccountSelector);
+        var btnAddWatchCode = document.createElement('button');
+        btnAddWatchCode.textContent = '新增观察股票';
+        btnAddWatchCode.onclick = e => {
+            if (this.inputWatchCode.value.length != 6) {
                 alert('Wrong stock code');
                 return;
             };
-            emjyManager.addWatchingStock(inputCode.value, watchAccountSelector.value);
-            inputCode.value = '';
+            emjyBack.addWatchingStock(this.inputWatchCode.value, this.watchCodeAccountSelector.value);
+            this.inputWatchCode.value = '';
         };
-        watchDiv.appendChild(btnOk);
+        watchDiv.appendChild(btnAddWatchCode);
+
+        watchDiv.appendChild(document.createElement('br'));
+
+        this.inputWatchList = document.createElement('textarea');
+        this.inputWatchList.style.height = 150;
+        this.inputWatchList.style.width = 200;
+        watchDiv.appendChild(this.inputWatchList);
+        this.watchListAccountSelector = document.createElement('select');
+        this.watchListAccountSelector.options.add(new Option('普通账户', 0));
+        this.watchListAccountSelector.options.add(new Option('自动分配', 1));
+        watchDiv.appendChild(this.watchListAccountSelector);
+        var btnAddWatchList = document.createElement('button');
+        btnAddWatchList.textContent = '新增股票策略';
+        btnAddWatchList.onclick = e => {
+            var candidatesObj = JSON.parse(this.inputWatchList.value);
+            var acc = this.watchListAccountSelector.value;
+            for(var c in candidatesObj) {
+                var account = acc == 0 ? 'normal' : emjyBack.stockAccountFrom(c);
+                var strgrp = {
+                    "grptype":"GroupStandard",
+                    "strategies":{"0":candidatesObj[c]},
+                    "transfers":{"0":{"transfer":"-1"}},
+                    "amount":10000};
+                emjyBack.addWatchingStock(c, account, strgrp);
+            }
+            this.inputWatchList.value = '';
+        }
+        watchDiv.appendChild(btnAddWatchList);
         this.container.appendChild(watchDiv);
     }
 }

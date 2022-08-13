@@ -249,7 +249,9 @@ class StrategyBaseView {
                         changes++;
                     }
                 }
-                changed = changes > 0;
+                if (changes > 0) {
+                    changed = true;
+                }
             }
         }
         return changed;
@@ -276,9 +278,10 @@ class StrategyBaseView {
         this.sellCntSelector = document.createElement('select');
         this.sellCntSelector.options.add(new Option('全部卖出', 'all'));
         this.sellCntSelector.options.add(new Option('盈利部分卖出', 'earned'));
-        this.sellCntSelector.options.add(new Option('单次买入', 'single'));
+        this.sellCntSelector.options.add(new Option('卖出单次', 'single'));
+        this.sellCntSelector.options.add(new Option('卖出半次', 'half'));
         if (this.strategy.selltype === undefined) {
-            this.sellCntSelector.value = 'earned';
+            this.sellCntSelector.value = 'single';
         } else {
             this.sellCntSelector.value = this.strategy.selltype;
         }
@@ -438,7 +441,7 @@ class StrategyBaseView {
     }
 
     skippedDataInput() {
-        return ['enabled', 'kltype', 'key', 'meta'];
+        return ['enabled', 'account', 'kltype', 'key', 'meta'];
     }
 
     createDataInput(text) {
@@ -610,7 +613,7 @@ class StrategySellElTopView extends StrategyBaseView {
     }
 
     skippedDataInput() {
-        return ['enabled', 'kltype', 'key', 'guardPrice', 'topprice', 'selltype', 'meta'];
+        return ['enabled', 'account', 'kltype', 'key', 'guardPrice', 'topprice', 'selltype', 'meta'];
     }
 
     createView() {
@@ -775,15 +778,6 @@ class StrategyGridEarningView extends StrategyBaseView {
         view.appendChild(this.createKlineTypeSelector('卖出K线类型'));
         return view;
     }
-
-    isChanged() {
-        var changed = super.isChanged();
-        if (this.strategy.period === undefined) {
-            this.strategy.period = 'l';
-            changed = true;
-        }
-        return changed;
-    }
 }
 
 class StrategyGridEarningMidView extends StrategyGridEarningView {
@@ -823,7 +817,7 @@ class StrategyBarginHuntingView extends StrategyBaseView {
 
 class StrategyStopDecView extends StrategyBaseView {
     skippedDataInput() {
-        return ['enabled', 'kltype', 'key', 'guardPrice', 'topprice', 'selltype'];
+        return ['enabled', 'account', 'kltype', 'key', 'meta', 'guardPrice', 'topprice', 'selltype'];
     }
 
     createView() {
@@ -882,7 +876,7 @@ class StrategyZt0View extends StrategyBaseView {
 
 class StrategyZt1View extends StrategyBaseView {
     skippedDataInput() {
-        return ['enabled', 'kltype', 'key', 'meta', 'guardVol', 'zt0date'];
+        return ['enabled', 'account', 'kltype', 'key', 'meta', 'guardVol', 'zt0date'];
     }
 
     createView() {
