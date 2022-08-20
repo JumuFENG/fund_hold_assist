@@ -329,7 +329,7 @@ class Strategy {
 
     targetPriceReachSell(kl, price, upRate = 0) {
         // 最高价接近目标价, 收盘卖出
-        return (price - kl.h) / price - upRate < 0;
+        return (price - kl.h) / price - upRate <= 0;
     }
 
     cutPriceReached(kl, cutprice) {
@@ -381,24 +381,51 @@ class Strategy {
         if (updatedKlt.includes(kltype)) {
             var lowvkl = klines.minVolKlSince(this.data.zt0date, kltype);
             var hprc = klines.highestPriceSince(this.data.zt0date, kltype);
-            var lprc = klines.lowestPriceSince(this.data.zt0date, kltype);
+            var lowkl = klines.lowestKlSince(this.data.zt0date, kltype);
+            var lprc = lowkl.l;
             var kl = klines.getLatestKline(kltype);
+            if (lowkl.time == kl.time) {
+                // 最低价当日更新区间最高价, 即为目标价
+                this.data.topprice = hprc;
+            }
             if (kl.l - lprc <= 0) {
+                // 当日最低价为区间最低价不买入
                 return false;
             }
             var prekl = klines.getPrevKline(kltype);
             if (prekl.time == this.data.zt0date) {
+                // 涨停次日不买入
                 return false;
             }
-            if (kl.h - hprc >= 0) {
+            if (this.data.topprice && hprc - this.data.topprice > 0) {
+                // 最低价之后的最高价已经超过目标价
                 this.setEnabled(false);
                 return false;
             }
-            // ((kl.c - lowvkl.l <= 0 && (kl.c - lprc) / lprc <= this.data.backRate) ||
-            // (kl.c - lowvkl.l > 0 && (kl.c - lowvkl.c) / lowvkl.c <= this.data.backRate))
-            if (lowvkl.v - this.data.guardVol <= 0 && (kl.c - lowvkl.c) / lowvkl.c <= this.data.backRate) {
-                this.data.topprice = hprc;
+            var num = klines.KlineNumSince(this.data.zt0date);
+            if (num >= 60) {
+                var ztkl = klines.getKlineByTime(this.data.zt0date);
+                if (lprc - ztkl.c > 0) {
+                    // 涨停后60个交易日都运行在涨停日价格之上, 不再关注
+                    this.setEnabled(false);
+                    return false;
+                }
+            }
+            if (lowvkl.v - this.data.guardVol > 0) {
+                // 最低成交量大于参考量
+                return false;
+            }
+            if (kl.h - hprc >= 0) {
+                // 超出最高价 不再关注
+                this.setEnabled(false);
+                return false;
+            }
+            // 成交量跌破参考量当日 或 收盘价低于最低成交量当日的收盘价 或 收盘价在区间最低价以上backRate之内买入
+            if (kl.c - lowvkl.c <= 0 || (kl.c - lprc) / lprc <= this.data.backRate) {
                 this.data.guardPrice = lprc;
+                if (!this.data.topprice) {
+                    this.data.topprice = hprc;
+                }
                 return true;
             }
         }
@@ -1487,6 +1514,10 @@ class StrategyMA extends StrategyTD {
             }
             var kl = klines.getLatestKline(kltype);
             var cutline = klines.getLowestInWaiting(kltype);
+            var bkl = klines.getLastBssBuyKline(kltype);
+            if (bkl && (kl.c - bkl.c / bkl.c) - 0.5 >= 0 ) {
+                return false;
+            }
             if (klines.latestKlineDrawback(kltype) - drawBack <= 0 && this.cutlineAcceptable(cutline, kl, kltype)) {
                 this.tmpGuardPrice = cutline;
                 matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
@@ -2091,13 +2122,18 @@ class StrategyZt1 extends StrategyBarginHunting {
     }
 
     checkCreateBuy(chkInfo, matchCb) {
-        if (!this.data.guardVol) {
-            this.checkVol(chkInfo.code);
+        var code = chkInfo.code;
+        var kltype = this.data.kltype;
+        if (emjyBack.klines[code].getLatestKline(kltype).time <= this.data.zt0date) {
+            return false;
         }
 
-        var kltype = this.data.kltype;
+        if (!this.data.guardVol) {
+            this.checkVol(code);
+        }
+
         if (this.zt1VolMinBuyMatch(chkInfo, kltype)) {
-            var klines = emjyBack.klines[chkInfo.code];
+            var klines = emjyBack.klines[code];
             var kl = klines.getLatestKline(kltype);
             matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
                 this.data.meta.state = 's1';

@@ -338,6 +338,7 @@ class Manager {
             };
         };
         this.stockList.initUi(accstocks);
+        emjyBack.checkHoldingStocks();
     }
 
     initUi() {

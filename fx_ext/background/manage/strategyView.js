@@ -407,13 +407,17 @@ class StrategyBaseView {
             acctDiv.appendChild(document.createTextNode('买入账户 '));
             this.accountSelector = document.createElement('select');
             emjyManager.accountsMap[this.ownerAccount].forEach(acc => {
-                var opt = document.createElement('option');
-                opt.value = acc;
-                opt.textContent = emjyManager.accountNames[acc];
-                this.accountSelector.appendChild(opt);
+                var opt = new Option(emjyManager.accountNames[acc], acc);
+                this.accountSelector.options.add(opt);
             });
             acctDiv.appendChild(this.accountSelector);
-            this.accountSelector.value = this.strategy.account === undefined ? this.ownerAccount : this.strategy.account;
+            if (this.strategy.account !== undefined) {
+                this.accountSelector.value = this.strategy.account;
+            } else if (emjyManager.accountsMap[this.ownerAccount].includes('credit')) {
+                this.accountSelector.value = 'credit';
+            } else {
+                this.accountSelector.value = this.ownerAccount;
+            }
         };
         return acctDiv;
     }

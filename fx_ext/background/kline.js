@@ -1201,6 +1201,7 @@ class KLine {
     }
 
     highestPriceSince(date, kltype='101') {
+        // date(不含)之后最高价
         var inkl = this.getIncompleteKline(kltype);
         if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
             if (inkl && inkl.time >= date) {
@@ -1219,7 +1220,7 @@ class KLine {
 
         for (var i = lidx; i >= 0; i--) {
             var kl = kline[i];
-            if (kl.time < date) {
+            if (kl.time <= date) {
                 break;
             }
             if (kl.h - hprc > 0) {
@@ -1230,6 +1231,7 @@ class KLine {
     }
 
     lowestPriceSince(date, kltype = '101') {
+        // date(不含)之后最低价
         var inkl = this.getIncompleteKline(kltype);
         if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
             if (inkl && inkl.time >= date) {
@@ -1248,7 +1250,7 @@ class KLine {
 
         for (let i = lidx; i >= 0; i--) {
             const kl = kline[i];
-            if (kl.time < date) {
+            if (kl.time <= date) {
                 break;
             }
             if (kl.l - lprc < 0) {
@@ -1274,7 +1276,7 @@ class KLine {
         var lidx = kline.length - 1;
         for (let i = kline.length - 2; i >= 0; i--) {
             const kl = kline[i];
-            if (kl.time < date) {
+            if (kl.time <= date) {
                 break;
             }
             if (kl.l - lprc < 0) {
@@ -1337,6 +1339,24 @@ class KLine {
         }
 
         return kline[kline.length - 1]['bss' + mlen] == 'w';
+    }
+
+    getLastBssBuyKline(kltype='101', mlen=18) {
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            return;
+        }
+
+        var kline = this.klines[kltype];
+        var inkl = this.getIncompleteKline(kltype);
+        var lastIdx = inkl ? kline.length - 1 : kline.length - 2;
+        for (var i = lastIdx; i >= 0; i--) {
+            if (kline[i]['bss' + mlen] === undefined) {
+                this.calcKlineBss(kline, mlen);
+            }
+            if (kline[i]['bss' + mlen] == 'b') {
+                return kline[i];
+            }
+        }
     }
 
     lastDownKl(upBound, kltype='101') {

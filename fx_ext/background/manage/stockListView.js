@@ -213,6 +213,9 @@ class StockListPanelPage extends RadioAnchorPage {
                     this.stocks[i].container.style.display = 'block';
                 }
             } else if (typeof(fid) === 'string') {
+                if (!stocki.strategies) {
+                    continue;
+                }
                 for (const k in stocki.strategies.strategies) {
                     const str = stocki.strategies.strategies[k];
                     if (str.key == fid) {
@@ -254,7 +257,7 @@ class StockListPanelPage extends RadioAnchorPage {
 
     updateStockPrice(code) {
         for (var i = 0; i < this.stocks.length; i++) {
-            if (this.stocks[i].stock.code == code) {
+            if (this.stocks[i].stock.code == code && emjyBack.klines[code]) {
                 this.stocks[i].stock.latestPrice = emjyBack.klines[code].getLatestKline('101').c;
                 this.stocks[i].refresh();
             }
@@ -309,7 +312,6 @@ class StockListPanelPage extends RadioAnchorPage {
         var checkCountBtn = document.createElement('button');
         checkCountBtn.textContent = '检查数量';
         checkCountBtn.onclick = e => {
-            emjyBack.checkHoldingStocks();
             emjyBack.checkKl1Expired();
         }
         this.container.appendChild(checkCountBtn);
