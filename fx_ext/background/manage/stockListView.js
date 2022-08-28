@@ -258,7 +258,10 @@ class StockListPanelPage extends RadioAnchorPage {
     updateStockPrice(code) {
         for (var i = 0; i < this.stocks.length; i++) {
             if (this.stocks[i].stock.code == code && emjyBack.klines[code]) {
-                this.stocks[i].stock.latestPrice = emjyBack.klines[code].getLatestKline('101').c;
+                var lkl = emjyBack.klines[code].getLatestKline('101');
+                if (lkl) {
+                    this.stocks[i].stock.latestPrice = lkl.c;
+                }
                 this.stocks[i].refresh();
             }
         }

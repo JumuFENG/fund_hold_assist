@@ -77,6 +77,7 @@ class Manager {
                         }
                     }
                 }
+                this.checkKl1Expired();
             }
         });
     }

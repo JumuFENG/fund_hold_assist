@@ -1853,6 +1853,12 @@ class StrategySD extends StrategyBarginHunting {
             return false;
         }
 
+        if (kl.l - this.data.guardPrice < 0) {
+            this.data.guardPrice = kl.l;
+            matchCb({id: chkInfo.id});
+            return false;
+        }
+
         if (this.targetPriceReachBuy(kl, this.data.guardPrice, this.data.backRate)) {
             matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
                 this.data.meta.state = 's1';
