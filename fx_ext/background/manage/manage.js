@@ -560,10 +560,10 @@ class Manager {
     checkKl1Expired() {
         var kltimeExpired = function(kt) {
             var t = new Date();
-            if (t.getDay() == 1 && t - new Date(kt) > 72*36000000) {
+            if (t.getDay() == 1 && t - new Date(kt) > 72*3600000) {
                 return true;
             }
-            return t - new Date(kt) > 24*36000000;
+            return t - new Date(kt) > 24*3600000;
         }
         for (var c in this.klines) {
             if (!this.klines[c] || !this.klines[c].klines || !this.klines[c].klines['1'] || this.klines[c].klines['1'].length == 0) {

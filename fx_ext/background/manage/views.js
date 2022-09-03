@@ -16,7 +16,7 @@ class Utils {
                 if (typeof(cb) === 'function') {
                     cb(httpRequest.responseText);
                 } else {
-                    eval(httpRequest.responseText);
+                    console.info('utils.get no callback set!', httpRequest.responseText);
                 }
             }
         }
@@ -39,7 +39,7 @@ class Utils {
                 if (typeof(cb) === 'function') {
                     cb(httpRequest.responseText);
                 } else {
-                    eval(httpRequest.responseText);
+                    console.info('utils.post no callback set!', httpRequest.responseText);
                 }
             }
         }
@@ -58,7 +58,7 @@ class Utils {
                     if (typeof(cb) === 'function') {
                         cb(httpRequest.responseText);
                     } else {
-                        eval(httpRequest.responseText);
+                        console.info('utils.postJson no callback set!', httpRequest.responseText);
                     }
                 }
             }

@@ -313,7 +313,7 @@ class StockListPanelPage extends RadioAnchorPage {
         this.container.appendChild(updateBtn);
 
         var checkCountBtn = document.createElement('button');
-        checkCountBtn.textContent = '检查数量';
+        checkCountBtn.textContent = '检查数据';
         checkCountBtn.onclick = e => {
             emjyBack.checkKl1Expired();
         }

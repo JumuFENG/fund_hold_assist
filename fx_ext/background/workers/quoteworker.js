@@ -1,15 +1,13 @@
 let SHSZQueryUrl = 'https://hsmarketwg.eastmoney.com/api/SHSZQuery?count=10&callback=sData&id=';
 let quoteUrl = 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot';
 // https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id=601012&callback=jQuery18304735019505463437_1624277312927&_=1624277415671
-let ztPoolUrl = 'http://push2ex.eastmoney.com/getTopicZTPool?ut=7eea3edcaed734bea9cbfc24409ed989&sort=fbt%3Aasc&Pageindex=0&dpt=wz.ztzt&cb=cbztPoolback&date=';
+let ztPoolUrl = 'http://push2ex.eastmoney.com/getTopicZTPool?ut=7eea3edcaed734bea9cbfc24409ed989&sort=fbt%3Aasc&Pageindex=0&dpt=wz.ztzt&date=';
 
 let hisKlineUrl = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&klt=101&fqt=1&fields1=f1,f3&fields2=f51,f52,f53,f54,f55,f56';
 
 let hisKlineRt = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56&beg=0&end=20500000'
 
 let bkQueryUrl = 'http://push2.eastmoney.com/api/qt/clist/get?ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fields=f12,f13,f14'
-
-var kltBack = {'1':'klineMinBack', '5':'kline5MinBack', '15':'kline15MinBack', '30':'klineHalfHrBack', '60':'klineHourlyBack', '120':'kline2HrBack', '101':'klineDailyBack', '102':'klineWeeklyBack', '103':'klineMonthlyBack', '104':'klineQuarterlyBack','105':'klineHalfYrBack','106':'klineYearBack'};
 
 // fields 
 // f1 : code  f2 : market f3 : name f4 : decimal f5 : dktotal  f6 : preKPrice f7 : prePrice f8 : qtMiscType 
@@ -33,8 +31,6 @@ function xmlHttpGet(url, cb) {
         if (httpRequest.readyState == 4 && httpRequest.status == 200) {
             if (typeof(cb) === 'function') {
                 cb(httpRequest.responseText);
-            } else {
-                eval(httpRequest.responseText);
             }
         }
     };
@@ -43,7 +39,7 @@ function xmlHttpGet(url, cb) {
 function queryStockInfo(code) {
     var url = SHSZQueryUrl + code;
     xmlHttpGet(url, (response) => {
-        eval(response);
+        var sData = response.match(/var sData = "(.+?);";/)[1];
         if (!sData.includes(',')) {
             postMessage({command:'quote.query.stock', sdata: {code, market:code.startsWith('60') ? 'SH' : 'SZ'}});
         } else {
@@ -86,20 +82,17 @@ function codeToSecid(code, market) {
 
 function quoteSnapshot(code) {
     var url = quoteUrl + '?id=' + code + '&callback=jSnapshotBack&_=' + Date.now();
-    xmlHttpGet(url);
-}
-
-function jSnapshotBack(snapshot) {
-    postMessage({command: 'quote.snapshot', snapshot});
+    xmlHttpGet(url, response => {
+        var snapshot = JSON.parse(response.match(/jSnapshotBack\((.+?)\);/)[1]);
+        postMessage({command: 'quote.snapshot', snapshot});
+    });
 }
 
 function getTopicZTPool(date) {
     var url = ztPoolUrl + date;
-    xmlHttpGet(url);
-}
-
-function cbztPoolback(ztpool) {
-    postMessage({command: 'quote.get.ZTPool', ztpool});
+    xmlHttpGet(url, response => {
+        postMessage({command: 'quote.get.ZTPool', ztpool: JSON.parse(response)});
+    });
 }
 
 function getKlineDailySince(code, date, len, market) {
@@ -111,18 +104,20 @@ function getKlineDailySince(code, date, len, market) {
         sdate.setDate(sdate.getDate() + len)
         end = sdate.getFullYear() + ('' + (sdate.getMonth() + 1)).padStart(2, '0') + ('' + sdate.getDate()).padStart(2, '0');
     };
-    var url = hisKlineUrl + '&cb=klineback&secid=' + secid + '&beg=' + date + '&end=' + end + '&_=' + Date.now();
-    xmlHttpGet(url);
+    var url = hisKlineUrl + '&secid=' + secid + '&beg=' + date + '&end=' + end + '&_=' + Date.now();
+    xmlHttpGet(url, response => {
+        postMessage({command: 'quote.get.kline', kltype:'101', kline: JSON.parse(response)});
+    });
 }
 
-function klineback(kline) {
-    postMessage({command: 'quote.get.kline', kltype:'101', kline});
-}
+var kltBack = {'1':'klineMinBack', '5':'kline5MinBack', '15':'kline15MinBack', '30':'klineHalfHrBack', '60':'klineHourlyBack', '120':'kline2HrBack', '101':'klineDailyBack', '102':'klineWeeklyBack', '103':'klineMonthlyBack', '104':'klineQuarterlyBack','105':'klineHalfYrBack','106':'klineYearBack'};
 
 function getKlineRt(code, klt, market) {
     var secid = codeToSecid(code, market);
-    var url = hisKlineRt + '&klt=' + klt + '&cb=' + kltBack[klt] + '&secid=' + secid;
-    xmlHttpGet(url);
+    var url = hisKlineRt + '&klt=' + klt  + '&secid=' + secid;
+    xmlHttpGet(url, response => {
+        postMessage({command: 'quote.kline.rt', kltype: klt, kline: JSON.parse(response)});
+    });
 }
 
 function getKlineDaily(code, market, date) {
@@ -135,60 +130,14 @@ function getKlineDaily(code, market, date) {
     } else if (date.includes('-')) {
         beg = date.split('-').join('');
     }
-    var url = hisKlineUrl + '&cb=klineDailyBack&secid=' + secid + '&beg=' + beg + '&end=20500000&_=' + Date.now();
-    xmlHttpGet(url);
-}
-
-function klineMinBack(kline) {
-    postMessage({command: 'quote.kline.rt', kltype:'1', kline});
-}
-
-function kline5MinBack(kline) {
-    postMessage({command: 'quote.kline.rt', kltype:'5', kline});
-}
-
-function kline15MinBack(kline) {
-    postMessage({command: 'quote.kline.rt', kltype:'15', kline});
-}
-
-function klineHalfHrBack(kline) {
-    postMessage({command: 'quote.kline.rt', kltype:'30', kline});
-}
-
-function klineHourlyBack(kline) {
-    postMessage({command: 'quote.kline.rt', kltype:'60', kline});
-}
-
-function kline2HrBack(kline) {
-    postMessage({command: 'quote.kline.rt', kltype:'120', kline});
-}
-
-function klineDailyBack(kline) {
-    postMessage({command: 'quote.kline.rt', kltype:'101', kline});
-}
-
-function klineWeeklyBack(kline) {
-    postMessage({command: 'quote.kline.rt', kltype:'102', kline});
-}
-
-function klineMonthlyBack(kline) {
-    postMessage({command: 'quote.kline.rt', kltype:'103', kline});
-}
-
-function klineQuarterlyBack(kline) {
-    postMessage({command: 'quote.kline.rt', kltype:'104', kline});
-}
-
-function klineHalfYrBack(kline) {
-    postMessage({command: 'quote.kline.rt', kltype:'105', kline});
-}
-
-function klineYearBack(kline) {
-    postMessage({command: 'quote.kline.rt', kltype:'106', kline});
+    var url = hisKlineUrl + '&secid=' + secid + '&beg=' + beg + '&end=20500000&_=' + Date.now();
+    xmlHttpGet(url, response => {
+        postMessage({command: 'quote.kline.rt', kltype:'101', kline: JSON.parse(response)});
+    });
 }
 
 function bkQuery(bk, pn, pz) {
-    var url = bkQueryUrl + '&cb=bkQueryBack&pn=' + pn + '&pz=' + pz + '&fs=' + bk + '&_=' + Date.now();
+    var url = bkQueryUrl + '&pn=' + pn + '&pz=' + pz + '&fs=' + bk + '&_=' + Date.now();
     // fs={k:v} + {k:v}
     // b->板块  
     // m->市场(0 = sz, 1 = sh)  t->类型 f->风险/风格 s->
@@ -196,11 +145,11 @@ function bkQuery(bk, pn, pz) {
     // m(1),t(2) 上主板 m(1),t(23) 上科创板) m(1),t(3)上B股  m(1),t(8)上新股
     // f(4) 风险警示 f(3) 两网及退市
     // m(0),t(81),s(2048) 北交所
-    xmlHttpGet(url);
-}
-
-function bkQueryBack(bkdata) {
-    postMessage({command: 'quote.get.bkcode', total: bkdata.data.total, data: bkdata.data.diff});
+    xmlHttpGet(url, response => {
+        var bkdata = JSON.parse(response);
+        console.log(bkdata);
+        postMessage({command: 'quote.get.bkcode', total: bkdata.data.total, data: bkdata.data.diff});
+    });
 }
 
 addEventListener('message', function(e) {

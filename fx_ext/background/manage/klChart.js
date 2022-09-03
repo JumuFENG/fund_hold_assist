@@ -275,6 +275,7 @@ class KlChartSvg extends KlChart {
 
     init() {
         this.canvas = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        this.canvas.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
         this.canvas.style = 'width: 100%; height: 100%;';
         this.corePanel.appendChild(this.canvas);
         this.lineWidth = 1;

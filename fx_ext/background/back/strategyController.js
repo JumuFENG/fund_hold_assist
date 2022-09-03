@@ -1755,14 +1755,16 @@ class StrategyBarginHunting extends StrategyComplexBase {
         if (this.data.meta.s2price !== undefined) {
             delete(this.data.meta.s2price);
         }
-        if (this.data.topprice !== undefined) {
-            delete(this.data.topprice);
-        }
         if (this.data.guardPrice !== undefined) {
             delete(this.data.guardPrice);
         }
         if (this.data.guardDate !== undefined) {
             delete(this.data.guardDate);
+        }
+        if (this.resetall) {
+            if (this.data.topprice !== undefined) {
+                delete(this.data.topprice);
+            }
         }
     }
 
@@ -1791,6 +1793,7 @@ class StrategyBarginHunting extends StrategyComplexBase {
             // cut
             matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, cutdeal => {
                 this.onCutDone(cutdeal.code);
+                this.resetall = false;
                 this.resetToS0();
             });
             return;
@@ -1800,6 +1803,7 @@ class StrategyBarginHunting extends StrategyComplexBase {
         if (this.lowPriceStopGrowingSell(klines, kltype, this.data.topprice) && count > 0) {
             // sell.
             matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                this.resetall = true;
                 this.resetToS0();
             });
             return;
@@ -1820,6 +1824,7 @@ class StrategyBarginHunting extends StrategyComplexBase {
         if (this.targetPriceReachSell(kl, this.data.topprice, this.data.upRate) && count > 0) {
             // sell
             matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                this.resetall = true;
                 this.resetToS0();
             });
             return;
@@ -1829,6 +1834,7 @@ class StrategyBarginHunting extends StrategyComplexBase {
             // cut
             matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, cutdeal => {
                 this.onCutDone(cutdeal.code);
+                this.resetall = false;
                 this.resetToS0();
             });
             return;

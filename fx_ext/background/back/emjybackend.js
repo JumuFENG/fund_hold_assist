@@ -1019,6 +1019,14 @@ class EmjyBack {
         this.logs = [];
     }
 
+    exportHoldStocksCode() {
+        var codes = [];
+        this.normalAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
+        this.collateralAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
+        var blob = new Blob(codes, {type: 'application/text'});
+        this.saveToFile(blob, 'holdingstocks.txt');
+    }
+
     exportConfig() {
         var configs = this.normalAccount.exportConfig();
         var colConfig = this.collateralAccount.exportConfig();

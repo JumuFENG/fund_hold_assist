@@ -15,7 +15,7 @@ function xmlHttpPost(url, form, exheader, cb) {
             if (typeof(cb) === 'function') {
                 cb(httpRequest.responseText);
             } else {
-                eval(httpRequest.responseText);
+                console.info('xmlHttpPost no callback set!', httpRequest.responseText);
             }
         }
     }
@@ -38,7 +38,7 @@ function xmlHttpGet(url, exheader, cb) {
             if (typeof(cb) === 'function') {
                 cb(httpRequest.responseText);
             } else {
-                eval(httpRequest.responseText);
+                console.info('xmlHttpGet no callback set!', httpRequest.responseText);
             }
         }
     };
