@@ -50,6 +50,9 @@ class StrategyManager {
         if (strategy.key == 'StrategyBuyMAE') {
             return new StrategyBuyMABeforeEnd(strategy);
         };
+        if (strategy.key == 'StrategyBuySupport') {
+            return new StrategyBuySupport(strategy);
+        }
         if (strategy.key == 'StrategyBuyMAD') {
             return new StrategyBuyMADynamic(strategy);
         };
@@ -848,7 +851,7 @@ class StrategySellELTop extends StrategySell {
             this.data.kltype = '4';
         }
         if (!this.data.upRate) {
-            this.data.upRate = 0;
+            this.data.upRate = 0.01;
         }
         if (!this.data.selltype) {
             this.data.selltype = 'single';
@@ -1228,6 +1231,50 @@ class StrategyBuyMABeforeEnd extends StrategyBuyMA {
                 }
             };
         };
+    }
+}
+
+class StrategyBuySupport extends StrategyBuy {
+    guardLevel() {
+        return 'kline';
+    }
+
+    checkKlines(chkInfo, matchCb) {
+        if (typeof(matchCb) !== 'function') {
+            return;
+        }
+
+        if (!this.data.guardPrice) {
+            return;
+        }
+
+        var klines = emjyBack.klines[chkInfo.code];
+        var updatedKlt = chkInfo.kltypes;
+        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
+            return;
+        }
+
+        var kltype = this.data.kltype;
+        if (!updatedKlt.includes(kltype)) {
+            return;
+        }
+
+        var kl = klines.getLatestKline(kltype);
+
+        if (kl.l - this.data.guardPrice < 0) {
+            this.data.guardPrice = kl.l;
+            matchCb({id: chkInfo.id});
+            return;
+        }
+
+        if (this.data.backRate === undefined) {
+            this.data.backRate = 0.02;
+        }
+        if (this.targetPriceReachBuy(kl, this.data.guardPrice, this.data.backRate)) {
+            matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
+                this.setEnabled(false);
+            });
+        }
     }
 }
 

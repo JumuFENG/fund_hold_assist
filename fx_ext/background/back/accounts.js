@@ -312,7 +312,7 @@ class TradeClient {
                     var b5 = resobj.fivequote.buy5;
                     cb({bp, tp, cp, s5, b5});
                 } else {
-                    eval(httpRequest.responseText);
+                    emjyBack.log('getRtPrice no callback cb set!', httpRequest.responseText);
                 }
             }
         };

@@ -6,13 +6,12 @@ let ComplexStrategyKeyNames = [
 {key: 'StrategyGEMid', name: '网格买入 (波段)'},
 {key: 'StrategyTD', name: 'TD点买卖'},
 {key: 'StrategyBH', name: '低吸 短线买卖'},
-{key: 'StrategySD', name: '止损线买入 目标价卖出'},
 {key: 'StrategyBias', name: '乖离率买卖'},
 {key: 'StrategyIncDec', name: '大跌卖 大涨卖'},
 {key: 'StrategyZt0', name: '首板战法'},
 {key: 'StrategyZt1', name: '一字巨量阴'},
 ]
-
+// StrategySD
 let BuyStrategyKeyNames = [
 {key: 'StrategyBuy', name: '直接买入'}, 
 {key: 'StrategyBuySD', name: '止跌买入'},
@@ -23,7 +22,8 @@ let BuyStrategyKeyNames = [
 {key: 'StrategyBuyMA', name: 'MA突破买入'}, 
 {key: 'StrategyBuyMAD', name: 'MA突破(动态)买入'},
 {key: 'StrategyBuyMAE', name: 'MA突破(尾盘)买入'},
-{key: 'StrategyBuyBE', name: '尾盘买入'}, 
+{key: 'StrategyBuyBE', name: '尾盘买入'},
+{key: 'StrategyBuySupport', name: '支撑位买入'},
 ];
 
 let SellStrategyKeyNames = [

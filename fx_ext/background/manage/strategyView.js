@@ -50,6 +50,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyBuyMAE') {
             return new StrategyBuyMABeforeEndView(strategy);
         };
+        if (strategy.key == 'StrategyBuySupport') {
+            return new StrategyBuySupportView(strategy);
+        }
         if (strategy.key == 'StrategyBuyMAD') {
             return new StrategyBuyMADynamicView(strategy);
         };
@@ -712,6 +715,19 @@ class StrategyBuyMABeforeEndView extends StrategyBuyMAView {
 
     getDefaultKltype() {
         return '60';
+    }
+}
+
+class StrategyBuySupportView extends StrategyBaseView {
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('支撑位之上,接近支撑位买入'));
+        view.appendChild(this.createBuyAccountSelector());
+        view.appendChild(this.createKlineTypeSelector());
+        view.appendChild(this.createGuardInput('支撑位'));
+        view.appendChild(this.createPopbackInput('接近程度', 2));
+        return view;
     }
 }
 

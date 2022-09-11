@@ -577,6 +577,10 @@ class Manager {
                 this.klines[c].klines['8'] = [];
                 this.klines[c].save();
             }
+            var kl101 = this.klines[c].klines['101'].slice(-1)[0];
+            if (kltimeExpired(kl101.time)) {
+                this.updateKlineDaily(c);
+            }
         }
     }
 }
