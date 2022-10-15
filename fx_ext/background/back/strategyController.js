@@ -341,10 +341,10 @@ class Strategy {
 
     lowPriceStopGrowingSell(klines, kltype, topprice=0) {
         // 低点抬高法卖出
+        if (topprice === undefined || topprice == 0) {
+            return false;
+        }
         if (klines.isLowPriceStopIncreasing(kltype)) {
-            if (topprice === undefined || topprice == 0) {
-                return true;
-            }
             var kl1 = klines.getLastNKlines(kltype, 1);
             if (kl1 && kl1.length > 0 && kl1[0].h - topprice > 0) {
                 return true;
@@ -842,8 +842,17 @@ class StrategySellELShort extends StrategySellEL {
 }
 
 class StrategySellELTop extends StrategySell {
+    constructor(str) {
+        super(str);
+        this.dkltype = '101';
+    }
+
     guardLevel() {
-        return 'kline';
+        return 'klines';
+    }
+
+    kltype() {
+        return [this.dkltype, this.data.kltype];
     }
 
     checkMeta(buydetail) {
@@ -863,34 +872,42 @@ class StrategySellELTop extends StrategySell {
             return;
         }
 
+        this.checkMeta(chkInfo.buydetail);
+
+        var kltype = this.data.kltype;
         var klines = emjyBack.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined) {
             return;
         }
 
-        this.checkMeta(chkInfo.buydetail);
-        var kltype = this.data.kltype;
-        if (updatedKlt.length < 1 || !updatedKlt.includes(kltype)) {
-            return;
+        if (updatedKlt.includes(kltype)) {
+            var kl = klines.getLatestKline(kltype);
+            var count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
+            var topprice = this.data.topprice;
+            if (this.lowPriceStopGrowingSell(klines, kltype, topprice)) {
+                // sell.
+                matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                    this.setEnabled(false);
+                });
+                return;
+            }
+            if (this.data.guardPrice !== undefined) {
+                if (this.cutPriceReached(kl, this.data.guardPrice)) {
+                    // cut
+                    matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                        this.setEnabled(false);
+                    });
+                    return;
+                }
+            }
         };
 
-        var kl = klines.getLatestKline(kltype);
-        var count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
-        var topprice = this.data.topprice;
-        if (this.data.upRate) {
-            topprice = this.data.topprice * (1 - this.data.upRate);
-        }
-        if (this.lowPriceStopGrowingSell(klines, kltype, topprice)) {
-            // sell.
-            matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
-                this.setEnabled(false);
-            });
-            return;
-        }
-        if (this.data.guardPrice !== undefined) {
-            if (this.cutPriceReached(kl, this.data.guardPrice)) {
-                // cut
+        if (updatedKlt.includes(this.dkltype)) {
+            var kl = klines.getLatestKline(this.dkltype);
+            if (this.targetPriceReachSell(kl, this.data.topprice, this.data.upRate)) {
+                // sell.
+                var count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
                 matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
                     this.setEnabled(false);
                 });

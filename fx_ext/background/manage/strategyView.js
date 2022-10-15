@@ -626,9 +626,9 @@ class StrategySellElTopView extends StrategyBaseView {
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
-        view.appendChild(document.createTextNode('达到目标价(或设置可选参数upRate, 距离目标价百分比)之后以低点抬高法卖出，止损价格(不设置则不止损)。'));
+        view.appendChild(document.createTextNode('短K达到目标价之后以低点抬高法(或日K最高价距离目标价百分比upRate)卖出，设置止损价格则在短K收盘价低于止损价时卖出(不设置则不止损)。'));
         view.appendChild(this.createSellCountTypeSelector());
-        view.appendChild(this.createKlineTypeSelector());
+        view.appendChild(this.createKlineTypeSelector('短K类型'));
         view.appendChild(this.createReferedInput('目标价 '))
         if (this.strategy.topprice) {
             this.inputRefer.value = this.strategy.topprice;

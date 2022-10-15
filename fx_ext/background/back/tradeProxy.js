@@ -338,10 +338,14 @@ class NewStocksClient {
         var data = [];
         for (let i = 0; i < stocks.length; i++) {
             const stk = stocks[i];
-            if (!stk.Zqdm.startsWith('00') && !stk.Zqdm.startsWith('60')) {
+            // if (!stk.Zqdm.startsWith('00') && !stk.Zqdm.startsWith('60')) {
+            //     continue;
+            // }
+            if (!stk.Fxj - 100 > 0) {
+                // ignore.
                 continue;
             }
-            if (stk.Ksgsx <= 0 || stk.Sgdm == '732176') {
+            if (stk.Ksgsx - 0 <= 0) {
                 continue;
             }
             var StockCode = stk.Sgdm;
