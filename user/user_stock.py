@@ -565,6 +565,10 @@ class UserStock():
             return 0
 
         se = self.get_each_sell_earned()
+        if se is None:
+            print(self.sell_table, 'no se data')
+            return 0
+
         sum_earn = 0
         for v in se.values():
             sum_earn += v

@@ -522,24 +522,35 @@ class User():
             if us.cost_hold > 0 or us.portion_hold > 0:
                 uss[c] = {'cost': us.cost_hold, 'ptn': us.portion_hold}
 
-        hcodes = [('0' if uc[0:2] == 'SH' else '1') + uc[2:] for uc in uss.keys()]
+        hcodes = [('1.' if uc[0:2] == 'SH' else '0.') + uc[2:] for uc in uss.keys()]
         jcode = ','.join(hcodes)
-        quoteUrl = f'http://api.money.126.net/data/feed/{jcode},money.api?callback=_'
+        quoteUrl = f'https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids={jcode}&fields=f2,f12'
         rsp = requests.get(quoteUrl)
         rsp.raise_for_status()
-        lpobj = json.loads(rsp.content.decode('utf-8')[2:-2])
-        date = ''
-        for v in lpobj.values():
-            uss[v['type'] + v['symbol']]['price'] = v['price']
-            d = datetime.strptime(v['time'].split()[0], '%Y/%m/%d').strftime('%Y-%m-%d')
-            if d != date:
-                date = d
+        lpobj = json.loads(rsp.content.decode('utf-8'))
+        if 'data' in lpobj and 'diff' in lpobj['data']:
+            if lpobj['data']['total'] < len(hcodes):
+                print(f'update_earning get latest prices error: fetch {len(hcodes)}, actual {lpobj["data"]["total"]}')
+            for qt in lpobj['data']['diff']:
+                if 'SH' + qt['f12'] in uss:
+                    uss['SH' + qt['f12']]['price'] = qt['f2']
+                else:
+                    uss['SZ' + qt['f12']]['price'] = qt['f2']
+
         cost = 0
         value = 0
         for v in uss.values():
             cost += v['cost']
             value += v['ptn'] * float(v['price'])
 
+        dnow = datetime.now()
+        wday = dnow.weekday()
+        if wday > 4:
+            dnow -= timedelta(wday - 4)
+        elif dnow.hour < 15:
+            dnow -= timedelta(1)
+
+        date = dnow.strftime('%Y-%m-%d')
         sqldb = self.stock_center_db()
         if not sqldb.isExistTable(self.stocks_earning_table()):
             attrs = {column_date:'varchar(20) DEFAULT NULL',column_cost:'double(16,2) DEFAULT NULL', '市值':'double(16,2) DEFAULT NULL'}
@@ -814,11 +825,101 @@ class User():
                     existdeals = sqldb.select(self.stocks_unknown_deals_table(), conds={f'{column_date}':deal['time']})
                     self.remove_repeat_unknown_deals_commontype(existdeals, deal)
                     continue
+                if deal['tradeType'] == 'B' or deal['tradeType'] == 'S':
+                    print('unknown deal', deal)
                 values.append([deal['time'], deal['code'], deal['tradeType'], deal['sid'], deal['price'], deal['count'], deal['fee'], deal['feeYh'], deal['feeGh']])
 
         if len(values) > 0:
             attrs = [column_date, column_code, column_type, '委托编号', column_price, column_portion, column_fee, '印花税', '过户费']
             sqldb.insertMany(self.stocks_unknown_deals_table(), attrs, values)
+
+    def merge_duplicated_unknown_deals(self, dupdeals, code=None):
+        # type: (list, str) -> None
+        '''
+        合并重复记录, 保留第一个, 删除其余, 更新code
+        '''
+        sqldb = self.stock_center_db()
+        if code is not None:
+            sqldb.update(self.stocks_unknown_deals_table(), {f'{column_code}': code}, {'id': dupdeals[0][0]})
+        for i in range(1, len(dupdeals)):
+            sqldb.delete(self.stocks_unknown_deals_table(), {'id': dupdeals[i][0]})
+        print(f'update {dupdeals[0]} with code: {code}, and remove the other {len(dupdeals) - 1}')
+
+    def archive_new_stock_in_unknown_table(self):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_unknown_deals_table()):
+            return
+
+        alldeals = list(sqldb.select(self.stocks_unknown_deals_table(), conds=f'{column_type} = "B" or {column_type} = "S"'))
+        dupi = 0
+        # 去重
+        while dupi < len(alldeals):
+            id,date,code,dtype,sid,price,count,fee,fYh,fGh = alldeals[dupi]
+            dupdeals = [alldeals[dupi]]
+            for i in range(dupi + 1, len(alldeals)):
+                if alldeals[i][1] == date and alldeals[i][3] == dtype and alldeals[i][5] == price and alldeals[i][6] == count:
+                    dupdeals.append(alldeals[i])
+            if len(dupdeals) > 1:
+                for d in dupdeals:
+                    print(d)
+                c = input('all the same? q to quit. (y)/n: ')
+                if c == 'q':
+                    break
+                if c == 'n':
+                    dupi += 1
+                    continue
+                c = input(f'input the code: ({dupdeals[-1][2]})? ')
+                if not c:
+                    c = dupdeals[0][2]
+                self.merge_duplicated_unknown_deals(dupdeals, c)
+                for j in range(1, len(dupdeals)):
+                    alldeals.remove(dupdeals[j])
+            dupi += 1
+        print('delete archieved deals, (it is not unknown.)')
+        dupi = 0
+        while dupi < len(alldeals):
+            id,date,code,dtype,sid,price,count,fee,fYh,fGh = alldeals[dupi]
+            ardeal = sqldb.select(self.stocks_archived_deals_table(), '*', f'{column_date} = "{date}" and 委托编号 = "{sid}"')
+            if ardeal is not None and len(ardeal) > 0:
+                print(alldeals[dupi])
+                print(ardeal)
+                c = input('the unknown deal is already archived? q to quit. (y)/n: ')
+                if c == 'q':
+                    break
+                if c == 'n':
+                    dupi += 1
+                    continue
+                sqldb.delete(self.stocks_unknown_deals_table(), {'id': id})
+                dupi += 1
+            dupi += 1
+        print('handle other deals if any\n')
+        dupi = len(alldeals) - 1
+        while dupi >= 0:
+            print(alldeals[dupi])
+            id,date,code,dtype,sid,price,count,fee,fYh,fGh = alldeals[dupi]
+            c = input('(q)uit, (c)ontinue, (d)elete, (u)pdate, new ipo deal to (t)ransfer. \nplease input operation: ')
+            if c == 'q':
+                break
+            if c == 'd':
+                print(f'delete with id = {id}')
+                sqldb.delete(self.stocks_unknown_deals_table(), {'id': id})
+                dupi -= 1
+                continue
+            if c == 't':
+                stk = input(f'please input long stock code for {code}:')
+                stk_start_date = input(f'start date of {stk}:')
+                us = UserStock(self, stk)
+                us.add_deals([{"time":stk_start_date,"sid":sid,"code":stk,"tradeType":dtype,"price":price,"count":count, 'fee': fee, 'feeYh': fYh, 'feeGh': fGh}])
+                print(f'transfer to table: {us.buy_table}')
+                dupi -= 1
+                continue
+            if c == 'u':
+                print(f'update, not implemented yet!')
+                dupi -= 1
+                continue
+            if c == 'c':
+                dupi -= 1
+                continue
 
     def add_to_archive_deals_table(self, values):
         sqldb = self.stock_center_db()
@@ -885,7 +986,8 @@ class User():
         if len(consumed) > 0:
             self.add_to_archive_deals_table(consumed)
 
-    def get_stocks_earning_static_html(self):
+    def get_stocks_earning_static_html(self, year=None):
+        # Type: (string) -> string
         sqldb = self.stock_center_db()
         earnedrecs = list(sqldb.select(self.stocks_earned_table(), [column_date, column_earned, column_total_earned]))
         earningrecs = list(sqldb.select(self.stocks_earning_table(), [column_date, column_cost, '市值']))
@@ -937,7 +1039,11 @@ class User():
             </thead>
             <tbody>'''
  
+        if isinstance(year, int):
+            year = str(year)
         for r in statstable:
+            if year is None or r[0] < year:
+                continue
             ehtml += f'''
                 <tr>
                     <td>{r[0]}</td>
@@ -956,10 +1062,17 @@ class User():
 '''
         return ehtml
 
-    def save_stocks_eaning_html(self, cfile):
+    def save_stocks_eaning_html(self, sfolder):
+        self.update_earning()
+        year = datetime.now().year
+        ehtml = self.get_stocks_earning_static_html(year)
+        with open(f'{sfolder}earning_{year}.html', 'w') as f:
+            f.write(ehtml)
+
+    def save_all_stocks_earning_html(self, sfolder):
         self.update_earning()
         ehtml = self.get_stocks_earning_static_html()
-        with open(cfile, 'w') as f:
+        with open(f'{sfolder}earning.html', 'w') as f:
             f.write(ehtml)
 
 class UserModel():
