@@ -281,6 +281,7 @@ class StrategyBaseView {
         this.sellCntSelector = document.createElement('select');
         this.sellCntSelector.options.add(new Option('全部卖出', 'all'));
         this.sellCntSelector.options.add(new Option('盈利部分卖出', 'earned'));
+        this.sellCntSelector.options.add(new Option('卖出半仓', 'half_all'));
         this.sellCntSelector.options.add(new Option('卖出单次', 'single'));
         this.sellCntSelector.options.add(new Option('卖出半次', 'half'));
         if (this.strategy.selltype === undefined) {

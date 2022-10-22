@@ -205,6 +205,12 @@ class BuyDetail {
             return this.getCountLessThan(price, fac, smi);
         }
 
+        var aCount = this.availableCount();
+        if (selltype == 'half_all') {
+            var halfall = 100 * Math.ceil(this.totalCount() / 200);
+            return halfall - aCount <= 0 ? halfall : aCount;
+        }
+
         var buyrec = this.buyRecords();
         if (!buyrec || buyrec.length == 0) {
             return 0;
@@ -214,7 +220,6 @@ class BuyDetail {
         if (selltype == 'half') {
             count = 100 * Math.ceil(count / 200);
         }
-        var aCount = this.availableCount();
         return count - aCount <= 0 ? count : aCount;
     }
 

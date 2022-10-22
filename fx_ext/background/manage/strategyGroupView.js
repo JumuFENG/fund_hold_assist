@@ -244,7 +244,7 @@ class StrategyGroupView {
         }
         this.strategyInfoContainer.appendChild(ctDiv);
 
-        if (this.strGrp.buydetail.length > 0) {
+        if (this.strGrp.buydetail && this.strGrp.buydetail.length > 0) {
             var detailDiv = document.createElement('div');
             detailDiv.style.maxHeight = 100;
             detailDiv.style.maxWidth = 350;
