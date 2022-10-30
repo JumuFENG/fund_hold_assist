@@ -154,6 +154,8 @@ class StockZt1Selector(TableBase):
                     continue
                 ksdate = (datetime.strptime(ztdata['date'], r'%Y-%m-%d') + timedelta(days=-30)).strftime(r"%Y-%m-%d")
                 kd = sd.read_kd_data(code, start=ksdate)
+                if kd is None:
+                    continue
                 st = self.get_zt_strengh(kd, date)
                 vs = self.get_vol_scale(kd, date)
                 recs = self.check_trade_records(kd, date)
@@ -174,8 +176,8 @@ class StockZt1Selector(TableBase):
             kl = kd[-1]
             if kl and kl[1]:
                 ldate = kl[1]
-                date = self._max_date()
-                if ldate >= date:
+                mdate = self._max_date()
+                if ldate >= mdate:
                     return
 
         if self.__tsstocks is None:

@@ -550,7 +550,7 @@ class Manager {
                     svrCount = hstks[code];
                 }
                 if (svrCount - mgrCount != 0) {
-                    alert(stkinfo.name + stkinfo.code + 'not consitent svr:' + svrCount + ' act:' + mgrCount);
+                    alert(stkinfo.name + stkinfo.account + stkinfo.code + 'not consitent svr:' + svrCount + ' act:' + mgrCount);
                 }
             });
             console.log('Check done!');
