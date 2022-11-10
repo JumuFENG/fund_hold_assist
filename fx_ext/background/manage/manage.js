@@ -340,6 +340,7 @@ class Manager {
         };
         this.stockList.initUi(accstocks);
         emjyBack.checkHoldingStocks();
+        this.stockList.addWatchList();
     }
 
     initUi() {
@@ -397,7 +398,7 @@ class Manager {
             }
             return emStockUrl + (this.stockMarket[code].mkt == '0' ? 'sz' : 'sh') + code + emStockUrlTail;
         }
-        return emStockUrl + (code.startsWith('00') ? 'sz' : 'sh') + code + emStockUrlTail;
+        return emStockUrl + (code.startsWith('00') || code.startsWith('30') ? 'sz' : 'sh') + code + emStockUrlTail;
     }
 
     getStockMarketHS(code) {

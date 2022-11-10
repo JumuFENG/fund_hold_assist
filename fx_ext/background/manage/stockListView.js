@@ -389,20 +389,24 @@ class StockListPanelPage extends RadioAnchorPage {
         var btnAddWatchList = document.createElement('button');
         btnAddWatchList.textContent = '新增股票策略';
         btnAddWatchList.onclick = e => {
-            var candidatesObj = JSON.parse(this.inputWatchList.value);
-            var acc = this.watchListAccountSelector.value;
-            for(var c in candidatesObj) {
-                var account = acc == 0 ? 'normal' : emjyBack.stockAccountFrom(c);
-                var strgrp = {
-                    "grptype":"GroupStandard",
-                    "strategies":{"0":candidatesObj[c]},
-                    "transfers":{"0":{"transfer":"-1"}},
-                    "amount":10000};
-                emjyBack.addWatchingStock(c, account, strgrp);
-            }
-            this.inputWatchList.value = '';
+            this.addWatchList();
         }
         watchDiv.appendChild(btnAddWatchList);
         this.container.appendChild(watchDiv);
+    }
+
+    addWatchList() {
+        var candidatesObj = JSON.parse(this.inputWatchList.value);
+        var acc = this.watchListAccountSelector.value;
+        for(var c in candidatesObj) {
+            var account = acc == 0 ? 'normal' : emjyBack.stockAccountFrom(c);
+            var strgrp = {
+                "grptype":"GroupStandard",
+                "strategies":{"0":candidatesObj[c]},
+                "transfers":{"0":{"transfer":"-1"}},
+                "amount":10000};
+            emjyBack.addWatchingStock(c, account, strgrp);
+        }
+        this.inputWatchList.value = '';
     }
 }

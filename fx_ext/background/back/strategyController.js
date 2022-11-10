@@ -883,10 +883,10 @@ class StrategySellELTop extends StrategySell {
 
         if (updatedKlt.includes(kltype)) {
             var kl = klines.getLatestKline(kltype);
-            var count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
             var topprice = this.data.topprice;
             if (this.lowPriceStopGrowingSell(klines, kltype, topprice)) {
                 // sell.
+                var count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
                 matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
                     this.setEnabled(false);
                 });
@@ -895,6 +895,11 @@ class StrategySellELTop extends StrategySell {
             if (this.data.guardPrice !== undefined) {
                 if (this.cutPriceReached(kl, this.data.guardPrice)) {
                     // cut
+                    var selltype = this.data.selltype;
+                    if (this.data.cutselltype !== undefined) {
+                        selltype = this.data.cutselltype;
+                    }
+                    var count = chkInfo.buydetail.getCountMatched(selltype, kl.c);
                     matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
                         this.setEnabled(false);
                     });

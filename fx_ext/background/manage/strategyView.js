@@ -234,6 +234,14 @@ class StrategyBaseView {
             }
         }
 
+        if (this.cutCntSelector) {
+            var cutselltype = this.cutCntSelector.value;
+            if (cutselltype != this.strategy.cutselltype) {
+                changed = true;
+                this.strategy.cutselltype = cutselltype;
+            }
+        }
+
         if (this.inputData) {
             var dtext = this.inputData.value;
             if (dtext.length > 0) {
@@ -274,16 +282,21 @@ class StrategyBaseView {
         return checkLbl;
     }
 
+    createSellCountTypeOptions() {
+        var sellSelector = document.createElement('select');
+        sellSelector.options.add(new Option('全部卖出', 'all'));
+        sellSelector.options.add(new Option('盈利部分卖出', 'earned'));
+        sellSelector.options.add(new Option('卖出半仓', 'half_all'));
+        sellSelector.options.add(new Option('卖出单次', 'single'));
+        sellSelector.options.add(new Option('卖出半次', 'half'));
+        return sellSelector;
+    }
+
     createSellCountTypeSelector() {
         var sellCntDiv = document.createElement('div');
         var checkLbl = document.createElement('label');
         checkLbl.textContent = '卖出量'
-        this.sellCntSelector = document.createElement('select');
-        this.sellCntSelector.options.add(new Option('全部卖出', 'all'));
-        this.sellCntSelector.options.add(new Option('盈利部分卖出', 'earned'));
-        this.sellCntSelector.options.add(new Option('卖出半仓', 'half_all'));
-        this.sellCntSelector.options.add(new Option('卖出单次', 'single'));
-        this.sellCntSelector.options.add(new Option('卖出半次', 'half'));
+        this.sellCntSelector = this.createSellCountTypeOptions();
         if (this.strategy.selltype === undefined) {
             this.sellCntSelector.value = 'single';
         } else {
@@ -298,6 +311,7 @@ class StrategyBaseView {
         var guardDiv = document.createElement('div');
         guardDiv.appendChild(document.createTextNode(text));
         this.inputGuard = document.createElement('input');
+        this.inputGuard.style.maxWidth = 120;
         if (this.strategy.guardPrice !== undefined) {
             this.inputGuard.value = this.strategy.guardPrice;
         };
@@ -305,11 +319,47 @@ class StrategyBaseView {
         return guardDiv;
     }
 
+    createGuardInputWithSellType(text) {
+        var guardDiv = document.createElement('div');
+        guardDiv.appendChild(document.createTextNode(text));
+        this.inputGuard = document.createElement('input');
+        this.inputGuard.style.maxWidth = 120;
+        if (this.strategy.guardPrice !== undefined) {
+            this.inputGuard.value = this.strategy.guardPrice;
+        }
+        guardDiv.appendChild(this.inputGuard);
+        this.cutCntSelector = this.createSellCountTypeOptions();
+        if (this.strategy.cutselltype === undefined) {
+            this.cutCntSelector.value = 'single';
+        } else {
+            this.cutCntSelector.value = this.strategy.cutselltype;
+        }
+        guardDiv.appendChild(this.cutCntSelector);
+        return guardDiv
+    }
+
     createReferedInput(text) {
         var refDiv = document.createElement('div');
         refDiv.appendChild(document.createTextNode(text));
         this.inputRefer = document.createElement('input');
+        this.inputRefer.style.maxWidth = 120;
         refDiv.appendChild(this.inputRefer);
+        return refDiv;
+    }
+
+    createReferedInputWithSellType(text) {
+        var refDiv = document.createElement('div');
+        refDiv.appendChild(document.createTextNode(text));
+        this.inputRefer = document.createElement('input');
+        this.inputRefer.style.maxWidth = 120;
+        refDiv.appendChild(this.inputRefer);
+        this.sellCntSelector = this.createSellCountTypeOptions();
+        if (this.strategy.selltype === undefined) {
+            this.sellCntSelector.value = 'single';
+        } else {
+            this.sellCntSelector.value = this.strategy.selltype;
+        }
+        refDiv.appendChild(this.sellCntSelector);
         return refDiv;
     }
 
@@ -317,6 +367,7 @@ class StrategyBaseView {
         var stepDiv = document.createElement('div');
         stepDiv.appendChild(document.createTextNode(text));
         this.inputStep = document.createElement('input');
+        this.inputStep.style.maxWidth = 120;
         if (this.strategy.stepRate) {
             this.inputStep.value = 100 * this.strategy.stepRate;
         } else {
@@ -331,6 +382,7 @@ class StrategyBaseView {
         var popDiv = document.createElement('div');
         popDiv.appendChild(document.createTextNode(text));
         this.inputPop = document.createElement('input');
+        this.inputPop.style.maxWidth = 120;
         if (this.strategy.backRate) {
             this.inputPop.value = 100 * this.strategy.backRate;
         } else {
@@ -345,6 +397,7 @@ class StrategyBaseView {
         var upDiv = document.createElement('div');
         upDiv.appendChild(document.createTextNode(text));
         this.inputUpEarn = document.createElement('input');
+        this.inputUpEarn.style.maxWidth = 120;
         if (this.strategy.upRate) {
             this.inputUpEarn.value = 100 * this.strategy.upRate;
         } else {
@@ -359,6 +412,7 @@ class StrategyBaseView {
         var vDiv = document.createElement('div');
         vDiv.appendChild(document.createTextNode(text));
         this.inputVolGuard = document.createElement('input');
+        this.inputVolGuard.style.maxWidth = 120;
         if (this.strategy.guardVol) {
             this.inputVolGuard.value = this.strategy.guardVol;
         }
@@ -370,6 +424,7 @@ class StrategyBaseView {
         var dDiv = document.createElement('div');
         dDiv.appendChild(document.createTextNode(text));
         this.inputZt0Date = document.createElement('input');
+        this.inputZt0Date.style.maxWidth = 120;
         if (this.strategy.zt0date) {
             this.inputZt0Date.value = this.strategy.zt0date;
         }
@@ -381,6 +436,7 @@ class StrategyBaseView {
         var ctDiv = document.createElement('div');
         ctDiv.appendChild(document.createTextNode(text));
         this.inputCount = document.createElement('input');
+        this.inputCount.style.maxWidth = 120;
         if (this.strategy.count) {
             this.inputCount.value = this.strategy.count;
         } else {
@@ -395,6 +451,7 @@ class StrategyBaseView {
         var amtDiv = document.createElement('div');
         amtDiv.appendChild(document.createTextNode(text));
         this.inputAmount = document.createElement('input');
+        this.inputAmount.style.maxWidth = 120;
         if (this.strategy.amount) {
             this.inputAmount.value = this.strategy.amount;
         } else {
@@ -609,8 +666,7 @@ class StrategySellELSView extends StrategyBaseView {
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('低点抬高法, 1分钟，短线收益不错时设置该策略'));
         view.appendChild(document.createElement('br'));
-        view.appendChild(this.createSellCountTypeSelector());
-        view.appendChild(this.createGuardInput('止损点 '));
+        view.appendChild(this.createGuardInputWithSellType('止损点 '));
         return view;
     }
 }
@@ -621,20 +677,19 @@ class StrategySellElTopView extends StrategyBaseView {
     }
 
     skippedDataInput() {
-        return ['enabled', 'account', 'kltype', 'key', 'guardPrice', 'topprice', 'selltype', 'meta'];
+        return ['enabled', 'account', 'kltype', 'key', 'guardPrice', 'topprice', 'selltype', 'cutselltype', 'meta'];
     }
 
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('短K达到目标价之后以低点抬高法(或日K最高价距离目标价百分比upRate)卖出，设置止损价格则在短K收盘价低于止损价时卖出(不设置则不止损)。'));
-        view.appendChild(this.createSellCountTypeSelector());
         view.appendChild(this.createKlineTypeSelector('短K类型'));
-        view.appendChild(this.createReferedInput('目标价 '))
+        view.appendChild(this.createReferedInputWithSellType('目标价 '))
         if (this.strategy.topprice) {
             this.inputRefer.value = this.strategy.topprice;
         }
-        view.appendChild(this.createGuardInput('止损点 '));
+        view.appendChild(this.createGuardInputWithSellType('止损点 '));
         view.appendChild(this.createDataInput());
         return view;
     }
