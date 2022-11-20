@@ -108,9 +108,9 @@ class RetroPlan {
         }
 
         stocks.forEach(code => {
-            emjyBack.loadKlines(code,() => {
-                if (!emjyBack.klines[code].klines) {
-                    emjyBack.fetchStockKline(code, this.kltype, this.startDate);
+            emjyBack.loadKlines(code, lcode => {
+                if (!emjyBack.klines[lcode].klines) {
+                    emjyBack.fetchStockKline(lcode, this.kltype, this.startDate);
                     return;
                 }
             });

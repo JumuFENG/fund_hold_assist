@@ -1,6 +1,6 @@
 'use strict';
 
-let strategyOptions = {'zt1': {name:'首板次日买入', val:'zt1', strategy:'StrategyZt0'}, 'dt3': {name:'连续跌停', val:'dt3'}}
+let strategyOptions = {'zt1': {name:'首板次日买入', val:'zt1', strategy:'StrategyZt0'}, 'dt3': {name:'连续跌停', val:'dt3'}, 'ipo': {name:'新股', val:'ipo'}}
 let mktOptions = {'all': {name:'全部', val:0}, 'main': {name:'沪深主板', val: 1}, 'part': {name:'双创', val: 2}, 'st': {name:'ST股', val: 3}, 'h1': {name: '一字板', val: 4}}
 let sortOptions = {'ztStrength': {name:'上板强度', val: 0}, 'vol': {name:'放量程度', val: 1}, 'earn': {name: '收益率', val: 2}}
 
@@ -97,6 +97,10 @@ class StockData {
             var code = s[0].substring(2);
             var date = s[1];
             var sname = emjyBack.stockAnchor(code);
+            if (s[8] === undefined) {
+                console.log(s);
+                return;
+            }
             stkTable.addRow(date, code, sname, s[2], s[3], s[4], s[5], s[6], s[7], s[8].toFixed(2));
             erate += s[8];
         });
@@ -108,11 +112,11 @@ class StockData {
         if (this.klchecked[code] === undefined || sdate < this.klchecked[code]) {
             this.klchecked[code] = sdate;
             if (!emjyBack.klines[code]) {
-                emjyBack.loadKlines(code, _ => {
-                    if (!emjyBack.klines[code] || !emjyBack.klines[code].klines || !emjyBack.klines[code].klines[kltype]) {
-                        emjyBack.getDailyKlineSinceMonthAgo(code, kltype, sdate);
+                emjyBack.loadKlines(code, lcode => {
+                    if (!emjyBack.klines[lcode] || !emjyBack.klines[lcode].klines || !emjyBack.klines[code].klines[kltype]) {
+                        emjyBack.getDailyKlineSinceMonthAgo(lcode, kltype, sdate);
                     } else {
-                        emjyBack.checkExistingKlines(code, sdate, kltype);
+                        emjyBack.checkExistingKlines(lcode, sdate, kltype);
                     }
                 });
             } else {

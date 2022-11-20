@@ -3,6 +3,7 @@
 class ZtPanelPage extends RadioAnchorPage {
     constructor() {
         super('涨停一览');
+        this.zt1KeyWords = {'zt1' : '今日首板', 'zt1_1': '首板一字涨停'};
     }
 
     show() {
@@ -14,9 +15,26 @@ class ZtPanelPage extends RadioAnchorPage {
             this.leftPanel = document.createElement('div');
             this.leftPanel.style.width = '33%';
             this.container.appendChild(this.leftPanel);
+            this.zt1Selector = document.createElement('select');
+            for (var k in  this.zt1KeyWords) {
+                this.zt1Selector.options.add(new Option(this.zt1KeyWords[k], k));
+            };
+            this.zt1Selector.onchange = e => {
+                this.showZtTable(this.zt1Selector.value);
+            }
             this.ztTable = new SortableTable();
-            this.leftPanel.appendChild(document.createTextNode('今日首板'));
+            this.leftPanel.appendChild(this.zt1Selector);
             this.leftPanel.appendChild(this.ztTable.container);
+
+            var btnExportChecked = document.createElement('button');
+            btnExportChecked.textContent = '导出所选';
+            btnExportChecked.onclick = e => {
+                this.setStrategyForSelected();
+            }
+            this.leftPanel.appendChild(btnExportChecked);
+            this.candidatesArea = document.createElement('div');
+            this.candidatesArea.style.paddingRight = 8;
+            this.leftPanel.appendChild(this.candidatesArea);
 
             this.getZTPool();
 
@@ -28,7 +46,7 @@ class ZtPanelPage extends RadioAnchorPage {
             var btnUpdateZt1 = document.createElement('button');
             btnUpdateZt1.textContent = '更新';
             btnUpdateZt1.onclick = e => {
-                this.updateZt1Selections();
+                this.updateZt1Pickups();
             }
             this.contentPanel.appendChild(btnUpdateZt1);
             this.zt1Table = new SortableTable(1, 0, false);
@@ -54,33 +72,96 @@ class ZtPanelPage extends RadioAnchorPage {
         });
     }
 
-    updateZt1Selections() {
+    updateZt1Pickups() {
         var zt1Url = emjyBack.fha.server + 'stock?act=updatepickup&key=zt1';
         utils.get(zt1Url, null, r => {
-            console.log(r);
             this.getZt1Stocks();
         });
     }
 
-    showZtTable() {
+    showZtTable(skey) {
+        if (skey === undefined) {
+            skey = 'zt1';
+        }
         if (!this.ztdata || !this.ztTable) {
             return;
         }
 
+        var zt1stock_code = function(zt1stocks, code) {
+            if (!zt1stocks) {
+                return;
+            }
+
+            for (var i = zt1stocks.length - 1; i >= 0 ; i--) {
+                if (zt1stocks[i][0].endsWith(code)) {
+                    return zt1stocks[i];
+                }
+            }
+        }
+
         this.ztTable.reset();
-        this.ztTable.setClickableHeader('序号', '日期', '名称(代码)', '板块', '涨停概念');
+        this.candidatesArea.textContent = '';
+        this.ztTable.setClickableHeader('序号', '日期', '名称(代码)', '板块', '涨停概念', '');
         var date = this.ztdata.date;
+        this.candidatesArea.date = date;
+        var n = 1;
         for (var i = 0; i < this.ztdata.pool.length; i++) {
             var stocki = this.ztdata.pool[i];
-            var anchor = emjyBack.stockAnchor(stocki[0].substring(2));
+            var code = stocki[0].substring(2);
+            var ztinfo = zt1stock_code(this.zt1stocks, code);
+            if (skey == 'zt1_1') {
+                // 首板一字涨停
+                if (ztinfo && (ztinfo[2] != 0 || ztinfo[1] != date)) {
+                    continue;
+                }
+            }
+            if (skey == 'zt1') {
+                // 首板
+                if (ztinfo && ztinfo[1] != date) {
+                    continue;
+                }
+            }
+            var anchor = emjyBack.stockAnchor(code);
+            var sel = document.createElement('input');
+            sel.type = 'checkbox';
+            sel.code = code;
+            sel.onchange = e => {
+                if (e.target.checked) {
+                    if (!this.candidatesArea.filteredStks) {
+                        this.candidatesArea.filteredStks = new Set();
+                    }
+                    this.candidatesArea.filteredStks.add(e.target.code);
+                } else {
+                    if (this.candidatesArea.filteredStks) {
+                        this.candidatesArea.filteredStks.delete(e.target.code);
+                    }
+                }
+            }
             this.ztTable.addRow(
-                i + 1,
+                n++,
                 date,
                 anchor,
                 stocki[1],
-                stocki[2]
+                stocki[2],
+                sel
             );
         }
+    }
+
+    setStrategyForSelected() {
+        this.candidatesArea.textContent = '';
+        var skey = this.zt1Selector.value;
+        if (skey == 'zt1' || !this.candidatesArea.filteredStks || this.candidatesArea.filteredStks.size == 0) {
+            return;
+        }
+        var candidatesObj = {};
+        var date = this.candidatesArea.date;
+        if (skey == 'zt1_1') {
+            this.candidatesArea.filteredStks.forEach(c => {
+                candidatesObj[c] = emjyBack.strategyManager.create({"key":"StrategyZt1","enabled":false,'kltype':'101',zt0date:date}).data;
+            })
+        }
+        this.candidatesArea.textContent = JSON.stringify(candidatesObj, null, 1);
     }
 
     showZt1Table() {

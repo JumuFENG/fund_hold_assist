@@ -91,7 +91,7 @@ class GlobalManager {
             this.klines[code].loadSaved(cb);
         } else {
             if (typeof(cb) === 'function') {
-                cb();
+                cb(code);
             }
         }
     }
@@ -146,8 +146,12 @@ class GlobalManager {
     }
 
     getLongStockCode(code) {
-        if (code.length == 6 && this.stockMarket[code]) {
-            return this.stockMarket[code].c;
+        if (code.length == 6) {
+            if (this.stockMarket[code]) {
+                return this.stockMarket[code].c;
+            } else {
+                return ((code.startsWith('60') || code.startsWith('68')) ? 'SH' : 'SZ') + code;
+            }
         }
         return code;
     }
@@ -156,16 +160,19 @@ class GlobalManager {
         if (this.stockMarket && this.stockMarket[code]) {
             return emStockUrl + this.stockMarket[code].c.toLowerCase() + emStockUrlTail;
         }
-        return emStockUrl + (code.startsWith('00') ? 'sz' : 'sh') + code + emStockUrlTail;
+        return emStockUrl + (code.startsWith('60') || code.startsWith('68') ? 'sh' : 'sz') + code + emStockUrlTail;
+    }
+
+    stockName(code) {
+        if (this.stockMarket && this.stockMarket[code]) {
+            return this.stockMarket[code].n;
+        }
+        return code;
     }
 
     stockAnchor(code) {
         var anchor = document.createElement('a');
-        if (this.stockMarket && this.stockMarket[code]) {
-            anchor.textContent = this.stockMarket[code].n;
-        } else {
-            anchor.textContent = code;
-        }
+        anchor.textContent = this.stockName(code);
         anchor.href = this.stockEmLink(code);
         anchor.target = '_blank';
         return anchor;
@@ -257,6 +264,46 @@ class GlobalManager {
             this.getDailyKlineSinceMonthAgo(code, kltype, sdate);
         }
     }
+
+    checkExistingKlineLatest(code, kltype, edate) {
+        if (!edate) {
+            edate = utils.getTodayDate();
+        }
+
+        var kl = this.klines[code].getLatestKline(kltype);
+        if (!kl) {
+            this.getDailyKlineSinceMonthAgo(code, kltype, edate);
+            return false;
+        }
+        if (kl.time == edate) {
+            return true;
+        }
+        this.fetchStockKline(code, kltype, kl.time);
+        return false;
+    }
+
+    getKlData(code, kltype, start, end) {
+        if (!this.klines[code] || !this.klines[code].klines[kltype]) {
+            return;
+        }
+
+        var klines = this.klines[code].klines[kltype];
+        var sidx = klines.findIndex(kl => kl.time == start);
+        if (sidx < 0) {
+            return;
+        }
+        var eidx = klines.length;
+        if (end) {
+            var t = klines.findIndex(kl => kl.time == end);
+            if (t > 0) {
+                eidx = t + 1;
+            }
+        }
+        return klines.slice(sidx, eidx);
+    }
 }
 
 var emjyBack = new GlobalManager();
+window.addEventListener('load', _ => {
+    emjyBack.fha.server = location.origin + '/';
+});

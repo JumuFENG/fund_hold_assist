@@ -365,13 +365,13 @@ class DtPanelPage extends RadioAnchorPage {
     }
 
     getDtStockKlines(code, date) {
-        emjyBack.loadKlines(code, () => {
-            if (!emjyBack.klines[code] || !emjyBack.klines[code].klines|| !emjyBack.klines[code].klines['101'] || emjyBack.klines[code].klines['101'].length == 0) {
-                emjyBack.fetchStockKline(code);
+        emjyBack.loadKlines(code, lcode => {
+            if (!emjyBack.klines[lcode] || !emjyBack.klines[lcode].klines|| !emjyBack.klines[lcode].klines['101'] || emjyBack.klines[lcode].klines['101'].length == 0) {
+                emjyBack.fetchStockKline(lcode);
             } else {
-                var klines = emjyBack.klines[code].klines['101'];
+                var klines = emjyBack.klines[lcode].klines['101'];
                 if (klines[klines.length - 1].time < date) {
-                    emjyBack.fetchStockKline(code, '101', klines[klines.length - 1].time);
+                    emjyBack.fetchStockKline(lcode, '101', klines[klines.length - 1].time);
                 }
             }
         });

@@ -19,6 +19,7 @@
         <script src="../htmlhome/localforage.min.js"></script>
         <script src="../htmlhome/strategy/strategyControllerMock.js"></script>
         <script src="../htmlhome/strategy/statsReport.js"></script>
+        <script src="../htmlhome/strategy/klChartWall.js"></script>
         <script src="../htmlhome/gstocks.js"></script>
 
         <script src="../htmlhome/tests/data.js"></script>
@@ -30,8 +31,10 @@
         <script src="../htmlhome/retro/retroPanelView.js"></script>
 
         <script src="../htmlhome/data/ztstocks.json.js"></script>
+        <script src="../htmlhome/data/klviewer.js"></script>
         <script src="../htmlhome/zdt/ztPanelView.js"></script>
         <script src="../htmlhome/zdt/dtPanelView.js"></script>
+        <script src="../htmlhome/zdt/ztConceptsPanelView.js"></script>
         <script src="../htmlhome/zdt/stkDataPanelView.js"></script>
         <script src="../htmlhome/zdt/localsavedDataPanelView.js"></script>
 
@@ -46,33 +49,21 @@
                 }
 
                 setupNavigators() {
-                    var lsspage = new localSavedViewPage();
-                    this.navigator.addRadio(lsspage);
-                    this.root.appendChild(lsspage.container);
-
-                    var sdpage = new StkDataPanelPage();
-                    this.navigator.addRadio(sdpage);
-                    this.root.appendChild(sdpage.container);
-
-                    var ztpage = new ZtPanelPage();
-                    this.navigator.addRadio(ztpage);
-                    this.root.appendChild(ztpage.container);
-
-                    var dtpage = new DtPanelPage();
-                    this.navigator.addRadio(dtpage);
-                    this.root.appendChild(dtpage.container);
-
-                    var tnpage = new TrainingPanelPage();
-                    this.navigator.addRadio(tnpage);
-                    this.root.appendChild(tnpage.container);
-
-                    var retropage = new RetroPanelPage();
-                    this.navigator.addRadio(retropage);
-                    this.root.appendChild(retropage.container);
-
-                    var testpage = new TestsPanelPage();
-                    this.navigator.addRadio(testpage);
-                    this.root.appendChild(testpage.container);
+                    var pages = [
+                        new ZtConceptsPanelPage(),
+                        new KlViewerPanelPage(),
+                        new localSavedViewPage(),
+                        new StkDataPanelPage(),
+                        new ZtPanelPage(),
+                        new DtPanelPage(),
+                        new TrainingPanelPage(),
+                        new RetroPanelPage(),
+                        new TestsPanelPage()
+                    ];
+                    pages.forEach(pg => {
+                        this.navigator.addRadio(pg);
+                        this.root.appendChild(pg.container);
+                    })
 
                     this.navigator.selectDefault();
                 }

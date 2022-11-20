@@ -143,8 +143,8 @@ class TrainingPanelPage extends RadioAnchorPage {
             var cfg = this.getStrategyConfig();
             this.prepareStrategies(str, cfg);
         }
-        emjyBack.loadKlines(code, _=> {
-            this.trainingStrategy(str, code);
+        emjyBack.loadKlines(code, lcode => {
+            this.trainingStrategy(str, lcode);
             this.listTrainingStats();
         });
     }

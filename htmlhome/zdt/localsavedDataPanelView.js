@@ -40,7 +40,10 @@ class localSavedViewPage extends RadioAnchorPage {
         this.container.appendChild(this.contentPanel);
 
         this.viewTable = new SortableTable();
+        this.contentPanel.style.display = 'flex';
         this.contentPanel.appendChild(this.viewTable.container);
+        this.klWall = new KlChartWall();
+        this.contentPanel.appendChild(this.klWall.container);
         this.onStkKeySelected();
     }
 
@@ -73,6 +76,7 @@ class localSavedViewPage extends RadioAnchorPage {
                 this.prepareKlines(code, date, '101', lss.klnocheckold);
             }
         });
+        this.klWall.reset();
         console.log(erate.toFixed(4) + '%');
     }
 
@@ -80,11 +84,11 @@ class localSavedViewPage extends RadioAnchorPage {
         if (this.klchecked[code] === undefined || sdate < this.klchecked[code]) {
             this.klchecked[code] = sdate;
             if (!emjyBack.klines[code]) {
-                emjyBack.loadKlines(code, _ => {
-                    if (!emjyBack.klines[code] || !emjyBack.klines[code].klines || !emjyBack.klines[code].klines[kltype]) {
-                        emjyBack.getDailyKlineSinceMonthAgo(code, kltype, sdate);
+                emjyBack.loadKlines(code, lcode => {
+                    if (!emjyBack.klines[lcode] || !emjyBack.klines[lcode].klines || !emjyBack.klines[lcode].klines[kltype]) {
+                        emjyBack.getDailyKlineSinceMonthAgo(lcode, kltype, sdate);
                     } else {
-                        emjyBack.checkExistingKlines(code, sdate, kltype, klnocheckold);
+                        emjyBack.checkExistingKlines(lcode, sdate, kltype, klnocheckold);
                     }
                 });
             } else {
@@ -119,7 +123,13 @@ class localSavedViewPage extends RadioAnchorPage {
                 "transfers":{"0":{"transfer":"-1"}},
                 "amount":10000};
             emjyBack.retroEngine.retroStrategySingleKlt(code, strgrp, mktstocks[i][1]);
+            var dls = emjyBack.retroAccount.deals.filter(d => d.code == code);
+            if (dls.length > 0) {
+                var end = dls[dls.length - 1].time;
+                this.klWall.addStock(code, '101', mktstocks[i][1], end);
+            }
         }
         emjyBack.statsReport.showDeals(this.viewTable, emjyBack.retroAccount.deals, true);
+        this.klWall.drawCharts();
     }
 }
