@@ -36,10 +36,10 @@ class StockGeneral():
             self.emseccode = '1.' + self.code[2:]
         elif self.code.startswith('SZ'):
             self.emseccode = '0.' + self.code[2:]
-        elif self.code.startswith('00') or self.code.startswith('30'):
-            self.emseccode = '0.' + self.code
-        else:
+        elif self.code.startswith('60') or self.code.startswith('68'):
             self.emseccode = '1.' + self.code
+        else:
+            self.emseccode = '0.' + self.code
 
         self.stockKtable = 's_k_his_' + self.code
         self.stockKwtable = 's_kw_his_' + self.code

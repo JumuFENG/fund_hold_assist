@@ -115,15 +115,26 @@ class StockZtInfo(EmRequest, TableBase):
                 if exists:
                     continue
 
-                if c.startswith('00') or c.startswith('30'):
+                if c.startswith('00') or c.startswith('30') or c.startswith('8') or c.startswith('4'):
                     cd = 'SZ' + c
                 elif c.startswith('60') or c.startswith('68'):
                     cd = 'SH' + c
                 else:
                     continue
-                self.ztdata.append([cd, date, 0, 0, _lbc, 0, '', con])
+                self.ztdata.append([cd, date, 0, 0, _lbc, 0, self._get_bk(cd), con])
 
             self.saveFetched()
+
+    def _get_bk(self, code):
+        bks = self.sqldb.select(self.tablename, ['板块'], [f'{column_code}="{code}"'])
+        if bks is None or len(bks) == 0:
+            return ''
+
+        for i in range(len(bks) - 1, 0, -1):
+            bk, = bks[i]
+            if bk != '':
+                return bk
+        return ''
 
     def saveFetched(self):
         if self.ztdata is None or len(self.ztdata) == 0:
@@ -157,3 +168,85 @@ class StockZtInfo(EmRequest, TableBase):
             date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
 
         return self.dumpDataByDate()
+
+    def _unify_concepts(self, pool):
+        return [[c, n, bk if con == '' else con] for c, n, bk, con in pool]
+
+    def dumpZtDataByConcept(self, date, concept):
+        if date is None:
+            return []
+
+        pool = self.sqldb.select(self.tablename, [f'{column_code}', '连板数', '板块', '概念'], f'{column_date}="{date}"')
+        if concept is not None:
+            ztcpt = []
+            for c, n, bk, con in pool:
+                cons = [bk]
+                if '+' in con:
+                    cons = con.split('+')
+                elif con != '':
+                    cons = [con]
+                if concept in cons:
+                    ztcpt.append([c, n, bk, con])
+            return self._unify_concepts(ztcpt)
+        return self._unify_concepts(pool)
+
+
+class StockZtConcepts(TableBase):
+    def initConstrants(self):
+        self.dbname = history_db_name
+        self.tablename = 'day_zt_concepts'
+        self.colheaders = [
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+            {'col':'概念','type':'varchar(255) DEFAULT NULL'},
+            {'col':'涨停数','type':'smallint DEFAULT NULL'}
+        ]
+
+    def _save_concepts(self, cdata):
+        if cdata is None or len(cdata) == 0:
+            return
+
+        self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], cdata)
+
+    def getNext(self):
+        date = self._max_date()
+        if date is None:
+            date = '2021-01-04'
+        else:
+            date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
+        zthisttable = 'day_zt_stocks'
+        ztconceptsdata = []
+        while date <= datetime.now().strftime(r'%Y-%m-%d'):
+            pool = self.sqldb.select(zthisttable, [f'{column_code}, 板块, 概念'], [f'{column_date}="{date}"'])
+            if pool is not None and len(pool) > 0:
+                cdict = {}
+                for c, bk, con in pool:
+                    if con == '' and bk == '':
+                        raise Exception(f'no bk or con for {c} on {date}, please correct the data!')
+                    cons = []
+                    if con == '':
+                        cons.append(bk)
+                    elif '+' in con:
+                        cons = con.split('+')
+                    else:
+                        cons.append(con)
+                    for k in cons:
+                        if k not in cdict:
+                            cdict[k] = 1
+                        else:
+                            cdict[k] += 1
+                for k,v in cdict.items():
+                    ztconceptsdata.append([date, k, v])
+                if len(ztconceptsdata) > 5000:
+                    self._save_concepts(ztconceptsdata)
+                    ztconceptsdata = []
+            date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
+
+        if len(ztconceptsdata) > 0:
+            self._save_concepts(ztconceptsdata)
+
+    def dumpDataByDate(self, date=None):
+        ''' date: start date.
+        '''
+        if date is None:
+            date = (datetime.now() - timedelta(days=40)).strftime(r"%Y-%m-%d")
+        return self.sqldb.select(self.tablename, [f'{column_date}', '概念', '涨停数'], [f'{column_date}>"{date}"'])

@@ -1,0 +1,8 @@
+pymysql
+cryptography
+requests
+beautifulsoup4
+pandas
+flask
+gunicorn
+colorama

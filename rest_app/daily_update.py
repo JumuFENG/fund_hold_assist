@@ -90,15 +90,9 @@ class DailyUpdater():
 
         sh = Stock_history()
         sfh = Stock_Fflow_History()
-        i = 0
         for s in stocks:
             sh.getKdHistoryFromSohuTillToday(s)
-            i += (1 if sfh.updateFflow(s) else 0)
-            if i == 200:
-                tick = random.randint(65, 130)
-                print('request 100 stocks. sleep random = ', tick)
-                time.sleep(tick)
-                i = 0
+            sfh.updateFflow(s)
 
     def download_newly_noticed_bonuses(self):
         print("update noticed bonuses")
@@ -118,6 +112,10 @@ class DailyUpdater():
         ztdata = ztinfo.dumpDataByDate()
         if 'pool' in ztdata:
             [zdtcodes.add(zt[0]) for zt in ztdata['pool']]
+
+        print('update zt concepts')
+        ztcpt = StockZtConcepts()
+        ztcpt.getNext()
 
         print('update dt info')
         dtinfo = StockDtInfo()
@@ -145,14 +143,8 @@ class DailyUpdater():
             sh.getKdHistoryFromSohuTillToday(s)
 
         sfh = Stock_Fflow_History()
-        i = 0
         for s in zdtcodes:
-            i += (1 if sfh.updateFflow(s) else 0)
-            if i == 200:
-                tick = random.randint(65, 130)
-                print(f'request {i} stocks. sleep random = {tick}')
-                time.sleep(tick)
-                i = 0
+            sfh.updateFflow(s)
 
     def fetch_dfsorg_stocks(self):
         dfsorg = StockDfsorg()

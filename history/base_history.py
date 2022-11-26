@@ -68,6 +68,8 @@ class HistoryDowloaderBase():
             return alldata
 
         if start is not None:
+            if '-' not in start:
+                start = datetime.strptime(start, '%Y%m%d').strftime('%Y-%m-%d')
             return tuple(filter(lambda d: d[1] >= start, alldata))
 
         if len(alldata) <= length:

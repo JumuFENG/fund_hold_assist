@@ -22,6 +22,10 @@ pip3 install lxml
 
 pip3 install pandas
 
+modules for http server:
+pip3 install flask
+pip3 install gunicorn
+
 create database tesddb and fund_center manually.
 
 create utils/_pwd.py and add db_pwd = "<password for root of mysql>" add summary_dest_dir = "<the destination dir for summary folder>".

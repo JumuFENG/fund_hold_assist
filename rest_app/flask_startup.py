@@ -306,6 +306,11 @@ def stock():
             sdm = StockDtMap()
             dtmap = sdm.dumpDataByDate(date)
             return json.dumps(dtmap)
+        if actype == 'ztconcept':
+            days = request.args.get('days', type=int, default=40)
+            szc = StockZtConcepts()
+            cdata = szc.dumpDataByDate((datetime.now() - timedelta(days=days)).strftime(r"%Y-%m-%d"))
+            return json.dumps(cdata)
         if actype == 'pickup':
             date = request.args.get('date', type=str, default=None)
             key = request.args.get('key', type=str, default=None)
@@ -328,6 +333,17 @@ def stock():
                 dts = StockDt3Selector()
                 dts.updateDt3()
                 return 'OK', 200
+            return f'Unknown key {key}', 404
+        if actype == 'pickupdone':
+            key = request.args.get('key', type=str, default=None)
+            if key == 'zt1':
+                zts = StockZt1Selector()
+                zt1 = zts.dumpFinishedRecords()
+                return json.dumps(zt1)
+            if key == 'dt3':
+                dts = StockDt3Selector()
+                dt3 = dts.dumpFinishedRecords()
+                return json.dumps(dt3)
             return f'Unknown key {key}', 404
 
     usermodel = UserModel()
@@ -377,6 +393,7 @@ def stock():
             return 'OK', 200
         if actype == 'deals':
             deals = request.form.get('data', type=str, default=None)
+            print('add deals', deals)
             user.add_deals(json.loads(deals))
             return 'OK', 200
     else:
@@ -385,7 +402,7 @@ def stock():
         if actype == 'interstedstks':
             return json.dumps(user.get_interested_stocks_code())
         if actype == 'userearning':
-            user.save_stocks_eaning_html(earning_cloud_file)
+            user.save_stocks_eaning_html(shared_cloud_foler)
             return 'OK', 200
         code = request.args.get("code", type=str, default=None)
         if actype == 'summary':
@@ -407,6 +424,8 @@ def stock():
             else:
                 sd = StockDumps()
                 return json.dumps(sd.get_all_his())
+        if actype == 'allstkscount':
+            return json.dumps(user.get_holding_stocks_portions())
         if actype == 'khl_m':
             sd = StockDumps()
             return json.dumps(sd.get_khl_m_his(code))
@@ -571,9 +590,14 @@ def stock_dividen_later_than(code, date):
 def stock_zthist():
     if request.method == 'GET':
         date = request.args.get('date', type=str, default=None)
+        concept = request.args.get('concept', type=str, default=None)
         szi = StockZtInfo()
-        zt = szi.dumpDataByDate(date)
-        return json.dumps(zt)
+        if concept is None:
+            zt = szi.dumpDataByDate(date)
+            return json.dumps(zt)
+        else:
+            zt = szi.dumpZtDataByConcept(date, concept)
+            return json.dumps(zt)
     return 'get stock zt history, error!'
 
 @app.route('/api/stockdthist', methods=['GET'])

@@ -94,7 +94,7 @@ def trade_closed_task():
     print('trade_closed_task', dnow.strftime(f"%Y-%m-%d %H:%M:%s"))
     um = UserModel()
     user = um.user_by_id(11)
-    user.save_stocks_eaning_html(earning_cloud_file)
+    user.save_stocks_eaning_html(shared_cloud_foler)
 
 def run_regular_tasks(dnow):
     print('run_regular_tasks begin', datetime.now().strftime(f"%Y-%m-%d %H:%M"))
@@ -176,7 +176,8 @@ if __name__ == '__main__':
 
     run_regular_tasks(dnow)
 
-    if dnow.weekday() < 5 and dnow.hour < 15:
+    holi = Holiday()
+    if dnow.weekday() < 5 and dnow.hour < 15 and not holi.isholiday(dnow.strftime("%Y-%m-%d")):
         print('start timer task!')
         secs = (datetime.strptime(dnow.strftime('%Y-%m-%d') + ' 15:01', '%Y-%m-%d %H:%M') - dnow).seconds
         ttask = Timer(secs, trade_closed_task)
