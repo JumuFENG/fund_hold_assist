@@ -41,7 +41,7 @@ function queryStockInfo(code) {
     xmlHttpGet(url, (response) => {
         var sData = response.match(/var sData = "(.+?);";/)[1];
         if (!sData.includes(',')) {
-            postMessage({command:'quote.query.stock', sdata: {code, market:code.startsWith('60') ? 'SH' : 'SZ'}});
+            postMessage({command:'quote.query.stock', sdata: {code, market:code.startsWith('60') ||code.startsWith('68') ? 'SH' : 'SZ'}});
         } else {
             var items = sData.split(',');
             var name = items[4];

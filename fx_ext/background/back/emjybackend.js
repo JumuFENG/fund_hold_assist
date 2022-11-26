@@ -16,9 +16,12 @@ class ManagerBack {
         emjyBack.log('ManagerBack ', JSON.stringify(message), tabid);
         if (message.command == 'mngr.init') {
             this.tabid = tabid;
+        } else if (message.command == 'mngr.inittrack') {
+            this.sendStocks([emjyBack.trackAccount]);
         } else if (message.command == 'mngr.closed') {
             emjyBack.normalAccount.save();
             emjyBack.collateralAccount.save();
+            emjyBack.trackAccount.save();
             this.tabid = null;
         } else if (message.command == 'mngr.export') {
             emjyBack.exportConfig();
@@ -865,7 +868,9 @@ class EmjyBack {
             this.normalAccount.applyStrategy(code, str);
         } else if (account == this.collateralAccount.keyword) {
             this.collateralAccount.applyStrategy(code, str);
-        };
+        } else if (account == this.trackAccount.keyword) {
+            this.trackAccount.applyStrategy(code, str);
+        }
     }
 
     removeStockStrategy(account, code, stype) {
@@ -873,7 +878,9 @@ class EmjyBack {
             this.normalAccount.removeStrategy(code, stype);
         } else if (account == this.collateralAccount.keyword) {
             this.collateralAccount.removeStrategy(code, stype);
-        };
+        } else if (account == this.trackAccount.keyword) {
+            this.trackAccount.removeStrategy(code, stype);
+        }
     }
 
     addWatchStock(account, code, str) {
@@ -881,7 +888,9 @@ class EmjyBack {
             this.normalAccount.addWatchStock(code, str);
         } else if (account == this.collateralAccount.keyword) {
             this.collateralAccount.addWatchStock(code, str);
-        };
+        } else if (account == this.trackAccount.keyword) {
+            this.trackAccount.addWatchStock(code, str);
+        }
     }
 
     removeStock(account, code) {
@@ -891,7 +900,9 @@ class EmjyBack {
             this.normalAccount.removeStock(code);
         } else if (account == this.collateralAccount.keyword) {
             this.collateralAccount.removeStock(code);
-        };
+        } else if (account == this.trackAccount.keyword) {
+            this.trackAccount.removeStock(code);
+        }
     }
 
     fetchStockSnapshot(code) {
@@ -901,7 +912,7 @@ class EmjyBack {
     getStockMarketHS(code) {
         var stk = this.stockMarket[code];
         if (!stk) {
-            return (code.startsWith('00') || code.startsWith('30')) ? 'SZ' : 'SH';
+            return (code.startsWith('60') || code.startsWith('68')) ? 'SH' : 'SZ';
         }
 
         if (stk.c) {

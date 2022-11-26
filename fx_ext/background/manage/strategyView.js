@@ -143,6 +143,13 @@ class StrategyBaseView {
             }
         };
 
+        if (this.guardBreakReverseCheck) {
+            if (this.guardBreakReverseCheck.checked != this.strategy.guardBreakBuyReverse) {
+                changed = true;
+                this.strategy.guardBreakBuyReverse = this.guardBreakReverseCheck.checked;
+            }
+        }
+
         if (this.inputGuard) {
             var guardPrice = parseFloat(this.inputGuard.value);
             if (!this.isEqualNum(this.strategy.guardPrice, guardPrice)) {
@@ -483,6 +490,22 @@ class StrategyBaseView {
         return acctDiv;
     }
 
+    createGuardBreakCheckbox() {
+        var checkLbl = document.createElement('label');
+        checkLbl.textContent = '跌破支撑位后若为反转K线买入, 谨慎勾选.';
+        this.guardBreakReverseCheck = document.createElement('input');
+        this.guardBreakReverseCheck.type = 'checkbox';
+        if (this.strategy.guardBreakBuyReverse === undefined) {
+            this.guardBreakReverseCheck.checked = false;
+        } else {
+            this.guardBreakReverseCheck.checked = this.strategy.guardBreakBuyReverse;
+        }
+        var checkDiv = document.createElement('div');
+        checkDiv.appendChild(this.guardBreakReverseCheck);
+        checkDiv.appendChild(checkLbl);
+        return checkDiv;
+    }
+
     getDefaultKltype() {
         return '101';
     }
@@ -779,6 +802,7 @@ class StrategyBuySupportView extends StrategyBaseView {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('支撑位之上,接近支撑位买入'));
+        view.appendChild(this.createGuardBreakCheckbox());
         view.appendChild(this.createBuyAccountSelector());
         view.appendChild(this.createKlineTypeSelector());
         view.appendChild(this.createGuardInput('支撑位'));

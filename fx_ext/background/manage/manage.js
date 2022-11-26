@@ -1,5 +1,9 @@
 'use strict';
 
+let emStockUrl = 'http://quote.eastmoney.com/concept/';
+let emStockUrlTail = '.html#fschart-k';
+let BkRZRQ = 'BK0596';
+
 function logInfo(...args) {
     console.log(args.join(' '));
 }
@@ -11,7 +15,7 @@ class Manager {
         this.stockList = null;
         this.klines = {};
         this.accountNames = {'normal':'普通账户', 'collat': '担保品账户', 'credit': '融资账户'};
-        this.accountsMap = {'normal': ['normal'], 'collat': ['credit', 'collat']};
+        this.accountsMap = {'normal': ['normal'], 'collat': ['credit', 'collat'], 'track': ['track']};
         this.loadAllSavedData();
     }
 
@@ -320,6 +324,7 @@ class Manager {
         }
 
         var accstocks = [];
+        var trackstocks = [];
         for (var i = 0; i < stocks.length; i++) {
             var tstocks = stocks[i].stocks.sort((a, b) => {
                 if (a.holdCount > 0 && b.holdCount > 0) {
@@ -335,12 +340,22 @@ class Manager {
                 this.loadKlines(ts.code);
                 ts.acccode = account + '_' + ts.code;
                 ts.account = account;
-                accstocks.push(ts);
-            };
-        };
-        this.stockList.initUi(accstocks);
-        emjyBack.checkHoldingStocks();
-        this.stockList.addWatchList();
+                if (account == 'track') {
+                    trackstocks.push(ts);
+                } else {
+                    accstocks.push(ts);
+                }
+            }
+        }
+
+        if (trackstocks.length > 0) {
+            this.trackList.initUi(trackstocks);
+        }
+        if (accstocks.length > 0) {
+            this.stockList.initUi(accstocks);
+            emjyBack.checkHoldingStocks();
+            this.stockList.addWatchList();
+        }
     }
 
     initUi() {
@@ -353,24 +368,36 @@ class Manager {
             this.stockList = new StockListPanelPage();
         };
 
+        if (!this.trackList) {
+            this.trackList = new TrackStockListPanelPage();
+        }
+
         this.page.setupNavigators();
     }
 
     addStock(code, account, strGrp = null) {
-        if (!this.stockList) {
-            this.stockList = new StockList(this.log);
-            this.page.root.appendChild(this.stockList.root);
-        };
         var stock = {code, name:'', account, holdCount: 0, holdCost: 0};
         stock.acccode = account + '_' + code;
         stock.strategies = strGrp;
-        this.stockList.addStock(stock);
+        if (account == 'track') {
+            this.trackList.addStock(stock);
+        } else {
+            this.stockList.addStock(stock);
+        }
     }
 
     addWatchingStock(code, account, strGrp = null) {
         if (!this.stockList.stockExist(code, account)) {
             this.addStock(code, account, strGrp);
             this.sendExtensionMessage({command:'mngr.addwatch', code, account, strategies: strGrp});
+        }
+    }
+
+    deleteStockFromList(acc, code) {
+        if (acc == 'track') {
+            emjyBack.trackList.deleteStock(acc, code);
+        } else {
+            emjyBack.stockList.deleteStock(acc, code);
         }
     }
 
@@ -398,13 +425,13 @@ class Manager {
             }
             return emStockUrl + (this.stockMarket[code].mkt == '0' ? 'sz' : 'sh') + code + emStockUrlTail;
         }
-        return emStockUrl + (code.startsWith('00') || code.startsWith('30') ? 'sz' : 'sh') + code + emStockUrlTail;
+        return emStockUrl + (code.startsWith('60') || code.startsWith('68') ? 'sh' : 'sz') + code + emStockUrlTail;
     }
 
     getStockMarketHS(code) {
         var stk = this.stockMarket[code];
         if (!stk) {
-            return (code.startsWith('00') || code.startsWith('30')) ? 'SZ' : 'SH';
+            return (code.startsWith('60') || code.startsWith('68')) ? 'SH' : 'SZ';
         }
 
         if (stk.c) {
@@ -594,20 +621,11 @@ class ManagerPage {
     }
 
     setupNavigators() {
-        this.navigator.addRadio(emjyManager.stockList);
-        this.root.appendChild(emjyManager.stockList.container);
+        this.navigator.addRadio(emjyBack.stockList);
+        this.root.appendChild(emjyBack.stockList.container);
 
-        this.pickupPage = new PickupPanelPage();
-        this.navigator.addRadio(this.pickupPage);
-        this.root.appendChild(this.pickupPage.container);
-
-        var rvpage = new ReviewPanelPage();
-        this.navigator.addRadio(rvpage);
-        this.root.appendChild(rvpage.container);
-
-        var dealsPage = new DealsPanelPage();
-        this.navigator.addRadio(dealsPage);
-        this.root.appendChild(dealsPage.container);
+        this.navigator.addRadio(emjyBack.trackList);
+        this.root.appendChild(emjyBack.trackList.container);
 
         var settingsPage = new SettingsPanelPage('设置');
         this.navigator.addRadio(settingsPage);

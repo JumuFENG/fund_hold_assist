@@ -423,6 +423,10 @@ class Strategy {
                 this.setEnabled(false);
                 return false;
             }
+            if (hprc - 1.1 * kl.c < 0) {
+                // 目标价获利空间不足10% 放弃
+                return false;
+            }
             // 成交量跌破参考量当日 或 收盘价低于最低成交量当日的收盘价 或 收盘价在区间最低价以上backRate之内买入
             if (kl.c - lowvkl.c <= 0 || (kl.c - lprc) / lprc <= this.data.backRate) {
                 this.data.guardPrice = lprc;
@@ -1261,6 +1265,17 @@ class StrategyBuySupport extends StrategyBuy {
         return 'kline';
     }
 
+    isLowReverseKl(kl) {
+        if (Math.abs(kl.o - kl.c) / kl.c < 0.001) {
+            return true;
+        }
+        if (Math.abs(kl.o - kl.c) / kl.c < 0.01 && (kl.h - kl.l) / kl.c > 0.04) {
+            return true;
+        }
+
+        return false;
+    }
+
     checkKlines(chkInfo, matchCb) {
         if (typeof(matchCb) !== 'function') {
             return;
@@ -1284,7 +1299,17 @@ class StrategyBuySupport extends StrategyBuy {
         var kl = klines.getLatestKline(kltype);
 
         if (kl.l - this.data.guardPrice < 0) {
+            // 最低价创新低
             this.data.guardPrice = kl.l;
+            if (this.data.guardBreakBuyReverse) {
+                // 底部反转k线买入
+                if (this.isLowReverseKl(kl)) {
+                    matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
+                        this.setEnabled(false);
+                    });
+                    return;
+                }
+            }
             matchCb({id: chkInfo.id});
             return;
         }

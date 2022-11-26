@@ -156,12 +156,26 @@ class TrackingAccount extends NormalAccount {
         if (!this.tradeClient) {
             this.createTradeClient();
         }
+        if (price == 0) {
+            this.tradeClient.getRtPrice(code, pobj => {
+                var p = pobj.cp;
+                this.tradeClient.buy(code, p, count, cb);
+            });
+            return;
+        }
         this.tradeClient.buy(code, price, count, cb);
     }
 
     sellStock(code, price, count, cb) {
         if (!this.tradeClient) {
             this.createTradeClient();
+        }
+        if (price == 0) {
+            this.tradeClient.getRtPrice(code, pobj => {
+                var p = pobj.cp;
+                this.tradeClient.sell(code, p, count, cb);
+            });
+            return;
         }
         this.tradeClient.sell(code, price, count, cb);
     }

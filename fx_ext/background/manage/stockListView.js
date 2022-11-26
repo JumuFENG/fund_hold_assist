@@ -23,7 +23,7 @@ class StockView {
             this.deleteBtn.account = stock.account;
             this.deleteBtn.onclick = e => {
                 emjyBack.sendExtensionMessage({command:'mngr.rmwatch', code: e.target.code, account: e.target.account});
-                emjyBack.stockList.deleteStock(e.target.account, e.target.code);
+                emjyBack.deleteStockFromList(e.target.account, e.target.code);
             }
             this.divTitle.appendChild(this.deleteBtn);
         };
@@ -89,8 +89,8 @@ class StockView {
 }
 
 class StockListPanelPage extends RadioAnchorPage {
-    constructor() {
-        super('自选管理');
+    constructor(name='自选管理') {
+        super(name);
         this.stocks = [];
         this.initStockList();
         this.addWatchArea();
@@ -108,6 +108,10 @@ class StockListPanelPage extends RadioAnchorPage {
             stocks[i].strategies = JSON.parse(stocks[i].strategies);
             this.addStock(stocks[i]);
         };
+        this.onStockListLoaded();
+    }
+
+    onStockListLoaded() {
         this.onFiltered(0);
         this.listContainer.lastElementChild.click();
     }
@@ -120,7 +124,8 @@ class StockListPanelPage extends RadioAnchorPage {
             '低位横盘',
             '持仓连板',
             '割肉',
-            '盈利清仓'
+            '盈利清仓',
+            '全部'
         ];
     }
 
@@ -212,6 +217,8 @@ class StockListPanelPage extends RadioAnchorPage {
                 if (stocki.holdCount == 0 && stocki.earned > 0) {
                     this.stocks[i].container.style.display = 'block';
                 }
+            } else if (fid == 7) { // 全部
+                this.stocks[i].container.style.display = 'block';
             } else if (typeof(fid) === 'string') {
                 if (!stocki.strategies) {
                     continue;
@@ -359,20 +366,15 @@ class StockListPanelPage extends RadioAnchorPage {
         var watchDiv = document.createElement('div');
         this.inputWatchCode = document.createElement('input');
         watchDiv.appendChild(this.inputWatchCode);
-        this.watchCodeAccountSelector = document.createElement('select');
-        for (var i in emjyBack.accountsMap) {
-            this.watchCodeAccountSelector.options.add(new Option(emjyBack.accountNames[i], i));
-        };
-        watchDiv.appendChild(this.watchCodeAccountSelector);
+
+        this.createWatchCodeAccountSelector();
+        if (this.watchCodeAccountSelector) {
+            watchDiv.appendChild(this.watchCodeAccountSelector);
+        }
         var btnAddWatchCode = document.createElement('button');
         btnAddWatchCode.textContent = '新增观察股票';
         btnAddWatchCode.onclick = e => {
-            if (this.inputWatchCode.value.length != 6) {
-                alert('Wrong stock code');
-                return;
-            };
-            emjyBack.addWatchingStock(this.inputWatchCode.value, this.watchCodeAccountSelector.value);
-            this.inputWatchCode.value = '';
+            this.addWatchCode();
         };
         watchDiv.appendChild(btnAddWatchCode);
 
@@ -382,10 +384,11 @@ class StockListPanelPage extends RadioAnchorPage {
         this.inputWatchList.style.height = 150;
         this.inputWatchList.style.width = 200;
         watchDiv.appendChild(this.inputWatchList);
-        this.watchListAccountSelector = document.createElement('select');
-        this.watchListAccountSelector.options.add(new Option('普通账户', 0));
-        this.watchListAccountSelector.options.add(new Option('自动分配', 1));
-        watchDiv.appendChild(this.watchListAccountSelector);
+
+        this.createWatchListAccountSelector();
+        if (this.watchListAccountSelector) {
+            watchDiv.appendChild(this.watchListAccountSelector);
+        }
         var btnAddWatchList = document.createElement('button');
         btnAddWatchList.textContent = '新增股票策略';
         btnAddWatchList.onclick = e => {
@@ -395,17 +398,41 @@ class StockListPanelPage extends RadioAnchorPage {
         this.container.appendChild(watchDiv);
     }
 
+    createWatchCodeAccountSelector() {
+        this.watchCodeAccountSelector = document.createElement('select');
+        for (var i in emjyBack.accountsMap) {
+            this.watchCodeAccountSelector.options.add(new Option(emjyBack.accountNames[i], i));
+        }
+    }
+
+    getWatchCodeAccount() {
+        return this.watchCodeAccountSelector.value;
+    }
+
+    addWatchCode() {
+        if (this.inputWatchCode.value.length != 6) {
+            alert('Wrong stock code');
+            return;
+        }
+        emjyBack.addWatchingStock(this.inputWatchCode.value, this.getWatchCodeAccount());
+        this.inputWatchCode.value = '';
+    }
+
+    createWatchListAccountSelector() {
+        this.watchListAccountSelector = document.createElement('select');
+        this.watchListAccountSelector.options.add(new Option('普通账户', 0));
+        this.watchListAccountSelector.options.add(new Option('自动分配', 1));
+    }
+
+    getWatchListAccount() {
+        var acc = this.watchListAccountSelector.value;
+        return acc == 0 ? 'normal' : emjyBack.stockAccountFrom(c);
+    }
+
     addWatchList() {
         var candidatesObj = JSON.parse(this.inputWatchList.value);
-        var acc = this.watchListAccountSelector.value;
         for(var c in candidatesObj) {
-            var account = acc == 0 ? 'normal' : emjyBack.stockAccountFrom(c);
-            var strgrp = {
-                "grptype":"GroupStandard",
-                "strategies":{"0":candidatesObj[c]},
-                "transfers":{"0":{"transfer":"-1"}},
-                "amount":10000};
-            emjyBack.addWatchingStock(c, account, strgrp);
+            emjyBack.addWatchingStock(c, this.getWatchListAccount(), candidatesObj[c]);
         }
         this.inputWatchList.value = '';
     }
