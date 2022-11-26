@@ -158,7 +158,20 @@ class ZtPanelPage extends RadioAnchorPage {
         var date = this.candidatesArea.date;
         if (skey == 'zt1_1') {
             this.candidatesArea.filteredStks.forEach(c => {
-                candidatesObj[c] = emjyBack.strategyManager.create({"key":"StrategyZt1","enabled":false,'kltype':'101',zt0date:date}).data;
+                var strategy = emjyBack.strategyManager.create({"key":"StrategyZt1","enabled":false,'kltype':'101',zt0date:date}).data;
+                var strgrp = {
+                    "grptype":"GroupStandard",
+                    "strategies":{"0":strategy},
+                    "transfers":{"0":{"transfer":"-1"}},
+                    "amount":10000
+                }
+                if (emjyBack.klines[c]) {
+                    var kl = emjyBack.klines[c].getLatestKline('101');
+                    if (kl) {
+                        strgrp['count0'] = Math.ceil(100/kl.c) * 100;
+                    }
+                }
+                candidatesObj[c] = strgrp;
             })
         }
         this.candidatesArea.textContent = JSON.stringify(candidatesObj, null, 1);

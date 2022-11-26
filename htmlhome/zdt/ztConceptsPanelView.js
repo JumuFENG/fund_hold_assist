@@ -47,9 +47,22 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
             this.getZtConcepts();
 
             this.ztConceptPanel = document.createElement('div');
+            this.ztConceptPanel.style.display = 'flex';
             this.container.appendChild(this.ztConceptPanel);
             this.ztConceptTable = new SortableTable();
             this.ztConceptPanel.appendChild(this.ztConceptTable.container);
+
+            var candiToolsPanel = document.createElement('div');
+            candiToolsPanel.style.maxWidth = 1000;
+            this.ztConceptPanel.appendChild(candiToolsPanel);
+            var btnExportChecked = document.createElement('button');
+            btnExportChecked.textContent = '导出所选';
+            btnExportChecked.onclick = e => {
+                this.setStrategyForSelected();
+            }
+            candiToolsPanel.appendChild(btnExportChecked);
+            this.candidatesArea = document.createElement('div');
+            candiToolsPanel.appendChild(this.candidatesArea);
         }
     }
 
@@ -221,15 +234,52 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
         var n = 1;
         for (var i = 0; i < this.dailyZtStocks[date][concept].length; i++) {
             var stocki = this.dailyZtStocks[date][concept][i];
-            var anchor = emjyBack.stockAnchor(stocki[0].substring(2));
+            var code = stocki[0].substring(2);
+            var anchor = emjyBack.stockAnchor(code);
+            var sel = document.createElement('input');
+            sel.type = 'checkbox';
+            sel.code = code;
+            sel.onchange = e => {
+                if (e.target.checked) {
+                    if (!this.candidatesArea.filteredStks) {
+                        this.candidatesArea.filteredStks = new Set();
+                    }
+                    this.candidatesArea.filteredStks.add(e.target.code);
+                    if (!emjyBack.klines[e.target.code]) {
+                        emjyBack.prepareKlines(e.target.code, utils.dateToString(new Date()), '101');
+                    }
+                } else {
+                    if (this.candidatesArea.filteredStks) {
+                        this.candidatesArea.filteredStks.delete(e.target.code);
+                    }
+                }
+            }
             this.ztConceptTable.addRow(
                 n++,
                 date,
                 anchor,
                 stocki[2],
                 stocki[1],
-                ''
+                sel
             );
         }
+    }
+
+    setStrategyForSelected() {
+        this.candidatesArea.textContent = '';
+        var candidatesObj = {};
+        this.candidatesArea.filteredStks.forEach(c => {
+            var strategy = emjyBack.strategyManager.create({"key":"StrategyBuy","enabled":true}).data;
+            var kl = emjyBack.klines[c] ? emjyBack.klines[c].getLatestKline('101') : null;
+            var count0 = kl && kl.c ? Math.ceil(100/kl.c) * 100 : 500;
+            var strgrp = {
+                "grptype":"GroupStandard",
+                "strategies":{"0":strategy},
+                "transfers":{"0":{"transfer":"-1"}},
+                count0,
+                "amount":10000};
+            candidatesObj[c] = strgrp;
+        })
+        this.candidatesArea.textContent = JSON.stringify(candidatesObj, null, 1);
     }
 }

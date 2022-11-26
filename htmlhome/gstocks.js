@@ -301,6 +301,20 @@ class GlobalManager {
         }
         return klines.slice(sidx, eidx);
     }
+
+    prepareKlines(code, sdate, kltype, klnocheckold) {
+        if (!this.klines[code]) {
+            this.loadKlines(code, lcode => {
+                if (!this.klines[lcode] || !this.klines[lcode].klines || !this.klines[code].klines[kltype]) {
+                    this.getDailyKlineSinceMonthAgo(lcode, kltype, sdate);
+                } else {
+                    this.checkExistingKlines(lcode, sdate, kltype, klnocheckold);
+                }
+            });
+        } else {
+            this.checkExistingKlines(code, sdate, kltype, klnocheckold);
+        }
+    }
 }
 
 var emjyBack = new GlobalManager();

@@ -83,17 +83,7 @@ class localSavedViewPage extends RadioAnchorPage {
     prepareKlines(code, sdate, kltype, klnocheckold) {
         if (this.klchecked[code] === undefined || sdate < this.klchecked[code]) {
             this.klchecked[code] = sdate;
-            if (!emjyBack.klines[code]) {
-                emjyBack.loadKlines(code, lcode => {
-                    if (!emjyBack.klines[lcode] || !emjyBack.klines[lcode].klines || !emjyBack.klines[lcode].klines[kltype]) {
-                        emjyBack.getDailyKlineSinceMonthAgo(lcode, kltype, sdate);
-                    } else {
-                        emjyBack.checkExistingKlines(lcode, sdate, kltype, klnocheckold);
-                    }
-                });
-            } else {
-                emjyBack.checkExistingKlines(code, sdate, kltype, klnocheckold);
-            }
+            emjyBack.prepareKlines(code, sdate, kltype, klnocheckold);
         }
     }
 

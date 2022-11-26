@@ -111,17 +111,7 @@ class StockData {
     prepareKlines(code, sdate, kltype) {
         if (this.klchecked[code] === undefined || sdate < this.klchecked[code]) {
             this.klchecked[code] = sdate;
-            if (!emjyBack.klines[code]) {
-                emjyBack.loadKlines(code, lcode => {
-                    if (!emjyBack.klines[lcode] || !emjyBack.klines[lcode].klines || !emjyBack.klines[code].klines[kltype]) {
-                        emjyBack.getDailyKlineSinceMonthAgo(lcode, kltype, sdate);
-                    } else {
-                        emjyBack.checkExistingKlines(lcode, sdate, kltype);
-                    }
-                });
-            } else {
-                emjyBack.checkExistingKlines(code, sdate, kltype);
-            }
+            emjyBack.prepareKlines(code, sdate, kltype, false);
         }
     }
 
