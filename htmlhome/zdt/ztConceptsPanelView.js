@@ -28,6 +28,7 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
         super('涨停热度');
         this.conceptBk = {};
         this.dailyZtStocks = {};
+        this.dailyZtStats = undefined;
     }
 
     show() {
@@ -45,6 +46,8 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
             this.topPanel.style.maxHeight = 600;
             this.container.appendChild(this.topPanel);
             this.getZtConcepts();
+            this.getStocksRank();
+            this.getDailyZtStats();
 
             this.ztConceptPanel = document.createElement('div');
             this.ztConceptPanel.style.display = 'flex';
@@ -67,7 +70,7 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
     }
 
     getZtConcepts() {
-        var ztUrl = emjyBack.fha.server + 'stock?act=ztconcept&days=250';
+        var ztUrl = emjyBack.fha.server + 'stock?act=ztconcept&days=50';
         utils.get(ztUrl, null, cdata => {
             this.ztconcepts = JSON.parse(cdata);
             this.showZtConcepts();
@@ -84,6 +87,29 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
             if (typeof(cb) === 'function') {
                 cb();
             }
+        });
+    }
+
+    getStocksRank(code) {
+        if (!this.rankClient) {
+            this.rankClient = new StockRankClient();
+        }
+        if (!this.rankClient.ranks) {
+            this.rankClient.getRanks();
+        } else {
+            var rc = this.rankClient.ranks.find(r => r.code == code);
+            if (rc) {
+                return rc.rank;
+            }
+        }
+        return '-';
+    }
+
+    getDailyZtStats() {
+        var ztUrl = emjyBack.fha.server + '/api/stockzthist?daily=1';
+        utils.get(ztUrl, null, zst => {
+            this.dailyZtStats = JSON.parse(zst);
+            this.showDailyZtStats();
         });
     }
 
@@ -230,7 +256,7 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
         }
 
         this.ztConceptTable.reset();
-        this.ztConceptTable.setClickableHeader('序号', '日期', '名称(代码)', '涨停概念', '连板数', '')
+        this.ztConceptTable.setClickableHeader('序号', '日期', '名称(代码)', '涨停概念', '连板数', '人气', '')
         var n = 1;
         for (var i = 0; i < this.dailyZtStocks[date][concept].length; i++) {
             var stocki = this.dailyZtStocks[date][concept][i];
@@ -254,15 +280,21 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
                     }
                 }
             }
+            var rank = this.getStocksRank(code);
             this.ztConceptTable.addRow(
                 n++,
                 date,
                 anchor,
                 stocki[2],
                 stocki[1],
+                rank,
                 sel
             );
         }
+    }
+
+    showDailyZtStats() {
+        console.log(this.dailyZtStats);
     }
 
     setStrategyForSelected() {

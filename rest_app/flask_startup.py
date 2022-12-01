@@ -591,7 +591,10 @@ def stock_zthist():
     if request.method == 'GET':
         date = request.args.get('date', type=str, default=None)
         concept = request.args.get('concept', type=str, default=None)
+        daily = request.args.get('daily', type=bool, default=False)
         szi = StockZtInfo()
+        if daily:
+            return json.dumps(szi.dumpDailyZt())
         if concept is None:
             zt = szi.dumpDataByDate(date)
             return json.dumps(zt)

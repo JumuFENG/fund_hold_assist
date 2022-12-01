@@ -62,8 +62,8 @@ class StockZtInfo(EmRequest, TableBase):
             {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
             {'col':'涨停封单','type':'varchar(20) DEFAULT NULL'},
             {'col':'换手率','type':'varchar(20) DEFAULT NULL'},
-            {'col':'连板数','type':'varchar(20) DEFAULT NULL'},
-            {'col':'炸板数','type':'varchar(20) DEFAULT NULL'},
+            {'col':'连板数','type':'tinyint DEFAULT NULL'},
+            {'col':'炸板数','type':'tinyint DEFAULT NULL'},
             {'col':'板块','type':'varchar(63) DEFAULT NULL'},
             {'col':'概念','type':'varchar(255) DEFAULT NULL'}
         ]
@@ -189,6 +189,9 @@ class StockZtInfo(EmRequest, TableBase):
                     ztcpt.append([c, n, bk, con])
             return self._unify_concepts(ztcpt)
         return self._unify_concepts(pool)
+
+    def dumpDailyZt(self):
+        return self.sqldb.select(self.tablename, [f'{column_date}', 'count(*)', 'max(连板数)'], order=f'group by {column_date}')
 
 
 class StockZtConcepts(TableBase):
