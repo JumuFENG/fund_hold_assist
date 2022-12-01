@@ -914,6 +914,10 @@ class StrategySellELTop extends StrategySell {
 
         if (updatedKlt.includes(this.dkltype)) {
             var kl = klines.getLatestKline(this.dkltype);
+            if (klines.latestKlinePercentage() - 0.09 > 0 && kl.c - kl.h == 0) {
+                // 涨停不卖出
+                return;
+            }
             if (this.targetPriceReachSell(kl, this.data.topprice, this.data.upRate)) {
                 // sell.
                 var count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);

@@ -3,6 +3,7 @@
 class TrackStockListPanelPage extends StockListPanelPage {
     constructor() {
         super('模拟账户');
+        this.defaultFilter = 7;
         this.stocksFetched = false;
     }
 
@@ -12,11 +13,6 @@ class TrackStockListPanelPage extends StockListPanelPage {
             emjyBack.sendExtensionMessage({command: 'mngr.inittrack'});
             this.stocksFetched = true;
         }
-    }
-
-    onStockListLoaded() {
-        this.onFiltered(7);
-        this.listContainer.lastElementChild.click();
     }
 
     createWatchCodeAccountSelector() {

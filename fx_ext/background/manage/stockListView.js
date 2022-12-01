@@ -96,6 +96,7 @@ class StockListPanelPage extends RadioAnchorPage {
         this.addWatchArea();
         this.strategyGroupView = new StrategyGroupView();
         this.currentCode = null;
+        this.defaultFilter = 0;
     }
 
     initUi(stocks) {
@@ -108,11 +109,7 @@ class StockListPanelPage extends RadioAnchorPage {
             stocks[i].strategies = JSON.parse(stocks[i].strategies);
             this.addStock(stocks[i]);
         };
-        this.onStockListLoaded();
-    }
-
-    onStockListLoaded() {
-        this.onFiltered(0);
+        this.onFiltered(this.defaultFilter);
         this.listContainer.lastElementChild.click();
     }
 
