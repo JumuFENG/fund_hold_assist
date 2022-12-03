@@ -40,6 +40,10 @@ class StockView {
         var detailText = '最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost
             + ' 数量：' + this.stock.holdCount  + ' 市值: ' + (this.stock.latestPrice * this.stock.holdCount).toFixed(2);
         this.detailView.textContent = detailText;
+        if (this.stock.acccode.startsWith('track')) {
+            return;
+        }
+
         if (this.stock.holdCount == 0) {
             emjyBack.getTotalEarned(this.stock.code, e => {
                 if (e == 0) {
@@ -308,18 +312,26 @@ class StockListPanelPage extends RadioAnchorPage {
         this.stocks.splice(idx, 1);
     }
 
+    updateStocksDailyKline() {
+        emjyBack.updateShownStocksDailyKline();
+    }
+
+    checkStockKlExpired() {
+        emjyBack.checkKl1Expired();
+    }
+
     initStockList() {
         var updateBtn = document.createElement('button');
         updateBtn.textContent = '更新数据';
         updateBtn.onclick = e => {
-            emjyBack.updateShownStocksDailyKline();
+            this.updateStocksDailyKline();
         }
         this.container.appendChild(updateBtn);
 
         var checkCountBtn = document.createElement('button');
         checkCountBtn.textContent = '检查数据';
         checkCountBtn.onclick = e => {
-            emjyBack.checkKl1Expired();
+            this.checkStockKlExpired();
         }
         this.container.appendChild(checkCountBtn);
 

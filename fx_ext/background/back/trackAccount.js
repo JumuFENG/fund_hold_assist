@@ -126,6 +126,9 @@ class TrackingAccount extends NormalAccount {
                     emjyBack.getFromLocal(strStorageKey, str => {
                         if (str) {
                             this.applyStrategy(s, JSON.parse(str));
+                            var stockInfo = this.stocks.find(function(stocki) {return s == stocki.code});
+                            stockInfo.holdCount = stockInfo.strategies.buydetail.totalCount();
+                            stockInfo.holdCost = stockInfo.strategies.buydetail.averPrice();
                         };
                     });
                 });

@@ -293,6 +293,12 @@ def stock():
             sdm = StockDtMap()
             sdm.addDtMap(date, dtmap, details)
             return 'OK', 200
+        if actype == 'trackdeals':
+            tname = request.form.get('name', type=str, default=None)
+            deals = request.form.get('data', type=str, default=None)
+            std = StockTrackDeals()
+            std.addDeals(tname, json.loads(deals))
+            return 'OK', 200
     else:
         actype = request.args.get("act", type=str, default=None)
         if actype == 'test':
