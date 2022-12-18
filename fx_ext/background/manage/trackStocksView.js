@@ -58,13 +58,18 @@ class TrackStockListPanelPage extends StockListPanelPage {
         if (!this.trackingDealsTable) {
             this.trackingDealsTable = new SortableTable();
             this.container.appendChild(this.trackingDealsTable.container);
-            this.archiveNameInput = document.createElement('input');
-            this.archiveNameInput.placeholder = '策略存储名';
+            this.archiveNameSelector = document.createElement('select');
+            this.container.appendChild(this.archiveNameSelector);
             emjyBack.getFromLocal('track_strategy_name', x => {
                 if (x) {
-                    this.archiveNameInput.value = x;
+                    this.archivedTrackingName = x;
+                    this.archivedTrackingName.forEach(t => {
+                        this.archiveNameSelector.options.add(new Option(t));
+                    });
                 }
             });
+            this.archiveNameInput = document.createElement('input');
+            this.archiveNameInput.placeholder = '策略存储名';
             this.container.appendChild(this.archiveNameInput);
             this.archiveDealsBtn = document.createElement('button');
             this.archiveDealsBtn.textContent = '保存选中记录';
@@ -131,12 +136,20 @@ class TrackStockListPanelPage extends StockListPanelPage {
     }
 
     archieveTrackDeals() {
-        if (!this.archiveNameInput.value) {
+        if (!this.archiveNameInput.value && this.archivedTrackingName.length == 0) {
             alert('请输入策略存储名称!');
             return;
         }
-        var track_strategy_name = this.archiveNameInput.value;
-        emjyBack.saveToLocal({track_strategy_name});
+        var track_name = this.archiveNameSelector.value;
+        if (this.archiveNameInput.value) {
+            if (!this.archivedTrackingName) {
+                this.archivedTrackingName = new Set();
+            }
+            track_name = this.archiveNameInput.value;
+            this.archivedTrackingName.add(this.archiveNameInput.value);
+            var track_strategy_name = this.archivedTrackingName;
+            emjyBack.saveToLocal({track_strategy_name});
+        }
         var ardeals = [];
         this.stocks.forEach(sv => {
             var stocki = sv.stock;
@@ -151,7 +164,7 @@ class TrackStockListPanelPage extends StockListPanelPage {
         var dlUrl = emjyBack.fha.server + 'stock';
         var fd = new FormData();
         fd.append('act', 'trackdeals');
-        fd.append('name', track_strategy_name);
+        fd.append('name', track_name);
         fd.append('data', JSON.stringify(ardeals));
         utils.post(dlUrl, fd, null, dl => {
             if (dl != 'OK') {
