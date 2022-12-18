@@ -90,6 +90,7 @@ class KlineAlarms extends DailyAlarm {
 
 class OtpAlarm {
     constructor() {
+        this.stocks = new Set();
         this.tasks = [];
     }
 
@@ -97,9 +98,22 @@ class OtpAlarm {
         this.tasks.push(tsk);
     }
 
+    addStock(code) {
+        this.stocks.add(code);
+    }
+
+    removeStock(code) {
+        if (this.stocks.has(code)) {
+            this.stocks.delete(code);
+        };
+    }
+
     onTimer() {
         this.tasks.forEach(tsk => {
             tsk.exec(tsk.params);
+        });
+        this.stocks.forEach(s => {
+            emjyBack.fetchStockSnapshot(s);
         });
     }
 }

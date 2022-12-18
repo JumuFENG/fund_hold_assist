@@ -514,9 +514,66 @@ class StrategyBuy extends Strategy {
                 price = rtInfo.sellPrices[1];
             }
         }
-        matchCb({id: chkInfo.id, tradeType: 'B', count: (rtInfo.count ? rtInfo.count : 0), price}, _ => {
-            this.setEnabled(false);
-        });
+        // 'direct': '直接买入', 'ge': '高于', 'le':'低于', 'lg': '介于', 'nlg': '不介于'
+        if (this.data.bway == 'direct') {
+            matchCb({id: chkInfo.id, tradeType: 'B', count: (rtInfo.count ? rtInfo.count : 0), price}, _ => {
+                this.setEnabled(false);
+            });
+            return;
+        }
+
+        var klines = emjyBack.klines[chkInfo.code];
+        if (!klines) {
+            return;
+        }
+        var lkl = klines.getLatestKline()
+        if (!lkl) {
+            return;
+        }
+
+        emjyBack.log('StrategyBuy, latest kline', lkl, rtInfo);
+
+        var lclose = lkl.c;
+        if (this.data.bway == 'ge') {
+            if (rtInfo.latestPrice - lclose * (1 + this.data.rate0) >= 0) {
+                matchCb({id: chkInfo.id, tradeType: 'B', count: (rtInfo.count ? rtInfo.count : 0), price}, _ => {
+                    this.setEnabled(false);
+                });
+                return;
+            }
+        }
+        if (this.data.bway == 'le') {
+            if (rtInfo.latestPrice - lclose * (1 + this.data.rate0) <= 0) {
+                matchCb({id: chkInfo.id, tradeType: 'B', count: (rtInfo.count ? rtInfo.count : 0), price}, _ => {
+                    this.setEnabled(false);
+                });
+                return;
+            }
+        }
+        if (this.data.bway == 'lg') {
+            if (this.data.rate0 - this.data.rate1 < 0) {
+                emjyBack.log('wrong data setting for StrategyBuy, upband rate:', this.data.rate0, 'lowband rate:', this.data.rate1);
+                return;
+            }
+            if (rtInfo.latestPrice - lclose * (1 + this.data.rate0) <= 0 && rtInfo.latestPrice - lclose * (1 + this.data.rate1) >= 0) {
+                matchCb({id: chkInfo.id, tradeType: 'B', count: (rtInfo.count ? rtInfo.count : 0), price}, _ => {
+                    this.setEnabled(false);
+                });
+                return;
+            }
+        }
+        if (this.data.bway == 'nlg') {
+            if (this.data.rate0 - this.data.rate1 < 0) {
+                emjyBack.log('wrong data setting for StrategyBuy, upband rate:', this.data.rate0, 'lowband rate:', this.data.rate1);
+                return;
+            }
+            if (rtInfo.latestPrice - lclose * (1 + this.data.rate0) >= 0 || rtInfo.latestPrice - lclose * (1 + this.data.rate1) <= 0) {
+                matchCb({id: chkInfo.id, tradeType: 'B', count: (rtInfo.count ? rtInfo.count : 0), price}, _ => {
+                    this.setEnabled(false);
+                });
+                return;
+            }
+        }
     }
 }
 

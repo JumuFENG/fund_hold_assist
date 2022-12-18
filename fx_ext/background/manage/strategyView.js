@@ -555,10 +555,103 @@ class StrategyBaseView {
 }
 
 class StrategyBuyView extends StrategyBaseView {
+    createCheckOptions() {
+        var chkDiv = document.createElement('div');
+        chkDiv.appendChild(document.createTextNode('买入方式 '));
+        this.buyWayOptSelector = document.createElement('select');
+        var buyOptions = {'direct': '直接买入', 'ge': '高于', 'le':'低于', 'lg': '介于', 'nlg': '不介于'};
+        for (var op in buyOptions) {
+            var opt = new Option(buyOptions[op], op);
+            this.buyWayOptSelector.options.add(opt);
+        };
+        this.buyWayOptSelector.onchange = e => {
+            this.showOptDetails(e.target.value);
+        }
+        chkDiv.appendChild(this.buyWayOptSelector);
+
+        this.rate0Div = document.createElement('div');
+        this.rate0Ipt = document.createElement('input');
+        if (this.strategy.rate0 !== undefined) {
+            this.rate0Ipt.value = 100 * this.strategy.rate0;
+        }
+        this.rate0Div.appendChild(this.rate0Ipt);
+        this.rate0Div.appendChild(document.createTextNode('%'));
+
+        this.rate1Div = document.createElement('div');
+        this.rate1Ipt = document.createElement('input');
+        if (this.strategy.rate1 !== undefined) {
+            this.rate1Ipt.value = 100 * this.strategy.rate1;
+        }
+        this.rate1Div.appendChild(this.rate1Ipt);
+        this.rate1Div.appendChild(document.createTextNode('%'));
+
+        chkDiv.appendChild(this.rate0Div);
+        chkDiv.appendChild(this.rate1Div);
+
+        this.detailDescription = document.createTextNode('');
+        chkDiv.appendChild(this.detailDescription);
+
+        if (!this.strategy.bway) {
+            this.buyWayOptSelector.value = 'direct';
+        } else {
+            this.buyWayOptSelector.value = this.strategy.bway;
+        }
+        this.showOptDetails(this.buyWayOptSelector.value);
+        return chkDiv;
+    }
+
+    showOptDetails(val) {
+        if (val == 'direct') {
+            this.rate0Div.style.display = 'none';
+            this.rate1Div.style.display = 'none';
+            this.detailDescription.textContent = '';
+        } else if (val == 'ge' || val == 'le') {
+            this.rate0Div.style.display = 'block';
+            this.rate1Div.style.display = 'none';
+            var desc = val == 'ge' ? '价格高于昨日收盘价的百分比': '价格低于昨日收盘价的百分比';
+            this.detailDescription.textContent = desc;
+        } else {
+            this.rate0Div.style.display = 'block';
+            this.rate1Div.style.display = 'block';
+            var desc = val == 'lg' ? '价格介于昨日收盘价的百分比': '价格不介于昨日收盘价的百分比';
+            this.detailDescription.textContent = desc;
+        }
+    }
+
+    isChanged() {
+        var changed = super.isChanged();
+        if (this.buyWayOptSelector) {
+            if (this.buyWayOptSelector.value != this.strategy.bway) {
+                this.strategy.bway = this.buyWayOptSelector.value;
+                changed = true;
+            }
+            if (this.rate0Ipt && this.strategy.bway != 'direct') {
+                if (this.strategy.bway == 'ge' || this.strategy.bway == 'le') {
+                    if (this.strategy.rate0 != this.rate0Ipt.value / 100) {
+                        this.strategy.rate0 = this.rate0Ipt.value / 100;
+                        changed = true;
+                    }
+                }
+            }
+            if (this.rate1Ipt && (this.strategy.bway == 'lg' || this.strategy.bway == 'nlg')) {
+                if (this.strategy.rate0 != this.rate0Ipt.value / 100) {
+                    this.strategy.rate0 = this.rate0Ipt.value / 100;
+                    changed = true;
+                }
+                if (this.strategy.rate1 != this.rate0Ipt.value / 100) {
+                    this.strategy.rate1 = this.rate0Ipt.value / 100;
+                    changed = true;
+                }
+            }
+        }
+        return changed;
+    }
+
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
-        view.appendChild(document.createTextNode('直接买入'));
+        view.appendChild(document.createTextNode('直接买入，或查询一次实时价格，或以昨日收盘价为标准，高于/低于/介于'));
+        view.appendChild(this.createCheckOptions());
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }
