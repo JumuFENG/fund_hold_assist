@@ -718,7 +718,7 @@ class EmjyBack {
             } else if (gl == 'kday') {
                 this.dailyAlarm.addStock(strgrp.code, strgrp.strategies[id].kltype());
             } else if (gl == 'otp') {
-                if (strgrp.count0 !== undefined && strgrp.count0 > 0 && strgrp.strategies[id].bway == 'direct') {
+                if (strgrp.count0 !== undefined && strgrp.count0 > 0 && strgrp.strategies[id].data.bway == 'direct') {
                     this.otpAlarm.addTask({params:{id, code: strgrp.code}, exec: (params) => {
                         strgrp.onOtpAlarm(params.id);
                     }});

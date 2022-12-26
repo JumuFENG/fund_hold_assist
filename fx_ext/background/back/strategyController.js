@@ -504,6 +504,10 @@ class StrategyBuy extends Strategy {
         if (!this.enabled() || typeof(matchCb) !== 'function') {
             return;
         }
+        if (this.guardLevel() != 'otp') {
+            return;
+        }
+
         this.setEnabled(false);
         var rtInfo = chkInfo.rtInfo;
         var price = rtInfo.latestPrice;
@@ -514,6 +518,9 @@ class StrategyBuy extends Strategy {
                 price = rtInfo.sellPrices[1];
             }
         }
+        if (!this.data.bway) {
+            this.data.bway = 'direct';
+        }
         // 'direct': '直接买入', 'ge': '高于', 'le':'低于', 'lg': '介于', 'nlg': '不介于'
         if (this.data.bway == 'direct') {
             matchCb({id: chkInfo.id, tradeType: 'B', count: (rtInfo.count ? rtInfo.count : 0), price}, _ => {
@@ -522,18 +529,7 @@ class StrategyBuy extends Strategy {
             return;
         }
 
-        var klines = emjyBack.klines[chkInfo.code];
-        if (!klines) {
-            return;
-        }
-        var lkl = klines.getLatestKline()
-        if (!lkl) {
-            return;
-        }
-
-        emjyBack.log('StrategyBuy, latest kline', lkl, rtInfo);
-
-        var lclose = lkl.c;
+        var lclose = rtInfo.lastClose;
         if (this.data.bway == 'ge') {
             if (rtInfo.latestPrice - lclose * (1 + this.data.rate0) >= 0) {
                 matchCb({id: chkInfo.id, tradeType: 'B', count: (rtInfo.count ? rtInfo.count : 0), price}, _ => {

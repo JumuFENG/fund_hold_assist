@@ -641,10 +641,6 @@ class StrategyGroup {
                 continue;
             }
 
-            if (curStrategy.guardLevel() == 'otp' && this.count0 > 0) {
-                continue;
-            }
-
             curStrategy.check({id, rtInfo, buydetail: this.buydetail}, (matchResult, cb) => {
                 if (matchResult) {
                     this.doTrade(matchResult, cb);

@@ -20,6 +20,7 @@ class StockInfo {
         var rtInfo = {code: this.code, name: this.name};
         rtInfo.latestPrice = this.latestPrice;
         rtInfo.openPrice = snapshot.fivequote.openPrice;
+        rtInfo.lastClose = snapshot.fivequote.yesClosePrice;
         var buyPrices = [snapshot.fivequote.buy1, snapshot.fivequote.buy2, snapshot.fivequote.buy3, snapshot.fivequote.buy4, snapshot.fivequote.buy5];
         rtInfo.buyPrices = buyPrices;
         var sellPrices = [snapshot.fivequote.sale1, snapshot.fivequote.sale2, snapshot.fivequote.sale3, snapshot.fivequote.sale4, snapshot.fivequote.sale5];
