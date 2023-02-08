@@ -3,7 +3,7 @@
 class ZtPanelPage extends RadioAnchorPage {
     constructor() {
         super('涨停一览');
-        this.zt1KeyWords = {'zt1' : '今日首板', 'zt1_1': '首板一字涨停'};
+        this.zt1KeyWords = {'zt1' : '今日首板', 'zt1_1': '首板一字涨停', 'dzt': '昨跌停今涨停'};
     }
 
     show() {
@@ -20,6 +20,9 @@ class ZtPanelPage extends RadioAnchorPage {
                 this.zt1Selector.options.add(new Option(this.zt1KeyWords[k], k));
             };
             this.zt1Selector.onchange = e => {
+                if (this.candidatesArea.filteredStks && this.candidatesArea.filteredStks.size > 0) {
+                    this.candidatesArea.filteredStks.clear();
+                }
                 this.showZtTable(this.zt1Selector.value);
             }
             this.ztTable = new SortableTable();
@@ -79,11 +82,25 @@ class ZtPanelPage extends RadioAnchorPage {
         });
     }
 
+    getZtdztStocks() {
+        var dztUrl = emjyBack.fha.server + 'stock?act=pickup&key=dzt&date=' + this.ztdata.date;
+        utils.get(dztUrl, null, dzt => {
+            this.dztstocks = JSON.parse(dzt);
+            if (this.dztstocks.length > 0) {
+                this.showDztTable();
+            }
+        });
+    }
+
     showZtTable(skey) {
         if (skey === undefined) {
             skey = 'zt1';
         }
         if (!this.ztdata || !this.ztTable) {
+            return;
+        }
+        if (skey == 'dzt') {
+            this.showDztTable();
             return;
         }
 
@@ -122,21 +139,7 @@ class ZtPanelPage extends RadioAnchorPage {
                 }
             }
             var anchor = emjyBack.stockAnchor(code);
-            var sel = document.createElement('input');
-            sel.type = 'checkbox';
-            sel.code = code;
-            sel.onchange = e => {
-                if (e.target.checked) {
-                    if (!this.candidatesArea.filteredStks) {
-                        this.candidatesArea.filteredStks = new Set();
-                    }
-                    this.candidatesArea.filteredStks.add(e.target.code);
-                } else {
-                    if (this.candidatesArea.filteredStks) {
-                        this.candidatesArea.filteredStks.delete(e.target.code);
-                    }
-                }
-            }
+            var sel = this.createSelCheckbox(code);
             this.ztTable.addRow(
                 n++,
                 date,
@@ -148,6 +151,83 @@ class ZtPanelPage extends RadioAnchorPage {
         }
     }
 
+    createSelCheckbox(code) {
+        var sel = document.createElement('input');
+        sel.type = 'checkbox';
+        sel.code = code;
+        sel.onchange = e => {
+            if (e.target.checked) {
+                if (!this.candidatesArea.filteredStks) {
+                    this.candidatesArea.filteredStks = new Set();
+                }
+                this.candidatesArea.filteredStks.add(e.target.code);
+            } else {
+                if (this.candidatesArea.filteredStks) {
+                    this.candidatesArea.filteredStks.delete(e.target.code);
+                }
+            }
+        }
+        return sel;
+    }
+
+    showDztTable() {
+        this.ztTable.reset();
+        this.candidatesArea.textContent = '';
+        this.ztTable.setClickableHeader('序号', '日期', '名称(代码)', '昨跌幅', '今涨幅', '');
+        if (!this.dztstocks) {
+            this.getZtdztStocks();
+            return;
+        }
+
+        var n = 1;
+        for (var i = 0; i < this.dztstocks.length; ++i) {
+            var stocki = this.dztstocks[i];
+            var code = stocki[0].substring(2);
+            var anchor = emjyBack.stockAnchor(code);
+            var sel = this.createSelCheckbox(code);
+            this.ztTable.addRow(
+                n++,
+                stocki[3],
+                anchor,
+                stocki[2],
+                stocki[4],
+                sel
+            );
+        }
+    }
+
+    createStrategyFor(code, skey) {
+        var date = this.candidatesArea.date;
+        var strategy = undefined;
+        if (skey == 'dzt') {
+            strategy = emjyBack.strategyManager.create({"key":"StrategyBuy","enabled":true, 'bway':'ge', 'rate0':-0.01}).data;
+        } else if (skey == 'zt1_1') {
+            strategy = emjyBack.strategyManager.create({"key":"StrategyZt1","enabled":false,'kltype':'101',zt0date:date}).data;
+        }
+
+        if (strategy === undefined) {
+            return
+        }
+
+        var strategies = {"0":strategy}
+        var transfers = {"0":{"transfer":"-1"}};
+        var gmeta = {};
+        if (skey == 'dzt') {
+            strategies['1'] = {"key":"StrategySellELS","enabled":false,"cutselltype":"single"};
+            transfers = {"0":{"transfer":"-1"}, "1":{"transfer":"-1"}};
+            gmeta = {"setguard": true, "guardid": "1", "settop": true};
+        }
+
+        var strgrp = {"grptype":"GroupStandard", strategies, transfers, gmeta, "amount":10000};
+        if (emjyBack.klines[code]) {
+            var kl = emjyBack.klines[c].getLatestKline('101');
+            if (kl) {
+                strgrp['count0'] = Math.ceil(100/kl.c) * 100;
+            }
+        }
+        return strgrp;
+    }
+
     setStrategyForSelected() {
         this.candidatesArea.textContent = '';
         var skey = this.zt1Selector.value;
@@ -155,25 +235,9 @@ class ZtPanelPage extends RadioAnchorPage {
             return;
         }
         var candidatesObj = {};
-        var date = this.candidatesArea.date;
-        if (skey == 'zt1_1') {
-            this.candidatesArea.filteredStks.forEach(c => {
-                var strategy = emjyBack.strategyManager.create({"key":"StrategyZt1","enabled":false,'kltype':'101',zt0date:date}).data;
-                var strgrp = {
-                    "grptype":"GroupStandard",
-                    "strategies":{"0":strategy},
-                    "transfers":{"0":{"transfer":"-1"}},
-                    "amount":10000
-                }
-                if (emjyBack.klines[c]) {
-                    var kl = emjyBack.klines[c].getLatestKline('101');
-                    if (kl) {
-                        strgrp['count0'] = Math.ceil(100/kl.c) * 100;
-                    }
-                }
-                candidatesObj[c] = strgrp;
-            })
-        }
+        this.candidatesArea.filteredStks.forEach(c => {
+            candidatesObj[c] = this.createStrategyFor(c, skey);
+        })
         this.candidatesArea.textContent = JSON.stringify(candidatesObj, null, 1);
     }
 

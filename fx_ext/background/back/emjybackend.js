@@ -993,6 +993,7 @@ class EmjyBack {
         this.loadDeals();
         this.normalAccount.fillupGuardPrices();
         this.collateralAccount.fillupGuardPrices();
+        this.trackAccount.fillupGuardPrices();
         if ((new Date()).getDate() == 2) {
             this.fetchAllStocksMktInfo();
         }

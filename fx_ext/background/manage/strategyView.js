@@ -777,13 +777,34 @@ class StrategySellELView extends StrategyBaseView {
 }
 
 class StrategySellELSView extends StrategyBaseView {
+    skippedDataInput() {
+        return ['enabled', 'account', 'kltype', 'key', 'guardPrice', 'topprice', 'selltype', 'cutselltype', 'meta'];
+    }
+
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
-        view.appendChild(document.createTextNode('低点抬高法, 1分钟，短线收益不错时设置该策略'));
+        view.appendChild(document.createTextNode('低点抬高法, 1分钟，短线收益不错时设置该策略, 卖出类型为止损卖出类型。若设置目标价,则价格介于目标价和止损点之间不卖出.'));
         view.appendChild(document.createElement('br'));
+        view.appendChild(this.createReferedInputWithSellType('目标价 '));
+        if (this.strategy.topprice) {
+            this.inputRefer.value = this.strategy.topprice;
+        }
         view.appendChild(this.createGuardInputWithSellType('止损点 '));
+        view.appendChild(this.createDataInput());
         return view;
+    }
+
+    isChanged() {
+        var changed = super.isChanged();
+        if (this.inputRefer && this.inputRefer.value) {
+            var topprice = this.inputRefer.value;
+            if (this.strategy.topprice != topprice) {
+                this.strategy.topprice = topprice;
+                changed = true;
+            };
+        };
+        return changed;
     }
 }
 
@@ -801,7 +822,7 @@ class StrategySellElTopView extends StrategyBaseView {
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('短K达到目标价之后以低点抬高法(或日K最高价距离目标价百分比upRate)卖出，设置止损价格则在短K收盘价低于止损价时卖出(不设置则不止损)。'));
         view.appendChild(this.createKlineTypeSelector('短K类型'));
-        view.appendChild(this.createReferedInputWithSellType('目标价 '))
+        view.appendChild(this.createReferedInputWithSellType('目标价 '));
         if (this.strategy.topprice) {
             this.inputRefer.value = this.strategy.topprice;
         }

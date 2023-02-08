@@ -427,6 +427,9 @@ class StrategyGroup {
         if (str.amount) {
             this.amount = str.amount;
         }
+        if (str.gmeta) {
+            this.gmeta = str.gmeta;
+        }
         this.buydetail = new BuyDetail(str.buydetail);
     }
 
@@ -515,6 +518,9 @@ class StrategyGroup {
         if (this.amount !== undefined) {
             data.amount = this.amount;
         }
+        if (this.gmeta !== undefined) {
+            data.gmeta = this.gmeta;
+        }
         return JSON.stringify(data);
     }
 
@@ -552,48 +558,30 @@ class StrategyGroup {
             return;
         }
 
-        if (!this.strategies[0] || !this.strategies[3]) {
+        if (!this.gmeta) {
             return;
         }
 
-        var key = this.strategies[3].key();
-        if (this.strategies[0].key() == 'StrategyBuy' || this.strategies[0].key() == 'StrategyBuyZTBoard') {
-            var elIdx = this.strategies[0].key() == 'StrategyBuy' ? 3 : 1;
-            if (key == 'StrategySellEL' || key == 'StrategySellELS') {
-                if (this.strategies[elIdx].data.guardPrice !== undefined && this.strategies[elIdx].data.guardPrice != null) {
-                    return;
-                }
+        if (this.gmeta.setguard && this.gmeta.guardid && this.buydetail.averPrice() > 0) {
+            if (!this.strategies[this.gmeta.guardid].data.guardPrice) {
+                // min(min(开盘价, 买入价) * 94.5%, 最低价)
                 emjyBack.log('set guardPrice for', this.account, this.code);
                 if (klines['101']) {
-                    var kl0 = klines['101'][klines['101'].length - 2];
-                    var kl1 = klines['101'][klines['101'].length - 3];
-                    this.strategies[elIdx].data.guardPrice = kl1.c - kl0.l > 0 ? kl0.l : kl1.c;
-                    if (!this.strategies[elIdx].data.enabled) {
-                        this.strategies[elIdx].data.enabled = true;
+                    var kl = klines['101'][klines['101'].length - 1];
+                    this.strategies[this.gmeta.guardid].data.guardPrice = Math.min(kl.o * 0.945, this.buydetail.averPrice() * 0.945, kl.l * 1);
+                    if (!this.strategies[this.gmeta.guardid].data.enabled) {
+                        this.strategies[this.gmeta.guardid].data.enabled = true;
                     }
                 } else {
                     emjyBack.log('no daily kline data', this.code, this.account);
                 }
-            }
-        }
-
-        if (this.strategies[0].key() == 'StrategyBuyMAE') {
-            if (key == 'StrategySellEL' || key == 'StrategySellELS') {
-                if (this.strategies[3].data.guardPrice !== undefined && this.strategies[3].data.guardPrice != null) {
-                    return;
-                }
-                emjyBack.log('set guardPrice for', this.account, this.code);
-                if (klines['101']) {
-                    var kl0 = klines['101'][klines['101'].length - 1];
-                    var kl1 = klines['101'][klines['101'].length - 2];
-                    this.strategies[3].data.guardPrice = kl1.c - kl0.l > 0 ? kl0.l : kl1.c;
-                    if (!this.strategies[3].data.enabled) {
-                        this.strategies[3].data.enabled = true;
-                    }
-                } else {
-                    emjyBack.log('no daily kline data', this.code, this.account);
+                if (this.gmeta.settop && !this.strategies[this.gmeta.guardid].data.topprice) {
+                    this.strategies[this.gmeta.guardid].data.topprice = this.buydetail.averPrice() + this.buydetail.averPrice() - this.strategies[this.gmeta.guardid].data.guardPrice
+                    delete(this.gmeta.settop);
                 }
             }
+            delete(this.gmeta.setguard);
+            delete(this.gmeta.guardid);
         }
     }
 

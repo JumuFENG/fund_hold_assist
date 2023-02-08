@@ -878,10 +878,16 @@ class StrategySellELShort extends StrategySellEL {
 
         var kl = klines.getLatestKline('1');
         var buydetails = chkInfo.buydetail;
-        if (!this.data.selltype) {
-            this.data.selltype = 'all';
+        if (!this.data.cutselltype) {
+            this.data.cutselltype = 'all';
         }
-        var count = buydetails.getCountMatched(this.data.selltype, kl.c);
+        if (this.data.topprice !== undefined) {
+            if (kl.c - this.data.topprice <= 0 && kl.c - this.data.guardPrice >= 0) {
+                return;
+            }
+            delete(this.data.topprice);
+        }
+        var count = buydetails.getCountMatched(this.data.cutselltype, kl.c);
         if (kl.c - this.data.guardPrice < 0 && count > 0) {
             var kl = klines.getLatestKline(this.kltype());
             matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {

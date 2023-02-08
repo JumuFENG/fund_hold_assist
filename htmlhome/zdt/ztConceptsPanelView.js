@@ -66,6 +66,9 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
             candiToolsPanel.appendChild(btnExportChecked);
             this.candidatesArea = document.createElement('div');
             candiToolsPanel.appendChild(this.candidatesArea);
+
+            this.ztChartPanel = document.createElement('div');
+            this.container.appendChild(this.ztChartPanel);
         }
     }
 
@@ -293,7 +296,32 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
         }
     }
 
-    showDailyZtStats() {
+    showDailyZtStats(showSt=false) {
+        if (!this.ztHeightCountChar) {
+            var stCheck = document.createElement('input');
+            stCheck.type = 'checkbox';
+            stCheck.onchange = e => {
+                this.showDailyZtStats(e.target.checked);
+            }
+            var stCheckDiv = document.createElement('div');
+            stCheckDiv.appendChild(stCheck);
+            stCheckDiv.appendChild(document.createTextNode('ST股'));
+            this.ztChartPanel.appendChild(stCheckDiv);
+
+            this.ztHeightCountChar = new LineChart('涨停数&涨停高度');
+            this.ztChartPanel.appendChild(this.ztHeightCountChar.container);
+        }
+
+        utils.removeAllChild(this.ztHeightCountChar.corePanel);
+        delete(this.ztHeightCountChar.canvas);
+
+        var ztNum = [];
+        for (var i = 0; i < 250; ++i) {
+            // [日期，涨停家数，最大连板数，涨停家数(不含ST)， 最大连板数(非ST)]
+            var x = this.dailyZtStats.length - (250 - i);
+            ztNum.push([i, this.dailyZtStats[x][showSt?1:3]]);
+        }
+        this.ztHeightCountChar.drawLines(ztNum);
         console.log(this.dailyZtStats);
     }
 
@@ -301,13 +329,14 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
         this.candidatesArea.textContent = '';
         var candidatesObj = {};
         this.candidatesArea.filteredStks.forEach(c => {
-            var strategy = emjyBack.strategyManager.create({"key":"StrategyBuy","enabled":true}).data;
+            var strategy = emjyBack.strategyManager.create({"key":"StrategyBuy","enabled":true, 'bway':'direct'}).data;
             var kl = emjyBack.klines[c] ? emjyBack.klines[c].getLatestKline('101') : null;
             var count0 = kl && kl.c ? Math.ceil(100/kl.c) * 100 : 500;
             var strgrp = {
                 "grptype":"GroupStandard",
-                "strategies":{"0":strategy},
-                "transfers":{"0":{"transfer":"-1"}},
+                "strategies":{"0":strategy, "1":{"key":"StrategySellELS","enabled":false,"cutselltype":"single"}},
+                "transfers":{"0":{"transfer":"-1"}, "1":{"transfer":"-1"}},
+                "gmeta": {"setguard": true, "guardid": "1", "settop": true},
                 count0,
                 "amount":10000};
             candidatesObj[c] = strgrp;
