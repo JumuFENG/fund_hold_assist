@@ -29,6 +29,12 @@ class StockView {
         };
         this.container.appendChild(this.divTitle);
         var divDetails = document.createElement('div');
+        if (!this.stock.latestPrice && emjyBack.klines[stock.code]) {
+            var lkl = emjyBack.klines[stock.code].getLatestKline('101');
+            if (lkl) {
+                this.stock.latestPrice = lkl.c;
+            }
+        }
         this.detailView = document.createTextNode('最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost 
             + ' 数量：' + this.stock.holdCount + ' 市值: ' + (this.stock.latestPrice * this.stock.holdCount).toFixed(2));
         divDetails.appendChild(this.detailView);
@@ -433,15 +439,15 @@ class StockListPanelPage extends RadioAnchorPage {
         this.watchListAccountSelector.options.add(new Option('自动分配', 1));
     }
 
-    getWatchListAccount() {
+    getWatchListAccount(code) {
         var acc = this.watchListAccountSelector.value;
-        return acc == 0 ? 'normal' : emjyBack.stockAccountFrom(c);
+        return acc == 0 ? 'normal' : emjyBack.stockAccountFrom(code);
     }
 
     addWatchList() {
         var candidatesObj = JSON.parse(this.inputWatchList.value);
         for(var c in candidatesObj) {
-            emjyBack.addWatchingStock(c, this.getWatchListAccount(), candidatesObj[c]);
+            emjyBack.addWatchingStock(c, this.getWatchListAccount(c), candidatesObj[c]);
         }
         this.inputWatchList.value = '';
     }

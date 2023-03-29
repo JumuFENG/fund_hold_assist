@@ -50,7 +50,7 @@ class TrackStockListPanelPage extends StockListPanelPage {
 
     }
 
-    getWatchListAccount() {
+    getWatchListAccount(code) {
         return 'track';
     }
 

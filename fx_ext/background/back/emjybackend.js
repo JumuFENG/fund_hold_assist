@@ -63,6 +63,10 @@ class ManagerBack {
             this.sendManagerMessage({command:'mngr.stocks', stocks: accStocks});
         };
     }
+
+    sendKline(code, klines) {
+        this.sendManagerMessage({command:'mngr.initkline', code, klines});
+    }
 }
 
 function onQuoteWorkerMessage(e) {
@@ -265,6 +269,9 @@ class EmjyBack {
         if (message.command == 'mngr.init') {
             this.log('manager initialized!');
             if (this.manager.isValid()) {
+                for (var c in this.klines) {
+                    this.manager.sendKline(c, this.klines[c].klines);
+                }
                 this.manager.sendStocks([this.normalAccount, this.collateralAccount]);
             }
             chrome.tabs.onRemoved.addListener((tid, removeInfo) => {
@@ -333,7 +340,7 @@ class EmjyBack {
                     startDate.setDate(startDate.getDate() + 1);
                 } else {
                     startDate = new Date();
-                    startDate.setDate(startDate.getDate() - 20);
+                    startDate.setDate(startDate.getDate() - 10);
                 }
             }
             this.doUpdateHistDeals(startDate);

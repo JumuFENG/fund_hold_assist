@@ -42,47 +42,15 @@ class Manager {
     }
 
     loadAllSavedData() {
-        chrome.storage.local.get(null, item => {
-            if (item) {
-                if (item['hsj_stocks']) {
-                    this.stockMarket = item['hsj_stocks'];
-                    this.sendExtensionMessage({command: 'mngr.init'});
-                }
-                if (item['fha_server']) {
-                    this.fha = item['fha_server'];
-                }
-                if (item['hist_deals']) {
-                    this.savedDeals = item['hist_deals'];
-                }
-                if (item['retro_deals']) {
-                    this.retroDeals = item['retro_deals'];
-                }
-                if (item['track_deals']) {
-                    this.trackDeals = item['track_deals'];
-                }
-                if (item['bkstocks_' + BkRZRQ]) {
-                    this.rzrqStocks = new Set(item['bkstocks_' + BkRZRQ]);
-                }
-                for (const key in item) {
-                    if (!key.startsWith('kline_')) {
-                        // console.log('key in storage', key);
-                        // if (key === 'undefined') {
-                        //     console.log(item[key]);
-                        // }
-                        continue;
-                    }
-                    if (Object.hasOwnProperty.call(item, key)) {
-                        var code = key.split('_')[1];
-                        var kline = new KLine(code);
-                        kline.klines = item[key];
-                        this.klines[code] = kline;
-                        if (this.stockList) {
-                            this.stockList.updateStockPrice(code);
-                        }
-                    }
-                }
-                this.checkKl1Expired();
-            }
+        this.getFromLocal('hsj_stocks', smkt => {
+            this.stockMarket = smkt;
+            this.sendExtensionMessage({command: 'mngr.init'});
+        });
+        this.getFromLocal('fha_server', fs => {
+            this.fha = fs;
+        });
+        this.getFromLocal('bkstocks_' + BkRZRQ, bk => {
+            this.rzrqStocks = bk;
         });
     }
 
@@ -101,6 +69,14 @@ class Manager {
             this.klines[code].updateRtKline(message);
             this.klines[code].save();
             this.stockList.updateStockPrice(code);
+        } else if (message.command == 'mngr.initkline') {
+            var code = message.code;
+            if (this.klines[code] === undefined) {
+                this.klines[code] = new KLine(code);
+                this.klines[code].klines = message.klines;
+                this.klines[code].parseKlVars();
+                this.stockList.updateStockPrice(code);
+            }
         }
     }
 
@@ -337,7 +313,6 @@ class Manager {
 
             for (var j = 0; j < tstocks.length; j++) {
                 var ts = tstocks[j];
-                this.loadKlines(ts.code);
                 ts.acccode = account + '_' + ts.code;
                 ts.account = account;
                 if (account == 'track') {
@@ -355,6 +330,7 @@ class Manager {
             this.stockList.initUi(accstocks);
             emjyBack.checkHoldingStocks();
             this.stockList.addWatchList();
+            this.checkKl1Expired();
         }
     }
 
