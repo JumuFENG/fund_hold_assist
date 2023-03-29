@@ -9,9 +9,6 @@ class EmRequest():
     def __init__(self) -> None:
         pass
 
-    def getTodayString(self, fmt = "%Y-%m-%d"):
-        return datetime.now().strftime(fmt)
-
     def getTimeStamp(self):
         curTime = datetime.now()
         stamp = time.mktime(curTime.timetuple()) * 1000 + curTime.microsecond

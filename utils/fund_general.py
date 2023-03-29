@@ -63,8 +63,7 @@ class FundGeneral():
         if not fund_his:
             return
         fund_his_data = ('date', self.code),
-        date_conv = DateConverter()
         for (d, v, g) in fund_his:
-            fund_his_data += (date_conv.days_since_2000(d), v, round(float(100 * g), 2)),
+            fund_his_data += (DateConverter.days_since_2000(d), v, round(float(100 * g), 2)),
         return fund_his_data
         
