@@ -399,3 +399,46 @@ class ScatterChart extends ChartSvg {
         this.strokeLine(0, this.chartHeight + this.yscale * (xm + ym), this.xscale * (xmx - xm), this.chartHeight - this.yscale * (- xmx - ym));
     }
 }
+
+class ZtHeightConutChart {
+    // 涨停家数&连板高度
+    constructor(cont) {
+        this.container = cont;
+        this.option = {
+            legend: {
+                left: 'right'
+            },
+            tooltip: {},
+            title: {text: '涨停家数&连板高度', left: 'center'},
+            xAxis: {type: 'category', axisLabel: {show: true}},
+            yAxis: [{type: 'value'}, {type: 'value'}]
+        };
+    }
+
+    setdata(ztstats) {
+        this.option.dataset = {source: ztstats};
+    }
+
+    draw(showSt) {
+        if (this.chart === undefined) {
+            this.chart = echarts.init(this.container);
+        }
+
+        // this.option.xAxis.data ; 默认第一列
+        this.option.legend.data = ['涨停家数', '连板高度'];
+        this.option.series = [
+            // [日期，涨停家数，最大连板数，涨停家数(不含ST)， 最大连板数(非ST)]
+            {type: 'line', name: '涨停家数', yAxisIndex: 0, encode: {y: (showSt ? 1 : 3)}},
+            {type: 'bar', name: '连板高度', yAxisIndex: 1, encode: {y: (showSt ? 2 : 4)}}
+        ];
+        var datalength = this.option.dataset.source.length;
+        if (datalength > 150) {
+            this.option.dataZoom = {
+                show: true,
+                start: (datalength - 150) * 100 / datalength,
+                end: 100
+            };
+        }
+        this.chart.setOption(this.option);
+    }
+}

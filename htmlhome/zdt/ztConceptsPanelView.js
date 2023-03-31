@@ -28,7 +28,6 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
         super('涨停热度');
         this.conceptBk = {};
         this.dailyZtStocks = {};
-        this.dailyZtStats = undefined;
     }
 
     show() {
@@ -111,8 +110,7 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
     getDailyZtStats() {
         var ztUrl = emjyBack.fha.server + '/api/stockzthist?daily=1';
         utils.get(ztUrl, null, zst => {
-            this.dailyZtStats = JSON.parse(zst);
-            this.showDailyZtStats();
+            this.showDailyZtStats(JSON.parse(zst));
         });
     }
 
@@ -296,33 +294,31 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
         }
     }
 
-    showDailyZtStats(showSt=false) {
-        if (!this.ztHeightCountChar) {
+    showDailyZtStats(dailyZtStats) {
+        if (!this.ztHeightCountChart) {
             var stCheck = document.createElement('input');
             stCheck.type = 'checkbox';
             stCheck.onchange = e => {
-                this.showDailyZtStats(e.target.checked);
+                if (this.ztHeightCountChart) {
+                    this.ztHeightCountChart.draw(e.target.checked);
+                }
             }
             var stCheckDiv = document.createElement('div');
             stCheckDiv.appendChild(stCheck);
             stCheckDiv.appendChild(document.createTextNode('ST股'));
             this.ztChartPanel.appendChild(stCheckDiv);
 
-            this.ztHeightCountChar = new LineChart('涨停数&涨停高度');
-            this.ztChartPanel.appendChild(this.ztHeightCountChar.container);
+            var ztContainer = document.createElement('div');
+            ztContainer.style = 'display: table; width: 100%;';
+            ztContainer.style.height = '480';
+            this.ztChartPanel.appendChild(ztContainer);
+            this.ztHeightCountChart = new ZtHeightConutChart(ztContainer);
+            this.ztHeightCountChart.setdata(dailyZtStats);
         }
 
-        utils.removeAllChild(this.ztHeightCountChar.corePanel);
-        delete(this.ztHeightCountChar.canvas);
-
-        var ztNum = [];
-        for (var i = 0; i < 250; ++i) {
-            // [日期，涨停家数，最大连板数，涨停家数(不含ST)， 最大连板数(非ST)]
-            var x = this.dailyZtStats.length - (250 - i);
-            ztNum.push([i, this.dailyZtStats[x][showSt?1:3]]);
+        if (this.ztHeightCountChart) {
+            this.ztHeightCountChart.draw(false);
         }
-        this.ztHeightCountChar.drawLines(ztNum);
-        console.log(this.dailyZtStats);
     }
 
     setStrategyForSelected() {

@@ -9,3 +9,4 @@ summary/json/*.json
 *.pyc
 *_local.py
 **/.DS_Store
+static/src/js/echarts.js
