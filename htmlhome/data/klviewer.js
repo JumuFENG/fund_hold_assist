@@ -204,14 +204,7 @@ class KlViewerPanelPage extends RadioAnchorPage {
             this.klineChart.style.height = 500;
             this.contentPanel.appendChild(this.klineChart);
         }
-        utils.removeAllChild(this.klineChart);
-        var kltitle = document.createElement('div');
-        kltitle.style.textAlign = 'center';
-        kltitle.appendChild(emjyBack.stockAnchor(this.showingStock));
-        kltitle.appendChild(document.createTextNode('(' + this.showingStock + ')'));
-        this.klineChart.appendChild(kltitle);
-        var chart = new KlChartSvg();
-        this.klineChart.appendChild(chart.container);
+        var chart = new KlChart(this.klineChart, emjyBack.stockName(this.showingStock) + '(' + this.showingStock + ')', emjyBack.stockEmLink(this.showingStock));
         var klines = this.stockKlines.klines['101'];
         chart.drawKlines(klines);
     }

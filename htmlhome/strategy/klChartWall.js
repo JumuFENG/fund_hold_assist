@@ -22,12 +22,11 @@ class KlChartWall {
         utils.removeAllChild(this.container);
         for (var i = 0; i < this.allstocks.length; ++i) {
             var skli = this.allstocks[i];
-            var chart = new KlChartSvg(emjyBack.stockName(skli.code) + '(' + skli.code + ')');
             var cw = document.createElement('div');
             cw.style.width = 900;
             cw.style.height = 300;
-            cw.appendChild(chart.container);
             this.container.appendChild(cw);
+            var chart = new KlChartSimple(cw, emjyBack.stockName(skli.code) + '(' + skli.code + ')');
             chart.drawKlines(emjyBack.getKlData(skli.code, skli.kltype, skli.start, skli.end));
         }
     }
