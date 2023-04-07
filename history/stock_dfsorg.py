@@ -187,7 +187,7 @@ class StockDfsorg(EmDataCenterRequest, TableBase):
         self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], dfsdata)
 
     def updateDfsorg(self, date = None):
-        todaystr = self.getTodayString()
+        todaystr = Utils.today_date()
         if date is None:
             mdate = self._max_date()
             if mdate is None:

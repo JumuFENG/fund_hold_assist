@@ -58,6 +58,17 @@ class Index_history(HistoryFromSohu):
     def getSohuCode(self):
         return "zs_" + self.code
 
+    def getEmSecCode(self):
+        return ('1.' if self.code[0] == '0' else '0.') + self.code
+
+    def getHistoryFailed(self):
+        se = self.getStartEnd(self.index_full_his_db)
+        if not se:
+            return
+
+        (sDate, _) = se
+        self.getKHistoryFromEm(self.index_full_his_db, 'd', sDate)
+
     def downloadFile(self, url, fname, params = None, proxies = None):
         try:
             rsp = requests.get(url, params=params, proxies=proxies,stream = True)
@@ -81,13 +92,20 @@ class Index_history(HistoryFromSohu):
         self.sqldb.insertMany(self.index_full_his_db, headers, values)
 
     def csv163ToSql(self, csv):
-        df = pandas.read_csv(csv, encoding='gbk', usecols=[0, 3, 4, 5, 6, 8, 9, 10, 11], float_precision = "round_trip")
-        values = []
-        for x in df.values:
-            values.append([str(v) for v in x]) 
+        try:
+            df = pandas.read_csv(csv, encoding='gbk', usecols=[0, 3, 4, 5, 6, 8, 9, 10, 11], float_precision = "round_trip")
+            values = []
+            for x in df.values:
+                values.append([str(v) for v in x])
 
-        values.reverse()
-        self.saveIndexHistoryData(values)
+            if len(values) == 0:
+                self.getHistoryFailed()
+                return
+            values.reverse()
+            self.saveIndexHistoryData(values)
+        except Exception as e:
+            print(e)
+            self.getHistoryFailed()
 
     def getHistoryFrom163(self, code):
         self.setCode(code)

@@ -17,7 +17,11 @@ class StockZtXlm(EmRequest):
 
     def getZtPage(self, date):
         self.date = date
-        c = self.getRequest()
+        try:
+            c = self.getRequest()
+        except Exception as e:
+            print (e)
+            c = None
         if c is None:
             print("getZtPage failed")
             return
@@ -74,7 +78,7 @@ class StockZtInfo(EmRequest, TableBase):
         if self.date is None:
             mdate = self._max_date()
             if mdate is None:
-                self.date = self.getTodayString('%Y%m%d')
+                self.date = Utils.today_date('%Y%m%d')
             else:
                 self.date = (datetime.strptime(mdate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
         return self.urlroot + self.date
@@ -83,7 +87,7 @@ class StockZtInfo(EmRequest, TableBase):
         emback = json.loads(self.getRequest())
         if emback is None or emback['data'] is None:
             print('StockZtInfo invalid response!', emback)
-            if self.date < self.getTodayString('%Y%m%d'):
+            if self.date < Utils.today_date('%Y%m%d'):
                 self.date = (datetime.strptime(self.date, '%Y%m%d') + timedelta(days=1)).strftime("%Y%m%d")
                 return self.getNext()
             return
@@ -105,23 +109,24 @@ class StockZtInfo(EmRequest, TableBase):
         if len(self.ztdata) > 0:
             xlm = StockZtXlm()
             xldata = xlm.getZtPage(date)
-            for c,_lbc, con in xldata:
-                exists = False
-                for i in range(0, len(self.ztdata)):
-                    if self.ztdata[i][0][2:] == c:
-                        self.ztdata[i][7] = con
-                        exists = True
-                        break
-                if exists:
-                    continue
+            if isinstance(xldata, list):
+                for c,_lbc, con in xldata:
+                    exists = False
+                    for i in range(0, len(self.ztdata)):
+                        if self.ztdata[i][0][2:] == c:
+                            self.ztdata[i][7] = con
+                            exists = True
+                            break
+                    if exists:
+                        continue
 
-                if c.startswith('00') or c.startswith('30') or c.startswith('8') or c.startswith('4'):
-                    cd = 'SZ' + c
-                elif c.startswith('60') or c.startswith('68'):
-                    cd = 'SH' + c
-                else:
-                    continue
-                self.ztdata.append([cd, date, 0, 0, _lbc, 0, self._get_bk(cd), con])
+                    if c.startswith('00') or c.startswith('30') or c.startswith('8') or c.startswith('4'):
+                        cd = 'SZ' + c
+                    elif c.startswith('60') or c.startswith('68'):
+                        cd = 'SH' + c
+                    else:
+                        continue
+                    self.ztdata.append([cd, date, 0, 0, _lbc, 0, self._get_bk(cd), con])
 
             self.saveFetched()
 
@@ -155,14 +160,13 @@ class StockZtInfo(EmRequest, TableBase):
         if date is None:
             return None
 
-        hld = Holiday()
-        while date <= datetime.now().strftime(r'%Y-%m-%d'):
+        while date <= Utils.today_date():
             pool = self.sqldb.select(self.tablename, self.getDumpKeys(), self.getDumpCondition(date))
             if pool is not None and len(pool) > 0:
                 data = {'date': date}
                 data['pool'] = pool
                 return data
-            elif datetime.strptime(date, r'%Y-%m-%d').weekday() < 5 and not hld.isholiday(date):
+            elif TradingDate.isTradingDate(date):
                 data = {'date': date,'pool':[]}
                 return data
             date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
@@ -191,7 +195,14 @@ class StockZtInfo(EmRequest, TableBase):
         return self._unify_concepts(pool)
 
     def dumpDailyZt(self):
-        return self.sqldb.select(self.tablename, [f'{column_date}', 'count(*)', 'max(连板数)'], order=f'group by {column_date}')
+        tot = self.sqldb.select(self.tablename, [f'{column_date}', 'count(*)', 'max(连板数)'], order=f'group by {column_date}')
+        non_st = self.sqldb.select(self.tablename, [f'{column_date}', 'count(*)', 'max(连板数)'], '概念!="ST股"', order=f'group by {column_date}')
+        ret = []
+        for x, y in zip(tot, non_st):
+            if x[0] != y[0]:
+                raise Exception('Error! dates not coinstant!')
+            ret.append(x + y[1:])
+        return ret
 
 
 class StockZtConcepts(TableBase):

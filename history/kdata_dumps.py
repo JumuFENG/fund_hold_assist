@@ -53,9 +53,8 @@ class KdataDumps():
             if mdata is None or len(mdata) == 0:
                 return khl_m
 
-        date_conv = DateConverter()
         for (i, d, c, h, l, o, pr, p, v, a) in mdata:
-            khl_m.append([date_conv.days_since_2000(d), h, l])
+            khl_m.append([DateConverter.days_since_2000(d), h, l])
         return khl_m
 
     def is_same_month(self, d1, d2):

@@ -14,6 +14,7 @@ class AllStocks(InfoList):
         self.checkInfoTable(stock_db_name, gl_all_stocks_info_table)
         self.check_table_column(column_shortterm_rate, 'varchar(10) DEFAULT NULL')
         self.check_table_column('quit_date', 'varchar(10) DEFAULT NULL')
+        self.historydb = None
 
     def loadInfo(self, code):
         code = code.upper()
@@ -52,8 +53,8 @@ class AllStocks(InfoList):
             (sdate,), = maxDate
 
         while True:
-            newstoksUrl = f'''http://18.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=20&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f26&fs=m:0+f:8,m:1+f:8&fields=f12,f13,f14,f21,f26&_={self.getTimeStamp()}'''
-            res = self.getRequest(newstoksUrl)
+            newstocksUrl = f'''http://18.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=20&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f26&fs=m:0+f:8,m:1+f:8&fields=f12,f13,f14,f21,f26&_={self.getTimeStamp()}'''
+            res = self.getRequest(newstocksUrl)
             if res is None:
                 break
 
@@ -76,7 +77,12 @@ class AllStocks(InfoList):
                     ldate = setdate
                 elif setdate < ldate:
                     ldate = setdate
-                if setdate < sdate or setdate == today:
+
+                ipodays = (datetime.strptime(today, "%Y-%m-%d") - datetime.strptime(setdate, "%Y-%m-%d")).days
+                if c.startswith('60') or c.startswith('00'):
+                    if ipodays > 3:
+                        continue
+                elif ipodays > 10:
                     continue
                 newstocks.append(('SH' + c if m == 1 else 'SZ' + c, n, s, setdate))
 
@@ -87,6 +93,64 @@ class AllStocks(InfoList):
 
         if len(newstocks) > 0:
             self.addNewStocks(newstocks)
+
+    def getStocksZdfRank(self):
+        # http://quote.eastmoney.com/center/gridlist.html#hs_a_board
+        today = datetime.now().strftime("%Y-%m-%d")
+        tradeday = TradingDate.maxTradingDate()
+        updateKl = today == tradeday and datetime.now().hour > 15
+        print(f'AllStocks.getStocksZdfRank {updateKl}, {today}, {tradeday}')
+
+        pn = 1
+        rkstocks = []
+        while True:
+            rankUrl = f'''http://33.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=1000&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f115,f152'''
+            res = self.getRequest(rankUrl)
+            if res is None:
+                break
+
+            r = json.loads(res)
+            if r['data'] is None or len(r['data']['diff']) == 0:
+                break
+
+            for rkobj in r['data']['diff']:
+                c = rkobj['f2']   # 最新价
+                zd = rkobj['f3']  # 涨跌幅
+                ze = rkobj['f4']  # 涨跌额
+                cj = rkobj['f5']  # 成交量（手）
+                ce = rkobj['f6']  # 成交额
+                if c == '-' or cj == '-' or ce == '-' or zd == '-' or ze == '-':
+                    continue
+                zf = rkobj['f7']  # 振幅
+                hsl = rkobj['f8'] # 换手率
+                syl = rkobj['f9'] # 市盈率 动态
+                lb = rkobj['f10'] # 量比
+                zd5 = rkobj['f11']# 五分钟涨跌幅
+                cd = rkobj['f12'] # 代码
+                m = rkobj['f13']  # 市场代码 0 深 1 沪
+                n = rkobj['f14']  # 名称
+                h = rkobj['f15']  # 最高
+                l = rkobj['f16']  # 最低
+                o = rkobj['f17']  # 今开
+                lc = rkobj['f18'] # 昨收
+                sz = rkobj['f20'] # 总市值
+                lt = rkobj['f21'] # 流通市值
+                zs = rkobj['f22'] # 涨速
+                sj = rkobj['f23'] # 市净率
+                z60 = rkobj['f24']# 60日涨跌幅
+                zy = rkobj['f25'] # 当年涨跌幅
+                lr = rkobj['f62'] # 主力净流入
+                syttm = rkobj['f115'] # 市盈率 TTM
+                if (m != 0 and m != 1):
+                    print('invalid market', m)
+                    continue
+                code = 'SH' + cd if m == 1 else 'SZ' + cd
+                if updateKl:
+                    self.updateStockLatestKlData(code, [today, c, h, l, o, ze, zd, cj, ce/10000])
+                rkstocks.append([code, c, h, l, o, lc, zd, ze, cj, ce, zf, hsl, syl, lb, zd5, n, sz, lt, zs, sj, z60, zy, lr, syttm])
+            pn += 1
+
+        return tradeday, rkstocks
 
     def addNewStocks(self, newstocks):
         headers = [column_code, column_name, column_type, column_short_name, column_assets_scale, column_setup_date]
@@ -142,6 +206,34 @@ class AllStocks(InfoList):
             if l == val:
                 return
             self.sqldb.update(gl_all_stocks_info_table, {col: val}, {column_code: code})
+
+    def updateStockLatestKlData(self, code, kl):
+        # kl = [date, close, high, low, open, price_change, p_change, volume, amount]
+        sg = StockGeneral(self.sqldb, code)
+        ktable = sg.stockKtable
+
+        if self.historydb is None:
+            self.historydb = SqlHelper(password=db_pwd, database=history_db_name)
+        if not self.historydb.isExistTable(ktable):
+            print(f'{ktable} not exists!')
+            return
+
+        mxd = self.historydb.select(ktable, 'max(date)')
+        if mxd is not None and len(mxd) == 1:
+            (mxd,), = mxd
+            if kl[0] == mxd:
+                print(f'already updated to {mxd} for {code}')
+                return
+
+            if kl[0] != TradingDate.nextTradingDate(mxd):
+                print(f'There is gap between {mxd} and {kl[0]} for {code}')
+                return
+
+        self.historydb.insert(ktable, {
+            column_date: kl[0], column_close: kl[1], column_high: kl[2], column_low: kl[3], column_open: kl[4],
+            column_price_change: kl[5], column_p_change: kl[6], column_volume: kl[7], column_amount: kl[8]
+        })
+        print(f'{code} update to {kl[0]} done!')
 
     def getTimeStamp(self):
         curTime = datetime.now()
@@ -312,7 +404,7 @@ class DividenBonus(EmDataCenterRequest):
 
     def getBonusNotice(self, date = None):
         if date is None:
-            date = self.getTodayString()
+            date = Utils.today_date()
         # date = '2021-12-20'
         # (REPORT_DATE%3D%272021-12-31%27)(EX_DIVIDEND_DAYS%3C0)(EX_DIVIDEND_DATE%3D%272021-12-07%27)
         self.setFilter(f'''(EX_DIVIDEND_DATE%3D%27{date}%27)''')
@@ -504,7 +596,7 @@ class Stock_Fflow_History(TableBase, EmRequest):
             return True
 
         date = self._max_date()
-        if date == self.getTodayString():
+        if date == Utils.today_date():
             print(f'fflow already updated to {date}')
             return False
 

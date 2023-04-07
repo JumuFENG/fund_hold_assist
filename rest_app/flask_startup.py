@@ -328,6 +328,10 @@ def stock():
                 dts = StockDt3Selector()
                 dt3 = dts.dumpDataByDate(date)
                 return json.dumps(dt3)
+            if key == 'dzt':
+                dzts = StockDztSelector()
+                dzt = dzts.dumpDataByDate(date)
+                return json.dumps(dzt)
             return f'Unknown key {key}', 404
         if actype == 'updatepickup':
             key = request.args.get('key', type=str, default=None)

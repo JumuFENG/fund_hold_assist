@@ -30,3 +30,7 @@ class Utils:
     @classmethod
     def today_date(self, fmt='%Y-%m-%d'):
         return datetime.now().strftime(fmt)
+
+    @classmethod
+    def trade_finished(self):
+        return datetime.now().hour > 17

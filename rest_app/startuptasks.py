@@ -7,7 +7,6 @@ sys.path.insert(0, os.path.realpath(os.path.dirname(os.path.realpath(__file__)) 
 from datetime import datetime, timedelta
 from threading import Timer
 from time import sleep
-import time
 import json
 
 from rest_app.daily_update import DailyUpdater
@@ -46,6 +45,29 @@ def check_local_server():
             print(e)
         sleep(180)
         kill_old_proc()
+
+def schedule_pmset(now=None):
+    if now is None:
+        now = datetime.now()
+
+    po1 = 'wakeorpoweron MTWRF 8:25:0'
+    shut1 = 'shutdown MTWRF 15:15:0'
+    po2 = 'wakeorpoweron MTWRF 18:15:0'
+    shut2 = 'shutdown MTWRF 18:35:0'
+    pmcmd = 'pmset repeat'
+    dayminutes = now.hour * 60 + now.minute
+    if now.weekday() >= 5:
+        pmcmd += ' ' + po1 + ' ' + shut1
+    elif dayminutes < 6 * 60 or dayminutes > 18 * 60 + 35:
+        pmcmd += ' ' + po1 + ' ' + shut1
+    elif dayminutes < 15 * 60 + 15:
+        pmcmd += ' ' + shut1 + ' ' + po2
+    elif dayminutes < 18 * 60 + 15:
+        pmcmd += ' ' + po2 + ' ' + shut2
+    elif dayminutes < 18 * 60 + 35:
+        pmcmd += ' ' + shut2 + ' ' + po1
+    print(f'os.system({pmcmd})')
+    os.system(pmcmd)
 
 def daily_should_run(lastrun, now):
     if lastrun == '':
@@ -95,13 +117,14 @@ def trade_closed_task():
     um = UserModel()
     user = um.user_by_id(11)
     user.save_stocks_eaning_html(shared_cloud_foler)
+    print('\n')
 
 def run_regular_tasks(dnow):
     print('run_regular_tasks begin', datetime.now().strftime(f"%Y-%m-%d %H:%M"))
     retry = 0
     while True:
         try:
-            nw = requests.get('https://www.eastmoney.com/js/index2018.js', timeout=2)
+            nw = requests.get('http://quote.eastmoney.com/newapi/sczm', timeout=2)
             if nw is not None or retry > 100:
                 print(nw)
                 break
@@ -170,15 +193,20 @@ def run_regular_tasks(dnow):
 
 
 if __name__ == '__main__':
-    check_local_server()
     dnow = datetime.now()
+    print('------------------------------------------------------------------------')
     print('startuptasks', dnow.strftime(f"%Y-%m-%d %H:%M"))
 
+    schedule_pmset(dnow)
+    check_local_server()
     run_regular_tasks(dnow)
 
-    holi = Holiday()
-    if dnow.weekday() < 5 and dnow.hour < 15 and not holi.isholiday(dnow.strftime("%Y-%m-%d")):
+    mtd = TradingDate.maxTradingDate()
+    if dnow.weekday() < 5 and dnow.hour < 15 and Utils.today_date() == mtd:
         print('start timer task!')
         secs = (datetime.strptime(dnow.strftime('%Y-%m-%d') + ' 15:01', '%Y-%m-%d %H:%M') - dnow).seconds
         ttask = Timer(secs, trade_closed_task)
         ttask.start()
+
+    print('startuptasks exit!')
+    print('------------------------------------------------------------------------\n')

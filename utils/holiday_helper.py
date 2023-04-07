@@ -29,6 +29,8 @@ class TradingDate():
         if ret is None or len(ret) == 0:
             return
         (d,), = ret
+        if d is None:
+            return self.maxTradingDate()
         return d
 
     @classmethod
@@ -44,7 +46,7 @@ class TradingDate():
         print('TradingDate.maxTradingDate', 'enter')
         ret = self.sqldb.select('i_k_his_000001', 'max(date)')
         if ret is None or len(ret) == 0:
-            print('TradingDate.maxTradingDate', 'db read error')
+            print('TradingDate.maxTradingDate db read error', ret)
             return
         (d,), = ret
         if d != Utils.today_date():

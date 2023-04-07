@@ -239,16 +239,17 @@ class HistoryFromSohu(HistoryDowloaderBase):
         self.setCode(code)
         self.getKHistoryFromSohu(self.km_histable, 'm')
 
-    def getKHistoryFromEm(self, ktable, kltype):
+    def getKHistoryFromEm(self, ktable, kltype, start=None):
         kltype = self.getValidKltype(kltype)
-        if int(kltype) > 60:
-            print('TODO get kline from east money for kltype', kltype)
-            return
 
         # f51: date/time,f52:开盘,f53:收盘,f54:最高, f55:最低, f56: 成交量, f57: 成交额 ,f58: 振幅(%),f59:涨跌幅(%),f60:涨跌额,f61:换手率(%)
         try:
             emurl = f'''http://28.push2his.eastmoney.com/api/qt/stock/kline/get?secid={self.getEmSecCode()}&ut=fa5fd1943c7b386f172d6893dbfba10b'''
-            emurl += f'''&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57,f59,f60&klt={kltype}&fqt=0&end=20500101&lmt=512'''
+            emurl += f'''&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57,f59,f60&klt={kltype}&fqt=0&end=20500101'''
+            if int(kltype) > 60 and start:
+                emurl += f'&beg={start}'
+            else:
+                emurl += '&lmt=512'
             response = json.loads(self.getRequest(emurl))
             if not response or response['data'] is None or len(response['data']['klines']) == 0:
                 print('getKHistoryFromEm error, response: ', response)
