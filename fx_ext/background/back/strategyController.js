@@ -1679,6 +1679,7 @@ class StrategyMA extends StrategyTD {
                 this.tmpGuardPrice = cutline;
                 matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, _ => {
                     this.data.guardPrice = this.tmpGuardPrice;
+                    this.data.meta.state = 's1';
                 });
                 return true;
             }

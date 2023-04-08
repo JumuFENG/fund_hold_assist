@@ -50,7 +50,7 @@ class Manager {
             this.fha = fs;
         });
         this.getFromLocal('bkstocks_' + BkRZRQ, bk => {
-            this.rzrqStocks = bk;
+            this.rzrqStocks = new Set(bk);
         });
     }
 
