@@ -67,15 +67,28 @@ class StockDtMap(TableBase):
     '''
     def __init__(self) -> None:
         super().__init__()
+        self.dtdtl = {}
 
     def initConstrants(self):
         self.dbname = history_db_name
         self.tablename = 'day_dt_maps'
         self.colheaders = [
             {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
-            {'col':'跌停进度数据','type':'TEXT(8192) DEFAULT NULL'},
-            {'col':'详情','type':'TEXT(8192) DEFAULT NULL'}
+            {'col':'step','type':'tinyint DEFAULT NULL'},
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
+            {'col':'success','type':'tinyint DEFAULT NULL'}
         ]
+
+    def getdtl(self, code, step):
+        dtl = []
+        for i in range(1, step + 1):
+            detail = self._dump_data(self._select_keys(column_date),
+                self._select_condition([f'step={i}', f'{column_code}="{code}"', f'success=1']))
+            if len(detail) > 0:
+                ctdate, = detail[-1]
+                if len(dtl) == 0 or ctdate > dtl[0]['date']:
+                    dtl.append({'ct': i, 'date': ctdate})
+        return dtl
 
     def updateDtMap(self):
         mxdate = TradingDate.maxTradingDate()
@@ -89,8 +102,7 @@ class StockDtMap(TableBase):
             print('data invalid', premap)
             return
 
-        mpdtl = json.loads(premap['details'])
-        premap = json.loads(premap['map'])
+        premap = premap['data']
         nxdate = TradingDate.nextTradingDate(mpdate)
         sdt = StockDtInfo()
         nxdt = sdt.dumpDataByDate(nxdate)
@@ -98,89 +110,53 @@ class StockDtMap(TableBase):
             print(f'dt data for {nxdate} not invalid', nxdt)
             return
 
-        nmap = {}
-        npdtl = {}
+        nmap = []
         dt1 = [c for c,*_ in nxdt['pool']] if nxdt is not None and 'pool' in nxdt else []
         for c in dt1:
-            if c in mpdtl:
-                ct = mpdtl[c][-1]['ct']
-                cd = mpdtl[c][-1]['date']
-                if cd == mpdate:
-                    self.__map_add_to_suc(nmap, ct + 1, c)
-                    npdtl[c] = [o for o in mpdtl[c]]
-                    npdtl[c].append({'ct': ct + 1, 'date': nxdate})
-                    premap[f'{ct}']['suc'].remove(c)
+            oldmp = False
+            premapbk = []
+            for code, step, suc in premap:
+                if code == c:
+                    oldmp = True
+                    nmap.append([nxdate, (step + 1 if suc==1 else step), c, 1])
                 else:
-                    self.__map_add_to_suc(nmap, ct, c)
-                    premap[f'{int(ct) + 1}']['fai'].remove(c)
-                    npdtl[c] = [o for o in mpdtl[c]]
-                    npdtl[c][-1]['date'] = nxdate
-            else:
-                self.__map_add_to_suc(nmap, 1, c)
-                npdtl[c] = [{'ct': 1, 'date': nxdate}]
+                    premapbk.append([code, step, suc])
+            if not oldmp:
+                nmap.append([nxdate, 1, c, 1])
+            premap = premapbk
 
         sd = StockDumps()
-        for i in premap:
-            suc = premap[i]['suc'] if 'suc' in premap[i] else []
-            fai = premap[i]['fai'] if 'fai' in premap[i] else []
-            
-            for s in suc:
-                kd = sd.read_kd_data(s, start=mpdtl[s][-1]['date'])
-                self.__merge_map(kd, s, mpdtl[s], nxdate, f'{int(i) + 1}', f'{int(i) + 1}', nmap, npdtl)
+        for code, step, suc in premap:
+            if code not in self.dtdtl:
+                self.dtdtl[code] = self.getdtl(code, step)
 
-            for s in fai:
-                kd = sd.read_kd_data(s, start=mpdtl[s][-1]['date'])
-                self.__merge_map(kd, s, mpdtl[s], nxdate, f'{int(i) + 1}', i, nmap, npdtl)
+            dtl = self.dtdtl[code]
+            kd = sd.read_kd_data(code, start=dtl[-1]['date'])
+            lkl = [KNode(k1) for k1 in kd if k1[1] == nxdate]
+            if len(lkl) != 1:
+                nmap.append([nxdate, (step + 1 if suc==1 else step), code, 0])
+            else:
+                lkl = lkl[0]
+                if lkl.date != nxdate:
+                    nmap.append([nxdate, (step + 1 if suc==1 else step), code, 0])
+                else:
+                    dkl = KNode(kd[0])
+                    if lkl.low - dkl.close * 0.9 <= 0:
+                        nmap.append([nxdate, (step + 1 if suc==1 else step), code, 1])
+                    elif lkl.close - dkl.close * 1.08 <= 0 and len(kd) <= 4:
+                        nmap.append([nxdate, (step + 1 if suc==1 else step), code, 0])
 
-        self.addDtMap(nxdate, json.dumps(nmap), json.dumps(npdtl))
+        values = []
+        for d, step, c, suc in nmap:
+            mp = self._dump_data(self._select_keys('id'), self._select_condition([f'{column_date}="{d}"', f'{column_code}="{c}"']))
+            if mp is not None and len(mp) == 1:
+                (mid,), = mp
+                self.sqldb.update(self.tablename, {'step': step, 'success': suc}, {'id': mid})
+            else:
+                values.append([d, step, c, suc])
 
-    def __merge_map(self, kd, s, mpdtls, nxdate, sct, fct, nmap, npdtl):
-        lkl = [KNode(k1) for k1 in kd if k1[1] == nxdate]
-        if len(lkl) != 1:
-            self.__map_add_to_fail(nmap, fct, s)
-            npdtl[s] = [md for md in mpdtls]
-            return
-
-        lkl = lkl[0]
-        if lkl.date != nxdate:
-            self.__map_add_to_fail(nmap, fct, s)
-            npdtl[s] = [md for md in mpdtls]
-            return
-
-        dkl = KNode(kd[0])
-        if lkl.low - dkl.close * 0.9 <= 0:
-            self.__map_add_to_suc(nmap, sct, s)
-            npdtl[s] = [md for md in mpdtls]
-            npdtl[s].append({'ct': sct, 'date': nxdate})
-        else:
-            if lkl.close - dkl.close * 1.08 <= 0 and len(kd) <= 4:
-                self.__map_add_to_fail(nmap, fct, s)
-                npdtl[s] = [md for md in mpdtls]
-
-    def __map_add_to_fail(self, dmap, ct, code):
-        if not isinstance(ct, str):
-            ct = f'{ct}'
-        if ct not in dmap:
-            dmap[ct] = {'fai': []}
-        if 'fai' not in dmap[ct]:
-            dmap[ct]['fai'] = []
-        dmap[ct]['fai'].append(code)
-
-    def __map_add_to_suc(self, dmap, ct, code):
-        if not isinstance(ct, str):
-            ct = f'{ct}'
-        if ct not in dmap:
-            dmap[ct] = {'suc': []}
-        if 'suc' not in dmap[ct]:
-            dmap[ct]['suc'] = []
-        dmap[ct]['suc'].append(code)
-
-    def addDtMap(self, date, mp, details):
-        dtmp = self.sqldb.select(self.tablename, '*', f'{column_date}="{date}"')
-        if dtmp is None or len(dtmp) == 0:
-            self.sqldb.insert(self.tablename, {self.colheaders[0]['col']: date, self.colheaders[1]['col']: mp, self.colheaders[2]['col']:details})
-        else:
-            self.sqldb.update(self.tablename, {self.colheaders[1]['col']: mp, self.colheaders[2]['col']: details}, {self.colheaders[0]['col']: date})
+        if len(values) > 0:
+            self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
 
     def dumpDataByDate(self, date = None):
         if date is None:
@@ -190,11 +166,13 @@ class StockDtMap(TableBase):
             return None
 
         while date <= datetime.now().strftime(r'%Y-%m-%d'):
-            mp = self._dump_data(self._select_keys([self.colheaders[1]['col'], self.colheaders[2]['col']]), self._select_condition(f'{column_date}="{date}"'))
-            if mp is not None and len(mp) == 1:
+            mp = self._dump_data(self._select_keys([self.colheaders[1]['col'], self.colheaders[2]['col'], self.colheaders[3]['col']]), self._select_condition(f'{column_date}="{date}"'))
+            if mp is not None and len(mp) > 0:
                 data = {'date': date}
-                data['map'] = mp[0][0]
-                data['details'] = mp[0][1]
+                dtmap = []
+                for step, code, suc in mp:
+                    dtmap.append([code, step, suc])
+                data['data'] = dtmap
                 return data
             date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
 

@@ -286,13 +286,6 @@ def stock():
     actype = None
     if request.method == 'POST':
         actype = request.form.get("act", type=str, default=None)
-        if actype == 'dtmap':
-            date = request.form.get('date', type=str, default=None)
-            dtmap = request.form.get('map', type=str, default=None)
-            details = request.form.get('details', type=str, default=None)
-            sdm = StockDtMap()
-            sdm.addDtMap(date, dtmap, details)
-            return 'OK', 200
         if actype == 'trackdeals':
             tname = request.form.get('name', type=str, default=None)
             deals = request.form.get('data', type=str, default=None)

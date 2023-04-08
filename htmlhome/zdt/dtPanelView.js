@@ -24,214 +24,18 @@ class DtPanelPage extends RadioAnchorPage {
             this.container.appendChild(this.contentPanel);
             this.dtMapTable = new SortableTable(1, 0, false);
             this.contentPanel.appendChild(document.createTextNode('跌停进度'));
-            var btnDtMerge = document.createElement('button');
-            btnDtMerge.textContent = '合并进度';
-            btnDtMerge.onclick = () => {
-                this.mergePredtmap();
-                this.showDtMaps();
-            }
-            this.contentPanel.appendChild(btnDtMerge);
+
             this.contentPanel.appendChild(this.dtMapTable.container);
-            var btnSaveDtMap = document.createElement('button');
-            btnSaveDtMap.textContent = '保存';
-            btnSaveDtMap.onclick = () => {
-                this.saveDtMap();
-            }
-            this.contentPanel.appendChild(btnSaveDtMap);
-
-            this.predtMapPanel = document.createElement('div');
-            this.contentPanel.appendChild(this.predtMapPanel);
-            this.predtMapTable = new SortableTable(1, 0, false);
-            this.predtMapPanel.appendChild(document.createTextNode('待定'));
-            this.predtMapPanel.appendChild(this.predtMapTable.container);
-
             this.dt3Panel = document.createElement('div');
             this.contentPanel.appendChild(this.dt3Panel);
             this.dt3Table = new SortableTable(1, 0, false);
             this.dt3Panel.appendChild(document.createTextNode('跌停三进四买入'));
             this.dt3Panel.appendChild(this.dt3Table.container);
 
+            this.getDtPool();
             this.getDtMap();
             this.getDt3Stocks();
         }
-    }
-
-    mergeDt(dtdata) {
-        var premap = null;
-        if (this.dtmap) {
-            if (this.dtmap.date == dtdata.date) {
-                console.log('dtmap already exists!');
-                this.showDtMaps();
-                return;
-            }
-            if (this.dtmap.date < dtdata.date) {
-                premap = this.dtmap;
-            }
-        }
-        if (!premap) {
-            premap = {date: '0', map: {}, details: {}};
-        }
-
-        var getExistingCt = function(mp, code) {
-            for (const ct in mp) {
-                if (Object.hasOwnProperty.call(mp, ct)) {
-                    if (mp[ct].suc && mp[ct].suc.has(code)) {
-                        return ct;
-                    } else if (mp[ct].fai && mp[ct].fai.has(code)) {
-                        return ct - 1;
-                    }
-                }
-            }
-            return 0;
-        }
-
-        var dtmap = {date: dtdata.date, map: {}, details: {}}
-        var mp = dtmap.map;
-        var dtl = dtmap.details;
-        if (premap && premap.details) {
-            for (var k in premap.details) {
-                dtl[k] = premap.details[k];
-            }
-        }
-        for (var i = 0; i < dtdata.pool.length; ++i) {
-            var code = dtdata.pool[i][0];
-            var dtct = dtdata.pool[i][1];
-            var exct = getExistingCt(premap.map, code);
-            if (exct > 0) {
-                var ndtct = -(-exct - 1);
-                if (!mp[ndtct]) {
-                    mp[ndtct] = {suc: new Set(), fai: new Set()};
-                }
-                mp[ndtct].suc.add(code);
-                if (premap.map[ndtct] && premap.map[ndtct].fai && premap.map[ndtct].fai.has(code)) {
-                    premap.map[ndtct].fai.delete(code);
-                } else if (premap.map[exct] && premap.map[exct].suc && premap.map[exct].suc.has(code)) {
-                    premap.map[exct].suc.delete(code);
-                }
-                if (dtl[code]) {
-                    dtl[code].push({ct: ndtct, date: dtdata.date});
-                } else {
-                    dtl[code] = [{ct: ndtct, date: dtdata.date}];
-                }
-            } else {
-                if (!mp[dtct]) {
-                    mp[dtct] = {suc: new Set(), fai: new Set()};
-                    mp[dtct].suc.add(code);
-                } else {
-                    mp[dtct].suc.add(code);
-                }
-                dtl[code] = [{ct: 1, date: dtdata.date}];
-            }
-            this.getDtStockKlines(code, dtmap.date);
-        }
-
-        this.premap = premap;
-        this.dtmap = dtmap;
-        this.mergePredtmap();
-        this.showDtMaps();
-    }
-
-    mergePredtmap() {
-        if (!this.premap) {
-            return;
-        }
-        var premap = this.premap.map;
-        for (var prect in premap) {
-            if (premap[prect].suc) {
-                var fcodes = this.calcPredtSuc(premap[prect].suc, prect - 1 + 2);
-                fcodes.forEach(c => {
-                    premap[prect].suc.delete(c);
-                });
-                if (premap[prect].suc.size == 0) {
-                    delete(premap[prect].suc);
-                }
-            }
-            if (premap[prect].fai) {
-                var fcodes = this.calcPredtSuc(premap[prect].fai, prect);
-                fcodes.forEach(c => {
-                    premap[prect].fai.delete(c);
-                });
-                if (premap[prect].fai.size == 0) {
-                    delete(premap[prect].fai);
-                }
-            }
-            if (!premap[prect].suc && !premap[prect].fai) {
-                delete(premap[prect]);
-            }
-        }
-        if (Object.keys(this.premap.map).length == 0) {
-            this.premap = null;
-        }
-    }
-
-    calcPredtSuc(sfset, nct) {
-        var addToFail = function(dtmp, code, ct) {
-            if (!dtmp[ct]) {
-                dtmp[ct] = {suc: new Set(), fai: new Set()};
-            }
-            dtmp[ct].fai.add(code);
-        }
-        var addToSuc = function(dtmp, code, ct) {
-            if (!dtmp[ct]) {
-                dtmp[ct] = {suc: new Set(), fai: new Set()};
-            }
-            dtmp[ct].suc.add(code);
-        }
-        var klOfDate = function(klines, date) {
-            for (var i = klines.length - 1; i >= 0; i--) {
-                if (klines[i].time == date) {
-                    return klines[i];
-                }
-            }
-        }
-        var waitDays = function(klines, sdate, edate) {
-            var eidx = klines.findIndex(kl => kl.time == edate);
-            var sidx = klines.findIndex(kl => kl.time == sdate);
-            return eidx - sidx;
-        }
-        var fcodes = [];
-        var dtmap = this.dtmap;
-        var premap = this.premap;
-        sfset.forEach(c => {
-            if (!emjyBack.klines[c] || !emjyBack.klines[c].klines || !emjyBack.klines[c].klines['101']) {
-                this.getDtStockKlines(c, premap.date);
-                return;
-            }
-            var klines = emjyBack.klines[c].getKline('101');
-            var kl = klOfDate(klines, dtmap.date);
-            if (!kl) {
-                if (klines[klines.length - 1].time < dtmap.date) {
-                    this.getDtStockKlines(c, dtmap.date);
-                }
-                return;
-            }
-            var predate = premap.date;
-            if (premap.details && premap.details[c] && premap.details[c].length > 0) {
-                predate = premap.details[c][premap.details[c].length - 1].date;
-            }
-            var prekl = klOfDate(klines, predate);
-            var dtl = dtmap.details;
-            if (prekl.c * 0.9 - kl.l >= 0) {
-                addToSuc(dtmap.map, c, nct);
-                if (dtl[c]) {
-                    dtl[c].push({ct:  nct, date:this.dtmap.date});
-                } else {
-                    dtl[c] = [{ct:  nct, date:this.dtmap.date}];
-                }
-            } else {
-                if (premap.details && premap.details[c] && premap.details[c].length > 0) {
-                    if (kl.c - prekl.c * 1.08 > 0 || waitDays(klines, predate, dtmap.date) > 3) {
-                        console.log(c, 'remove from dtmap');
-                        this.removeFailed(c, nct);
-                        fcodes.push(c);
-                        return;
-                    }
-                }
-                addToFail(dtmap.map, c, nct);
-            }
-            fcodes.push(c);
-        });
-        return fcodes;
     }
 
     manualMergePremap(code, prect, presuc, ct, suc) {
@@ -271,84 +75,13 @@ class DtPanelPage extends RadioAnchorPage {
         }
     }
 
-    initDt(dtdata) {
-        var dtmap = {date: dtdata.date, map: {}}
-        var mp = JSON.parse(dtdata.map);
-        for (var ct in mp) {
-            var mct = {suc: new Set(), fai: new Set()};
-            for (var key in mp[ct]) {
-                mct[key] = new Set(mp[ct][key]);
-            }
-            if (Object.keys(mct).length > 0) {
-                dtmap.map[ct] = mct;
-            }
-        }
-        if (dtdata.details) {
-            dtmap.details = JSON.parse(dtdata.details);
-        } else {
-            dtmap.details = {};
-        }
-        for (var c in dtmap.details) {
-            this.getDtStockKlines(c, dtmap.date);
-        }
-        this.dtmap = dtmap;
-    }
-
     getDtMap() {
         var mapUrl = emjyBack.fha.server + 'stock?act=dtmap';
-        if (this.startdate) {
-            mapUrl += '&date=' + this.startdate;
-        }
         utils.get(mapUrl, null, dt => {
-            var dtdata = JSON.parse(dt);
-            if (dtdata) {
-                this.initDt(dtdata);
-            }
-            var date = undefined;
+            this.dtmap = JSON.parse(dt);
             if (this.dtmap) {
-                date = this.dtmap.date;
-                var dtdate = new Date(date);
-                dtdate.setDate(dtdate.getDate() + 1);
-                date = utils.dateToString(dtdate, '-');
+                this.showDtMaps();
             }
-            this.getDtPool(date);
-        });
-    }
-
-    saveDtMap() {
-        if (!this.dtmap) {
-            return;
-        }
-
-        var dtmap = this.dtmap;
-        var date = dtmap.date;
-        var mapUrl = emjyBack.fha.server + 'stock';
-        var fd = new FormData();
-        fd.append('act', 'dtmap');
-        fd.append('date', date);
-        var fmp = {};
-        for (var ct in dtmap.map) {
-            var suc = null;
-            if (dtmap.map[ct].suc.size > 0) {
-                suc = Array.from(dtmap.map[ct].suc);
-            }
-            var fai = null;
-            if (dtmap.map[ct].fai.size > 0) {
-                fai = Array.from(dtmap.map[ct].fai);
-            }
-            if (suc && fai) {
-                fmp[ct] = {suc, fai};
-            } else if (suc) {
-                fmp[ct] = {suc};
-            } else if (fai) {
-                fmp[ct] = {fai};
-            }
-        }
-        fd.append('map', JSON.stringify(fmp));
-        fd.append('details', JSON.stringify(this.dtmap.details));
-        utils.post(mapUrl, fd, null, dt => {
-            console.log('save dt map', dt);
-            this.updateDt3Selections();
         });
     }
 
@@ -360,20 +93,6 @@ class DtPanelPage extends RadioAnchorPage {
         utils.get(dtUrl, null, dt => {
             this.dtdata = JSON.parse(dt);
             this.showDtTable();
-            this.mergeDt(this.dtdata);
-        });
-    }
-
-    getDtStockKlines(code, date) {
-        emjyBack.loadKlines(code, lcode => {
-            if (!emjyBack.klines[lcode] || !emjyBack.klines[lcode].klines|| !emjyBack.klines[lcode].klines['101'] || emjyBack.klines[lcode].klines['101'].length == 0) {
-                emjyBack.fetchStockKline(lcode);
-            } else {
-                var klines = emjyBack.klines[lcode].klines['101'];
-                if (klines[klines.length - 1].time < date) {
-                    emjyBack.fetchStockKline(lcode, '101', klines[klines.length - 1].time);
-                }
-            }
         });
     }
 
@@ -382,14 +101,6 @@ class DtPanelPage extends RadioAnchorPage {
         utils.get(dt3Url, null, dt3 => {
             this.dt3stocks = JSON.parse(dt3);
             this.showDt3Table();
-        });
-    }
-
-    updateDt3Selections() {
-        var dt3Url = emjyBack.fha.server + 'stock?act=updatepickup&key=dt3';
-        utils.get(dt3Url, null, r => {
-            console.log(r);
-            this.getDt3Stocks();
         });
     }
 
@@ -531,27 +242,36 @@ class DtPanelPage extends RadioAnchorPage {
             return n1 + '进' + n2;
         }
 
-        for (var ct in dtmap.map) {
-            var ctName = getCtName(ct);
-            this.dtMapTable.addRow(ctName,
-                this.createAnchors(dtmap.map[ct].suc, ct, 'suc'),
-                ct == 1 ? this.createDeleteBlock() : this.createAnchors(dtmap.map[ct].fai, ct, 'fai')
-            );
+        var sucdata = {};
+        var faidata = {};
+        var mxct = 0;
+        for (var i = 0; i < dtmap.data.length; ++i) {
+            var dmp = dtmap.data[i];
+            if (dmp[2] == 1) {
+                if (sucdata[dmp[1]] === undefined) {
+                    sucdata[dmp[1]] = [];
+                }
+                sucdata[dmp[1]].push(dmp[0]);
+            } else {
+                if (faidata[dmp[1]] === undefined) {
+                    faidata[dmp[1]] = [];
+                }
+                faidata[dmp[1]].push(dmp[0]);
+            }
+            if (dmp[1] - mxct > 0) {
+                mxct = dmp[1];
+            }
         }
 
-        this.predtMapTable.reset();
-        if (this.premap && this.premap.map) {
-            this.predtMapPanel.style.display = 'block';
-            this.predtMapTable.setClickableHeader(this.premap.date, '成', '败');
-            for (var ct in this.premap.map) {
-                var ctName = getCtName(ct);
-                this.predtMapTable.addRow(ctName,
-                    this.createEditAnchors(this.premap.map[ct].suc, ct, 'suc'),
-                    this.createEditAnchors(this.premap.map[ct].fai, ct, 'fai')
-                );
+        for (var i = 1; mxct - i >= 0; ++i) {
+            if (sucdata[i] === undefined && faidata[i] === undefined) {
+                continue;
             }
-        } else {
-            this.predtMapPanel.style.display = 'none';
+            var ctName = getCtName(i);
+            this.dtMapTable.addRow(ctName,
+                this.createAnchors(sucdata[i], i, 'suc'),
+                i == 1 ? this.createDeleteBlock() : this.createAnchors(faidata[i], i, 'fai')
+            );
         }
     }
 
