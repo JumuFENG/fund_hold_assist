@@ -33,12 +33,7 @@ class TableBase():
 
     def _max_date(self):
         if self.sqldb.isExistTable(self.tablename):
-            maxDate = self.sqldb.select(self.tablename, f"max({column_date})")
-            if maxDate is None or not len(maxDate) == 1 or maxDate[0][0] is None:
-                return None
-            else:
-                (mdate,), = maxDate
-                return mdate
+            return self.sqldb.selectOneValue(self.tablename, f"max({column_date})")
 
     def _select_keys(self, cols):
         if isinstance(cols, str):
@@ -64,6 +59,12 @@ class TableBase():
 
     def _dump_data(self, keys, conds):
         return self.sqldb.select(self.tablename, keys, conds)
+
+    def getDumpKeys(self):
+        return '*'
+
+    def getDumpCondition(self, date=None):
+        return ''
 
     def dumpDataByDate(self, date = None):
         pool = self.sqldb.select(self.tablename, self.getDumpKeys(), self.getDumpCondition(date))

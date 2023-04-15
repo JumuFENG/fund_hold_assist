@@ -10,7 +10,7 @@ class StockGeneral():
     def __init__(self, sqldb, code):
         self.sqldb = sqldb
         if isinstance(code, tuple):
-            _, self.code, self.name, self.short_term_rate, self.type, sn, _s, self.setupdate = code
+            _, self.code, self.name, self.short_term_rate, self.type, sn, _s, self.setupdate, self.qdate = code
         elif isinstance(code, str):
             self.code = code.upper()
             self.name = None
@@ -47,12 +47,3 @@ class StockGeneral():
         self.stockK15table = 's_k15_his_' + self.code
         self.bonustable = 's_bonus_' + self.code
         self.fflowtable = 's_fflow_' + self.code
-
-    def get_stock_hist_data(self):
-        pass
-        # index_hist_data = ("date", "sz" + self.code),
-        # his_data = self.sqldb.select(self.fullhistable, [column_date, column_close, column_p_change], order = " ORDER BY %s ASC" % column_date)
-        # for (date, close, p_change) in his_data:
-        #     index_hist_data += (DateConverter.days_since_2000(date), round(float(close), 2), round(float(p_change), 2) if not p_change == "None" else ''),
-
-        # return index_hist_data

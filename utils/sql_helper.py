@@ -26,17 +26,18 @@ class SqlHelper():
                 sql = "CREATE DATABASE IF NOT EXISTS " + self.database
                 self.cur.execute(sql)
             self.con.select_db(self.database)
-        except:
-            raise "DataBase connect error,please check the db config."
+        except Exception as e:
+            print(e)
+            raise Exception("DataBase connect error,please check the db config.")
 
     def close(self):
         """关闭数据库连接
 
         """
-        if not  self.con:
+        if self.con:
             self.con.close()
         else:
-            raise "DataBase doesn't connect,close connectiong error;please check the db config."
+            raise Exception("DataBase doesn't connect,close connectiong error;please check the db config.")
 
     def getVersion(self):
         """获取数据库的版本号
@@ -49,11 +50,6 @@ class SqlHelper():
         # 取得上个查询的结果，是单个结果
         data = self.cur.fetchone()
         return data
-
-    def fetchOneData(self, tablename):
-        sql = "select * from %s" % tablename
-        self.executeCommit(sql)
-        return self.cur.fetchone()
 
     def createTable(self, tablename, attrdict, constraint):
         """创建数据库表
@@ -76,7 +72,7 @@ class SqlHelper():
         #print('createTable:' + sql)
         self.executeCommit(sql)
 
-    def executeSql(self,sql=''):
+    def executeSql(self, sql=''):
         """执行sql语句，针对读操作返回结果集
 
             args：
@@ -90,7 +86,7 @@ class SqlHelper():
             error = 'MySQL execute failed! ERROR (%s): %s' %(e.args[0],e.args[1])
             print(error)
 
-    def executeCommit(self,sql=''):
+    def executeCommit(self, sql=''):
         """执行数据库sql语句，针对更新,删除,事务等操作失败时回滚
 
         """
@@ -126,24 +122,9 @@ class SqlHelper():
         #print('_insert:'+sql)
         self.executeCommit(sql)
 
-    def select(self, tablename, fields='*', conds='', order=''):
-        """查询数据
-
-            args：
-                tablename  ：表名字
-                conds      ：查询条件
-                order      ：排序条件
-
-            example：
-                print mydb.select(table)
-                print mydb.select(table, fields=["name"])
-                print mydb.select(table, fields=["name", "age"])
-                print mydb.select(table, fields=["age", "name"])
-                print mydb.select(table, fields=["age", "name"], conds = ["name = 'usr_name'","age < 30"])
-        """
+    def __gen_select_sql(self, tablename, fields='*', conds=''):
         if isinstance(fields, list):
-            fields = ",".join(fields)
-        sql = 'select %s from %s ' % (fields, tablename)
+            fields = ','.join(fields)
 
         consql = ''
         if conds != '':
@@ -159,9 +140,45 @@ class SqlHelper():
             else:
                 consql = 'where ' + conds
 
-        sql += consql + order
+        return f'''select {fields} from {tablename} {consql}'''
+
+    def selectOneRow(self, tablename, fields='*', conds=''):
+        sql = self.__gen_select_sql(tablename, fields, conds)
+        try:
+            self.cur.execute(sql)
+            return self.cur.fetchone()
+        except pymysql.Error as e:
+            self.con.rollback()
+            error = f'MySQL execute failed! ERROR ({e.args[0]}): {e.args[1]}'
+            print("error:", error)
+
+    def selectOneValue(self, tablename, fields='*', conds=''):
+        result, = self.selectOneRow(tablename, fields, conds)
+        return result
+
+    def select(self, tablename, fields='*', conds='', order=''):
+        """查询数据
+
+            args：
+                tablename  ：表名字
+                conds      ：查询条件
+                order      ：排序条件
+
+            example：
+                print mydb.select(table)
+                print mydb.select(table, fields=["name"])
+                print mydb.select(table, fields=["name", "age"])
+                print mydb.select(table, fields=["age", "name"])
+                print mydb.select(table, fields=["age", "name"], conds = ["name = 'usr_name'","age < 30"])
+        """
+        sql = self.__gen_select_sql(tablename, fields, conds) + order
         #print('select:' + sql)
-        return self.executeSql(sql)
+        try:
+            self.cur.execute(sql)
+            return self.cur.fetchall()
+        except pymysql.Error as e:
+            error = f'MySQL execute failed! ERROR ({e.args[0]}): {e.args[1]}'
+            print(error)
 
     def insertMany(self,table, attrs, values):
         """插入多条数据
@@ -182,12 +199,10 @@ class SqlHelper():
         values_sql = ' values('+','.join(values_sql)+')'
         sql = 'insert into %s'% table
         sql = sql + attrs_sql + values_sql
-        #print('insertMany:'+sql)
         try:
-         #   print(sql)
             for i in range(0,len(values),20000):
-                    self.cur.executemany(sql,values[i:i+20000])
-                    self.con.commit()
+                self.cur.executemany(sql,values[i:i+20000])
+                self.con.commit()
         except pymysql.Error as e:
             self.con.rollback()
             error = 'insertMany executemany failed! ERROR (%s): %s' %(e.args[0],e.args[1])
@@ -316,8 +331,7 @@ class SqlHelper():
         self.executeCommit(sql)
 
     def isExistSchema(self, database):
-        (result,), = self.select("information_schema.SCHEMATA", "count(*)",["schema_name = '%s'" % database]);
-        return result and result != 0
+        return 0 != self.selectOneValue("information_schema.SCHEMATA", "count(*)", f"schema_name = '{database}'")
 
     def isExistTable(self, tablename):
         """判断数据表是否存在
@@ -328,22 +342,20 @@ class SqlHelper():
             Return:
                 存在返回True，不存在返回False
         """
-        ((result,),) = self.select("information_schema.tables","count(*)",["table_name = '%s'" % tablename, "table_schema = '%s'" % self.database])
-        return result and result != 0
+        return 0 != self.selectOneValue("information_schema.tables","count(*)", [f"table_name = '{tablename}'", f"table_schema = '{self.database}'"])
 
     def isExistTableColumn(self, tablename, column_name):
-        ((result,),) = self.select("information_schema.columns","count(*)",["table_name = '%s'" % tablename, "column_name = '%s'" % column_name, "table_schema = '%s'" % self.database])
-        return result and result != 0
+        return 0 != self.selectOneValue("information_schema.columns","count(*)", [f"table_name = '{tablename}'", f"column_name = '{column_name}'", f"table_schema = '{self.database}'"])
 
     def getCloumns(self, tablename):
-        return [c for c, in self.select("information_schema.columns","column_name",["table_name = '%s'" % tablename, "table_schema = '%s'" % self.database])]
+        return [c for c, in self.select("information_schema.columns","column_name", [f"table_name = '{tablename}'", f"table_schema = '{self.database}'"])]
 
     def addColumn(self, tablename, col, tp):
-        sql = "alter table %s add %s %s" % (tablename, col, tp)
+        sql = f"alter table {tablename} add {col} {tp}"
         self.executeCommit(sql)
 
     def deleteColumn(self, tablename, col):
-        sql = "alter table %s drop column %s" % (tablename, col)
+        sql = f"alter table {tablename} drop column {col}"
         self.executeCommit(sql)
 
     def renameColumn(self, tablename, col, ncol, tp):

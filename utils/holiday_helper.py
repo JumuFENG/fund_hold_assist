@@ -19,42 +19,35 @@ class TradingDate():
         return 'i_k_his_000001' if date >= '2020-01-10' else 'i_ful_his_000001'
 
     @classmethod
+    def renewSql(self):
+        self.sqldb = SqlHelper(password=db_pwd, database=history_db_name)
+
+    @classmethod
     def isTradingDate(self, date):
-        ret = self.sqldb.select(self.__tablename(date), '*', f'{column_date} = "{date}"')
-        return False if ret is None or len(ret) == 0 else True
+        return 0 != self.sqldb.selectOneValue(self.__tablename(date), 'count(*)', f'{column_date} = "{date}"')
 
     @classmethod
     def nextTradingDate(self, date):
-        ret = self.sqldb.select(self.__tablename(date), 'min(date)', f'{column_date} > "{date}"')
-        if ret is None or len(ret) == 0:
-            return
-        (d,), = ret
+        d = self.sqldb.selectOneValue(self.__tablename(date), 'min(date)', f'{column_date} > "{date}"')
         if d is None:
             return self.maxTradingDate()
         return d
 
     @classmethod
     def prevTradingDate(self, date):
-        ret = self.sqldb.select(self.__tablename(date), 'max(date)', f'{column_date} < "{date}"')
-        if ret is None or len(ret) == 0:
-            return
-        (d,), = ret
-        return d
+        return self.sqldb.selectOneValue(self.__tablename(date), 'max(date)', f'{column_date} < "{date}"')
 
     @classmethod
     def maxTradingDate(self):
-        print('TradingDate.maxTradingDate', 'enter')
-        ret = self.sqldb.select('i_k_his_000001', 'max(date)')
-        if ret is None or len(ret) == 0:
-            print('TradingDate.maxTradingDate db read error', ret)
-            return
-        (d,), = ret
+        d = self.sqldb.selectOneValue('i_k_his_000001', 'max(date)')
         if d != Utils.today_date():
-            sys_date, tradeday = self.get_today_system_date()
-            print('TradingDate.maxTradingDate', 'get_today_system_date', sys_date, tradeday)
-            if tradeday:
-                return sys_date
-        print('TradingDate.maxTradingDate return', d)
+            self.renewSql()
+            d = self.sqldb.selectOneValue('i_k_his_000001', 'max(date)')
+            if d != Utils.today_date():
+                sys_date, tradeday = self.get_today_system_date()
+                print('TradingDate.maxTradingDate', 'get_today_system_date', sys_date, tradeday)
+                if tradeday:
+                    return sys_date
         return d
 
     @classmethod
@@ -94,7 +87,7 @@ class Holiday():
         if not self.sqldb.isExistTable(self.tablename):
             return False
         
-        (result,), = self.sqldb.select(self.tablename, "count(*)", "%s = '%s'" % (column_date, date))
+        result = self.sqldb.selectOneValue(self.tablename, "count(*)", "%s = '%s'" % (column_date, date))
         return result and result != 0
 
     def addholiday(self, date):
