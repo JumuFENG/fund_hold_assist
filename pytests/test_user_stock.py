@@ -1,3 +1,4 @@
+import pytest
 from colorama import Fore
 
 from history.stock_history import *
@@ -8,8 +9,9 @@ from history.stock_dfsorg import *
 from user.user_stock import *
 from user.models import *
 
+# @pytest.mark.skip(reason=None)
 class TestUserStock(object):
-    def __init__(self) -> None:
+    def setup_class(self) -> None:
         self.umodel = UserModel()
         self.testuser = self.umodel.user_by_id(1)
 
@@ -382,17 +384,3 @@ class TestUserStock(object):
 
         print(Fore.GREEN + 'PASS: test_add_dividen_shares' + Fore.RESET)
 
-    def run(self):
-        self.test_add_buy_deal()
-        self.test_add_buy_sell_deals()
-        self.test_add_buy_buy_deals()
-        self.test_add_buy_buy_sell_deals()
-        self.test_buy_buy_sell_partial()
-        self.test_archive_deals_1()
-        self.test_archive_deals_2()
-        self.test_archive_deals_3()
-        self.test_archive_deals_4()
-        self.test_update_archived_fee()
-        self.test_archive_update()
-        self.test_archive_update_1()
-        self.test_add_dividen_shares()
