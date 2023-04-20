@@ -85,7 +85,7 @@ class TrackStockListPanelPage extends StockListPanelPage {
         var i = 1;
         this.stocks.forEach(sv => {
             var stocki = sv.stock;
-            if (stocki.holdCount != 0 || stocki.strategies.buydetail.length == 0) {
+            if (stocki.holdCount != 0 || stocki.strategies.buydetail === undefined || stocki.strategies.buydetail.length == 0) {
                 return;
             }
             this.archiveDealsBtn.selectedStks.add(stocki.code);

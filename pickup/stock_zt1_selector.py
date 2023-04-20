@@ -3,6 +3,7 @@
 
 from utils import *
 from history import *
+from history.stock_history import *
 
 class StockZt1Selector(TableBase):
     def __init__(self) -> None:
@@ -143,7 +144,7 @@ class StockZt1Selector(TableBase):
         sd = StockDumps()
         while True:
             ztdata = szi.dumpDataByDate(date)
-            if ztdata is None:
+            if ztdata is None or ztdata['date'] < date:
                 break
             values = []
             date = ztdata['date']
@@ -181,23 +182,18 @@ class StockZt1Selector(TableBase):
                     return
 
         if self.__tsstocks is None:
-            allstk = AllStocks()
-            self.__tsstocks = allstk.getAllTsStocks()
+            stks = StockGlobal.all_stocks()
+            self.__tsstocks = {s[1]: s[8] for s in stks if s[4] == 'TSStock'}
 
-        if self.__tsstocks and len(self.__tsstocks) > 0:
-            stk = list(filter(lambda x: x[1] == code, self.__tsstocks))
-            if (len(stk) == 0):
-                return
-            stk = stk[0]
-            if stk and stk[8]:
-                print(code, 'already quit on', stk[8])
-                zt1info = self.sqldb.select(self.tablename, 'id,建仓日期', {f'{column_code}': code, f'{column_date}': date})
-                if zt1info and len(zt1info) == 1:
-                    (id, sdate), = zt1info
-                    if sdate is None:
-                        self.sqldb.update(self.tablename, {'建仓日期':'0', '清仓日期':'0'},  {'id':id})
-                    else:
-                        self.sqldb.update(self.tablename, {'清仓日期': stk[8]},  {'id':id})
+        if code in self.__tsstocks:
+            print(code, 'already quit on', self.__tsstocks[code])
+            zt1info = self.sqldb.select(self.tablename, 'id,建仓日期', {f'{column_code}': code, f'{column_date}': date})
+            if zt1info and len(zt1info) == 1:
+                (id, sdate), = zt1info
+                if sdate is None:
+                    self.sqldb.update(self.tablename, {'建仓日期':'0', '清仓日期':'0'},  {'id':id})
+                else:
+                    self.sqldb.update(self.tablename, {'清仓日期': self.__tsstocks[code]},  {'id':id})
 
     def check_incomplete_records(self):
         incomplete = self.sqldb.select(self.tablename, f'id,{column_code},{column_date}', ['建仓日期 is not NULL', '清仓日期 is NULL'])
@@ -216,9 +212,9 @@ class StockZt1Selector(TableBase):
                 self.sqldb.update(self.tablename, {'建仓日期':sdate, '清仓日期':edate, '交易记录':json.dumps(recs)}, {'id':id})
 
     def check_noncreated_records(self):
-        non_created = self.sqldb.select(self.tablename, f'id,{column_code},{column_date}', '建仓日期 is NULL')
+        non_created = self.sqldb.select(self.tablename, f'id,{column_code},{column_date},上板强度,放量程度', '建仓日期 is NULL')
         sd = StockDumps()
-        for id, code, date in non_created:
+        for id, code, date,s0,v0 in non_created:
             ksdate = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=-30)).strftime(r"%Y-%m-%d")
             kd = sd.read_kd_data(code, start=ksdate)
             st = self.get_zt_strengh(kd, date)
@@ -226,6 +222,8 @@ class StockZt1Selector(TableBase):
             recs = self.check_trade_records(kd, date)
             if recs is None or len(recs) == 0:
                 self.check_quit_stock(kd, code, date)
+                if s0 != st or v0 != vs:
+                    self.sqldb.update(self.tablename, {'上板强度':st, '放量程度':vs}, {'id':id})
                 print('check_noncreated_records invalid recs', code, date)
                 continue
             else:

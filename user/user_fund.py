@@ -12,7 +12,6 @@ class UserFund():
         self.sqldb = user.fund_center_db()
         self.code = code
         self.funds_table = user.funds_info_table()
-        self.date_conv = DateConverter()
         if not self.sqldb.isExistTable(self.funds_table):
             attrs = {column_code:'varchar(10) DEFAULT NULL'}
             constraint = 'PRIMARY KEY(`id`)'
@@ -162,7 +161,7 @@ class UserFund():
             self.delete_cosumed()
             budget = self.sqldb.select(self.budget_table, [column_date, column_net_value, column_budget])
             for (d,v,b) in budget:
-                values.append({"date":self.date_conv.days_since_2000(d), "mptb":str(v), "bdt":b})
+                values.append({"date":DateConverter.days_since_2000(d), "mptb":str(v), "bdt":b})
         return values
 
     def set_actual_sold(self, date, actual_sold):
@@ -216,7 +215,7 @@ class UserFund():
             to_rollin = 0;
             if c > float(r):
                 to_rollin = int(c - float(r))
-            values.append({"date":self.date_conv.days_since_2000(d), "cost":c, "ms":m, "ptn":p, "mptb":max_price_to_buy, "tri":str(to_rollin), "acs": a})
+            values.append({"date":DateConverter.days_since_2000(d), "cost":c, "ms":m, "ptn":p, "mptb":max_price_to_buy, "tri":str(to_rollin), "acs": a})
 
         return values
 
@@ -230,7 +229,7 @@ class UserFund():
             v = fg.netvalue_by_date(d)
             if v and not p:
                 self.confirm_buy_rec(d)
-            values.append({"date":self.date_conv.days_since_2000(d), "nv":v, "cost":c, "ptn":p, "sold":s})
+            values.append({"date":DateConverter.days_since_2000(d), "nv":v, "cost":c, "ptn":p, "sold":s})
         return values
 
     def fix_cost_portion_hold(self):

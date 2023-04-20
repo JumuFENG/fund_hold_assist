@@ -5,41 +5,28 @@ from utils import *
 from history import *
 import json
 
+
 class StockDumps(KdataDumps):
     def __init__(self):
         self.history = Stock_history()
-        self.allstk = AllStocks()
-        self.sqldb = self.allstk.sqldb
-        self.infoList = self.allstk.readAll()
-
-    def fetchAllEtf(self):
-        self.allstk.loadAllFunds('ETF')
-        self.infoList = self.allstk.readAll()
-
-    def fetchAllLof(self):
-        self.allstk.loadAllFunds('LOF')
-        self.infoList = self.allstk.readAll()
 
     def get_km_table(self, code):
-        sg = StockGeneral(self.sqldb, code)
-        return sg.stockKmtable
+        return StockGlobal.stock_general(code).stockKmtable
 
     def get_kw_table(self, code):
-        sg = StockGeneral(self.sqldb, code)
-        return sg.stockKwtable
+        return StockGlobal.stock_general(code).stockKwtable
 
     def get_kd_table(self, code):
-        sg = StockGeneral(self.sqldb, code)
-        return sg.stockKtable
+        return StockGlobal.stock_general(code).stockKtable
 
     def get_k15_table(self, code):
-        sg = StockGeneral(self.sqldb, code)
-        return sg.stockK15table
+        return StockGlobal.stock_general(code).stockK15table
 
     def get_his(self, codes = None):
         all_stock_obj = {}
-        
-        for (i,c,n,s,t,sn,sc,sd) in self.infoList:
+        allstk = AllStocks()
+        infoList = allstk.readAll()
+        for (i,c,n,s,t,sn,sc,sd) in infoList:
             if codes is not None and not c in codes:
                 continue
 
@@ -61,18 +48,6 @@ class StockDumps(KdataDumps):
             all_stock_obj[c] = stock_obj
 
         return all_stock_obj
-
-    def check_khistory_table_exists(self):
-        cnt = 0
-        ocnt = 0
-        for (i,c,n,s,t,sn,sc,sd) in self.infoList:
-            sg = StockGeneral(self.sqldb, c)
-            if not self.history.checkKtable(sg.stockKmtable):
-                cnt += 1
-                print(c, t, n, sn)
-            else:
-                ocnt += 1
-        print(cnt, ocnt)
 
     def dump_all_stock_his(self):
         all_stock_obj = self.get_all_his()

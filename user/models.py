@@ -371,11 +371,9 @@ class User():
             return None
 
         codes = sqldb.select(self.stocks_info_table(), [column_code], "%s = '%s'" % (column_keepeyeon, str(1)))
-
-        keo_codes = []
-        for (c, ) in codes:
-            keo_codes.append(c)
-        return keo_codes
+        if codes is None:
+            return None
+        return [c for (c, ) in codes]
 
     def set_earned(self, date, earned):
         sqldb = self.stock_center_db()
@@ -419,9 +417,8 @@ class User():
                 else:
                     earndic[k] = cearn[k]
 
-        date_conv = DateConverter()
         for k in sorted(earndic.keys()):
-            self.set_earned(date_conv.date_by_delta(k), earndic[k])
+            self.set_earned(DateConverter.date_by_delta(k), earndic[k])
 
     def recalc_earned(self):
         '''
@@ -439,7 +436,6 @@ class User():
         codes = self._all_user_stocks()
         earndic = {}
         archived = sqldb.select(self.stocks_archived_deals_table())
-        date_conv = DateConverter()
         for c in codes:
             # archived buy records
             abuy = filter(lambda x: x[1] == c and x[3] == 'B', archived)
@@ -458,13 +454,13 @@ class User():
                 _cb = filter(lambda x: x[7] == _sid and x[1] == _date and x[3] == _pr, cbuy)
                 arsids.add(_sid)
                 if _cb is None:
-                    buys.append({'date': date_conv.days_since_2000(_date), 'price': _pr, 'ptn': _ptn, 'fee': fee})
+                    buys.append({'date': DateConverter.days_since_2000(_date), 'price': _pr, 'ptn': _ptn, 'fee': fee})
                 else:
                     ptn = _ptn
                     # get the total portion of partial archived deals.
                     for _id, _date, _cptn, _pr, _cs, _so, _sp, _sid, _cfee, _cfYh, _cfGh in _cb:
                         ptn += _cptn
-                    buys.append({'date': date_conv.days_since_2000(_date), 'price': _pr, 'ptn': ptn, 'fee': fee})
+                    buys.append({'date': DateConverter.days_since_2000(_date), 'price': _pr, 'ptn': ptn, 'fee': fee})
 
             for _id, _date, _cptn, _pr, _cs, _so, _sp, _sid, _cfee, _cfYh, _cfGh in cbuy:
                 if _sid in arsids:
@@ -473,7 +469,7 @@ class User():
                 fee = 0 if _cfee is None else _cfee
                 fee += 0 if _cfYh is None else _cfYh
                 fee += 0 if _cfGh is None else _cfGh
-                buys.append({'date': date_conv.days_since_2000(_date), 'price': _pr, 'ptn': _cptn, 'fee': fee})
+                buys.append({'date': DateConverter.days_since_2000(_date), 'price': _pr, 'ptn': _cptn, 'fee': fee})
 
             # archived sell records
             asell = filter(lambda x: x[1] == c and x[3] == 'S', archived)
@@ -482,7 +478,7 @@ class User():
                 fee = 0 if _fee is None else _fee
                 fee += 0 if _fYh is None else _fYh
                 fee += 0 if _fGh is None else _fGh
-                sells.append({'date': date_conv.days_since_2000(_date), 'price': _pr, 'ptn': _ptn, 'fee': fee})
+                sells.append({'date': DateConverter.days_since_2000(_date), 'price': _pr, 'ptn': _ptn, 'fee': fee})
 
             # not archived sell records
             csell = []
@@ -492,7 +488,7 @@ class User():
                 fee = 0 if _fee is None else _fYh
                 fee += 0 if _fYh is None else _fYh
                 fee += 0 if _fGh is None else _fGh
-                sells.append({'date': date_conv.days_since_2000(_date), 'price': _pr, 'ptn': _ptn, 'fee': fee})
+                sells.append({'date': DateConverter.days_since_2000(_date), 'price': _pr, 'ptn': _ptn, 'fee': fee})
 
             cearn = us.sell_earned_by_day(buys, sells)
             if cearn is None:
@@ -503,9 +499,8 @@ class User():
                 else:
                     earndic[k] = cearn[k]
 
-        date_conv = DateConverter()
         for k in sorted(earndic.keys()):
-            self.set_earned(date_conv.date_by_delta(k), earndic[k])
+            self.set_earned(DateConverter.date_by_delta(k), earndic[k])
 
     def update_earned(self):
         sqldb = self.stock_center_db()
@@ -513,6 +508,13 @@ class User():
             return
 
         self.calc_earned()
+
+    def __get_latest_price(self, code, fqprc):
+        if fqprc == 0:
+            sd = StockDumps()
+            (_id, _dt, prc, *x), = sd.read_kd_data(code, length=1)
+            return prc
+        return fqprc
 
     def update_earning(self):
         codes = self._all_user_stocks()
@@ -533,9 +535,9 @@ class User():
                 print(f'update_earning get latest prices error: fetch {len(hcodes)}, actual {lpobj["data"]["total"]}')
             for qt in lpobj['data']['diff']:
                 if 'SH' + qt['f12'] in uss:
-                    uss['SH' + qt['f12']]['price'] = qt['f2']
+                    uss['SH' + qt['f12']]['price'] = self.__get_latest_price('SH' + qt['f12'], qt['f2'])
                 else:
-                    uss['SZ' + qt['f12']]['price'] = qt['f2']
+                    uss['SZ' + qt['f12']]['price'] = self.__get_latest_price('SZ' + qt['f12'], qt['f2'])
 
         cost = 0
         value = 0
@@ -578,9 +580,8 @@ class User():
             startIdx = len(all_earned) - days
 
         earr = []
-        date_conv = DateConverter()
         for x in range(startIdx, len(all_earned)):
-            earr.append({'dt':date_conv.days_since_2000(all_earned[x][0]), 'ed':all_earned[x][1]})
+            earr.append({'dt':DateConverter.days_since_2000(all_earned[x][0]), 'ed':all_earned[x][1]})
         return earr
 
     def get_this_yr_earned(self, all_earned):
@@ -589,14 +590,13 @@ class User():
         total = None
         earned_obj = {}
         earr = []
-        date_conv = DateConverter()
         for (d, e, t) in all_earned:
             if total is None and not datetime.strptime(d, "%Y-%m-%d").year == year:
                 continue
             if total is None:
                 total = t
                 earned_obj['tot'] = total
-            earr.append({'dt':date_conv.days_since_2000(d), 'ed':e})
+            earr.append({'dt':DateConverter.days_since_2000(d), 'ed':e})
         earned_obj['e_a'] = earr
         return earned_obj
 
@@ -986,6 +986,62 @@ class User():
         if len(consumed) > 0:
             self.add_to_archive_deals_table(consumed)
 
+    def get_stocks_earning_table(self, statstable, year=None):
+        if isinstance(year, int):
+            year = str(year)
+
+        stats_monthly = []
+        monstats = []
+        cmon = ''
+        for r in statstable:
+            r0 = r[0].split('-')
+            if year is not None and r0[0] != year:
+                continue
+            mon = ''.join(r0[0:2])
+            if mon != cmon:
+                if len(monstats) > 0:
+                    stats_monthly.append(monstats)
+                    monstats = []
+                cmon = mon
+
+            monstats.append([r[0], r[1], r[2], round(r[3], 2), r[4], round(r[5], 2), round(r[6], 2)])
+
+        if len(monstats) > 0:
+            stats_monthly.append(monstats)
+            monstats = []
+
+        ehtml = ''
+        for k in range(0, len(stats_monthly)):
+            monstats = stats_monthly[k]
+            mearn = 0
+            for rmon in monstats:
+                if rmon[-1] == 0:
+                    mearn = 0
+                    break
+                mearn += rmon[-1]
+            if mearn == 0:
+                mearn = monstats[0][5] - (stats_monthly[k+1][0][5] if k < len(stats_monthly) - 2 else 0)
+            tr1 = ''
+            for r in monstats[0]:
+                tr1 += f'''
+                    <td>{r}</td>'''
+            tr1 += f'''
+                    <td rowspan={len(monstats)}>{round(mearn, 2)}</td>'''
+            tr1 = f'''
+                <tr>{tr1}
+                </tr>'''
+            ehtml += tr1
+            for i in range(1, len(monstats)):
+                tr = ''
+                for r in monstats[i]:
+                    tr += f'''
+                    <td>{r}</td>'''
+                tr =  f'''
+                <tr>{tr}
+                </tr>'''
+                ehtml += tr
+        return ehtml
+
     def get_stocks_earning_static_html(self, year=None):
         # Type: (string) -> string
         sqldb = self.stock_center_db()
@@ -1035,25 +1091,23 @@ class User():
                 <th>浮盈</th>
                 <th>实盈</th>
                 <th>总盈亏</th>
-                <th>当日盈亏</th>
+                <th>每日盈亏</th>
+                <th>每月盈亏</th>
             </thead>
             <tbody>'''
  
         if isinstance(year, int):
             year = str(year)
-        for r in statstable:
-            if year is None or r[0] < year:
-                continue
-            ehtml += f'''
-                <tr>
-                    <td>{r[0]}</td>
-                    <td>{r[1]}</td>
-                    <td>{r[2]}</td>
-                    <td>{round(r[3], 2)}</td>
-                    <td>{r[4]}</td>
-                    <td>{round(r[5], 2)}</td>
-                    <td>{round(r[6], 2)}</td>
-                </tr>'''
+
+        if year is None:
+            # years = set()
+            # for r in statstable:
+            #     years.add(r[0].split('-')[0])
+            # years = sorted(list(years), reverse=True)
+            # for y in years:
+            ehtml += self.get_stocks_earning_table(statstable)
+        else:
+            ehtml += self.get_stocks_earning_table(statstable, year)
         ehtml +='''
             </tbody>
         </table>
@@ -1088,7 +1142,7 @@ class UserModel():
             attrs = {'name':'varchar(255) DEFAULT NULL', 'password':"varchar(255) DEFAULT NULL",  'email':"varchar(255) DEFAULT NULL", 'sub_table':"varchar(255) DEFAULT NULL", 'parent_account':"varchar(16) DEFAULT NULL"}
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.createTable(self.tablename, attrs, constraint)
-        (result,), = self.sqldb.select(self.tablename, 'count(*)', ["email = '%s'" % email])
+        result = self.sqldb.selectOneValue(self.tablename, 'count(*)', ["email = '%s'" % email])
         if result and result != 0:
             user = self.user_by_email(email)
             print( user.to_string(), "already exists!")

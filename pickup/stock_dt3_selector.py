@@ -91,24 +91,26 @@ class StockDt3Selector(TableBase):
             if recs[-1]['type'] == 'B':
                 self.sqldb.update(self.tablename, {'交易记录':json.dumps(recs)}, {'id':id})
 
-    def _check_dt3_buy(self, dtmap, code):
+    def _check_dt3_buy(self, dtmap, dtl, code):
         date = dtmap['date']
-        mp = json.loads(dtmap['map'])
-        dtl = json.loads(dtmap['details'])
-        if '4' in mp and 'suc' in mp['4']:
-            dt4 = mp['4']['suc']
-            dtdate = date
-            for c in dt4:
-                if c != code or dtl is None or c not in dtl:
-                    continue
-                for dtli in dtl[c]:
-                    if int(dtli['ct']) == 4:
-                        dtdate = dtli['date']
-            sd = StockDumps()
-            klines = sd.read_kd_data(code, start=dtdate)
-            price = klines[0][4]
-            return {'date': dtdate, 'type':'B', 'price':price}
-        return None
+        date = dtmap['date']
+        mp = dtmap['data']
+        dt4 = [c for c, ct, s in mp if ct == 4 and s == 1]
+        dtdate = date
+        if code not in dt4:
+             return None
+
+        for c in dt4:
+            if c != code or dtl is None:
+                continue
+            for dtli in dtl:
+                if int(dtli['ct']) == 4:
+                    dtdate = dtli['date']
+
+        sd = StockDumps()
+        klines = sd.read_kd_data(code, start=dtdate)
+        price = klines[0][4]
+        return {'date': dtdate, 'type':'B', 'price':price}
 
     def check_noncreated_records(self):
         non_created = self.sqldb.select(self.tablename, f'id,{column_code},{column_date}', '建仓日期 is NULL')
@@ -118,7 +120,8 @@ class StockDt3Selector(TableBase):
             dtmap = sdm.dumpDataByDate(ksdate)
             if dtmap is None or dtmap['date'] < ksdate:
                 continue
-            buyrec = self._check_dt3_buy(dtmap, code)
+            dtl = sdm.getdtl(code, 4)
+            buyrec = self._check_dt3_buy(dtmap, dtl, code)
             if buyrec is None or len(buyrec) == 0:
                 print('check_noncreated_records no buy rec', code, date)
                 self.sqldb.update(self.tablename, {'建仓日期':'0', '清仓日期':'0'}, {'id':id})
@@ -135,22 +138,20 @@ class StockDt3Selector(TableBase):
             return
         values = []
         date = dtmap['date']
-        mp = json.loads(dtmap['map'])
-        dtl = json.loads(dtmap['details'])
-        if '3' in mp and 'suc' in mp['3']:
-            dt3 = mp['3']['suc']
-            stks = self.get_inprogress_stocks(date)
-            for c in dt3:
-                if c in stks:
-                    continue
-                dtdate = date
-                if dtl is not None and c in dtl:
-                    for dtli in dtl[c]:
-                        if int(dtli['ct']) == 3:
-                            dtdate = dtli['date']
-                values.append([c, dtdate])
-            if len(values) > 0:
-                self.sqldb.insertMany(self.tablename, [column_code, column_date], values)
+        mp = dtmap['data']
+        dt3 = [c for c, ct, s in mp if ct == 3 and s == 1]
+        stks = self.get_inprogress_stocks(date)
+        for c in dt3:
+            if c in stks:
+                continue
+            dtdate = date
+            dtl = sdm.getdtl(c, 3)
+            for dtli in dtl:
+                if int(dtli['ct']) == 3:
+                    dtdate = dtli['date']
+            values.append([c, dtdate])
+        if len(values) > 0:
+            self.sqldb.insertMany(self.tablename, [column_code, column_date], values)
 
     def updateDt3(self):
         date = self._max_date()
@@ -173,3 +174,4 @@ class StockDt3Selector(TableBase):
         if recs is None or len(recs) == 0:
             return ''
         return recs
+

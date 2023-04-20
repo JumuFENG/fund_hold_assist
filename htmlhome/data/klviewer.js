@@ -4,28 +4,30 @@ class KlViewerPanelPage extends RadioAnchorPage {
     constructor() {
         super('K线图集');
         this.stkAll = {};
-        this.showingDate = null;
-        this.showingStock = null;
+        this.showingInfo = null;
+        this.showingCode = null;
     }
 
     fetchStockData(skey) {
         var url = emjyBack.fha.server + 'stock?act=pickupdone&key=' + skey;
         utils.get(url, null, stks => {
             this.stkAll[skey] = JSON.parse(stks);
+            this.totalLabel.textContent = this.stkAll[skey].length;
             this.showNextStockKline();
         });
     }
 
     fetchStockKline() {
-        var mktCode = emjyBack.getLongStockCode(this.showingStock);
-        var url = emjyBack.fha.server + 'api/stockhist?fqt=1&code=' + mktCode + '&kltype=101';
-        var zdate = new Date(this.showingDate);
+        var mktCode = emjyBack.getLongStockCode(this.showingCode);
+        var fqt = strategyOptions[this.showingKey].fqt === undefined ? '1' : strategyOptions[this.showingKey].fqt;
+        var url = emjyBack.fha.server + 'api/stockhist?fqt=' + fqt + '&code=' + mktCode + '&kltype=101';
+        var zdate = new Date(this.showingInfo[1]);
         zdate.setMonth(zdate.getMonth() - 1);
         url += '&start=' + utils.dateToString(zdate);
         utils.get(url, null, ksdata => {
             var kdata = JSON.parse(ksdata);
             if (!kdata || kdata.length == 0) {
-                console.error('no kline data for', this.showingStock);
+                console.error('no kline data for', this.showingCode);
                 return;
             }
 
@@ -33,7 +35,7 @@ class KlViewerPanelPage extends RadioAnchorPage {
             kdata.forEach(kl => {
                 klmessage.kline.data.klines.push(kl[1] + ',' + kl[5] + ',' + kl[2] + ',' + kl[3] + ',' + kl[4] + ',' +kl[8]);
             });
-            this.stockKlines = new KLine(this.showingStock);
+            this.stockKlines = new KLine(this.showingCode);
             this.stockKlines.updateRtKline(klmessage);
             this.drawStockKline();
         });
@@ -71,6 +73,15 @@ class KlViewerPanelPage extends RadioAnchorPage {
         }
         topControl.appendChild(this.mktSelector);
 
+        this.showingLabel = document.createElement('label');
+        this.totalLabel = document.createElement('label');
+        topControl.appendChild(this.showingLabel);
+        topControl.appendChild(document.createTextNode('/'));
+        topControl.appendChild(this.totalLabel);
+        this.showingDateLabel = document.createElement('label');
+        this.showingDateLabel.style.borderStyle = 'double';
+        topControl.appendChild(this.showingDateLabel);
+
         var btnPrev = document.createElement('button');
         btnPrev.textContent = '上一个';
         btnPrev.onclick = _ => {
@@ -95,8 +106,9 @@ class KlViewerPanelPage extends RadioAnchorPage {
 
     onStkKeySelected() {
         var skey = this.stkKeySelector.value;
-        this.showingStock = null;
-        this.showingDate = null;
+        this.showingCode = null;
+        this.showingInfo = null;
+        this.showingKey = skey
         if (!this.stkAll[skey]) {
             this.fetchStockData(skey);
             return;
@@ -123,8 +135,8 @@ class KlViewerPanelPage extends RadioAnchorPage {
         }
         var mkt = this.mktSelector.value;
         var showIdx = 0;
-        if (this.showingDate && this.showingStock) {
-            var showingIdx = this.stkAll[skey].findIndex(x => x[1] == this.showingDate && x[0].substring(2) == this.showingStock);
+        if (this.showingInfo) {
+            var showingIdx = this.stkAll[skey].findIndex(x => x[1] == this.showingInfo[1] && x[0].substring(2) == this.showingCode);
             showIdx = showingIdx + 1;
             if (showIdx >= this.stkAll[skey].length) {
                 showIdx = 0;
@@ -134,7 +146,7 @@ class KlViewerPanelPage extends RadioAnchorPage {
             var x = this.stkAll[skey][showIdx];
             var code = x[0].substring(2);
             var date = x[1];
-            if (code == this.showingStock && date == this.showingDate) {
+            if (code == this.showingCode && date == this.showingInfo[1]) {
                 break;
             }
 
@@ -146,9 +158,14 @@ class KlViewerPanelPage extends RadioAnchorPage {
                 continue;
             }
 
-            this.showingStock = code;
-            this.showingDate = x[1];
+            this.showingInfo = x;
+            this.showingCode = code;
             this.fetchStockKline();
+            this.showingLabel.textContent = showIdx;
+            this.showingDateLabel.textContent = this.showingInfo[1];
+            if (this.showingKey == 'cents') {
+                this.showingDateLabel.textContent = this.showingInfo[1] + '~' + this.showingInfo[2];
+            }
             break;
         }
     }
@@ -161,8 +178,8 @@ class KlViewerPanelPage extends RadioAnchorPage {
         }
         var mkt = this.mktSelector.value;
         var showIdx = this.stkAll[skey].length - 1;
-        if (this.showingDate && this.showingStock) {
-            var showingIdx = this.stkAll[skey].findIndex(x => x[1] == this.showingDate && x[0].substring(2) == this.showingStock);
+        if (this.showingInfo) {
+            var showingIdx = this.stkAll[skey].findIndex(x => x[1] == this.showingInfo[1] && x[0].substring(2) == this.showingCode);
             showIdx = showingIdx - 1;
             if (showIdx < 0) {
                 showIdx = this.stkAll[skey].length - 1;
@@ -173,7 +190,7 @@ class KlViewerPanelPage extends RadioAnchorPage {
             var x = this.stkAll[skey][showIdx];
             var code = x[0].substring(2);
             var date = x[1];
-            if (code == this.showingStock && date == this.showingDate) {
+            if (code == this.showingCode && date == this.showingInfo[1]) {
                 break;
             }
 
@@ -185,16 +202,21 @@ class KlViewerPanelPage extends RadioAnchorPage {
                 continue;
             }
 
-            this.showingStock = code;
-            this.showingDate = x[1];
+            this.showingInfo = x;
+            this.showingCode = code;
             this.fetchStockKline();
+            this.showingLabel.textContent = showIdx;
+            this.showingDateLabel.textContent = this.showingInfo[1];
+            if (this.showingKey == 'cents') {
+                this.showingDateLabel.textContent = this.showingInfo[1] + '~' + this.showingInfo[2];
+            }
             break;
         }
     }
 
     drawStockKline() {
         if (!this.stockKlines) {
-            console.error('no kline data', this.showingStock);
+            console.error('no kline data', this.showingCode);
             return;
         }
 
@@ -204,8 +226,20 @@ class KlViewerPanelPage extends RadioAnchorPage {
             this.klineChart.style.height = 500;
             this.contentPanel.appendChild(this.klineChart);
         }
-        var chart = new KlChart(this.klineChart, emjyBack.stockName(this.showingStock) + '(' + this.showingStock + ')', emjyBack.stockEmLink(this.showingStock));
+        var chart = new KlChart(this.klineChart, emjyBack.stockName(this.showingCode) + '(' + this.showingCode + ')', emjyBack.stockEmLink(this.showingCode));
         var klines = this.stockKlines.klines['101'];
+        if (this.showingKey == 'cents') {
+            klines = [];
+            var edate = new Date(this.showingInfo[2]);
+            edate.setMonth(edate.getMonth() + 1);
+            edate = utils.dateToString(edate, '-');
+            for (var i = 0; i < this.stockKlines.klines['101'].length; ++i) {
+                if (this.stockKlines.klines['101'][i].time > edate) {
+                    break;
+                }
+                klines.push(this.stockKlines.klines['101'][i]);
+            }
+        }
         chart.drawKlines(klines);
     }
 }

@@ -1,18 +1,12 @@
 # Python 3
 # -*- coding:utf-8 -*-
 import requests
-import time
 import json
-from datetime import datetime
+
 
 class EmRequest():
     def __init__(self) -> None:
         pass
-
-    def getTimeStamp(self):
-        curTime = datetime.now()
-        stamp = time.mktime(curTime.timetuple()) * 1000 + curTime.microsecond
-        return int(stamp)
 
     def getRequest(self, params=None, proxies=None):
         rsp = requests.get(self.getUrl(), params=params, proxies=proxies)

@@ -312,7 +312,7 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
             ztContainer.style = 'display: table; width: 100%;';
             ztContainer.style.height = '480';
             this.ztChartPanel.appendChild(ztContainer);
-            this.ztHeightCountChart = new ZtHeightConutChart(ztContainer);
+            this.ztHeightCountChart = new ZtHeightCountChart(ztContainer);
             this.ztHeightCountChart.setdata(dailyZtStats);
         }
 

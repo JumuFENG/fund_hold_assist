@@ -148,12 +148,11 @@ def run_regular_tasks(dnow):
         startIstk = startconfig['last_updated_id']
 
     anyrun = False
-    astk = AllStocks()
     if daily_should_run(startconfig['lastdaily_run_at'], dnow):
         du = DailyUpdater()
         du.update_all()
         sh = Stock_history()
-        stocks = astk.getAllStocks()
+        stocks = StockGlobal.all_stocks()
         for i in range(0, perCount):
             upid = startIstk + i
             if upid >= len(stocks):
@@ -178,7 +177,6 @@ def run_regular_tasks(dnow):
     if monthly_should_run(startconfig['lastmonthly_run_at'], dnow):
         # mu = MonthlyUpdater()
         # mu.update_all()
-        astk.loadNewMarkedStocks()
         um = UserModel()
         user = um.user_by_id(11)
         user.archive_deals(dnow.strftime(f"%Y-%m"))

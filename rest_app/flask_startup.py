@@ -325,6 +325,10 @@ def stock():
                 dzts = StockDztSelector()
                 dzt = dzts.dumpDataByDate(date)
                 return json.dumps(dzt)
+            if key == 'cents':
+                cts = StockCentsSelector()
+                c = cts.dumpDataByDate()
+                return json.dumps(c)
             return f'Unknown key {key}', 404
         if actype == 'updatepickup':
             key = request.args.get('key', type=str, default=None)
@@ -347,6 +351,10 @@ def stock():
                 dts = StockDt3Selector()
                 dt3 = dts.dumpFinishedRecords()
                 return json.dumps(dt3)
+            if key == 'cents':
+                cts = StockCentsSelector()
+                c = cts.dumpFinishedRecords()
+                return json.dumps(c)
             return f'Unknown key {key}', 404
 
     usermodel = UserModel()
@@ -618,8 +626,7 @@ def stock_dthist():
 @app.route('/api/allstockinfo', methods=['GET'])
 def stock_allinfo():
     if request.method == 'GET':
-        astk = AllStocks()
-        stkmkts = astk.getAllStocksShortInfo()
+        stkmkts = StockGlobal.getAllStocksShortInfo()
         return json.dumps(stkmkts)
     return 'get stock info, no valid args'
 

@@ -111,7 +111,7 @@ class UserStock():
 
     def check_exist_in_allstocks(self):
         stocks = AllStocks()
-        sg = StockGeneral(self.sqldb, self.code)
+        sg = StockGlobal.stock_general(self.code)
         if not sg.name:
             stocks.loadInfo(self.code)
 
@@ -203,7 +203,7 @@ class UserStock():
         if not rolled_in:
             rolled_in = 0
 
-        sg = StockGeneral(self.sqldb, self.code)
+        sg = StockGlobal.stock_general(self.code)
         portion_remain = portion - (int(p_s) - int(rolled_in))
         portion_remain = 0 if portion_remain < 0 else portion_remain
         next_value_to_sell = 0
@@ -312,7 +312,7 @@ class UserStock():
                     cost_tosell += (portion_tosell - steps_to_sell) * Decimal(pr)
                     break
 
-        sg = StockGeneral(self.sqldb, self.code)
+        sg = StockGlobal(self.code)
 
         money = portion_tosell * Decimal(price)
         if float(self.fee) > 0:
@@ -394,7 +394,7 @@ class UserStock():
 
     def get_stock_summary(self):
         stock_json_obj = {}
-        sg = StockGeneral(self.sqldb, self.code)
+        sg = StockGlobal.stock_general(self.code)
 
         stock_json_obj["name"] = sg.name
         stock_json_obj["str"] = sg.short_term_rate if self.short_term_rate == 0 else self.short_term_rate # short_term_rate
@@ -413,11 +413,10 @@ class UserStock():
 
         buy_rec = self.sqldb.select(self.buy_table, '*')
         values = []
-        date_conv = DateConverter()
         dtoday = datetime.now().strftime("%Y-%m-%d")
         for (i,d,p,pr,c,s,sp,sid,sxf,yh,gh) in buy_rec:
             if d == dtoday or s == 0:
-                values.append({'id':i, 'date': date_conv.days_since_2000(d), 'price':pr, 'cost':c, 'ptn': p - sp, 'sold': s})
+                values.append({'id':i, 'date': DateConverter.days_since_2000(d), 'price':pr, 'cost':c, 'ptn': p - sp, 'sold': s})
         return values
 
     def get_sell_arr(self):
@@ -425,9 +424,8 @@ class UserStock():
             return []
 
         values = []
-        sg = StockGeneral(self.sqldb, self.code)
+        sg = StockGlobal.stock_general(self.code)
         sell_rec = self.sqldb.select(self.sell_table, '*')
-        date_conv = DateConverter()
         for (i, d, p, pr, m, c, e, per, r, np, sid, sxf, yh, gh) in sell_rec:
             if not r:
                 r = 0
@@ -438,7 +436,7 @@ class UserStock():
             fee = 0 if sxf is None else sxf
             fee += 0 if yh is None else yh
             fee += 0 if gh is None else gh
-            values.append({'id':i, 'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'cost': c})
+            values.append({'id':i, 'date': DateConverter.days_since_2000(d), 'price':pr, 'ptn': p, 'cost': c})
         return values
 
     def sell_earned_by_day(self, buys, sells):
@@ -479,14 +477,13 @@ class UserStock():
             return None
 
         sells = []
-        date_conv = DateConverter()
         for (d, p, pr, sxf, yh, gh) in sell_rec:
             if (d < date):
                 continue
             fee = 0 if sxf is None else sxf
             fee += 0 if yh is None else yh
             fee += 0 if gh is None else gh
-            sells.append({'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'fee': fee})
+            sells.append({'date': DateConverter.days_since_2000(d), 'price':pr, 'ptn': p, 'fee': fee})
 
         if len(sells) == 0:
             return None
@@ -497,7 +494,7 @@ class UserStock():
             fee = 0 if sxf is None else sxf
             fee += 0 if yh is None else yh
             fee += 0 if gh is None else gh
-            buys.append({'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p - sp, 'fee': fee})
+            buys.append({'date': DateConverter.days_since_2000(d), 'price':pr, 'ptn': p - sp, 'fee': fee})
         return self.sell_earned_by_day(buys, sells)
 
     def get_each_sell_earned(self):
@@ -512,12 +509,11 @@ class UserStock():
         if sell_rec is None:
             return None
 
-        date_conv = DateConverter()
         for (d, p, pr, sxf, yh, gh) in sell_rec:
             fee = 0 if sxf is None else sxf
             fee += 0 if yh is None else yh
             fee += 0 if gh is None else gh
-            sells.append({'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'fee': fee})
+            sells.append({'date': DateConverter.days_since_2000(d), 'price':pr, 'ptn': p, 'fee': fee})
 
         buy_rec = self.sqldb.select(self.buy_table, [column_date, column_portion, column_price, column_fee, '印花税', '过户费'])
         buys = []
@@ -525,7 +521,7 @@ class UserStock():
             fee = 0 if sxf is None else sxf
             fee += 0 if yh is None else yh
             fee += 0 if gh is None else gh
-            buys.append({'date': date_conv.days_since_2000(d), 'price':pr, 'ptn': p, 'fee': fee})
+            buys.append({'date': DateConverter.days_since_2000(d), 'price':pr, 'ptn': p, 'fee': fee})
         return self.sell_earned_by_day(buys, sells)
 
     def get_cost_sold_stats(self, sell_recs):
@@ -547,7 +543,7 @@ class UserStock():
 
     def get_holding_stats(self):
         stock_stats_obj = {}
-        sg = StockGeneral(self.sqldb, self.code)
+        sg = StockGlobal.stock_general(self.code)
 
         stock_stats_obj["name"] = sg.name
         stock_stats_obj["cost"] = self.cost_hold

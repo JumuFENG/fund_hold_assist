@@ -93,6 +93,7 @@ class DailyUpdater():
         print('index history updated!')
 
     def download_all_stocks_khistory(self):
+        StockGlobal.getStocksZdfRank()
         stkall = AllStocks()
         stkall.loadNewStock()
         usermodel = UserModel()
@@ -153,10 +154,6 @@ class DailyUpdater():
         dtinfo = StockDtInfo()
         dtinfo.getNext()
 
-        print('update dzt info')
-        sds = StockDztSelector()
-        sds.updateDzt()
-
     def fetch_dfsorg_stocks(self):
         dfsorg = StockDfsorg()
         dfsorg.updateDfsorg()
@@ -164,7 +161,7 @@ class DailyUpdater():
     def update_selectors(self):
         print('update dzt info')
         sds = StockDztSelector()
-        sds.getNext()
+        sds.updateDzt()
 
         print('update zt1')
         szt1 = StockZt1Selector()
@@ -177,6 +174,10 @@ class DailyUpdater():
         print('update dt3')
         dts = StockDt3Selector()
         dts.updateDt3()
+
+        print('update cents')
+        scs = StockCentsSelector()
+        scs.updateScs()
 
 
 if __name__ == '__main__':

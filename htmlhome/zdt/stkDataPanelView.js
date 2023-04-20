@@ -1,6 +1,11 @@
 'use strict';
 
-let strategyOptions = {'zt1': {name:'首板次日买入', val:'zt1', strategy:'StrategyZt0'}, 'dt3': {name:'连续跌停', val:'dt3'}, 'ipo': {name:'新股', val:'ipo'}}
+let strategyOptions = {
+    'zt1':  {name:'首板次日买入', val:'zt1', strategy:'StrategyZt0'},
+    'dt3':  {name:'连续跌停', val:'dt3'},
+    'ipo':  {name:'新股', val:'ipo'},
+    'cents': {name: '毛票', val:'cents', fqt:0},
+}
 let mktOptions = {'all': {name:'全部', val:0}, 'main': {name:'沪深主板', val: 1}, 'part': {name:'双创', val: 2}, 'st': {name:'ST股', val: 3}, 'h1': {name: '一字板', val: 4}}
 let sortOptions = {'ztStrength': {name:'上板强度', val: 0}, 'vol': {name:'放量程度', val: 1}, 'earn': {name: '收益率', val: 2}}
 

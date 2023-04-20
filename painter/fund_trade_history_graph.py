@@ -24,9 +24,7 @@ class FundTradeHistoryGraph(FundHistoryGraph):
         buytable = self.userfund.buy_table
         sDate = None
         if self.sqldb.isExistTable(buytable):
-            dates_buy = self.sqldb.select(buytable, "min(%s)" % column_date, "%s = 0" % column_soldout if not self.allTrade else "")
-            if dates_buy:
-                ((sDate,),) = dates_buy
+            sDate = self.sqldb.selectOneValue(buytable, "min(%s)" % column_date, "%s = 0" % column_soldout if not self.allTrade else "")
         if not sDate:
             sDate = ""
 

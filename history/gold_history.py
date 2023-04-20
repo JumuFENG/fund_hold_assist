@@ -55,7 +55,7 @@ class Gold_history(HistoryDowloaderBase):
 
         days = 0
         if self.sqldb.isExistTable(table):
-            ((maxDate,),) = self.sqldb.select(table, "max(%s)" % column_date)
+            maxDate = self.sqldb.selectOneValue(table, "max(%s)" % column_date)
             if maxDate:
                 sDate = datetime.strptime(maxDate, "%Y-%m-%d")
                 eDate = datetime.now()
@@ -97,7 +97,7 @@ class Gold_history(HistoryDowloaderBase):
         values = []
         maxTime = None
         if self.sqldb.isExistTable(self.gold_history_table_30):
-            ((maxTime,),) = self.sqldb.select(self.gold_history_table_30, "max(%s)" % column_date)
+            maxTime = self.sqldb.selectOneValue(self.gold_history_table_30, "max(%s)" % column_date)
             if maxTime:
                 maxTime = datetime.strptime(maxTime, "%Y-%m-%d %H:%M")
         for r in jresp:
@@ -150,9 +150,7 @@ class Gold_history(HistoryDowloaderBase):
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.createTable(table, attrs, constraint)
 
-        maxDate = self.sqldb.select(table, "max(%s)" % column_date)
-        if maxDate:
-            ((maxDate,),) = maxDate
+        maxDate = self.sqldb.selectOneValue(table, "max(%s)" % column_date)
         if not maxDate:
             maxDate = ""
 
@@ -167,9 +165,7 @@ class Gold_history(HistoryDowloaderBase):
     def getJijinhaoHistory(self, code):
         self.setGoldCode(code)
         if self.sqldb.isExistTable(self.goldk_history_table):
-            maxDate = self.sqldb.select(self.goldk_history_table, "max(%s)" % column_date)
-            if maxDate:
-                ((maxDate,),) = maxDate
+            maxDate = self.sqldb.selectOneValue(self.goldk_history_table, "max(%s)" % column_date)
             if not maxDate:
                 maxDate = ""
             if maxDate:
@@ -208,9 +204,7 @@ class Gold_history(HistoryDowloaderBase):
         self.setGoldCode(code)
         maxDate = None
         if self.sqldb.isExistTable(self.gold_rt_history_table):
-            maxDate = self.sqldb.select(self.gold_rt_history_table, "max(%s)" % column_date)
-            if maxDate:
-                ((maxDate,),) = maxDate
+            maxDate = self.sqldb.selectOneValue(self.gold_rt_history_table, "max(%s)" % column_date)
         if not maxDate:
             maxDate = ""
 
@@ -280,9 +274,7 @@ class Gold_history(HistoryDowloaderBase):
         if not self.sqldb.isExistTableColumn(self.gold_history_table, column_price):
             self.sqldb.addColumn(self.gold_history_table, column_price, 'varchar(20) DEFAULT NULL')
 
-        maxDate = self.sqldb.select(self.gold_history_table, "max(%s)" % column_date)
-        if maxDate:
-            ((maxDate,),) = maxDate
+        maxDate = self.sqldb.selectOneValue(self.gold_history_table, "max(%s)" % column_date)
         if not maxDate:
             maxDate = ""
 
@@ -290,17 +282,13 @@ class Gold_history(HistoryDowloaderBase):
         if goldk_data:
             self.sqldb.insertMany(self.gold_history_table, [column_date, column_close], goldk_data)
 
-        minTime = self.sqldb.select(self.gold_rt_history_table, "min(%s)" % column_date)
-        if minTime:
-            ((minTime,),) = minTime
+        minTime = self.sqldb.selectOneValue(self.gold_rt_history_table, "min(%s)" % column_date)
         if not minTime:
             minTime = ""
         else:
             minTime = datetime.strptime(minTime, "%Y-%m-%d %H:%M").strftime("%Y-%m-%d")
 
-        maxDate = self.sqldb.select(self.gold_history_table, "max(%s)" % column_date, "%s is not NULL" % column_price)
-        if maxDate:
-            ((maxDate,),) = maxDate
+        maxDate = self.sqldb.selectOneValue(self.gold_history_table, "max(%s)" % column_date, "%s is not NULL" % column_price)
         if not maxDate:
             maxDate = ""
         maxDate = max(maxDate, minTime)
@@ -308,9 +296,7 @@ class Gold_history(HistoryDowloaderBase):
         datesToUpdate = self.sqldb.select(self.gold_history_table, column_date, "%s > '%s'" % (column_date, maxDate))
         for (maxDate,) in datesToUpdate:
             nightTime = (datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(hours=20)).strftime("%Y-%m-%d %H:%M")
-            closeTime = self.sqldb.select(self.gold_rt_history_table, "max(%s)" % column_date, ["%s > '%s'" % (column_date, maxDate), "%s < '%s'" % (column_date, nightTime)])
-            if closeTime:
-                ((closeTime,),) = closeTime
+            closeTime = self.sqldb.selectOneValue(self.gold_rt_history_table, "max(%s)" % column_date, ["%s > '%s'" % (column_date, maxDate), "%s < '%s'" % (column_date, nightTime)])
             dayprice = self.sqldb.select(self.gold_rt_history_table, [column_date, column_price], "%s = '%s'" % (column_date, closeTime))
             if dayprice:
                 ((daytime, price),) = dayprice

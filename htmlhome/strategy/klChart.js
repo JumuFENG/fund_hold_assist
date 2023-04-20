@@ -173,12 +173,18 @@ class KlChart {
                 start: 0,
                 end: 15000 / datalength,
             };
+        } else {
+            this.option.dataZoom = {
+                show: true,
+                start: 0,
+                end: 100
+            };
         }
         this.chart.setOption(this.option);
     }
 }
 
-class ZtHeightConutChart {
+class ZtHeightCountChart {
     // 涨停家数&连板高度
     constructor(cont) {
         this.container = cont;
@@ -214,6 +220,12 @@ class ZtHeightConutChart {
             this.option.dataZoom = {
                 show: true,
                 start: (datalength - 150) * 100 / datalength,
+                end: 100
+            };
+        } else {
+            this.option.dataZoom = {
+                show: true,
+                start: 0,
                 end: 100
             };
         }

@@ -63,19 +63,17 @@ class HistoryDowloaderBase():
         if not self.checkKtable(ktable):
             return
 
-        alldata = self.sqldb.select(ktable)
-        if start is None and length <= 0:
-            return alldata
-
         if start is not None:
             if '-' not in start:
                 start = datetime.strptime(start, '%Y%m%d').strftime('%Y-%m-%d')
-            return tuple(filter(lambda d: d[1] >= start, alldata))
+            return self.sqldb.select(ktable, conds=f'{column_date} >= "{start}"')
 
-        if len(alldata) <= length:
-            return alldata
+        if length > 0:
+            return tuple(reversed(self.sqldb.select(ktable, order=f'order by {column_date} DESC limit {length}')))
+            # return self.sqldb.select(ktable, f'* from (select * ', order=f'order by {column_date} DESC limit {length}) as tbl order by {column_date} ASC') # slower
 
-        return alldata[-length:]
+        return self.sqldb.select(ktable)
+
 
 class HistoryFromSohu(HistoryDowloaderBase):
     """get history data from sohu api."""
@@ -94,11 +92,7 @@ class HistoryFromSohu(HistoryDowloaderBase):
         if not self.sqldb.isExistTable(ktable):
             return (sDate, eDate)
 
-        maxDate = self.sqldb.select(ktable, "max(%s)" % column_date)
-        if maxDate is None or not len(maxDate) == 1:
-            return (sDate, eDate)
-
-        (maxDate,), = maxDate
+        maxDate = self.sqldb.selectOneValue(ktable, "max(%s)" % column_date)
         if maxDate is None:
             return (sDate, eDate)
 

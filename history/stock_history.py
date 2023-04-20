@@ -7,105 +7,59 @@ import time
 import json
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
+from threading import Lock
 
-class AllStocks(InfoList):
-    """get all stocks' general info and save to db table allstoks"""
-    def __init__(self):
-        self.checkInfoTable(stock_db_name, gl_all_stocks_info_table)
-        self.check_table_column(column_shortterm_rate, 'varchar(10) DEFAULT NULL')
-        self.check_table_column('quit_date', 'varchar(10) DEFAULT NULL')
-        self.historydb = None
 
-    def loadInfo(self, code):
-        code = code.upper()
-        url = 'https://emweb.securities.eastmoney.com/PC_HSF10/CompanySurvey/CompanySurveyAjax?code=' + code
-        c = self.getRequest(url)
-        if c is None:
-            print("getRequest", url, "failed")
-            return
+class StockGlobal():
+    generals = {}
+    stocks = None
+    sqldb = SqlHelper(password=db_pwd, database=stock_db_name)
+    sqllock = Lock()
 
-        try:
-            cs = json.loads(c)
-            self.updateStockCol(code, column_name, cs['SecurityShortName'])
-            self.updateStockCol(code, column_type, cs['CodeType'])
-            self.updateStockCol(code, column_setup_date, cs['fxxg']['ssrq'])
-            self.updateStockCol(code, column_assets_scale, cs['jbzl']['zczb'])
-            self.updateStockCol(code, column_short_name, cs['jbzl']['agjc'])
-        except Exception as ex:
-            print('get CompanySurvey error', c)
-            print(ex)
+    @classmethod
+    def stock_general(self, code):
+        # type: (str) -> StockGeneral
+        '''code: 'SH'/'SZ'+xxxxxx
+        '''
+        if code not in self.generals:
+            self.sqllock.acquire()
+            self.generals[code] = StockGeneral(self.sqldb, code)
+            self.sqllock.release()
+        return self.generals[code]
 
-    def loadNewMarkedStocks(self):
-        allstks = self.getAllStocks()
-        for s in allstks:
-            if s[2].startswith('N') or s[2].startswith('C'):
-                self.loadInfo(s[1])
+    @classmethod
+    def all_stocks(self):
+        if self.stocks is None:
+            self.sqllock.acquire()
+            if self.stocks is None:
+                self.stocks = self.sqldb.select(gl_all_stocks_info_table)
+                self.generals = {stk[1]: StockGeneral(self.sqldb, stk) for stk in self.stocks}
+            self.sqllock.release()
+        return self.stocks
 
-    def loadNewStock(self, sdate = None):
-        # http://quote.eastmoney.com/center/gridlist.html#newshares
-        newstocks = []
-        pn = 1
-        today = datetime.now().strftime("%Y-%m-%d")
-        maxDate = self.sqldb.select(gl_all_stocks_info_table, f"max({column_setup_date})")
-        if maxDate is None or not len(maxDate) == 1:
-            sdate = today
-        else:
-            (sdate,), = maxDate
+    @classmethod
+    def getAllStocksShortInfo(self):
+        stksInfo = self.sqldb.select(gl_all_stocks_info_table, [column_code, column_name, column_type], "type != 'TSSTOCK'")
+        return [{
+            'c': c, 'n': n, 't': ('AB' if t == 'ABStock' else 'E' if t == 'ETF' else 'L' if t == 'LOF' else '')
+        } for (c, n, t) in stksInfo]
 
-        while True:
-            newstocksUrl = f'''http://18.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=20&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f26&fs=m:0+f:8,m:1+f:8&fields=f12,f13,f14,f21,f26&_={self.getTimeStamp()}'''
-            res = self.getRequest(newstocksUrl)
-            if res is None:
-                break
+    @classmethod
+    def removeStock(self, code):
+        self.sqldb.delete(gl_all_stocks_info_table, {column_code: code})
 
-            r = json.loads(res)
-            if r['data'] is None or len(r['data']['diff']) == 0:
-                break
-
-            ldate = None
-            for nsobj in r['data']['diff']:
-                c = nsobj['f12']
-                m = nsobj['f13']
-                n = nsobj['f14']
-                s = nsobj['f21']
-                d = str(nsobj['f26'])
-                if (m != 0 and m != 1):
-                    print('invalid market', m)
-                    continue
-                setdate = d[0:4] + '-' + d[4:6] + '-' + d[6:]
-                if ldate is None:
-                    ldate = setdate
-                elif setdate < ldate:
-                    ldate = setdate
-
-                ipodays = (datetime.strptime(today, "%Y-%m-%d") - datetime.strptime(setdate, "%Y-%m-%d")).days
-                if c.startswith('60') or c.startswith('00'):
-                    if ipodays > 3:
-                        continue
-                elif ipodays > 10:
-                    continue
-                newstocks.append(('SH' + c if m == 1 else 'SZ' + c, n, s, setdate))
-
-            if ldate < sdate:
-                break
-
-            pn += 1
-
-        if len(newstocks) > 0:
-            self.addNewStocks(newstocks)
-
+    @classmethod
     def getStocksZdfRank(self):
         # http://quote.eastmoney.com/center/gridlist.html#hs_a_board
         today = datetime.now().strftime("%Y-%m-%d")
         tradeday = TradingDate.maxTradingDate()
         updateKl = today == tradeday and datetime.now().hour > 15
-        print(f'AllStocks.getStocksZdfRank {updateKl}, {today}, {tradeday}')
+        print(f'StockGlobal.getStocksZdfRank {updateKl}, {today}, {tradeday}')
 
         pn = 1
-        rkstocks = []
         while True:
             rankUrl = f'''http://33.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=1000&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f115,f152'''
-            res = self.getRequest(rankUrl)
+            res = Utils.get_em_equest(rankUrl)
             if res is None:
                 break
 
@@ -146,11 +100,87 @@ class AllStocks(InfoList):
                     continue
                 code = 'SH' + cd if m == 1 else 'SZ' + cd
                 if updateKl:
-                    self.updateStockLatestKlData(code, [today, c, h, l, o, ze, zd, cj, ce/10000])
-                rkstocks.append([code, c, h, l, o, lc, zd, ze, cj, ce, zf, hsl, syl, lb, zd5, n, sz, lt, zs, sj, z60, zy, lr, syttm])
+                    Stock_history.updateStockKlDayData(code, KNode([0, today, c, h, l, o, ze, zd, cj, ce/10000]))
             pn += 1
 
-        return tradeday, rkstocks
+
+class AllStocks(InfoList):
+    """get all stocks' general info and save to db table allstoks"""
+    def __init__(self):
+        self.checkInfoTable(stock_db_name, gl_all_stocks_info_table)
+        self.check_table_column(column_shortterm_rate, 'varchar(10) DEFAULT NULL')
+        self.check_table_column('quit_date', 'varchar(10) DEFAULT NULL')
+        self.historydb = None
+
+    def loadInfo(self, code):
+        code = code.upper()
+        url = 'https://emweb.securities.eastmoney.com/PC_HSF10/CompanySurvey/CompanySurveyAjax?code=' + code
+        c = Utils.get_em_equest(url)
+        if c is None:
+            print("getRequest", url, "failed")
+            return
+
+        try:
+            cs = json.loads(c)
+            self.updateStockCol(code, column_name, cs['SecurityShortName'])
+            self.updateStockCol(code, column_type, cs['CodeType'])
+            self.updateStockCol(code, column_setup_date, cs['fxxg']['ssrq'])
+            self.updateStockCol(code, column_assets_scale, cs['jbzl']['zczb'])
+            self.updateStockCol(code, column_short_name, cs['jbzl']['agjc'])
+        except Exception as ex:
+            print('get CompanySurvey error', c)
+            print(ex)
+
+    def loadNewStock(self, sdate = None):
+        # http://quote.eastmoney.com/center/gridlist.html#newshares
+        newstocks = []
+        today = datetime.now().strftime("%Y-%m-%d")
+        if sdate is None:
+            maxDate = self.sqldb.selectOneValue(gl_all_stocks_info_table, f"max({column_setup_date})")
+            if maxDate is None:
+                sdate = today
+            else:
+                sdate = maxDate
+
+        pn = 1
+        while True:
+            newstocksUrl = f'''http://18.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=20&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f26&fs=m:0+f:8,m:1+f:8&fields=f12,f13,f14,f21,f26&_={Utils.time_stamp()}'''
+            res = Utils.get_em_equest(newstocksUrl)
+            if res is None:
+                break
+
+            r = json.loads(res)
+            if r['data'] is None or len(r['data']['diff']) == 0:
+                break
+
+            ldate = None
+            for nsobj in r['data']['diff']:
+                c = nsobj['f12']
+                m = nsobj['f13']
+                n = nsobj['f14']
+                s = nsobj['f21']
+                d = str(nsobj['f26'])
+                if (m != 0 and m != 1):
+                    print('invalid market', m)
+                    continue
+                setdate = d[0:4] + '-' + d[4:6] + '-' + d[6:]
+                if ldate is None:
+                    ldate = setdate
+                elif setdate < ldate:
+                    ldate = setdate
+
+                ipodays = (datetime.strptime(today, "%Y-%m-%d") - datetime.strptime(setdate, "%Y-%m-%d")).days
+                if ipodays > 10:
+                    continue
+                newstocks.append(('SH' + c if m == 1 else 'SZ' + c, n, s, setdate))
+
+            if ldate < sdate:
+                break
+
+            pn += 1
+
+        if len(newstocks) > 0:
+            self.addNewStocks(newstocks)
 
     def addNewStocks(self, newstocks):
         headers = [column_code, column_name, column_type, column_short_name, column_assets_scale, column_setup_date]
@@ -173,7 +203,7 @@ class AllStocks(InfoList):
     def checkNotices(self, code):
         # https://data.eastmoney.com/notices/
         url = f'''https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=10&page_index=1&ann_type=A&client_source=web&stock_list={code[2:]}&f_node=0&s_node=0'''
-        nres = self.getRequest(url)
+        nres = Utils.get_em_equest(url)
         if nres is None:
             print('no notice for', code)
             return
@@ -207,45 +237,12 @@ class AllStocks(InfoList):
                 return
             self.sqldb.update(gl_all_stocks_info_table, {col: val}, {column_code: code})
 
-    def updateStockLatestKlData(self, code, kl):
-        # kl = [date, close, high, low, open, price_change, p_change, volume, amount]
-        sg = StockGeneral(self.sqldb, code)
-        ktable = sg.stockKtable
-
-        if self.historydb is None:
-            self.historydb = SqlHelper(password=db_pwd, database=history_db_name)
-        if not self.historydb.isExistTable(ktable):
-            print(f'{ktable} not exists!')
-            return
-
-        mxd = self.historydb.select(ktable, 'max(date)')
-        if mxd is not None and len(mxd) == 1:
-            (mxd,), = mxd
-            if kl[0] == mxd:
-                print(f'already updated to {mxd} for {code}')
-                return
-
-            if kl[0] != TradingDate.nextTradingDate(mxd):
-                print(f'There is gap between {mxd} and {kl[0]} for {code}')
-                return
-
-        self.historydb.insert(ktable, {
-            column_date: kl[0], column_close: kl[1], column_high: kl[2], column_low: kl[3], column_open: kl[4],
-            column_price_change: kl[5], column_p_change: kl[6], column_volume: kl[7], column_amount: kl[8]
-        })
-        print(f'{code} update to {kl[0]} done!')
-
-    def getTimeStamp(self):
-        curTime = datetime.now()
-        stamp = time.mktime(curTime.timetuple()) * 1000 + curTime.microsecond
-        return int(stamp)
-
     def requestEtfListData(self, pz):
         # data src: http://quote.eastmoney.com/center/gridlist.html#fund_etf
-        timestamp = self.getTimeStamp()
+        timestamp = Utils.time_stamp()
         cbstr = 'etfcb_' + str(timestamp)
         etfListUrl = 'http://36.push2.eastmoney.com/api/qt/clist/get?cb=' + cbstr + '&pn=1&pz=' + str(pz) + '&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:MK0021,b:MK0022,b:MK0023,b:MK0024&fields=f12,f13,f14&_=' + str(timestamp + 1)
-        c = self.getRequest(etfListUrl)
+        c = Utils.get_em_equest(etfListUrl)
         if c is None:
             print("get etf list failed")
             return
@@ -297,7 +294,7 @@ class AllStocks(InfoList):
             ucode = ucode[2:]
         url = 'http://fund.eastmoney.com/f10/' + ucode + '.html'
 
-        c = self.getRequest(url)
+        c = Utils.get_em_equest(url)
         if c is None:
             print("getRequest", url, "failed")
             return
@@ -331,10 +328,10 @@ class AllStocks(InfoList):
 
     def requestLofListData(self, pz):
         # data src: http://quote.eastmoney.com/center/gridlist.html#fund_lof
-        timestamp = self.getTimeStamp()
+        timestamp = Utils.time_stamp()
         cbstr = 'lofcb_' + str(timestamp)
         lofListUrl = 'http://40.push2.eastmoney.com/api/qt/clist/get?cb=' + cbstr + '&pn=1&pz=' + str(pz) + '&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:MK0404,b:MK0405,b:MK0406,b:MK0407&fields=f12,f13,f14&_=' + str(timestamp + 1)
-        c = self.getRequest(lofListUrl)
+        c = Utils.get_em_equest(lofListUrl)
         if c is None:
             print("get lof list failed")
             return
@@ -350,25 +347,6 @@ class AllStocks(InfoList):
 
         return loflist['data']['diff']
 
-    def getAllStocks(self):
-        return self.readAll()
-
-    def getAllStocksShortInfo(self):
-        stksInfo = self.sqldb.select(gl_all_stocks_info_table, [column_code, column_name, column_type], "type != 'TSSTOCK'")
-        rslt = []
-        for (c, n, t) in stksInfo:
-            jobj = {}
-            jobj['c'] = c
-            jobj['n'] = n
-            jobj['t'] = 'AB' if t == 'ABStock' else 'E' if t == 'ETF' else 'L' if t == 'LOF' else ''
-            rslt.append(jobj)
-        return rslt
-
-    def getAllTsStocks(self):
-        return self.sqldb.select(gl_all_stocks_info_table, '*', 'type = "TSSTOCK"')
-
-    def removeStock(self, code):
-        self.sqldb.delete(gl_all_stocks_info_table, {column_code: code})
 
 class DividenBonus(EmDataCenterRequest):
     '''get bonus share notice datacenter-web.eastmoney.com.
@@ -414,9 +392,10 @@ class Stock_history(HistoryFromSohu):
     """
     get stock history data
     """
+    historydb = None
+
     def setCode(self, code):
-        allstocks = AllStocks()
-        self.sg = StockGeneral(allstocks.sqldb, code)
+        self.sg = StockGlobal.stock_general(code)
         super().setCode(self.sg.code)
         self.km_histable = self.sg.stockKmtable
         self.kw_histable = self.sg.stockKwtable
@@ -426,6 +405,30 @@ class Stock_history(HistoryFromSohu):
     def getHistoryFailed(self):
         allstocks = AllStocks()
         allstocks.checkNotices(self.code)
+
+    @classmethod
+    def updateStockKlDayData(self, code, kl):
+        # type: (str, KNode) -> None
+        sg = StockGlobal.stock_general(code)
+        ktable = sg.stockKtable
+
+        if self.historydb is None:
+            self.historydb = SqlHelper(password=db_pwd, database=history_db_name)
+        if not self.historydb.isExistTable(ktable):
+            return
+
+        mxd = self.historydb.selectOneValue(ktable, 'max(date)')
+        if kl.date == mxd:
+            return
+
+        if kl.date != TradingDate.nextTradingDate(mxd):
+            print(f'There is gap between {mxd} and {kl.date} for {code}')
+            return
+
+        self.historydb.insert(ktable, {
+            column_date: kl.date, column_close: kl.close, column_high: kl.high, column_low: kl.low, column_open: kl.open,
+            column_price_change: kl.prcchange, column_p_change: kl.pchange, column_volume: kl.vol, column_amount: kl.amount
+        })
 
     def getSetupDate(self):
         return (datetime.strptime(self.sg.setupdate, "%Y-%m-%d")).strftime("%Y%m%d")
@@ -467,15 +470,14 @@ class StockShareBonus(EmDataCenterRequest, TableBase):
         ]
 
     def setCode(self, code):
-        allstocks = AllStocks()
-        self.sg = StockGeneral(allstocks.sqldb, code)
+        self.sg = StockGlobal.stock_general(code)
         self.code = self.sg.code
         self.tablename = self.sg.bonustable
         self.bnData = []
 
     def getUrl(self):
         dcode = self.code[2:]
-        return f'''https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_SHAREBONUS_DET&columns=ALL&quoteColumns=&pageNumber={self.page}&pageSize={self.pageSize}&sortColumns=PLAN_NOTICE_DATE&sortTypes=1&source=WEB&client=WEB&filter=(SECURITY_CODE%3D%22{dcode}%22)&_={self.getTimeStamp()}'''
+        return f'''https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_SHAREBONUS_DET&columns=ALL&quoteColumns=&pageNumber={self.page}&pageSize={self.pageSize}&sortColumns=PLAN_NOTICE_DATE&sortTypes=1&source=WEB&client=WEB&filter=(SECURITY_CODE%3D%22{dcode}%22)&_={Utils.time_stamp()}'''
 
     def saveFecthed(self):
         self.saveFecthedBonus()
@@ -515,11 +517,10 @@ class StockShareBonus(EmDataCenterRequest, TableBase):
             return False
         if date is None:
             date = datetime.now().strftime("%Y-%m-%d")
-        result = self.sqldb.select(self.tablename, 'count(*)', f'除权除息日期 > "{date}"')
-        if result is None or len(result) == 0:
+        result = self.sqldb.selectOneValue(self.tablename, 'count(*)', f'除权除息日期 > "{date}"')
+        if result is None:
             return False
-        (count,), = result
-        return count > 0
+        return result > 0
 
 class Stock_Fflow_History(TableBase, EmRequest):
     '''get fflow from em pushhis 资金流向
@@ -546,14 +547,13 @@ class Stock_Fflow_History(TableBase, EmRequest):
         ]
 
     def setCode(self, code):
-        allstocks = AllStocks()
-        self.sg = StockGeneral(allstocks.sqldb, code)
+        self.sg = StockGlobal.stock_general(code)
         self.code = self.sg.code
         self.tablename = self.sg.fflowtable
 
     def getUrl(self):
         emsecid = self.sg.emseccode
-        return f'''https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get?lmt=0&klt=101&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65&ut=b2884a393a59ad64002292a3e90d46a5&secid={emsecid}&_={self.getTimeStamp()}'''
+        return f'''https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get?lmt=0&klt=101&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65&ut=b2884a393a59ad64002292a3e90d46a5&secid={emsecid}&_={Utils.time_stamp()}'''
 
     def getNext(self):
         headers = {

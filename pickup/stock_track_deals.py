@@ -5,6 +5,9 @@ from utils import *
 from history import *
 
 class StockTrackDeals(TableBase):
+    '''
+    模拟账户的交易记录
+    '''
     def initConstrants(self):
         self.dbname = stock_db_name
         self.tablename = 'stock_track_deals_table'
@@ -47,3 +50,35 @@ class StockTrackDeals(TableBase):
             if len(values) > 0:
                 attrs = [kv['col'] for kv in self.dealsheaders]
                 self.sqldb.insertMany(trackname, attrs, values)
+
+    def dump_deals_summary(self):
+        names = self.sqldb.select(self.tablename, f'{column_name}')
+        summa = {}
+        for n, in names:
+            deals = self.sqldb.select(n, '*')
+            ds = []
+            trade = {}
+            track = {'earn': 0, 'count': 0, 'suc':0, 'fai': 0}
+            for _, d, c, tp, sid, pr, ptn in deals:
+                if c not in trade:
+                    trade[c] = {}
+                if tp == 'B':
+                    trade[c]['buy'] = [d, pr, ptn]
+                else:
+                    trade[c]['sell'] = [d, pr, ptn]
+
+                if 'buy' in trade[c] and 'sell' in trade[c]:
+                    earn = (trade[c]['sell'][1] - trade[c]['buy'][1])/trade[c]['buy'][1]
+                    ds.append([c, trade[c]['buy'][0], trade[c]['buy'][1], trade[c]['sell'][0], trade[c]['sell'][1], round(earn, 4)])
+                    track['earn'] += earn
+                    track['count'] += 1
+                    if earn > 0:
+                        track['suc'] += 1
+                    else:
+                        track['fai'] += 1
+            track['deals'] = ds
+            summa[n] = track
+
+        for k, v in summa.items():
+            print(k)
+            print(v)

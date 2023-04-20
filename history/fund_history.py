@@ -58,7 +58,7 @@ class AllFunds(InfoList):
         self.sqldb.insertMany(gl_all_funds_info_table, [column_code, column_name, column_url], allfund)
 
     def loadRatingInfo(self, code = None):
-        c = self.getRequest(apiUrl_fundRating)
+        c = Utils.get_em_equest(apiUrl_fundRating)
         soup = BeautifulSoup(c, 'html.parser')
         fundJs = soup.select('#fundinfo > script')[0]
         vs = fundJs.get_text()
@@ -109,7 +109,7 @@ class AllFunds(InfoList):
         if not url:
             url = "http://fund.eastmoney.com/" + code + ".html"
             self.updateInfoOfFund(code, {column_url: url})
-        return self.getRequest(url)
+        return Utils.get_em_equest(url)
 
     def updateInfoOfFund(self, code, infoDic):
         if not self.sqldb.isExistTable(gl_all_funds_info_table):
@@ -341,7 +341,7 @@ class FundHistoryDataDownloader(HistoryDowloaderBase):
         sDate = ""
         eDate = ""
         if self.sqldb.isExistTable(self.fund_db_table):
-            ((maxDate,),) = self.sqldb.select(self.fund_db_table, "max(%s)" % column_date)  #order="ORDER BY date DESC" ASC
+            maxDate = self.sqldb.selectOneValue(self.fund_db_table, "max(%s)" % column_date)  #order="ORDER BY date DESC" ASC
             if maxDate:
                 sDate = (datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
                 eDate = datetime.now().strftime("%Y-%m-%d")

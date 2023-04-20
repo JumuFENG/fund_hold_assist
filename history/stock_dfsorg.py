@@ -95,10 +95,10 @@ class DailyTradeOPERATEDEPT(EmDataCenterRequest, TableBase):
         ]
 
     def _buy_detail_url(self):
-        return f'''https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_BILLBOARD_DAILYDETAILSBUY&columns=ALL&filter=(TRADE_DATE%3D%27{self.date}%27)(SECURITY_CODE%3D%22{self.code[2:]}%22)&pageNumber={self.page}&pageSize={self.pageSize}&sortTypes=-1&sortColumns=BUY&source=WEB&client=WEB&_={self.getTimeStamp()}'''
+        return f'''https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_BILLBOARD_DAILYDETAILSBUY&columns=ALL&filter=(TRADE_DATE%3D%27{self.date}%27)(SECURITY_CODE%3D%22{self.code[2:]}%22)&pageNumber={self.page}&pageSize={self.pageSize}&sortTypes=-1&sortColumns=BUY&source=WEB&client=WEB&_={Utils.time_stamp()}'''
 
     def _sell_detail_url(self):
-        return f'''https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_BILLBOARD_DAILYDETAILSSELL&columns=ALL&filter=(TRADE_DATE%3D%27{self.date}%27)(SECURITY_CODE%3D%22{self.code[2:]}%22)&pageNumber={self.page}&pageSize={self.pageSize}&sortTypes=-1&sortColumns=BUY&source=WEB&client=WEB&_={self.getTimeStamp()}'''
+        return f'''https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_BILLBOARD_DAILYDETAILSSELL&columns=ALL&filter=(TRADE_DATE%3D%27{self.date}%27)(SECURITY_CODE%3D%22{self.code[2:]}%22)&pageNumber={self.page}&pageSize={self.pageSize}&sortTypes=-1&sortColumns=BUY&source=WEB&client=WEB&_={Utils.time_stamp()}'''
 
     def getUrl(self):
         return self._sell_detail_url() if self.buyfetched else self._buy_detail_url()
@@ -195,8 +195,17 @@ class StockDfsorg(EmDataCenterRequest, TableBase):
             else:
                 date = (datetime.strptime(mdate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
 
+        dfsheaders = {
+            'Host': 'datacenter-web.eastmoney.com',
+            'Referer': 'https://data.eastmoney.com/',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
+            'Accept': '/',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive'
+        }
         while date <= todaystr:
             self.fecthed = []
             self.date = date
-            self.getNext()
+            self.getNext(params=dfsheaders)
             date = (datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
