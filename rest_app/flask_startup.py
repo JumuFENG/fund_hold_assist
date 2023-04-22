@@ -318,9 +318,10 @@ def stock():
                 zt1 = zts.dumpDataByDate(date)
                 return json.dumps(zt1)
             if key == 'dt3':
-                dts = StockDt3Selector()
-                dt3 = dts.dumpDataByDate(date)
-                return json.dumps(dt3)
+                # dts = StockDt3Selector()
+                # dt3 = dts.dumpDataByDate(date)
+                # return json.dumps(dt3)
+                return f'selector refactoring...'
             if key == 'dzt':
                 dzts = StockDztSelector()
                 dzt = dzts.dumpDataByDate(date)
@@ -335,10 +336,6 @@ def stock():
             if key == 'zt1':
                 zts = StockZt1Selector()
                 zts.updateZt1()
-                return 'OK', 200
-            if key == 'dt3':
-                dts = StockDt3Selector()
-                dts.updateDt3()
                 return 'OK', 200
             return f'Unknown key {key}', 404
         if actype == 'pickupdone':

@@ -15,3 +15,11 @@ class KNode():
         self.pchange = float(kl[7])
         self.vol = int(kl[8])
         self.amount = float(kl[9])
+
+class KlList():
+    @classmethod
+    def get_kldata_by_time(self, klist, date):
+        # type: (list/tuple, str) -> KNode
+        for kl in klist:
+            if kl[1] == date:
+                return KNode(kl)

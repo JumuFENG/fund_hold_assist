@@ -119,7 +119,7 @@ class SqlHelper():
         self.executeCommit(sql)
 
     def where_states(self, conds=''):
-        if conds == '':
+        if not conds or conds == '' or len(conds) == 0:
             return ''
 
         consql = ''

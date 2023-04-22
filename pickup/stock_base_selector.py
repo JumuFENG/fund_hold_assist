@@ -41,3 +41,28 @@ class StockBaseSelector(TableBase):
 
         print('time used:', datetime.now() - ctime)
         self.walk_post_process()
+
+    def sim_prepare(self):
+        pass
+
+    def simulate(self):
+        # 用历史数据回测，生成买卖记录保存
+        simstart = datetime.now()
+        self.sim_prepare()
+        sim_ths = []
+        for i in range(0, self.threads_num):
+            t = Thread(target=self.simulate_thread)
+            sim_ths.append(t)
+            t.start()
+
+        for t in sim_ths:
+            t.join()
+
+        self.sim_post_process()
+        print('time used: ', datetime.now() - simstart)
+
+    def simulate_thread(self):
+        pass
+
+    def sim_post_process(self):
+        pass
