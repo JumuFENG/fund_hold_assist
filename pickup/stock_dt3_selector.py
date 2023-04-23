@@ -23,6 +23,7 @@ class StockDt3Selector(StockBaseSelector):
             {'col':'date4','type':'varchar(20) DEFAULT NULL'},
             {'col':'buy','type':'tinyint DEFAULT NULL'},
         ]
+        self.simkey = 'dt3'
 
     def walk_prepare(self, date=None):
         dtsql = SqlHelper(password=db_pwd, database=history_db_name)
@@ -149,12 +150,12 @@ class StockDt3Selector(StockBaseSelector):
                     self.sim_deals += deals
                 i += 1
 
-    def sim_post_process(self):
+    def sim_post_process(self, dtable):
         if len(self.wkselected) > 0:
             for c, d1, d3, d4, b in self.wkselected:
                 self.sqldb.update(self.tablename, {'date4': d4, 'buy': b}, [f'{column_code}="{c}"', f'{column_date}="{d1}"', f'date3="{d3}"'])
         strack = StockTrackDeals()
-        strack.addDeals('track_dt3', [{'time': deal[1], 'code': deal[0], 'sid': 0, 'tradeType': deal[2], 'price': deal[3], 'count': 0} for deal in self.sim_deals])
+        strack.addDeals(dtable, [{'time': deal[1], 'code': deal[0], 'sid': 0, 'tradeType': deal[2], 'price': deal[3], 'count': 0} for deal in self.sim_deals])
 
     def updateDt3(self):
         date = self._max_date()

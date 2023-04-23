@@ -24,6 +24,10 @@ class StockTrackDeals(TableBase):
             {'col': column_portion, 'type':'int DEFAULT NULL'}
         ]
 
+    def removeTrackDealsTable(self, tablename):
+        if self.sqldb.isExistTable(tablename):
+            self.sqldb.dropTable(tablename)
+
     def addDeals(self, trackname, deals, desc=None):
         tname = self.sqldb.select(self.tablename, '*', f'{column_name}="{trackname}"')
         if tname is None or len(tname) == 0:
@@ -55,30 +59,64 @@ class StockTrackDeals(TableBase):
         names = self.sqldb.select(self.tablename, f'{column_name}')
         summa = {}
         for n, in names:
-            deals = self.sqldb.select(n, '*')
-            ds = []
-            trade = {}
-            track = {'earn': 0, 'count': 0, 'suc':0, 'fai': 0}
-            for _, d, c, tp, sid, pr, ptn in deals:
-                if c not in trade:
-                    trade[c] = {}
-                if tp == 'B':
-                    trade[c]['buy'] = [d, pr, ptn]
-                else:
-                    trade[c]['sell'] = [d, pr, ptn]
-
-                if 'buy' in trade[c] and 'sell' in trade[c]:
-                    earn = (trade[c]['sell'][1] - trade[c]['buy'][1])/trade[c]['buy'][1]
-                    ds.append([c, trade[c]['buy'][0], trade[c]['buy'][1], trade[c]['sell'][0], trade[c]['sell'][1], round(earn, 4)])
-                    track['earn'] += earn
-                    track['count'] += 1
-                    if earn > 0:
-                        track['suc'] += 1
-                    else:
-                        track['fai'] += 1
-            track['deals'] = ds
-            summa[n] = track
+            summa[n] = self.get_deals(n)
 
         for k, v in summa.items():
             print(k)
             print(v)
+
+    def get_deals(self, dtable, daily_max=0):
+        deals = self.sqldb.select(dtable, '*')
+        ds = []
+        trade = {}
+        track = {'earn': 0, 'count': 0, 'suc':0, 'fai': 0}
+        for _, d, c, tp, sid, pr, ptn in deals:
+            if c not in trade:
+                trade[c] = {}
+            if tp == 'B':
+                trade[c]['buy'] = [d, pr, ptn]
+            else:
+                trade[c]['sell'] = [d, pr, ptn]
+
+            if 'buy' in trade[c] and 'sell' in trade[c]:
+                earn = (trade[c]['sell'][1] - trade[c]['buy'][1])/trade[c]['buy'][1]
+                ds.append([c, trade[c]['buy'][0], trade[c]['buy'][1], trade[c]['sell'][0], trade[c]['sell'][1], round(earn, 4)])
+                track['earn'] += earn
+                track['count'] += 1
+                if earn > 0:
+                    track['suc'] += 1
+                else:
+                    track['fai'] += 1
+        ds = sorted(ds, key=lambda x: x[1])
+        if daily_max > 0:
+            mds = []
+            i = 0
+            while i < len(ds):
+                j = i + 1
+                while j < len(ds):
+                    if ds[j][1] != ds[i][1]:
+                        break
+                    j += 1
+                if j - i < daily_max:
+                    while i < j:
+                        mds.append(ds[i])
+                        i += 1
+                else:
+                    i = j
+            earn = 0
+            suc = 0
+            fai = 0
+            for deal in mds:
+                earn += deal[5]
+                if deal[5] > 0:
+                    suc += 1
+                elif deal[5] < 0:
+                    fai += 1
+            ds = mds
+            track['count'] = len(ds)
+            track['earn'] = earn
+            track['suc'] = suc
+            track['fai'] = fai
+        track['deals'] = ds
+
+        return track
