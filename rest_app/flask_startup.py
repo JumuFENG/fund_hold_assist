@@ -353,6 +353,15 @@ def stock():
                 c = cts.dumpFinishedRecords()
                 return json.dumps(c)
             return f'Unknown key {key}', 404
+        if actype == 'dealcategory':
+            dc = StockTrackDeals()
+            return json.dumps(dc.get_available_dealtable())
+        if actype == 'trackdeals':
+            tname = request.args.get('name', type=str, default=None)
+            if tname == '':
+                return 'not implemented', 200
+            std = StockTrackDeals()
+            return json.dumps(std.get_deals(tname))
 
     usermodel = UserModel()
     if not session.get('logged_in'):
@@ -635,6 +644,18 @@ def get_http_request():
 
     rsp = requests.get(url)
     return rsp.content.decode('utf-8')
+
+@app.route('/api/captcha', methods=['GET', 'POST'])
+def captcha_ocr():
+    if request.method == 'GET':
+        img = request.args.get('img', type=str, default=None)
+    if request.method == 'POST':
+        img = request.form.get('img', None, str)
+    if img is None:
+        return
+    if ',' in img:
+        img = img.split(',')[1]
+    return OcrCaptcha.img_to_text(img), 200
 
 @app.route('/api/v1/fund/buy', methods=['POST'])
 def add_fund_buy_rec():

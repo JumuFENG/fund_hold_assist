@@ -304,6 +304,10 @@ class KLine {
 
     latestKlinePercentage(kltype) {
         var kl = this.getIncompleteKline(kltype);
+        if (!this.klines[kltype]) {
+            return 0;
+        }
+
         var prevId = this.klines[kltype].length - 1;
         if (!kl) {
             kl = this.klines[kltype][prevId];

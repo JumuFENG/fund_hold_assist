@@ -4,6 +4,7 @@
 import os
 from PIL import Image
 from struct import unpack
+import ddddocr
 
 class GifToFrames():
     """gif ot frames"""
@@ -37,6 +38,20 @@ class GifToFrames():
         data = im.convert('1').getdata()
 
         return int(list(data).count(0) / 42)
+
+
+class OcrCaptcha():
+    ocr = None
+
+    @classmethod
+    def img_to_text(self, img):
+        if self.ocr is None:
+            ocr = ddddocr.DdddOcr(show_ad=False)
+
+        if isinstance(img, str) and os.path.isfile(img):
+            with open(img, 'rb') as f:  
+                img = f.read()
+        return ocr.classification(img)
 
 
 class ReadBMPFile():

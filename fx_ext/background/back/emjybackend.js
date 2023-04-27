@@ -184,6 +184,9 @@ class EmjyBack {
                             this.mainTab.url = t.url;
                             var url = new URL(t.url);
                             this.authencated = !this.isLoginPage(url.pathname);
+                            if (this.isLoginPage(url.pathname)) {
+                                this.sendLoginInfo();
+                            }
                             if (this.authencated && !this.validateKey) {
                                 this.sendMsgToMainTabContent({command:'emjy.getValidateKey'});
                             }
@@ -199,6 +202,9 @@ class EmjyBack {
             chrome.tabs.executeScript(this.mainTab.tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
             var url = new URL(this.mainTab.url);
             this.authencated = !this.isLoginPage(url.pathname);
+            if (this.isLoginPage(url.pathname)) {
+                this.sendLoginInfo();
+            }
             if (this.authencated && !this.validateKey) {
                 this.sendMsgToMainTabContent({command:'emjy.getValidateKey'});
             }
@@ -217,10 +223,21 @@ class EmjyBack {
         };
     }
 
+    sendLoginInfo() {
+        this.getFromLocal('acc_np', anp => {
+            chrome.tabs.sendMessage(this.mainTab.tabid, {command:'emjy.loginnp', np: anp});
+        });
+    }
+
     // DON'T use this API directly, or it may break the task queue.
     sendMsgToMainTabContent(data) {
         var url = new URL(this.mainTab.url);
         if (!this.mainTab.tabid || url.host != 'jywg.18.cn') {
+            return;
+        }
+
+        if (url.pathname == '/Login' && data.command == 'emjy.capcha') {
+            chrome.tabs.sendMessage(this.mainTab.tabid, data);
             return;
         }
 
@@ -257,6 +274,8 @@ class EmjyBack {
             this.normalAccount.save();
             this.collateralAccount.save();
             this.log('content message save');
+        } else if (message.command == 'emjy.capcha') {
+            this.recoginzeCapcha(message.img);
         }
     }
 
@@ -601,6 +620,18 @@ class EmjyBack {
             this.log('uploadDeals', JSON.stringify(deals));
             xmlHttpPost(url, dfd, header, p => {
                 this.log('upload deals to server,', p);
+            });
+        }
+    }
+
+    recoginzeCapcha(img) {
+        if (this.fha) {
+            var url = this.fha.server + 'api/captcha'
+            var dfd = new FormData();
+            dfd.append('img', img);
+            xmlHttpPost(url, dfd, null, r => {
+                console.log(r);
+                this.sendMsgToMainTabContent({'command': 'emjy.capcha', 'text': r});
             });
         }
     }

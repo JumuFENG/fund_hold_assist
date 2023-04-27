@@ -348,6 +348,7 @@ class EmjyFrontend {
         this.log = null;
         this.pageLoaded = null;
         this.commandReactor = null;
+        this.ocr_retry = 0;
     }
 
     Init(log) {
@@ -362,6 +363,10 @@ class EmjyFrontend {
     onBackMessageReceived(message, sender, sendResponse) {
         if (message.command == 'emjy.navigate') {
             location.href = message.url;
+        } else if (message.command == 'emjy.loginnp') {
+            this.setLoginNp(message.np);
+        } else if (message.command == 'emjy.capcha') {
+            this.submitCapcha(message.text);
         } else if (message.command == 'emjy.getValidateKey') {
             var vkey = document.querySelector('#em_validatekey').value;
             this.sendMessageToBackground({command:'emjy.getValidateKey', key: vkey});
@@ -396,8 +401,6 @@ class EmjyFrontend {
                 clearInterval(loadInterval);
             }
         }, 200);
-        // document.getElementById('txtZjzh').value = '';
-        // document.getElementById('txtPwd').value = '';
         document.getElementById('rdsc45').checked = true;
         var inputValidate = document.getElementById('txtValidCode');
         inputValidate.oninput = function (e) {
@@ -405,6 +408,51 @@ class EmjyFrontend {
                 document.getElementById('btnConfirm').click();
             }
         }
+        var imgValid = document.getElementById('imgValidCode');
+        imgValid.onload = function() {
+            EmjyFront.recogizeImage();
+        }
+        this.recogizeImage();
+    }
+
+    recogizeImage() {
+        if (this.ocr_retry > 20) {
+            this.log('recogizeImage retried 20 times. stop!');
+            return;
+        }
+
+        this.ocr_retry ++;
+        var imgValid = document.getElementById('imgValidCode');
+        console.log(imgValid.status);
+        var canvas = document.createElement('canvas');
+        canvas.width = imgValid.width;
+        canvas.height = imgValid.height;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(imgValid, 0, 0, imgValid.width, imgValid.height);
+        var dataUri = canvas.toDataURL();
+        this.sendMessageToBackground({command:'emjy.capcha', img: dataUri});
+    }
+
+    clickSubmit() {
+        if (!document.querySelector('#txtPwd').value || !document.querySelector('#txtValidCode').value) {
+            return;
+        }
+        document.querySelector('#btnConfirm').click();
+    }
+
+    setLoginNp(np) {
+        document.querySelector('#txtZjzh').value = np.account;
+        document.querySelector('#txtPwd').value = atob(np.pwd);
+        this.clickSubmit();
+    }
+
+    submitCapcha(text) {
+        if (!text) {
+            document.querySelector('#txtValidCode').click();
+            return;
+        }
+        document.querySelector('#txtValidCode').value = text;
+        this.clickSubmit();
     }
 
     onPageLoaded() {
@@ -456,9 +504,7 @@ if (location.host == 'jywg.18.cn') {
         EmjyFront = new EmjyFrontend();
         EmjyFront.Init(logInfo);
     }
-    if (location.pathname != EmjyFront.loginPath) {
-        chrome.runtime.onMessage.addListener(onMessage);
-    }
+    chrome.runtime.onMessage.addListener(onMessage);
 
     EmjyFront.onPageLoaded();
 }

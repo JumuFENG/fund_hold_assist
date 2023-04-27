@@ -7,8 +7,7 @@ from utils.sql_helper import *
 from utils.tablebase import *
 from utils.ftp_helper import *
 from utils.table_manager import *
-if platform == 'win32':
-    from utils.img_processor import *
+from utils.img_processor import *
 from utils.holiday_helper import *
 from utils.fund_general import *
 from utils.index_general import *

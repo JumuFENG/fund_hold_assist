@@ -48,11 +48,22 @@ class SettingsPanelPage extends RadioAnchorPage {
         addInput(svrDiv, this.userEmail, 'Account(e-mail)');
         this.pwd = document.createElement('input');
         addInput(svrDiv, this.pwd, 'Password');
+        this.account = document.createElement('input');
+        addInput(svrDiv, this.account, '资金账户');
+        this.accpwd = document.createElement('input');
+        this.accpwd.type = 'password';
+        addInput(svrDiv, this.accpwd, '密码');
         emjyBack.getFromLocal('fha_server', fhainfo => {
             if (fhainfo) {
                 this.svrHost.value = fhainfo.server;
                 this.userEmail.value = fhainfo.uemail;
                 this.pwd.value = fhainfo.pwd;
+            }
+        });
+        emjyBack.getFromLocal('acc_np', anp => {
+            if (anp) {
+                this.account.value = anp.account;
+                this.accpwd.value = atob(anp.pwd);
             }
         });
         this.container.appendChild(svrDiv);
@@ -108,6 +119,7 @@ class SettingsPanelPage extends RadioAnchorPage {
         saveBtn.textContent = 'Save';
         saveBtn.onclick = () => {
             this.saveServerInfo();
+            this.saveAccountInfo();
             this.saveSmiInfo();
         }
         this.container.appendChild(saveBtn);
@@ -117,6 +129,13 @@ class SettingsPanelPage extends RadioAnchorPage {
         if (this.svrHost) {
             var fhaInfo = {server: this.svrHost.value, uemail: this.userEmail.value, pwd: this.pwd.value};
             emjyBack.saveToLocal({'fha_server': fhaInfo});
+        }
+    }
+
+    saveAccountInfo() {
+        if (this.account && this.accpwd) {
+            var anp = {account: this.account.value, pwd: btoa(this.accpwd.value)};
+            emjyBack.saveToLocal({'acc_np': anp})
         }
     }
 
