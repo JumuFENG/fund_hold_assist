@@ -65,7 +65,7 @@ class KlChart {
                 left: 'right'
             },
             animation: false,
-            tooltip: {trigger: 'axis', borderColor: '#ccc', axisPointer: {type: 'cross'},            },
+            tooltip: {trigger: 'axis', borderColor: '#ccc', axisPointer: {type: 'cross'}},
             title: {text: title, left: 'center', textStyle: {color: 'rgb(133, 146, 232)'}, link},
             grid: [{left: '10%', right: '8%', height: '60%'}, {left: '10%', right: '8%', top: '75%', height: '15%'}],
             xAxis: [

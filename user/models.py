@@ -973,6 +973,14 @@ class User():
                 {f'{column_code}':deal['code'], f'{column_date}': deal['time'], f'''{column_type}''': deal['tradeType'], '委托编号':dsid})
         return True
 
+    def get_archived_deals(self):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_archived_deals_table()):
+            return []
+
+        adeals = sqldb.select(self.stocks_archived_deals_table())
+        return [{'code':c, 'time':d, 'tradeType':t, 'count':ptn, 'price':pr, 'fee':fee, 'feeYh':fYh, 'feeGh':fGh, 'sid':sid} for _,c,d,t,ptn,pr,fee,fYh,fGh,sid in adeals]
+
     def archive_deals(self, edate):
         codes = self._all_user_stocks()
         consumed = ()

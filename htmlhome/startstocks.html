@@ -21,6 +21,7 @@
         <script src="../static/src/js/echarts.js"></script>
         <script src="../htmlhome/strategy/klChart.js"></script>
         <script src="../htmlhome/strategy/klChartWall.js"></script>
+        <script src="../htmlhome/strategy/dealsViewPanel.js"></script>
         <script src="../htmlhome/gstocks.js"></script>
 
         <script src="../htmlhome/tests/data.js"></script>
@@ -54,11 +55,12 @@
 
                 setupNavigators() {
                     var pages = [
-                        new ZtConceptsPanelPage(),
+                        new DealsPanelPage(),
                         new KlViewerPanelPage(),
                         new localSavedViewPage(),
                         new StkDataPanelPage(),
                         new ZtPanelPage(),
+                        new ZtConceptsPanelPage(),
                         new DtPanelPage(),
                         new TrainingPanelPage(),
                         new RetroPanelPage(),

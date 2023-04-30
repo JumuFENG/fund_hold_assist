@@ -358,8 +358,13 @@ def stock():
             return json.dumps(dc.get_available_dealtable())
         if actype == 'trackdeals':
             tname = request.args.get('name', type=str, default=None)
-            if tname == '':
-                return 'not implemented', 200
+            if tname == 'archived':
+                # TODO: add for different user.
+                usermodel = UserModel()
+                user = usermodel.user_by_id(11)
+                ds = user.get_archived_deals()
+                track = {'tname':tname, 'deals': ds}
+                return json.dumps(track)
             std = StockTrackDeals()
             return json.dumps(std.get_deals(tname))
 

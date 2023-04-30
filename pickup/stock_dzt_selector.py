@@ -35,6 +35,14 @@ class StockDztSelector(StockBaseSelector):
             {'prepare': self.sim_prepare1, 'thread': self.simulate_thread1, 'post': self.sim_post_process, 'dtable': f'track_sim_dzt0'}]
         self.sim_ops = [self._sim_ops[0]]
 
+    def walk_prepare(self, date=None):
+        stks = StockGlobal.all_stocks()
+        self.wkstocks = [
+            [s[1], (s[7] if s[7] > '1996-12-16' else '1996-12-16') if date is None else date]
+            for s in stks if s[4] == 'ABStock' or s[4] == 'TSStock']
+        self.tsdate = {s[1]: s[8] for s in stks if s[4] == 'TSStock'}
+        self.wkselected = []
+
     def walk_on_history_thread(self):
         sd = StockDumps()
         while len(self.wkstocks) > 0:
