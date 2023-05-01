@@ -53,6 +53,9 @@ class SettingsPanelPage extends RadioAnchorPage {
         this.accpwd = document.createElement('input');
         this.accpwd.type = 'password';
         addInput(svrDiv, this.accpwd, '密码');
+        this.creditEnabled = document.createElement('input');
+        this.creditEnabled.type = 'checkbox';
+        addInput(svrDiv, this.creditEnabled, '启用两融账户');
         emjyBack.getFromLocal('fha_server', fhainfo => {
             if (fhainfo) {
                 this.svrHost.value = fhainfo.server;
@@ -64,6 +67,7 @@ class SettingsPanelPage extends RadioAnchorPage {
             if (anp) {
                 this.account.value = anp.account;
                 this.accpwd.value = atob(anp.pwd);
+                this.creditEnabled.checked = anp.credit;
             }
         });
         this.container.appendChild(svrDiv);
@@ -134,7 +138,7 @@ class SettingsPanelPage extends RadioAnchorPage {
 
     saveAccountInfo() {
         if (this.account && this.accpwd) {
-            var anp = {account: this.account.value, pwd: btoa(this.accpwd.value)};
+            var anp = {account: this.account.value, pwd: btoa(this.accpwd.value), credit: this.creditEnabled.checked};
             emjyBack.saveToLocal({'acc_np': anp})
         }
     }

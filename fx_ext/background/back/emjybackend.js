@@ -159,55 +159,76 @@ class EmjyBack {
         return this.normalAccount.pureAssets + this.collateralAccount.pureAssets;
     }
 
-    isLoginPage(pathname) {
-        return pathname == '/Login' || pathname == '/Login/ExitIframe';
+    isLoginPage(hurl) {
+        var url = new URL(hurl);
+        return url.pathname == '/Login' || url.pathname == '/Login/ExitIframe';
+    }
+
+    startup() {
+        chrome.tabs.query({}, tabs => {
+            var emtab = null;
+            for (var tab of tabs) {
+                var url = new URL(tab.url);
+                if (url.host == 'jywg.18.cn') {
+                    emtab = tab;
+                    break;
+                }
+            }
+            emjyBack.InitMainTab(emtab);
+        });
+        this.Init();
+    }
+
+    InitMainTab(tab) {
+        if (!tab) {
+            this.getFromLocal('acc_np', anp => {
+                this.unp = anp;
+                var url = this.unp.credit ? 'https://jywg.18.cn/MarginTrade/Buy': 'https://jywg.18.cn/Trade/Buy';
+                chrome.tabs.create(
+                    {url},
+                    ctab => {
+                        this.mainTab = ctab;
+                        this.checkMainTabCreated();
+                    }
+                );
+            });
+        } else {
+            chrome.tabs.reload(tab.id, {bypassCache: true}, () => {
+                this.mainTab = tab;
+                this.checkMainTabCreated();
+            });
+        }
+    }
+
+    checkMainTabCreated() {
+        var loadingInterval = setInterval(() => {
+            chrome.tabs.get(this.mainTab.id, t => {
+                if (t.status == 'complete') {
+                    clearInterval(loadingInterval);
+                    this.mainTab.url = t.url;
+                    if (!this.mainTab.created) {
+                        this.mainTab.created = true;
+                        if (!this.isLoginPage(this.mainTab.url)) {
+                            this.InitMainTab(this.mainTab);
+                        }
+                    } else {
+                        this.checkAuthencated();
+                    }
+                }
+            })
+        }, 200);
     }
 
     onContentLoaded(message, tabid) {
-        if (!this.mainTab) {
-            this.log('init mainTabId and accounts');
-            this.mainTab = new CommanderBase();
-            this.mainTab.tabid = tabid;
-            this.mainTab.url = message.url;
-
-            chrome.tabs.onRemoved.addListener((tabid, removeInfo) => {
-                if (emjyBack.mainTab.tabid == tabid) {
-                    emjyBack.mainTab = null;
-                }
-            });
-
-            chrome.tabs.reload(this.mainTab.tabid, () => {
-                var loadInterval = setInterval(() => {
-                    chrome.tabs.get(this.mainTab.tabid, t => {
-                        if (t.status == 'complete') {
-                            clearInterval(loadInterval);
-                            this.mainTab.url = t.url;
-                            var url = new URL(t.url);
-                            this.authencated = !this.isLoginPage(url.pathname);
-                            if (this.isLoginPage(url.pathname)) {
-                                this.sendLoginInfo();
-                            }
-                            if (this.authencated && !this.validateKey) {
-                                this.sendMsgToMainTabContent({command:'emjy.getValidateKey'});
-                            }
-                        };
-                    });
-                }, 200);
-            });
+        this.log('onContentLoaded', message, tabid);
+        if (!this.mainTab || !this.mainTab.created) {
             return;
         };
 
-        if (tabid == this.mainTab.tabid) {
+        if (tabid == this.mainTab.id) {
             this.mainTab.url = message.url;
+            this.checkAuthencated();
             chrome.tabs.executeScript(this.mainTab.tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
-            var url = new URL(this.mainTab.url);
-            this.authencated = !this.isLoginPage(url.pathname);
-            if (this.isLoginPage(url.pathname)) {
-                this.sendLoginInfo();
-            }
-            if (this.authencated && !this.validateKey) {
-                this.sendMsgToMainTabContent({command:'emjy.getValidateKey'});
-            }
             if (this.contentProxies.length > 0 && this.authencated) {
                 for (var i = 0; i < this.contentProxies.length; i++) {
                     this.contentProxies[i].triggerTask();
@@ -223,30 +244,43 @@ class EmjyBack {
         };
     }
 
-    sendLoginInfo() {
-        this.getFromLocal('acc_np', anp => {
-            chrome.tabs.sendMessage(this.mainTab.tabid, {command:'emjy.loginnp', np: anp});
-        });
+    checkAuthencated() {
+        this.authencated = !this.isLoginPage(this.mainTab.url);
+        if (this.authencated && !this.validateKey) {
+            this.sendMessageToContent({command:'emjy.getValidateKey'});
+        }
     }
 
-    // DON'T use this API directly, or it may break the task queue.
-    sendMsgToMainTabContent(data) {
+    sendLoginInfo() {
+        if (!this.unp) {
+            this.getFromLocal('acc_np', anp => {
+                this.unp = anp;
+                this.sendLoginInfo();
+            });
+            return;
+        }
+
+        this.sendMessageToContent({command:'emjy.loginnp', np: this.unp});
+    }
+
+    sendMessageToContent(data) {
         var url = new URL(this.mainTab.url);
-        if (!this.mainTab.tabid || url.host != 'jywg.18.cn') {
+        if (!this.mainTab.id || url.host != 'jywg.18.cn') {
+            if (!this.pendingContentMsgs) {
+                this.pendingContentMsgs = [];
+            }
+            this.pendingContentMsgs.push(data);
             return;
         }
 
-        if (url.pathname == '/Login' && data.command == 'emjy.capcha') {
-            chrome.tabs.sendMessage(this.mainTab.tabid, data);
-            return;
+        if (this.pendingContentMsgs && this.pendingContentMsgs.length > 0) {
+            this.pendingContentMsgs.forEach(m => {
+                chrome.tabs.sendMessage(this.mainTab.id, m);
+                this.log('sendMsgToMainTabContent pending', JSON.stringify(m));
+            });
+            delete(this.pendingContentMsgs);
         }
-
-        if (url.pathname == '/Login' || !this.authencated) {
-            this.log('not sendMsgToMainTabContent', url.pathname, this.authencated);
-            return;
-        }
-
-        chrome.tabs.sendMessage(this.mainTab.tabid, data);
+        chrome.tabs.sendMessage(this.mainTab.id, data);
         this.log('sendMsgToMainTabContent', JSON.stringify(data));
     }
 
@@ -265,6 +299,10 @@ class EmjyBack {
                 // update history deals every Monday morning.
                 this.updateHistDeals();
             }
+        } else if (message.command == 'emjy.capcha') {
+            this.recoginzeCapcha(message.img);
+        } else if (message.command == 'emjy.loginnp') {
+            this.sendLoginInfo();
         } else if (message.command == 'emjy.trade') {
             this.log('trade message: result =', message.result, ', what =', message.what);
         } else if (message.command == 'emjy.addwatch') {
@@ -274,8 +312,6 @@ class EmjyBack {
             this.normalAccount.save();
             this.collateralAccount.save();
             this.log('content message save');
-        } else if (message.command == 'emjy.capcha') {
-            this.recoginzeCapcha(message.img);
         }
     }
 
@@ -430,7 +466,7 @@ class EmjyBack {
             } else if (deali.Mmsm == '证券买入' || deali.Mmsm == '配售申购' || deali.Mmsm == '配股缴款' || deali.Mmsm == '网上认购') {
                 tradeType = 'B';
             } else {
-                console.log('unknown trade type', deali.Mmsm, deali);
+                this.log('unknown trade type', deali.Mmsm, deali);
                 continue;
             }
             var code = deali.Zqdm;
@@ -502,7 +538,7 @@ class EmjyBack {
             } else if (otherSellSm.includes(sm)) {
                 tradeType = 'S';
             } else if (otherSm.includes(sm)) {
-                console.log(deali);
+                this.log(JSON.stringify(deali));
                 tradeType = sm;
                 if (sm == '股息红利差异扣税') {
                     tradeType = '扣税';
@@ -511,7 +547,7 @@ class EmjyBack {
                     tradeType = '融资利息';
                 }
             } else {
-                console.log('unknow deals', sm, JSON.stringify(deali));
+                this.log('unknow deals', sm, JSON.stringify(deali));
                 continue;
             }
             var code = deali.Zqdm;
@@ -547,7 +583,7 @@ class EmjyBack {
                 fetchedDeals.push(d);
             });
         }
-        // console.log(fetchedDeals);
+
         this.uploadDeals(fetchedDeals);
     }
 
@@ -625,15 +661,22 @@ class EmjyBack {
     }
 
     recoginzeCapcha(img) {
-        if (this.fha) {
-            var url = this.fha.server + 'api/captcha'
-            var dfd = new FormData();
-            dfd.append('img', img);
-            xmlHttpPost(url, dfd, null, r => {
-                console.log(r);
-                this.sendMsgToMainTabContent({'command': 'emjy.capcha', 'text': r});
-            });
+        if (!this.fha) {
+            this.getFromLocal('fha_server', fhaInfo => {
+                if (fhaInfo) {
+                    this.fha = fhaInfo;
+                    this.recoginzeCapcha(img);
+                }
+            })
+            return;
         }
+
+        var url = this.fha.server + 'api/captcha';
+        var dfd = new FormData();
+        dfd.append('img', img);
+        xmlHttpPost(url, dfd, null, r => {
+            this.sendMessageToContent({'command': 'emjy.capcha', 'text': r});
+        });
     }
 
     clearCompletedDeals() {
@@ -697,7 +740,7 @@ class EmjyBack {
             } else if (account == this.trackAccount.keyword) {
                 sellAccount = this.trackAccount;
             } else {
-                console.log('Error, no valid account', account);
+                this.log('Error, no valid account', account);
                 return;
             }
         };
@@ -717,7 +760,7 @@ class EmjyBack {
             } else if (account == this.trackAccount.keyword) {
                 buyAccount = this.trackAccount;
             } else {
-                console.log('Error, no valid account', account);
+                this.log('Error, no valid account', account);
                 return;
             }
         };
@@ -1125,11 +1168,11 @@ class EmjyBack {
         chrome.storage.local.get(key, item => {
             if (typeof(cb) === 'function') {
                 if (!key) {
-                    cb(item);
+                    cb();
                 } else if (item && item[key]) {
                     cb(item[key]);
                 } else {
-                    cb(item);
+                    cb();
                 }
             }
         });
@@ -1170,7 +1213,7 @@ class EmjyBack {
 
             var kline = emjyBack.klines[code].getKline('101');
             if (kline.length < 10) {
-                console.log('new stock!', code, kline);
+                this.log('new stock!', code, kline);
                 return false;
             }
             for (let i = 1; i <= cnt; i++) {
@@ -1179,7 +1222,7 @@ class EmjyBack {
                     var low = emjyBack.klines[code].getLowestInWaiting('101');
                     var cutp = (kl.c - low) * 100 / kl.c;
                     if (cutp >= 14 && cutp <= 27) {
-                        console.log(code, kl.c, low, cutp);
+                        this.log(code, kl.c, low, cutp);
                         if (code.startsWith('60') || code.startsWith('00')) {
                             setMaGuardPrice(strategies, low);
                             return true;
@@ -1198,7 +1241,7 @@ class EmjyBack {
                     if (account.keyword == 'collat') {
                         str.account = 'credit';
                     }
-                    console.log('addStrategy', account.keyword, stocki.code, str);
+                    this.log('addStrategy', account.keyword, stocki.code, str);
                     stocki.strategies.addStrategy(str);
                 }
             }

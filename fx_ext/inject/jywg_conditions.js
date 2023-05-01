@@ -345,17 +345,25 @@ class TradeReactor extends CommandReactor {
 class EmjyFrontend {
     constructor() {
         this.loginPath = '/Login';
-        this.log = null;
-        this.pageLoaded = null;
         this.commandReactor = null;
         this.ocr_retry = 0;
     }
 
-    Init(log) {
-        this.pageLoaded = false;
-        this.log = log;
+    Init() {
+        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+            if (message.command.startsWith('emjy.')) {
+                this.log('recieve command', message.command);
+                this.onBackMessageReceived(message, sender, sendResponse);
+            } else {
+                this.log("command not recognized.");
+            }
+        });
     }
 
+    log(...args) {
+        console.log(args.join(' '));
+    }
+    
     sendMessageToBackground(message) {
         chrome.runtime.sendMessage(message);
     }
@@ -368,8 +376,11 @@ class EmjyFrontend {
         } else if (message.command == 'emjy.capcha') {
             this.submitCapcha(message.text);
         } else if (message.command == 'emjy.getValidateKey') {
-            var vkey = document.querySelector('#em_validatekey').value;
-            this.sendMessageToBackground({command:'emjy.getValidateKey', key: vkey});
+            var elevk = document.querySelector('#em_validatekey');
+            if (elevk) {
+                var key = elevk.value;
+                this.sendMessageToBackground({command:'emjy.getValidateKey', key});
+            }
         } else if (message.command == 'emjy.trade') {
             this.commandReactor = new TradeReactor(message.code, message.name, message.count, message.price, sendResponse);
             this.commandReactor.onTaskMessage();
@@ -398,17 +409,20 @@ class EmjyFrontend {
             var btnConfirm = document.querySelector('.btn-orange', '.vbtn-confirm');
             if (btnConfirm) {
                 btnConfirm.click();
-                clearInterval(loadInterval);
+                clearInterval(loginInterval);
             }
         }, 200);
-        document.getElementById('rdsc45').checked = true;
-        var inputValidate = document.getElementById('txtValidCode');
+        document.querySelector('#rdsc45').checked = true;
+        var inputValidate = document.querySelector('#txtValidCode');
         inputValidate.oninput = function (e) {
             if (e.target.value.length == 4) {
-                document.getElementById('btnConfirm').click();
+                document.querySelector('#btnConfirm').click();
             }
         }
-        var imgValid = document.getElementById('imgValidCode');
+        if (!document.querySelector('#txtPwd').value || !document.querySelector('#txtZjzh').value) {
+            this.sendMessageToBackground({command:'emjy.loginnp'});
+        }
+        var imgValid = document.querySelector('#imgValidCode');
         imgValid.onload = function() {
             EmjyFront.recogizeImage();
         }
@@ -422,15 +436,13 @@ class EmjyFrontend {
         }
 
         this.ocr_retry ++;
-        var imgValid = document.getElementById('imgValidCode');
-        console.log(imgValid.status);
+        var imgValid = document.querySelector('#imgValidCode');
         var canvas = document.createElement('canvas');
         canvas.width = imgValid.width;
         canvas.height = imgValid.height;
         var ctx = canvas.getContext('2d');
         ctx.drawImage(imgValid, 0, 0, imgValid.width, imgValid.height);
-        var dataUri = canvas.toDataURL();
-        this.sendMessageToBackground({command:'emjy.capcha', img: dataUri});
+        this.sendMessageToBackground({command:'emjy.capcha', img: canvas.toDataURL()});
     }
 
     clickSubmit() {
@@ -447,7 +459,7 @@ class EmjyFrontend {
     }
 
     submitCapcha(text) {
-        if (!text) {
+        if (!text || text.length != 4 || isNaN(text)) {
             document.querySelector('#txtValidCode').click();
             return;
         }
@@ -459,7 +471,6 @@ class EmjyFrontend {
         this.log('onPageLoaded begin');
         var path = location.pathname;
         if (path == this.loginPath) {
-            this.onLoginPageLoaded();
             var errorConfirmInterval = setInterval(() => {
                 var btnCxcConfirm = document.querySelector('#btnCxcConfirm');
                 if (btnCxcConfirm) {
@@ -467,44 +478,16 @@ class EmjyFrontend {
                     clearInterval(errorConfirmInterval);
                 }
             }, 500);
+            this.onLoginPageLoaded();
         }
 
-        this.pageLoaded = true;
         this.sendMessageToBackground({command:'emjy.contentLoaded', url: location.href});
         this.log('onPageLoaded', path);
     }
 }
 
-function logInfo(...args) {
-    console.log(args.join(' '));
-}
-
-function onMessage(message, sender, sendResponse) {
-    if (message.command.startsWith('emjy.')) {
-        logInfo('recieve command', message.command);
-        if (!EmjyFront) {
-            EmjyFront = new EmjyFrontend();
-            EmjyFront.Init(logInfo);
-        }
-        if (EmjyFront.pageLoaded) {
-            console.log('onMessage 1');
-            EmjyFront.onBackMessageReceived(message, sender, sendResponse);
-        } else {
-            console.log('onMessage 2')
-            setTimeout(EmjyFront.onBackMessageReceived(message, sender, sendResponse), 1100);
-        }
-    } else {
-        logInfo("command not recognized.");
-    }
-}
-
 if (location.host == 'jywg.18.cn') {
-    // console.log('sendMessage to background');
-    if (!EmjyFront) {
-        EmjyFront = new EmjyFrontend();
-        EmjyFront.Init(logInfo);
-    }
-    chrome.runtime.onMessage.addListener(onMessage);
-
+    EmjyFront = new EmjyFrontend();
+    EmjyFront.Init();
     EmjyFront.onPageLoaded();
 }

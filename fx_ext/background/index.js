@@ -53,7 +53,7 @@ function xmlHttpGet(url, exheader, cb) {
         var dt = new Date();
         console.log('[' + dt.getHours() + ':' + dt.getMinutes() + ':' + dt.getSeconds()  + '] ' +  args.join(' '));
     }
-    
+
     function sendMessage(data) {
         chrome.tabs.query({active:true, currentWindow:true}, function (tabs) {
             chrome.tabs.sendMessage(tabs[0].id, data);
@@ -77,23 +77,15 @@ function xmlHttpGet(url, exheader, cb) {
     }
 
     function notify(message, sender) {
-        logInfo("background receive message: " + JSON.stringify(message));
+        logInfo("background receive message: " + message.command);
         if (message.command == 'REST.Get') {
             getHttpRequest(message.url);
         } else if (message.command == 'emjy.contentLoaded') {
-            if (!emjyBack) {
-                emjyBack = new EmjyBack();
-                emjyBack.Init();
-            }
             emjyBack.onContentLoaded(message, sender.tab.id);
             logInfo('emjy.Loaded', message.url);
         } else if (message.command.startsWith('emjy.') && emjyBack) {
             emjyBack.onContentMessageReceived(message, sender.tab.id);
         } else if (message.command.startsWith('mngr.')) {
-            if (!emjyBack) {
-                emjyBack = new EmjyBack();
-                emjyBack.Init();
-            };
             if (sender.tab) {
                 emjyBack.onManagerMessageReceived(message, sender.tab.id);
             } else {
@@ -103,4 +95,6 @@ function xmlHttpGet(url, exheader, cb) {
     }
 
     chrome.runtime.onMessage.addListener(notify);
+    emjyBack = new EmjyBack();
+    emjyBack.startup();
 }());
