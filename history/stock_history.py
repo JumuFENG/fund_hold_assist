@@ -8,6 +8,7 @@ import json
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from threading import Lock
+import hashlib
 
 
 class StockGlobal():
@@ -602,3 +603,100 @@ class Stock_Fflow_History(TableBase, EmRequest):
 
         self.getFflowFromEm(code)
         return True
+
+class StockHotRank(TableBase, EmRequest):
+    ''' 获取人气榜
+    http://guba.eastmoney.com/rank/
+    '''
+    def __init__(self) -> None:
+        self.market = 0 # 1: hk 2: us
+        super().__init__()
+        self.headers = None
+        self.decrypter = None
+
+    def initConstrants(self):
+        self.sqldb = None
+        self.dbname = history_db_name
+        self.tablename = f'''day_hotrank_{['cn','hk','us'][self.market]}'''
+        self.colheaders = [
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+            {'col':'hrank','type':'int DEFAULT NULL'}
+        ]
+
+    def getUrl(self):
+        return f'''http://gbcdn.dfcfw.com/rank/popularityList.js?type={self.market}&sort=0&page=1'''
+
+    def getNext(self):
+        if self.headers is None:
+            self.headers = {
+                'Host': 'gbcdn.dfcfw.com',
+                'Referer': 'http://guba.eastmoney.com/',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0',
+                'Accept': '/',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive'
+            }
+        rsp = self.getRequest(params=self.headers)
+        enrk = rsp.split("'")[1]
+
+        if self.decrypter is None:
+            k = hashlib.md5('getUtilsFromFile'.encode()).hexdigest()
+            iv = 'getClassFromFile'
+            self.decrypter = AesCBCBase64(k, iv)
+        ranks = json.loads(self.decrypter.decrypt(enrk))
+        if ranks is None or len(ranks) == 0:
+            print(rsp)
+            return
+
+        valranks = []
+        for rk in ranks:
+            code = rk['code']
+            if 'history' in rk:
+                for h in rk['history']:
+                    if 'SRCSECURITYCODE' in h:
+                        code = h['SRCSECURITYCODE']
+                for h in rk['history']:
+                    ex = self.sqldb.selectOneValue(self.tablename, 'id', [f'{column_code}="{code}"', f'''{column_date}="{h['CALCTIME']}"'''])
+                    if ex is None:
+                        valranks.append([code, h['CALCTIME'], h['RANK']])
+            rklatest = [code, rk['exactTime'], rk['rankNumber']]
+            if rklatest not in valranks:
+                valranks.append()
+
+        self.update_ranks(valranks)
+
+    def update_ranks(self, ranks):
+        rkdic = {}
+        values = []
+        for code, dr, rr in ranks:
+            allranks = self.sqldb.select(self.tablename, conds=f'{column_code}="{code}"')
+            day = dr.split(' ')[0]
+            for id, code, date, r in allranks:
+                if date.split(' ')[0] != day:
+                    continue
+                if code not in rkdic:
+                    rkdic[code] = {}
+                day = date.split(' ')[0]
+                if day not in rkdic[code]:
+                    rkdic[code][day] = []
+                rkdic[code][day].append([id, date, r])
+            if code not in rkdic or day not in rkdic[code] or len(rkdic[code][day]) < 2:
+                values.append([code, dr, rr])
+                continue
+            sdrk = sorted(rkdic[code][day], key=lambda x : x[1])
+            drk2 = [sdrk[0], sdrk[-1]]
+            for i in range(1, len(sdrk) - 1):
+                self.sqldb.delete(self.tablename, {'id': sdrk[i][0]})
+            uid = None
+            if dr < drk2[0][1]:
+                uid = 0
+            elif dr > drk2[1][1]:
+                uid = 1
+            if uid is not None:
+                self.sqldb.update(self.tablename, {column_date: dr, 'hrank': rr}, {'id': drk2[uid][0]})
+
+        if len(values) > 0:
+            attrs = [kv['col'] for kv in self.colheaders]
+            self.sqldb.insertMany(self.tablename, attrs, values)
