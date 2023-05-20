@@ -209,3 +209,18 @@ class TestSQL():
         self.sqldb.renameColumn(self.tablename, 'colx', 'coly', 'double DEFAULT NULL')
         assert not self.sqldb.isExistTableColumn(self.tablename, 'colx')
         assert self.sqldb.isExistTableColumn(self.tablename, 'coly')
+
+    def test_table_insert_update_many(self):
+        self.test_create_table()
+
+        arows = len(self.sqldb.select(self.tablename))
+        attrs = ['code', 'price', 'count']
+        values = [['c1', 1.1, 1], ['c2', 1.2, 2]]
+        self.sqldb.insertMany(self.tablename,attrs, values)
+        brows = len(self.sqldb.select(self.tablename))
+        assert brows - arows == len(values)
+
+        values = [[2.2, 2, 'c1'], [1.3, 3, 'c3'], [1.4, 4, 'c4']]
+        self.sqldb.insertUpdateMany(self.tablename, attrs[1:], ['code'], values)
+        crows = len(self.sqldb.select(self.tablename))
+        assert crows - brows == len(values) - 1

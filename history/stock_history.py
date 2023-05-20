@@ -383,10 +383,21 @@ class DividenBonus(EmDataCenterRequest):
 
     def getBonusNotice(self, date = None):
         if date is None:
-            date = Utils.today_date()
+            datedate = datetime.now()
+            d = 0
+            while d < 3:
+                datedate += timedelta(days=1)
+                if datedate.weekday() >= 5:
+                    continue
+                date = datedate.strftime('%Y-%m-%d')
+                self.setFilter(f'''(EQUITY_RECORD_DATE='{date}')''')
+                self.getNext()
+                d += 1
+            return
         # date = '2021-12-20'
-        # (REPORT_DATE%3D%272021-12-31%27)(EX_DIVIDEND_DAYS%3C0)(EX_DIVIDEND_DATE%3D%272021-12-07%27)
-        self.setFilter(f'''(EX_DIVIDEND_DATE%3D%27{date}%27)''')
+        # (REPORT_DATE='2021-12-31')(EX_DIVIDEND_DAYS>0)(EX_DIVIDEND_DATE='2021-12-07')
+        # self.setFilter(f'''(EX_DIVIDEND_DATE='{date}')''')
+        self.setFilter(f'''(EQUITY_RECORD_DATE='{date}')''')
         self.getNext()
 
 class Stock_history(HistoryFromSohu):
@@ -450,30 +461,31 @@ class StockShareBonus(EmDataCenterRequest, TableBase):
     """
     def __init__(self):
         super().__init__()
-        super(EmRequest, self).__init__(False)
+        super(EmRequest, self).__init__()
 
     def initConstrants(self):
         self.dbname = history_db_name
+        self.tablename = 'stock_bonus_shares'
         self.colheaders = [
+            {'col': column_code, 'type':'varchar(20) DEFAULT NULL'},
             {'col':'报告日期','type':'varchar(20) DEFAULT NULL'},
             {'col':'登记日期','type':'varchar(20) DEFAULT NULL'},
             {'col':'除权除息日期','type':'varchar(20) DEFAULT NULL'},
             {'col':'进度','type':'varchar(20) DEFAULT NULL'},
-            {'col':'总送转','type':'varchar(10) DEFAULT 0'},
-            {'col':'送股','type':'varchar(10) DEFAULT 0'},
-            {'col':'转股','type':'varchar(10) DEFAULT 0'},
-            {'col':'派息','type':'varchar(10) DEFAULT 0'},
-            {'col':'股息率','type':'varchar(10) DEFAULT 0'},
-            {'col':'每股收益','type':'varchar(10) DEFAULT 0'},
-            {'col':'每股净资产','type':'varchar(10) DEFAULT 0'},
-            {'col':'总股本','type':'varchar(20) DEFAULT NULL'},
+            {'col':'总送转','type':'float DEFAULT 0'},
+            {'col':'送股','type':'float DEFAULT 0'},
+            {'col':'转股','type':'float DEFAULT 0'},
+            {'col':'派息','type':'float DEFAULT 0'},
+            {'col':'股息率','type':'float DEFAULT 0'},
+            {'col':'每股收益','type':'float DEFAULT 0'},
+            {'col':'每股净资产','type':'float DEFAULT 0'},
+            {'col':'总股本','type':'float DEFAULT NULL'},
             {'col':'分红送配详情','type':'varchar(64) DEFAULT NULL'},
         ]
 
     def setCode(self, code):
         self.sg = StockGlobal.stock_general(code)
         self.code = self.sg.code
-        self.tablename = self.sg.bonustable
         self.bnData = []
 
     def getUrl(self):
@@ -484,44 +496,50 @@ class StockShareBonus(EmDataCenterRequest, TableBase):
         self.saveFecthedBonus()
 
     def getBonusHis(self):
-        if not self._check_table_exists():
+        brows = self.sqldb.selectOneValue(self.tablename, 'count(*)', f'{column_code}="{self.code}"')
+        if brows is None or brows == 0:
             self.getNext()
         else:
             self.loadBonusTable()
         return self.bnData
 
     def loadBonusTable(self):
-        self.bnData = self.sqldb.select(self.tablename, fields=[col['col'] for col in self.colheaders])
+        self.bnData = self.sqldb.select(self.tablename, fields=[col['col'] for col in self.colheaders], conds=f'{column_code}="{self.code}"')
 
     def saveFecthedBonus(self):
-        self._check_or_create_table()
-
-        attrs = [col['col'] for col in self.colheaders[1:]]
+        attrs = [col['col'] for col in self.colheaders[2:]]
         values = []
         self.bnData = []
         for bn in self.fecthed:
             rptdate = bn['REPORT_DATE'].split()[0]
             rcddate = bn['EQUITY_RECORD_DATE'].split()[0] if bn['EQUITY_RECORD_DATE'] is not None else ''
             dividdate = bn['EX_DIVIDEND_DATE'].split()[0] if bn['EX_DIVIDEND_DATE'] is not None else ''
-            values.append([rcddate, dividdate, bn['ASSIGN_PROGRESS'], 
-                bn['BONUS_IT_RATIO'], bn['BONUS_RATIO'], bn['IT_RATIO'], bn['PRETAX_BONUS_RMB'], bn['DIVIDENT_RATIO'],
-                bn['BASIC_EPS'], bn['BVPS'], bn['TOTAL_SHARES'], bn['IMPL_PLAN_PROFILE'], rptdate])
-            self.bnData.append((rptdate, rcddate, dividdate, bn['ASSIGN_PROGRESS'], 
+            if dividdate == '':
+                continue
+            xid = self.sqldb.selectOneValue(self.tablename, 'id', [f'{column_code}="{self.code}"', f'除权除息日期="{dividdate}"'])
+            if xid is None:
+                values.append([rcddate, dividdate, bn['ASSIGN_PROGRESS'],
+                    bn['BONUS_IT_RATIO'], bn['BONUS_RATIO'], bn['IT_RATIO'], bn['PRETAX_BONUS_RMB'], bn['DIVIDENT_RATIO'],
+                    bn['BASIC_EPS'], bn['BVPS'], bn['TOTAL_SHARES'], bn['IMPL_PLAN_PROFILE'], self.code, rptdate])
+            self.bnData.append((rptdate, rcddate, dividdate, bn['ASSIGN_PROGRESS'],
                 bn['BONUS_IT_RATIO'], bn['BONUS_RATIO'], bn['IT_RATIO'], bn['PRETAX_BONUS_RMB'], bn['DIVIDENT_RATIO'],
                 bn['BASIC_EPS'], bn['BVPS'], bn['TOTAL_SHARES'], bn['IMPL_PLAN_PROFILE']))
 
-        self.sqldb.insertUpdateMany(self.tablename, attrs, [self.colheaders[0]['col']], values)
+        self.sqldb.insertUpdateMany(self.tablename, attrs, [self.colheaders[0]['col'], self.colheaders[1]['col']], values)
         self.fecthed = []
 
     def dividenDateLaterThan(self, date):
-        if not self._check_table_exists():
-            return False
         if date is None:
-            date = datetime.now().strftime("%Y-%m-%d")
-        result = self.sqldb.selectOneValue(self.tablename, 'count(*)', f'除权除息日期 > "{date}"')
-        if result is None:
+            date = Utils.today_date()
+        brows = self.sqldb.selectOneValue(self.tablename, 'count(*)', [f'除权除息日期 > "{date}"', f'{column_code}="{self.code}"'])
+        if brows is None:
             return False
-        return result > 0
+        return brows > 0
+
+    def dividenDetailsLaterThan(self, date=None):
+        if date is None:
+            date = Utils.today_date()
+        return self.sqldb.select(self.tablename, conds=f'登记日期 > "{date}"')
 
 class Stock_Fflow_History(TableBase, EmRequest):
     '''get fflow from em pushhis 资金流向

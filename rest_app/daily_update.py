@@ -37,6 +37,7 @@ class DailyUpdater():
         self.download_all_fund_history(morningOnetime)
         self.download_all_gold_history(morningOnetime)
         self.download_all_index_history()
+        self.update_stock_hotrank()
         if morningOnetime:
             # 只在早上执行的任务
             print("update in the morning...")
@@ -178,6 +179,10 @@ class DailyUpdater():
         print('update cents')
         scs = StockCentsSelector()
         scs.updateScs()
+
+    def update_stock_hotrank(self):
+        shr = StockHotRank()
+        shr.getNext()
 
 
 if __name__ == '__main__':
