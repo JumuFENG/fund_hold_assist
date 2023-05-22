@@ -162,11 +162,11 @@ class DailyUpdater():
     def update_selectors(self):
         print('update dzt info')
         sds = StockDztSelector()
-        sds.updateDzt()
+        sds.updatePickUps()
 
         print('update zt1')
         szt1 = StockZt1Selector()
-        szt1.updateZt1()
+        szt1.updatePickUps()
 
         print('update dtmap info')
         sdm = StockDtMap()
@@ -178,7 +178,7 @@ class DailyUpdater():
 
         print('update cents')
         scs = StockCentsSelector()
-        scs.updateScs()
+        scs.updatePickUps()
 
     def update_stock_hotrank(self):
         shr = StockHotRank()

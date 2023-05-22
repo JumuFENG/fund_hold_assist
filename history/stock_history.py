@@ -273,8 +273,7 @@ class AllStocks(InfoList):
         if fundList is None:
             return
 
-        attrs = [column_name, column_type, column_short_name, column_setup_date, column_assets_scale]
-        conds = [column_code]
+        attrs = [column_name, column_type, column_short_name, column_setup_date, column_assets_scale, column_code]
         allFundInfo = []
         for e in fundList:
             tp = e['f13']
@@ -287,7 +286,7 @@ class AllStocks(InfoList):
                 continue
             (short_name, setup_date, assets_scale) = fundInfo                
             allFundInfo.append([name, ftype, short_name, setup_date, assets_scale, code])
-        self.sqldb.insertUpdateMany(gl_all_stocks_info_table, attrs, conds, allFundInfo)
+        self.sqldb.insertUpdateMany(gl_all_stocks_info_table, attrs, [column_code], allFundInfo)
 
     def getFundInfo(self, code):
         ucode = code
@@ -507,7 +506,7 @@ class StockShareBonus(EmDataCenterRequest, TableBase):
         self.bnData = self.sqldb.select(self.tablename, fields=[col['col'] for col in self.colheaders], conds=f'{column_code}="{self.code}"')
 
     def saveFecthedBonus(self):
-        attrs = [col['col'] for col in self.colheaders[2:]]
+        attrs = [col['col'] for col in self.colheaders]
         values = []
         self.bnData = []
         for bn in self.fecthed:
@@ -518,14 +517,14 @@ class StockShareBonus(EmDataCenterRequest, TableBase):
                 continue
             xid = self.sqldb.selectOneValue(self.tablename, 'id', [f'{column_code}="{self.code}"', f'除权除息日期="{dividdate}"'])
             if xid is None:
-                values.append([rcddate, dividdate, bn['ASSIGN_PROGRESS'],
+                values.append([self.code, rptdate, rcddate, dividdate, bn['ASSIGN_PROGRESS'],
                     bn['BONUS_IT_RATIO'], bn['BONUS_RATIO'], bn['IT_RATIO'], bn['PRETAX_BONUS_RMB'], bn['DIVIDENT_RATIO'],
-                    bn['BASIC_EPS'], bn['BVPS'], bn['TOTAL_SHARES'], bn['IMPL_PLAN_PROFILE'], self.code, rptdate])
-            self.bnData.append((rptdate, rcddate, dividdate, bn['ASSIGN_PROGRESS'],
+                    bn['BASIC_EPS'], bn['BVPS'], bn['TOTAL_SHARES'], bn['IMPL_PLAN_PROFILE']])
+            self.bnData.append((self.code, rptdate, rcddate, dividdate, bn['ASSIGN_PROGRESS'],
                 bn['BONUS_IT_RATIO'], bn['BONUS_RATIO'], bn['IT_RATIO'], bn['PRETAX_BONUS_RMB'], bn['DIVIDENT_RATIO'],
                 bn['BASIC_EPS'], bn['BVPS'], bn['TOTAL_SHARES'], bn['IMPL_PLAN_PROFILE']))
 
-        self.sqldb.insertUpdateMany(self.tablename, attrs, [self.colheaders[0]['col'], self.colheaders[1]['col']], values)
+        self.sqldb.insertUpdateMany(self.tablename, attrs, [ch['col'] for ch in self.colheaders[0:2]], values)
         self.fecthed = []
 
     def dividenDateLaterThan(self, date):

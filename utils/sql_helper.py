@@ -280,6 +280,9 @@ class SqlHelper():
 
     def updateMany(self, table, attrs, conkeys, values):
         """更新多条数据, 有重复则
+        @attrs: all attrs
+        @condkeys: conditions in attrs
+        @values: values for all attrs
             args:
                 tablename  :表名字
                 attrs      :属性键
@@ -288,11 +291,28 @@ class SqlHelper():
 
             example:
                 table='test_mysqldb'
-                keys = ["name", "age"]
+                keys = ["name", "age", "id"]
                 conkeys = ["id"]
                 values = [["xiaoqiao", "25", 101], ["xiaoqiao1", "26", 102], ["xiaoqiao2", "27", 103], ["xiaoqiao3", "28", 104]]
                 mydb.updateMany(table, conkeys, keys, values)
         """
+        cidx = [attrs.index(c) for c in conkeys]
+        eattr = []
+        for i in range(0, len(attrs)):
+            if i not in cidx:
+                eattr.append(attrs[i])
+        if attrs[len(eattr):] != conkeys:
+            evalues = []
+            for v in values:
+                ev = []
+                for i in range(0, len(v)):
+                    if i not in cidx:
+                        ev.append(v[i])
+                for i in cidx:
+                    ev.append(v[i])
+                evalues.append(ev)
+            values = evalues
+        attrs = eattr
         attrs_list = [a + '=(%s)' for a in attrs]
         attrs_sql = ','.join(attrs_list)
         cond_list = [c + '=(%s)' for c in conkeys]
@@ -309,16 +329,20 @@ class SqlHelper():
             print(error)
 
     def insertUpdateMany(self, table, attrs, conkeys, values):
+        # type: (str, list, list, list) -> None
         """插入多条数据, 有重复则更新
+        @attrs: all attrs
+        @condkeys: conditions in attrs
+        @values: values for all attrs
         """
         values_new = []
         values_exist = []
         for v in values:
             cond_list = []
             for i in range(0, len(conkeys)):
-                tmpv = v[len(attrs) + i]
+                tmpv = v[attrs.index(conkeys[i])]
                 cond_list.append(f'{conkeys[i]} is NULL' if tmpv is None else f'{conkeys[i]} = \'{str(tmpv)}\'')
-            cond_sql = ' or '.join(cond_list)
+            cond_sql = ' and '.join(cond_list)
             selectrows = self.select(table, conkeys, conds = cond_sql)
             if selectrows is None or len(selectrows) == 0:
                 values_new.append(v)
@@ -326,7 +350,7 @@ class SqlHelper():
                 values_exist.append(v)
 
         if len(values_new) > 0:
-            self.insertMany(table, attrs + conkeys, values_new)
+            self.insertMany(table, attrs, values_new)
 
         if len(values_exist) > 0:
             self.updateMany(table, attrs, conkeys, values_exist)

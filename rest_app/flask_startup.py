@@ -292,6 +292,11 @@ def stock():
             std = StockTrackDeals()
             std.addDeals(tname, json.loads(deals))
             return 'OK', 200
+        if actype == 'rmtrackdeals':
+            tname = request.form.get('name', type=str, default=None)
+            std = StockTrackDeals()
+            std.removeTrackDealsRecord(tname.split(','))
+            return 'OK', 200
     else:
         actype = request.args.get("act", type=str, default=None)
         if actype == 'test':
@@ -300,6 +305,11 @@ def stock():
             code = request.args.get("code", type=str, default=None)
             date = request.args.get('date', type=str, default=None)
             return stock_dividen_later_than(code, date)
+        if actype == 'planeddividen':
+            date = request.args.get('date', type=str, default=None)
+            ssb = StockShareBonus()
+            ddtl = ssb.dividenDetailsLaterThan(date)
+            return json.dumps(ddtl)
         if actype == 'dtmap':
             date = request.args.get('date', type=str, default=None)
             sdm = StockDtMap()
@@ -332,18 +342,13 @@ def stock():
                 return json.dumps(c)
             return f'Unknown key {key}', 404
         if actype == 'updatepickup':
-            key = request.args.get('key', type=str, default=None)
-            if key == 'zt1':
-                zts = StockZt1Selector()
-                zts.updateZt1()
-                return 'OK', 200
             return f'Unknown key {key}', 404
         if actype == 'pickupdone':
             key = request.args.get('key', type=str, default=None)
             if key == 'zt1':
                 zts = StockZt1Selector()
-                zt1 = zts.dumpFinishedRecords()
-                return json.dumps(zt1)
+                # zt1 = zts.dumpFinishedRecords()
+                return json.dumps('TODO')
             if key == 'dt3':
                 dts = StockDt3Selector()
                 dt3 = dts.dumpFinishedRecords()

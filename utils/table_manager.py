@@ -41,14 +41,14 @@ class TableCopy():
         headers = []
         condkeys = []
         for (cnm, ctp, cdef) in result:
+            headers.append(cnm)
             if not cnm == 'id':
-                headers.append(cnm)
                 if not toDb.isExistTableColumn(totable, cnm):
                     toDb.addColumn(totable, cnm, ctp + ' DEFAULT ' + ('NULL' if cdef is None else cdef))
             else:
                 condkeys.append(cnm)
 
-        valuesMore = fromDb.select(fromtable, headers + condkeys, order=" ORDER BY id ASC")
+        valuesMore = fromDb.select(fromtable, headers, order=" ORDER BY id ASC")
         toDb.insertUpdateMany(totable, headers, condkeys, valuesMore)
 
     def getTableHeaders(self, sqldb, tablename):

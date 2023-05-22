@@ -220,7 +220,13 @@ class TestSQL():
         brows = len(self.sqldb.select(self.tablename))
         assert brows - arows == len(values)
 
-        values = [[2.2, 2, 'c1'], [1.3, 3, 'c3'], [1.4, 4, 'c4']]
-        self.sqldb.insertUpdateMany(self.tablename, attrs[1:], ['code'], values)
+        values = [['c1', 2.2, 2], ['c3', 1.3, 3], ['c4', 1.4, 4]]
+        self.sqldb.insertUpdateMany(self.tablename, attrs, ['code'], values)
         crows = len(self.sqldb.select(self.tablename))
         assert crows - brows == len(values) - 1
+
+        attrs = ['price', 'count', 'code']
+        values = [[2.3, 3, 'c3'], [2.4, 4, 'c4'], [2.5, 5, 'c5'], [2.6, 6, 'c6']]
+        self.sqldb.insertUpdateMany(self.tablename, attrs, ['code'], values)
+        drows = len(self.sqldb.select(self.tablename))
+        assert drows - crows == 2
