@@ -1,6 +1,6 @@
 'use strict';
 let emStockUrl = 'http://quote.eastmoney.com/concept/';
-let emStockUrlTail = '.html#fschart-k';
+let emStockUrlTail = '.html#fullScreenChart';
 
 class GlobalManager {
     constructor() {
@@ -172,8 +172,22 @@ class GlobalManager {
 
     stockAnchor(code) {
         var anchor = document.createElement('a');
+        if (code.length > 6) {
+            code = code.substring(2);
+        }
         anchor.textContent = this.stockName(code);
         anchor.href = this.stockEmLink(code);
+        anchor.target = '_blank';
+        return anchor;
+    }
+
+    stockNoticeAnchor(code) {
+        var anchor = document.createElement('a');
+        if (code.length > 6) {
+            code = code.substring(2);
+        }
+        anchor.textContent = '公告';
+        anchor.href = 'https://data.eastmoney.com/notices/stock/' + code + '.html';
         anchor.target = '_blank';
         return anchor;
     }
