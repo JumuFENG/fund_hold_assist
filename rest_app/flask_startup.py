@@ -288,9 +288,10 @@ def stock():
         actype = request.form.get("act", type=str, default=None)
         if actype == 'trackdeals':
             tname = request.form.get('name', type=str, default=None)
+            desc = request.form.get('desc', type=str, default=None)
             deals = request.form.get('data', type=str, default=None)
             std = StockTrackDeals()
-            std.addDeals(tname, json.loads(deals))
+            std.addDeals(tname, json.loads(deals), desc)
             return 'OK', 200
         if actype == 'rmtrackdeals':
             tname = request.form.get('name', type=str, default=None)
@@ -340,6 +341,12 @@ def stock():
                 cts = StockCentsSelector()
                 c = cts.dumpDataByDate()
                 return json.dumps(c)
+            if key == 'maconv':
+                smc = StockMaConvergenceSelector()
+                return json.dumps(smc.dumpDataByDate())
+            if key == 'ust':
+                sus = StockUstSelector()
+                return json.dumps(sus.dumpDataByDate())
             return f'Unknown key {key}', 404
         if actype == 'updatepickup':
             return f'Unknown key {key}', 404
@@ -363,15 +370,9 @@ def stock():
             return json.dumps(dc.get_available_dealtable())
         if actype == 'trackdeals':
             tname = request.args.get('name', type=str, default=None)
-            if tname == 'archived':
-                # TODO: add for different user.
-                usermodel = UserModel()
-                user = usermodel.user_by_id(11)
-                ds = user.get_archived_deals()
-                track = {'tname':tname, 'deals': ds}
-                return json.dumps(track)
-            std = StockTrackDeals()
-            return json.dumps(std.get_deals(tname))
+            if tname != 'archived':
+                std = StockTrackDeals()
+                return json.dumps(std.get_deals(tname))
 
     usermodel = UserModel()
     if not session.get('logged_in'):
@@ -456,6 +457,12 @@ def stock():
         if actype == 'khl_m':
             sd = StockDumps()
             return json.dumps(sd.get_khl_m_his(code))
+        if actype == 'trackdeals':
+            tname = request.args.get('name', type=str, default=None)
+            if tname == 'archived':
+                ds = user.get_archived_deals()
+                track = {'tname':tname, 'deals': ds}
+                return json.dumps(track)
         us = UserStock(user, code)
         if actype == 'buy':
             return json.dumps(us.get_buy_arr())
@@ -609,8 +616,7 @@ def stock_hist():
 def stock_dividen_later_than(code, date):
     if code is not None:
         ssb = StockShareBonus()
-        ssb.setCode(code)
-        return str(ssb.dividenDateLaterThan(date))
+        return str(ssb.dividenDateLaterThan(code, date))
     return 'False'
 
 @app.route('/api/stockzthist', methods=['GET'])

@@ -3,7 +3,7 @@
 class ZtPanelPage extends RadioAnchorPage {
     constructor() {
         super('涨停一览');
-        this.zt1KeyWords = {'zt1' : '今日首板', 'zt1_1': '首板一字涨停', 'dzt': '昨跌停今涨停'};
+        this.zt1KeyWords = {'zt1' : '今日首板', 'zt1_1': '首板一字涨停', 'dzt': '昨跌停今涨停', 'maconv': 'MA收敛突破', 'ust': '摘星摘帽'};
     }
 
     show() {
@@ -46,12 +46,6 @@ class ZtPanelPage extends RadioAnchorPage {
             this.container.appendChild(this.contentPanel);
 
             this.contentPanel.appendChild(document.createTextNode('首板次日买入'));
-            var btnUpdateZt1 = document.createElement('button');
-            btnUpdateZt1.textContent = '更新';
-            btnUpdateZt1.onclick = e => {
-                this.updateZt1Pickups();
-            }
-            this.contentPanel.appendChild(btnUpdateZt1);
             this.zt1Table = new SortableTable(1, 0, false);
             this.contentPanel.appendChild(this.zt1Table.container);
             
@@ -75,13 +69,6 @@ class ZtPanelPage extends RadioAnchorPage {
         });
     }
 
-    updateZt1Pickups() {
-        var zt1Url = emjyBack.fha.server + 'stock?act=updatepickup&key=zt1';
-        utils.get(zt1Url, null, r => {
-            this.getZt1Stocks();
-        });
-    }
-
     getZtdztStocks() {
         var dztUrl = emjyBack.fha.server + 'stock?act=pickup&key=dzt&date=' + this.ztdata.date;
         utils.get(dztUrl, null, dzt => {
@@ -90,6 +77,26 @@ class ZtPanelPage extends RadioAnchorPage {
                 this.showDztTable();
             }
         });
+    }
+
+    getMaConvStocks() {
+        var mcUrl = emjyBack.fha.server + 'stock?act=pickup&key=maconv';
+        utils.get(mcUrl, null, mc => {
+            this.maconvstocks = JSON.parse(mc);
+            if (this.maconvstocks.length > 0) {
+                this.showMaConvTable();
+            }
+        })
+    }
+
+    getUstStocks() {
+        var ustUrl = emjyBack.fha.server + 'stock?act=pickup&key=ust';
+        utils.get(ustUrl, null, mc => {
+            this.ustStocks = JSON.parse(mc);
+            if (this.ustStocks.length > 0) {
+                this.showUstTable();
+            }
+        })
     }
 
     showZtTable(skey) {
@@ -101,6 +108,14 @@ class ZtPanelPage extends RadioAnchorPage {
         }
         if (skey == 'dzt') {
             this.showDztTable();
+            return;
+        }
+        if (skey == 'maconv') {
+            this.showMaConvTable();
+            return;
+        }
+        if (skey == 'ust') {
+            this.showUstTable();
             return;
         }
 
@@ -196,13 +211,64 @@ class ZtPanelPage extends RadioAnchorPage {
         }
     }
 
+    showMaConvTable() {
+        this.ztTable.reset();
+        this.candidatesArea.textContent = '';
+        this.ztTable.setClickableHeader('序号', '日期', '名称(代码)', '');
+        if (!this.maconvstocks) {
+            this.getMaConvStocks();
+            return;
+        }
+
+        var n = 1;
+        for (var i = 0; i < this.maconvstocks.length; ++i) {
+            var stocki = this.maconvstocks[i];
+            var code = stocki[0].substring(2);
+            var anchor = emjyBack.stockAnchor(code);
+            var sel = this.createSelCheckbox(code);
+            this.ztTable.addRow(
+                n++,
+                stocki[1],
+                anchor,
+                sel
+            );
+        }
+    }
+
+    showUstTable() {
+        this.ztTable.reset();
+        this.candidatesArea.textContent = '';
+        this.ztTable.setClickableHeader('序号', '名称(代码)', '申请日期', '摘帽/星日期', '公告', '');
+        if (!this.ustStocks) {
+            this.getUstStocks();
+            return;
+        }
+
+        var n = 1;
+        for (const stocki of this.ustStocks) {
+            var code = stocki[0].substring(2);
+            var anchor = emjyBack.stockAnchor(code);
+            var sel = this.createSelCheckbox(code);
+            this.ztTable.addRow(
+                n++,
+                anchor,
+                stocki[2] ? stocki[2] : stocki[1],
+                stocki[4] ? stocki[4] : (stocki[3] ? stocki[3] : ''),
+                emjyBack.stockNoticeAnchor(code),
+                sel
+            )
+        }
+    }
+
     createStrategyFor(code, skey) {
         var date = this.candidatesArea.date;
         var strategy = undefined;
         if (skey == 'dzt') {
-            strategy = emjyBack.strategyManager.create({"key":"StrategyBuy","enabled":true, 'bway':'ge', 'rate0':-0.01}).data;
+            strategy = emjyBack.strategyManager.create({"key":"StrategyBuy","enabled":true, 'bway':'lg', 'rate0':0.03, 'rate1':-0.05}).data;
         } else if (skey == 'zt1_1') {
             strategy = emjyBack.strategyManager.create({"key":"StrategyZt1","enabled":false,'kltype':'101',zt0date:date}).data;
+        } else if (skey == 'maconv') {
+            strategy = emjyBack.strategyManager.create({"key":"StrategyBuyMA","enabled":false,'kltype':'101'}).data;
         }
 
         if (strategy === undefined) {
@@ -216,6 +282,10 @@ class ZtPanelPage extends RadioAnchorPage {
             strategies['1'] = {"key":"StrategySellELS","enabled":false,"cutselltype":"single"};
             transfers = {"0":{"transfer":"-1"}, "1":{"transfer":"-1"}};
             gmeta = {"setguard": true, "guardid": "1", "settop": true};
+        } else if (skey == 'maconv') {
+            strategies['1'] = {"key":"StrategySellMA","enabled":false,"cutselltype":"single"};
+            strategies['2'] = {"key":"StrategySellELTop","enabled":false,"cutselltype":"single"};
+            transfers = {"0":{"transfer":"1"}, "1":{"transfer":"-1"}, "2":{"transfer":"-1"}};
         }
 
         var strgrp = {"grptype":"GroupStandard", strategies, transfers, gmeta, "amount":10000};
@@ -247,12 +317,11 @@ class ZtPanelPage extends RadioAnchorPage {
         }
 
         this.zt1Table.reset();
-        this.zt1Table.setClickableHeader('序号', '日期', '名称(代码)', '上板强度', '放量程度', '建仓日期', '实盘', '买卖记录');
+        this.zt1Table.setClickableHeader('序号', '日期', '名称(代码)', '上板强度', '放量程度');
         for (var i = 0; i < this.zt1stocks.length; i++) {
             var zti = this.zt1stocks[i];
             var anchor = emjyBack.stockAnchor(zti[0].substring(2));
-            var traderecs = JSON.parse(zti[4]);
-            this.zt1Table.addRow(i, zti[1], anchor, zti[2], zti[3], traderecs && traderecs.length > 0 ? traderecs[0].date : '', zti[5]?'是':'否', zti[4]);
+            this.zt1Table.addRow(i, zti[1], anchor, zti[2], zti[3]);
         }
     }
 }

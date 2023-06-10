@@ -6,6 +6,11 @@ class GlobalManager {
     constructor() {
         this.klines = {};
         this.fha = {'server':'http://localhost/'};
+        this.getFromLocal('fha_server', fha => {
+            if (fha) {
+                this.fha = fha;
+            }
+        });
         this.getFromLocal('hsj_stocks', item => {
             if (item) {
                 this.stockMarket = item;

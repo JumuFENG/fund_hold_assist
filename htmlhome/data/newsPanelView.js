@@ -14,7 +14,6 @@ class NewsPages extends RadioAnchorPage {
 
     initNewsPanel() {
         this.newsRoot = document.createElement('div');
-        // this.newsRoot.style = 'display: flex; flex-direction: row; height: 100%;';
         this.container.appendChild(this.newsRoot);
         this.getEmHomePage();
     }
