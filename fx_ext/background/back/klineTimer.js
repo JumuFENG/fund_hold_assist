@@ -171,7 +171,7 @@ class RtpTimer {
 class ZtBoardTimer extends RtpTimer {
     constructor() {
         super();
-        this.ticks = 1000;
+        this.ticks = 300;
         this.lazyInterval = null;
         this.lazyStocks = new Set();
     }
@@ -214,7 +214,7 @@ class ZtBoardTimer extends RtpTimer {
         super.startTimer();
         this.lazyInterval = setInterval(() => {
             this.onLazyTimer();
-        }, 180000); // 3 * 60 * 1000 (3 min)
+        }, 60000); // 60 * 1000 (1 min)
         this.onLazyTimer();
     }
 

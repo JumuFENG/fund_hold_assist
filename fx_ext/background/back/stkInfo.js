@@ -17,16 +17,21 @@ class StockInfo {
             this.name = snapshot.name;
         }
         this.latestPrice = snapshot.realtimequote.currentPrice;
-        var rtInfo = {code: this.code, name: this.name};
-        rtInfo.latestPrice = this.latestPrice;
-        rtInfo.openPrice = snapshot.fivequote.openPrice;
-        rtInfo.lastClose = snapshot.fivequote.yesClosePrice;
-        var buyPrices = [snapshot.fivequote.buy1, snapshot.fivequote.buy2, snapshot.fivequote.buy3, snapshot.fivequote.buy4, snapshot.fivequote.buy5];
-        rtInfo.buyPrices = buyPrices;
-        var sellPrices = [snapshot.fivequote.sale1, snapshot.fivequote.sale2, snapshot.fivequote.sale3, snapshot.fivequote.sale4, snapshot.fivequote.sale5];
-        rtInfo.sellPrices = sellPrices;
-        rtInfo.topprice = snapshot.topprice;
-        rtInfo.bottomprice = snapshot.bottomprice;
+        var buysells = {};
+        for (var k in snapshot.fivequote) {
+            if (k == 'topprice' || k == 'bottomprice') {
+                continue;
+            }
+            buysells[k] = snapshot.fivequote[k];
+        }
+        var rtInfo = {
+            code: this.code, name: this.name, latestPrice: this.latestPrice,
+            openPrice: snapshot.fivequote.openPrice,
+            lastClose: snapshot.fivequote.yesClosePrice,
+            topprice: snapshot.topprice,
+            bottomprice: snapshot.bottomprice,
+            buysells
+        };
         if (this.strategies) {
             this.strategies.check(rtInfo);
         };

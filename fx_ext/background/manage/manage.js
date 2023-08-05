@@ -1,7 +1,7 @@
 'use strict';
 
 let emStockUrl = 'http://quote.eastmoney.com/concept/';
-let emStockUrlTail = '.html#fschart-k';
+let emStockUrlTail = '.html#fullScreenChart';
 let BkRZRQ = 'BK0596';
 
 function logInfo(...args) {
@@ -16,6 +16,7 @@ class Manager {
         this.klines = {};
         this.accountNames = {'normal':'普通账户', 'collat': '担保品账户', 'credit': '融资账户'};
         this.accountsMap = {'normal': ['normal'], 'collat': ['credit', 'collat'], 'track': ['track']};
+        this.taskMgr = new TaskManager()
         this.loadAllSavedData();
     }
 
@@ -48,9 +49,7 @@ class Manager {
         });
         this.getFromLocal('fha_server', fs => {
             this.fha = fs;
-        });
-        this.getFromLocal('bkstocks_' + BkRZRQ, bk => {
-            this.rzrqStocks = new Set(bk);
+            this.getPlannedDividen();
         });
     }
 
@@ -77,7 +76,28 @@ class Manager {
                 this.klines[code].parseKlVars();
                 this.stockList.updateStockPrice(code);
             }
+        } else {
+            this.taskMgr.handleMessage(message);
         }
+    }
+
+    getKlinesLatestTime() {
+        if (this.KlineLatestTime) {
+            return this.KlineLatestTime;
+        }
+        this.KlineLatestTime = {};
+        for (var c in this.klines) {
+            for (var klt of ['1','15','101']) {
+                var kl = this.klines[c].getLatestKline(klt);
+                if (!kl) {
+                    continue;
+                }
+                if (!this.KlineLatestTime[klt] || kl.time > this.KlineLatestTime[klt]) {
+                    this.KlineLatestTime[klt] = kl.time;
+                }
+            }
+        }
+        return this.KlineLatestTime;
     }
 
     getDailyKlineSinceMonthAgo(code, ztdate) {
@@ -137,19 +157,6 @@ class Manager {
             this.klines[code] = new KLine(code);
         }
         this.klines[code].loadSaved();
-    }
-
-    toVscale(vs) {
-        if (vs < 0.1) {
-            return 0;
-        } else if (vs < 0.8) {
-            return 1;
-        } else if (vs < 1.2) {
-            return 2;
-        } else if (vs < 4) {
-            return 3;
-        }
-        return 4;
     }
 
     checkDelDate(idx) {
@@ -363,6 +370,13 @@ class Manager {
     }
 
     addWatchingStock(code, account, strGrp = null) {
+        if (account == '') {
+            this.taskMgr.addTask(new Task('mngr.checkrzrq', {code, strGrp}, tdata => {
+                this.addWatchingStock(tdata.code, tdata.account, tdata.strGrp);
+            }));
+            this.sendExtensionMessage({command: 'mngr.checkrzrq', code});
+            return;
+        }
         if (!this.stockList.stockExist(code, account)) {
             this.addStock(code, account, strGrp);
             this.sendExtensionMessage({command:'mngr.addwatch', code, account, strategies: strGrp});
@@ -375,10 +389,6 @@ class Manager {
         } else {
             emjyBack.stockList.deleteStock(acc, code);
         }
-    }
-
-    isRzRq(code) {
-        return this.rzrqStocks && this.rzrqStocks.has(code);
     }
 
     getStockCode(name) {
@@ -443,13 +453,6 @@ class Manager {
         return anchor;
     }
 
-    stockAccountFrom(code) {
-        if (this.rzrqStocks && this.rzrqStocks.has(code)) {
-            return 'collat';
-        }
-        return 'normal';
-    }
-
     getEarned(code, cb) {
         if (this.fha) {
             var url = this.fha.server + 'stock?act=getearned&code=' + this.getLongStockCode(code);
@@ -457,6 +460,8 @@ class Manager {
             utils.get(url, header, rsp => {
                 if (typeof(cb) === 'function') {
                     cb(rsp);
+                } else {
+                    console.log(rsp);
                 }
             });
             return;
@@ -485,6 +490,27 @@ class Manager {
         }
         if (typeof(cb) === 'function') {
             this.doFetchKline(code, '101', sdate);
+        }
+    }
+
+    getPlannedDividen() {
+        if (this.fha) {
+            var url = this.fha.server + 'stock?act=planeddividen';
+            utils.get(url, null, dv => {
+                var pdivide = JSON.parse(dv);
+                var sdivide = {};
+                for (const d of pdivide) {
+                    var recorddate = d[3];
+                    var dividedate = d[4];
+                    var divdesc = d[14];
+                    sdivide[d[1].substring(2)] = {record: recorddate, divide: dividedate, divdesc};
+                }
+                this.plannedDividen = sdivide;
+                this.stockList.stocks.forEach(s => s.refresh());
+                if (this.trackList) {
+                    this.trackList.stocks.forEach(s => s.refresh());
+                }
+            });
         }
     }
 

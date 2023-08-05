@@ -373,14 +373,10 @@ class EmjyFrontend {
             location.href = message.url;
         } else if (message.command == 'emjy.loginnp') {
             this.setLoginNp(message.np);
-        } else if (message.command == 'emjy.capcha') {
-            this.submitCapcha(message.text);
+        } else if (message.command == 'emjy.captcha') {
+            this.submitCaptcha(message.text);
         } else if (message.command == 'emjy.getValidateKey') {
-            var elevk = document.querySelector('#em_validatekey');
-            if (elevk) {
-                var key = elevk.value;
-                this.sendMessageToBackground({command:'emjy.getValidateKey', key});
-            }
+            this.sendEmValidateKey();
         } else if (message.command == 'emjy.trade') {
             this.commandReactor = new TradeReactor(message.code, message.name, message.count, message.price, sendResponse);
             this.commandReactor.onTaskMessage();
@@ -401,6 +397,14 @@ class EmjyFrontend {
             } else {
                 console.log('onBackMessageReceived', 'commandReactor is null', this.commandReactor);
             }
+        }
+    }
+
+    sendEmValidateKey(){
+        var elevk = document.querySelector('#em_validatekey');
+        if (elevk) {
+            var key = elevk.value;
+            this.sendMessageToBackground({command:'emjy.getValidateKey', key});
         }
     }
 
@@ -442,7 +446,7 @@ class EmjyFrontend {
         canvas.height = imgValid.height;
         var ctx = canvas.getContext('2d');
         ctx.drawImage(imgValid, 0, 0, imgValid.width, imgValid.height);
-        this.sendMessageToBackground({command:'emjy.capcha', img: canvas.toDataURL()});
+        this.sendMessageToBackground({command:'emjy.captcha', img: canvas.toDataURL()});
     }
 
     clickSubmit() {
@@ -458,9 +462,9 @@ class EmjyFrontend {
         this.clickSubmit();
     }
 
-    submitCapcha(text) {
+    submitCaptcha(text) {
         if (!text || text.length != 4 || isNaN(text)) {
-            document.querySelector('#txtValidCode').click();
+            document.querySelector('#imgValidCode').click();
             return;
         }
         document.querySelector('#txtValidCode').value = text;
@@ -482,6 +486,9 @@ class EmjyFrontend {
         }
 
         this.sendMessageToBackground({command:'emjy.contentLoaded', url: location.href});
+        if (path != this.loginPath) {
+            this.sendEmValidateKey();
+        }
         this.log('onPageLoaded', path);
     }
 }

@@ -77,7 +77,7 @@ class KLine {
 
     removeAll() {
         if (this.klines !== undefined) {
-            this.klines = {};
+            delete(this.klines);
         };
         emjyBack.removeLocal(this.storeKey);
     }
@@ -108,7 +108,7 @@ class KLine {
         return kline.slice(lidx - n >= 0 ? lidx - n : 0, lidx);
     }
 
-    getLatestKline(kltype) {
+    getLatestKline(kltype='101') {
         var kl = this.getIncompleteKline(kltype);
         if (kl) {
             return kl;
@@ -265,7 +265,7 @@ class KLine {
         return kline[0].o;
     }
 
-    latestKlineDrawback(kltype) {
+    latestKlineDrawback(kltype='101') {
         // 上影线比例
         var kl = this.getIncompleteKline(kltype);
         var prevId = this.klines[kltype].length - 1;
@@ -284,7 +284,7 @@ class KLine {
         return (h - c) / (h - start);
     }
 
-    latestKlinePopup(kltype) {
+    latestKlinePopup(kltype='101') {
         var kl = this.getIncompleteKline(kltype);
         var prevId = this.klines[kltype].length - 1;
         if (!kl) {
@@ -302,7 +302,7 @@ class KLine {
         return (c - l) / (start - l);
     }
 
-    latestKlinePercentage(kltype) {
+    latestKlinePercentage(kltype='101') {
         var kl = this.getIncompleteKline(kltype);
         if (!this.klines[kltype]) {
             return 0;
@@ -339,6 +339,9 @@ class KLine {
             var h = kl[3];
             var l = kl[4];
             var v = kl[5];
+            var lkl = klines.length > 0 ? klines[klines.length - 1] : null;
+            var prc = kl.length > 6 ? kl[6] : (lkl ? (c-lkl.c).toFixed(3) : 0);
+            var pc = kl.length > 6 ? kl[7] : (lkl ? ((c - lkl.c) * 100 / lkl.c).toFixed(2) : 0);
             if (kltype == '101') {
                 tDate.setHours(15);
             };
@@ -355,7 +358,7 @@ class KLine {
                 this.incompleteKline[kltype] = {time, o, c, h, l, v};
                 continue;
             };
-            klines.push({time, o, c, h, l, v});
+            klines.push({time, o, c, h, l, v, prc, pc});
         };
         return klines;
     }
@@ -786,7 +789,6 @@ class KLine {
                     if (kl.l - kl0.l > 0) {
                         downKlNum++;
                         troughprice = kl0.l;
-                        console.log(kl0);
                     }
                 } else {
                     if (kl.l - kl0.l > 0) {

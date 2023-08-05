@@ -71,6 +71,12 @@ class SettingsPanelPage extends RadioAnchorPage {
             }
         });
         this.container.appendChild(svrDiv);
+        var purchaseNewStocks = document.createElement('input');
+        purchaseNewStocks.type = 'checkbox';
+        purchaseNewStocks.onchange = e => {
+            emjyBack.saveToLocal('purchase_new_stocks', e.target.checked);
+        }
+        addInput(svrDiv, purchaseNewStocks, '申购新股');
     }
 
     addSMICenterPanel() {

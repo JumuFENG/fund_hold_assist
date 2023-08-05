@@ -63,6 +63,7 @@ class DealsClient {
             this.dealsCallback(this.data);
             if (typeof(this.onNextPeriod) == 'function' && this.data.length > 0) {
                 this.data = [];
+                this.dwc = "";
                 this.onNextPeriod();
             }
         }
@@ -303,7 +304,6 @@ class TradeClient {
         httpRequest.onreadystatechange = function () {
             if (httpRequest.readyState == 4 && httpRequest.status == 200) {
                 if (typeof(cb) === 'function') {
-                    console.log(httpRequest.responseText);
                     var resobj = JSON.parse(httpRequest.responseText.substring(cbprefix.length + 1, httpRequest.responseText.length - 2));
                     var bp = resobj.bottomprice;
                     var tp = resobj.topprice;
@@ -371,7 +371,7 @@ class TradeClient {
                     cb({code, price, count, sid: robj.Data[0].Wtbh, type: tradeType});
                 }
             }
-            console.log(code, tradeType, robj);
+            emjyBack.log(code, tradeType, JSON.stringify(robj));
         });
     }
 
@@ -435,6 +435,8 @@ class TradeClient {
 class CollatTradeClient extends TradeClient {
     constructor(validateKey) {
         super(validateKey);
+        this.buy_jylx = '6';
+        this.sell_jylx = '7';
     }
 
     getUrl() {
@@ -474,7 +476,7 @@ class CollatTradeClient extends TradeClient {
     // xyjylx  "7"
     // market  "HA"
     sell(code, price, count, cb) {
-        this.trade(code, price, count, 'S', '7', cb);
+        this.trade(code, price, count, 'S', this.sell_jylx, cb);
     }
 
     // stockCode	"000531"
@@ -485,13 +487,29 @@ class CollatTradeClient extends TradeClient {
     // xyjylx	"6"
     // market	"SA"
     buy(code, price, count, cb) {
-        this.trade(code, price, count, 'B', '6', cb);
+        this.trade(code, price, count, 'B', this.buy_jylx, cb);
+    }
+
+    checkRzrqTarget(code, cb) {
+        this.getRtPrice(code, pobj => {
+            var p = pobj.cp;
+            var url = this.countUrl();
+            var fd = this.countFormData(code, p, 'B', this.buy_jylx);
+            xmlHttpPost(url, fd, null, response => {
+                var robj = JSON.parse(response);
+                if (typeof(cb) === 'function') {
+                    cb({Status: robj.Status, Kmml: robj.Data.Kmml, Message: robj.Message, code});
+                }
+            });
+        });
     }
 }
 
 class CreditTradeClient extends CollatTradeClient {
     constructor(validateKey) {
         super(validateKey);
+        this.buy_jylx = 'a';
+        this.sell_jylx = 'A';
     }
 
     // stockCode	"601016"
@@ -509,9 +527,15 @@ class CreditTradeClient extends CollatTradeClient {
         this.trade(code, price, count, 'B', 'a', cb);
     }
 
+    // stockCode	"510300"
+    // stockName	"沪深300ETF"
+    // price	"3.909"
+    // amount	"3000"
+    // tradeType	"S"
+    // xyjylx	"A"
+    // market	"HA"
     sell(code, price, count, cb) {
-        console.log('trade error:', 'NOT IMPLEMENTED!');
-        // this.trade(code, price, count, 'B', '6');
+        this.trade(code, price, count, 'S', 'A', cb);
     }
 }
 
@@ -564,7 +588,7 @@ class NormalAccount extends Account {
                         this.addWatchStock(keys[1]);
                         this.applyStrategy(keys[1], JSON.parse(items[k]));
                     }
-                    console.log('fix', keys[1]);
+                    emjyBack.log('fix', keys[1]);
                 }
             }
         });
@@ -889,7 +913,7 @@ class NormalAccount extends Account {
 
     loadAssets() {
         if (!emjyBack.validateKey) {
-            console.log('no validateKey');
+            emjyBack.log('no validateKey');
             return;
         }
         var astClient = new AssetsClient(emjyBack.validateKey, assets => {
@@ -1045,7 +1069,7 @@ class CollateralAccount extends NormalAccount {
 
     loadAssets(cb) {
         if (!emjyBack.validateKey) {
-            console.log('no validateKey');
+            emjyBack.log('no validateKey');
             return;
         }
         this.assetsCallback = cb;

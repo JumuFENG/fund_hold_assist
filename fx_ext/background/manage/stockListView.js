@@ -35,35 +35,70 @@ class StockView {
                 this.stock.latestPrice = lkl.c;
             }
         }
-        this.detailView = document.createTextNode('最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost 
-            + ' 数量：' + this.stock.holdCount + ' 市值: ' + (this.stock.latestPrice * this.stock.holdCount).toFixed(2));
+        this.detailView = document.createElement('div');
         divDetails.appendChild(this.detailView);
+        this.refreshDetailView();
         this.container.appendChild(divDetails);
         this.showWarningInTitle();
     }
 
     refresh() {
-        var detailText = '最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost
-            + ' 数量：' + this.stock.holdCount  + ' 市值: ' + (this.stock.latestPrice * this.stock.holdCount).toFixed(2);
-        this.detailView.textContent = detailText;
+        this.refreshDetailView();
         if (this.stock.acccode.startsWith('track')) {
             return;
         }
 
-        if (this.stock.holdCount == 0) {
+        if (this.stock.earned === undefined) {
             emjyBack.getTotalEarned(this.stock.code, e => {
-                if (e == 0) {
-                    return;
-                }
-                var detailText = this.detailView.textContent;
-                detailText += ' 总收益:' + e;
                 this.stock.earned = e;
-                this.detailView.textContent = detailText;
+                this.refreshDetailView();
             });
         }
         if (this.deleteBtn && emjyBack.klines[this.stock.code] && emjyBack.klines[this.stock.code].continuouslyBellowMaDays() >= 5) {
             this.divTitle.style.borderBottom = '2px solid green';
             console.log('remove', this.stock.code);
+        }
+    }
+
+    refreshDetailView() {
+        utils.removeAllChild(this.detailView);
+        var detailText = '最新价：' + this.stock.latestPrice + ' 成本价：' + this.stock.holdCost
+            + ' 数量：' + this.stock.holdCount  + ' 市值: ' + (this.stock.latestPrice * this.stock.holdCount).toFixed(2);
+        if (this.stock.earned) {
+            detailText += ' 总收益:' + this.stock.earned;
+        }
+        this.detailView.appendChild(document.createTextNode(detailText));
+        if (emjyBack.plannedDividen) {
+            if (emjyBack.plannedDividen[this.stock.code]) {
+                var pdiv = emjyBack.plannedDividen[this.stock.code];
+                this.detailView.appendChild(document.createElement('br'));
+                var divNode = document.createElement('div');
+                divNode.innerText = new Date(pdiv.record).toLocaleDateString('zh-cn', {dateStyle:'full'}) + ' ' + pdiv.divdesc;
+                divNode.style.color = 'red';
+                this.detailView.appendChild(divNode);
+            }
+        }
+
+        if (emjyBack.klines[this.stock.code]) {
+            var klineCheckDiv = document.createElement('div');
+            this.detailView.appendChild(klineCheckDiv);
+            var klLatestTime = emjyBack.getKlinesLatestTime();
+            for (var klt of ['1', '15', '101']) {
+                var kl = emjyBack.klines[this.stock.code].getLatestKline(klt);
+                if (kl && kl.time < klLatestTime[klt]) {
+                    klineCheckDiv.appendChild(document.createTextNode(kl.time));
+                    var btnUpdate = document.createElement('a');
+                    btnUpdate.textContent = '更新k线' + klt;
+                    btnUpdate.href = 'javascript:void(0)';
+                    btnUpdate.fetchCmd = {command:'mngr.fetchkline', code: this.stock.code, kltype: klt, start: kl.time.split(' ')[0]};
+                    btnUpdate.onclick = e => {
+                        if (e.target.fetchCmd) {
+                            emjyBack.sendExtensionMessage(e.target.fetchCmd);
+                        }
+                    }
+                    klineCheckDiv.appendChild(btnUpdate);
+                }
+            }
         }
     }
 
@@ -415,9 +450,8 @@ class StockListPanelPage extends RadioAnchorPage {
 
     createWatchCodeAccountSelector() {
         this.watchCodeAccountSelector = document.createElement('select');
-        for (var i in emjyBack.accountsMap) {
-            this.watchCodeAccountSelector.options.add(new Option(emjyBack.accountNames[i], i));
-        }
+        this.watchCodeAccountSelector.options.add(new Option(emjyBack.accountNames['normal'], 'normal'));
+        this.watchCodeAccountSelector.options.add(new Option('自动分配', ''));
     }
 
     getWatchCodeAccount() {
@@ -435,19 +469,18 @@ class StockListPanelPage extends RadioAnchorPage {
 
     createWatchListAccountSelector() {
         this.watchListAccountSelector = document.createElement('select');
-        this.watchListAccountSelector.options.add(new Option('普通账户', 0));
-        this.watchListAccountSelector.options.add(new Option('自动分配', 1));
+        this.watchListAccountSelector.options.add(new Option('普通账户', 'normal'));
+        this.watchListAccountSelector.options.add(new Option('自动分配', ''));
     }
 
-    getWatchListAccount(code) {
-        var acc = this.watchListAccountSelector.value;
-        return acc == 0 ? 'normal' : emjyBack.stockAccountFrom(code);
+    getWatchListAccount() {
+        return this.watchListAccountSelector.value;
     }
 
     addWatchList() {
         var candidatesObj = JSON.parse(this.inputWatchList.value);
         for(var c in candidatesObj) {
-            emjyBack.addWatchingStock(c, this.getWatchListAccount(c), candidatesObj[c]);
+            emjyBack.addWatchingStock(c, this.getWatchListAccount(), candidatesObj[c]);
         }
         this.inputWatchList.value = '';
     }

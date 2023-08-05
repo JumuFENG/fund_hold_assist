@@ -564,20 +564,29 @@ class StrategyGroup {
 
         if (this.gmeta.setguard && this.gmeta.guardid && this.buydetail.averPrice() > 0) {
             if (!this.strategies[this.gmeta.guardid].data.guardPrice) {
-                // min(min(开盘价, 买入价) * 94.5%, 最低价)
+                // min(min(开盘价, 买入价) * 88.5%, 最低价)
                 emjyBack.log('set guardPrice for', this.account, this.code);
+                var latestPrice = null;
                 if (klines['101']) {
                     var kl = klines['101'][klines['101'].length - 1];
-                    this.strategies[this.gmeta.guardid].data.guardPrice = Math.min(kl.o * 0.945, this.buydetail.averPrice() * 0.945, kl.l * 1);
-                    if (!this.strategies[this.gmeta.guardid].data.enabled) {
-                        this.strategies[this.gmeta.guardid].data.enabled = true;
+                    var now = new Date();
+                    var today = now.getFullYear() + '-' + ('' + (now.getMonth()+1)).padStart(2, '0') + '-' + ('' + now.getDate()).padStart(2, '0');
+                    if (kl.time == today) {
+                        latestPrice = kl.o;
                     }
+                }
+                if (latestPrice) {
+                    this.strategies[this.gmeta.guardid].data.guardPrice = Math.min(latestPrice * 0.885, this.buydetail.averPrice() * 0.885, kl.l * 1);
                 } else {
+                    this.strategies[this.gmeta.guardid].data.guardPrice = Math.min(this.buydetail.averPrice() * 0.885, kl.l * 1);
                     emjyBack.log('no daily kline data', this.code, this.account);
                 }
                 if (this.gmeta.settop && !this.strategies[this.gmeta.guardid].data.topprice) {
-                    this.strategies[this.gmeta.guardid].data.topprice = this.buydetail.averPrice() + this.buydetail.averPrice() - this.strategies[this.gmeta.guardid].data.guardPrice
+                    this.strategies[this.gmeta.guardid].data.topprice = this.buydetail.averPrice() * 1.06;
                     delete(this.gmeta.settop);
+                }
+                if (!this.strategies[this.gmeta.guardid].data.enabled) {
+                    this.strategies[this.gmeta.guardid].data.enabled = true;
                 }
             }
             delete(this.gmeta.setguard);

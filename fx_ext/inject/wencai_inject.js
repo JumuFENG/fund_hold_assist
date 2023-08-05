@@ -1,5 +1,5 @@
 let emStockUrl = 'http://quote.eastmoney.com/concept/';
-let emStockUrlTail = '.html#fschart-k';
+let emStockUrlTail = '.html#fullScreenChart';
 
 class WencaiFront {
 	stockMarketCode(code) {

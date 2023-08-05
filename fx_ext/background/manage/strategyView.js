@@ -638,8 +638,8 @@ class StrategyBuyView extends StrategyBaseView {
                     this.strategy.rate0 = this.rate0Ipt.value / 100;
                     changed = true;
                 }
-                if (this.strategy.rate1 != this.rate0Ipt.value / 100) {
-                    this.strategy.rate1 = this.rate0Ipt.value / 100;
+                if (this.strategy.rate1 != this.rate1Ipt.value / 100) {
+                    this.strategy.rate1 = this.rate1Ipt.value / 100;
                     changed = true;
                 }
             }

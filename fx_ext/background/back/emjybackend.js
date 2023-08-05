@@ -22,6 +22,12 @@ class ManagerBack {
             emjyBack.normalAccount.save();
             emjyBack.collateralAccount.save();
             emjyBack.trackAccount.save();
+            if (emjyBack.mgrFetched) {
+                emjyBack.mgrFetched.forEach(c => {
+                    emjyBack.klines[c].save();
+                });
+                delete(emjyBack.mgrFetched)
+            }
             this.tabid = null;
         } else if (message.command == 'mngr.export') {
             emjyBack.exportConfig();
@@ -37,8 +43,18 @@ class ManagerBack {
             emjyBack.removeStock(message.account, message.code);
         } else if (message.command == 'mngr.getZTPool') {
             emjyBack.postQuoteWorkerMessage({command:'quote.get.ZTPool', date: message.date});
+        } else if (message.command == 'mngr.checkrzrq') {
+            emjyBack.checkRzrq(message.code, rzrq => {
+                this.sendManagerMessage({command:'mngr.checkrzrq', rzrq});
+            });
         } else if (message.command == 'mngr.getkline') {
             emjyBack.postQuoteWorkerMessage({command: 'quote.get.kline', code: message.code, date: message.date, len: message.len, market: emjyBack.getStockMarketHS(message.code)});
+        } else if (message.command == 'mngr.fetchkline') {
+            emjyBack.fetchStockKline(message.code, message.kltype, message.date);
+            if (!emjyBack.mgrFetched) {
+                emjyBack.mgrFetched = new Set();
+            }
+            emjyBack.mgrFetched.add(message.code);
         } else if (message.command == 'mngr.saveFile') {
             emjyBack.saveToFile(message.blob, message.filename);
         };
@@ -82,6 +98,7 @@ class EmjyBack {
         this.creditAccount = null;
         this.contentProxies = [];
         this.stockMarket = {};
+        this.stockZdtPrices = {};
         this.klineAlarms = null;
         this.ztBoardTimer = null;
         this.rtpTimer = null;
@@ -151,6 +168,9 @@ class EmjyBack {
                 this.smiList = smi;
             }
         });
+        this.getFromLocal('purchase_new_stocks', pns => {
+            this.purchaseNewStocks = pns;
+        });
         this.setupQuoteAlarms();
         this.log('EmjyBack initialized!');
     }
@@ -170,8 +190,7 @@ class EmjyBack {
             for (var tab of tabs) {
                 var url = new URL(tab.url);
                 if (url.host == 'jywg.18.cn') {
-                    emtab = tab;
-                    break;
+                    chrome.tabs.remove(tab.id);
                 }
             }
             emjyBack.InitMainTab(emtab);
@@ -191,11 +210,6 @@ class EmjyBack {
                         this.checkMainTabCreated();
                     }
                 );
-            });
-        } else {
-            chrome.tabs.reload(tab.id, {bypassCache: true}, () => {
-                this.mainTab = tab;
-                this.checkMainTabCreated();
             });
         }
     }
@@ -220,7 +234,7 @@ class EmjyBack {
     }
 
     onContentLoaded(message, tabid) {
-        this.log('onContentLoaded', message, tabid);
+        this.log('onContentLoaded', JSON.stringify(message), tabid);
         if (!this.mainTab || !this.mainTab.created) {
             return;
         };
@@ -263,22 +277,56 @@ class EmjyBack {
         this.sendMessageToContent({command:'emjy.loginnp', np: this.unp});
     }
 
-    sendMessageToContent(data) {
+    sendPendingMessages() {
         var url = new URL(this.mainTab.url);
         if (!this.mainTab.id || url.host != 'jywg.18.cn') {
-            if (!this.pendingContentMsgs) {
-                this.pendingContentMsgs = [];
-            }
-            this.pendingContentMsgs.push(data);
+            this.pendingTimeout = setTimeout(() => {
+                this.sendPendingMessages();
+            }, 300);
             return;
         }
-
         if (this.pendingContentMsgs && this.pendingContentMsgs.length > 0) {
             this.pendingContentMsgs.forEach(m => {
                 chrome.tabs.sendMessage(this.mainTab.id, m);
                 this.log('sendMsgToMainTabContent pending', JSON.stringify(m));
             });
+            clearTimeout(this.pendingTimeout);
+            delete(this.pendingTimeout);
             delete(this.pendingContentMsgs);
+        }
+    }
+
+    insertPendingMessage(data) {
+        if (!this.pendingContentMsgs) {
+            this.pendingContentMsgs = [];
+        }
+        const uniqueCommands = ['emjy.loginnp', 'emjy.captcha'];
+        if (!uniqueCommands.includes(data.command)) {
+            this.pendingContentMsgs.push(data);
+            return;
+        }
+        var cidx = this.pendingContentMsgs.findIndex(x => x.command == data.command);
+        if (cidx > 0) {
+            this.pendingContentMsgs[cidx] = data;
+        } else {
+            this.pendingContentMsgs.push(data);
+        }
+    }
+
+    sendMessageToContent(data) {
+        if (!this.mainTab || !this.mainTab.id || (new URL(this.mainTab.url)).host != 'jywg.18.cn') {
+            this.insertPendingMessage(data);
+            if (this.pendingTimeout) {
+                clearTimeout(this.pendingTimeout);
+            }
+            this.pendingTimeout = setTimeout(() => {
+                this.sendPendingMessages();
+            }, 300);
+            return;
+        }
+
+        if (!this.pendingTimeout) {
+            this.sendPendingMessages();
         }
         chrome.tabs.sendMessage(this.mainTab.id, data);
         this.log('sendMsgToMainTabContent', JSON.stringify(data));
@@ -292,6 +340,11 @@ class EmjyBack {
 
         this.log('onContentMessageReceived', tabid);
         if (message.command == 'emjy.getValidateKey') {
+            chrome.tabs.executeScript(tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
+            if (this.validateKey == message.key) {
+                this.log('getValidateKey same, skip!');
+                return;
+            }
             this.log('getValidateKey =', message.key);
             this.validateKey = message.key;
             this.loadAssets();
@@ -299,8 +352,8 @@ class EmjyBack {
                 // update history deals every Monday morning.
                 this.updateHistDeals();
             }
-        } else if (message.command == 'emjy.capcha') {
-            this.recoginzeCapcha(message.img);
+        } else if (message.command == 'emjy.captcha') {
+            this.recoginzeCaptcha(message.img);
         } else if (message.command == 'emjy.loginnp') {
             this.sendLoginInfo();
         } else if (message.command == 'emjy.trade') {
@@ -660,12 +713,12 @@ class EmjyBack {
         }
     }
 
-    recoginzeCapcha(img) {
+    recoginzeCaptcha(img) {
         if (!this.fha) {
             this.getFromLocal('fha_server', fhaInfo => {
                 if (fhaInfo) {
                     this.fha = fhaInfo;
-                    this.recoginzeCapcha(img);
+                    this.recoginzeCaptcha(img);
                 }
             })
             return;
@@ -675,7 +728,7 @@ class EmjyBack {
         var dfd = new FormData();
         dfd.append('img', img);
         xmlHttpPost(url, dfd, null, r => {
-            this.sendMessageToContent({'command': 'emjy.capcha', 'text': r});
+            this.sendMessageToContent({'command': 'emjy.captcha', 'text': r});
         });
     }
 
@@ -726,6 +779,17 @@ class EmjyBack {
             return 0;
         }
         return (curSmi - buySmi) / buySmi;
+    }
+
+    checkRzrq(code, cb) {
+        if (!this.creditAccount) {
+            cb(null);
+            return;
+        }
+        if (!this.creditAccount.tradeClient) {
+            this.creditAccount.createTradeClient();
+        }
+        this.creditAccount.tradeClient.checkRzrqTarget(code, cb);
     }
 
     trySellStock(code, price, count, account, cb) {
@@ -857,6 +921,7 @@ class EmjyBack {
     onAlarm(alarmInfo) {
         if (alarmInfo.name == 'morning-prestart') {
             this.ztBoardTimer.startTimer();
+            this.fetchAllStocksZdtPrices();
         } else if (alarmInfo.name == 'morning-start') {
             this.rtpTimer.startTimer();
             this.klineAlarms.startTimer();
@@ -1021,8 +1086,10 @@ class EmjyBack {
     }
 
     tradeDailyRoutineTasks() {
-        var nsClient = new NewStocksClient(this.validateKey);
-        nsClient.buy();
+        if (this.purchaseNewStocks) {
+            var nsClient = new NewStocksClient(this.validateKey);
+            nsClient.buy();
+        }
         var nbClient = new NewBondsClient(this.validateKey);
         nbClient.buy();
     }
@@ -1057,6 +1124,26 @@ class EmjyBack {
         this.log('fetch all stock market info!');
     }
 
+    fetchAllStocksZdtPrices() {
+        var stkset = new Set();
+        this.normalAccount.stocks.forEach(s => {stkset.add(s.code)});
+        this.collateralAccount.stocks.forEach(s => {stkset.add(s.code)});
+        this.trackAccount.stocks.forEach(s => {stkset.add(s.code)});
+        if (!this.normalAccount.tradeClient) {
+            this.normalAccount.createTradeClient();
+        }
+        for (const code of stkset) {
+            if (code.length != 6 || !(code.startsWith('6') || code.startsWith('3') || code.startsWith('0'))) {
+                continue;
+            }
+            if (!this.stockZdtPrices[code]) {
+                this.normalAccount.tradeClient.getRtPrice(code, pobj => {
+                    this.stockZdtPrices[code] = {'ztprice': pobj.tp, 'dtprice': pobj.bp};
+                });
+            }
+        }
+    }
+
     scheduleNewTabCommand(command) {
         if (this.authencated) {
             command.triggerTask();
@@ -1082,12 +1169,42 @@ class EmjyBack {
             chrome.storage.local.set({'hsj_stocks': this.stockMarket});
         }
         var s101 = new Set();
+        var s15 = new Set();
         this.dailyAlarm.stocks['101'].forEach(s => s101.add(s));
         this.dailyAlarm.stocks['15'].forEach(s => s101.add(s));
         this.klineAlarms.stocks['15'].forEach(s => s101.add(s));
         this.klineAlarms.stocks['101'].forEach(s => s101.add(s));
+        this.normalAccount.stocks.forEach(s => {
+            var kl = this.klines[s.code] ? this.klines[s.code].getLatestKline('101') : undefined;
+            if (kl && kl.time != this.getTodayDate('-')) {
+                s101.add(s.code);
+            }
+            var kl15 = this.klines[s.code] ? this.klines[s.code].getLatestKline('15') : undefined;
+            if (kl15 && kl15.time != this.getTodayDate('-') + ' 15:00') {
+                s15.add(s.code)
+            }
+        });
+        this.collateralAccount.stocks.forEach(s => {
+            var kl = this.klines[s.code] ? this.klines[s.code].getLatestKline('101') : undefined;
+            if (kl && kl.time != this.getTodayDate('-')) {
+                s101.add(s.code);
+            }
+            var kl15 = this.klines[s.code] ? this.klines[s.code].getLatestKline('15') : undefined;
+            if (kl15 && kl15.time != this.getTodayDate('-') + ' 15:00') {
+                s15.add(s.code)
+            }
+        });
+        this.trackAccount.stocks.forEach(s => {
+            var kl = this.klines[s.code] ? this.klines[s.code].getLatestKline('101') : undefined;
+            if (kl && kl.time != this.getTodayDate('-')) {
+                s101.add(s.code);
+            }
+            var kl15 = this.klines[s.code] ? this.klines[s.code].getLatestKline('15') : undefined;
+            if (kl15 && kl15.time != this.getTodayDate('-') + ' 15:00') {
+                s15.add(s.code)
+            }
+        });
         s101.forEach(s => {this.fetchStockKline(s, '101')});
-        var s15 = new Set();
         this.dailyAlarm.stocks['101'].forEach(s => s15.add(s));
         s15.forEach(s => {this.fetchStockKline(s, '15')});
         setTimeout(()=> {
