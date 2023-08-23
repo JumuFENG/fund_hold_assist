@@ -15,6 +15,7 @@ from rest_app.monthly_update import MonthlyUpdater
 from history.stock_history import *
 from user.models import *
 from user.user_stock import *
+from web_sockets import run_web_socket
 
 startuplogfile = os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/startuptasks.log')
 perCount = 200
@@ -111,14 +112,6 @@ def monthly_should_run(lastrun, now):
 
     return False
 
-def trade_closed_task():
-    dnow = datetime.now()
-    print('trade_closed_task', dnow.strftime(f"%Y-%m-%d %H:%M:%s"))
-    um = UserModel()
-    user = um.user_by_id(11)
-    user.save_stocks_eaning_html(shared_cloud_foler)
-    print('\n')
-
 def run_regular_tasks(dnow):
     print('run_regular_tasks begin', datetime.now().strftime(f"%Y-%m-%d %H:%M"))
     retry = 0
@@ -162,6 +155,11 @@ def run_regular_tasks(dnow):
                 continue
             sh.getKHistoryFromSohuTillToday(c)
 
+        if len(StockGlobal.klupdateFailed) > 0:
+            sa = StockAnnoucements()
+            sa.check_stock_quit(StockGlobal.klupdateFailed)
+            StockGlobal.klupdateFailed.clear()
+
         startconfig['last_updated_id'] = startIstk + perCount
         if len(stocks) < startconfig['last_updated_id']:
             startconfig['last_updated_id'] -= len(stocks)
@@ -197,14 +195,16 @@ if __name__ == '__main__':
 
     schedule_pmset(dnow)
     check_local_server()
-    run_regular_tasks(dnow)
 
     mtd = TradingDate.maxTradingDate()
-    if dnow.weekday() < 5 and dnow.hour < 15 and Utils.today_date() == mtd:
-        print('start timer task!')
-        secs = (datetime.strptime(dnow.strftime('%Y-%m-%d') + ' 15:01', '%Y-%m-%d %H:%M') - dnow).seconds
-        ttask = Timer(secs, trade_closed_task)
-        ttask.start()
+    if dnow.weekday() < 5 and Utils.today_date() == mtd and dnow.hour < 15:
+        print('start daily tasks!')
+        task_files = ['trade_closed.py', 'trade_opening.py']
+        for tfile in task_files:
+            task_spath = os.path.join(os.path.dirname(__file__), 'ws_tasks', tfile)
+            os.system(f"{sys.executable} {task_spath}")
 
-    print('startuptasks exit!')
-    print('------------------------------------------------------------------------\n')
+    run_regular_tasks(dnow)
+    print('startuptasks done!')
+    print('\n')
+    # asyncio.run(run_web_socket())
