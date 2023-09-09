@@ -1138,7 +1138,9 @@ class EmjyBack {
             }
             if (!this.stockZdtPrices[code]) {
                 this.normalAccount.tradeClient.getRtPrice(code, pobj => {
-                    this.stockZdtPrices[code] = {'ztprice': pobj.tp, 'dtprice': pobj.bp};
+                    if (pobj) {
+                        this.stockZdtPrices[code] = {'ztprice': pobj.tp, 'dtprice': pobj.bp};
+                    }
                 });
             }
         }

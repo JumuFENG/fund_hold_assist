@@ -47,6 +47,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyBuyBE') {
             return new StrategyBuyBeforEndView(strategy);
         };
+        if (strategy.key == 'StrategySellBE') {
+            return new StrategySellBeforEndView(strategy);
+        };
         if (strategy.key == 'StrategyBuyMAE') {
             return new StrategyBuyMABeforeEndView(strategy);
         };
@@ -898,6 +901,41 @@ class StrategyBuyBeforEndView extends StrategyBuyMAView {
         view.appendChild(document.createTextNode('陆地朝阳(阴后阳缩量, 尾盘买入)'));
         view.appendChild(this.createBuyAccountSelector());
         return view;
+    }
+}
+
+class StrategySellBeforEndView extends StrategySellMAView {
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('尾盘卖出, 不涨停 或 不创新高(最高价/最低价)'));
+        view.appendChild(this.createConditionSelector());
+        view.appendChild(this.createSellCountTypeSelector());
+        return view;
+    }
+
+    createConditionSelector() {
+        var selDiv = document.createElement('div');
+        selDiv.appendChild(document.createTextNode('卖出条件'));
+        this.sellSelector = document.createElement('select');
+        const optConds = {'不涨停':1, '均不创新高':1<<1, '任一不创新高':1<<2};
+        for (var k in optConds) {
+            this.sellSelector.options.add(new Option(k, optConds[k]));
+        }
+        if (this.strategy.sell_conds) {
+            this.sellSelector.value = this.strategy.sell_conds;
+        }
+        selDiv.appendChild(this.sellSelector);
+        return selDiv;
+    }
+
+    isChanged() {
+        var changed = super.isChanged();
+        if (this.strategy.sell_conds != this.sellSelector.value) {
+            this.strategy.sell_conds = this.sellSelector.value;
+            changed = true;
+        };
+        return changed;
     }
 }
 

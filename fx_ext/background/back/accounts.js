@@ -305,12 +305,16 @@ class TradeClient {
             if (httpRequest.readyState == 4 && httpRequest.status == 200) {
                 if (typeof(cb) === 'function') {
                     var resobj = JSON.parse(httpRequest.responseText.substring(cbprefix.length + 1, httpRequest.responseText.length - 2));
-                    var bp = resobj.bottomprice;
-                    var tp = resobj.topprice;
-                    var cp = resobj.realtimequote.currentPrice;
-                    var s5 = resobj.fivequote.sale5;
-                    var b5 = resobj.fivequote.buy5;
-                    cb({bp, tp, cp, s5, b5});
+                    if (resobj) {
+                        var bp = resobj.bottomprice;
+                        var tp = resobj.topprice;
+                        var cp = resobj.realtimequote.currentPrice;
+                        var s5 = resobj.fivequote.sale5;
+                        var b5 = resobj.fivequote.buy5;
+                        cb({bp, tp, cp, s5, b5});
+                    } else {
+                        cb();
+                    }
                 } else {
                     emjyBack.log('getRtPrice no callback cb set!', httpRequest.responseText);
                 }

@@ -35,4 +35,5 @@ let SellStrategyKeyNames = [
 {key: 'StrategySellELTop', name: '目标价止盈'},
 {key: 'StrategySellMA', name: 'MA突破卖出'},
 {key: 'StrategySellMAD', name: 'MA突破(动态)卖出'},
+{key: 'StrategySellBE', name: '尾盘卖出'},
 ];

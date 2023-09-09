@@ -47,6 +47,9 @@ class StrategyManager {
         if (strategy.key == 'StrategyBuyBE') {
             return new StrategyBuyBeforeEnd(strategy);
         };
+        if (strategy.key == 'StrategySellBE') {
+            return new StrategySellBeforeEnd(strategy);
+        };
         if (strategy.key == 'StrategyBuyMAE') {
             return new StrategyBuyMABeforeEnd(strategy);
         };
@@ -409,7 +412,7 @@ class Strategy {
             if (num >= 60) {
                 var ztkl = klines.getKlineByTime(this.data.zt0date);
                 if (!ztkl) {
-                    emjyBack.log('error zt1VolMinBuyMatch', chkInfo.code, kltype);
+                    emjyBack.log('error zt1VolMinBuyMatch', chkInfo.code, kltype, this.data.zt0date);
                     return false;
                 }
                 if (lprc - ztkl.c > 0) {
@@ -751,7 +754,7 @@ class StrategySellIPO extends StrategySell {
         };
 
         if (rtInfo.latestPrice - this.data.prePeekPrice * 0.99 <= 0 && count > 0) {
-            matchCb({id: chkInfo.id, tradeType: 'S', count, price: rtInfo.rtInfo.buysells.buy2 == '-'? rtInfo.bottomprice : rtInfo.buysells.buy2}, _ => {
+            matchCb({id: chkInfo.id, tradeType: 'S', count, price: rtInfo.buysells.buy2 == '-'? rtInfo.bottomprice : rtInfo.buysells.buy2}, _ => {
                 this.setEnabled(false);
             });
             return;
@@ -791,7 +794,7 @@ class StrategyBuyZTBoard extends StrategyBuy {
     }
 
     check(chkInfo, matchCb) {
-        if (!this.enabled() || typeof(matchCb) !== 'function') {
+        if (!this.enabled() || this.tmpbuyonzt || typeof(matchCb) !== 'function') {
             return;
         }
 
@@ -804,8 +807,10 @@ class StrategyBuyZTBoard extends StrategyBuy {
         if (rtInfo.latestPrice == rtInfo.topprice ||
             (rtInfo.buysells.sale2 == '-' && rtInfo.buysells.sale1 == rtInfo.topprice) ||
             this.is_zt_reaching(rtInfo.buysells, rtInfo.topprice)) {
+            this.tmpbuyonzt = true;
             matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: rtInfo.topprice}, _ => {
                 this.setEnabled(false);
+                delete(this.tmpbuyonzt);
             });
         };
     }
@@ -851,7 +856,7 @@ class StrategySellEL extends StrategySell {
         };
         var count = buydetail.availableCount();
         if (rtInfo.latestPrice - guardPrice <= 0 && count > 0) {
-            matchCb({id: chkInfo.id, tradeType: 'S', count, price: (rtInfo.rtInfo.buysells.buy2 == '-' ? rtInfo.bottomprice : rtInfo.rtInfo.buysells.buy2)}, _ => {
+            matchCb({id: chkInfo.id, tradeType: 'S', count, price: (rtInfo.buysells.buy2 == '-' ? rtInfo.bottomprice : rtInfo.buysells.buy2)}, _ => {
                 this.setEnabled(false);
             });
             return;
@@ -886,11 +891,52 @@ class StrategySellEL extends StrategySell {
 
 class StrategySellELShort extends StrategySellEL {
     guardLevel() {
-        return 'kline';
+        return 'kzt';
     }
 
     kltype() {
         return '1';
+    }
+
+    check(chkInfo, matchCb) {
+        if (!this.enabled() || typeof(matchCb) !== 'function') {
+            return;
+        }
+
+        var rtInfo = chkInfo.rtInfo;
+        var buydetails = chkInfo.buydetail;
+        var latestPrice = rtInfo.latestPrice;
+        if (this.data.topprice !== undefined && latestPrice - this.data.topprice < 0) {
+            return;
+        }
+
+        if (latestPrice == rtInfo.topprice && rtInfo.buysells.sale1 == '-') {
+            this.tmpztreached = true;
+        }
+
+        if (this.tmpztreached) {
+            if (rtInfo.buysells.buy1 == rtInfo.buysells.sale1) {
+                // 集合竞价
+                return;
+            }
+            if (!this.tmpmaxb1count) {
+                this.tmpmaxb1count = rtInfo.buysells.buy1_count;
+            } else {
+                if (rtInfo.buysells.buy1_count > this.tmpmaxb1count) {
+                    this.tmpmaxb1count = rtInfo.buysells.buy1_count;
+                }
+            }
+            // 涨停之后 打开或者封单减少到当日最大封单量的1/10 卖出.
+            if (rtInfo.buysells.sale1 != '-' || rtInfo.buysells.buy1_count < this.tmpmaxb1count * 0.1) {
+                var count = buydetails.getCountMatched(this.data.cutselltype, latestPrice);
+                if (count > 0) {
+                    matchCb({id: chkInfo.id, tradeType: 'S', count, price: (rtInfo.buysells.buy2 == '-' ? rtInfo.bottomprice : rtInfo.buysells.buy2)}, _ => {
+                        this.setEnabled(false);
+                    });
+                    return;
+                }
+            }
+        }
     }
 
     checkKlines(chkInfo, matchCb) {
@@ -1284,12 +1330,87 @@ class StrategyBuyBeforeEnd extends Strategy {
             }
             return;
         }
+    }
+}
 
-        // 尾盘直接卖出
-        if (buydetails && buydetails.buyRecords().length == 1) {
-            var count = buydetails.availableCount();
-            if (count > 0) {
-                matchCb({id: chkInfo.id, tradeType: 'S', count: buydetails.availableCount(), price: kl.o}, _ => {
+class StrategySellBeforeEnd extends Strategy {
+    guardLevel() {
+        return 'kday';
+    }
+
+    kltype() {
+        return '101';
+    }
+
+    checkKlines(chkInfo, matchCb) {
+        if (typeof(matchCb) !== 'function') {
+            return;
+        }
+
+        var klines = emjyBack.klines[chkInfo.code];
+        var updatedKlt = chkInfo.kltypes;
+        var buydetails = chkInfo.buydetail;
+        if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
+            return;
+        }
+
+        var kltype = this.kltype();
+        if (!updatedKlt.includes(kltype)) {
+            return;
+        }
+
+        if (!buydetails || buydetails.buyRecords().length == 0) {
+            // 没有买入记录
+            return;
+        }
+
+        var count = buydetails.availableCount();
+        if (count <= 0) {
+            return;
+        }
+        if (!this.data.sell_conds) {
+            return;
+        }
+
+        const conditions = {'not_zt': 1,  'h_and_l_dec': 1<<1, 'h_or_l_dec':1<<2};
+        var kl = klines.getLatestKline(kltype);
+        if (!this.data.selltype) {
+            this.data.selltype = 'single';
+        }
+        count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
+        if (this.data.sell_conds & conditions['not_zt']) {
+            if (emjyBack.stockZdtPrices && emjyBack.stockZdtPrices[chkInfo.code] && kl.c - emjyBack.stockZdtPrices[chkInfo.code].ztprice < 0) {
+                matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                    this.setEnabled(false);
+                });
+                return;
+            }
+        }
+
+        var prekl = klines.getPrevKline(kltype);
+        if (prekl.time == kl.time) {
+            emjyBack.log('invalid prev kline data!');
+            return;
+        }
+
+        var zt = emjyBack.stockZdtPrices && emjyBack.stockZdtPrices[chkInfo.code] && kl.c - emjyBack.stockZdtPrices[chkInfo.code].ztprice >= 0
+        var hinc = kl.h - prekl.h > 0 || zt;
+        var linc = kl.l - prekl.l > 0;
+        if (this.data.sell_conds && conditions['h_and_l_dec']) {
+            // 最高价和最低价都不增加时卖出
+            if (!hinc && !linc) {
+                emjyBack.log('StrategySellBeforeEnd kl', JSON.stringify(kl), 'prekl', JSON.stringify(prekl));
+                matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                    this.setEnabled(false);
+                });
+                return;
+            }
+        }
+        if (this.data.sell_conds && conditions['h_or_l_dec']) {
+            // 最高价或最低价不增加时卖出
+            if (!hinc || !linc) {
+                emjyBack.log('StrategySellBeforeEnd kl', JSON.stringify(kl), 'prekl', JSON.stringify(prekl));
+                matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
                     this.setEnabled(false);
                 });
                 return;

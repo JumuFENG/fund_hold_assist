@@ -39,7 +39,11 @@ function xmlHttpGet(url, cb) {
 function queryStockInfo(code) {
     var url = SHSZQueryUrl + code;
     xmlHttpGet(url, (response) => {
-        var sData = response.match(/var sData = "(.+?);";/)[1];
+        var sData = response.match(/var sData = "(.+?);";/)
+        if (!sData) {
+            return;
+        }
+        sData = sData[1];
         if (!sData.includes(',')) {
             postMessage({command:'quote.query.stock', sdata: {code, market:code.startsWith('60') ||code.startsWith('68') ? 'SH' : 'SZ'}});
         } else {
