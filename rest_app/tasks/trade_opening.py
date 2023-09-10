@@ -7,7 +7,6 @@ sys.path.insert(0, os.path.realpath(os.path.dirname(os.path.realpath(__file__)) 
 
 from user.models import *
 from timer_task import TimerTask
-from threading import Timer
 
 
 class AuctionTask(TimerTask):
@@ -21,6 +20,8 @@ def stock_market_opening_task():
 
 
 if __name__ == '__main__':
-    print('start trade opening tasks!')
+    Utils.setup_logger()
+    TimerTask.setup_logger(Utils.logger)
+    TimerTask.logger.info('start trade opening tasks!')
     tasks = [AuctionTask(stock_market_opening_task)]
     TimerTask.run_tasks(tasks)

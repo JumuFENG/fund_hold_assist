@@ -5,8 +5,8 @@ import sys
 from threading import Thread
 from datetime import datetime, timedelta
 import os
-import random
-sys.path.insert(0, os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/..'))
+import traceback
+sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../..'))
 from utils import *
 from user import *
 from history import *
@@ -18,21 +18,21 @@ class DailyUpdater():
         self.sqldb = SqlHelper(password = db_pwd, database = fund_db_name)
 
     def update_all(self):
-        print("START UPDATING....",datetime.now())
+        Utils.log(f"START UPDATING....")
         datetoday = datetime.now()
         if datetoday.weekday() >= 5:
-            print("it is weekend, no data to update.", datetoday.strftime("%Y-%m-%d"))
+            Utils.log(f'it is weekend, no data to update. {datetoday.strftime("%Y-%m-%d")}')
             return
 
         strtoday = Utils.today_date()
         if TradingDate.isholiday(strtoday):
-            print("it is holiday, no data to update.", strtoday)
+            Utils.log(f"it is holiday, no data to update. {strtoday}")
             return
 
         morningOnetime = False
         if datetoday.hour < 12:
             morningOnetime = True
-            print("update in the morning at", datetoday.hour)
+            Utils.log(f"update in the morning at {datetoday.hour}")
 
         self.download_all_fund_history(morningOnetime)
         self.download_all_gold_history(morningOnetime)
@@ -40,23 +40,24 @@ class DailyUpdater():
         self.update_stock_hotrank()
         if morningOnetime:
             # 只在早上执行的任务
-            print("update in the morning...")
+            Utils.log("update in the morning...")
             # 分红派息，每天更新一次即可
             self.download_newly_noticed_bonuses()
             # 新股信息，可以间隔几天更新一次
             self.fetch_new_ipo_stocks()
         else:
             # 只在晚上执行的任务
-            print("update in the afternoon")
+            Utils.log("update in the afternoon")
             # 机构游资龙虎榜，可以间隔，首选晚上更新
             self.fetch_dfsorg_stocks()
-            # 涨跌停数据，可以间隔，早晚都合适
-            self.fetch_zdt_stocks()
             # 更新所有股票都日k数据
             self.download_all_stocks_khistory()
+            # 涨跌停数据，可以间隔，早晚都合适
+            self.fetch_zdt_stocks()
             #
             self.update_selectors()
         # 早上也执行的任务，以防前一晚上没执行
+        self.update_twice_selectors()
 
     def download_all_fund_history(self, morning):
         fh = FundHistoryDataDownloader()
@@ -66,22 +67,22 @@ class DailyUpdater():
         fundcodes = self.sqldb.select(gl_all_funds_info_table, column_code, fsqlstr)
         if fundcodes:
             for c, in fundcodes:
-                print("try to update fund history for:", c)
+                Utils.log(f"try to update fund history for: {c}")
                 fh.fundHistoryTillToday(c)
 
     def download_all_gold_history(self, morning):
         if not morning:
-            print('only update gold history in the morning!')
+            Utils.log('only update gold history in the morning!')
             return
 
         goldcodes = self.sqldb.select(gl_gold_info_table, fields=[column_code, column_name])
         if goldcodes:
             gh = Gold_history()
             for (c, n) in goldcodes:
-                print("try to update gold history for:", c)
+                Utils.log(f"try to update gold history for: {c}")
                 gh.getJijinhaoHistory(c)
                 gh.getJijinhaoRtHistory(c)
-        print('gold history updated!')
+        Utils.log('gold history updated!')
 
     def download_all_index_history(self):
         indexcodes = self.sqldb.select(gl_index_info_table, fields=[column_code])
@@ -91,7 +92,7 @@ class DailyUpdater():
                 print("try to update index history for:", code)
                 ih.getKdHistoryFromSohuTillToday(code)
                 ih.getHistoryFrom163(code)
-        print('index history updated!')
+        Utils.log('index history updated!')
 
     def download_all_stocks_khistory(self):
         StockGlobal.getStocksZdfRank()
@@ -118,8 +119,8 @@ class DailyUpdater():
         for t in thds:
             t.join()
 
-        print('download_all_stocks_khistory done!')
-        print('time used:', datetime.now() - d)
+        Utils.log('download_all_stocks_khistory done!')
+        Utils.log(f'time used: { datetime.now() - d}')
 
     def thread_download_stock_khistory(self):
         if len(self.allcodes) == 0:
@@ -133,52 +134,72 @@ class DailyUpdater():
             sfh.updateFflow(code)
 
     def download_newly_noticed_bonuses(self):
-        print("update noticed bonuses")
-        dbns = DividenBonus()
-        dbns.getBonusNotice()
+        Utils.log("update noticed bonuses")
+        try:
+            dbns = StockShareBonus()
+            dbns.getNext()
+        except Exception as e:
+            Utils.log(e)
+        Utils.log('update announcements')
+        try:
+            ann = StockAnnoucements()
+            ann.getNext()
+        except Exception as e:
+            Utils.log(e)
 
     def fetch_new_ipo_stocks(self):
-        print("update new IPO stocks")
+        Utils.log("update new IPO stocks")
         stkall = AllStocks()
         stkall.loadNewStock()
 
     def fetch_zdt_stocks(self):
-        print('update zt info')
-        ztinfo = StockZtInfo()
+        Utils.log('update ST bk stocks')
+        stbk = StockEmBk('BK0511')
+        stbk.getNext()
+
+        Utils.log('update zt info')
+        ztinfo = StockZtDaily()
         ztinfo.getNext()
 
-        print('update zt concepts')
+        Utils.log('update zt concepts')
         ztcpt = StockZtConcepts()
         ztcpt.getNext()
 
-        print('update dt info')
+        Utils.log('update dt info')
         dtinfo = StockDtInfo()
         dtinfo.getNext()
 
     def fetch_dfsorg_stocks(self):
         dfsorg = StockDfsorg()
-        dfsorg.updateDfsorg()
+        try:
+            dfsorg.updateDfsorg()
+        except Exception as e:
+            Utils.log(e, Utils.Err)
+            Utils.log(traceback.format_exc(), Utils.Err)
 
     def update_selectors(self):
-        print('update dzt info')
-        sds = StockDztSelector()
-        sds.updatePickUps()
-
-        print('update zt1')
-        szt1 = StockZt1Selector()
-        szt1.updatePickUps()
-
-        print('update dtmap info')
+        Utils.log('update dtmap info')
         sdm = StockDtMap()
         sdm.updateDtMap()
 
-        print('update dt3')
+        Utils.log('update dt3')
         dts = StockDt3Selector()
         dts.updateDt3()
 
-        print('update cents')
-        scs = StockCentsSelector()
-        scs.updatePickUps()
+        selectors = [
+            StockDztSelector(), StockZt1Selector(), StockCentsSelector(),
+            StockMaConvergenceSelector(), StockZdfRanks(), StockZtLeadingSelector(),
+            StockZtLeadingSelectorST(), StockDztStSelector()]
+        for sel in selectors:
+            Utils.log(f'update { sel.__class__.__name__}')
+            sel.updatePickUps()
+
+    def update_twice_selectors(self):
+        selectors = [
+            StockUstSelector()]
+        for sel in selectors:
+            Utils.log(f'update {sel.__class__.__name__}')
+            sel.updatePickUps()
 
     def update_stock_hotrank(self):
         shr = StockHotRank()
@@ -187,4 +208,5 @@ class DailyUpdater():
 
 if __name__ == '__main__':
     du = DailyUpdater()
-    du.update_all()
+    # du.download_newly_noticed_bonuses()
+    du.fetch_dfsorg_stocks()

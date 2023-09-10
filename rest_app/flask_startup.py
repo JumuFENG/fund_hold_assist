@@ -316,6 +316,13 @@ def stock():
             sdm = StockDtMap()
             dtmap = sdm.dumpDataByDate(date)
             return json.dumps(dtmap)
+        if actype == 'ztmap':
+            date = request.args.get('date', type=str, default=None)
+            days = request.args.get('days', type=int, default=3)
+            mkt = request.args.get('mkt', type=str, default='A')
+            szd = StockZtDaily()
+            ztmap = szd.dumpDataByDate(date, days, mkt)
+            return json.dumps(ztmap)
         if actype == 'ztconcept':
             days = request.args.get('days', type=int, default=40)
             szc = StockZtConcepts()
@@ -325,17 +332,26 @@ def stock():
             date = request.args.get('date', type=str, default=None)
             key = request.args.get('key', type=str, default=None)
             if key == 'zt1':
-                zts = StockZt1Selector()
-                zt1 = zts.dumpDataByDate(date)
-                return json.dumps(zt1)
-            if key == 'dt3':
-                # dts = StockDt3Selector()
-                # dt3 = dts.dumpDataByDate(date)
-                # return json.dumps(dt3)
-                return f'selector refactoring...'
+                szi = StockZtDailyMain()
+                zt = szi.dumpDataByDate(date)
+                return json.dumps(zt)
+            if key == 'zt1_1':
+                szi = StockZtDailyMain()
+                zt = szi.dump1d1ByDate(date)
+                return json.dumps(zt)
+            if key == 'zt_lead':
+                szi = StockZtLeadingSelector()
+                zt = szi.dumpDataByDate(date)
+                return json.dumps(zt)
+            if key == 'zt_predict':
+                szd = StockZtDaily()
+                zp = szd.predictNextZtMap(date)
+                return json.dumps(zp)
             if key == 'dzt':
                 dzts = StockDztSelector()
                 dzt = dzts.dumpDataByDate(date)
+                dztst = StockDztStSelector()
+                dzt += dztst.dumpDataByDate(date)
                 return json.dumps(dzt)
             if key == 'cents':
                 cts = StockCentsSelector()
@@ -354,8 +370,8 @@ def stock():
             key = request.args.get('key', type=str, default=None)
             if key == 'zt1':
                 zts = StockZt1Selector()
-                # zt1 = zts.dumpFinishedRecords()
-                return json.dumps('TODO')
+                zt1 = zts.dumpSelectedRecords()
+                return json.dumps(zt1)
             if key == 'dt3':
                 dts = StockDt3Selector()
                 dt3 = dts.dumpFinishedRecords()
@@ -364,6 +380,11 @@ def stock():
                 cts = StockCentsSelector()
                 c = cts.dumpFinishedRecords()
                 return json.dumps(c)
+            if key == 'ipo':
+                return json.dumps(StockGlobal.getAllStocksSetup())
+            if key == 'sreview':
+                stdr = StockTrackDealReview()
+                return json.dumps(stdr.dumpTrackReviews())
             return f'Unknown key {key}', 404
         if actype == 'dealcategory':
             dc = StockTrackDeals()
@@ -373,6 +394,20 @@ def stock():
             if tname != 'archived':
                 std = StockTrackDeals()
                 return json.dumps(std.get_deals(tname))
+        if actype == 'rank':
+            code = request.args.get('code', type=str, default=None)
+            start = request.args.get('start', type=str, default='')
+            szr = StockZdfRanks()
+            if code is None:
+                rk = szr.dumpDataByDate(start)
+                return json.dumps(rk)
+            rk = szr.dumpDataByCode(code, start)
+            return json.dumps(rk)
+        if actype == 'hotrank':
+            date = request.args.get('date', type=str, default=None)
+            shr = StockHotRank()
+            rk = shr.dumpDataByDate(date)
+            return json.dumps(rk)
 
     usermodel = UserModel()
     if not session.get('logged_in'):
@@ -625,13 +660,14 @@ def stock_zthist():
         date = request.args.get('date', type=str, default=None)
         concept = request.args.get('concept', type=str, default=None)
         daily = request.args.get('daily', type=bool, default=False)
-        szi = StockZtInfo()
+        szi = StockZtDailyMain()
         if daily:
             return json.dumps(szi.dumpDailyZt())
         if concept is None:
             zt = szi.dumpDataByDate(date)
             return json.dumps(zt)
         else:
+            szi = StockZtDaily()
             zt = szi.dumpZtDataByConcept(date, concept)
             return json.dumps(zt)
     return 'get stock zt history, error!'
@@ -654,11 +690,27 @@ def stock_allinfo():
 
 @app.route('/api/get')
 def get_http_request():
-    url = urllib.parse.unquote(request.args.get('url',''))
+    url = request.args.get('url','')
     if not url:
         return "No url specified."
+    if ':' not in url:
+        url = base64.b64decode(url).decode()
 
-    rsp = requests.get(url)
+    header = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/114.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive'
+    }
+    host = request.args.get('host', None, str)
+    referer = request.args.get('referer', None, str)
+    if host is not None:
+        header['Host'] = host
+    if referer is not None:
+        header['Referer'] = referer
+
+    rsp = requests.get(url, params=header)
     return rsp.content.decode('utf-8')
 
 @app.route('/api/captcha', methods=['GET', 'POST'])

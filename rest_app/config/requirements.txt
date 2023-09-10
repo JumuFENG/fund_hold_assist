@@ -1,4 +1,4 @@
-pymysql
+mysql-connector-python
 cryptography
 requests
 beautifulsoup4
@@ -6,3 +6,7 @@ pandas
 flask
 gunicorn
 colorama
+pytest
+ddddocr
+Image
+websockets

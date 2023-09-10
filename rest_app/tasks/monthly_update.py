@@ -4,7 +4,7 @@
 import sys
 from datetime import datetime, timedelta
 import os
-sys.path.insert(0, os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/..'))
+sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../..'))
 from utils import *
 from user import *
 from history import *

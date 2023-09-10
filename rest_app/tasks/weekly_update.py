@@ -4,7 +4,7 @@
 import sys
 from datetime import datetime, timedelta
 import os
-sys.path.insert(0, os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/..'))
+sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../..'))
 from utils import *
 from user import *
 from history import *
@@ -15,8 +15,7 @@ class WeeklyUpdater():
         pass
 
     def update_all(self):
-        print('')
-        print('Start weekly update.', datetime.now())
+        Utils.log('Start weekly update.')
 
         all_idx = AllIndexes()
         codes = all_idx.sqldb.select(all_idx.infoTable, '*')
