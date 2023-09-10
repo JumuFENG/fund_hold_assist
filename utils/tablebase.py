@@ -1,6 +1,9 @@
 # Python 3
 # -*- coding:utf-8 -*-
 from utils import *
+from threading import Thread
+from datetime import datetime
+
 
 class TableBase():
     def __init__(self, autocreate = True) -> None:
@@ -15,7 +18,8 @@ class TableBase():
         self.colheaders = []
 
     def _check_table_exists(self):
-        self.sqldb = SqlHelper(password = db_pwd, database = self.dbname)
+        if not hasattr(self, 'sqldb') or self.sqldb is None:
+            self.sqldb = SqlHelper(password = db_pwd, database = self.dbname)
         return self.sqldb.isExistTable(self.tablename)
 
     def _check_or_create_table(self):
@@ -69,5 +73,36 @@ class TableBase():
     def dumpDataByDate(self, date = None):
         pool = self.sqldb.select(self.tablename, self.getDumpKeys(), self.getDumpCondition(date))
         if pool is None or len(pool) == 0:
-            return ''
+            return []
         return pool
+
+
+class MultiThrdTableBase(TableBase):
+    def __init__(self, autocreate=True) -> None:
+        self.threads_num = 2
+        super().__init__(autocreate)
+
+    def task_prepare(self, date=None):
+        pass
+
+    def post_process(self):
+        pass
+
+    def task_processing(self):
+        pass
+
+    def start_multi_task(self, date=None):
+        self.task_prepare(date)
+
+        ctime = datetime.now()
+        t_thrds = []
+        for x in range(0, self.threads_num):
+            t = Thread(target=self.task_processing)
+            t.start()
+            t_thrds.append(t)
+
+        for t in t_thrds:
+            t.join()
+
+        Utils.log(f'time used: {datetime.now() - ctime}')
+        self.post_process()

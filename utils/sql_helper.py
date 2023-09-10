@@ -118,25 +118,34 @@ class SqlHelper():
         sql = f'insert into {tablename} ({",".join(key)}) values({",".join(value)})'
         self.executeCommit(sql)
 
-    def where_states(self, conds=''):
-        if not conds or conds == '' or len(conds) == 0:
+    def generate_where_clause(self, conditions=''):
+        """
+        生成WHERE子句的函数
+
+        Args:
+            conditions (str, list, tuple, dict): 查询条件
+
+        Returns:
+            str: 生成的WHERE子句
+        """
+        if not conditions or conditions == '' or len(conditions) == 0:
             return ''
 
-        consql = ''
-        if isinstance(conds, list) or isinstance(conds, tuple):
-            consql = 'where ' + ' and '.join(conds)
-        elif isinstance(conds, dict):
-            consql = 'where ' + ' and '.join(
-                [str(k) + (' is NULL' if v is None else f'="{str(v)}"') for k, v in conds.items()])
+        where_clause = ''
+        if isinstance(conditions, (list, tuple)):
+            where_clause = 'WHERE ' + ' AND '.join(conditions)
+        elif isinstance(conditions, dict):
+            where_clause = 'WHERE ' + ' AND '.join(
+                [f'{k} IS NULL' if v is None else f'{k}="{str(v)}"' for k, v in conditions.items()])
         else:
-            consql = 'where ' + conds
-        return consql
+            where_clause = 'WHERE ' + conditions
+        return where_clause
 
     def __gen_select_sql(self, tablename, fields='*', conds=''):
         # type: (str, str/list, list/dict/str) -> str
-        if isinstance(fields, list) or isinstance(fields, tuple):
+        if isinstance(fields, (list, tuple)):
             fields = ','.join(fields)
-        return f'''select {fields} from {tablename} {self.where_states(conds)}'''
+        return f'''select {fields} from {tablename} {self.generate_where_clause(conds)}'''
 
     def selectOneRow(self, tablename, fields='*', conds=''):
         # type: (str, str/list, list/dict/str) -> tuple
@@ -246,7 +255,7 @@ class SqlHelper():
                 mydb.delete(table, params)
 
         """
-        sql = f"DELETE FROM {tablename} {self.where_states(conds)}"
+        sql = f"DELETE FROM {tablename} {self.generate_where_clause(conds)}"
         return self.executeCommit(sql)
 
     def update(self, tablename, attrs, conds):
@@ -274,7 +283,7 @@ class SqlHelper():
                 for k, v in attrs:
                     attrs_list.append("`" + k + "`" + (' = NULL' if v is None else "=\'" + str(v) + "\'"))
         attrs_sql = ",".join(attrs_list)
-        sql = f"UPDATE {tablename} SET {attrs_sql} {self.where_states(conds)}"
+        sql = f"UPDATE {tablename} SET {attrs_sql} {self.generate_where_clause(conds)}"
         #print(sql)
         return self.executeCommit(sql)
 
@@ -294,8 +303,10 @@ class SqlHelper():
                 keys = ["name", "age", "id"]
                 conkeys = ["id"]
                 values = [["xiaoqiao", "25", 101], ["xiaoqiao1", "26", 102], ["xiaoqiao2", "27", 103], ["xiaoqiao3", "28", 104]]
-                mydb.updateMany(table, conkeys, keys, values)
+                mydb.updateMany(table, keys, conkeys, values)
         """
+        if isinstance(conkeys, str):
+            conkeys = [conkeys]
         cidx = [attrs.index(c) for c in conkeys]
         eattr = []
         for i in range(0, len(attrs)):
@@ -406,13 +417,28 @@ class SqlHelper():
         self.executeCommit(sql)
 
     def sortTable(self, tablename, col):
-        cols = self.getCloumns(tablename)
-        cols.remove('id')
-        cols.remove(col)
-        cols.insert(0, col)
+        # 获取表的所有列名
+        cols = self.getColumns(tablename)
+        cols.remove('id')  # 移除'id'列
+
+        # 查询表中的所有记录
         frecs = self.select(tablename, cols)
+
+        # 根据排序列的类型进行不同的排序操作
+        if isinstance(col, (list, tuple)):
+            # 多列排序
+            skeys = [cols.index(c) for c in col]
+            frecs = sorted(list(frecs), key=lambda x: [x[k] for k in skeys])
+        else:
+            # 单列排序
+            cid = cols.index(col)
+            frecs = sorted(list(frecs), key=lambda x: x[cid])
+
+        # 获取表中的所有'id'值
         ids = self.select(tablename, 'id')
-        frecs = sorted(list(frecs), key=lambda x: x[0])
-        for i in range(0, len(ids)):
-            frecs[i] += ids[i]
-        self.updateMany(tablename, cols, ['id'], frecs)
+
+        # 将排序后的记录与对应的'id'值合并
+        sorted_records = [record + [id] for record, id in zip(frecs, ids)]
+
+        # 更新表中的记录，包括合并后的记录和'id'值
+        self.updateMany(tablename, cols + ['id'], ['id'], sorted_records)

@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 import os
+import base64
 from PIL import Image
 from struct import unpack
 import ddddocr
@@ -46,11 +47,14 @@ class OcrCaptcha():
     @classmethod
     def img_to_text(self, img):
         if self.ocr is None:
-            ocr = ddddocr.DdddOcr(show_ad=False)
+            ocr = ddddocr.DdddOcr()
 
-        if isinstance(img, str) and os.path.isfile(img):
-            with open(img, 'rb') as f:  
-                img = f.read()
+        if isinstance(img, str):
+            if os.path.isfile(img):
+                with open(img, 'rb') as f:
+                    img = f.read()
+            else:
+                img = base64.b64decode(img.encode())
         return ocr.classification(img)
 
 

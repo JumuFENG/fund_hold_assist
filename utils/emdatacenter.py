@@ -9,9 +9,15 @@ class EmRequest():
         pass
 
     def getRequest(self, params=None, proxies=None):
-        rsp = requests.get(self.getUrl(), params=params, proxies=proxies)
-        rsp.raise_for_status()
-        return rsp.text
+        # rsp = requests.get(self.getUrl(), params=params, proxies=proxies)
+        try:
+            rsp = requests.get(self.getUrl(), headers=params, proxies=proxies)
+            rsp.raise_for_status()
+            return rsp.text
+        except Exception as e:
+            url = self.getUrl()
+            print(url)
+            raise e
 
     def getUrl(self):
         pass

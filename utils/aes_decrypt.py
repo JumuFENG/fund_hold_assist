@@ -9,56 +9,78 @@ import base64
 class AesCBCBase64:
     ''' AES 加解密 Mode: CBC, padding: pkcs7. Base64
     '''
-    def __init__(self, k, iv) -> None:
-        # type: (str, str) -> None
-        self.key = k.encode()
+    def __init__(self, key, iv):
+        """
+        初始化AES加解密对象
+
+        Args:
+            key (str): 密钥
+            iv (str): 初始化向量
+        """
+        self.key = key.encode()
         self.iv = iv.encode()
 
     def pkcs7_padding(self, data):
-        if not isinstance(data, bytes):
-            data = data.encode()
+        """
+        对数据进行PKCS7填充
 
+        Args:
+            data (bytes): 待填充的数据
+
+        Returns:
+            bytes: 填充后的数据
+        """
         padder = padding.PKCS7(algorithms.AES.block_size).padder()
-
         padded_data = padder.update(data) + padder.finalize()
-
         return padded_data
 
     def encrypt(self, data):
-        '''@data: the string to encrypt.
-        @return: Base64 encoded encrypt content.
-        '''
-        # type: (str) -> str
-        assert isinstance(data, str), 'Only encrypt for string now!'
+        """
+        使用AES加密数据
+
+        Args:
+            data (str): 待加密的数据
+
+        Returns:
+            str: Base64编码的加密数据
+        """
         data = data.encode()
-        cipher = Cipher(algorithms.AES(self.key),
-                        modes.CBC(self.iv),
-                        backend=default_backend())
+        cipher = Cipher(algorithms.AES(self.key), modes.CBC(self.iv), backend=default_backend())
         encryptor = cipher.encryptor()
         padded_data = encryptor.update(self.pkcs7_padding(data))
         return base64.b64encode(padded_data).decode()
 
     def pkcs7_unpadding(self, padded_data):
+        """
+        对PKCS7填充的数据进行解除填充
+
+        Args:
+            padded_data (bytes): 填充的数据
+
+        Returns:
+            bytes: 解除填充后的数据
+        """
         unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
         data = unpadder.update(padded_data)
-
         try:
-            uppadded_data = data + unpadder.finalize()
+            unpadded_data = data + unpadder.finalize()
         except ValueError:
             raise Exception('无效的加密信息!')
         else:
-            return uppadded_data
+            return unpadded_data
 
     def decrypt(self, data):
-        ''' @data: base64 encoded data.
-        '''
-        # type: (str) -> str
-        assert isinstance(data, str), 'only decrypt Base64 coded encrypt content'
-        data = base64.b64decode(data)
-        cipher = Cipher(algorithms.AES(self.key),
-                        modes.CBC(self.iv),
-                        backend=default_backend())
-        decryptor = cipher.decryptor()
-        uppaded_data = self.pkcs7_unpadding(decryptor.update(data))
-        return uppaded_data.decode()
+        """
+        解密Base64编码的加密数据
 
+        Args:
+            data (str): Base64编码的加密数据
+
+        Returns:
+            str: 解密后的原始数据
+        """
+        data = base64.b64decode(data)
+        cipher = Cipher(algorithms.AES(self.key), modes.CBC(self.iv), backend=default_backend())
+        decryptor = cipher.decryptor()
+        unpadded_data = self.pkcs7_unpadding(decryptor.update(data))
+        return unpadded_data.decode()
