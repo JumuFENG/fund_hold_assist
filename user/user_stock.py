@@ -23,6 +23,7 @@ class UserStock():
 
         self.buy_table = f'u{user.id}_{self.code}_buy'
         self.sell_table = f'u{user.id}_{self.code}_sell'
+        self.unknown_deals_table = user.stocks_unknown_deals_table()
 
     def check_code_exists(self):
         details = self.sqldb.select(self.stocks_table, "*", "%s = '%s'" % (column_code, self.code))
@@ -116,9 +117,25 @@ class UserStock():
             stocks.loadInfo(self.code)
 
     def _fix_buy_sell_portion(self, buys, sells):
+        if buys is None and sells is None:
+            return
+
+        sells = None if sells is None else list(sells)
+        buycount = 0
+        sellcount = 0
+        if buys is not None:
+            for bid, bdate, bprice, bportion, bsoldportion, bcost in buys:
+                buycount += (bportion - bsoldportion)
+        if sells is not None:
+            for sid, sdate, sprice, sportion, smoney in sells:
+                sellcount += sportion
+        if sellcount > buycount:
+            newinfo = {column_portion_hold:str(buycount - sellcount), column_keepeyeon:1}
+            self.sqldb.update(self.stocks_table, newinfo, {column_code: self.code})
+            return
+
         portion = Decimal(0)
         cost = Decimal(0)
-        sells = None if sells is None else list(sells)
         remsell = None
         soldcost = 0
         for (bid, bdate, bprice, bportion, bsoldportion, bcost) in buys:
@@ -149,7 +166,7 @@ class UserStock():
                         remsell = list(remsell)
                         remsell[3] = sportion - rembportion
                     soldcost += (rembportion * bprice)
-                    rembportion = 0
+                    rembportion -= sportion
                     break
                 else:
                     remsell[3] = 0
@@ -173,10 +190,11 @@ class UserStock():
         if sells is not None:
             for sr in sells:
                 portion -= sr[3]
+                cost -= Decimal(sr[2] * sr[3])
 
         average = (cost/portion).quantize(Decimal("0.0000")) if not portion == 0 else 0
         newinfo = {column_cost_hold:str(cost), column_portion_hold:str(portion), column_averagae_price:str(average)}
-        if portion > 0:
+        if portion != 0:
             newinfo[column_keepeyeon] = '1'
 
         self.sqldb.update(self.stocks_table, newinfo, {column_code: self.code})
@@ -450,6 +468,9 @@ class UserStock():
             earned = s['ptn'] * s['price'] - s['fee']
             while remsold > 0:
                 if rembuy is None or rembuy['ptn'] == 0:
+                    if len(buys) == 0:
+                        earned = 0
+                        break
                     rembuy = buys.pop(0)
                 if remsold >= rembuy['ptn']:
                     earned -= rembuy['fee']
@@ -633,8 +654,8 @@ class UserStock():
             self._add_or_update_deals(self.sell_table, svalues)
 
         buy_rec = self.sqldb.select(self.buy_table, ['id', column_date, column_price, column_portion, column_sold_portion, column_cost], f'{column_soldout} = 0')
-        if buy_rec is None or len(buy_rec) == 0:
-            return
+        # if buy_rec is None or len(buy_rec) == 0:
+        #     return
 
         sell_rec = None
         if self.sqldb.isExistTable(self.sell_table):
@@ -698,6 +719,16 @@ class UserStock():
         if sell_rec is None or len(sell_rec) == 0:
             return ()
 
+        if not self.sqldb.isExistTable(self.buy_table):
+            buy_rec = self.sqldb.select(self.unknown_deals_table, ['id', column_date, '委托编号', column_price, column_portion, column_fee, '印花税', '过户费'], [f'{column_date} < "{date}"', f'{column_code}="{self.code}"'])
+            self.setup_buytable()
+            bvalues = []
+            for br in buy_rec:
+                bvalues.append(br[1:])
+            if len(bvalues) > 0:
+                self._add_or_update_deals(self.buy_table, bvalues)
+            for uid, *_ in buy_rec:
+                self.sqldb.delete(self.unknown_deals_table, f'id="{uid}"')
         buy_rec = self.sqldb.select(self.buy_table, ['id', column_date, column_portion, column_price, column_fee, '印花税', '过户费', '委托编号', column_sold_portion], f'{column_date} < "{date}"')
         buy_rec = list(buy_rec)
         consumed = ()

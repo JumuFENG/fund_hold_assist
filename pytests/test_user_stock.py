@@ -384,3 +384,17 @@ class TestUserStock(object):
 
         print(Fore.GREEN + 'PASS: test_add_dividen_shares' + Fore.RESET)
 
+    def test_add_buy_sell_margin_deals(self):
+        sqldb = self.testuser.stock_center_db()
+        userstockstable = self.testuser.stocks_info_table()
+        us = UserStock(self.testuser, 'SH510050')
+
+        self.__cleanup_tables(sqldb, [userstockstable, us.buy_table, us.sell_table])
+
+        self.testuser.add_deals([{"time":"2023-05-26","sid":"s_001","code":"SH510050","tradeType":"B","price":"2.567","count":"3800"}])
+        self.testuser.add_deals([{"time":"2023-05-26","sid":"s_002","code":"SH510050","tradeType":"S","price":"2.549","count":"4000"}])
+        self.testuser.add_deals([{"time":"2022-06-07","sid":"s_003","code":"SH510050","tradeType":"B","price":"2.539","count":"4000"}])
+
+        self.__check_table_row(sqldb, userstockstable, f'{column_code}="SH510050"', {f'{column_cost_hold}':9648.2, f'{column_portion_hold}':3800, f'{column_averagae_price}':2.539})
+
+        print(Fore.GREEN + 'PASS: test_add_buy_buy_deals' + Fore.RESET)

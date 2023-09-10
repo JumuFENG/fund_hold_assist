@@ -521,7 +521,7 @@ class User():
         uss = {}
         for c in codes:
             us = UserStock(self, c)
-            if us.cost_hold > 0 or us.portion_hold > 0:
+            if us.cost_hold != 0 or us.portion_hold != 0:
                 uss[c] = {'cost': us.cost_hold, 'ptn': us.portion_hold}
 
         hcodes = [('1.' if uc[0:2] == 'SH' else '0.') + uc[2:] for uc in uss.keys()]
@@ -959,7 +959,7 @@ class User():
         ad = sqldb.select(self.stocks_archived_deals_table(), conds=[f'''{column_code} = \"{deal['code']}\"''', f'''{column_type} = "{deal['tradeType']}"''', f'''委托编号="{dsid}"'''])
         if ad is None or len(ad) == 0:
             return False
-        (_, c, t, tt, count, p, f, fYh, fGh, sid), = ad
+        (tid, c, t, tt, count, p, f, fYh, fGh, sid), = ad
         if dsid == '0' and t.partition(' ')[0] != deal['time'].partition(' ')[0]:
             return False
 
@@ -970,7 +970,7 @@ class User():
         if not f == float(deal['fee']) or not fYh == float(deal['feeYh']) or not fGh == float(deal['feeGh']) or not p == float(deal['price']):
             sqldb.update(self.stocks_archived_deals_table(),
                 {f'{column_price}':deal['price'], f'{column_fee}':deal['fee'], '印花税':deal['feeYh'], '过户费':deal['feeGh']},
-                {f'{column_code}':deal['code'], f'{column_date}': deal['time'], f'''{column_type}''': deal['tradeType'], '委托编号':dsid})
+                {f'id':tid})
         return True
 
     def get_archived_deals(self):
