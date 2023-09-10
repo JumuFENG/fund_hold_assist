@@ -3,7 +3,6 @@
 
 from utils import *
 from history import *
-import time
 import json
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
@@ -16,6 +15,7 @@ class StockGlobal():
     stocks = None
     sqldb = SqlHelper(password=db_pwd, database=stock_db_name)
     sqllock = Lock()
+    klupdateFailed = set()
 
     @classmethod
     def stock_general(self, code):
@@ -46,8 +46,20 @@ class StockGlobal():
         } for (c, n, t) in stksInfo]
 
     @classmethod
+    def getAllStocksSetup(self):
+        return self.sqldb.select(gl_all_stocks_info_table, [column_code, column_setup_date], f'{column_type}="ABStock" or {column_type}="TSStock"')
+
+    @classmethod
     def removeStock(self, code):
         self.sqldb.delete(gl_all_stocks_info_table, {column_code: code})
+
+    @classmethod
+    def setQuitDate(self, code, date):
+        self.sqldb.update(gl_all_stocks_info_table, {column_type: 'TSStock', 'quit_date': date}, f'{column_code}="{code}"')
+
+    @classmethod
+    def checkTsStock(self, code):
+        return self.sqldb.selectOneValue(gl_all_stocks_info_table, 'quit_date', [f'{column_code}="{code}"', f'{column_type}="TSStock"'])
 
     @classmethod
     def getStocksZdfRank(self):
@@ -76,26 +88,11 @@ class StockGlobal():
                 ce = rkobj['f6']  # 成交额
                 if c == '-' or cj == '-' or ce == '-' or zd == '-' or ze == '-':
                     continue
-                zf = rkobj['f7']  # 振幅
-                hsl = rkobj['f8'] # 换手率
-                syl = rkobj['f9'] # 市盈率 动态
-                lb = rkobj['f10'] # 量比
-                zd5 = rkobj['f11']# 五分钟涨跌幅
                 cd = rkobj['f12'] # 代码
                 m = rkobj['f13']  # 市场代码 0 深 1 沪
-                n = rkobj['f14']  # 名称
                 h = rkobj['f15']  # 最高
                 l = rkobj['f16']  # 最低
                 o = rkobj['f17']  # 今开
-                lc = rkobj['f18'] # 昨收
-                sz = rkobj['f20'] # 总市值
-                lt = rkobj['f21'] # 流通市值
-                zs = rkobj['f22'] # 涨速
-                sj = rkobj['f23'] # 市净率
-                z60 = rkobj['f24']# 60日涨跌幅
-                zy = rkobj['f25'] # 当年涨跌幅
-                lr = rkobj['f62'] # 主力净流入
-                syttm = rkobj['f115'] # 市盈率 TTM
                 if (m != 0 and m != 1):
                     print('invalid market', m)
                     continue
@@ -201,33 +198,6 @@ class AllStocks(InfoList):
         if len(values) > 0:
             self.sqldb.insertMany(gl_all_stocks_info_table, headers, values)
 
-    def checkNotices(self, code):
-        # https://data.eastmoney.com/notices/
-        url = f'''https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=10&page_index=1&ann_type=A&client_source=web&stock_list={code[2:]}&f_node=0&s_node=0'''
-        nres = Utils.get_em_equest(url)
-        if nres is None:
-            print('no notice for', code)
-            return
-
-        r = json.loads(nres)
-        if r['success'] != 1 or r['data'] is None or len(r['data']['list']) == 0:
-            print('cannot parse the response data', nres)
-            return
-
-        tsupdate = False
-        for ntc in r['data']['list']:
-            title = ntc['title']
-            colname = set([col['column_name'] for col in ntc['columns']])
-            ntdate = ntc['notice_date'].split(' ')[0]
-            if ('终止上市' in title or '摘牌' in title) and '终止上市' in colname:
-                self.updateStockCol(code, column_type, 'TSStock')
-                self.updateStockCol(code, 'quit_date', ntdate)
-                tsupdate = True
-                break
-
-        if not tsupdate:
-            print(code, 'check again!')
-
     def updateStockCol(self, code, col, val):
         stockinfo = self.sqldb.select(gl_all_stocks_info_table, [column_code, col], "%s = '%s'" % (column_code, code))
         if stockinfo is None or len(stockinfo) == 0:
@@ -238,38 +208,45 @@ class AllStocks(InfoList):
                 return
             self.sqldb.update(gl_all_stocks_info_table, {col: val}, {column_code: code})
 
-    def requestEtfListData(self, pz):
-        # data src: http://quote.eastmoney.com/center/gridlist.html#fund_etf
-        timestamp = Utils.time_stamp()
-        cbstr = 'etfcb_' + str(timestamp)
-        etfListUrl = 'http://36.push2.eastmoney.com/api/qt/clist/get?cb=' + cbstr + '&pn=1&pz=' + str(pz) + '&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:MK0021,b:MK0022,b:MK0023,b:MK0024&fields=f12,f13,f14&_=' + str(timestamp + 1)
-        c = Utils.get_em_equest(etfListUrl)
+    def request_fund_list(self, pz, ftype):
+        # 定义不同类型基金对应的fs参数
+        fund_fs = {'ETF': 'b:MK0021,b:MK0022,b:MK0023,b:MK0024', 'LOF': 'b:MK0404,b:MK0405,b:MK0406,b:MK0407'}
+
+        # 检查ftype参数是否为合法值
+        if ftype not in fund_fs:
+            print("Invalid value for 'ftype'. Allowed values are 'ETF' and 'LOF'.")
+            return []
+
+        # 构建请求URL
+        list_url = f'http://36.push2.eastmoney.com/api/qt/clist/get?pn=1&pz={pz}&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs={fund_fs[ftype]}&fields=f12,f13,f14,f20'
+
+        # 发送请求并获取响应内容
+        c = Utils.get_em_equest(list_url)
         if c is None:
-            print("get etf list failed")
-            return
+            print(f'get {ftype} list failed')
+            return []
 
-        etflist = json.loads(c[len(cbstr) + 1 : -2])
-        if etflist is None:
-            print('load ETF Data wrong!')
-            return
+        # 解析响应内容
+        data_list = json.loads(c)
+        if data_list is None:
+            print(f'load {ftype} Data wrong!')
+            return []
 
-        if etflist['data']['total'] > pz:
-            print('total more than', pz, 'retry')
-            return self.requestEtfListData(etflist['data']['total'])
+        # 若数据量超过指定pz值，则进行重试
+        if data_list['data']['total'] > pz:
+            print(f'total more than {pz}, retry')
+            return self.request_fund_list(data_list['data']['total'], ftype)
 
-        return etflist['data']['diff']
+        return data_list['data']['diff']
 
     def loadAllFunds(self, ftype):
         self.check_table_column(column_type, 'varchar(20) DEFAULT NULL')
         self.check_table_column(column_short_name, 'varchar(255) DEFAULT NULL')
         self.check_table_column(column_assets_scale, 'varchar(20) DEFAULT NULL')
         self.check_table_column(column_setup_date, 'varchar(20) DEFAULT NULL')
+        # self.check_table_column('所属行业', 'varchar(255) DEFAULT NULL')
 
-        fundList = None
-        if ftype == 'ETF':
-            fundList = self.requestEtfListData(1000)
-        elif ftype == 'LOF':
-            fundList = self.requestLofListData(1000)
+        fundList = self.request_fund_list(1000, ftype)
         if fundList is None:
             return
 
@@ -279,125 +256,60 @@ class AllStocks(InfoList):
             tp = e['f13']
             code = ('SH' if e['f13'] == 1 else 'SZ') + e['f12']
             name = e['f14']
+            assets_scale = e['f20']
             fundInfo = self.getFundInfo(code)
             if fundInfo is None:
                 self.updateStockCol(code, column_name, name)
                 self.updateStockCol(code, column_type, ftype)
+                self.updateStockCol(code, column_assets_scale, assets_scale)
                 continue
             (short_name, setup_date, assets_scale) = fundInfo                
             allFundInfo.append([name, ftype, short_name, setup_date, assets_scale, code])
         self.sqldb.insertUpdateMany(gl_all_stocks_info_table, attrs, [column_code], allFundInfo)
 
     def getFundInfo(self, code):
-        ucode = code
-        if ucode.startswith('SZ') or ucode.startswith('SH'):
-            ucode = ucode[2:]
-        url = 'http://fund.eastmoney.com/f10/' + ucode + '.html'
+        ucode = code.lstrip('SZ').lstrip('SH')
+        url = f'http://fund.eastmoney.com/f10/{ucode}.html'
 
-        c = Utils.get_em_equest(url)
+        c = Utils.get_em_request(url)
         if c is None:
-            print("getRequest", url, "failed")
+            print(f"getRequest {url} failed")
             return
 
         soup = BeautifulSoup(c, 'html.parser')
-        infoTable = soup.find('table', {'class':'info'})
+        infoTable = soup.find('table', {'class': 'info'})
         if infoTable is None:
             return
 
         rows = infoTable.find_all('tr')
-        tr0 = rows[0].find_all('td')
-        short_name = tr0[1].get_text()
-        tr2 = rows[2].find_all('td')
-        setup_date = tr2[1].get_text().split()[0]
-        setup_date = setup_date.replace('年', '-')
-        setup_date = setup_date.replace('月', '-')
-        setup_date = setup_date.replace('日', '')
-        tr3 = rows[3].find_all('td')
-        assets_scale = tr3[0].get_text().split('（')[0]
-        return (short_name, setup_date, assets_scale)
+
+        # 从第1行第2个元素获取基金的简称
+        short_name = rows[0].find_all('td')[1].get_text()
+
+        # 从第3行第2个元素获取基金的成立日期
+        setup_date = rows[2].find_all('td')[1].get_text().split()[0]
+        setup_date = setup_date.replace('年', '-').replace('月', '-').replace('日', '')
+
+        # 从第4行第1个元素获取基金的资产规模
+        assets_scale = rows[3].find_all('td')[0].get_text().split('（', 1)[0]
+
+        # 从第11行第2个元素获取跟踪标的
+        # tracking_target = rows[10].find_all('td')[1].get_text()
+
+        fund_info = (short_name, setup_date, assets_scale)
+        return fund_info
 
     def loadFundInfo(self, code):
         fundInfo = self.getFundInfo(code)
         if fundInfo is None:
             return
 
-        (short_name, setup_date, assets_scale) = fundInfo
+        (short_name, setup_date, assets_scale, fbk) = fundInfo
         self.updateStockCol(code, column_setup_date, setup_date)
         self.updateStockCol(code, column_assets_scale, assets_scale)
         self.updateStockCol(code, column_short_name, short_name)
+        # self.updateStockCol(code, '所属行业', fbk)
 
-    def requestLofListData(self, pz):
-        # data src: http://quote.eastmoney.com/center/gridlist.html#fund_lof
-        timestamp = Utils.time_stamp()
-        cbstr = 'lofcb_' + str(timestamp)
-        lofListUrl = 'http://40.push2.eastmoney.com/api/qt/clist/get?cb=' + cbstr + '&pn=1&pz=' + str(pz) + '&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:MK0404,b:MK0405,b:MK0406,b:MK0407&fields=f12,f13,f14&_=' + str(timestamp + 1)
-        c = Utils.get_em_equest(lofListUrl)
-        if c is None:
-            print("get lof list failed")
-            return
-
-        loflist = json.loads(c[len(cbstr) + 1 : -2])
-        if loflist is None:
-            print('load LOF Data wrong!')
-            return
-
-        if loflist['data']['total'] > pz:
-            print('total more than', pz, 'retry')
-            return self.requestLofListData(loflist['data']['total'])
-
-        return loflist['data']['diff']
-
-
-class DividenBonus(EmDataCenterRequest):
-    '''get bonus share notice datacenter-web.eastmoney.com.
-    ref: https://data.eastmoney.com/yjfp/
-    '''
-    def __init__(self):
-        super().__init__()
-
-    def getUrl(self):
-        return f'''https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_SHAREBONUS_DET&columns=ALL&quoteColumns=&pageNumber={self.page}&pageSize={self.pageSize}&sortColumns=PLAN_NOTICE_DATE&sortTypes=-1&source=WEB&client=WEB&filter={self._filter}'''
-
-    def saveFecthed(self):
-        if len(self.fecthed) == 0:
-            return
-
-        bn = StockShareBonus()
-        bnheaders = {
-            'Host': 'datacenter-web.eastmoney.com',
-            'Referer': 'https://data.eastmoney.com/',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
-            'Accept': '/',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive'
-        }
-
-        for sn in self.fecthed:
-            code = sn['SECUCODE'].split('.')
-            print('update bonus share table for', code)
-            code.reverse()
-            bn.setCode(''.join(code))
-            bn.getNext(params=bnheaders)
-
-    def getBonusNotice(self, date = None):
-        if date is None:
-            datedate = datetime.now()
-            d = 0
-            while d < 3:
-                datedate += timedelta(days=1)
-                if datedate.weekday() >= 5:
-                    continue
-                date = datedate.strftime('%Y-%m-%d')
-                self.setFilter(f'''(EQUITY_RECORD_DATE='{date}')''')
-                self.getNext()
-                d += 1
-            return
-        # date = '2021-12-20'
-        # (REPORT_DATE='2021-12-31')(EX_DIVIDEND_DAYS>0)(EX_DIVIDEND_DATE='2021-12-07')
-        # self.setFilter(f'''(EX_DIVIDEND_DATE='{date}')''')
-        self.setFilter(f'''(EQUITY_RECORD_DATE='{date}')''')
-        self.getNext()
 
 class Stock_history(HistoryFromSohu):
     """
@@ -414,8 +326,7 @@ class Stock_history(HistoryFromSohu):
         self.k15_histable = self.sg.stockK15table
 
     def getHistoryFailed(self):
-        allstocks = AllStocks()
-        allstocks.checkNotices(self.code)
+        StockGlobal.klupdateFailed.add(self.code)
 
     @classmethod
     def updateStockKlDayData(self, code, kl):
@@ -454,91 +365,6 @@ class Stock_history(HistoryFromSohu):
         self.setCode(stk)
         return self.sqldb.isExistTable(self.k_histable)
 
-class StockShareBonus(EmDataCenterRequest, TableBase):
-    """get bonus share data from datacenter-web.eastmoney.com. 
-    ref: https://data.eastmoney.com/yjfp/detail/000858.html
-    """
-    def __init__(self):
-        super().__init__()
-        super(EmRequest, self).__init__()
-
-    def initConstrants(self):
-        self.dbname = history_db_name
-        self.tablename = 'stock_bonus_shares'
-        self.colheaders = [
-            {'col': column_code, 'type':'varchar(20) DEFAULT NULL'},
-            {'col':'报告日期','type':'varchar(20) DEFAULT NULL'},
-            {'col':'登记日期','type':'varchar(20) DEFAULT NULL'},
-            {'col':'除权除息日期','type':'varchar(20) DEFAULT NULL'},
-            {'col':'进度','type':'varchar(20) DEFAULT NULL'},
-            {'col':'总送转','type':'float DEFAULT 0'},
-            {'col':'送股','type':'float DEFAULT 0'},
-            {'col':'转股','type':'float DEFAULT 0'},
-            {'col':'派息','type':'float DEFAULT 0'},
-            {'col':'股息率','type':'float DEFAULT 0'},
-            {'col':'每股收益','type':'float DEFAULT 0'},
-            {'col':'每股净资产','type':'float DEFAULT 0'},
-            {'col':'总股本','type':'float DEFAULT NULL'},
-            {'col':'分红送配详情','type':'varchar(64) DEFAULT NULL'},
-        ]
-
-    def setCode(self, code):
-        self.sg = StockGlobal.stock_general(code)
-        self.code = self.sg.code
-        self.bnData = []
-
-    def getUrl(self):
-        dcode = self.code[2:]
-        return f'''https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_SHAREBONUS_DET&columns=ALL&quoteColumns=&pageNumber={self.page}&pageSize={self.pageSize}&sortColumns=PLAN_NOTICE_DATE&sortTypes=1&source=WEB&client=WEB&filter=(SECURITY_CODE%3D%22{dcode}%22)&_={Utils.time_stamp()}'''
-
-    def saveFecthed(self):
-        self.saveFecthedBonus()
-
-    def getBonusHis(self):
-        brows = self.sqldb.selectOneValue(self.tablename, 'count(*)', f'{column_code}="{self.code}"')
-        if brows is None or brows == 0:
-            self.getNext()
-        else:
-            self.loadBonusTable()
-        return self.bnData
-
-    def loadBonusTable(self):
-        self.bnData = self.sqldb.select(self.tablename, fields=[col['col'] for col in self.colheaders], conds=f'{column_code}="{self.code}"')
-
-    def saveFecthedBonus(self):
-        attrs = [col['col'] for col in self.colheaders]
-        values = []
-        self.bnData = []
-        for bn in self.fecthed:
-            rptdate = bn['REPORT_DATE'].split()[0]
-            rcddate = bn['EQUITY_RECORD_DATE'].split()[0] if bn['EQUITY_RECORD_DATE'] is not None else ''
-            dividdate = bn['EX_DIVIDEND_DATE'].split()[0] if bn['EX_DIVIDEND_DATE'] is not None else ''
-            if dividdate == '':
-                continue
-            xid = self.sqldb.selectOneValue(self.tablename, 'id', [f'{column_code}="{self.code}"', f'除权除息日期="{dividdate}"'])
-            if xid is None:
-                values.append([self.code, rptdate, rcddate, dividdate, bn['ASSIGN_PROGRESS'],
-                    bn['BONUS_IT_RATIO'], bn['BONUS_RATIO'], bn['IT_RATIO'], bn['PRETAX_BONUS_RMB'], bn['DIVIDENT_RATIO'],
-                    bn['BASIC_EPS'], bn['BVPS'], bn['TOTAL_SHARES'], bn['IMPL_PLAN_PROFILE']])
-            self.bnData.append((self.code, rptdate, rcddate, dividdate, bn['ASSIGN_PROGRESS'],
-                bn['BONUS_IT_RATIO'], bn['BONUS_RATIO'], bn['IT_RATIO'], bn['PRETAX_BONUS_RMB'], bn['DIVIDENT_RATIO'],
-                bn['BASIC_EPS'], bn['BVPS'], bn['TOTAL_SHARES'], bn['IMPL_PLAN_PROFILE']))
-
-        self.sqldb.insertUpdateMany(self.tablename, attrs, [ch['col'] for ch in self.colheaders[0:2]], values)
-        self.fecthed = []
-
-    def dividenDateLaterThan(self, date):
-        if date is None:
-            date = Utils.today_date()
-        brows = self.sqldb.selectOneValue(self.tablename, 'count(*)', [f'除权除息日期 > "{date}"', f'{column_code}="{self.code}"'])
-        if brows is None:
-            return False
-        return brows > 0
-
-    def dividenDetailsLaterThan(self, date=None):
-        if date is None:
-            date = Utils.today_date()
-        return self.sqldb.select(self.tablename, conds=f'登记日期 > "{date}"')
 
 class Stock_Fflow_History(TableBase, EmRequest):
     '''get fflow from em pushhis 资金流向
@@ -621,6 +447,7 @@ class Stock_Fflow_History(TableBase, EmRequest):
         self.getFflowFromEm(code)
         return True
 
+
 class StockHotRank(TableBase, EmRequest):
     ''' 获取人气榜
     http://guba.eastmoney.com/rank/
@@ -680,7 +507,7 @@ class StockHotRank(TableBase, EmRequest):
                         valranks.append([code, h['CALCTIME'], h['RANK']])
             rklatest = [code, rk['exactTime'], rk['rankNumber']]
             if rklatest not in valranks:
-                valranks.append()
+                valranks.append(rklatest)
 
         self.update_ranks(valranks)
 
@@ -717,3 +544,112 @@ class StockHotRank(TableBase, EmRequest):
         if len(values) > 0:
             attrs = [kv['col'] for kv in self.colheaders]
             self.sqldb.insertMany(self.tablename, attrs, values)
+
+    def getDumpKeys(self):
+        return [f'{column_code}, {column_date}, hrank']
+
+    def getDumpCondition(self, date=None):
+        return f'{column_date} > "{date}"'
+
+    def dumpDataByDate(self, date=None):
+        if date is None:
+            date = TradingDate.maxTradingDate()
+        rks = super().dumpDataByDate(date)
+        return [{'code':c, 'date': d, 'rank': r} for c, d, r in rks if d.startswith(date)]
+
+
+class StockEmBkAll(TableBase):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def initConstrants(self):
+        super().initConstrants()
+        self.dbname = history_db_name
+        self.tablename = 'stock_embks'
+        self.colheaders = [
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_name,'type':'varchar(20) DEFAULT NULL'}
+        ]
+
+    def checkBk(self, code, name):
+        bkname = self.sqldb.selectOneValue(self.tablename, column_name, f'{column_code}="{code}"')
+        if bkname is None:
+            self.sqldb.insert(self.tablename, {column_code: code, column_name: name})
+        elif name != '' and name != bkname:
+            self.sqldb.update(self.tablename, {column_name: name}, f'{column_code}="{code}"')
+
+
+class StockEmBk(TableBase, EmRequest):
+    def __init__(self, bk, name='') -> None:
+        self.bk = bk
+        self.bname = name
+        super().__init__()
+
+    def initConstrants(self):
+        super().initConstrants()
+        self.dbname = history_db_name
+        self.tablename = 'stock_' + self.bk
+        self.colheaders = [
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'}
+        ]
+        self.page = 1
+        self.pageSize = 50
+        self.headers = {
+            'Host': 'push2.eastmoney.com',
+            'Referer': 'http://quote.eastmoney.com/center/boardlist.html',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
+        }
+        self.bkstocks = []
+
+    def getUrl(self):
+        return f'http://push2.eastmoney.com/api/qt/clist/get?ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fields=f12,f13,f14&pn={self.page}&pz={self.pageSize}&fs=b:{self.bk}'
+
+    def getNext(self):
+        bkstks = json.loads(self.getRequest(self.headers))
+        if 'data' in bkstks and 'diff' in bkstks['data']:
+            for stk in bkstks['data']['diff'].values():
+                code = stk['f12']
+                mk = stk['f13']
+                self.bkstocks.append(('SH' if mk == 1 else 'SZ') + code)
+            if bkstks['data']['total'] > len(self.bkstocks):
+                self.page += 1
+                self.getNext()
+            else:
+                self.saveFetched()
+        elif len(self.bkstocks) > 0:
+            self.saveFetched()
+
+    def saveFetched(self):
+        seb = StockEmBkAll()
+        seb.checkBk(self.bk, self.bname)
+        exstocks = self.sqldb.select(self.tablename, column_code)
+        exstocks = [s for s, in exstocks]
+        if len(exstocks) == 0:
+            self.sqldb.insertMany(self.tablename, [kv['col'] for kv in self.colheaders], [[s] for s in self.bkstocks])
+            return
+
+        ex = list(set(exstocks) - set(self.bkstocks))
+        new = list(set(self.bkstocks) - set(exstocks))
+        while len(ex) > 0 and len(new) > 0:
+            e0 = ex.pop(0)
+            n0 = new.pop(0)
+            self.sqldb.update(self.tablename, {column_code: n0}, {column_code: e0})
+
+        if len(ex) > 0:
+            for e in ex:
+                self.sqldb.delete(self.tablename, f'{column_code}="{e}"')
+        if len(new) > 0:
+            self.sqldb.insertMany(self.tablename, [kv['col'] for kv in self.colheaders], [[s] for s in new])
+
+        self.bkstocks = []
+
+    def getDumpKeys(self):
+        return column_code
+
+    def dumpDataByDate(self, date=None):
+        pool = super().dumpDataByDate(date)
+        return [s for s, in pool]

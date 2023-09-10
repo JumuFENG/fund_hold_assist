@@ -9,3 +9,5 @@ from history.stock_dumps import *
 from history.stockzt_history import *
 from history.stockdt_history import *
 from history.stock_dfsorg import *
+from history.stock_announcements import *
+from history.stock_auction_history import *

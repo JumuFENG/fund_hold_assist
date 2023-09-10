@@ -82,6 +82,11 @@ class DailyTradeOPERATEDEPT(EmDataCenterRequest, TableBase):
         self.buyfetched = False
         self.opnameTable = DfsorgNames()
 
+    def setDate(self, date):
+        self.page = 1
+        self.date = date
+        self.buyfetched = False
+
     def initConstrants(self):
         self.dbname = history_db_name
         self.tablename = f's_dfsorg_' + self.code
@@ -94,17 +99,31 @@ class DailyTradeOPERATEDEPT(EmDataCenterRequest, TableBase):
             {'col':'净买额','type':'varchar(20) DEFAULT NULL'}
         ]
 
+        self.headers = {
+            'Host': 'datacenter.eastmoney.com',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/115.0',
+            'Accept': '/',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Sec-Fetch-Dest': 'script',
+            'Sec-Fetch-Mode': 'no-cors',
+            'Sec-Fetch-Site': 'same-site'
+        }
+
     def _buy_detail_url(self):
-        return f'''https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_BILLBOARD_DAILYDETAILSBUY&columns=ALL&filter=(TRADE_DATE%3D%27{self.date}%27)(SECURITY_CODE%3D%22{self.code[2:]}%22)&pageNumber={self.page}&pageSize={self.pageSize}&sortTypes=-1&sortColumns=BUY&source=WEB&client=WEB&_={Utils.time_stamp()}'''
+        url = f'''https://datacenter.eastmoney.com/api/data/v1/get?reportName=RPT_BILLBOARD_DAILYDETAILSBUY&columns=ALL&filter=(TRADE_DATE%3D%27{self.date}%27)(SECURITY_CODE%3D%22{self.code[2:]}%22)&pageNumber={self.page}&pageSize={self.pageSize}&sortTypes=-1&sortColumns=BUY&source=WEB&client=WEB'''
+        return url
 
     def _sell_detail_url(self):
-        return f'''https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_BILLBOARD_DAILYDETAILSSELL&columns=ALL&filter=(TRADE_DATE%3D%27{self.date}%27)(SECURITY_CODE%3D%22{self.code[2:]}%22)&pageNumber={self.page}&pageSize={self.pageSize}&sortTypes=-1&sortColumns=BUY&source=WEB&client=WEB&_={Utils.time_stamp()}'''
+        url = f'''https://datacenter.eastmoney.com/api/data/v1/get?reportName=RPT_BILLBOARD_DAILYDETAILSSELL&columns=ALL&filter=(TRADE_DATE%3D%27{self.date}%27)(SECURITY_CODE%3D%22{self.code[2:]}%22)&pageNumber={self.page}&pageSize={self.pageSize}&sortTypes=-1&sortColumns=BUY&source=WEB&client=WEB'''
+        return url
 
     def getUrl(self):
         return self._sell_detail_url() if self.buyfetched else self._buy_detail_url()
 
     def getBuySellDetails(self):
-        self.getNext()
+        self.getNext(self.headers)
 
     def saveFecthed(self):
         if self.fecthed is not None and len(self.fecthed) > 0:
@@ -125,13 +144,16 @@ class DailyTradeOPERATEDEPT(EmDataCenterRequest, TableBase):
             self.buyfetched = True
             self.page = 1
             self.fecthed = []
-            self.getNext()
+            self.getNext(self.headers)
 
     def saveToDb(self, opdetails):
         if opdetails is None or len(opdetails) == 0:
             return
 
         self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], opdetails)
+
+    def getDumpCondition(self, date):
+        return f'{column_date}="{date}"'
 
 
 class StockDfsorg(EmDataCenterRequest, TableBase):
@@ -158,7 +180,8 @@ class StockDfsorg(EmDataCenterRequest, TableBase):
         ]
 
     def getUrl(self):
-        return f'https://datacenter-web.eastmoney.com/api/data/v1/get?sortColumns=SECURITY_CODE&sortTypes=1&pageSize={self.pageSize}&pageNumber={self.page}&reportName=RPT_DAILYBILLBOARD_DETAILS&columns=SECURITY_CODE%2CSECUCODE%2CTRADE_DATE%2CEXPLAIN%2CBILLBOARD_NET_AMT%2CBILLBOARD_BUY_AMT%2CBILLBOARD_SELL_AMT%2CEXPLANATION&source=WEB&client=WEB&filter=(TRADE_DATE%3C%3D%27{self.date}%27)(TRADE_DATE%3E%3D%27{self.date}%27)'
+        url = f'https://datacenter.eastmoney.com/api/data/v1/get?sortColumns=SECURITY_CODE&sortTypes=1&pageSize={self.pageSize}&pageNumber={self.page}&reportName=RPT_DAILYBILLBOARD_DETAILS&columns=SECURITY_CODE%2CSECUCODE%2CTRADE_DATE%2CEXPLAIN%2CBILLBOARD_NET_AMT%2CBILLBOARD_BUY_AMT%2CBILLBOARD_SELL_AMT%2CEXPLANATION&source=WEB&client=WEB&filter=(TRADE_DATE%3C%3D%27{self.date}%27)(TRADE_DATE%3E%3D%27{self.date}%27)'
+        return url
 
     def saveFecthed(self):
         if len(self.fecthed) > 0:
@@ -193,19 +216,53 @@ class StockDfsorg(EmDataCenterRequest, TableBase):
             if mdate is None:
                 date = todaystr
             else:
-                date = (datetime.strptime(mdate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+                date = TradingDate.nextTradingDate(mdate)
 
         dfsheaders = {
-            'Host': 'datacenter-web.eastmoney.com',
+            'Host': 'datacenter.eastmoney.com',
             'Referer': 'https://data.eastmoney.com/',
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
-            'Accept': '/',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive'
         }
-        while date <= todaystr:
+        mxdate = TradingDate.maxTradingDate()
+        while date <= mxdate:
             self.fecthed = []
             self.date = date
             self.getNext(params=dfsheaders)
-            date = (datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+            if date == mxdate:
+                break
+            date = TradingDate.nextTradingDate(date)
+
+    def getDumpKeys(self):
+        return [column_code, column_date]
+
+    def updateDetails(self):
+        dfscodes = self.dumpDataByDate()
+        xcnt = 0
+        derr = []
+        while len(dfscodes) > 0:
+            code = dfscodes[0][0]
+            dfi = [d for c, d in dfscodes if c == code]
+            dfscodes = [(c, d) for c, d in dfscodes if c != code]
+            dtop = DailyTradeOPERATEDEPT(self.reasonTable, code, None)
+            for d in dfi:
+                dayops = dtop.dumpDataByDate(d)
+                if dayops is None or len(dayops) == 0:
+                    dtop.setDate(d)
+                    try:
+                        dtop.getBuySellDetails()
+                        print('success', code, d)
+                    except:
+                        print('fail', code, d)
+                        derr.append([code, d])
+                        xcnt += 1
+                        if xcnt > 50:
+                            break
+
+            if xcnt > 50:
+                break
+
+        print(derr)

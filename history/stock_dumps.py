@@ -2,7 +2,9 @@
 # -*- coding:utf-8 -*-
 
 from utils import *
-from history import *
+from .kdata_dumps import *
+from .stock_history import *
+from .stock_announcements import *
 import json
 
 
@@ -63,6 +65,9 @@ class StockDumps(KdataDumps):
         return self.fixPrice(code, f0data, fqt)
 
     def read_kd_data(self, code, fqt = 0, length = 200, start = None):
+        if start == '0' or start == '':
+            start = None
+            length = 0
         f0data = super().read_kd_data(code, fqt, length, start)
         if f0data is None or fqt == 0:
             return f0data
@@ -170,9 +175,19 @@ class StockDumps(KdataDumps):
         return l0data
 
     def fixPrice(self, code, f0data, fqt):
-        bn = StockShareBonus()
-        bn.setCode(code)
-        bndata = bn.getBonusHis()
+        sg = StockGlobal.stock_general(code)
+        bn = None
+        if sg.type == 'ABStock':
+            bn = StockShareBonus()
+        elif sg.type == 'LOF' or sg.type == 'ETF':
+            bn = FundShareBonus()
+        if bn is None:
+            return f0data
+
+        bndata = bn.getBonusHis(code)
+        if bndata is None or len(bndata) == 0:
+            return f0data
+
         if fqt == 1:
             return self.fixPricePre(f0data, bndata)
         if fqt == 2:

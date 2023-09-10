@@ -2,85 +2,28 @@
 # -*- coding:utf-8 -*-
 
 from utils import *
-from bs4 import BeautifulSoup
 import re
 
-class StockZtXlm(EmRequest):
-    '''  从xilimao获取涨停数据
-    ref: https://www.xilimao.com/
-    '''
-    def __init__(self) -> None:
-        super().__init__()
 
-    def getUrl(self):
-        return f'https://www.xilimao.com/fupan/zhangting/{self.date}.html'
-
-    def getZtPage(self, date):
-        self.date = date
-        try:
-            c = self.getRequest()
-        except Exception as e:
-            print (e)
-            c = None
-        if c is None:
-            print("getZtPage failed")
-            return
-
-        soup = BeautifulSoup(c, 'html.parser')
-        ztTable = soup.find('table', {'class':'table-striped'})
-        if ztTable is None:
-            print('cant find zt table')
-            return
-
-        rows = ztTable.find_all('tr')
-        xlzt = []
-        for r in rows:
-            tds = r.find_all('td')
-            if len(tds) == 0:
-                continue
-            codeReg = re.compile(r'\/(\d{6})\/')
-            code = codeReg.search(tds[0].a.attrs['href']).group(1)
-            lbc = tds[1].get_text()
-            con = tds[3].get_text()
-            if con == '其他':
-                con = ''
-            xlzt.append([code, lbc, con])
-
-        return xlzt
-
-
-class StockZtInfo(EmRequest, TableBase):
+class StockZtInfo(EmRequest):
     '''涨停
     ref: http://quote.eastmoney.com/ztb/detail#type=ztgc
     '''
     def __init__(self) -> None:
         super().__init__()
-        super(EmRequest, self).__init__()
-        self.date = None
-
-    def initConstrants(self):
-        self.dbname = history_db_name
-        self.tablename = 'day_zt_stocks'
-        self.colheaders = [
-            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
-            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
-            {'col':'涨停封单','type':'varchar(20) DEFAULT NULL'},
-            {'col':'换手率','type':'varchar(20) DEFAULT NULL'},
-            {'col':'连板数','type':'tinyint DEFAULT NULL'},
-            {'col':'炸板数','type':'tinyint DEFAULT NULL'},
-            {'col':'板块','type':'varchar(63) DEFAULT NULL'},
-            {'col':'概念','type':'varchar(255) DEFAULT NULL'}
-        ]
-
         self.urlroot = f'http://push2ex.eastmoney.com/getTopicZTPool?ut=7eea3edcaed734bea9cbfc24409ed989&sort=fbt%3Aasc&Pageindex=0&dpt=wz.ztzt&date='
+        self.date = None
+        self.fetchedDate = None
+
+    def setDate(self, date):
+        self.date = date
+        self.fetchedDate = None
+        self.page = 1
+        self.ztdata = {}
 
     def getUrl(self):
         if self.date is None:
-            mdate = self._max_date()
-            if mdate is None:
-                self.date = Utils.today_date('%Y%m%d')
-            else:
-                self.date = (datetime.strptime(mdate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
+            self.date = Utils.today_date('%Y%m%d')
         return self.urlroot + self.date
 
     def getNext(self):
@@ -92,7 +35,6 @@ class StockZtInfo(EmRequest, TableBase):
                 return self.getNext()
             return
 
-        self.ztdata = []
         date = datetime.strptime(self.date, "%Y%m%d").strftime('%Y-%m-%d')
         for ztobj in emback['data']['pool']:
             code = ('SZ' if ztobj['m'] == '0' or ztobj['m'] == 0 else 'SH') + ztobj['c'] # code
@@ -100,113 +42,141 @@ class StockZtInfo(EmRequest, TableBase):
             fund = ztobj['fund'] # 封单金额
             zbc = ztobj['zbc'] # 炸板次数
             lbc = ztobj['lbc'] 
+            zdf = ztobj['zdp']
             hybk = ztobj['hybk'] # 行业板块
             # other sections: c->code, n->name, m->market(0=SZ,1=SH), p->涨停价*1000, zdp->涨跌幅,
             # amount->成交额, ltsz->流通市值, tshare->总市值, lbc->连板次数, fbt->首次封板时间, lbt->最后封板时间
             # zttj->涨停统计 {days->天数, ct->涨停次数}
-            self.ztdata.append([code, date, fund, hsl, lbc, zbc, hybk, ''])
+            self.ztdata[code] = [date, zdf, fund, hsl, lbc, zbc, hybk, '']
+        self.fetchedDate = date
 
-        if len(self.ztdata) > 0:
-            xlm = StockZtXlm()
-            xldata = xlm.getZtPage(date)
-            if isinstance(xldata, list):
-                for c,_lbc, con in xldata:
-                    exists = False
-                    for i in range(0, len(self.ztdata)):
-                        if self.ztdata[i][0][2:] == c:
-                            self.ztdata[i][7] = con
-                            exists = True
-                            break
-                    if exists:
-                        continue
 
-                    if c.startswith('00') or c.startswith('30') or c.startswith('8') or c.startswith('4'):
-                        cd = 'SZ' + c
-                    elif c.startswith('60') or c.startswith('68'):
-                        cd = 'SH' + c
-                    else:
-                        continue
-                    self.ztdata.append([cd, date, 0, 0, _lbc, 0, self._get_bk(cd), con])
+class StockZtInfo10jqka(StockZtInfo):
+    '''涨停
+    ref: http://data.10jqka.com.cn/datacenterph/limitup/limtupInfo.html
+    '''
+    def __init__(self) -> None:
+        super().__init__()
+        self.date = None
+        self.fetchedDate = None
+        self.pageSize = 15
+        self.headers = {
+            'Host': 'data.10jqka.com.cn',
+            'Referer': 'http://data.10jqka.com.cn/datacenterph/limitup/limtupInfo.html',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
+        }
 
-            self.saveFetched()
+    def getUrl(self):
+        if self.date is None:
+            self.date = Utils.today_date('%Y%m%d')
+        url = f'http://data.10jqka.com.cn/dataapi/limit_up/limit_up_pool?page={self.page}&limit={self.pageSize}&field=199112,330329,9001,330325,9002,133971,133970,1968584&filter=HS,GEM2STAR,ST&order_field=199112&order_type=0&date={self.date}'
+        return url
 
-    def _get_bk(self, code):
-        bks = self.sqldb.select(self.tablename, ['板块'], [f'{column_code}="{code}"'])
-        if bks is None or len(bks) == 0:
-            return ''
+    def setDate(self, date):
+        super().setDate(date)
+        self.ztdata = {}
+        self.ztdata_kccy = {}
+        self.ztdata_st = {}
 
-        for i in range(len(bks) - 1, 0, -1):
-            bk, = bks[i]
-            if bk != '':
-                return bk
-        return ''
-
-    def saveFetched(self):
-        if self.ztdata is None or len(self.ztdata) == 0:
+    def getNext(self):
+        jqkback = json.loads(self.getRequest(self.headers))
+        if jqkback is None or jqkback['status_code'] != 0 or jqkback['data'] is None:
+            self.fetchedDate = datetime.strptime(self.date, "%Y%m%d").strftime('%Y-%m-%d')
+            print('StockZtInfo invalid response!', jqkback)
             return
 
-        self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], self.ztdata)
+        date = datetime.strptime(self.date, "%Y%m%d").strftime('%Y-%m-%d')
+        for ztobj in jqkback['data']['info']:
+            mt = ztobj['market_type']
+            code = ztobj['code']
+            code = ('SZ' if mt == 'GEM' or code.startswith('00') else 'SH') + code # code
+            hsl = ztobj['turnover_rate'] # 换手率 %
+            fund = ztobj['order_amount'] # 封单金额
+            zbc = 0 if ztobj['open_num'] is None else ztobj['open_num'] # 炸板次数
+            lbc = 1 if ztobj['high_days'] is None or ztobj['high_days'] == '首板' else int(re.findall(r'\d+', ztobj['high_days'])[-1])
+            zdf = ztobj['change_rate']
+            cpt = ztobj['reason_type'] # 涨停原因
+            ztrec = [date, zdf, fund, hsl, lbc, zbc, '', cpt]
 
-    def getDumpKeys(self):
-        return self._select_keys([f'{column_code}, 板块, 概念'])
+            rzdf = round(zdf)
+            if rzdf == 20:
+                self.ztdata_kccy[code] = ztrec
+            elif rzdf == 5:
+                self.ztdata_st[code] = ztrec
+            else:
+                self.ztdata[code] = ztrec
+        # fields:
+        # 199112(change_rate涨跌幅),330329(high_days几天几板),9001(reason_type涨停原因),330325(limit_up_type涨停形态),
+        # 9002(open_num开板次数),133971(order_volume封单量),133970(order_amount封单额),1968584(turnover_rate换手率),
+        # 330323(first_limit_up_time首次涨停时间),330324(last_limit_up_time最后涨停时间),3475914(currency_value流通市值),
+        # 10(latest最新价),9003(limit_up_suc_rate近一年涨停封板率),9004(time_preview)
 
-    def getDumpCondition(self, date):
-        return self._select_condition([f'{column_date}="{date}"', '连板数="1"'])
+        if jqkback['data']['page']['count'] == jqkback['data']['page']['page']:
+            self.fetchedDate = date
+        else:
+            self.page += 1
+            self.getNext()
 
-    def dumpDataByDate(self, date = None):
-        if date is None:
-            date = self._max_date()
 
-        if date is None:
-            return None
+class StockZtLeadings(EmDataCenterRequest):
+    ''' https://emrnweb.eastmoney.com/ztzt/Home?date=2023-04-03
+    deprecated use StockZtInfo10jqka instead.
+    '''
+    def __init__(self) -> None:
+        super().__init__()
+        self.headers = {
+            'Host': 'datacenter.eastmoney.com',
+            'Referer': 'https://emrnweb.eastmoney.com/',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
+        }
+        self.date = None
+        self.fetchedDate = None
 
-        while date <= Utils.today_date():
-            pool = self.sqldb.select(self.tablename, self.getDumpKeys(), self.getDumpCondition(date))
-            if pool is not None and len(pool) > 0:
-                data = {'date': date}
-                data['pool'] = pool
-                return data
-            elif TradingDate.isTradingDate(date):
-                data = {'date': date,'pool':[]}
-                return data
-            date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
+    def setDate(self, date):
+        self.date = date
+        self.fetchedDate = None
+        self.page = 1
 
-        return self.dumpDataByDate()
+    def getNext(self, params=None, proxies=None):
+        super().getNext(self.headers)
 
-    def _unify_concepts(self, pool):
-        return [[c, n, bk if con == '' else con] for c, n, bk, con in pool]
+    def getUrl(self):
+        return f'https://datacenter.eastmoney.com/securities/api/data/v1/get?source=SECURITIES&client=APP&reportName=RPT_INTSELECTION_LIMITSTOCKHIS&columns=SECUCODE,SECURITY_NAME_ABBR,BOARD_NAME,YIELD,LIMITUP_NUM,TURNOVERRATE&filter=(TRADE_DATE%3D%27{self.date}%27)&distinct=SECUCODE&pageNumber={self.page}&pageSize={self.pageSize}&sortTypes=-1&sortColumns=BOARD_YILD'
 
-    def dumpZtDataByConcept(self, date, concept):
-        if date is None:
-            return []
-
-        pool = self.sqldb.select(self.tablename, [f'{column_code}', '连板数', '板块', '概念'], f'{column_date}="{date}"')
-        if concept is not None:
-            ztcpt = []
-            for c, n, bk, con in pool:
-                cons = [bk]
-                if '+' in con:
-                    cons = con.split('+')
-                elif con != '':
-                    cons = [con]
-                if concept in cons:
-                    ztcpt.append([c, n, bk, con])
-            return self._unify_concepts(ztcpt)
-        return self._unify_concepts(pool)
-
-    def dumpDailyZt(self):
-        tot = self.sqldb.select(self.tablename, [f'{column_date}', 'count(*)', 'max(连板数)'], order=f'group by {column_date}')
-        non_st = self.sqldb.select(self.tablename, [f'{column_date}', 'count(*)', 'max(连板数)'], '概念!="ST股"', order=f'group by {column_date}')
-        ret = []
-        for x, y in zip(tot, non_st):
-            if x[0] != y[0]:
-                raise Exception('Error! dates not coinstant!')
-            ret.append(x + y[1:])
-        return ret
+    def saveFecthed(self):
+        self.ztdata = {}
+        self.ztdata_kccy = {}
+        self.ztdata_st = {}
+        for sftch in self.fecthed:
+            secode = sftch['SECUCODE'].split('.')
+            secode.reverse()
+            code = ''.join(secode)
+            zdf = sftch['YIELD']
+            fund = sftch['LIMITUP_NUM']
+            hsl = sftch['TURNOVERRATE']
+            rzdf = round(sftch['YIELD'])
+            cpt = sftch['BOARD_NAME']
+            ztrec = [self.date, zdf, fund, hsl, 1, 0, '', cpt]
+            if rzdf == 20:
+                self.ztdata_kccy[code] = ztrec
+            elif rzdf == 5:
+                self.ztdata_st[code] = ztrec
+            else:
+                self.ztdata[code] = ztrec
+        self.fetchedDate = self.date
 
 
 class StockZtConcepts(TableBase):
     def initConstrants(self):
+        super().initConstrants()
         self.dbname = history_db_name
         self.tablename = 'day_zt_concepts'
         self.colheaders = [
@@ -227,13 +197,17 @@ class StockZtConcepts(TableBase):
             date = '2021-01-04'
         else:
             date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
-        zthisttable = 'day_zt_stocks'
+        zthisttable = ['day_zt_stocks', 'day_zt_stocks_kccy', 'day_zt_stocks_st']
         ztconceptsdata = []
         while date <= datetime.now().strftime(r'%Y-%m-%d'):
-            pool = self.sqldb.select(zthisttable, [f'{column_code}, 板块, 概念'], [f'{column_date}="{date}"'])
+            pool = ()
+            for ztable in zthisttable:
+                pool += tuple(self.sqldb.select(ztable, [f'{column_code}, 板块, 概念'], [f'{column_date}="{date}"']))
             if pool is not None and len(pool) > 0:
                 cdict = {}
                 for c, bk, con in pool:
+                    if con is None:
+                        con = ''
                     if con == '' and bk == '':
                         raise Exception(f'no bk or con for {c} on {date}, please correct the data!')
                     cons = []

@@ -3,14 +3,17 @@
 from history.stockzt_history import *
 from history.stock_dumps import *
 
-class StockDtInfo(StockZtInfo):
+class StockDtInfo(EmRequest, TableBase):
     '''跌停
     ref: http://quote.eastmoney.com/ztb/detail#type=ztgc
     '''
     def __init__(self):
         super().__init__()
+        super(EmRequest, self).__init__()
+        self.date = None
 
     def initConstrants(self):
+        super().initConstrants()
         self.dbname = history_db_name
         self.tablename = 'day_dt_stocks'
         self.colheaders = [
@@ -25,9 +28,27 @@ class StockDtInfo(StockZtInfo):
         ]
 
         self.urlroot = f'http://push2ex.eastmoney.com/getTopicDTPool?ut=7eea3edcaed734bea9cbfc24409ed989&dpt=wz.ztzt&Pageindex=0&sort=fund%3Aasc&date='
+        self.headers = {
+            'Host': 'push2ex.eastmoney.com',
+            'Referer': 'http://quote.eastmoney.com/ztb/detail',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
+            'Accept': '/',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
+        }
+
+    def getUrl(self):
+        if self.date is None:
+            mdate = self._max_date()
+            if mdate is None:
+                self.date = Utils.today_date('%Y%m%d')
+            else:
+                self.date = (datetime.strptime(mdate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
+        return self.urlroot + self.date
 
     def getNext(self):
-        emback = json.loads(self.getRequest())
+        emback = json.loads(self.getRequest(self.headers))
         if emback is None or emback['data'] is None:
             print('StockDtInfo invalid response!', emback)
             if self.date < Utils.today_date('%Y%m%d'):
@@ -61,6 +82,26 @@ class StockDtInfo(StockZtInfo):
     def getDumpCondition(self, date):
         return self._select_condition(f'{column_date}="{date}"')
 
+    def dumpDataByDate(self, date = None):
+        if date is None:
+            date = self._max_date()
+
+        if date is None:
+            return None
+
+        while date <= Utils.today_date():
+            pool = self.sqldb.select(self.tablename, self.getDumpKeys(), self.getDumpCondition(date))
+            if pool is not None and len(pool) > 0:
+                data = {'date': date}
+                data['pool'] = pool
+                return data
+            elif TradingDate.isTradingDate(date):
+                data = {'date': date,'pool':[]}
+                return data
+            date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
+
+        return self.dumpDataByDate()
+
 
 class StockDtMap(TableBase):
     '''跌停进度表
@@ -70,6 +111,7 @@ class StockDtMap(TableBase):
         self.dtdtl = {}
 
     def initConstrants(self):
+        super().initConstrants()
         self.dbname = history_db_name
         self.tablename = 'day_dt_maps'
         self.colheaders = [
@@ -134,7 +176,10 @@ class StockDtMap(TableBase):
             kd = sd.read_kd_data(code, start=dtl[-1]['date'])
             lkl = [KNode(k1) for k1 in kd if k1[1] == nxdate]
             if len(lkl) != 1:
-                nmap.append([nxdate, (step + 1 if suc==1 else step), code, 0])
+                if kd[-1][1] < nxdate:
+                    ts = StockGlobal.checkTsStock(code)
+                    if ts is None:
+                        nmap.append([nxdate, (step + 1 if suc==1 else step), code, 0])
             else:
                 lkl = lkl[0]
                 if lkl.date != nxdate:
