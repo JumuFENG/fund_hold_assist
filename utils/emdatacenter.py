@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 import requests
 import json
+import time
 
 
 class EmRequest():
@@ -10,14 +11,20 @@ class EmRequest():
 
     def getRequest(self, params=None, proxies=None):
         # rsp = requests.get(self.getUrl(), params=params, proxies=proxies)
-        try:
-            rsp = requests.get(self.getUrl(), headers=params, proxies=proxies)
-            rsp.raise_for_status()
-            return rsp.text
-        except Exception as e:
-            url = self.getUrl()
-            print(url)
-            raise e
+        retry = 0
+        while True:
+            try:
+                rsp = requests.get(self.getUrl(), headers=params, proxies=proxies)
+                rsp.raise_for_status()
+                return rsp.text
+            except Exception as e:
+                time.sleep(5)
+                retry += 1
+                if retry < 8:
+                    continue
+                url = self.getUrl()
+                print(url)
+                raise e
 
     def getUrl(self):
         pass

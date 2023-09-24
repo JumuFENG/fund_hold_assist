@@ -65,6 +65,11 @@ class Utils:
         return float(Decimal(str(lclose * (100 - zdf) / 100)).quantize(pdec, ROUND_HALF_UP))
 
     @classmethod
+    def calc_buy_count(self, amount, price):
+        count = int(amount / (100 * float(price)))
+        return 100 * (count if count * 100 > amount * 0.85 else (count + 1))
+
+    @classmethod
     def today_date(self, fmt='%Y-%m-%d'):
         return datetime.now().strftime(fmt)
 

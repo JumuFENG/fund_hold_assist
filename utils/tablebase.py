@@ -104,5 +104,5 @@ class MultiThrdTableBase(TableBase):
         for t in t_thrds:
             t.join()
 
-        Utils.log(f'time used: {datetime.now() - ctime}')
+        Utils.log(f'threads: {self.threads_num} time used: {datetime.now() - ctime}')
         self.post_process()
