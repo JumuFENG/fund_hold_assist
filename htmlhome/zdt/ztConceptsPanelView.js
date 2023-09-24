@@ -259,8 +259,7 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
         this.ztConceptTable.reset();
         this.ztConceptTable.setClickableHeader('序号', '日期', '名称(代码)', '涨停概念', '连板数', '人气', '')
         var n = 1;
-        for (var i = 0; i < this.dailyZtStocks[date][concept].length; i++) {
-            var stocki = this.dailyZtStocks[date][concept][i];
+        for (const stocki of this.dailyZtStocks[date][concept]) {
             var code = stocki[0].substring(2);
             var anchor = emjyBack.stockAnchor(code);
             var sel = document.createElement('input');

@@ -33,6 +33,18 @@ class UserDealsPanel extends RadioAnchorPage {
                 this.getUserDeals();
             }
 
+            this.chkShowFunds = document.createElement('input');
+            this.chkShowFunds.type = 'checkbox';
+            this.chkShowFunds.id = 'checkbox_showfunds';
+            this.chkShowFunds.onclick = e => {
+                this.showDeals();
+            }
+            this.topPanel.appendChild(this.chkShowFunds);
+            var clbl = document.createElement('label');
+            clbl.textContent = '显示基金';
+            clbl.setAttribute('for', 'checkbox_showfunds');
+            this.topPanel.appendChild(clbl);
+
             var filterDiv = document.createElement('div');
             this.topPanel.appendChild(filterDiv);
 
@@ -101,7 +113,7 @@ class UserDealsPanel extends RadioAnchorPage {
                 var fd = new FormData();
                 fd.append('act', 'trackdeals');
                 fd.append('name', track_name);
-                var selectedDesc = this.dealCategorySel.selectedOptions[0].text;
+                var selectedDesc = this.dealCategorySel.selectedIndex >= 0 ? this.dealCategorySel.selectedOptions[0].text : null;
                 if (track_desc && (selectedDesc == track_name || selectedDesc != track_desc)) {
                     fd.append('desc', track_desc);
                 }
@@ -198,10 +210,11 @@ class UserDealsPanel extends RadioAnchorPage {
             }
             return d1.code > d2.code;
         });
+        var showFunds = this.chkShowFunds.checked;
         for (const deali of fDeals) {
             var chkbx = document.createElement('input');
             chkbx.type = 'checkbox';
-            chkbx.deal = deali;
+            chkbx.deal = {...deali};
             chkbx.onchange = e => {
                 if (e.target.checked) {
                     this.checkedDeals.push(e.target.deal);
@@ -209,7 +222,10 @@ class UserDealsPanel extends RadioAnchorPage {
                     this.checkedDeals.splice(this.checkedDeals.indexOf(e.target.deal));
                 }
             }
-            var dcode = deali.code.length == 8 ? deali.code.substring(2) : deali.code
+            var dcode = deali.code.length == 8 ? deali.code.substring(2) : deali.code;
+            if (!showFunds && (dcode.startsWith('5') || dcode.startsWith('1'))) {
+                continue;
+            }
             this.dealsTable.addRow(
                 n++, dcode, emjyBack.stockAnchor(dcode), deali.tradeType,
                 deali.price, deali.count, deali.time.split(' ')[0], chkbx

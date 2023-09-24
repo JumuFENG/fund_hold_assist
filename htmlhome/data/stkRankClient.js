@@ -6,8 +6,24 @@ class StockRankClient {
     }
 
     getRanks() {
-        this.GetFromDabanke();
+        // this.GetFromDabanke();
         //this.GetFromWencai();
+        var rkurl = emjyBack.fha.server + 'stock?act=hotrank';
+        utils.get(rkurl, null, rk => {
+            var ranks = [];
+            for (var r of JSON.parse(rk)) {
+                var ri = {};
+                for (var k in r) {
+                    if (k == 'code') {
+                        ri[k] = r[k].substring(2);
+                    } else {
+                        ri[k] = r[k];
+                    }
+                }
+                ranks.push(ri);
+            }
+            this.mergeRanks(ranks);
+        });
     }
 
     GetFromDabanke() {

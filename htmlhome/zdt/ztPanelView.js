@@ -2,261 +2,239 @@
 
 class ZtPanelPage extends RadioAnchorPage {
     constructor() {
-        super('涨停一览');
-        this.zt1KeyWords = {'zt1' : '今日首板', 'zt1_1': '首板一字涨停', 'dzt': '昨跌停今涨停', 'maconv': 'MA收敛突破', 'ust': '摘星摘帽'};
+        super('涨停复盘');
+        this.hideZ1 = false;
+        this.markets = {'A': '主板', 'K': '双创', 'S': 'ST股'};
+    }
+
+    createMktAnchor(v, lbl) {
+        var ramkt = document.createElement('input');
+        ramkt.type = 'radio';
+        ramkt.value = v;
+        ramkt.name = 'mktradio';
+        ramkt.id = 'mktradio_' + v;
+        if (v == 'A') {
+            ramkt.checked = true;
+        }
+        ramkt.onchange = e => {
+            if (e.target.checked) {
+                this.showZtMapTable();
+            }
+        };
+        var rlbl = document.createElement('label');
+        rlbl.textContent = lbl;
+        rlbl.setAttribute('for', 'mktradio_' + v);
+        this.topPanel.appendChild(ramkt);
+        this.topPanel.appendChild(rlbl);
     }
 
     show() {
         super.show();
-        this.container.style.display = 'flex';
-        if (this.ztTable === undefined) {
-            this.container.style = 'display: flex; flex-direction: row; height: 100%;';
-
-            this.leftPanel = document.createElement('div');
-            this.leftPanel.style.width = '33%';
-            this.container.appendChild(this.leftPanel);
-            this.zt1Selector = document.createElement('select');
-            for (var k in  this.zt1KeyWords) {
-                this.zt1Selector.options.add(new Option(this.zt1KeyWords[k], k));
-            };
-            this.zt1Selector.onchange = e => {
-                if (this.candidatesArea.filteredStks && this.candidatesArea.filteredStks.size > 0) {
-                    this.candidatesArea.filteredStks.clear();
-                }
-                this.showZtTable(this.zt1Selector.value);
+        if (this.ztMapTable === undefined) {
+            this.topPanel = document.createElement('div');
+            this.container.appendChild(this.topPanel);
+            for (var k in this.markets) {
+                this.createMktAnchor(k, this.markets[k]);
             }
-            this.ztTable = new SortableTable();
-            this.leftPanel.appendChild(this.zt1Selector);
-            this.leftPanel.appendChild(this.ztTable.container);
-
-            var btnExportChecked = document.createElement('button');
-            btnExportChecked.textContent = '导出所选';
-            btnExportChecked.onclick = e => {
-                this.setStrategyForSelected();
-            }
-            this.leftPanel.appendChild(btnExportChecked);
-            this.candidatesArea = document.createElement('div');
-            this.candidatesArea.style.paddingRight = 8;
-            this.leftPanel.appendChild(this.candidatesArea);
-
-            this.getZTPool();
 
             this.contentPanel = document.createElement('div');
-            this.contentPanel.style.maxWidth = '65%';
             this.container.appendChild(this.contentPanel);
 
-            this.contentPanel.appendChild(document.createTextNode('首板次日买入'));
-            this.zt1Table = new SortableTable(1, 0, false);
-            this.contentPanel.appendChild(this.zt1Table.container);
-            
-            this.getZt1Stocks();
+            this.ztMapTable = new SortableTable(1, 0, false);
+            this.contentPanel.appendChild(this.ztMapTable.container);
+            this.showZtMapTable();
+            var btnLoadMore = document.createElement('button');
+            btnLoadMore.textContent = '显示更多';
+            btnLoadMore.onclick = e => {
+                this.getZTMap(this.container.querySelector('input[name="mktradio"]:checked').value);
+            }
+            this.contentPanel.appendChild(btnLoadMore);
         }
     }
 
-    getZTPool() {
-        var ztUrl = emjyBack.fha.server + 'api/stockzthist';
+    getZTMap(mkt='A') {
+        var ztUrl = emjyBack.fha.server + 'stock?act=ztmap&days=10&mkt=' + mkt;
+        if (this.ztmap && this.ztmap[mkt]) {
+            ztUrl += '&date=' + this.ztmap[mkt][this.ztmap[mkt].length - 1].date;
+        }
         utils.get(ztUrl, null, zt => {
-            this.ztdata = JSON.parse(zt);
-            this.showZtTable();
-        });
-    }
-
-    getZt1Stocks() {
-        var zt1Url = emjyBack.fha.server + 'stock?act=pickup&key=zt1';
-        utils.get(zt1Url, null, zt1 => {
-            this.zt1stocks = JSON.parse(zt1);
-            this.showZt1Table();
-        });
-    }
-
-    getZtdztStocks() {
-        var dztUrl = emjyBack.fha.server + 'stock?act=pickup&key=dzt&date=' + this.ztdata.date;
-        utils.get(dztUrl, null, dzt => {
-            this.dztstocks = JSON.parse(dzt);
-            if (this.dztstocks.length > 0) {
-                this.showDztTable();
+            if (!this.ztmap) {
+                this.ztmap = {};
             }
-        });
-    }
-
-    getMaConvStocks() {
-        var mcUrl = emjyBack.fha.server + 'stock?act=pickup&key=maconv';
-        utils.get(mcUrl, null, mc => {
-            this.maconvstocks = JSON.parse(mc);
-            if (this.maconvstocks.length > 0) {
-                this.showMaConvTable();
-            }
-        })
-    }
-
-    getUstStocks() {
-        var ustUrl = emjyBack.fha.server + 'stock?act=pickup&key=ust';
-        utils.get(ustUrl, null, mc => {
-            this.ustStocks = JSON.parse(mc);
-            if (this.ustStocks.length > 0) {
-                this.showUstTable();
-            }
-        })
-    }
-
-    showZtTable(skey) {
-        if (skey === undefined) {
-            skey = 'zt1';
-        }
-        if (!this.ztdata || !this.ztTable) {
-            return;
-        }
-        if (skey == 'dzt') {
-            this.showDztTable();
-            return;
-        }
-        if (skey == 'maconv') {
-            this.showMaConvTable();
-            return;
-        }
-        if (skey == 'ust') {
-            this.showUstTable();
-            return;
-        }
-
-        var zt1stock_code = function(zt1stocks, code) {
-            if (!zt1stocks) {
-                return;
-            }
-
-            for (var i = zt1stocks.length - 1; i >= 0 ; i--) {
-                if (zt1stocks[i][0].endsWith(code)) {
-                    return zt1stocks[i];
-                }
-            }
-        }
-
-        this.ztTable.reset();
-        this.candidatesArea.textContent = '';
-        this.ztTable.setClickableHeader('序号', '日期', '名称(代码)', '板块', '涨停概念', '');
-        var date = this.ztdata.date;
-        this.candidatesArea.date = date;
-        var n = 1;
-        for (var i = 0; i < this.ztdata.pool.length; i++) {
-            var stocki = this.ztdata.pool[i];
-            var code = stocki[0].substring(2);
-            var ztinfo = zt1stock_code(this.zt1stocks, code);
-            if (skey == 'zt1_1') {
-                // 首板一字涨停
-                if (ztinfo && (ztinfo[2] != 0 || ztinfo[1] != date)) {
-                    continue;
-                }
-            }
-            if (skey == 'zt1') {
-                // 首板
-                if (ztinfo && ztinfo[1] != date) {
-                    continue;
-                }
-            }
-            var anchor = emjyBack.stockAnchor(code);
-            var sel = this.createSelCheckbox(code);
-            this.ztTable.addRow(
-                n++,
-                date,
-                anchor,
-                stocki[1],
-                stocki[2],
-                sel
-            );
-        }
-    }
-
-    createSelCheckbox(code) {
-        var sel = document.createElement('input');
-        sel.type = 'checkbox';
-        sel.code = code;
-        sel.onchange = e => {
-            if (e.target.checked) {
-                if (!this.candidatesArea.filteredStks) {
-                    this.candidatesArea.filteredStks = new Set();
-                }
-                this.candidatesArea.filteredStks.add(e.target.code);
+            if (!this.ztmap[mkt]) {
+                this.ztmap[mkt] = JSON.parse(zt);
             } else {
-                if (this.candidatesArea.filteredStks) {
-                    this.candidatesArea.filteredStks.delete(e.target.code);
+                var ztmap = JSON.parse(zt);
+                for(const ztm of ztmap) {
+                    if (ztm.date >= this.ztmap[mkt][this.ztmap[mkt].length - 1].date) {
+                        continue;
+                    }
+                    this.ztmap[mkt].push(ztm);
                 }
             }
-        }
-        return sel;
+            this.hideZ1 = this.ztmap[mkt].length > 10;
+            if (mkt != 'A') {
+                this.hideZ1 = false;
+            }
+            this.showZtMapTable();
+        });
     }
 
-    showDztTable() {
-        this.ztTable.reset();
-        this.candidatesArea.textContent = '';
-        this.ztTable.setClickableHeader('序号', '日期', '名称(代码)', '昨跌幅', '今涨幅', '');
-        if (!this.dztstocks) {
-            this.getZtdztStocks();
+    ztAnchor(zm, hideTail=false) {
+        var code = zm.code.substring(2);
+        var days = zm.days;
+        var lbc = zm.lbc;
+        var anchor = emjyBack.stockAnchor(code);
+        var njm = '';
+        if (days == lbc) {
+            njm = hideTail ? '' : '(' + lbc + '连板)';
+        } else {
+            njm = '(' + days + '天' + lbc + '板)';
+        }
+        anchor.textContent = anchor.textContent + njm;
+        anchor.title = code;
+        anchor.onmouseenter = e => {
+            this.setAnchorBkColor(e.target.title, true);
+        }
+        anchor.onmouseleave = e => {
+            this.setAnchorBkColor(e.target.title, false);
+        }
+        return anchor;
+    }
+
+    addZtAnchors(zt, ztm, hideTail=false) {
+        var n = ztm.length;
+        var rlen = 0;
+        if (n < 5) {
+            rlen = 1;
+        } else if (n < 9) {
+            rlen = 2;
+        } else {
+            rlen = Math.ceil(n/4);
+            if (rlen > 6) {
+                rlen = 6;
+            }
+            if (n % rlen + Math.floor(n / rlen) < rlen) {
+                rlen--;
+            }
+        }
+        n = 0;
+        for (var i = 0; i < ztm.length;) {
+            zt.appendChild(this.ztAnchor(ztm[i], hideTail));
+            i++;
+            if (rlen == 0) {
+                continue;
+            }
+            if (i % rlen == 0) {
+                zt.appendChild(document.createElement('br'));
+            }
+        }
+    }
+
+    setAnchorBkColor(code, show=true) {
+        var anchors = this.ztMapTable.container.querySelectorAll('a[title="' + code + '"]');
+        for(var ach of anchors) {
+            ach.style.backgroundColor = show ? 'lightskyblue' : 'transparent';
+        }
+    }
+
+    showZtMapTable() {
+        var mkt = this.container.querySelector('input[name="mktradio"]:checked').value
+        if (!this.ztmap || !this.ztmap[mkt]) {
+            this.getZTMap(mkt);
+            return;
+        }
+        if (!this.ztMapTable) {
             return;
         }
 
-        var n = 1;
-        for (var i = 0; i < this.dztstocks.length; ++i) {
-            var stocki = this.dztstocks[i];
-            var code = stocki[0].substring(2);
-            var anchor = emjyBack.stockAnchor(code);
-            var sel = this.createSelCheckbox(code);
-            this.ztTable.addRow(
-                n++,
-                stocki[3],
-                anchor,
-                stocki[2],
-                stocki[4],
-                sel
-            );
-        }
-    }
-
-    showMaConvTable() {
-        this.ztTable.reset();
-        this.candidatesArea.textContent = '';
-        this.ztTable.setClickableHeader('序号', '日期', '名称(代码)', '');
-        if (!this.maconvstocks) {
-            this.getMaConvStocks();
-            return;
+        this.ztMapTable.reset();
+        if (this.hideZ1) {
+            this.ztMapTable.setClickableHeader('日期', '龙头', '准龙', '高标', '三板', '二板');
+        } else {
+            this.ztMapTable.setClickableHeader('日期', '龙头', '准龙', '高标', '三板', '二板', '首板');
         }
 
-        var n = 1;
-        for (var i = 0; i < this.maconvstocks.length; ++i) {
-            var stocki = this.maconvstocks[i];
-            var code = stocki[0].substring(2);
-            var anchor = emjyBack.stockAnchor(code);
-            var sel = this.createSelCheckbox(code);
-            this.ztTable.addRow(
-                n++,
-                stocki[1],
-                anchor,
-                sel
-            );
-        }
-    }
+        for (const ztmp of this.ztmap[mkt]) {
+            var date = ztmp.date;
+            var ztlead = '';
+            if (ztmp.lead.length == 1) {
+                ztlead = document.createElement('div');
+                var ld = this.ztAnchor(ztmp.lead[0]);
+                ld.style.color = 'red';
+                ztlead.appendChild(ld);
+            }
+            var candidates = '';
+            if (ztmp.candidates.length > 0) {
+                candidates = document.createElement('div');
+                for (const zm of ztmp.candidates) {
+                    var cdt = this.ztAnchor(zm);
+                    cdt.style.color = 'lightcoral';
+                    candidates.appendChild(cdt);
+                    candidates.appendChild(document.createElement('br'));
+                }
+            }
+            var highZts = document.createElement('div');
+            var z3 = document.createElement('div');
+            z3.style.maxWidth = 320;
+            var z2 = document.createElement('div');
+            z2.style.maxWidth = this.hideZ1 ? 400 : 320;
+            var z1 = document.createElement('div');
+            z1.style.maxWidth = 480;
+            var hct = 0; // 高标数量
+            for (const k in ztmp) {
+                if (k == 'lead' || k == 'candidates' || k == 'date') {
+                    continue;
+                }
+                if (k == '3') {
+                    continue;
+                }
+                if (k == '2') {
+                    this.addZtAnchors(z2, ztmp[k], true);
+                } else if (k == '1') {
+                    if (this.hideZ1) {
+                        continue;
+                    }
+                    this.addZtAnchors(z1, ztmp[k], true);
+                } else {
+                    hct += ztmp[k].length;
+                    for (const zm of ztmp[k]) {
+                        highZts.appendChild(this.ztAnchor(zm));
+                        highZts.appendChild(document.createElement('br'));
+                    }
+                }
+            }
 
-    showUstTable() {
-        this.ztTable.reset();
-        this.candidatesArea.textContent = '';
-        this.ztTable.setClickableHeader('序号', '名称(代码)', '申请日期', '摘帽/星日期', '公告', '');
-        if (!this.ustStocks) {
-            this.getUstStocks();
-            return;
-        }
-
-        var n = 1;
-        for (const stocki of this.ustStocks) {
-            var code = stocki[0].substring(2);
-            var anchor = emjyBack.stockAnchor(code);
-            var sel = this.createSelCheckbox(code);
-            this.ztTable.addRow(
-                n++,
-                anchor,
-                stocki[2] ? stocki[2] : stocki[1],
-                stocki[4] ? stocki[4] : (stocki[3] ? stocki[3] : ''),
-                emjyBack.stockNoticeAnchor(code),
-                sel
-            )
+            if (ztmp['3']) {
+                this.addZtAnchors(hct == 0 ? highZts : z3, ztmp['3'], hct != 0);
+            }
+            if (hct == 0) {
+                z3 = '';
+            }
+            if (hct == 0 && !ztmp['3']) {
+                highZts = '';
+                z3 = '';
+            }
+            if (this.hideZ1) {
+                this.ztMapTable.addRow(
+                    date,
+                    ztlead,
+                    candidates,
+                    highZts,
+                    z3,
+                    z2
+                );
+            } else {
+                this.ztMapTable.addRow(
+                    date,
+                    ztlead,
+                    candidates,
+                    highZts,
+                    z3,
+                    z2,
+                    z1
+                );
+            }
         }
     }
 
@@ -309,19 +287,5 @@ class ZtPanelPage extends RadioAnchorPage {
             candidatesObj[c] = this.createStrategyFor(c, skey);
         })
         this.candidatesArea.textContent = JSON.stringify(candidatesObj, null, 1);
-    }
-
-    showZt1Table() {
-        if (!this.zt1stocks || !this.zt1Table) {
-            return;
-        }
-
-        this.zt1Table.reset();
-        this.zt1Table.setClickableHeader('序号', '日期', '名称(代码)', '上板强度', '放量程度');
-        for (var i = 0; i < this.zt1stocks.length; i++) {
-            var zti = this.zt1stocks[i];
-            var anchor = emjyBack.stockAnchor(zti[0].substring(2));
-            this.zt1Table.addRow(i, zti[1], anchor, zti[2], zti[3]);
-        }
     }
 }

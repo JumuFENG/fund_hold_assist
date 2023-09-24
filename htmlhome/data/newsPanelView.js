@@ -7,7 +7,7 @@ class NewsPages extends RadioAnchorPage {
 
     show() {
         super.show();
-        if (!this.newsRoot) {
+        if (!this.newsRoot || this.newsRoot.childElementCount == 0) {
             this.initNewsPanel();
         }
     }
@@ -19,23 +19,29 @@ class NewsPages extends RadioAnchorPage {
     }
 
     getEmHomePage() {
-        var newsUrl = emjyBack.fha.server + 'api/get?url=' + encodeURI('https://www.eastmoney.com/');
+        if (!emjyBack.fha || !emjyBack.fha.server) {
+            return;
+        }
+        var newsUrl = emjyBack.fha.server + 'api/get?url=' + btoa('https://www.eastmoney.com/')+ '&host=www.eastmoney.com';
         utils.get(newsUrl, null, ns => {
+            utils.removeAllChild(this.newsRoot);
             this.showAllNews(ns);
         });
+    }
+
+    createLink(href, text) {
+        var lk = document.createElement('a');
+        lk.target = '_blank';
+        lk.href = href;
+        lk.textContent = text ? text : href;
+        return lk;
     }
 
     showAllNews(nhtml) {
         var ele = document.createElement('html');
         ele.innerHTML = nhtml;
-        var createLink = function(href, text) {
-            var lk = document.createElement('a');
-            lk.target = '_blank';
-            lk.href = href;
-            lk.textContent = text ? text : href;
-            return lk;
-        }
-        var newsfilters = {
+        var createLink = this.createLink;
+        var newsFilters = {
             'head-news': function(e) {
                 var hnv = document.createElement('div');
                 hnv.style.display = 'flex';
@@ -84,13 +90,17 @@ class NewsPages extends RadioAnchorPage {
             },
             'hsgs-news': function(e) {
                 var hsgs = document.createElement('div');
+                hsgs.style.float = 'left';
                 var lk = createLink('http://stock.eastmoney.com/', '股市焦点');
                 hsgs.appendChild(lk);
                 hsgs.appendChild(e.querySelector('.nlist'));
                 return hsgs;
-            },
+            }
+        };
+        var newsMoreFilters = {
             'sj-view': function(e) {
                 var sjview = document.createElement('div');
+                sjview.style.float = 'left';
                 var lk = createLink('http://guba.eastmoney.com/', '社区');
                 sjview.appendChild(lk);
                 sjview.appendChild(e.querySelector('.nlist'));
@@ -98,6 +108,7 @@ class NewsPages extends RadioAnchorPage {
             },
             'qqsc-view': function(e) {
                 var qqview = document.createElement('div');
+                qqview.style.float = 'left';
                 var lk = createLink('http://stock.eastmoney.com/global.html', '全球');
                 qqview.appendChild(lk);
                 qqview.appendChild(e.querySelector('.nlist'));
@@ -105,6 +116,7 @@ class NewsPages extends RadioAnchorPage {
             },
             'gsjj-view': function(e) {
                 var gsjj = document.createElement('div');
+                gsjj.style.float = 'left';
                 var lk = createLink('https://data.eastmoney.com/center/', '数据');
                 gsjj.appendChild(lk);
                 gsjj.appendChild(e.querySelector('.nlist'));
@@ -112,6 +124,7 @@ class NewsPages extends RadioAnchorPage {
             },
             'gdpl-view': function(e) {
                 var gdpl = document.createElement('div');
+                gdpl.style.float = 'left';
                 var lk = createLink('http://finance.eastmoney.com/pinglun.html', '观点');
                 gdpl.appendChild(lk);
                 gdpl.appendChild(e.querySelector('.nlist'));
@@ -119,6 +132,7 @@ class NewsPages extends RadioAnchorPage {
             },
             'zt-view': function(e) {
                 var ztview = document.createElement('div');
+                ztview.style.float = 'left';
                 var lk = createLink('http://topic.eastmoney.com/', '专题');
                 var btm = e.querySelector('.bottom-list');
                 var ztlks = btm.querySelectorAll('li');
@@ -137,15 +151,130 @@ class NewsPages extends RadioAnchorPage {
                 return ztview;
             }
         }
-        var setTarget = function(ele) {
-            var lks = ele.querySelectorAll('a');
-            for (var lk of lks) {
+        for (const c in newsFilters) {
+            this.newsRoot.appendChild(this.setTarget(newsFilters[c](ele.querySelector('.'+c))))
+        }
+        this.articalPanel = document.createElement('div');
+        this.newsRoot.appendChild(this.articalPanel);
+        for (const c in newsMoreFilters) {
+            this.newsRoot.appendChild(this.setTarget(newsMoreFilters[c](ele.querySelector('.'+c))))
+        }
+    }
+
+    setTarget(ele) {
+        var lks = ele.querySelectorAll('a');
+        for (var lk of lks) {
+            if (lk.href.includes('finance.eastmoney.com/a')) {
+                lk.onclick = e => {
+                    var anchor = e.target;
+                    if (e.target.tagName != 'A') {
+                        anchor = e.target.parentElement;
+                    }
+                    if (!anchor.href) {
+                        console.log(e.target);
+                    }
+                    this.getEmArticle(anchor.href);
+                    return false;
+                }
+            } else {
                 lk.target = '_blank';
             }
-            return ele;
+            if (lk.textContent.length > 30) {
+                lk.style.display = 'block';
+                lk.style.maxWidth = 400;
+            }
         }
-        for (const c in newsfilters) {
-            this.newsRoot.appendChild(setTarget(newsfilters[c](ele.querySelector('.'+c))))
+        return ele;
+    }
+
+    getEmArticle(emhref) {
+        if (this.fetchedArticals && this.fetchedArticals[emhref]) {
+            this.showEmArticle(emhref, this.fetchedArticals[emhref]);
+            return;
         }
+        if (!emjyBack.fha || !emjyBack.fha.server) {
+            return;
+        }
+        var url = emjyBack.fha.server + 'api/get?url=' + btoa(emhref) + '&host=finance.eastmoney.com&referer=https://www.eastmoney.com/';
+        utils.get(url, null, arhtml => {
+            if (!this.fetchedArticals) {
+                this.fetchedArticals = {};
+            }
+            this.fetchedArticals[emhref] = arhtml;
+            this.showEmArticle(emhref, arhtml);
+        });
+    }
+
+    showEmArticle(href, arhtml) {
+        utils.removeAllChild(this.articalPanel);
+        var ele = document.createElement('html');
+        ele.innerHTML = arhtml;
+        var closeLk = document.createElement('a');
+        closeLk.textContent = 'X';
+        closeLk.href = 'javascript:void(0)';
+        closeLk.style.float = 'right';
+        closeLk.style.border = 'solid 1px';
+        closeLk.style.textDecoration = 'none';
+        closeLk.onclick = e => {
+            utils.removeAllChild(this.articalPanel);
+        }
+        this.articalPanel.appendChild(closeLk);
+        this.articalPanel.appendChild(this.createLink(href, '原文'));
+        this.commntLink = this.createLink('', '看评论');
+        this.getArticleComments(href);
+        this.articalPanel.appendChild(this.commntLink);
+        var vtitle = ele.querySelector('div.title')
+        vtitle.style.fontSize = 'x-large';
+        vtitle.style.fontWeight = 'bold';
+        this.articalPanel.appendChild(vtitle);
+        var cbody = ele.querySelector('#ContentBody');
+        var child = cbody.firstElementChild;
+        while (child) {
+            if (child.tagName == 'P') {
+                if (child.className || !child.textContent || child.textContent.includes('APP内免费看>>')) {
+                    var next = child.nextElementSibling;
+                    cbody.removeChild(child);
+                    child = next;
+                    continue
+                }
+            }
+            child = child.nextElementSibling;
+        }
+        this.articalPanel.appendChild(cbody);
+    }
+
+    getArticleComments(href) {
+        if (this.fetchedBriefInfo && this.fetchedBriefInfo[href]) {
+            this.setComments(href);
+            return;
+        }
+
+        var artId = href.split('/').pop();
+        artId = artId.split('.')[0];
+        var brfInfoUrl = 'https://gbapi.eastmoney.com/abstract/api/PostShort/NewsArticleBriefInfo?postid=' + artId + '&type=1&version=80008000&product=guba&plat=web&deviceid=0d2798cab1716439a343c9965c20c59d&ctoken=null&utoken=null';
+        var url = emjyBack.fha.server + 'api/get?url=' + btoa(brfInfoUrl) + '&host=gbapi.eastmoney.com&referer=' + href;
+        utils.get(url, null, scmt => {
+            if (!this.fetchedBriefInfo) {
+                this.fetchedBriefInfo = {};
+            }
+            var jcmt = JSON.parse(scmt);
+            if (jcmt.rc != 1) {
+                return;
+            }
+            this.fetchedBriefInfo[href] = jcmt;
+            this.setComments(href);
+        });
+    }
+
+    setComments(href) {
+        var brfInfo = this.fetchedBriefInfo[href];
+        var binfo = brfInfo.re[0];
+        var pid = binfo.post_id;
+        var barid = binfo.stockbar_code;
+        var cmt_count = binfo.post_comment_count;
+        var href = 'https://guba.eastmoney.com/news,' + barid + ',' + pid + '.html';
+        this.commntLink.href = href;
+        this.commntLink.referrerPolicy = 'no-referrer';
+        this.commntLink.textContent = '看评论 (' + cmt_count + ')';
     }
 }

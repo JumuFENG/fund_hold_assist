@@ -257,7 +257,7 @@ class GlobalManager {
 
             var klmessage = {kltype, kline:{data:{klines:[]}}};
             kdata.forEach(kl => {
-                klmessage.kline.data.klines.push(kl[1] + ',' + kl[5] + ',' + kl[2] + ',' + kl[3] + ',' + kl[4] + ',' +kl[8]);
+                klmessage.kline.data.klines.push(kl[1] + ',' + kl[5] + ',' + kl[2] + ',' + kl[3] + ',' + kl[4] + ',' + kl[8] + ',' + kl[6] + ',' + kl[7]);
             });
             if (!this.klines[code]) {
                 this.klines[code] = new KLine(code);
