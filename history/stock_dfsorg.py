@@ -101,14 +101,16 @@ class DailyTradeOPERATEDEPT(EmDataCenterRequest, TableBase):
 
         self.headers = {
             'Host': 'datacenter.eastmoney.com',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/115.0',
-            'Accept': '/',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/117.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8s',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
-            'Sec-Fetch-Dest': 'script',
-            'Sec-Fetch-Mode': 'no-cors',
-            'Sec-Fetch-Site': 'same-site'
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1'
         }
 
     def _buy_detail_url(self):
@@ -180,7 +182,7 @@ class StockDfsorg(EmDataCenterRequest, TableBase):
         ]
 
     def getUrl(self):
-        url = f'https://datacenter.eastmoney.com/api/data/v1/get?sortColumns=SECURITY_CODE&sortTypes=1&pageSize={self.pageSize}&pageNumber={self.page}&reportName=RPT_DAILYBILLBOARD_DETAILS&columns=SECURITY_CODE%2CSECUCODE%2CTRADE_DATE%2CEXPLAIN%2CBILLBOARD_NET_AMT%2CBILLBOARD_BUY_AMT%2CBILLBOARD_SELL_AMT%2CEXPLANATION&source=WEB&client=WEB&filter=(TRADE_DATE%3C%3D%27{self.date}%27)(TRADE_DATE%3E%3D%27{self.date}%27)'
+        url = f'''https://datacenter.eastmoney.com/api/data/v1/get?sortColumns=SECURITY_CODE&sortTypes=1&pageSize={self.pageSize}&pageNumber={self.page}&reportName=RPT_DAILYBILLBOARD_DETAILS&columns=SECURITY_CODE,SECUCODE,TRADE_DATE,EXPLAIN,BILLBOARD_NET_AMT,BILLBOARD_BUY_AMT,BILLBOARD_SELL_AMT,EXPLANATION&source=WEB&client=WEB&filter=(TRADE_DATE%3C=%27{self.date}%27)(TRADE_DATE%3E=%27{self.date}%27)'''
         return url
 
     def saveFecthed(self):
@@ -220,13 +222,18 @@ class StockDfsorg(EmDataCenterRequest, TableBase):
 
         dfsheaders = {
             'Host': 'datacenter.eastmoney.com',
-            'Referer': 'https://data.eastmoney.com/',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/117.0',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive'
+            'Connection': 'keep-alive',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1'
         }
+        self.pageSize = 100
         mxdate = TradingDate.maxTradingDate()
         while date <= mxdate:
             self.fecthed = []

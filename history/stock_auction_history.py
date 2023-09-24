@@ -73,7 +73,7 @@ class StockAuction(MultiThrdTableBase):
             {'col': 'matched_vol', 'type': 'float DEFAULT NULL'},
             {'col': 'unmatch_vol', 'type': 'float DEFAULT NULL'},
         ]
-        self.threads_num = 24
+        self.threads_num = 7
 
     def getDumpKeys(self):
         return ','.join([col['col'] for col in self.colheaders])
