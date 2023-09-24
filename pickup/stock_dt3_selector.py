@@ -168,9 +168,8 @@ class StockDt3Selector(StockBaseSelector):
         return self._select_condition('清仓日期 is NULL' if date is None else f'清仓日期 > "{date}" or 清仓日期 is NULL')
 
     def dumpFinishedRecords(self):
-        dmpkeys = self._select_keys([column_code, column_date, '建仓日期', '清仓日期', '交易记录'])
-        conds = self._select_condition(['清仓日期 is not NULL', 'not 清仓日期 = "0"'])
-        recs = self.sqldb.select(self.tablename, dmpkeys, conds)
+        dmpkeys = self._select_keys([column_code, column_date, 'date3', 'date4', 'buy'])
+        recs = self.sqldb.select(self.tablename, dmpkeys)
         if recs is None or len(recs) == 0:
             return ''
         return recs

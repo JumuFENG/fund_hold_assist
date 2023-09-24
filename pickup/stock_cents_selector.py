@@ -84,7 +84,7 @@ class StockCentsSelector(StockBaseSelector):
         if len(values) > 0:
             self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
 
-    def updateScs(self):
+    def updatePickUps(self):
         self.walkOnHistory(Utils.today_date())
 
     def dumpFinishedRecords(self):

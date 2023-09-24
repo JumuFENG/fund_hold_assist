@@ -7,3 +7,10 @@ from pickup.stock_track_deals import *
 from pickup.stock_dzt_selector import *
 from pickup.stock_n_x_p_selector import *
 from pickup.stock_cents_selector import *
+from pickup.stock_masb_selector import *
+from pickup.stock_uvzt_selector import *
+from pickup.stock_eu_selector import *
+from pickup.stock_gapzt_selector import *
+from pickup.stock_ust_selector import *
+from pickup.stock_zdf_ranks import *
+from pickup.stock_zt_lead_selector import *

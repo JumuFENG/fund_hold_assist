@@ -6,43 +6,70 @@ from history import *
 from pickup.stock_track_deals import *
 
 
-class StockBaseSelector(TableBase):
+class StockBaseSelector(MultiThrdTableBase):
     def __init__(self, autocreate=True) -> None:
+        self.sqldb = None
         super().__init__(autocreate)
 
     def initConstrants(self):
         self.threads_num = 2
         self.dbname = stock_db_name
+        self.tablename = 'stock_base_pickup'
         self.sim_ops = None
         self.simkey = 'base'
+        self.simed_kd = {}
+        self.simlock = Lock()
 
     def walk_prepare(self, date=None):
         stks = StockGlobal.all_stocks()
-        self.wkstocks = [[s[1], s[7] if date is None else date] for s in stks if s[4] == 'ABStock' or s[4] == 'TSStock']
+        self.wkstocks = [
+            [s[1], (s[7] if s[7] > '1996-12-16' else '1996-12-16') if date is None else date]
+            for s in stks if s[4] == 'ABStock' or s[4] == 'TSStock']
         self.tsdate = {s[1]: s[8] for s in stks if s[4] == 'TSStock'}
         self.wkselected = []
+
+    def task_prepare(self, date=None):
+        self.walk_prepare(date)
+
+    def get_begin_stock_records(self, wsstocks):
+        # type: (list) -> list
+        orstks = []
+        self.simlock.acquire()
+        if len(wsstocks) > 0:
+            while len(orstks) == 0 or wsstocks[0][0] == orstks[0][0]:
+                orstks.append(wsstocks.pop(0))
+                if len(wsstocks) == 0:
+                    break
+        self.simlock.release()
+        return orstks
 
     def walk_on_history_thread(self):
         pass
 
+    def task_processing(self):
+        self.walk_on_history_thread()
+
     def walk_post_process(self):
-        pass
+        if self.sqldb is None:
+            self._check_or_create_table()
+        self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_code, column_date], self.wkselected)
+
+    def post_process(self):
+        self.walk_post_process()
 
     def walkOnHistory(self, date=None):
-        self.walk_prepare(date)
+        self.start_multi_task(date)
 
-        ctime = datetime.now()
-        wk_thds = []
-        for x in range(0, self.threads_num):
-            t = Thread(target=self.walk_on_history_thread)
-            t.start()
-            wk_thds.append(t)
-
-        for t in wk_thds:
-            t.join()
-
-        print('time used:', datetime.now() - ctime)
-        self.walk_post_process()
+    def get_kd_data(self, code, start, fqt=0):
+        # type: (str, str, int) -> list(KNode)
+        if code in self.simed_kd:
+            return self.simed_kd[code]
+        sd = StockDumps()
+        kd = sd.read_kd_data(code, start=start, fqt=fqt)
+        if kd is None:
+            return None
+        self.simed_kd[code] = [KNode(kl) for kl in kd]
+        return self.simed_kd[code]
 
     def sim_prepare(self):
         self.sim_deals = []
@@ -54,7 +81,8 @@ class StockBaseSelector(TableBase):
 
         for so in self.sim_ops:
             simstart = datetime.now()
-            so['prepare']()
+            if callable(so['prepare']):
+                so['prepare']()
             sim_ths = []
             for i in range(0, self.threads_num):
                 t = Thread(target=so['thread'])
@@ -79,3 +107,10 @@ class StockBaseSelector(TableBase):
     def process_sim_deals(self, dtable):
         strack = StockTrackDeals()
         strack.dump_deals_summary(dtable)
+
+    def updatePickUps(self):
+        mdate = self._max_date()
+        if mdate == TradingDate.maxTradingDate():
+            print(self.__class__.__name__, 'updatePickUps already updated to latest!')
+            return
+        self.walkOnHistory(mdate)

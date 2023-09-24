@@ -4,253 +4,170 @@
 from utils import *
 from history import *
 from history.stock_history import *
+from history.stock_dumps import *
+from pickup.stock_base_selector import *
 
-class StockZt1Selector(TableBase):
+
+class StockZt1Selector(StockBaseSelector):
     def __init__(self) -> None:
         super().__init__()
 
     def initConstrants(self):
-        self.dbname = stock_db_name
+        super().initConstrants()
         self.tablename = 'stock_zt1_pickup'
         self.colheaders = [
             {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
             {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
             {'col':'上板强度','type':'float DEFAULT NULL'},
-            {'col':'放量程度','type':'float DEFAULT NULL'}, # 成交量/10日均量
-            {'col':'建仓日期','type':'varchar(20) DEFAULT NULL'},
-            {'col':'清仓日期','type':'varchar(20) DEFAULT NULL'},
-            {'col':'实盘',   'type':'tinyint DEFAULT 0'},
-            {'col':'交易记录','type':'varchar(255) DEFAULT NULL'}
+            {'col':'放量程度','type':'float DEFAULT NULL'} # 成交量/10日均量
         ]
-        self.__tsstocks = None
+        self._sim_ops = [
+            # 首板次日买入, MA卖出
+            {'prepare': self.sim_prepare, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_zt1_1'}
+            ]
+        self.sim_ops = self._sim_ops[0:1]
 
-    def get_vol_scale(self, klines, date, n = 10):
-        ''' 放量程度, {date}日成交量/10日均量
-        '''
-        assert(isinstance(klines, list) or isinstance(klines, tuple))
-        vd = None
-        idx = None
-        for i in range(1, len(klines)):
-            if klines[-i][1] == date:
-                vd = int(klines[-i][8])
-                idx = i
-                break
+    def walk_on_history_thread(self):
+        while len(self.wkstocks) > 0:
+            c, sdate = self.wkstocks.pop(0)
 
-        if idx is None:
-            return 1
-
-        vsum = 0
-        nc = n
-        for i in range(1, n + 1):
-            if idx + i > len(klines):
-                nc -= 1
+            kdate = (datetime.strptime(sdate, r'%Y-%m-%d') + timedelta(days=-30)).strftime(r"%Y-%m-%d")
+            allkl = self.get_kd_data(c, start=kdate)
+            if allkl is None or len(allkl) == 0:
                 continue
-            vsum += int(klines[-idx - i][8])
-        return round(vd * 10 / vsum, 2)
 
-    def get_zt_strengh(self, klines, date):
-        '''涨停强度, 当日(涨停价(收盘价) - 最低价) / 昨日收盘价
-        '''
-        assert(isinstance(klines, list) or isinstance(klines, tuple))
-        l = None
-        c = None
-        idx = None
-        for i in range(1, len(klines)):
-            if klines[-i][1] == date:
-                l = float(klines[-i][4])
-                c = float(klines[-i][2])
-                idx = i
-                break
+            i = 0
+            while i < len(allkl):
+                if allkl[i].date == sdate:
+                    break
+                i += 1
 
-        if idx is None:
-            if l is None or c is None:
-                return 0
-            return round(100 * (c - l) / l, 2)
+            if i >= len(allkl) or sdate != allkl[i].date:
+                continue
 
-        return round(100 * (c - l) / float(klines[-idx - 1][2]), 2)
-
-    def get_bss18(self, klpre, klnew):
-        bss18 = 'u'
-        if float(klnew[4]) - klnew[10] > 0 and float(klpre[4]) - klpre[10] > 0:
-            if klpre[11] == 'u':
-                bss18 = 'b'
-            else:
-                bss18 = 'b' if klpre[11] == 'w' else 'h'
-        elif float(klnew[3]) - klnew[10] < 0 and float(klpre[3]) - klpre[10] < 0:
-            if (klpre[11] == 'u'):
-                bss18 = 's'
-            else:
-                bss18 = 's' if klpre[11] == 'h' else 'w'
-        else:
-            bss18 = klpre[11]
-            if (klpre[11] == 'b'):
-                bss18 = 'h'
-            elif (klpre[11] == 's'):
-                bss18 = 'w'
-        return bss18
-
-    def check_trade_records(self, klines, date):
-        '''买卖记录,
-        '''
-        assert(isinstance(klines, list) or isinstance(klines, tuple))
-        klines = list(klines)
-        idx = None
-        for i in range(0, len(klines)):
-            if klines[i][1] == date:
-                idx = i
-                break
-
-        if idx is None:
-            return []
-
-        idx = 0 if idx - 1 < 0 else idx - 1
-        sum = 0
-        klen = 0
-        for i in range(idx, len(klines)):
-            sum += float(klines[i][2])
-            if klen < 18:
-                klen += 1
-            else:
-                if klen >= 18:
-                    sum -= float(klines[i - 18][2])
-            kl = list(klines[i])
-            kl.append(round(sum / klen, 3))
-            if i == idx:
-                kl.append('u')
-            else:
-                kl.append(self.get_bss18(klines[i - 1], kl))
-            klines[i] = kl
-
-        idx += 2
-        if idx >= len(klines):
-            return []
-
-        records = [{'date': klines[idx][1], 'price':klines[idx][5], 'type':'B'}]
-        for i in range(idx + 1, len(klines)):
-            if klines[i][11] == 's':
-                records.append({'date':klines[i][1], 'price':klines[i][2], 'type':'S'})
-                break
-
-        return records
-
-    def get_inprogress_stocks(self, date=None):
-        stks = self.sqldb.select(self.tablename, f'{column_code}', '清仓日期 is NULL' if date is None else f'清仓日期 > "{date}" or 清仓日期 is NULL')
-        if stks is None or len(stks) == 0:
-            return set()
-        return set([c for c, in stks])
-
-    def walkOnHistory(self, date):
-        szi = StockZtInfo()
-        sd = StockDumps()
-        while True:
-            ztdata = szi.dumpDataByDate(date)
-            if ztdata is None or ztdata['date'] < date:
-                break
-            values = []
-            date = ztdata['date']
-            stks = self.get_inprogress_stocks(date)
-            for zt in ztdata['pool']:
-                code = zt[0]
-                if code in stks:
+            zdf = 10 if c.startswith('SZ00') or c.startswith('SH60') else 20
+            while i < len(allkl):
+                if i < 2 or allkl[i-1].close == allkl[i-1].high and allkl[i-1].close >= Utils.zt_priceby(allkl[i-2].close, zdf=zdf):
+                    i += 1
                     continue
-                ksdate = (datetime.strptime(ztdata['date'], r'%Y-%m-%d') + timedelta(days=-30)).strftime(r"%Y-%m-%d")
-                kd = sd.read_kd_data(code, start=ksdate)
+
+                if allkl[i].close == allkl[i].high and allkl[i].close >= Utils.zt_priceby(allkl[i-1].close, zdf=zdf):
+                    ztdate = allkl[i].date
+                    st = KlList.get_zt_strengh(allkl, ztdate)
+                    vs = KlList.get_vol_scale(allkl, ztdate)
+                    self.wkselected.append([c, ztdate, st, vs])
+                i += 1
+
+    def sim_prepare(self):
+        orstks = self.sqldb.select(self.tablename, f'{column_code}, {column_date}')
+        self.sim_stks = sorted(orstks, key=lambda s: (s[0], s[1]))
+        self.sim_deals = []
+
+    def simulate_thread(self):
+        # 买入就大涨，尽快卖出
+        # 买入之后不温不火，但又不满足卖出条件，遇到跌停/大幅低开，直接卖出
+        orstks = []
+        snum = 0
+        while len(self.sim_stks) > 0:
+            self.simlock.acquire()
+            if len(self.sim_stks) == 0:
+                self.simlock.release()
+                break
+            while len(orstks) == 0 or self.sim_stks[0][0] == orstks[0][0]:
+                orstks.append(self.sim_stks.pop(0))
+                if len(self.sim_stks) == 0:
+                    break
+            self.simlock.release()
+
+            kd = None
+            bsdates = []
+            snum += 1
+            # if snum > 10:
+            #     break
+            for code, date in orstks:
+                if len(bsdates) > 0:
+                    mid_bs = False
+                    for b,s in bsdates:
+                        if date > b and date < s:
+                            mid_bs = True
+                            break
+                    if mid_bs:
+                        continue
+
                 if kd is None:
+                    kd = self.get_kd_data(code, date)
+                ki = 0
+                while kd[ki].date != date:
+                    ki += 1
+
+                if ki > 0:
+                    kd = kd[ki:]
+                    if kd is None or len(kd) < 3 :
+                        continue
+
+                kl0 = kd[0]
+                assert kl0.date == date, 'wrong kl data'
+
+                kl1 = kd[1]
+                op0 = kl1.open
+                hi0 = kl1.high
+                lo0 = kl1.low
+                cl0 = kl1.close
+
+                if hi0 == lo0 and lo0 >= Utils.zt_priceby(kl0.close, zdf=10 if code.startswith('00') or code.startswith('60') else 20):
+                    # 一字涨停 无法买进
                     continue
-                st = self.get_zt_strengh(kd, date)
-                vs = self.get_vol_scale(kd, date)
-                recs = self.check_trade_records(kd, date)
-                if recs is None or len(recs) == 0:
-                    values.append([code, date, st, vs, None, None, 0, None])
-                else:
-                    sdate = recs[0]['date']
-                    edate = recs[len(recs) - 1]['date'] if len(recs) > 1 else None
-                    values.append([code, date, st, vs, sdate, edate, 0, json.dumps(recs)])
 
-            self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
-            date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
-            if date >= datetime.now().strftime(r"%Y-%m-%d"):
-                break
+                buy = op0
+                bdate = kl1.date
+                sell = 0
+                sdate = kl1.date
+                kd = KlList.calc_kl_bss(kd)
+                j = 2
+                while j < len(kd):
+                    if kd[j].bss18 == 's':
+                        # 满足卖出条件
+                        sell = kd[j].close
+                        sdate = kd[j].date
+                        break
+                    # if j > 10:
+                    #     if kd[j].open < kd[j - 1].close * 0.94 and kd[j].open > buy:
+                    #         # 突然大幅低开，有盈利即卖出
+                    #         sell = kd[j].open
+                    #         sdate = kd[j].date
+                    #         break
+                    #     if kd[j].low < kd[j - 1].close * 0.92 and kd[j].low > buy:
+                    #         # 突然大幅下杀，有盈利即卖出
+                    #         sell = kd[j].low
+                    #         sdate = kd[j].date
+                    #         break
+                    if j > 2 and kd[j].close - buy > buy * (1 + 0.06 * (j - 1)):
+                        # 大幅上涨
+                        sell = kd[j].close
+                        sdate = kd[j].date
+                        break
+                    j += 1
 
-    def check_quit_stock(self, kd, code, date):
-        if kd and kd[-1]:
-            kl = kd[-1]
-            if kl and kl[1]:
-                ldate = kl[1]
-                mdate = self._max_date()
-                if ldate >= mdate:
-                    return
+                if sdate > bdate:
+                    bsdates.append([bdate, sdate])
+                    count = round(1000/buy)
+                    self.sim_deals.append({'time': bdate, 'code': code, 'sid': 0, 'tradeType': 'B', 'price': round(buy, 2), 'count': count})
+                    self.sim_deals.append({'time': sdate, 'code': code, 'sid': 0, 'tradeType': 'S', 'price': round(sell, 2), 'count': count})
+                    sdate = None
+                    bdate = None
+                    buy = 0
+                    sell = 0
 
-        if self.__tsstocks is None:
-            stks = StockGlobal.all_stocks()
-            self.__tsstocks = {s[1]: s[8] for s in stks if s[4] == 'TSStock'}
-
-        if code in self.__tsstocks:
-            print(code, 'already quit on', self.__tsstocks[code])
-            zt1info = self.sqldb.select(self.tablename, 'id,建仓日期', {f'{column_code}': code, f'{column_date}': date})
-            if zt1info and len(zt1info) == 1:
-                (id, sdate), = zt1info
-                if sdate is None:
-                    self.sqldb.update(self.tablename, {'建仓日期':'0', '清仓日期':'0'},  {'id':id})
-                else:
-                    self.sqldb.update(self.tablename, {'清仓日期': self.__tsstocks[code]},  {'id':id})
-
-    def check_incomplete_records(self):
-        incomplete = self.sqldb.select(self.tablename, f'id,{column_code},{column_date}', ['建仓日期 is not NULL', '清仓日期 is NULL'])
-        sd = StockDumps()
-        for id, code, date in incomplete:
-            ksdate = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=-30)).strftime(r"%Y-%m-%d")
-            kd = sd.read_kd_data(code, start=ksdate)
-            recs = self.check_trade_records(kd, date)
-            if recs is None or len(recs) < 2:
-                print('check_incomplete_records invalid recs', code, date)
-                self.check_quit_stock(kd, code, date)
-                continue
-            else:
-                sdate = recs[0]['date']
-                edate = recs[len(recs) - 1]['date']
-                self.sqldb.update(self.tablename, {'建仓日期':sdate, '清仓日期':edate, '交易记录':json.dumps(recs)}, {'id':id})
-
-    def check_noncreated_records(self):
-        non_created = self.sqldb.select(self.tablename, f'id,{column_code},{column_date},上板强度,放量程度', '建仓日期 is NULL')
-        sd = StockDumps()
-        for id, code, date,s0,v0 in non_created:
-            ksdate = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=-30)).strftime(r"%Y-%m-%d")
-            kd = sd.read_kd_data(code, start=ksdate)
-            st = self.get_zt_strengh(kd, date)
-            vs = self.get_vol_scale(kd, date)
-            recs = self.check_trade_records(kd, date)
-            if recs is None or len(recs) == 0:
-                self.check_quit_stock(kd, code, date)
-                if s0 != st or v0 != vs:
-                    self.sqldb.update(self.tablename, {'上板强度':st, '放量程度':vs}, {'id':id})
-                print('check_noncreated_records invalid recs', code, date)
-                continue
-            else:
-                sdate = recs[0]['date']
-                edate = recs[len(recs) - 1]['date'] if len(recs) > 1 else None
-                self.sqldb.update(self.tablename, {'上板强度':st, '放量程度':vs, '建仓日期':sdate, '清仓日期':edate, '交易记录':json.dumps(recs)}, {'id':id})
-
-    def add_latest_zt1_stocks(self):
-        date = self._max_date()
-        date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
-        self.walkOnHistory(date)
-
-    def updateZt1(self):
-        self.check_incomplete_records()
-        self.check_noncreated_records()
-        self.add_latest_zt1_stocks()
+            orstks = []
 
     def getDumpKeys(self):
-        return self._select_keys([column_code, column_date, '上板强度', '放量程度', '交易记录','实盘'])
+        return self._select_keys([column_code, column_date, '上板强度', '放量程度'])
 
     def getDumpCondition(self, date):
-        return self._select_condition('清仓日期 is NULL' if date is None else f'清仓日期 > "{date}" or 清仓日期 is NULL')
+        if date is None:
+            date = TradingDate.maxTradingDate()
+        return self._select_condition(f'{column_date} = "{date}"')
 
-    def dumpFinishedRecords(self):
-        dmpkeys = self._select_keys([column_code, column_date, '上板强度', '放量程度', '建仓日期', '清仓日期', '交易记录'])
-        conds = self._select_condition(['清仓日期 is not NULL', 'not 清仓日期 = "0"'])
-        recs = self.sqldb.select(self.tablename, dmpkeys, conds)
-        if recs is None or len(recs) == 0:
-            return ''
-        return recs
+    def dumpSelectedRecords(self):
+        dmpkeys = self._select_keys([column_code, column_date])
+        return self.sqldb.select(self.tablename, dmpkeys)
