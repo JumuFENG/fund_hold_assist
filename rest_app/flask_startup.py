@@ -353,6 +353,12 @@ def stock():
                 dztst = StockDztStSelector()
                 dzt += dztst.dumpDataByDate(date)
                 return json.dumps(dzt)
+            if key == 'dztbd':
+                dzts = StockDztBoardSelector()
+                dt = dzts.dumpDataByDate(date)
+                dztst = StockDztStBoardSelector()
+                dt += dztst.dumpDataByDate(date)
+                return json.dumps(dt)
             if key == 'cents':
                 cts = StockCentsSelector()
                 c = cts.dumpDataByDate()

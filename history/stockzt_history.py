@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 from utils import *
+from history.stock_history import StockGlobal
 import re
 
 
@@ -37,7 +38,7 @@ class StockZtInfo(EmRequest):
 
         date = datetime.strptime(self.date, "%Y%m%d").strftime('%Y-%m-%d')
         for ztobj in emback['data']['pool']:
-            code = ('SZ' if ztobj['m'] == '0' or ztobj['m'] == 0 else 'SH') + ztobj['c'] # code
+            code = StockGlobal.full_stockcode(ztobj['c']) # code
             hsl = ztobj['hs'] # 换手率 %
             fund = ztobj['fund'] # 封单金额
             zbc = ztobj['zbc'] # 炸板次数
@@ -93,7 +94,7 @@ class StockZtInfo10jqka(StockZtInfo):
         for ztobj in jqkback['data']['info']:
             mt = ztobj['market_type']
             code = ztobj['code']
-            code = ('SZ' if mt == 'GEM' or code.startswith('00') else 'SH') + code # code
+            code = StockGlobal.full_stockcode(code) # code
             hsl = ztobj['turnover_rate'] # 换手率 %
             fund = ztobj['order_amount'] # 封单金额
             zbc = 0 if ztobj['open_num'] is None else ztobj['open_num'] # 炸板次数

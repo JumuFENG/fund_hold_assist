@@ -357,10 +357,6 @@ class StockListPanelPage extends RadioAnchorPage {
         emjyBack.updateShownStocksDailyKline();
     }
 
-    checkStockKlExpired() {
-        emjyBack.checkKl1Expired();
-    }
-
     initStockList() {
         var updateBtn = document.createElement('button');
         updateBtn.textContent = '更新数据';
@@ -368,13 +364,6 @@ class StockListPanelPage extends RadioAnchorPage {
             this.updateStocksDailyKline();
         }
         this.container.appendChild(updateBtn);
-
-        var checkCountBtn = document.createElement('button');
-        checkCountBtn.textContent = '检查数据';
-        checkCountBtn.onclick = e => {
-            this.checkStockKlExpired();
-        }
-        this.container.appendChild(checkCountBtn);
 
         this.selectionFilter = document.createElement('select');
         var fitems = this.getFilterItems();

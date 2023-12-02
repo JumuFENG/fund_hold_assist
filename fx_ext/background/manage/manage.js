@@ -415,15 +415,19 @@ class Manager {
     }
 
     getStockMarketHS(code) {
+        var prefixes = {'60': 'SH', '68': 'SH', '30': 'SZ', '00': 'SZ', '83': 'BJ', '43': 'BJ'};
         var stk = this.stockMarket[code];
         if (!stk) {
-            return (code.startsWith('60') || code.startsWith('68')) ? 'SH' : 'SZ';
+            return prefixes[code.substring(0, 2)];
         }
 
         if (stk.c) {
             return stk.c.substring(0, 2);
         }
-        return stk.mkt == '0' ? 'SZ' : 'SH';
+        if (stk.mkt == '1') {
+            return 'SH'
+        }
+        return prefixes[code.substring(0, 2)];
     }
 
     getLongStockCode(code) {
@@ -586,33 +590,6 @@ class Manager {
             console.log('Check done!');
         });
     }
-
-    checkKl1Expired() {
-        var kltimeExpired = function(kt) {
-            var t = new Date();
-            if (t.getDay() == 1 && t - new Date(kt) > 72*3600000) {
-                return true;
-            }
-            return t - new Date(kt) > 24*3600000;
-        }
-        for (var c in this.klines) {
-            if (!this.klines[c] || !this.klines[c].klines || !this.klines[c].klines['1'] || this.klines[c].klines['1'].length == 0) {
-                continue;
-            }
-            var kl1 = this.klines[c].klines['1'].slice(-1)[0];
-            if (kltimeExpired(kl1.time)) {
-                this.klines[c].klines['1'] = [];
-                this.klines[c].klines['2'] = [];
-                this.klines[c].klines['4'] = [];
-                this.klines[c].klines['8'] = [];
-                this.klines[c].save();
-            }
-            var kl101 = this.klines[c].klines['101'].slice(-1)[0];
-            if (kltimeExpired(kl101.time)) {
-                this.updateKlineDaily(c);
-            }
-        }
-    }
 }
 
 class ManagerPage {
@@ -628,6 +605,10 @@ class ManagerPage {
 
         this.navigator.addRadio(emjyBack.trackList);
         this.root.appendChild(emjyBack.trackList.container);
+
+        var strategyIPage = new StrategyIntradingPanelPage('盘中策略');
+        this.navigator.addRadio(strategyIPage);
+        this.root.appendChild(strategyIPage.container);
 
         var settingsPage = new SettingsPanelPage('设置');
         this.navigator.addRadio(settingsPage);

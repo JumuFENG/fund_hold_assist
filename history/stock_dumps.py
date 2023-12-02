@@ -177,10 +177,11 @@ class StockDumps(KdataDumps):
     def fixPrice(self, code, f0data, fqt):
         sg = StockGlobal.stock_general(code)
         bn = None
-        if sg.type == 'ABStock':
-            bn = StockShareBonus()
-        elif sg.type == 'LOF' or sg.type == 'ETF':
-            bn = FundShareBonus()
+        if hasattr(sg, 'type'):
+            if sg.type == 'ABStock' or sg.type == 'BJStock':
+                bn = StockShareBonus()
+            elif sg.type == 'LOF' or sg.type == 'ETF':
+                bn = FundShareBonus()
         if bn is None:
             return f0data
 

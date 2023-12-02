@@ -159,6 +159,12 @@ class TrackingAccount extends NormalAccount {
         if (!this.tradeClient) {
             this.createTradeClient();
         }
+
+        var stock = this.stocks.find(s => {return s.code == code;});
+        if (!stock) {
+            this.addWatchStock(code);
+        };
+
         if (price == 0) {
             this.tradeClient.getRtPrice(code, pobj => {
                 var p = pobj.cp;
@@ -181,6 +187,17 @@ class TrackingAccount extends NormalAccount {
             return;
         }
         this.tradeClient.sell(code, price, count, cb);
+    }
+
+    removeStock(code) {
+        super.removeStock(code);
+        while (true) {
+            var ic = this.deals.findIndex(s => {return s.code == code;});
+            if (ic == -1) {
+                break;
+            };
+            this.deals.splice(ic, 1);
+        }
     }
 
     save() {

@@ -536,6 +536,8 @@ class User():
             for qt in lpobj['data']['diff']:
                 if 'SH' + qt['f12'] in uss:
                     uss['SH' + qt['f12']]['price'] = self.__get_latest_price('SH' + qt['f12'], qt['f2'])
+                elif 'BJ' + qt['f12'] in uss:
+                    uss['BJ' + qt['f12']]['price'] = self.__get_latest_price('BJ' + qt['f12'], qt['f2'])
                 else:
                     uss['SZ' + qt['f12']]['price'] = self.__get_latest_price('SZ' + qt['f12'], qt['f2'])
 

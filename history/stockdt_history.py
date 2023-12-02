@@ -44,8 +44,8 @@ class StockDtInfo(EmRequest, TableBase):
             if mdate is None:
                 self.date = Utils.today_date('%Y%m%d')
             else:
-                self.date = (datetime.strptime(mdate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
-        return self.urlroot + self.date
+                self.date = TradingDate.nextTradingDate(mdate).replace('-', '')
+        return f'{self.urlroot}{self.date}'
 
     def getNext(self):
         emback = json.loads(self.getRequest(self.headers))
@@ -56,10 +56,15 @@ class StockDtInfo(EmRequest, TableBase):
                 return self.getNext()
             return
 
+        qdate = f"{emback['data']['qdate']}"
+        if 'qdate' in emback['data'] and qdate != self.date:
+            self.date = qdate
+            return self.getNext()
+
         self.dtdata = []
         date = datetime.strptime(self.date, "%Y%m%d").strftime('%Y-%m-%d')
         for dtobj in emback['data']['pool']:
-            code = ('SZ' if dtobj['m'] == '0' or dtobj['m'] == 0 else 'SH') + dtobj['c'] # code
+            code = StockGlobal.full_stockcode(dtobj['c']) # code
             hsl = dtobj['hs'] # 换手率 %
             fund = dtobj['fund'] # 封单金额
             fba = dtobj['fba'] # 板上成交额

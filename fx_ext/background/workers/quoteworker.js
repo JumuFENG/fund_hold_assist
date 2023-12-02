@@ -1,4 +1,4 @@
-let SHSZQueryUrl = 'https://hsmarketwg.eastmoney.com/api/SHSZQuery?count=10&callback=sData&id=';
+let SHSZQueryUrl = 'https://emhsmarketwg.eastmoneysec.com/api/SHSZQuery/GetCodeAutoComplete2?count=10&callback=sData&id=';
 let quoteUrl = 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot';
 // https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id=601012&callback=jQuery18304735019505463437_1624277312927&_=1624277415671
 let ztPoolUrl = 'http://push2ex.eastmoney.com/getTopicZTPool?ut=7eea3edcaed734bea9cbfc24409ed989&sort=fbt%3Aasc&Pageindex=0&dpt=wz.ztzt&date=';
@@ -45,11 +45,26 @@ function queryStockInfo(code) {
         }
         sData = sData[1];
         if (!sData.includes(',')) {
-            postMessage({command:'quote.query.stock', sdata: {code, market:code.startsWith('60') ||code.startsWith('68') ? 'SH' : 'SZ'}});
+            var market = 'SZ';
+            if (code.startsWith('60') || code.startsWith('68')) {
+                market = 'SH';
+            } else if (code.startsWith('83') || code.startsWith('43')) {
+                market = 'BJ';
+            }
+            postMessage({command:'quote.query.stock', sdata: {code, market}});
         } else {
+            // "837344,837344,6,SYJY,三元基因,4,64,48,0,81,1,1;";
+            // "430489,430489,6,JXGF,佳先股份,4,64,48,0,81,1,1;";
+            // "002460,002460,1,GFLY,赣锋锂业,2,2,0,0,6,0,1;";
+            // "605122,605122,1,SFXC,四方新材,1,2,0,1,2,0,1;";
             var items = sData.split(',');
             var name = items[4];
-            var market = (items[5] == 1 ? 'SH' : 'SZ');
+            var market = 'SZ';
+            if (items[5] == 1) {
+                market = 'SH';
+            } else if (items[5] == 4) {
+                market = 'BJ';
+            }
             var sdata = {name, code, market};
             postMessage({command: 'quote.query.stock', sdata});
         }

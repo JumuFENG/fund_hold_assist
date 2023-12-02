@@ -318,10 +318,14 @@ class SortableTable {
             var th = document.createElement('th');
             th.idx = i + this.colOffset;
             th.bindTable = this;
-            th.onclick = function(e) {
-                e.target.bindTable.sortTable(e.target.idx);
+            if ('object' != typeof(hs[i])) {
+                th.onclick = function(e) {
+                    e.target.bindTable.sortTable(e.target.idx);
+                }
+                th.appendChild(document.createTextNode(hs[i]));
+            } else {
+                th.appendChild(hs[i]);
             }
-            th.appendChild(document.createTextNode(hs[i]));
             tr.appendChild(th);
         };
         return tr;

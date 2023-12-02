@@ -29,6 +29,17 @@ class StockGlobal():
         return self.generals[code]
 
     @classmethod
+    def full_stockcode(self, code):
+        # type: (str) -> str
+        # simple get full stock code
+        if len(code) != 6:
+            return code
+        prefixes = {'60': 'SH', '68': 'SH', '30': 'SZ', '00': 'SZ', '83': 'BJ', '43': 'BJ'}
+        if code[0:2] not in prefixes:
+            return code
+        return f'{prefixes[code[0:2]]}{code}'
+
+    @classmethod
     def all_stocks(self):
         if self.stocks is None:
             self.sqllock.acquire()
@@ -42,7 +53,7 @@ class StockGlobal():
     def getAllStocksShortInfo(self):
         stksInfo = self.sqldb.select(gl_all_stocks_info_table, [column_code, column_name, column_type], "type != 'TSSTOCK'")
         return [{
-            'c': c, 'n': n, 't': ('AB' if t == 'ABStock' else 'E' if t == 'ETF' else 'L' if t == 'LOF' else '')
+            'c': c, 'n': n, 't': ('AB' if t == 'ABStock' or t == 'BJStock' else 'E' if t == 'ETF' else 'L' if t == 'LOF' else '')
         } for (c, n, t) in stksInfo]
 
     @classmethod
@@ -96,7 +107,7 @@ class StockGlobal():
                 if (m != 0 and m != 1):
                     print('invalid market', m)
                     continue
-                code = 'SH' + cd if m == 1 else 'SZ' + cd
+                code = 'SH' + cd if m == 1 else self.full_stockcode(cd)
                 if updateKl:
                     Stock_history.updateStockKlDayData(code, KNode([0, today, c, h, l, o, ze, zd, cj, ce/10000]))
             pn += 1
@@ -129,20 +140,21 @@ class AllStocks(InfoList):
             print('get CompanySurvey error', c)
             print(ex)
 
-    def loadNewStock(self, sdate = None):
+    def loadNewStock(self, market='AB', sdate = None):
         # http://quote.eastmoney.com/center/gridlist.html#newshares
         newstocks = []
         today = datetime.now().strftime("%Y-%m-%d")
         if sdate is None:
-            maxDate = self.sqldb.selectOneValue(gl_all_stocks_info_table, f"max({column_setup_date})")
+            maxDate = self.sqldb.selectOneValue(gl_all_stocks_info_table, f"max({column_setup_date})", f'{column_type}="BJStock"' if market=='BJ' else '')
             if maxDate is None:
-                sdate = today
+                sdate = '0'
             else:
                 sdate = maxDate
 
         pn = 1
+        fs = 'm:0+f:81+s:2048' if market == 'BJ' else 'm:0+f:8,m:1+f:8'
         while True:
-            newstocksUrl = f'''http://18.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=20&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f26&fs=m:0+f:8,m:1+f:8&fields=f12,f13,f14,f21,f26&_={Utils.time_stamp()}'''
+            newstocksUrl = f'''http://18.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=20&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f26&fs={fs}&fields=f12,f13,f14,f21,f26&_={Utils.time_stamp()}'''
             res = Utils.get_em_equest(newstocksUrl)
             if res is None:
                 break
@@ -170,7 +182,8 @@ class AllStocks(InfoList):
                 ipodays = (datetime.strptime(today, "%Y-%m-%d") - datetime.strptime(setdate, "%Y-%m-%d")).days
                 if ipodays > 10:
                     continue
-                newstocks.append(('SH' + c if m == 1 else 'SZ' + c, n, s, setdate))
+                code = ('BJ' if market == 'BJ' else 'SH' if m == 1 else 'SZ') + c
+                newstocks.append((code, n, s, setdate))
 
             if ldate < sdate:
                 break
@@ -184,13 +197,14 @@ class AllStocks(InfoList):
         headers = [column_code, column_name, column_type, column_short_name, column_assets_scale, column_setup_date]
         values = []
         for code,name,assets_scale,setup_date in newstocks:
+            mstype = 'BJStock' if code.startswith('BJ') else 'ABStock'
             stockinfo = self.sqldb.select(gl_all_stocks_info_table, [column_code, column_short_name], "%s = '%s'" % (column_code, code))
             if stockinfo is None or len(stockinfo) == 0:
-                values.append([code, name, 'ABStock', name, assets_scale, setup_date])
+                values.append([code, name, mstype, name, assets_scale, setup_date])
             else:
                 (c, sn), = stockinfo
                 self.updateStockCol(code, column_name, name)
-                self.updateStockCol(code, column_type, 'ABStock')
+                self.updateStockCol(code, column_type, mstype)
                 self.updateStockCol(code, column_setup_date, setup_date)
                 self.updateStockCol(code, column_assets_scale, assets_scale)
                 if sn is None or sn == 'NULL' or sn == '':
@@ -614,7 +628,7 @@ class StockEmBk(TableBase, EmRequest):
             for stk in bkstks['data']['diff'].values():
                 code = stk['f12']
                 mk = stk['f13']
-                self.bkstocks.append(('SH' if mk == 1 else 'SZ') + code)
+                self.bkstocks.append(f'SH{code}' if mk == 1 else StockGlobal.full_stockcode(code))
             if bkstks['data']['total'] > len(self.bkstocks):
                 self.page += 1
                 self.getNext()

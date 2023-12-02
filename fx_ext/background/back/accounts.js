@@ -280,8 +280,11 @@ class TradeClient {
         fd.append('stockCode', code);
         fd.append('price', price);
         fd.append('amount', count);
+        if (stock.mkt == '4') {
+            tradeType = '0' + tradeType;
+        }
         fd.append('tradeType', tradeType);
-        var market = stock.mkt == '0' ? 'SA' : 'HA';
+        var market = stock.mkt == '0' ? 'SA' : (stock.mkt == '4' ? 'B' : 'HA');
         fd.append('market', market);
         return fd;
     }
@@ -703,6 +706,7 @@ class NormalAccount extends Account {
         strategyGroup.setHoldCount(stock.holdCount, stock.availableCount, stock.holdCost);
         strategyGroup.applyGuardLevel();
         stock.strategies = strategyGroup;
+        emjyBack.sendWebsocketMessage({action:'addwatch', account: this.keyword, code, strategy: str});
     }
 
     removeStrategy(code, stype) {

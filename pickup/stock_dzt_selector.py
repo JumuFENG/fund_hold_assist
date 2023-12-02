@@ -397,3 +397,201 @@ class StockHelvenSelector(StockBaseSelector):
                     self.wkselected.append([
                         c, kl.date
                     ])
+
+
+class StockDztBoardSelector(StockBaseSelector):
+    '''前一日跌停，次日涨停打板买入'''
+    def __init__(self):
+        super().__init__()
+
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_dt_bd_pickup'
+        self.colheaders = [
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+            {'col':'dtpercent', 'type':'float DEFAULT NULL'},
+            {'col':'dshadow', 'type':'float DEFAULT NULL'},
+            {'col':'isdt', 'type':'tinyint DEFAULT NULL'}
+        ]
+        self.zdf = 10
+        self.uplmt = 8
+        self.sim_cutrate = 0.115
+        self.sim_earnrate = 0.06
+        self._sim_ops = [
+            # 大阴 次日涨停打板
+            {'prepare': self.sim_prepare, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_dt_bd'},
+            ]
+        self.sim_ops = self._sim_ops[0:1]
+
+    def walk_on_history_thread(self):
+        while len(self.wkstocks) > 0:
+            c, sdate = self.wkstocks.pop(0)
+            if not c.startswith('SZ00') and not c.startswith('SH60'):
+                continue
+
+            allkl = self.get_kd_data(c, start=sdate)
+            if allkl is None or len(allkl) == 0:
+                continue
+
+            i = 0
+            while i < len(allkl):
+                kl = allkl[i]
+                lcl = allkl[i-1].close if i > 0 else kl.open
+                if kl.pchange < -self.uplmt:
+                    isdt = 1 if kl.close <= Utils.dt_priceby(lcl, zdf=self.zdf) else 0
+                    self.wkselected.append([
+                        c, kl.date, kl.pchange, round((kl.close - kl.low) / lcl, 4), isdt
+                    ])
+                i += 1
+
+    def walk_post_process(self):
+        completed = []
+        for dzt in self.wkselected:
+            dtid = self.sqldb.selectOneValue(self.tablename, f'id', f'{column_date} = "{dzt[1]}" and {column_code} = "{dzt[0]}"')
+            if dtid is None:
+                completed.append(dzt)
+
+        if len(completed) > 0:
+            self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], completed)
+
+    def getDumpKeys(self):
+        return self._select_keys([column_code, column_date, 'dtpercent', 'isdt'])
+
+    def getDumpCondition(self, date):
+        if date is None:
+            date = TradingDate.maxTradingDate()
+        return self._select_condition(f'{column_date} = "{date}"')
+
+    def sim_prepare(self):
+        orstks = self.sqldb.select(self.tablename, f'{column_code}, {column_date}')
+        self.sim_stks = sorted(orstks, key=lambda s: (s[0], s[1]))
+        self.sim_deals = []
+
+    def simulate_thread(self):
+        orstks = []
+        while len(self.sim_stks) > 0:
+            self.simlock.acquire()
+            if len(self.sim_stks) == 0:
+                self.simlock.release()
+                break
+            while len(orstks) == 0 or self.sim_stks[0][0] == orstks[0][0]:
+                orstks.append(self.sim_stks.pop(0))
+                if len(self.sim_stks) == 0:
+                    break
+            self.simlock.release()
+
+            kd = None
+            for code, dt in orstks:
+                if kd is None:
+                    kd = self.get_kd_data(code, dt)
+                ki = 0
+                while kd[ki].date != dt:
+                    ki += 1
+                if ki > 0:
+                    kd = kd[ki:]
+                    if kd is None or len(kd) < 3:
+                        continue
+
+                kldt = kd[0]
+                assert kldt.date == dt, 'wrong kl data!'
+
+                i = 1
+                kl1 = kd[i]
+                op0 = kl1.open
+                hi0 = kl1.high
+                lo0 = kl1.low
+                cl0 = kl1.close
+                if hi0 == lo0 and cl0 >= Utils.zt_priceby(kldt.close):
+                    # 一字涨停 无法买进
+                    continue
+
+                if hi0 < Utils.zt_priceby(kldt.close):
+                    # 没有涨停
+                    continue
+
+                buy = hi0
+                bdate = kl1.date
+                sell = 0
+                sdate = kl1.date
+                j = i + 1
+                cutl = buy * (1 - self.sim_cutrate)
+                earnl = buy * (1 + self.sim_earnrate)
+                while j < len(kd):
+                    clp3 = kd[j-1].close
+                    klj = kd[j]
+                    cl3 = klj.close
+                    hi3 = klj.high
+                    lo3 = klj.low
+                    op3 = klj.open
+                    if lo3 == hi3 and hi3 <= Utils.dt_priceby(clp3):
+                        # 一字跌停，无法卖出
+                        j += 1
+                        continue
+                    if lo3 == hi3 and hi3 >= Utils.zt_priceby(clp3):
+                        # 一字涨停，持股不动
+                        cutl = cl3 * 0.97
+                        earnl = hi3
+                        j += 1
+                        continue
+                    if op3 < cutl:
+                        if op3 > Utils.dt_priceby(clp3):
+                            sell = op3
+                            sdate = klj.date
+                            break
+                    if lo3 < cutl:
+                        sell = cutl
+                        sdate = klj.date
+                        break
+                    if hi3 >= earnl:
+                        sell = (hi3 + earnl) / 2
+                        sdate = klj.date
+                        break
+                    j += 1
+
+                if sdate != bdate:
+                    count = round(1000/buy) * 100
+                    self.sim_deals.append({'time': bdate, 'code': code, 'sid': 0, 'tradeType': 'B', 'price': round(buy, 2), 'count': count})
+                    self.sim_deals.append({'time': sdate, 'code': code, 'sid': 0, 'tradeType': 'S', 'price': round(sell, 2), 'count': count})
+                    sdate = None
+                    bdate = None
+                    buy = 0
+                    sell = 0
+
+            orstks = []
+
+    def simulate_bound(self):
+        self.sim_prepare()
+        simstks = [s for s in self.sim_stks]
+        for c in range(70, 150, 5):
+            for e in range(55, 130, 5):
+                self.sim_cutrate = c / 1000
+                self.sim_earnrate = e / 1000
+                self.sim_stks = [s for s in simstks]
+                self.sim_ops = [{'prepare': None, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_dt_bd_c{c}_e{e}'}]
+                self.simulate()
+                self.sim_deals = []
+
+
+class StockDztStBoardSelector(StockDztBoardSelector):
+    def __init__(self):
+        super().__init__()
+
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_dt_st_bd_pickup'
+        self.sim_cutrate = 0.06
+        self.sim_earnrate = 0.03
+        self.uplmt = 4
+        self.zdf = 5
+
+    def walk_prepare(self, date=None):
+        self.threads_num = 1
+        self.wkselected = []
+        if date is None:
+            dailySt = StockZtDailyST()
+            self.wkstocks = dailySt.sqldb.select(dailySt.tablename, f'{column_code}, min({column_date})', order=f'group by {column_code}')
+        else:
+            stbk = StockEmBk('BK0511')
+            ststocks = stbk.dumpDataByDate()
+            self.wkstocks = [[c, date] for c in ststocks]

@@ -41,6 +41,14 @@ class KLine {
         });
     }
 
+    kltimeExpired(kt) {
+        var t = new Date();
+        if (t.getDay() == 1 && t - new Date(kt) > 72*3600000) {
+            return true;
+        }
+        return t - new Date(kt) > 24*3600000;
+    }
+
     loadSaved(cb) {
         if (this.code.startsWith('t')) {
             if (typeof(cb) === 'function') {
@@ -54,6 +62,10 @@ class KLine {
                 for (var i in this.klines) {
                     if (this.klines[i].length > 600 && i - 120 < 0) {
                         this.klines[i] = this.klines[i].slice(this.klines[i].length - 600);
+                    }
+                    if (i - 10 < 0 && this.klines[i].length > 0 && this.kltimeExpired(this.klines[i][this.klines[i].length - 1].time)) {
+                        console.log(this.code);
+                        this.klines[i] = [];
                     }
                 }
                 this.parseKlVars();

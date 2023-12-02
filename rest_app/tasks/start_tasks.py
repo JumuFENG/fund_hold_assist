@@ -26,7 +26,7 @@ def schedule_pmset(now=None):
     po1 = 'wakeorpoweron MTWRF 8:25:0'
     shut1 = 'shutdown MTWRF 15:15:0'
     po2 = 'wakeorpoweron MTWRF 18:15:0'
-    shut2 = 'shutdown MTWRF 18:35:0'
+    shut2 = 'shutdown MTWRF 18:55:0'
     pmcmd = 'pmset repeat'
     dayminutes = now.hour * 60 + now.minute
     if now.weekday() >= 5:
@@ -37,7 +37,7 @@ def schedule_pmset(now=None):
         pmcmd += ' ' + shut1 + ' ' + po2
     elif dayminutes < 18 * 60 + 15:
         pmcmd += ' ' + po2 + ' ' + shut2
-    elif dayminutes < 18 * 60 + 35:
+    elif dayminutes < 18 * 60 + 55:
         pmcmd += ' ' + shut2 + ' ' + po1
     TimerTask.logger.info(f'os.system({pmcmd})')
     os.system(pmcmd)
@@ -95,10 +95,7 @@ def daily_should_run(lastrun, now):
         return True
 
     lt = datetime.strptime(lastrun, f"%Y-%m-%d %H:%M")
-    if (now - lt).days >= 1:
-        return True
-
-    if now.day > lt.day:
+    if now.day != lt.day:
         return True
 
     if now.day == lt.day and now.hour > 15 and lt.hour <= 9:
@@ -157,12 +154,13 @@ def run_regular_tasks(dnow):
             if upid >= len(stocks):
                 upid -= len(stocks)
             (i, c, n, s, t, sn, m, st, qt) = stocks[upid]
-            if t == 'TSSTOCK' or qt is not None:
+            if t == 'TSStock' or qt is not None:
                 continue
             sh.getKHistoryFromSohuTillToday(c)
 
         if len(StockGlobal.klupdateFailed) > 0:
             sa = StockAnnoucements()
+            Utils.log(StockGlobal.klupdateFailed)
             sa.check_stock_quit(StockGlobal.klupdateFailed)
             StockGlobal.klupdateFailed.clear()
 

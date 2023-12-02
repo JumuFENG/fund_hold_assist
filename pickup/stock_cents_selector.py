@@ -30,16 +30,15 @@ class StockCentsSelector(StockBaseSelector):
                 self.wkstocks[i][1] = cents[self.wkstocks[i][0]]
 
     def walk_on_history_thread(self):
-        sd = StockDumps()
         while len(self.wkstocks) > 0:
-            c,sdate = self.wkstocks.pop()
-            kd = sd.read_kd_data(c, start=sdate)
+            c,sdate = self.wkstocks.pop(0)
+            kd = self.get_kd_data(c, sdate)
             if kd is None:
                 continue
 
             lowkls = []
             for i in range(0, len(kd)):
-                kl = KNode(kd[i])
+                kl = kd[i]
                 if kl.close < 1:
                     if len(lowkls) == 0 or 'end' in lowkls[-1]:
                         lowkls.append({'start': kl, 'code': c})

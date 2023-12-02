@@ -804,7 +804,18 @@ class StrategyBuyZTBoard extends StrategyBuy {
             return;
         }
 
-        if (rtInfo.latestPrice == rtInfo.topprice ||
+        if (rtInfo.latestPrice == rtInfo.topprice) {
+            if (rtInfo.topprice == rtInfo.openPrice && this.tmpztbroken === undefined) {
+                this.tmpztbroken = false;
+            }
+            if (!this.tmpztbroken) {
+                return;
+            }
+        } else {
+            this.tmpztbroken = true;
+        }
+
+        if ((rtInfo.latestPrice == rtInfo.topprice && (this.tmpztbroken || this.tmpztbroken === undefined)) ||
             (rtInfo.buysells.sale2 == '-' && rtInfo.buysells.sale1 == rtInfo.topprice) ||
             this.is_zt_reaching(rtInfo.buysells, rtInfo.topprice)) {
             this.tmpbuyonzt = true;
@@ -1396,20 +1407,20 @@ class StrategySellBeforeEnd extends Strategy {
         var zt = emjyBack.stockZdtPrices && emjyBack.stockZdtPrices[chkInfo.code] && kl.c - emjyBack.stockZdtPrices[chkInfo.code].ztprice >= 0
         var hinc = kl.h - prekl.h > 0 || zt;
         var linc = kl.l - prekl.l > 0;
-        if (this.data.sell_conds && conditions['h_and_l_dec']) {
+        if (this.data.sell_conds & conditions['h_and_l_dec']) {
             // 最高价和最低价都不增加时卖出
             if (!hinc && !linc) {
-                emjyBack.log('StrategySellBeforeEnd kl', JSON.stringify(kl), 'prekl', JSON.stringify(prekl));
+                emjyBack.log('StrategySellBeforeEnd kl &&', this.data.sell_conds, JSON.stringify(kl), 'prekl', JSON.stringify(prekl));
                 matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
                     this.setEnabled(false);
                 });
                 return;
             }
         }
-        if (this.data.sell_conds && conditions['h_or_l_dec']) {
+        if (this.data.sell_conds & conditions['h_or_l_dec']) {
             // 最高价或最低价不增加时卖出
             if (!hinc || !linc) {
-                emjyBack.log('StrategySellBeforeEnd kl', JSON.stringify(kl), 'prekl', JSON.stringify(prekl));
+                emjyBack.log('StrategySellBeforeEnd kl ||', this.data.sell_conds, JSON.stringify(kl), 'prekl', JSON.stringify(prekl));
                 matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
                     this.setEnabled(false);
                 });

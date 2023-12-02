@@ -98,6 +98,7 @@ class DailyUpdater():
         StockGlobal.getStocksZdfRank()
         stkall = AllStocks()
         stkall.loadNewStock()
+        stkall.loadNewStock('BJ')
         usermodel = UserModel()
         all_users = usermodel.all_users()
         self.allcodes = []
@@ -105,7 +106,7 @@ class DailyUpdater():
             ustks = u.get_interested_stocks_code()
             if ustks is not None:
                 self.allcodes = self.allcodes + ustks
-        abstks = stkall.sqldb.select(gl_all_stocks_info_table, 'code', [f'{column_type} = "ABSTOCK"', 'quit_date is NULL'])
+        abstks = stkall.sqldb.select(gl_all_stocks_info_table, 'code', [f'{column_type} = "ABSTOCK" or {column_type} = "BJStock"', 'quit_date is NULL'])
         [self.allcodes.append(c) for c, in abstks]
 
         self.allcodes = set(self.allcodes)
@@ -151,6 +152,7 @@ class DailyUpdater():
         Utils.log("update new IPO stocks")
         stkall = AllStocks()
         stkall.loadNewStock()
+        stkall.loadNewStock('BJ')
 
     def fetch_zdt_stocks(self):
         Utils.log('update ST bk stocks')
@@ -189,7 +191,7 @@ class DailyUpdater():
         selectors = [
             StockDztSelector(), StockZt1Selector(), StockCentsSelector(),
             StockMaConvergenceSelector(), StockZdfRanks(), StockZtLeadingSelector(),
-            StockZtLeadingSelectorST(), StockDztStSelector()]
+            StockZtLeadingSelectorST(), StockDztStSelector(), StockDztBoardSelector(), StockDztStBoardSelector()]
         for sel in selectors:
             Utils.log(f'update { sel.__class__.__name__}')
             sel.updatePickUps()

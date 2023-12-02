@@ -6,6 +6,24 @@ class StkSelector {
         this.key = '';
         this.toolbar = null;
         this.stkTable = null;
+        this.chkbxSelectAll = document.createElement('input');
+        this.chkbxSelectAll.type = 'checkbox';
+        this.chkbxSelectAll.onchange = e => {
+            this.selectAllStocks(e.target.checked);
+        }
+    }
+
+    selectAllStocks(select) {
+        if (!this.stkTable) {
+            return;
+        }
+
+        var chkbx = this.stkTable.container.querySelectorAll('input[type="checkbox"]');
+        for (const chk of chkbx) {
+            if (chk.checked != select) {
+                chk.click();
+            }
+        }
     }
 
     createSelCheckbox(code) {
@@ -37,6 +55,9 @@ class StkSelector {
         }
         if (this.stkTable) {
             this.stkTable.reset();
+            if (this.chkbxSelectAll) {
+                this.chkbxSelectAll.checked = false;
+            }
         }
         if (this.toolbar) {
             utils.removeAllChild(this.toolbar);
@@ -85,6 +106,10 @@ class StkSelector {
         });
         return candidatesObj;
     }
+
+    saveName() {
+        return this.name;
+    }
 }
 
 class Zt1Selector extends StkSelector {
@@ -105,7 +130,7 @@ class Zt1Selector extends StkSelector {
 
     doShowSelected() {
         var table = this.stkTable;
-        table.setClickableHeader('序号', '日期', '名称(代码)', '板块', '涨停概念', '');
+        table.setClickableHeader('序号', '日期', '名称(代码)', '板块', '涨停概念', this.chkbxSelectAll);
         var date = this.selStocks.date;
         this.ztdate = date;
         var n = 1;
@@ -145,7 +170,7 @@ class ZtLeadSelector extends StkSelector {
 
     doShowSelected() {
         var table = this.stkTable;
-        table.setClickableHeader('序号', '日期', '名称(代码)', '首日连板数', '龙头天数', '');
+        table.setClickableHeader('序号', '日期', '名称(代码)', '首日连板数', '龙头天数', this.chkbxSelectAll);
         var n = 1;
         for (const stocki of this.selStocks) {
             var code = stocki[0].substring(2);
@@ -161,6 +186,16 @@ class ZtLeadSelector extends StkSelector {
                 sel
             );
         }
+    }
+
+    createStrategyFor(code) {
+        var strategy = emjyBack.strategyManager.create({"key":"StrategyBuy","enabled":true}).data;
+        var strategies = {"0":strategy}
+        strategies['1'] = {"key":"StrategySellELTop","enabled":false,"cutselltype":"single"};
+        strategies['2'] = {"key":"StrategySellBE","enabled":false,"selltype":"single"};
+        var transfers = {"0":{"transfer":"-1"}, "1":{"transfer":"-1"}, "2":{"transfer":"-1"}};
+
+        return this.makeStrategyGrp(code, strategies, transfers, 10000);
     }
 }
 
@@ -191,6 +226,16 @@ class ZtPredictLeadSelector extends StkSelector {
         });
     }
 
+    saveName() {
+        if (this.cptKey == 'dayzt') {
+            return '涨停';
+        }
+        if (this.cptKey == 'notzt') {
+            return '涨停断板';
+        }
+        return this.name;
+    }
+
     showToolbar() {
         if (!this.selStocks || !this.toolbar) {
             return;
@@ -211,7 +256,9 @@ class ZtPredictLeadSelector extends StkSelector {
         var cpts = Object.keys(cptCnts);
         cpts.sort((c1, c2) => cptCnts[c1] < cptCnts[c2]);
         var cptSelector = document.createElement('select');
-        cptSelector.options.add(new Option('全部'+this.selStocks.length, ''));
+        cptSelector.options.add(new Option('全部' + this.selStocks.length, ''));
+        cptSelector.options.add(new Option('今日涨停', 'dayzt'));
+        cptSelector.options.add(new Option('断板', 'notzt'));
         for (const cpt of cpts) {
             cptSelector.options.add(new Option(cpt+cptCnts[cpt], cpt));
         }
@@ -222,6 +269,9 @@ class ZtPredictLeadSelector extends StkSelector {
             }
             if (this.stkTable) {
                 this.stkTable.reset();
+                if (this.chkbxSelectAll) {
+                    this.chkbxSelectAll.checked = false;
+                }
             }
             this.doShowSelected();
         }
@@ -230,11 +280,21 @@ class ZtPredictLeadSelector extends StkSelector {
 
     doShowSelected() {
         var table = this.stkTable;
-        table.setClickableHeader('序号', '日期', '名称(代码)', '天数', '连板数', '10日涨幅', '30日涨幅', '行业板块', '概念', '');
+        table.setClickableHeader('序号', '日期', '名称(代码)', '天数', '连板数', '10日涨幅', '30日涨幅', '行业板块', '概念', this.chkbxSelectAll);
         var n = 1;
         for (const stocki of this.selStocks) {
-            if (this.cptKey && !stocki[7].includes(this.cptKey)) {
-                continue;
+            if (this.cptKey) {
+                if (this.cptKey == 'dayzt') {
+                    if (stocki[1] != this.ztdate) {
+                        continue;
+                    }
+                } else if (this.cptKey == 'notzt') {
+                    if (stocki[1] == this.ztdate) {
+                        continue;
+                    }
+                } else if (!stocki[7].includes(this.cptKey)) {
+                    continue;
+                }
             }
             var code = stocki[0].substring(2);
             var anchor = emjyBack.stockAnchor(code);
@@ -284,7 +344,7 @@ class Zt1d1Selector extends StkSelector {
 
     doShowSelected() {
         var table = this.stkTable;
-        table.setClickableHeader('序号', '日期', '名称(代码)', '板块', '涨停概念', '');
+        table.setClickableHeader('序号', '日期', '名称(代码)', '板块', '涨停概念', this.chkbxSelectAll);
         var n = 1;
         for (const stocki of this.selStocks) {
             var code = stocki[0].substring(2);
@@ -330,7 +390,7 @@ class DztSelector extends StkSelector {
 
     doShowSelected() {
         var table = this.stkTable;
-        table.setClickableHeader('序号', '日期', '名称(代码)', '昨跌幅', '今涨幅', '');
+        table.setClickableHeader('序号', '日期', '名称(代码)', '昨跌幅', '今涨幅', this.chkbxSelectAll);
         var n = 1;
         for (const stocki of this.selStocks) {
             var code = stocki[0].substring(2);
@@ -360,6 +420,54 @@ class DztSelector extends StkSelector {
     }
 }
 
+class DtBoardSelector extends StkSelector {
+    constructor() {
+        super();
+        this.key = 'dztbd';
+        this.name = '昨跌停打板';
+        this.ztdate = '';
+    }
+
+    getSelectorData() {
+        var dztUrl = emjyBack.fha.server + 'stock?act=pickup&key=dztbd&date=' + this.ztdate;
+        utils.get(dztUrl, null, dzt => {
+            this.selStocks = JSON.parse(dzt);
+            if (this.selStocks.length > 0) {
+                this.showSelected();
+            }
+        });
+    }
+
+    doShowSelected() {
+        var table = this.stkTable;
+        table.setClickableHeader('序号', '日期', '名称(代码)', '昨跌幅', '跌停', this.chkbxSelectAll);
+        var n = 1;
+        for (const stocki of this.selStocks) {
+            var code = stocki[0].substring(2);
+            var anchor = emjyBack.stockAnchor(code);
+            var sel = this.createSelCheckbox(code);
+            table.addRow(
+                n++,
+                stocki[1],
+                anchor,
+                stocki[2],
+                stocki[3],
+                sel
+            );
+        }
+    }
+
+    createStrategyFor(code) {
+        var strategy = emjyBack.strategyManager.create({"key":"StrategyBuyZTBoard","enabled":true}).data;
+        var strategies = {"0":strategy}
+        strategies['1'] = {"key":"StrategySellELTop","enabled":false,"cutselltype":"single"};
+        strategies['2'] = {"key":"StrategySellBE","enabled":false,"selltype":"single"};
+        var transfers = {"0":{"transfer":"-1"}, "1":{"transfer":"-1"}, "2":{"transfer":"-1"}};
+
+        return this.makeStrategyGrp(code, strategies, transfers, 100000);
+    }
+}
+
 class MaConvSelector extends StkSelector {
     constructor() {
         super();
@@ -379,7 +487,7 @@ class MaConvSelector extends StkSelector {
 
     doShowSelected() {
         var table = this.stkTable;
-        table.setClickableHeader('序号', '日期', '名称(代码)', '');
+        table.setClickableHeader('序号', '日期', '名称(代码)', this.chkbxSelectAll);
         var n = 1;
         for (const stocki of this.selStocks) {
             var code = stocki[0].substring(2);
@@ -426,7 +534,7 @@ class UstSelector extends StkSelector {
 
     doShowSelected() {
         var table = this.stkTable;
-        table.setClickableHeader('序号', '名称(代码)', '申请日期', '摘帽/星日期', '公告', '');
+        table.setClickableHeader('序号', '名称(代码)', '申请日期', '摘帽/星日期', '公告', this.chkbxSelectAll);
         var n = 1;
         for (const stocki of this.selStocks) {
             var code = stocki[0].substring(2);
@@ -453,6 +561,7 @@ class StkSelectorsPanelPage extends RadioAnchorPage {
             new ZtPredictLeadSelector(),
             new Zt1d1Selector(),
             new DztSelector(),
+            new DtBoardSelector(),
             new MaConvSelector(),
             new UstSelector()
         ];
@@ -483,15 +592,23 @@ class StkSelectorsPanelPage extends RadioAnchorPage {
             }
             this.ztTable = new SortableTable();
             this.leftPanel.appendChild(this.stksSelector);
+            var btnExportStocks = document.createElement('button');
+            btnExportStocks.textContent = '导出选中股票';
+            btnExportStocks.onclick = e => {
+                this.saveSelectedStocks();
+            }
+            this.leftPanel.appendChild(btnExportStocks);
+
             this.leftPanel.appendChild(selectorToolbar);
             this.leftPanel.appendChild(this.ztTable.container);
 
-            var btnExportChecked = document.createElement('button');
-            btnExportChecked.textContent = '导出所选';
-            btnExportChecked.onclick = e => {
+            var btnCreateStrategy = document.createElement('button');
+            btnCreateStrategy.textContent = '生成策略';
+            btnCreateStrategy.onclick = e => {
                 this.setStrategyForSelected();
             }
-            this.leftPanel.appendChild(btnExportChecked);
+            this.leftPanel.appendChild(btnCreateStrategy);
+
             this.candidatesArea = document.createElement('div');
             this.candidatesArea.style.paddingRight = 8;
             this.leftPanel.appendChild(this.candidatesArea);
@@ -509,5 +626,18 @@ class StkSelectorsPanelPage extends RadioAnchorPage {
 
         var candidatesObj = selector.filteredStrategies();
         this.candidatesArea.textContent = JSON.stringify(candidatesObj, null, 1);
+    }
+
+    saveSelectedStocks() {
+        var selector = this.selectors[this.stksSelector.selectedIndex];
+        if (!selector.filteredStks) {
+            return;
+        }
+
+        var stks = [];
+        for (const stksObj of selector.filteredStks) {
+            stks.push(stksObj + '\n');
+        }
+        emjyBack.saveToFile(stks, 'stkexp_' + selector.saveName() + '_' + this.ztdate + '.txt' );
     }
 }

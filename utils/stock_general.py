@@ -28,13 +28,13 @@ class StockGeneral():
             self.setupdate = '1990-12-19'
 
         self.sohucode = 'cn_' + self.code
-        if self.code.startswith('SZ') or self.code.startswith('SH'):
+        if self.code.startswith('SZ') or self.code.startswith('SH') or self.code.startswith('BJ'):
             self.sohucode = 'cn_' + self.code[2:]
 
         self.emseccode = '1.' + self.code
         if self.code.startswith('SH'):
             self.emseccode = '1.' + self.code[2:]
-        elif self.code.startswith('SZ'):
+        elif self.code.startswith('SZ') or self.code.startswith('BJ'):
             self.emseccode = '0.' + self.code[2:]
         elif self.code.startswith('60') or self.code.startswith('68'):
             self.emseccode = '1.' + self.code

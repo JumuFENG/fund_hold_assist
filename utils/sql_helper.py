@@ -2,6 +2,8 @@
 # -*- coding:utf-8 -*-
 
 import mysql.connector
+import time
+
 
 class SqlHelper():
 
@@ -17,16 +19,24 @@ class SqlHelper():
         self.con = None
         self.cur = None
 
-        try:
-            self.con = mysql.connector.connect(user=self.username, database=self.database, host=self.host, password=self.password)
-            # 所有的查询，都在连接 con 的一个模块 cursor 上面运行的
-            self.cur = self.con.cursor()
-            if not self.isExistSchema(self.database):
-                sql = "CREATE DATABASE IF NOT EXISTS " + self.database
-                self.cur.execute(sql)
-        except Exception as e:
-            print(e)
-            raise Exception("DataBase connect error,please check the db config.")
+        retry = 0
+        while True:
+            try:
+                self.con = mysql.connector.connect(user=self.username, database=self.database, host=self.host, password=self.password)
+                # 所有的查询，都在连接 con 的一个模块 cursor 上面运行的
+                self.cur = self.con.cursor()
+                if not self.isExistSchema(self.database):
+                    sql = "CREATE DATABASE IF NOT EXISTS " + self.database
+                    self.cur.execute(sql)
+                return
+            except Exception as e:
+                retry += 1
+                while retry < 5:
+                    time.sleep(3)
+                    continue
+
+                print(e)
+                raise Exception("DataBase connect error,please check the db config.")
 
     def close(self):
         """关闭数据库连接

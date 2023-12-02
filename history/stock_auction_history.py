@@ -2,8 +2,10 @@
 # -*- coding:utf-8 -*-
 import re
 import json
+import gzip
 from utils import *
 from history import StockGlobal
+
 
 class IWencaiRequest:
     def __init__(self) -> None:
@@ -178,3 +180,124 @@ class StockAuction(MultiThrdTableBase):
 
     def update_daily_auctions(self):
         self.start_multi_task()
+
+
+class StockAuctionDetails(TableBase):
+    def __init__(self):
+        super().__init__()
+
+    def initConstrants(self):
+        self.dbname = history_db_name
+        self.tablename = 'stock_auction_details'
+        self.colheaders = [
+            {'col': column_code, 'type': 'varchar(20) DEFAULT NULL'},
+            {'col': column_date, 'type': 'varchar(20) DEFAULT NULL'},
+            {'col': 'top', 'type': 'varchar(10) DEFAULT NULL'},
+            {'col': 'bottom', 'type': 'varchar(10) DEFAULT NULL'},
+            {'col': 'quotes', 'type':'blob DEFAULT NULL'}
+        ]
+
+    def normalize_quotes(self, quotes):
+        qhis = []
+        preIdx = 0
+        for i in range(len(quotes)):
+            if quotes[i][0] == '09:21':
+                preIdx = i
+                break
+        for i in range(preIdx + 1):
+            if quotes[i][0].startswith('09:16'):
+                quotes[i][0] = quotes[i][0].replace('09:16', '09:15')
+            elif quotes[i][0].startswith('09:17'):
+                quotes[i][0] = quotes[i][0].replace('09:17', '09:16')
+            elif quotes[i][0].startswith('09:18'):
+                quotes[i][0] = quotes[i][0].replace('09:18', '09:17')
+            elif quotes[i][0].startswith('09:19'):
+                quotes[i][0] = quotes[i][0].replace('09:19', '09:18')
+            elif quotes[i][0].startswith('09:20'):
+                quotes[i][0] = quotes[i][0].replace('09:20', '09:19')
+            elif quotes[i][0].startswith('09:21'):
+                quotes[i][0] = quotes[i][0].replace('09:21', '09:20')
+
+            if len(qhis) > 0 and quotes[i][0].startswith(qhis[-1][0]) and quotes[i][1] == qhis[-1][1]:
+                continue
+
+            qhis.append(quotes[i])
+
+        for i in range(preIdx + 1, len(quotes)):
+            if quotes[i][0] == qhis[-1][0] and quotes[i][1] == qhis[-1][1] and quotes[i][2] == qhis[-1][2] and quotes[i][3] == qhis[-1][3]:
+                continue
+            qhis.append(quotes[i])
+
+        return qhis
+
+    def load_auctions_from_log(self, log):
+        aucs = {}
+        if os.path.isfile(log):
+            with open(log) as f:
+                logs = f.readlines()
+                for lg in logs:
+                    if ' ' not in lg:
+                        continue
+                    dt = lg.split(' ')[1]
+                    if dt not in aucs:
+                        aucs[dt] = {}
+                    if lg.endswith('buy match!\n'):
+                        if 'match' not in aucs[dt]:
+                            aucs[dt]['match'] = []
+                        aucs[dt]['match'].append(lg.split(':')[3].split(' ')[1])
+                    if lg.endswith('}}\n') and len(lg) > 500:
+                        aucs[dt]['history'] = lg[lg.find('{'): -1]
+
+        for dt in aucs:
+            if 'history' in aucs[dt]:
+                auc_history = json.loads(aucs[dt]['history'])
+                self.saveDailyAuctions(dt, auc_history)
+
+    def saveDailyAuctions(self, date, auctions):
+        values = []
+        mxlen = 0
+        for c, q in auctions.items():
+            if q['topprice'] == '-' and q['bottomprice'] == '-':
+                continue
+
+            qhis = self.normalize_quotes(q['quotes'][1:])
+
+            qstr = json.dumps(qhis)
+            cmpstr = gzip.compress(qstr.encode('utf-8'))
+
+            code = q['fcode'] if 'fcode' in q else StockGlobal.full_stockcode(c)
+            values.append([code, date, q['topprice'], q['bottomprice'], cmpstr])
+            dlen = len(cmpstr)
+            if dlen > mxlen:
+                mxlen = dlen
+
+        if len(values) > 0:
+            self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
+
+    def getDumpKeys(self):
+        return self._select_keys([col['col'] for col in self.colheaders])
+
+    def getDumpCondition(self, date=None):
+        if date is None:
+            date = self._max_date()
+        return f'{column_date}="{date}"'
+
+    def decompress_quotes(self, quotes):
+        decquotes = ()
+        for qt in quotes:
+            lqt = list(qt)
+            lqt[-1] = gzip.decompress(qt[-1]).decode('utf-8')
+            decquotes += tuple(lqt),
+        return decquotes
+
+    def dumpDataByDate(self, date=None):
+        dquotes = super().dumpDataByDate(date)
+        return self.decompress_quotes(dquotes)
+
+    def dumpAllRows(self):
+        dquotes = self.sqldb.select(self.tablename, self.getDumpKeys())
+        return self.decompress_quotes(dquotes)
+
+    def dumpStockAuction(self, code, date):
+        saucs = self.sqldb.select(self.tablename, self.getDumpKeys(), [f'{column_code}="{code}"', f'{column_date}="{date}"'])
+        return self.decompress_quotes(saucs)

@@ -2,6 +2,7 @@
 let emjyBack = null;
 let NewStockPurchasePath = '/Trade/NewBatBuy';
 let NewBondsPurchasePath = '/Trade/XzsgBatPurchase';
+let mktDict = {'SH': 1, 'SZ': 0, 'BJ': 4}
 
 class ManagerBack {
     constructor() {
@@ -161,8 +162,9 @@ class EmjyBack {
         this.getFromLocal('fha_server', fhaInfo => {
             if (fhaInfo) {
                 this.fha = fhaInfo;
+                this.setupWebsocketConnection();
             }
-        })
+        });
         this.getFromLocal('smilist', smi => {
             if (smi) {
                 this.smiList = smi;
@@ -173,6 +175,25 @@ class EmjyBack {
         });
         this.setupQuoteAlarms();
         this.log('EmjyBack initialized!');
+    }
+
+    setupWebsocketConnection() {
+        var wsurl = new URL(this.fha.server);
+        wsurl.protocol = 'ws';
+        wsurl.port = '1792'
+        this.websocket = new WebSocket(wsurl.href);
+        this.websocket.onmessage = wsmsg => {
+            this.onWebsocketMessageReceived(wsmsg);
+        }
+        this.websocket.onopen = () => {
+            this.sendWebsocketMessage({ action: 'initialize'});
+        }
+        this.websocket.onclose = (cevt) => {
+            this.log('websocket closed with code: ' + cevt.code + ' reason: ' + cevt.reason);
+        }
+        this.websocket.onerror = err => {
+            this.log('websocket error! ');
+        }
     }
 
     totalAssets() {
@@ -415,6 +436,61 @@ class EmjyBack {
                 this.fetchingBKstocks.updateBkStocks(message);
             }
         }
+    }
+
+    sendWebsocketMessage(message) {
+        if (this.websocket) {
+            this.websocket.send(JSON.stringify(message));
+        } else {
+            this.log('error websocket not setup');
+        }
+    }
+
+    onWebsocketMessageReceived(message) {
+        var wsmsg = JSON.parse(message.data);
+        if (wsmsg.type === 'str_available') {
+            var str_available = wsmsg.strategies;
+            var keys_received = [];
+            for (const strategy of str_available) {
+                keys_received.push(strategy.key);
+            }
+            emjyBack.getFromLocal('all_available_istr', all_str => {
+                var keys_saved = [];
+                for (const strategy of all_str) {
+                    keys_saved.push(strategy.key);
+                }
+                var all_saved = true;
+                for (const rkey of keys_received) {
+                    if (!keys_saved.includes(rkey)) {
+                        all_saved = false;
+                        break;
+                    }
+                }
+                if (keys_received.length != keys_saved.length || !all_saved) {
+                    this.saveToLocal({'all_available_istr': str_available});
+                }
+                for (const rkey of keys_saved) {
+                    if (!keys_received.includes(rkey)) {
+                        this.removeLocal('itstrategy_' + rkey);
+                    }
+                }
+                for (const rkey of keys_received) {
+                    emjyBack.getFromLocal('itstrategy_' + rkey, istr => {
+                        if (istr && istr.enabled) {
+                            emjyBack.sendWebsocketMessage({action: 'subscribe', strategy: istr.key, account: istr.account, amount: istr.amount});
+                        }
+                    });
+                }
+            });
+            return;
+        }
+        if (wsmsg.type == 'intrade_buy') {
+            this.log(message.data);
+            this.log(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account);
+            this.tryBuyStock(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account);
+            return;
+        }
+        console.log(wsmsg);
     }
 
     loadAssets() {
@@ -964,7 +1040,7 @@ class EmjyBack {
     updateStockMarketInfo(sdata) {
         this.normalAccount.updateStockMarketInfo(sdata);
         this.collateralAccount.updateStockMarketInfo(sdata);
-        var mkt = sdata.market == 'SH' ? 1 : 0;
+        var mkt = sdata.market == 'SH' ? 1 : (sdata.market == 'BJ' ? 4 : 0);
         this.stockMarket[sdata.code] = {c: sdata.market + sdata.code, n:sdata.name, mkt};
         this.marketInfoUpdated = true;
     }
@@ -1058,15 +1134,19 @@ class EmjyBack {
     }
 
     getStockMarketHS(code) {
+        var prefixes = {'60': 'SH', '68': 'SH', '30': 'SZ', '00': 'SZ', '83': 'BJ', '43': 'BJ'};
         var stk = this.stockMarket[code];
         if (!stk) {
-            return (code.startsWith('60') || code.startsWith('68')) ? 'SH' : 'SZ';
+            return prefixes[code.substring(0, 2)];
         }
 
         if (stk.c) {
             return stk.c.substring(0, 2);
         }
-        return stk.mkt == '0' ? 'SZ' : 'SH';
+        if (stk.mkt == '1') {
+            return 'SH';
+        }
+        return prefixes[code.substring(0, 2)];
     }
 
     getLongStockCode(code) {
@@ -1102,6 +1182,9 @@ class EmjyBack {
         if (market == 'SZ') {
             return '2'; // 'SA';
         };
+        if (market == 'BJ') {
+            return '4'; // 'BJ';
+        }
         return '';
     }
 
@@ -1111,9 +1194,9 @@ class EmjyBack {
             xmlHttpGet(url, null, mkt => {
                 var mktInfo = JSON.parse(mkt);
                 this.stockMarket = {};
-                for (var i = 0; i < mktInfo.length; ++i) {
-                    mktInfo[i].mkt = mktInfo[i].c.startsWith('SZ') ? '0' : '1';
-                    this.stockMarket[mktInfo[i].c.substring(2)] = mktInfo[i];
+                for (var miinfo of mktInfo) {
+                    miinfo.mkt = mktDict[miinfo.c.substring(0, 2)];
+                    this.stockMarket[miinfo.c.substring(2)] = miinfo;
                 }
                 this.saveToLocal({'hsj_stocks': this.stockMarket});
             });

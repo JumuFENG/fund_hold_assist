@@ -39,6 +39,15 @@ class GlobalManager {
         });
     }
 
+    saveToFile(data, filename) {
+        const lnk = document.createElement('a');
+        var blob = new Blob(data, {type: 'application/text'});
+        lnk.href = URL.createObjectURL(blob);
+        lnk.download = filename;
+        lnk.click();
+        URL.revokeObjectURL(lnk.href);
+    }
+
     getFromLocal(key, cb) {
         localforage.ready(() => {
             localforage.getItem(key).then((val)=>{
