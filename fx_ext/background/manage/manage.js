@@ -415,7 +415,7 @@ class Manager {
     }
 
     getStockMarketHS(code) {
-        var prefixes = {'60': 'SH', '68': 'SH', '30': 'SZ', '00': 'SZ', '83': 'BJ', '43': 'BJ'};
+        var prefixes = {'60': 'SH', '68': 'SH', '30': 'SZ', '00': 'SZ', '83': 'BJ', '43': 'BJ', '87': 'BJ'};
         var stk = this.stockMarket[code];
         if (!stk) {
             return prefixes[code.substring(0, 2)];

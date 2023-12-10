@@ -34,7 +34,7 @@ class StockGlobal():
         # simple get full stock code
         if len(code) != 6:
             return code
-        prefixes = {'60': 'SH', '68': 'SH', '30': 'SZ', '00': 'SZ', '83': 'BJ', '43': 'BJ'}
+        prefixes = {'60': 'SH', '68': 'SH', '30': 'SZ', '00': 'SZ', '83': 'BJ', '43': 'BJ', '87': 'BJ'}
         if code[0:2] not in prefixes:
             return code
         return f'{prefixes[code[0:2]]}{code}'

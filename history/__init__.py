@@ -11,3 +11,4 @@ from history.stockdt_history import *
 from history.stock_dfsorg import *
 from history.stock_announcements import *
 from history.stock_auction_history import *
+from history.stock_changes_history import *

@@ -54,6 +54,8 @@ class DailyUpdater():
             self.download_all_stocks_khistory()
             # 涨跌停数据，可以间隔，早晚都合适
             self.fetch_zdt_stocks()
+            # 盘口异动数据, 每个交易日收盘后更新, 错过无法补录
+            self.update_stock_changes()
             #
             self.update_selectors()
         # 早上也执行的任务，以防前一晚上没执行
@@ -207,6 +209,10 @@ class DailyUpdater():
     def update_stock_hotrank(self):
         shr = StockHotRank()
         shr.getNext()
+
+    def update_stock_changes(self):
+        sch = StockChangesHistory()
+        sch.updateDaily()
 
 
 if __name__ == '__main__':

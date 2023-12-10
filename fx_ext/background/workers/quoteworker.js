@@ -48,7 +48,7 @@ function queryStockInfo(code) {
             var market = 'SZ';
             if (code.startsWith('60') || code.startsWith('68')) {
                 market = 'SH';
-            } else if (code.startsWith('83') || code.startsWith('43')) {
+            } else if (code.startsWith('83') || code.startsWith('87') || code.startsWith('43')) {
                 market = 'BJ';
             }
             postMessage({command:'quote.query.stock', sdata: {code, market}});
