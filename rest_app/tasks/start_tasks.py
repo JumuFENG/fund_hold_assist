@@ -25,8 +25,8 @@ def schedule_pmset(now=None):
 
     po1 = 'wakeorpoweron MTWRF 8:25:0'
     shut1 = 'shutdown MTWRF 15:15:0'
-    po2 = 'wakeorpoweron MTWRF 18:15:0'
-    shut2 = 'shutdown MTWRF 18:55:0'
+    po2 = 'wakeorpoweron MTWRF 18:0:0'
+    shut2 = 'shutdown MTWRF 18:45:0'
     pmcmd = 'pmset repeat'
     dayminutes = now.hour * 60 + now.minute
     if now.weekday() >= 5:
@@ -35,9 +35,9 @@ def schedule_pmset(now=None):
         pmcmd += ' ' + po1 + ' ' + shut1
     elif dayminutes < 15 * 60 + 15:
         pmcmd += ' ' + shut1 + ' ' + po2
-    elif dayminutes < 18 * 60 + 15:
+    elif dayminutes < 18 * 60 + 0:
         pmcmd += ' ' + po2 + ' ' + shut2
-    elif dayminutes < 18 * 60 + 55:
+    elif dayminutes < 18 * 60 + 45:
         pmcmd += ' ' + shut2 + ' ' + po1
     TimerTask.logger.info(f'os.system({pmcmd})')
     os.system(pmcmd)

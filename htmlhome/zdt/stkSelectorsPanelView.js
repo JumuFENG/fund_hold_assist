@@ -370,6 +370,56 @@ class Zt1d1Selector extends StkSelector {
     }
 }
 
+class Zt1BrkSelector extends StkSelector {
+    constructor() {
+        super();
+        this.key = 'zt1_brk';
+        this.name = '首板涨停突破';
+        this.ztdate = '';
+    }
+
+    getSelectorData() {
+        var ztUrl = emjyBack.fha.server + 'stock?act=pickup&key=zt1_brk&date=' + this.ztdate;
+        utils.get(ztUrl, null, zt => {
+            this.selStocks = JSON.parse(zt);
+            this.selStocks.sort((x, y) => {
+                if (x[0][2] != y[0][2]) {
+                    return x[0][2] < y[0][2];
+                }
+                return x[0] < y[0];
+            });
+            this.showSelected();
+        });
+    }
+
+    doShowSelected() {
+        var table = this.stkTable;
+        table.setClickableHeader('序号', '日期', '名称(代码)', this.chkbxSelectAll);
+        var n = 1;
+        for (const stocki of this.selStocks) {
+            var code = stocki[0].substring(2);
+            var anchor = emjyBack.stockAnchor(code);
+            var sel = this.createSelCheckbox(code);
+            table.addRow(
+                n++,
+                stocki[1],
+                anchor,
+                sel
+            );
+        }
+    }
+
+    createStrategyFor(code) {
+        var strategy = emjyBack.strategyManager.create({"key":"StrategyBuyZTBoard","enabled":true}).data;
+        var strategies = {"0":strategy}
+        strategies['1'] = {"key":"StrategySellELTop","enabled":false,"cutselltype":"single"};
+        strategies['2'] = {"key":"StrategySellBE","enabled":false,"selltype":"single"};
+        var transfers = {"0":{"transfer":"-1"}, "1":{"transfer":"-1"}, "2":{"transfer":"-1"}};
+
+        return this.makeStrategyGrp(code, strategies, transfers, 10000);
+    }
+}
+
 class DztSelector extends StkSelector {
     constructor() {
         super();
@@ -560,6 +610,7 @@ class StkSelectorsPanelPage extends RadioAnchorPage {
             new ZtLeadSelector(),
             new ZtPredictLeadSelector(),
             new Zt1d1Selector(),
+            new Zt1BrkSelector(),
             new DztSelector(),
             new DtBoardSelector(),
             new MaConvSelector(),

@@ -34,7 +34,14 @@ class StatisticsReport {
             var sold = 0;
             var tfee = 0;
             dls.forEach(d => {
-                var fee = -(-d.fee - d.feeGh - d.feeYh);
+                var fee = -d.fee;
+                if (d.feeGh !== undefined) {
+                    fee -= d.feeGh;
+                }
+                if (d.feeYh !== undefined) {
+                    fee -= d.feeYh;
+                }
+                fee = -fee;
                 if (isNaN(fee)) {
                     fee = 0;
                 }
@@ -102,7 +109,14 @@ class StatisticsReport {
         for (let i = 0; i < allDeals.length; i++) {
             const deali = allDeals[i];
             var anchor = emjyBack.stockAnchor(deali.code);
-            var fee = -(-deali.fee - deali.feeGh - deali.feeYh);
+            var fee = -deali.fee;
+            if (deali.feeGh !== undefined) {
+                fee -= deali.feeGh;
+            }
+            if (deali.feeYh !== undefined) {
+                fee -= deali.feeYh;
+            }
+            fee = -fee;
             if (isNaN(fee)) {
                 fee = 0;
             }

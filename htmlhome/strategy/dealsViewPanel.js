@@ -38,7 +38,14 @@ class DealsEarningLineChart {
                 }
                 accountStocks[d.code].count += d.count;
                 accountStocks[d.code].cost += d.price * d.count
-                var fee = -(-d.fee - d.feeGh - d.feeYh);
+                var fee = -d.fee;
+                if (d.feeGh !== undefined) {
+                    fee -= d.feeGh;
+                }
+                if (d.feeYh !== undefined) {
+                    fee -= d.feeYh;
+                }
+                fee = -fee;
                 if (isNaN(fee)) {
                     fee = 0;
                 }
@@ -50,7 +57,14 @@ class DealsEarningLineChart {
                 }
                 accountStocks[d.code].count -= d.count;
                 var amount = d.price * d.count;
-                var fee = -(-d.fee - d.feeGh - d.feeYh);
+                var fee = -d.fee;
+                if (d.feeGh !== undefined) {
+                    fee -= d.feeGh;
+                }
+                if (d.feeYh !== undefined) {
+                    fee -= d.feeYh;
+                }
+                fee = -fee;
                 if (isNaN(fee)) {
                     fee = 0;
                 }

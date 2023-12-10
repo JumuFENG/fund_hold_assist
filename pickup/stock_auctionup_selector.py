@@ -25,8 +25,10 @@ class StockAuctionUpSelector(StockBaseSelector):
             {'prepare': self.sim_prepare, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_up'},
             # 竞价跌停 随后持续上升
             {'prepare': self.sim_prepare1, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_contup'},
+            # 竞价跌停 结束时买入有剩余
+            {'prepare': self.sim_prepare2, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_open'},
             ]
-        self.sim_ops = self._sim_ops[1:2]
+        self.sim_ops = self._sim_ops[2:3]
 
     def walk_prepare(self, date=None):
         sad = StockAuctionDetails()
@@ -60,7 +62,7 @@ class StockAuctionUpSelector(StockBaseSelector):
 
     def sim_check_match(self, cqt):
         return StrategyI_AuctionUp.check_buy_match(cqt)
-    
+
     def simulate_thread(self):
         orstks = []
         while len(self.sim_stks) > 0:
@@ -180,3 +182,21 @@ class StockAuctionUpSelector(StockBaseSelector):
     def sim_prepare1(self):
         self.sim_prepare()
         self.sim_check_match = self.sim_check_match1
+
+    def sim_prepare2(self):
+        self.sim_prepare()
+        self.sim_check_match = self.sim_check_match2
+
+    def sim_check_match2(self, auctions):
+        bottomprice =auctions['bottomprice']
+        quotes = auctions['quotes']
+
+        if quotes[-1][0] < '09:25':
+            return False
+
+        if max([q[1] for q in quotes]) > bottomprice:
+            return False
+
+        # if quotes[-1][1] > bottomprice:
+        #     return False
+        return quotes[-1][3] > 0

@@ -339,6 +339,9 @@ def stock():
                 szi = StockZtDailyMain()
                 zt = szi.dump1d1ByDate(date)
                 return json.dumps(zt)
+            if key == 'zt1_brk':
+                szbs = StockZt1BreakupSelector()
+                return json.dumps(szbs.dumpDataByDate(date))
             if key == 'zt_lead':
                 szi = StockZtLeadingSelector()
                 zt = szi.dumpDataByDate(date)

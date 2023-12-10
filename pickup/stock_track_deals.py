@@ -90,7 +90,13 @@ class StockTrackDeals(TableBase):
         ds = []
         if deals is not None:
             for _,d,c,tp,sid,pr,ptn in deals:
-                ds.append({'code': c, 'time': d, 'tradeType': tp, 'sid': sid, 'price': pr, 'count': ptn})
+                fee = 0
+                if sid != '0':
+                    fYhGh = self.sqldb.selectOneRow('u11_archived_deals', f'{column_fee}, 印花税, 过户费', [f'{column_code}="{StockGlobal.full_stockcode(c)}"', f'委托编号="{sid}"'])
+                    if fYhGh is not None:
+                        fee, fYh, fGh = fYhGh
+                        fee = round(fee + fYh + fGh, 3)
+                ds.append({'code': c, 'time': d, 'tradeType': tp, 'sid': sid, 'price': pr, 'count': ptn, 'fee': fee})
         track['deals'] = ds
         return track
 
