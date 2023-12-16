@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 
 import json
-from ws.ws_strategy_manager import *
+from ws_strategy_manager import *
 from utils import *
 
 

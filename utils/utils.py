@@ -25,6 +25,8 @@ class Utils:
                 name = os.path.basename(script_file)
             self.logger = logging.Logger(name)
             lfile = os.path.join(os.path.dirname(script_file), 'logs', f'{name}.log')
+            if not os.path.exists(os.path.dirname(lfile)):
+                os.mkdir(os.path.dirname(lfile))
             handler = logging.FileHandler(lfile)
             handler.setFormatter(logging.Formatter('[%(levelname)s] %(asctime)s-%(name)s: %(message)s'))
             self.logger.addHandler(handler)

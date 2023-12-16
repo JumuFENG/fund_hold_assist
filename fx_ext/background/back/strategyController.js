@@ -937,6 +937,9 @@ class StrategySellELShort extends StrategySellEL {
                     this.tmpmaxb1count = rtInfo.buysells.buy1_count;
                 }
             }
+            if (this.tmpmaxb1count < 10000) {
+                return;
+            }
             // 涨停之后 打开或者封单减少到当日最大封单量的1/10 卖出.
             if (rtInfo.buysells.sale1 != '-' || rtInfo.buysells.buy1_count < this.tmpmaxb1count * 0.1) {
                 var count = buydetails.getCountMatched(this.data.cutselltype, latestPrice);
