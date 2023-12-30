@@ -281,4 +281,114 @@ class StatisticsReport {
                 );
         });
     }
+
+    makeupDeals(deals, key, base, inc) {
+        if (!base || !inc) return deals;
+        var dlbs = {};
+        for (const deali of deals) {
+            if (!dlbs[deali.code]) {
+                dlbs[deali.code] = [];
+            }
+            dlbs[deali.code].push({'code': deali.code, 'price': deali.price, 'time': deali.time, 'tradeType': deali.tradeType});
+        }
+        for (var c in dlbs) {
+            dlbs[c].sort((a, b) => {
+                // 时间升序，相同时间先卖后买
+                if (a.time == b.time) {
+                    return a.tradeType < b.tradeType;
+                }
+                return a.time > b.time;
+            });
+            for (var i = dlbs[c].length - 1; i >= 0; i--) {
+                if (dlbs[c][i].tradeType == 'S') {
+                    break;
+                }
+                dlbs[c].pop();
+            }
+        }
+        var bslist = [];
+        for (var c in dlbs) {
+            for (var dl of dlbs[c]) {
+                bslist.push(dl);
+            }
+        }
+        bslist.sort((a, b) => {
+            // 时间升序，相同时间先买后卖
+            if (a.time == b.time) {
+                return a.tradeType > b.tradeType;
+            }
+            return a.time > b.time;
+        });
+
+        var buyDealWithCount = function(dl, amount) {
+            var count = utils.calcBuyCount(amount, dl.price);
+            return {'code':dl.code, 'price': dl.price, 'time': dl.time, 'tradeType': dl.tradeType, count};
+        }
+        var sellDealWithCount = function(dl, count) {
+            return {'code':dl.code, 'price':dl.price, 'time':dl.time, 'tradeType': dl.tradeType, count};
+        }
+        var buyDelta = function(bkey, val, base) {
+            if (bkey == 'step') {
+                return val;
+            }
+            if (bkey == 'ratio') {
+                return base * val;
+            }
+            if (bkey == 'lose') {
+                return base / val;
+            }
+            return val;
+        }
+        var mdeals = [];
+        var buyAmount = parseInt(base);
+        var holdings = {};
+        var sellEarned = 0;
+        for (var i = 0; i < bslist.length; i++) {
+            var bstd = [bslist[i]];
+            for (var j = i + 1; j < bslist.length; j++) {
+                if (bslist[j].time != bslist[i].time) {
+                    break;
+                }
+                bstd.push(bslist[j]);
+            }
+            i += bstd.length - 1;
+            var bholdings = {};
+            for (var j = 0; j < bstd.length; j++) {
+                if (bstd[j].tradeType == 'B') {
+                    var bdeal = buyDealWithCount(bstd[j], buyAmount);
+                    if (!bholdings[bstd[j].code]) {
+                        bholdings[bstd[j].code] = {count: 0};
+                    }
+                    mdeals.push(bdeal);
+                    bholdings[bstd[j].code].count += bdeal.count;
+                    bholdings[bstd[j].code].price = bdeal.price;
+                } else {
+                    if (!holdings[bstd[j].code]) {
+                        continue;
+                    }
+                    var sdeal = sellDealWithCount(bstd[j], holdings[bstd[j].code].count);
+                    mdeals.push(sdeal);
+                    sellEarned += (sdeal.price - holdings[bstd[j].code].price) * holdings[bstd[j].code].count;
+                    delete(holdings[bstd[j].code]);
+                }
+            }
+            for (var c in bholdings) {
+                if (!holdings[c]) {
+                    holdings[c] = bholdings[c];
+                } else {
+                    holdings[c].count += bholdings[c].count;
+                    holdings[c].price = bholdings[c].price;
+                }
+            }
+            if (sellEarned > 0) {
+                buyAmount = parseInt(base);
+                sellEarned = 0;
+            } else if (key == 'lose') {
+                buyAmount = Math.max(base, parseFloat(buyDelta(key, inc, -sellEarned)));
+            } else {
+                buyAmount += parseFloat(buyDelta(key, inc, buyAmount));
+            }
+        }
+        return mdeals;
+    }
 }

@@ -392,6 +392,43 @@ class Zt1BrkSelector extends StkSelector {
         });
     }
 
+    showToolbar() {
+        if (!this.selStocks || !this.toolbar) {
+            return;
+        }
+
+        var btnCandidate = document.createElement('button');
+        btnCandidate.textContent = '设置预选';
+        btnCandidate.onclick = e => {
+            var date = this.ztdate;
+            if (this.filteredStks.length <= 0) {
+                return;
+            }
+            var codes = [];
+            for (const c of this.filteredStks) {
+                for (var i = 0; i < this.selStocks.length; i ++) {
+                    if (this.selStocks[i][0].endsWith(c)) {
+                        codes.push(this.selStocks[i][0]);
+                        break;
+                    }
+                }
+            }
+            var url = emjyBack.fha.server + 'stock';
+            var fd = new FormData();
+            fd.append('act', 'select_zt1_brk');
+            fd.append('date', date);
+            fd.append('stocks', Array.from(codes).join(','));
+            utils.post(url, fd, null, c => {
+                if (c != 'OK') {
+                    console.error('set candidates error!');
+                } else {
+                    console.log('set candidates success!');
+                }
+            });
+        }
+        this.toolbar.appendChild(btnCandidate);
+    }
+
     doShowSelected() {
         var table = this.stkTable;
         table.setClickableHeader('序号', '日期', '名称(代码)', this.chkbxSelectAll);

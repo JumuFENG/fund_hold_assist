@@ -186,6 +186,7 @@ class StockZt1BreakupSelector(StockBaseSelector):
             {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
             {'col':'ztdate','type':'varchar(20) DEFAULT NULL'},
             {'col':'iszt','type':'tinyint DEFAULT NULL'},
+            {'col':'预选','type':'tinyint DEFAULT 0'}
         ]
         self.sim_cutrate = 0.08
         self.sim_earnrate = 0.06
@@ -199,7 +200,8 @@ class StockZt1BreakupSelector(StockBaseSelector):
         # type: (list, int, int) -> bool
         ''' 前 days 内有涨停返回True
         '''
-        assert len(klist) > days
+        if len(klist) <= days:
+            return False
         for i in range(1, days+1):
             if klist[-i].high >= Utils.zt_priceby(klist[- i - 1].close, zdf=zdf) and klist[-i].high == klist[-i].close:
                 return True
@@ -212,7 +214,7 @@ class StockZt1BreakupSelector(StockBaseSelector):
                 continue
 
             kdate = (datetime.strptime(sdate, r'%Y-%m-%d') + timedelta(days=-100)).strftime(r"%Y-%m-%d")
-            allkl = self.get_kd_data(c, start=kdate)
+            allkl = self.get_kd_data(c, start=kdate, fqt=1)
             if allkl is None or len(allkl) == 0:
                 continue
 
@@ -227,43 +229,54 @@ class StockZt1BreakupSelector(StockBaseSelector):
 
             zdf = 10
             while i < len(allkl):
-                if self.ztindays(allkl[0: i], 1, zdf):
+                if self.ztindays(allkl[0: i], 2, zdf):
                     i += 1
                     continue
 
-                if not self.ztindays(allkl[0: i], 60, zdf):
+                if not self.ztindays(allkl[0: i], 61, zdf):
                     i += 1
                     continue
 
-                if i == len(allkl) - 1 and allkl[i].high < Utils.zt_priceby(allkl[i-1].close, zdf=zdf):
-                    if Utils.zt_priceby(allkl[i].close, zdf=zdf) > max([kl.high for kl in allkl[i-60:]]):
-                        self.wkselected.append([c, allkl[i].date, None, None])
-                        i += 1
-                        continue
-                if allkl[i].high < Utils.zt_priceby(allkl[i-1].close, zdf=zdf) or allkl[i].high < max([kl.high for kl in allkl[i-60: i]]):
+                # if i == len(allkl) - 1 and allkl[i].close < Utils.zt_priceby(allkl[i-1].close, zdf=zdf):
+                #     if Utils.zt_priceby(allkl[i].close, zdf=zdf) > max([kl.high for kl in allkl[i-60:]]):
+                #         self.wkselected.append([c, allkl[i].date, None, None, 0])
+
+                if allkl[i].high < Utils.zt_priceby(allkl[i-1].close, zdf=zdf) or allkl[i].high <= max([kl.high for kl in allkl[i-60: i]]):
                     i += 1
                     continue
 
-                self.wkselected.append([c, allkl[i-1].date, allkl[i].date, 1 if allkl[i].high == allkl[i].close else 0])
+                self.wkselected.append([c, allkl[i-1].date, allkl[i].date, 1 if allkl[i].high == allkl[i].close else 0, 0])
                 i += 1
+
+            i = len(allkl) - 1
+            if self.ztindays(allkl[0: i], 1, zdf):
+                continue
+            if not self.ztindays(allkl[0:i], 60, zdf):
+                continue
+            if allkl[i].close < Utils.zt_priceby(allkl[i-1].close, zdf=zdf):
+                if Utils.zt_priceby(allkl[i].close, zdf=zdf) > max([kl.high for kl in allkl[i-60:]]):
+                    self.wkselected.append([c, allkl[i].date, None, None, 0])
 
     def walk_post_process(self):
         if self.sqldb is None:
             self._check_or_create_table()
 
         values = []
-        for c, d, zd, izt in self.wkselected:
+        for c, d, zd, izt, isel in self.wkselected:
             cid = self.sqldb.selectOneValue(self.tablename, f'id', {column_code: c, 'ztdate': None, 'iszt': None})
+            updz = {column_date: d, 'ztdate': zd, 'iszt': izt}
+            if zd is None:
+                updz['预选'] = isel
             if cid is None:
                 ex = self.sqldb.selectOneRow(self.tablename, f'id, ztdate, iszt', {column_code:c, column_date: d})
                 if ex is not None:
                     eid, ezd, eizt = ex
                     if ezd != zd or eizt != izt:
-                        self.sqldb.update(self.tablename, {column_date: d, 'ztdate': zd, 'iszt': izt}, {'id', eid})
+                        self.sqldb.update(self.tablename, updz , {'id', eid})
                     continue
-                values.append([c, d, zd, izt])
+                values.append([c, d, zd, izt, isel])
             else:
-                self.sqldb.update(self.tablename, {column_date: d, 'ztdate': zd, 'iszt': izt}, {'id': cid})
+                self.sqldb.update(self.tablename, updz, {'id': cid})
 
         if len(values) > 0:
             self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
@@ -275,6 +288,15 @@ class StockZt1BreakupSelector(StockBaseSelector):
         if date is None:
             date = TradingDate.maxTradingDate()
         return self._select_condition(f'{column_date} = "{date}"')
+
+    def dumpLatesetCandidates(self, date=None, fullcode=True):
+        if date is None:
+            date = self._max_date()
+        candidates = self.sqldb.select(self.tablename, column_code, [f'{column_date} = "{date}"'])
+        return [c if fullcode else c[2:] for c, in candidates]
+
+    def setCandidates(self, date, candidates):
+        self.sqldb.updateMany(self.tablename, [column_date, column_code, '预选'], [column_date, column_code], [[date, code, 1] for code in candidates])
 
     def sim_prepare(self):
         orstks = self.sqldb.select(self.tablename, f'{column_code}, {column_date}, ztdate, iszt', ['ztdate is not NULL', 'date > "2020"'])

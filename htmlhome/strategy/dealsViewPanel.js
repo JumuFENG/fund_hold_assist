@@ -163,10 +163,21 @@ class DealsPanelPage extends RadioAnchorPage {
         this.dealsFilter = document.createElement('select');
         this.dealsFilter.appendChild(new Option('全部', 'all'));
         this.dealsFilter.appendChild(new Option('<= 5', 'le5'));
+        this.dealsFilter.appendChild(new Option('阶梯增仓', 'step'));
+        this.dealsFilter.appendChild(new Option('比例增仓', 'ratio'));
+        this.dealsFilter.appendChild(new Option('回本增仓', 'lose'));
         this.dealsFilter.onchange = e => {
+            if (this.dealsFilter.selectedIndex > 1) {
+                this.showDealsFilterSetting();
+                return;
+            } else {
+                this.hideDealsFilterSetting();
+            }
             this.showCategoriedDeals();
         }
         topControl.appendChild(this.dealsFilter);
+        this.dfSettings = document.createElement('div');
+        topControl.appendChild(this.dfSettings);
 
         this.categoryKeyword = document.createElement('input');
         this.categoryKeyword.placeholder = '关键字';
@@ -232,6 +243,35 @@ class DealsPanelPage extends RadioAnchorPage {
         this.container.appendChild(this.statsTable.container);
     }
 
+    showDealsFilterSetting() {
+        if (!this.dfstBaseAmt) {
+            this.dfstBaseAmt = document.createElement('input');
+            this.dfstBaseAmt.placeholder = '买入基数';
+            this.dfstBaseAmt.style.maxWidth = 80;
+            this.dfSettings.appendChild(this.dfstBaseAmt);
+        }
+        if (!this.dfstIncrement) {
+            this.dfstIncrement = document.createElement('input');
+            this.dfstIncrement.style.maxWidth = 80;
+            this.dfSettings.appendChild(this.dfstIncrement);
+        }
+        if (!this.dfstSubmit) {
+            this.dfstSubmit = document.createElement('button');
+            this.dfstSubmit.textContent = '重新计算';
+            this.dfstSubmit.onclick = e => {
+                this.showCategoriedDeals();
+            }
+            this.dfSettings.appendChild(this.dfstSubmit);
+        }
+        var dfplaceholder = {step: '增量', ratio: '增长率(小数)', 'lose': '期望收益率(小数)'};
+        this.dfstIncrement.placeholder = dfplaceholder[this.dealsFilter.value];
+        this.dfSettings.style.display = 'block';
+    }
+
+    hideDealsFilterSetting() {
+        this.dfSettings.style.display = 'none';
+    }
+
     getDealsByCategory(category, cb) {
         var dcUrl = emjyBack.fha.server + 'stock?act=trackdeals&name=' + category;
         var header = null;
@@ -271,7 +311,7 @@ class DealsPanelPage extends RadioAnchorPage {
             if (typeof(cb) === 'function') {
                 cb();
             }
-        });
+        }); 
     }
 
     setDealsFilter(deals, fkey) {
@@ -315,6 +355,8 @@ class DealsPanelPage extends RadioAnchorPage {
                 }
             }
             return fdeals;
+        } else {
+            return emjyBack.statsReport.makeupDeals(deals, fkey, this.dfstBaseAmt.value, this.dfstIncrement.value);
         }
     }
 
