@@ -6,14 +6,14 @@ from history import *
 from pickup.stock_base_selector import *
 
 
-class StockAqkSelector(TableBase):
+class StockAqkSelector(StockBaseSelector):
     ''' 'A' 字快速杀跌反弹选股
     '''
     def __init__(self) -> None:
         super().__init__()
 
     def initConstrants(self):
-        self.dbname = stock_db_name
+        super().initConstrants()
         self.tablename = 'stock_aqk_pickup'
         self.colheaders = [
             {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
@@ -28,90 +28,88 @@ class StockAqkSelector(TableBase):
             {'col':'交易记录','type':'varchar(255) DEFAULT NULL'}
         ]
 
-    def walkOnHistory(self, code):
-        sd = StockDumps()
-        # if date is not None:
-        #     sdate = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=-90)).strftime(r"%Y-%m-%d")
-        #     klines = sd.read_kd_data(code, start=sdate)
-        # else:
-        klines = sd.read_kd_data(code, length=0)
-        i = 0
-        minlist = list()
-        picked = list()
-        while i < len(klines):
-            minlist.append([float(klines[i][4]), i, float(klines[i][3]), i])
-            # 最小值队列
-            ej = 30
-            for j in range(1, 30):
-                if i + j >= len(klines):
-                    ej = j
-                    break
-                while len(minlist) > 0 and float(klines[i+j][4]) <= minlist[-1][0]:
-                    minlist.pop()
-                minlist.append([float(klines[i+j][4]), i+j, float(klines[i+j][3]), i+j])
-            i += ej
-
-            while len(minlist) > 0:
-                k = minlist[0][3]
-                # 查找最小值之后30日内的最大值
+    def walk_on_history_thread(self):
+        while len(self.wkstocks) > 0:
+            code, d = self.wkstocks.pop(0)
+            klines = self.get_kd_data(code, d)
+            i = 0
+            minlist = list()
+            picked = list()
+            while i < len(klines):
+                minlist.append([klines[i].low, i, klines[i].high, i])
+                # 最小值队列
+                ej = 30
                 for j in range(1, 30):
-                    if k + j < len(klines) and float(klines[k + j][3]) > minlist[0][2]:
-                        minlist[0][2] = float(klines[k + j][3])
-                        minlist[0][3] = k + j
-                # 查找继续上涨的最高点
-                k = minlist[0][3] + 1
-                while k < len(klines):
-                    if float(klines[k][3]) < minlist[0][2]:
+                    if i + j >= len(klines):
+                        ej = j
                         break
-                    minlist[0][2] = float(klines[k][3])
-                    minlist[0][3] = k
-                    k += 1
-                i = k
+                    while len(minlist) > 0 and klines[i+j].low <= minlist[-1][0]:
+                        minlist.pop()
+                    minlist.append([klines[i+j].low, i+j, klines[i+j].high, i+j])
+                i += ej
 
-                # 最小值到最大值的涨幅小于50%则丢弃
-                if minlist[0][2] - minlist[0][0] < minlist[0][0] * 0.5:
-                    minlist.pop(0)
-                    continue
+                while len(minlist) > 0:
+                    k = minlist[0][3]
+                    # 查找最小值之后30日内的最大值
+                    for j in range(1, 30):
+                        if k + j < len(klines) and klines[k + j].high > minlist[0][2]:
+                            minlist[0][2] = klines[k + j].high
+                            minlist[0][3] = k + j
+                    # 查找继续上涨的最高点
+                    k = minlist[0][3] + 1
+                    while k < len(klines):
+                        if klines[k].high < minlist[0][2]:
+                            break
+                        minlist[0][2] = klines[k].high
+                        minlist[0][3] = k
+                        k += 1
+                    i = k
 
-                # 查找最大值之后30日内最小值
-                k = minlist[0][3]
-                minlist[0].append(float(klines[k][4]))
-                minlist[0].append(k)
-                for j in range(1, 30):
-                    if k + j >= len(klines) or float(klines[k + j][3]) >= minlist[0][2]:
-                        break
-                    if float(klines[k + j][4]) < minlist[0][4]:
-                        minlist[0][4] = float(klines[k + j][4])
-                        minlist[0][5] = k + j
+                    # 最小值到最大值的涨幅小于50%则丢弃
+                    if minlist[0][2] - minlist[0][0] < minlist[0][0] * 0.5:
+                        minlist.pop(0)
+                        continue
 
-                # 查找继续下跌的最低点
-                k = minlist[0][5] + 1
-                while k < len(klines):
-                    if float(klines[k][4]) > minlist[0][4]:
-                        break
-                    minlist[0][4] = float(klines[k][4])
-                    minlist[0][5] = k
-                    k += 1
+                    # 查找最大值之后30日内最小值
+                    k = minlist[0][3]
+                    minlist[0].append(klines[k].low)
+                    minlist[0].append(k)
+                    for j in range(1, 30):
+                        if k + j >= len(klines) or klines[k + j].high >= minlist[0][2]:
+                            break
+                        if klines[k + j].low < minlist[0][4]:
+                            minlist[0][4] = klines[k + j].low
+                            minlist[0][5] = k + j
 
-                # 最大值到最小值的跌幅小于28%则丢弃
-                if minlist[0][2] - minlist[0][4] < minlist[0][2] * 0.28:
-                    minlist.pop(0)
-                    continue
+                    # 查找继续下跌的最低点
+                    k = minlist[0][5] + 1
+                    while k < len(klines):
+                        if klines[k].low > minlist[0][4]:
+                            break
+                        minlist[0][4] = klines[k].low
+                        minlist[0][5] = k
+                        k += 1
 
-                # 最大值相同时选择起涨点更靠后者
-                if len(picked) == 0 or minlist[0][3] != picked[-1][3]:
-                    picked.append(minlist[0])
-                elif minlist[0][1] > picked[-1][1]:
-                    if minlist[0][1] - picked[-1][1] > picked[-1][3] - minlist[0][1] or minlist[0][0] <= picked[-1][0]:
-                        picked.pop()
+                    # 最大值到最小值的跌幅小于28%则丢弃
+                    if minlist[0][2] - minlist[0][4] < minlist[0][2] * 0.28:
+                        minlist.pop(0)
+                        continue
+
+                    # 最大值相同时选择起涨点更靠后者
+                    if len(picked) == 0 or minlist[0][3] != picked[-1][3]:
                         picked.append(minlist[0])
+                    elif minlist[0][1] > picked[-1][1]:
+                        if minlist[0][1] - picked[-1][1] > picked[-1][3] - minlist[0][1] or minlist[0][0] <= picked[-1][0]:
+                            picked.pop()
+                            picked.append(minlist[0])
 
-                if i < minlist[0][3]:
-                    i = minlist[0][3] + 1
-                minlist.pop(0)
+                    if i < minlist[0][3]:
+                        i = minlist[0][3] + 1
+                    minlist.pop(0)
 
-        for i in range(0, len(picked)):
-            print(code, klines[picked[i][1]][1], picked[i][0], klines[picked[i][3]][1], picked[i][2], klines[picked[i][5]][1], picked[i][4])
+            for i in range(0, len(picked)):
+                # code, 前低 高 后低
+                print(code, klines[picked[i][1]].date, picked[i][0], klines[picked[i][3]].date, picked[i][2], klines[picked[i][5]].date, picked[i][4])
 
 
 class StockAmkSelector(StockBaseSelector):
@@ -139,7 +137,7 @@ class StockAmkSelector(StockBaseSelector):
         self._sim_ops = [
             # 大幅低开 不跌停或跌停打开时买入
             # 卖出条件，止损/止盈/买入次日大幅低开
-            {'prepare': self.sim_prepare, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_amk_1'},
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_amk_1'},
             ]
         self.sim_ops = self._sim_ops[0:1]
 
@@ -253,91 +251,80 @@ class StockAmkSelector(StockBaseSelector):
                         continue
                     self.wkselected.append([c, None if zt2 is None else allkl[zt1].date, allkl[t0+1].date if t0==zt1 else allkl[t0].date, 0 if zt2 is None else zt2-zt1+1, t-t0-1, allkl[t].date])
 
-    # def walk_post_process(self):
-    #     if self._check_table_exists():
-    #         self.sqldb.dropTable(self.tablename)
-    #     self._check_or_create_table()
-    #     super().walk_post_process()
-
     def sim_prepare(self):
         orstks = self.sqldb.select(self.tablename, f'{column_code}, {column_date}, ddate, zdays, ddays, bdate', f'{column_date} is not NULL')
         self.sim_stks = sorted(orstks, key=lambda s: (s[0], s[2]))
         self.sim_deals = []
-        # self.threads_num = 1
 
-    def simulate_thread(self):
-        while len(self.sim_stks) > 0:
-            orstks = self.get_begin_stock_records(self.sim_stks)
-            for i in range(0, len(orstks)):
-                code, d, ddate, zd, dd, bdate = orstks[i]
-                allkl = self.get_kd_data(code, ddate if d is None else d)
-                ki = 0
-                while allkl[ki].date != bdate:
-                    ki += 1
-                if ki > 0:
-                    if len(allkl) < ki + 3:
-                        continue
-
-                cl0 = allkl[ki - 1].close
-                # if self.sim_upbound is not None and allkl[ki].open - (1+self.sim_upbound) * cl0 > 0:
-                #     continue
-                if allkl[ki].low == allkl[ki].high and allkl[ki].low <= Utils.dt_priceby(cl0):
+    def simulate_buy_sell(self, orstks):
+        for i in range(0, len(orstks)):
+            code, d, ddate, zd, dd, bdate = orstks[i]
+            allkl = self.get_kd_data(code, ddate if d is None else d)
+            ki = 0
+            while allkl[ki].date != bdate:
+                ki += 1
+            if ki > 0:
+                if len(allkl) < ki + 3:
                     continue
-                buy = allkl[ki].open
-                if allkl[ki].open <= Utils.dt_priceby(cl0):
-                    buy = min(allkl[ki].open * 1.02, (allkl[ki].high + allkl[ki].open) / 2)
-                sell = 0
-                sdate = bdate
-                j = ki + 1
-                cutl = buy * (1 - self.sim_cutrate)
-                earnl = buy * (1 + self.sim_earnrate)
-                if allkl[ki].close - buy > self.sim_cutrate * buy:
-                    # 买入当日大阳线反包
-                    cutl = max(allkl[ki].close * (1 - self.sim_earnrate), buy)
-                    earnl = allkl[ki].close * (1 + self.sim_earnrate)
-                # elif allkl[ki].high - buy > self.sim_cutrate * buy:
-                #     # 买入当日冲高回落
-                #     cutl = min(allkl[ki].high * (1 - self.sim_earnrate), buy)
-                #     earnl = max(allkl[ki].high, allkl[ki].close * (1 + self.sim_earnrate))
-                elif buy - allkl[ki].close > self.sim_cutrate * buy:
-                    # 买入当日亏损
-                    cutl = allkl[ki].close * (1 - self.sim_cutrate)
-                    earnl = max(allkl[ki].close * (1 + self.sim_earnrate), buy)
-                while j < len(allkl):
-                    clp0 = allkl[j-1].close
-                    if allkl[j].high == allkl[j].low and allkl[j].high <= Utils.dt_priceby(clp0):
-                        # 一字跌停，无法卖出
-                        j += 1
-                        continue
-                    if allkl[j].low == allkl[j].high and allkl[j].low >= Utils.zt_priceby(clp0):
-                        # 一字涨停，持股不动
-                        cutl = allkl[j].close * 0.97
-                        earnl = allkl[j].close * (1 + self.sim_earnrate)
-                        j += 1
-                        continue
-                    if allkl[j].open < cutl:
-                        if allkl[j].open > Utils.dt_priceby(clp0):
-                            sell = allkl[j].open
-                            sdate = allkl[j].date
-                            break
-                    if allkl[j].low < cutl:
-                        sell = cutl
-                        sdate = allkl[j].date
-                        break
-                    if allkl[j].high >= earnl:
-                        sell = (allkl[j].high + earnl) / 2
-                        sdate = allkl[j].date
-                        break
-                    j += 1
 
-                if sdate != bdate:
-                    count = round(1000/buy)
-                    self.sim_deals.append({'time': bdate, 'code': code, 'sid': 0, 'tradeType': 'B', 'price': round(buy, 2), 'count': count})
-                    self.sim_deals.append({'time': sdate, 'code': code, 'sid': 0, 'tradeType': 'S', 'price': round(sell, 2), 'count': count})
-                    sdate = None
-                    bdate = None
-                    buy = 0
-                    sell = 0
+            cl0 = allkl[ki - 1].close
+            # if self.sim_upbound is not None and allkl[ki].open - (1+self.sim_upbound) * cl0 > 0:
+            #     continue
+            if allkl[ki].low == allkl[ki].high and allkl[ki].low <= Utils.dt_priceby(cl0):
+                continue
+            buy = allkl[ki].open
+            if allkl[ki].open <= Utils.dt_priceby(cl0):
+                buy = min(allkl[ki].open * 1.02, (allkl[ki].high + allkl[ki].open) / 2)
+            sell = 0
+            sdate = bdate
+            j = ki + 1
+            cutl = buy * (1 - self.sim_cutrate)
+            earnl = buy * (1 + self.sim_earnrate)
+            if allkl[ki].close - buy > self.sim_cutrate * buy:
+                # 买入当日大阳线反包
+                cutl = max(allkl[ki].close * (1 - self.sim_earnrate), buy)
+                earnl = allkl[ki].close * (1 + self.sim_earnrate)
+            # elif allkl[ki].high - buy > self.sim_cutrate * buy:
+            #     # 买入当日冲高回落
+            #     cutl = min(allkl[ki].high * (1 - self.sim_earnrate), buy)
+            #     earnl = max(allkl[ki].high, allkl[ki].close * (1 + self.sim_earnrate))
+            elif buy - allkl[ki].close > self.sim_cutrate * buy:
+                # 买入当日亏损
+                cutl = allkl[ki].close * (1 - self.sim_cutrate)
+                earnl = max(allkl[ki].close * (1 + self.sim_earnrate), buy)
+            while j < len(allkl):
+                clp0 = allkl[j-1].close
+                if allkl[j].high == allkl[j].low and allkl[j].high <= Utils.dt_priceby(clp0):
+                    # 一字跌停，无法卖出
+                    j += 1
+                    continue
+                if allkl[j].low == allkl[j].high and allkl[j].low >= Utils.zt_priceby(clp0):
+                    # 一字涨停，持股不动
+                    cutl = allkl[j].close * 0.97
+                    earnl = allkl[j].close * (1 + self.sim_earnrate)
+                    j += 1
+                    continue
+                if allkl[j].open < cutl:
+                    if allkl[j].open > Utils.dt_priceby(clp0):
+                        sell = allkl[j].open
+                        sdate = allkl[j].date
+                        break
+                if allkl[j].low < cutl:
+                    sell = cutl
+                    sdate = allkl[j].date
+                    break
+                if allkl[j].high >= earnl:
+                    sell = (allkl[j].high + earnl) / 2
+                    sdate = allkl[j].date
+                    break
+                j += 1
+
+            if sdate != bdate:
+                self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
+                sdate = None
+                bdate = None
+                buy = 0
+                sell = 0
 
     def simulate_all(self):
         # for ub in range(20, 80, 5):
@@ -347,7 +334,7 @@ class StockAmkSelector(StockBaseSelector):
                 self.sim_earnrate = er / 1000
                 # self.sim_upbound = -ub / 1000
                 self.sim_ops = [{'prepare': self.sim_prepare,
-                                 'thread': self.simulate_thread,
+                                 'thread': self.simulate_buy_sell,
                                  'post': self.sim_post_process,
                                  'dtable': f'track_sim_amk_c{ce}_e{er}'},]#_e{er}u{ub}
                 self.simulate()
@@ -417,3 +404,64 @@ class StockNewIpoSelector(StockBaseSelector):
                     if d0 == 0:
                         continue
                     self.wkselected.append([c, allkl[d0].date, allkl[d1].date, d1 - d0 + 1, d2 - d1 + 1, allkl[d2].date])
+
+
+class StockLShapeSelector(StockBaseSelector):
+    '''大跌买入, 网格法买入, L型反弹'''
+    '''破位阴不建仓， 横盘超过10交易日止损'''
+    def __init__(self):
+        super().__init__(False)
+
+    def initConstrants(self):
+        super().initConstrants()
+        self.grate = 0.02   # 网格幅度, 热门股5% 大盘股/ETF基金2%-3% 宽基指数1.5%
+
+    def walk_prepare(self, date=None):
+        return super().walk_prepare(date)
+
+    def walk_on_history_thread(self):
+        pass
+
+    def sim_prepare(self):
+        self.sim_stks = [['SH603000', '2018-01-01']]
+        self.sim_deals = []
+        self.threads_num = 1
+
+    def simulate_buy_sell(self, orstks):
+        kd = None
+        for c, d in orstks:
+            if kd is None:
+                kd = self.get_kd_data(c, d)
+
+            ki = 0
+
+            while ki < len(kd):
+                while kd[ki].pchange > -self.grate*100 or kd[ki].pchange <= -9:
+                    ki += 1
+                    if ki >= len(kd):
+                        break
+                if ki >= len(kd):
+                    break
+                buypd = [[kd[ki].close, kd[ki].date]]
+                sell = 0
+                sdate = None
+
+                j = ki + 1
+                while j < len(kd):
+                    if kd[j].pchange > -9 and kd[j].high - buypd[-1][0] > self.grate * buypd[0][0]:
+                        sell = max(buypd[-1][0] + self.grate * buypd[0][0], (kd[j].high + kd[j].close) / 2)
+                        sdate = kd[j].date
+                        break
+                    else:
+                        n = 2 if len(buypd) == 1 else 1
+                        if buypd[-1][0] - kd[j].close >= n * self.grate * buypd[0][0]:
+                            buypd.append([kd[j].close,kd[j].date])
+                    j += 1
+
+                if sell != 0 and sdate is not None:
+                    self.sim_add_deals(c, buypd, (sell, sdate), 100000, 2, self.grate)
+                ki = j + 1
+
+    def sim_post_process(self, dtable):
+        for x in self.sim_deals:
+            print(x)

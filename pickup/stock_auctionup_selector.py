@@ -22,11 +22,11 @@ class StockAuctionUpSelector(StockBaseSelector):
         self.sim_earnrate = 0.06
         self._sim_ops = [
             # 竞价跌停 结束时打开
-            {'prepare': self.sim_prepare, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_up'},
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_up'},
             # 竞价跌停 随后持续上升
-            {'prepare': self.sim_prepare1, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_contup'},
+            {'prepare': self.sim_prepare1, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_contup'},
             # 竞价跌停 结束时买入有剩余
-            {'prepare': self.sim_prepare2, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_open'},
+            {'prepare': self.sim_prepare2, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_open'},
             ]
         self.sim_ops = self._sim_ops[2:3]
 
@@ -63,106 +63,90 @@ class StockAuctionUpSelector(StockBaseSelector):
     def sim_check_match(self, cqt):
         return StrategyI_AuctionUp.check_buy_match(cqt)
 
-    def simulate_thread(self):
-        orstks = []
-        while len(self.sim_stks) > 0:
-            self.simlock.acquire()
-            if len(self.sim_stks) == 0:
-                self.simlock.release()
-                break
-            while len(orstks) == 0 or self.sim_stks[0][0] == orstks[0][0]:
-                orstks.append(self.sim_stks.pop(0))
-                if len(self.sim_stks) == 0:
-                    break
-            self.simlock.release()
+    def simulate_buy_sell(self, orstks):
+        kd = None
+        for code, dt, t, b, q in orstks:
+            q = json.loads(q)
+            cqt = {'quotes': q}
+            cqt['bottomprice'] = b
+            cqt['topprice'] = t
 
-            kd = None
-            for code, dt, t, b, q in orstks:
-                q = json.loads(q)
-                cqt = {'quotes': q}
-                cqt['bottomprice'] = b
-                cqt['topprice'] = t
+            if not self.sim_check_match(cqt):
+                continue
 
-                if not self.sim_check_match(cqt):
+            if kd is None:
+                kd = self.get_kd_data(code, dt)
+
+            ki = 0
+            while kd[ki].date != dt:
+                ki += 1
+            if ki > 0:
+                kd = kd[ki:]
+                if kd is None or len(kd) < 2:
                     continue
 
-                if kd is None:
-                    kd = self.get_kd_data(code, dt)
+            op0 = kd[0].open
+            hi0 = kd[0].high
+            lo0 = kd[0].low
+            cl0 = kd[0].close
 
-                ki = 0
-                while kd[ki].date != dt:
-                    ki += 1
-                if ki > 0:
-                    kd = kd[ki:]
-                    if kd is None or len(kd) < 2:
-                        continue
+            buy = min(op0 * 1.03, hi0)
+            bdate = kd[0].date
+            sell = 0
+            sdate = kd[0].date
 
-                op0 = kd[0].open
-                hi0 = kd[0].high
-                lo0 = kd[0].low
-                cl0 = kd[0].close
+            j = 1
+            cutl = buy * (1 - self.sim_cutrate)
+            if cl0 <= buy * (1 + 0.03):
+                cutl = min(cutl, cl0 * (1 - self.sim_cutrate))
+            elif cl0 >= buy * (1 + self.sim_earnrate):
+                cutl = buy
+            earnl = buy * (1 + self.sim_earnrate)
+            if cl0 <= hi0 * (1 - 0.05) and hi0 >= buy * (1 + 2 * self.sim_earnrate):
+                earnl = hi0 * (1 - 0.02)
+            while j < len(kd):
+                clp0 = kd[j-1].close
+                cl1 = kd[j].close
+                hi1 = kd[j].high
+                lo1 = kd[j].low
+                op1 = kd[j].open
 
-                buy = min(op0 * 1.03, hi0)
-                bdate = kd[0].date
-                sell = 0
-                sdate = kd[0].date
-
-                j = 1
-                cutl = buy * (1 - self.sim_cutrate)
-                if cl0 <= buy * (1 + 0.03):
-                    cutl = min(cutl, cl0 * (1 - self.sim_cutrate))
-                elif cl0 >= buy * (1 + self.sim_earnrate):
-                    cutl = buy
-                earnl = buy * (1 + self.sim_earnrate)
-                if cl0 <= hi0 * (1 - 0.05) and hi0 >= buy * (1 + 2 * self.sim_earnrate):
-                    earnl = hi0 * (1 - 0.02)
-                while j < len(kd):
-                    clp0 = kd[j-1].close
-                    cl1 = kd[j].close
-                    hi1 = kd[j].high
-                    lo1 = kd[j].low
-                    op1 = kd[j].open
-
-                    if lo1 == hi1 and hi1 <= Utils.dt_priceby(clp0):
-                        # 一字跌停，无法卖出
-                        j += 1
-                        continue
-
-                    if lo1 == hi1 and hi1 >= Utils.zt_priceby(clp0):
-                        # 一字涨停，持股不动
-                        cutl = cl1 * (1 - self.sim_cutrate)
-                        earnl = hi1
-                        j += 1
-                        continue
-
-                    if op1 < cutl:
-                        if op1 > Utils.dt_priceby(clp0):
-                            sell = op1
-                            sdate = kd[j].date
-                            break
-
-                    if lo1 < cutl:
-                        sell = cutl
-                        sdate = kd[j].date
-                        break
-
-                    if hi1 >= earnl:
-                        sell = (hi1 + earnl) / 2
-                        sdate = kd[j].date
-                        break
-
+                if lo1 == hi1 and hi1 <= Utils.dt_priceby(clp0):
+                    # 一字跌停，无法卖出
                     j += 1
+                    continue
 
-                if sdate != bdate:
-                    count = round(1000/buy) * 100
-                    self.sim_deals.append({'time': bdate, 'code': code, 'sid': 0, 'tradeType': 'B', 'price': round(buy, 2), 'count': count})
-                    self.sim_deals.append({'time': sdate, 'code': code, 'sid': 0, 'tradeType': 'S', 'price': round(sell, 2), 'count': count})
-                    sdate = None
-                    bdate = None
-                    buy = 0
-                    sell = 0
+                if lo1 == hi1 and hi1 >= Utils.zt_priceby(clp0):
+                    # 一字涨停，持股不动
+                    cutl = cl1 * (1 - self.sim_cutrate)
+                    earnl = hi1
+                    j += 1
+                    continue
 
-            orstks = []
+                if op1 < cutl:
+                    if op1 > Utils.dt_priceby(clp0):
+                        sell = op1
+                        sdate = kd[j].date
+                        break
+
+                if lo1 < cutl:
+                    sell = cutl
+                    sdate = kd[j].date
+                    break
+
+                if hi1 >= earnl:
+                    sell = (hi1 + earnl) / 2
+                    sdate = kd[j].date
+                    break
+
+                j += 1
+
+            if sdate != bdate:
+                self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
+                sdate = None
+                bdate = None
+                buy = 0
+                sell = 0
 
     def sim_check_match1(self, auctions):
         bottomprice = auctions['bottomprice']

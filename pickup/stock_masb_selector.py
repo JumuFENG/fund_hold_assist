@@ -129,7 +129,7 @@ class StockMaConvergenceSelector(StockBaseSelector):
         ]
         self._sim_ops = [
             # 三次MA收敛突破买入
-            {'prepare': self.sim_prepare, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_maconv'},
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_maconv'},
             ]
         self.sim_ops = self._sim_ops[0:1]
 
@@ -269,94 +269,78 @@ class StockMaConvergenceSelector(StockBaseSelector):
         self.sim_stks = sorted(orstks, key=lambda s: (s[0], s[1]))
         self.sim_deals = []
 
-    def simulate_thread(self):
-        orstks = []
-        while len(self.sim_stks) > 0:
-            self.simlock.acquire()
-            if len(self.sim_stks) == 0:
-                self.simlock.release()
-                break
-            while len(orstks) == 0 or self.sim_stks[0][0] == orstks[0][0]:
-                orstks.append(self.sim_stks.pop(0))
-                if len(self.sim_stks) == 0:
-                    break
-            self.simlock.release()
+    def simulate_buy_sell(self, orstks):
+        kd = None
+        for code, dt, bdt in orstks:
+            if kd is None:
+                kd = self.get_kd_data(code, dt)
+                kd = KlList.calc_kl_bss(kd)
+            ki = 0
+            while kd[ki].date != dt:
+                ki += 1
 
-            kd = None
-            for code, dt, bdt in orstks:
-                if kd is None:
-                    kd = self.get_kd_data(code, dt)
-                    kd = KlList.calc_kl_bss(kd)
-                ki = 0
-                while kd[ki].date != dt:
-                    ki += 1
+            low = kd[ki].low
+            while kd[ki].date != bdt:
+                if kd[ki].low < low:
+                    low = kd[ki].low
+                ki += 1
+            if ki > 0 and ki + 3 >= len(kd):
+                continue
 
-                low = kd[ki].low
-                while kd[ki].date != bdt:
-                    if kd[ki].low < low:
-                        low = kd[ki].low
-                    ki += 1
-                if ki > 0 and ki + 3 >= len(kd):
-                    continue
+            klb = kd[ki]
+            assert klb.date == bdt, 'wrong kl data!'
 
-                klb = kd[ki]
-                assert klb.date == bdt, 'wrong kl data!'
+            zdf = 20 if code.startswith('30') or code.startswith('68') else 10
+            buy = klb.close
+            bdate = klb.date
+            sell = 0
+            sdate = klb.date
+            j = ki + 1
+            ztin3day = False
+            for z in range(0, 3):
+                pclose = kd[ki - z - 1].close
+                kl = kd[ki - z]
+                if kl.close == kl.high and kl.high >= Utils.zt_priceby(pclose, zdf=zdf):
+                    ztin3day = True
 
-                zdf = 20 if code.startswith('30') or code.startswith('68') else 10
-                buy = klb.close
-                bdate = klb.date
-                sell = 0
-                sdate = klb.date
-                j = ki + 1
-                ztin3day = False
-                for z in range(0, 3):
-                    pclose = kd[ki - z - 1].close
-                    kl = kd[ki - z]
-                    if kl.close == kl.high and kl.high >= Utils.zt_priceby(pclose, zdf=zdf):
-                        ztin3day = True
+            if ztin3day:
+                continue
 
-                if ztin3day:
-                    continue
+            if low < buy * 0.885:
+                low = buy * 0.885
 
-                if low < buy * 0.885:
-                    low = buy * 0.885
-
-                while j < len(kd):
-                    clp3 = kd[j-1].close
-                    klj = kd[j]
-                    cl3 = klj.close
-                    hi3 = klj.high
-                    lo3 = klj.low
-                    op3 = klj.open
-                    if lo3 == hi3 and hi3 <= Utils.dt_priceby(clp3, zdf=zdf):
-                        # 一字跌停，无法卖出
-                        j += 1
-                        continue
-                    if lo3 == hi3 and hi3 >= Utils.zt_priceby(clp3, zdf=zdf):
-                        j += 1
-                        continue
-                    if op3 < low:
-                        if op3 > Utils.dt_priceby(clp3, zdf=zdf):
-                            sell = op3
-                            sdate = klj.date
-                            break
-                    if lo3 < low:
-                        sell = low
-                        sdate = klj.date
-                        break
-                    if klj.bss18 == 's' and cl3 > buy:
-                        sell = cl3
-                        sdate = klj.date
-                        break
+            while j < len(kd):
+                clp3 = kd[j-1].close
+                klj = kd[j]
+                cl3 = klj.close
+                hi3 = klj.high
+                lo3 = klj.low
+                op3 = klj.open
+                if lo3 == hi3 and hi3 <= Utils.dt_priceby(clp3, zdf=zdf):
+                    # 一字跌停，无法卖出
                     j += 1
+                    continue
+                if lo3 == hi3 and hi3 >= Utils.zt_priceby(clp3, zdf=zdf):
+                    j += 1
+                    continue
+                if op3 < low:
+                    if op3 > Utils.dt_priceby(clp3, zdf=zdf):
+                        sell = op3
+                        sdate = klj.date
+                        break
+                if lo3 < low:
+                    sell = low
+                    sdate = klj.date
+                    break
+                if klj.bss18 == 's' and cl3 > buy:
+                    sell = cl3
+                    sdate = klj.date
+                    break
+                j += 1
 
-                if sdate != bdate:
-                    count = round(1000/buy)
-                    self.sim_deals.append({'time': bdate, 'code': code, 'sid': 0, 'tradeType': 'B', 'price': round(buy, 2), 'count': count})
-                    self.sim_deals.append({'time': sdate, 'code': code, 'sid': 0, 'tradeType': 'S', 'price': round(sell, 2), 'count': count})
-                    sdate = None
-                    bdate = None
-                    buy = 0
-                    sell = 0
-
-            orstks = []
+            if sdate != bdate:
+                self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
+                sdate = None
+                bdate = None
+                buy = 0
+                sell = 0

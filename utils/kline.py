@@ -21,7 +21,10 @@ class KlList():
     def get_kldata_by_time(self, klist, date):
         # type: (list/tuple, str) -> KNode
         for kl in klist:
-            if kl[1] == date:
+            if isinstance(kl, KNode):
+                if kl.date == date:
+                    return kl
+            elif kl[1] == date:
                 return KNode(kl)
 
     @classmethod

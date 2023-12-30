@@ -72,20 +72,22 @@ class StockBaseSelector(MultiThrdTableBase):
         return self.simed_kd[code]
 
     def sim_prepare(self):
+        self.sim_stks = []
         self.sim_deals = []
 
     def simulate(self):
         # 用历史数据回测，生成买卖记录保存
         if self.sim_ops is None:
-            self.sim_ops = [{'prepare': self.sim_prepare, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_{self.simkey}'}]
+            self.sim_ops = [{'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_{self.simkey}'}]
 
         for so in self.sim_ops:
             simstart = datetime.now()
             if callable(so['prepare']):
                 so['prepare']()
             sim_ths = []
+            self.simulate_buy_sell = so['thread']
             for i in range(0, self.threads_num):
-                t = Thread(target=so['thread'])
+                t = Thread(target=self.simulate_thread)
                 sim_ths.append(t)
                 t.start()
 
@@ -96,6 +98,64 @@ class StockBaseSelector(MultiThrdTableBase):
             print('time used: ', datetime.now() - simstart)
 
     def simulate_thread(self):
+        orstks = []
+        while len(self.sim_stks) > 0:
+            self.simlock.acquire()
+            if len(self.sim_stks) == 0:
+                self.simlock.release()
+                break
+            while len(orstks) == 0 or self.sim_stks[0][0] == orstks[0][0]:
+                orstks.append(self.sim_stks.pop(0))
+                if len(self.sim_stks) == 0:
+                    break
+            self.simlock.release()
+
+            self.simulate_buy_sell(orstks)
+            orstks = []
+
+    def simulate_buy_sell(self, orstks):
+        pass
+
+    def sim_add_deals(self, code, buypds, spd, cost, costadding=0, addinfo=None):
+        '''
+         costadding: 0 - 每次买入相同仓位
+                     1 - 买入仓位递增, 增加额度addinfo (为None则增加cost)
+                     2 - 买入仓位按浮亏/期望盈利率(addinfo)
+        '''
+        tcount = 0
+        pdc = []
+        bcost = cost
+        if costadding == 0:
+            for p, d in buypds:
+                count = round(bcost/(100 * p)) * 100
+                pdc.append([p, d, count])
+                tcount += count
+        elif costadding == 1:
+            if addinfo is None:
+                addinfo = cost
+            for i, pd in enumerate(buypds):
+                p, d = pd
+                bcost = cost + i * addinfo
+                count = round(bcost/(100 * p)) * 100
+                pdc.append([p, d, count])
+                tcount += count
+        elif costadding == 2:
+            count = round(bcost/(100 * p)) * 100
+            bcost = buypds[0][0] * count
+            pdc.append([buypds[0][0], buypds[0][1], count])
+            for i in range(1, len(buypds)):
+                amount = (bcost - buypds[i][0] * count) / addinfo
+                ncount = round((amount - buypds[i][0] * count) / (100 * buypds[i][0])) * 100
+                pdc.append([buypds[i][0], buypds[i][1], count])
+                tcount += ncount
+                bcost += ncount * buypds[i][0]
+
+        for p,d,c in pdc:
+            self.sim_deals.append({'time': d, 'code': code, 'sid': 0, 'tradeType': 'B', 'price': round(p, 2), 'count': c})
+        p, d = spd
+        self.sim_deals.append({'time': d, 'code': code, 'sid': 0, 'tradeType': 'S', 'price': round(p, 2), 'count': tcount})
+
+    def sim_buy_zt_sell_op(self):
         pass
 
     def sim_post_process(self, dtable):
@@ -114,3 +174,4 @@ class StockBaseSelector(MultiThrdTableBase):
             print(self.__class__.__name__, 'updatePickUps already updated to latest!')
             return
         self.walkOnHistory(mdate)
+

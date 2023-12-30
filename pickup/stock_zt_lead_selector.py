@@ -294,8 +294,8 @@ class StockZtLeadingSelector(StockBaseSelector):
             {'col':'edate','type':'varchar(20) DEFAULT NULL'},
         ]
         self._sim_ops = [
-            {'prepare': self.sim_prepare, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_lead'},
-            {'prepare': self.sim_prepare1, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_lead_2023'},
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_lead'},
+            {'prepare': self.sim_prepare1, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_lead_2023'},
             ]
         self.sim_ops = self._sim_ops[1:2]
 
@@ -303,7 +303,7 @@ class StockZtLeadingSelector(StockBaseSelector):
         return StockZtDailyMain()
 
     def walkOnHistory(self, date=None):
-        ndate = self.sqldb.selectOneValue(self.tablename, 'max(edate)')
+        ndate = self.sqldb.selectOneValue(self.tablename, 'max(edate)') if date is None else date
         if ndate is None:
             ndate = '0'
         szd = self.genZtDailyObj()
@@ -318,7 +318,10 @@ class StockZtLeadingSelector(StockBaseSelector):
                 laststocks[c] = {'date': d, 'lbc': l, 'days': days, 'edate': e}
                 existingselects.append([c, d])
         while fdate is not None and fdate <= mxdate:
-            fdate = szd.sqldb.selectOneValue(szd.tablename, f'min({column_date})', f'{column_date} > "{fdate}"')
+            if fdate == mxdate:
+                fdate = None
+            else:
+                fdate = szd.sqldb.selectOneValue(szd.tablename, f'min({column_date})', f'{column_date} > "{fdate}"')
             if fdate:
                 lbc = szd.sqldb.selectOneValue(szd.tablename, f'max(连板数)', f'{column_date} = "{fdate}"')
                 if lbc > 2:
@@ -368,63 +371,58 @@ class StockZtLeadingSelector(StockBaseSelector):
         return self._select_condition(f'edate="{date}"')
 
     def sim_prepare(self):
-        orstks = self.sqldb.select(self.tablename, f'{column_code}, {column_date}')
+        orstks = self.sqldb.select(self.tablename, f'{column_code}, {column_date}, 首日连板')
         self.sim_stks = sorted(orstks, key=lambda s: (s[0], s[1]))
         self.sim_deals = []
 
-    def simulate_thread(self):
+    def simulate_buy_sell(self, orstks):
         # 成为龙头次日开盘买入, 不再涨停时尾盘卖出
-        while len(self.sim_stks) > 0:
-            orstks = self.get_begin_stock_records(self.sim_stks)
-            for i in range(0, len(orstks)):
-                code, date = orstks[i]
-                allkl = self.get_kd_data(code, date)
-                ki = 0
-                while allkl[ki].date != date:
-                    ki += 1
-
-                if len(allkl) <=  ki + 2:
-                    continue
-
-                cl0 = allkl[ki].close
+        for code, date, lbc in orstks:
+            allkl = self.get_kd_data(code, date)
+            ki = 0
+            while allkl[ki].date != date:
                 ki += 1
-                while ki < len(allkl) and allkl[ki].low == allkl[ki].high and allkl[ki].high >= Utils.zt_priceby(cl0, zdf=self.zdf):
-                    ki += 1
-                if len(allkl) <= ki + 1:
+
+            if len(allkl) <=  ki + 2:
+                continue
+
+            cl0 = allkl[ki].close
+            ki += 1
+            while ki < len(allkl) and allkl[ki].low == allkl[ki].high and allkl[ki].high >= Utils.zt_priceby(cl0, zdf=self.zdf):
+                ki += 1
+            if len(allkl) <= ki + 1:
+                continue
+
+            buy = allkl[ki].open
+            sell = 0
+            bdate = allkl[ki].date
+            sdate = bdate
+            cl0 = allkl[ki].close
+            j = ki + 1
+            while j < len(allkl):
+                if allkl[j].high == allkl[j].close and allkl[j].close >= Utils.zt_priceby(cl0, zdf=self.zdf):
+                    cl0 = allkl[j].close
+                    j += 1
                     continue
 
-                buy = allkl[ki].open
+                if allkl[j].high == allkl[j].low and allkl[j].close <= Utils.dt_priceby(cl0, zdf=self.zdf):
+                    cl0 = allkl[j].close
+                    j += 1
+                    continue
+
+                sell = allkl[j].close
+                sdate = allkl[j].date
+                break
+
+            if sdate != bdate:
+                self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
+                sdate = None
+                bdate = None
+                buy = 0
                 sell = 0
-                bdate = allkl[ki].date
-                sdate = bdate
-                cl0 = allkl[ki].close
-                j = ki + 1
-                while j < len(allkl):
-                    if allkl[j].high == allkl[j].close and allkl[j].close >= Utils.zt_priceby(cl0, zdf=self.zdf):
-                        cl0 = allkl[j].close
-                        j += 1
-                        continue
-
-                    if allkl[j].high == allkl[j].low and allkl[j].close <= Utils.dt_priceby(cl0, zdf=self.zdf):
-                        cl0 = allkl[j].close
-                        j += 1
-                        continue
-
-                    sell = allkl[j].close
-                    sdate = allkl[j].date
-                    break
-
-                if sdate != bdate:
-                    count = round(1000/buy)
-                    self.sim_deals.append({'time': bdate, 'code': code, 'sid': 0, 'tradeType': 'B', 'price': round(buy, 2), 'count': count})
-                    self.sim_deals.append({'time': sdate, 'code': code, 'sid': 0, 'tradeType': 'S', 'price': round(sell, 2), 'count': count})
-                    sdate = None
-                    bdate = None
-                    buy = 0
-                    sell = 0
 
     def sim_prepare1(self):
-        orstks = self.sqldb.select(self.tablename, f'{column_code}, {column_date}', f'edate>"2023"')
+        orstks = self.sqldb.select(self.tablename, f'{column_code}, {column_date}, 首日连板', f'edate>"2023"')
         self.sim_stks = sorted(orstks, key=lambda s: (s[0], s[1]))
         self.sim_deals = []
 
@@ -438,7 +436,7 @@ class StockZtLeadingSelectorKcCy(StockZtLeadingSelector):
         super().initConstrants()
         self.tablename = 'stock_zt_lead_kccy_pickup'
         self._sim_ops = [
-            {'prepare': self.sim_prepare, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_lead_kccy'},
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_lead_kccy'},
             ]
         self.sim_ops = self._sim_ops[0:1]
 
@@ -455,12 +453,147 @@ class StockZtLeadingSelectorST(StockZtLeadingSelector):
         super().initConstrants()
         self.tablename = 'stock_zt_lead_st_pickup'
         self._sim_ops = [
-            {'prepare': self.sim_prepare, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_lead_st'},
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_lead_st'},
             ]
         self.sim_ops = self._sim_ops[0:1]
 
     def genZtDailyObj(self):
         return StockZtDailyST()
+
+
+class StockZtLeadingAbsSelector(StockZtLeadingSelector):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_zt_lead_abs_pickup'
+        self._sim_ops = [
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_ztabs_lead'},
+            {'prepare': self.sim_prepare1, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_ztabs_lead_2023'},
+            ]
+        self.sim_ops = self._sim_ops[0:1]
+        self.sim_mxlbc = 7
+
+    def walkOnHistory(self, date=None):
+        ndate = self.sqldb.selectOneValue(self.tablename, 'max(edate)') if date is None else date
+        if ndate is None:
+            ndate = '0'
+        szd = self.genZtDailyObj()
+        fdate = ndate if date is None else date
+        mxdate = szd.sqldb.selectOneValue(szd.tablename, f'max({column_date})')
+        self.wkselected = []
+        laststocks = {}
+        existingselects = []
+        if ndate != '0':
+            lleads = self.sqldb.select(self.tablename, conds=f'edate = "{ndate}"')
+            for _, c, d, l, days, e in lleads:
+                laststocks[c] = {'date': d, 'lbc': l, 'days': days, 'edate': e}
+                existingselects.append([c, d])
+        while fdate is not None and fdate <= mxdate:
+            if fdate == mxdate:
+                fdate = None
+            else:
+                fdate = szd.sqldb.selectOneValue(szd.tablename, f'min({column_date})', f'{column_date} > "{fdate}"')
+            if fdate:
+                lbc = szd.sqldb.selectOneValue(szd.tablename, f'max(连板数)', f'{column_date} = "{fdate}"')
+                if lbc > 2:
+                    sleads = szd.sqldb.select(szd.tablename, f'{column_code}, {column_date}, 连板数, 总天数', [f'连板数={lbc}', f'{column_date} = "{fdate}"'])
+                    curstocks = []
+                    nleads = []
+                    for c, d, l, n in sleads:
+                        curstocks.append(c)
+                        if c in laststocks:
+                            if laststocks[c]['edate'] != d:
+                                laststocks[c]['days'] += 1
+                                laststocks[c]['edate'] = d
+                        else:
+                            nleads.append([c, d, l, n])
+                    for k, v in laststocks.items():
+                        if k not in curstocks:
+                            self.wkselected.append([k, v['date'], v['lbc'], v['days'], v['edate']])
+                    laststocks = {k:v for k, v in laststocks.items() if k in curstocks}
+                    if len(nleads) == 0:
+                        continue
+                    minn = min([nl[3] for nl in nleads])
+                    countn = len([nl for nl in nleads if nl[3] == minn])
+                    if countn > 1:
+                        continue
+                    for c, d, l, n in nleads:
+                        if n == minn:
+                            laststocks[c] = {'date': d, 'lbc': l, 'days': 1, 'edate': d}
+                            break
+                elif len(laststocks.keys()) > 0:
+                    for k, v in laststocks.items():
+                        self.wkselected.append([k, v['date'], v['lbc'], v['days'], v['edate']])
+                    laststocks = {}
+        if len(laststocks.keys()) > 0:
+            for k, v in laststocks.items():
+                self.wkselected.append([k, v['date'], v['lbc'], v['days'], v['edate']])
+
+        updates = []
+        values = []
+        if len(existingselects) > 0:
+            for i in range(0, len(self.wkselected)):
+                if [self.wkselected[i][0], self.wkselected[i][1]] in existingselects:
+                    updates.append(self.wkselected[i])
+                else:
+                    values.append(self.wkselected[i])
+        else:
+            values = self.wkselected
+        if len(updates) > 0:
+            self.sqldb.updateMany(self.tablename, [col['col'] for col in self.colheaders], [col['col'] for col in self.colheaders[0:2]], updates)
+        if len(values) > 0:
+            self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
+
+    def sim_prepare(self):
+        super().sim_prepare()
+        self.sim_stks = [s for s in self.sim_stks if s[2] <= self.sim_mxlbc]
+
+    def simulate_buy_sell(self, orstks):
+        for code, date, lbc in orstks:
+            allkl = self.get_kd_data(code, date)
+            ki = 0
+            while allkl[ki].date != date:
+                ki += 1
+
+            if len(allkl) <=  ki + 2:
+                continue
+
+            cl0 = allkl[ki].close
+            ki += 1
+            while ki < len(allkl) and allkl[ki].low == allkl[ki].high and allkl[ki].high >= Utils.zt_priceby(cl0, zdf=self.zdf):
+                ki += 1
+            if len(allkl) <= ki + 1:
+                continue
+
+            buy = allkl[ki].open
+            sell = 0
+            bdate = allkl[ki].date
+            sdate = bdate
+            cl0 = allkl[ki].close
+            j = ki + 1
+            while j < len(allkl):
+                if allkl[j].high == allkl[j].close and allkl[j].close >= Utils.zt_priceby(cl0, zdf=self.zdf):
+                    cl0 = allkl[j].close
+                    j += 1
+                    continue
+
+                if allkl[j].high == allkl[j].low and allkl[j].close <= Utils.dt_priceby(cl0, zdf=self.zdf):
+                    cl0 = allkl[j].close
+                    j += 1
+                    continue
+
+                sell = allkl[j].close
+                sdate = allkl[j].date
+                break
+
+            if sdate != bdate:
+                self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
+                sdate = None
+                bdate = None
+                buy = 0
+                sell = 0
 
 
 class StockZtDaily():

@@ -26,9 +26,9 @@ class StockUstSelector(StockBaseSelector):
         self.sim_earnrate = None
         self._sim_ops = [
             # 申请买, 摘帽后卖出
-            {'prepare': self.sim_prepare, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_ust_prepare'},
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_ust_prepare'},
             # 摘帽后买入
-            {'prepare': self.sim_prepare1, 'thread': self.simulate_thread1, 'post': self.sim_post_process, 'dtable': f'track_sim_ust_ust'},
+            {'prepare': self.sim_prepare1, 'thread': self.simulate_buy_sell1, 'post': self.sim_post_process, 'dtable': f'track_sim_ust_ust'},
             ]
         self.sim_ops = self._sim_ops
 
@@ -123,187 +123,155 @@ class StockUstSelector(StockBaseSelector):
         self.sim_stks = sorted(orstks, key=lambda s: (s[0], s[1]))
         self.sim_deals = []
 
-    def simulate_thread(self):
-        orstks = []
-        while len(self.sim_stks) > 0:
-            self.simlock.acquire()
-            if len(self.sim_stks) == 0:
-                self.simlock.release()
-                break
-            while len(orstks) == 0 or self.sim_stks[0][0] == orstks[0][0]:
-                orstks.append(self.sim_stks.pop(0))
-                if len(self.sim_stks) == 0:
-                    break
-            self.simlock.release()
+    def simulate_buy_sell(self, orstks):
+        kd = None
+        for code, d, ud in orstks:
+            if d is None:
+                continue
 
-            kd = None
-            for code, d, ud in orstks:
-                if d is None:
+            if kd is None:
+                kd = self.get_kd_data(code, d)
+            ki = 0
+            while ki < len(kd) and kd[ki].date != d:
+                ki += 1
+            if ki >= len(kd):
+                print(code, d, ud)
+                continue
+            if ki > 0:
+                kd = kd[ki:]
+                if kd is None or len(kd) < 2:
                     continue
 
-                if kd is None:
-                    kd = self.get_kd_data(code, d)
-                ki = 0
-                while ki < len(kd) and kd[ki].date != d:
-                    ki += 1
-                if ki >= len(kd):
-                    print(code, d, ud)
-                    continue
-                if ki > 0:
-                    kd = kd[ki:]
-                    if kd is None or len(kd) < 2:
-                        continue
-
-                kl0 = kd[0]
-                if kl0.low == kl0.high:
-                    # 一字涨停 无法买进
-                    continue
-                buy = kl0.open
-                bdate = kl0.date
-                sell = 0
-                sdate = kl0.date
-                j = 1
-                cutl = buy * (1 - self.sim_cutrate)
-                while j < len(kd):
-                    clp1 = kd[j-1].close
-                    klj = kd[j]
-                    clj = klj.close
-                    hij = klj.high
-                    loj = klj.low
-                    opj = klj.open
-                    zdf = 5
-                    if ud is not None and ud != '0' and klj.date >= ud:
-                        zdf = 10
-                    if loj == hij and hij <= Utils.dt_priceby(clp1, zdf=zdf):
-                        # 一字跌停，无法卖出
-                        j += 1
-                        continue
-                    if loj == hij and hij >= Utils.zt_priceby(clp1, zdf=zdf):
-                        # 一字涨停，持股不动
-                        if clp1 * 0.97 > buy:                         
-                            cutl = clp1 * 0.97
-                        j += 1
-                        continue
-                    if opj < cutl:
-                        if opj > Utils.dt_priceby(clp1, zdf=zdf):
-                            sell = opj
-                            sdate = klj.date
-                            break
-                    if loj < cutl:
-                        sell = cutl
-                        sdate = klj.date
-                        break
-                    if ud is None:
-                        if j > 5:
-                            cutl = klj.low if klj.low > buy else cutl
-                    if ud is not None and klj.date == ud:
-                        sell = klj.open
-                        sdate = klj.date
-                        break
+            kl0 = kd[0]
+            if kl0.low == kl0.high:
+                # 一字涨停 无法买进
+                continue
+            buy = kl0.open
+            bdate = kl0.date
+            sell = 0
+            sdate = kl0.date
+            j = 1
+            cutl = buy * (1 - self.sim_cutrate)
+            while j < len(kd):
+                clp1 = kd[j-1].close
+                klj = kd[j]
+                clj = klj.close
+                hij = klj.high
+                loj = klj.low
+                opj = klj.open
+                zdf = 5
+                if ud is not None and ud != '0' and klj.date >= ud:
+                    zdf = 10
+                if loj == hij and hij <= Utils.dt_priceby(clp1, zdf=zdf):
+                    # 一字跌停，无法卖出
                     j += 1
-                if sdate != bdate:
-                    count = round(1000/buy)
-                    self.sim_deals.append({'time': bdate, 'code': code, 'sid': 0, 'tradeType': 'B', 'price': round(buy, 2), 'count': count})
-                    self.sim_deals.append({'time': sdate, 'code': code, 'sid': 0, 'tradeType': 'S', 'price': round(sell, 2), 'count': count})
-                    sdate = None
-                    bdate = None
-                    buy = 0
-                    sell = 0
-                else:
-                    print(code, d, ud)
-
-            orstks = []
+                    continue
+                if loj == hij and hij >= Utils.zt_priceby(clp1, zdf=zdf):
+                    # 一字涨停，持股不动
+                    if clp1 * 0.97 > buy:                         
+                        cutl = clp1 * 0.97
+                    j += 1
+                    continue
+                if opj < cutl:
+                    if opj > Utils.dt_priceby(clp1, zdf=zdf):
+                        sell = opj
+                        sdate = klj.date
+                        break
+                if loj < cutl:
+                    sell = cutl
+                    sdate = klj.date
+                    break
+                if ud is None:
+                    if j > 5:
+                        cutl = klj.low if klj.low > buy else cutl
+                if ud is not None and klj.date == ud:
+                    sell = klj.open
+                    sdate = klj.date
+                    break
+                j += 1
+            if sdate != bdate:
+                self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
+                sdate = None
+                bdate = None
+                buy = 0
+                sell = 0
+            else:
+                print(code, d, ud)
 
     def sim_prepare1(self):
         orstks = self.sqldb.select(self.tablename, f'{column_code}, udates', f'udates is not NULL')
         self.sim_stks = sorted(orstks, key=lambda s: (s[0], s[1]))
         self.sim_deals = []
 
-    def simulate_thread1(self):
-        orstks = []
-        while len(self.sim_stks) > 0:
-            self.simlock.acquire()
-            if len(self.sim_stks) == 0:
-                self.simlock.release()
-                break
-            while len(orstks) == 0 or self.sim_stks[0][0] == orstks[0][0]:
-                orstks.append(self.sim_stks.pop(0))
-                if len(self.sim_stks) == 0:
-                    break
-            self.simlock.release()
+    def simulate_buy_sell1(self, orstks):
+        kd = None
+        for code, d in orstks:
+            if d is None or d == '0':
+                continue
 
-            kd = None
-            for code, d in orstks:
-                if d is None or d == '0':
+            if kd is None:
+                kd = self.get_kd_data(code, d)
+            ki = 0
+            while ki < len(kd) and kd[ki].date != d:
+                ki += 1
+            if ki >= len(kd):
+                print(code, d)
+                continue
+            if ki > 0:
+                kd = kd[ki:]
+                if kd is None or len(kd) < 2:
                     continue
 
-                if kd is None:
-                    kd = self.get_kd_data(code, d)
-                ki = 0
-                while ki < len(kd) and kd[ki].date != d:
-                    ki += 1
-                if ki >= len(kd):
-                    print(code, d)
+            kl0 = kd[0]
+            if kl0.low == kl0.high:
+                # 一字涨停 无法买进
+                continue
+            buy = kl0.open
+            bdate = kl0.date
+            sell = 0
+            sdate = kl0.date
+            j = 1
+            cutl = buy * (1 - self.sim_cutrate)
+            while j < len(kd):
+                clp1 = kd[j-1].close
+                klj = kd[j]
+                clj = klj.close
+                hij = klj.high
+                loj = klj.low
+                opj = klj.open
+                if loj == hij and hij <= Utils.dt_priceby(clp1):
+                    # 一字跌停，无法卖出
+                    j += 1
                     continue
-                if ki > 0:
-                    kd = kd[ki:]
-                    if kd is None or len(kd) < 2:
-                        continue
-
-                kl0 = kd[0]
-                if kl0.low == kl0.high:
-                    # 一字涨停 无法买进
+                if loj == hij and hij >= Utils.zt_priceby(clp1):
+                    # 一字涨停，持股不动
+                    if clp1 * 0.97 > buy:
+                        cutl = clp1 * 0.97
+                    j += 1
                     continue
-                buy = kl0.open
-                bdate = kl0.date
-                sell = 0
-                sdate = kl0.date
-                j = 1
-                cutl = buy * (1 - self.sim_cutrate)
-                while j < len(kd):
-                    clp1 = kd[j-1].close
-                    klj = kd[j]
-                    clj = klj.close
-                    hij = klj.high
-                    loj = klj.low
-                    opj = klj.open
-                    if loj == hij and hij <= Utils.dt_priceby(clp1):
-                        # 一字跌停，无法卖出
-                        j += 1
-                        continue
-                    if loj == hij and hij >= Utils.zt_priceby(clp1):
-                        # 一字涨停，持股不动
-                        if clp1 * 0.97 > buy:
-                            cutl = clp1 * 0.97
-                        j += 1
-                        continue
-                    if opj < cutl:
-                        if opj > Utils.dt_priceby(clp1):
-                            sell = opj
-                            sdate = klj.date
-                            break
-                    if loj < cutl:
-                        sell = cutl
+                if opj < cutl:
+                    if opj > Utils.dt_priceby(clp1):
+                        sell = opj
                         sdate = klj.date
                         break
-                    if j > 50:
-                        if cutl < buy and clj < buy:
-                            sell = clj
-                            sdate = klj.date
-                            break
-                    if j > 10:
-                        cutl = loj if loj > buy else cutl
-                    j += 1
+                if loj < cutl:
+                    sell = cutl
+                    sdate = klj.date
+                    break
+                if j > 50:
+                    if cutl < buy and clj < buy:
+                        sell = clj
+                        sdate = klj.date
+                        break
+                if j > 10:
+                    cutl = loj if loj > buy else cutl
+                j += 1
 
-                if sdate != bdate:
-                    count = round(1000/buy)
-                    self.sim_deals.append({'time': bdate, 'code': code, 'sid': 0, 'tradeType': 'B', 'price': round(buy, 2), 'count': count})
-                    self.sim_deals.append({'time': sdate, 'code': code, 'sid': 0, 'tradeType': 'S', 'price': round(sell, 2), 'count': count})
-                    sdate = None
-                    bdate = None
-                    buy = 0
-                    sell = 0
-                else:
-                    print(code, d)
-
-            orstks = []
+            if sdate != bdate:
+                self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
+                sdate = None
+                bdate = None
+                buy = 0
+                sell = 0
+            else:
+                print(code, d)

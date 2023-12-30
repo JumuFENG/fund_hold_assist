@@ -62,93 +62,86 @@ class StockDt3Selector(StockBaseSelector):
         self.sim_deals = []
         self.wkselected = []
 
-    def simulate_thread(self):
+    def simulate_buy_sell(self, stks):
         # 3 进 4 成功买入, 否则不买. 止损/止盈卖出
         # 跌停数增加则加仓一次, 后续开盘价大于买入均价则低点抬高法卖出, 持仓时间>5天则收盘价卖出(止损)
-        sd = StockDumps()
         dtsql = SqlHelper(password=db_pwd, database=history_db_name)
-        while len(self.sim_stks) > 0:
-            c, d1, d3 = self.sim_stks.pop(0)
-            stks = []
-            while len(self.sim_stks) > 0 and self.sim_stks[0][0] == c:
-                stks.append(self.sim_stks.pop(0))
-            stks.insert(0, [c, d1, d3])
-            for i in range(0, len(stks)):
-                c, d1, d3 = stks[i]
-                conds = [f'date>"{d3}"', f'step>3', f'success=1', f'{column_code}="{c}"']
-                if i + 1 < len(stks):
-                    cx, d1x, d3x = stks[i+1]
-                    conds.append(f'date<"{d1x}"')
-                ds = dtsql.select('day_dt_maps', f'{column_date}, step', conds=conds)
-                kd = sd.read_kd_data(c, start=d1)
-                deals = []
-                if ds is None:
-                    i += 1
-                    continue
-
-                for d, s in ds:
-                    if s <= 5:
-                        knd = KlList.get_kldata_by_time(kd, d)
-                        if knd is None:
-                            continue
-                        deals.append([c, d, 'B', knd.low])
-                    else:
-                        knd = KlList.get_kldata_by_time(kd, d)
-                        if knd.high > knd.low:
-                            # 连续跌停, 开板止损卖出
-                            deals.append([c, d, 'S', knd.low])
-                            break
-
-                if len(deals) == 0:
-                    ki = 0
-                    waitdays = 0
-                    while ki < len(kd):
-                        if KNode(kd[ki]).date <= d3:
-                            ki += 1
-                            continue
-                        waitdays += 1
-                        ki += 1
-                        if waitdays > 10:
-                            break
-                    if waitdays > 10 or (datetime.now() - datetime.strptime(kd[-1][1], '%Y-%m-%d')).days > 20:
-                        self.wkselected.append([c, d1, d3, '', 0])
-                        i += 1
-                        continue
-
-                if len(deals) > 0 and len([d for d in deals if d[2] == 'S']) == 0:
-                    ki = 0
-                    bdate = ''
-                    average = 0
-                    for d in deals:
-                        if d[1] > bdate:
-                            bdate = d[1]
-                        average += d[3]
-                    average /= len(deals)
-                    holddays = 0
-                    while ki < len(kd):
-                        if KNode(kd[ki]).date <= bdate:
-                            ki += 1
-                            continue
-                        kdi = KNode(kd[ki])
-                        if kdi.open > average:
-                            deals.append([c, kdi.date, 'S', kdi.open])
-                            break
-                        elif kdi.high > average:
-                            deals.append([c, kdi.date, 'S', kdi.high])
-                            break
-                        holddays += 1
-                        if holddays >= 5:
-                            deals.append([c, kdi.date, 'S', kdi.close])
-                            break
-
-                if len([d for d in deals if d[2] == 'S']) == 0:
-                    i += 1
-                    continue
-
-                if deals[0][2] == 'B' and deals[-1][2] == 'S':
-                    self.wkselected.append([c, d1, d3, deals[0][1], 1])
-                    self.sim_deals += deals
+        for i in range(0, len(stks)):
+            c, d1, d3 = stks[i]
+            conds = [f'date>"{d3}"', f'step>3', f'success=1', f'{column_code}="{c}"']
+            if i + 1 < len(stks):
+                cx, d1x, d3x = stks[i+1]
+                conds.append(f'date<"{d1x}"')
+            ds = dtsql.select('day_dt_maps', f'{column_date}, step', conds=conds)
+            kd = self.get_kd_data(c, d1)
+            deals = []
+            if ds is None:
                 i += 1
+                continue
+
+            for d, s in ds:
+                if s <= 5:
+                    knd = KlList.get_kldata_by_time(kd, d)
+                    if knd is None:
+                        continue
+                    deals.append([c, d, 'B', knd.low])
+                else:
+                    knd = KlList.get_kldata_by_time(kd, d)
+                    if knd.high > knd.low:
+                        # 连续跌停, 开板止损卖出
+                        deals.append([c, d, 'S', knd.low])
+                        break
+
+            if len(deals) == 0:
+                ki = 0
+                waitdays = 0
+                while ki < len(kd):
+                    if kd[ki].date <= d3:
+                        ki += 1
+                        continue
+                    waitdays += 1
+                    ki += 1
+                    if waitdays > 10:
+                        break
+                if waitdays > 10 or (datetime.now() - datetime.strptime(kd[-1].date, '%Y-%m-%d')).days > 20:
+                    self.wkselected.append([c, d1, d3, '', 0])
+                    i += 1
+                    continue
+
+            if len(deals) > 0 and len([d for d in deals if d[2] == 'S']) == 0:
+                ki = 0
+                bdate = ''
+                average = 0
+                for d in deals:
+                    if d[1] > bdate:
+                        bdate = d[1]
+                    average += d[3]
+                average /= len(deals)
+                holddays = 0
+                while ki < len(kd):
+                    if kd[ki].date <= bdate:
+                        ki += 1
+                        continue
+                    kdi = kd[ki]
+                    if kdi.open > average:
+                        deals.append([c, kdi.date, 'S', kdi.open])
+                        break
+                    elif kdi.high > average:
+                        deals.append([c, kdi.date, 'S', kdi.high])
+                        break
+                    holddays += 1
+                    if holddays >= 5:
+                        deals.append([c, kdi.date, 'S', kdi.close])
+                        break
+
+            if len([d for d in deals if d[2] == 'S']) == 0:
+                i += 1
+                continue
+
+            if deals[0][2] == 'B' and deals[-1][2] == 'S':
+                self.wkselected.append([c, d1, d3, deals[0][1], 1])
+                self.sim_deals += deals
+            i += 1
 
     def sim_post_process(self, dtable):
         if len(self.wkselected) > 0:

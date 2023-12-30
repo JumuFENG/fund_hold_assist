@@ -27,7 +27,7 @@ class StockUvztSelector(StockBaseSelector):
         ]
         self._sim_ops = [
             # uv+涨停
-            {'prepare': self.sim_prepare, 'thread': self.simulate_thread, 'post': self.sim_post_process, 'dtable': f'track_sim_uvzt'},
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_uvzt'},
             ]
         self.sim_ops = self._sim_ops
 
@@ -118,92 +118,81 @@ class StockUvztSelector(StockBaseSelector):
         self.sim_cutrate = 0.055
         # self.threads_num = 1
 
-    def simulate_thread(self):
-        orstks = []
-        while len(self.sim_stks) > 0:
-            while len(orstks) == 0 or self.sim_stks[0][0] == orstks[0][0]:
-                orstks.append(self.sim_stks.pop(0))
-                if len(self.sim_stks) == 0:
+    def simulate_buy_sell(self, orstks):
+        kd = None
+        for code, dt, zt, ud in orstks:
+            if kd is None:
+                sd = StockDumps()
+                kd = sd.read_kd_data(code, start=dt)
+                if kd is None or len(kd) < ud + 3:
                     break
-
-            kd = None
-            for code, dt, zt, ud in orstks:
-                if kd is None:
-                    sd = StockDumps()
-                    kd = sd.read_kd_data(code, start=dt)
-                    if kd is None or len(kd) < ud + 3:
-                        break
-                ki = 0
-                while kd[ki][1] != dt:
-                    ki += 1
-                if ki > 0:
-                    kd = kd[ki:]
-                    if kd is None or len(kd) < ud + 3:
-                        continue
-                
-                kldt = KNode(kd[0])
-                assert kldt.date == dt, 'wrong kl data'
-
-                klzt = KNode(kd[ud])
-                i = ud + 1
-                kl1 = KNode(kd[i])
-                op0 = kl1.open
-                hi0 = kl1.high
-                lo0 = kl1.low
-                cl0 = kl1.close
-                if hi0 == lo0 and cl0 >= Utils.zt_priceby(klzt.close):
-                    # 一字涨停 无法买进
+            ki = 0
+            while kd[ki][1] != dt:
+                ki += 1
+            if ki > 0:
+                kd = kd[ki:]
+                if kd is None or len(kd) < ud + 3:
                     continue
-                if self.sim_lowbound is not None and op0 < klzt.close * (1 + self.sim_lowbound):
-                    # 低开 不买
-                    continue
-                if self.sim_upbound is not None and op0 > klzt.close * (1 + self.sim_upbound):
-                    continue
+            
+            kldt = KNode(kd[0])
+            assert kldt.date == dt, 'wrong kl data'
 
-                buy = op0
-                bdate = kl1.date
-                sell = 0
-                sdate = kl1.date
-                j = i + 1
-                cutl = buy * (1 - self.sim_cutrate)
-                earnl = buy * (1 + self.sim_cutrate)
-                while j < len(kd):
-                    clp3 = KNode(kd[j-1]).close
-                    klj = KNode(kd[j])
-                    cl3 = klj.close
-                    hi3 = klj.high
-                    lo3 = klj.low
-                    op3 = klj.open
-                    if lo3 == hi3 and hi3 <= Utils.dt_priceby(clp3):
-                        # 一字跌停，无法卖出
-                        j += 1
-                        continue
-                    if lo3 == hi3 and lo3 >= Utils.zt_priceby(clp3):
-                        cutl = cl3 * 0.97
-                        earnl = hi3
-                        j += 1
-                        continue
-                    if op3 < cutl:
-                        if op3 > Utils.dt_priceby(clp3):
-                            sell = op3
-                            sdate = klj.date
-                            break
-                    if lo3 < cutl:
-                        sell = cutl
-                        sdate = klj.date
-                        break
-                    if hi3 > earnl:
-                        sell = hi3 * 0.99
-                        sdate = klj.date
-                        break
+            klzt = KNode(kd[ud])
+            i = ud + 1
+            kl1 = KNode(kd[i])
+            op0 = kl1.open
+            hi0 = kl1.high
+            lo0 = kl1.low
+            cl0 = kl1.close
+            if hi0 == lo0 and cl0 >= Utils.zt_priceby(klzt.close):
+                # 一字涨停 无法买进
+                continue
+            if self.sim_lowbound is not None and op0 < klzt.close * (1 + self.sim_lowbound):
+                # 低开 不买
+                continue
+            if self.sim_upbound is not None and op0 > klzt.close * (1 + self.sim_upbound):
+                continue
+
+            buy = op0
+            bdate = kl1.date
+            sell = 0
+            sdate = kl1.date
+            j = i + 1
+            cutl = buy * (1 - self.sim_cutrate)
+            earnl = buy * (1 + self.sim_cutrate)
+            while j < len(kd):
+                clp3 = KNode(kd[j-1]).close
+                klj = KNode(kd[j])
+                cl3 = klj.close
+                hi3 = klj.high
+                lo3 = klj.low
+                op3 = klj.open
+                if lo3 == hi3 and hi3 <= Utils.dt_priceby(clp3):
+                    # 一字跌停，无法卖出
                     j += 1
-                if sdate != bdate:
-                    count = round(1000/buy)
-                    self.sim_deals.append({'time': bdate, 'code': code, 'sid': 0, 'tradeType': 'B', 'price': round(buy, 2), 'count': count})
-                    self.sim_deals.append({'time': sdate, 'code': code, 'sid': 0, 'tradeType': 'S', 'price': round(sell, 2), 'count': count})
-                    sdate = None
-                    bdate = None
-                    buy = 0
-                    sell = 0
-            orstks = []
-    
+                    continue
+                if lo3 == hi3 and lo3 >= Utils.zt_priceby(clp3):
+                    cutl = cl3 * 0.97
+                    earnl = hi3
+                    j += 1
+                    continue
+                if op3 < cutl:
+                    if op3 > Utils.dt_priceby(clp3):
+                        sell = op3
+                        sdate = klj.date
+                        break
+                if lo3 < cutl:
+                    sell = cutl
+                    sdate = klj.date
+                    break
+                if hi3 > earnl:
+                    sell = hi3 * 0.99
+                    sdate = klj.date
+                    break
+                j += 1
+            if sdate != bdate:
+                self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
+                sdate = None
+                bdate = None
+                buy = 0
+                sell = 0
