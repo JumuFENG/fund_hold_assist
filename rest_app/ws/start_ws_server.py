@@ -38,17 +38,15 @@ class WsClientManager:
         return [ws.websocket for ws in self.client_agents if ws.is_watching(code, period)]
 
     @classmethod
-    async def broadcast_intrade(self, ikey, code, price):
-        Utils.log(f'broadcasting intrade: {ikey}, {code}, {price}')
-        if ikey == StrategyI_AuctionUp.key:
-            for wsagent in self.client_agents:
-                price = round(float(price), 2)
-                msg = wsagent.create_intrade_buy_message(ikey, code, price)
-                Utils.log(f'broadcasting intrade: {json.dumps(msg)}')
-                if msg is None:
-                    continue
-                await wsagent.websocket.send(json.dumps(msg))
-                Utils.log(f'send {json.dumps(msg)}')
+    async def intrade_matched(self, ikey, match_data, istr_message_creator):
+        # Utils.log(f'broadcasting intrade: {ikey}, {code}, {price}')
+        for wsagent in self.client_agents:
+            subscribe_detail = wsagent.get_subscription(ikey)
+            if subscribe_detail and callable(istr_message_creator):
+                msg = istr_message_creator(match_data, subscribe_detail)
+                if msg:
+                    await wsagent.websocket.send(json.dumps(msg))
+                    Utils.log(f'send {match_data}, {subscribe_detail}')
 
 
 def get_realtime_data(code):
@@ -95,7 +93,7 @@ async def main():
     server = await websockets.serve(handle_client, "localhost", ws_port)
     for period in ws_periods:
         asyncio.create_task(periodic_task(period))
-    WsIntradeStrategyFactory.setup_intrade_strategies(WsClientManager.broadcast_intrade)
+    WsIntradeStrategyFactory.setup_intrade_strategies(WsClientManager.intrade_matched)
     await WsIntradeStrategyFactory.create_tasks()
     await server.wait_closed()
 

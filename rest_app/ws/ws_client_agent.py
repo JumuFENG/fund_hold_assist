@@ -42,13 +42,11 @@ class WsClientAgent:
                 return True
         return False
 
-    def create_intrade_buy_message(self, ikey, code, price):
+    def get_subscription(self, ikey):
         if ikey not in self.intrade_strategies.keys():
-            Utils.log(json.dumps(self.intrade_strategies))
-            Utils.log(f'{ikey} not in intrade_strategies')
+            Utils.log(f'{ikey} is not in {json.dumps(self.intrade_strategies)}')
             return
 
         account = self.intrade_strategies[ikey]['account'] if 'account' in self.intrade_strategies[ikey] else 'normal'
         amount = self.intrade_strategies[ikey]['amount'] if 'amount' in self.intrade_strategies[ikey] else 10000
-        count = Utils.calc_buy_count(amount, price)
-        return {'type':'intrade_buy', 'code': code, 'account': account, 'price': price, 'count': count}
+        return {'account': account, 'amount': amount}

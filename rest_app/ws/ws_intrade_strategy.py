@@ -5,7 +5,8 @@ import json
 import asyncio
 from datetime import datetime
 from utils import *
-from history import StockAuctionDetails
+from history import StockAuctionDetails, StockGlobal
+from pickup import StockZt1BreakupSelector
 
 
 class StrategyI_AuctionUp:
@@ -16,12 +17,8 @@ class StrategyI_AuctionUp:
     desc = '竞价跌停,竞价结束时打开跌停'
     snapshot_task_running = False
     auction_quote = {}
-    broadcast_intrade = None
+    on_intrade_matched = None
     matched = []
-
-    @classmethod
-    def add_subscription(self, websocket):
-        self.clients.add(websocket)
 
     @classmethod
     def check_dt_ranks(self):
@@ -44,7 +41,7 @@ class StrategyI_AuctionUp:
             cd = rkobj['f12'] # 代码
             if cd.startswith('00') or cd.startswith('60'):
                 m = rkobj['f13']  # 市场代码 0 深 1 沪
-                self.auction_quote[cd] = {'fcode': f'{"SZ" if m == 0 else "SH"}{cd}', 'quotes': self.get_trends(f'{m}.{cd}')}
+                self.auction_quote[cd] = {'fcode': f'{StockGlobal.full_stockcode(cd)}', 'quotes': self.get_trends(f'{m}.{cd}')}
 
     @classmethod
     def get_trends(self, secid):
@@ -135,23 +132,167 @@ class StrategyI_AuctionUp:
             if code in self.matched:
                 continue
             if self.check_buy_match(auctions):
-                Utils.log(f'{code} buy match!')
+                Utils.log(f'{code} buy match! {auctions["lclose"] if "lclose" in auctions else "0"}')
                 self.matched.append(code)
-                if callable(self.broadcast_intrade):
-                    await self.broadcast_intrade(self.key, code, float(auctions['quotes'][-1][1]) * (100 + uppercent) / 100)
+                if callable(self.on_intrade_matched):
+                    aucup_match_data = {'code': code, 'price': float(auctions['quotes'][-1][1]) * (100 + uppercent) / 100}
+                    await self.on_intrade_matched(self.key, aucup_match_data, self.create_intrade_matched_message)
+
+    @classmethod
+    async def start_strategy_tasks(self):
+        loop = asyncio.get_event_loop()
+        if Utils.delay_seconds('9:20') > 0:
+            loop.call_later(Utils.delay_seconds('9:20:1'), self.check_dt_ranks)
+            loop.call_later(Utils.delay_seconds('9:20:2'), lambda: asyncio.ensure_future(self.start_snapshot_task()))
+            loop.call_later(Utils.delay_seconds('9:24:55'), lambda: asyncio.ensure_future(self.check_auction_trends(5)))
+            loop.call_later(Utils.delay_seconds('9:25:8'), self.stop_snapshot_task)
+            loop.call_later(Utils.delay_seconds('9:25:16'), lambda: asyncio.ensure_future(self.check_auction_trends(2)))
+        else:
+            Utils.log(f'{__class__.__name__} start time expired.', Utils.Err)
+
+    @classmethod
+    def create_intrade_matched_message(self, match_data, subscribe_detail):
+        account = subscribe_detail['account']
+        amount = subscribe_detail['amount']
+        code = match_data['code']
+        price = round(float(match_data['price']), 2)
+        count = Utils.calc_buy_count(amount, price)
+        return {'type':'intrade_buy', 'code': code, 'account': account, 'price': price, 'count': count}
+
+
+class StrategyI_Zt1Breakup:
+    ''' 首板突破60最高价
+    '''
+    key = 'istrategy_zt1brk'
+    name = '首板突破'
+    desc = '首板突破60最高价, 打板买入'
+    on_intrade_matched = None
+    candidates = []
+    stock_matched = []
+    stock_notified = []
+    exist_changes = set()
+
+    @classmethod
+    async def start_changes_task(self):
+        self.changes_task_running = True
+        if len(self.candidates) == 0:
+            szbs = StockZt1BreakupSelector()
+            self.candidates = szbs.dumpLatesetCandidates(fullcode=False)
+        while self.changes_task_running:
+            self.get_changes()
+            await asyncio.sleep(60)
+
+    @classmethod
+    def stop_changes_task(self):
+        self.changes_task_running = False
+
+    @classmethod
+    def get_changes(self):
+        self.chg_page = 0
+        self.chg_pagesize = 1000
+        self.fecthed = []
+        self.get_next_changes()
+        for c, f, t, i in self.fecthed:
+            if c not in self.candidates:
+                continue
+            if c in self.stock_notified or c in self.stock_matched:
+                continue
+            if t == 8213 or t == 8201:
+                self.stock_matched.append(c)
+                Utils.log(f'get_changes add {c}')
+
+    @classmethod
+    def get_next_changes(self):
+        t = '8213,8201,8193,8194,64,128'
+        url = f'http://push2ex.eastmoney.com/getAllStockChanges?type={t}&ut=7eea3edcaed734bea9cbfc24409ed989&pageindex={self.chg_page}&pagesize={self.chg_pagesize}&dpt=wzchanges'
+        params = {
+            'Host': 'push2ex.eastmoney.com',
+            'Referer': 'http://quote.eastmoney.com/changes/',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:120.0) Gecko/20100101 Firefox/120.0',
+            'Accept': '/',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
+        }
+
+        chgs = json.loads(Utils.get_request(url, params))
+        if 'data' not in chgs or chgs['data'] is None:
+            return
+
+        if 'allstock' in chgs['data']:
+            self.merge_fetched(chgs['data']['allstock'])
+
+        if len(self.fecthed) + len(self.exist_changes) < chgs['data']['tc']:
+            self.chg_page += 1
+            self.get_next_changes()
+
+    @classmethod
+    def merge_fetched(self, changes):
+        for chg in changes:
+            code = chg['c']
+            tm = str(chg['tm']).rjust(6, '0')
+            ftm = f'{tm[0:2]}:{tm[2:4]}:{tm[4:6]}'
+            tp = chg['t']
+            info = chg['i']
+            if (code, ftm, tp) not in self.exist_changes:
+                self.fecthed.append([code, ftm, tp, info])
+                self.exist_changes.add((code, ftm, tp))
+
+    @classmethod
+    async def check_changes_matched(self):
+        if not callable(self.on_intrade_matched):
+            return
+
+        while self.changes_task_running or len(self.stock_matched) > 0:
+            while len(self.stock_matched) > 0:
+                code = self.stock_matched.pop(0)
+                aucup_match_data = {'code': code}
+                await self.on_intrade_matched(self.key, aucup_match_data, self.create_intrade_matched_message)
+                self.stock_notified.append(code)
+            await asyncio.sleep(5)
+
+    @classmethod
+    async def start_strategy_tasks(self):
+        loop = asyncio.get_event_loop()
+        if Utils.delay_seconds('9:30') > 0:
+            loop.call_later(Utils.delay_seconds('9:30:1'), lambda: asyncio.ensure_future(self.start_changes_task()))
+            loop.call_later(Utils.delay_seconds('9:30:1'), lambda: asyncio.ensure_future(self.check_changes_matched()))
+            loop.call_later(Utils.delay_seconds('11:30:1'), self.stop_changes_task)
+            loop.call_later(Utils.delay_seconds('13:00:1'), lambda: asyncio.ensure_future(self.start_changes_task()))
+            loop.call_later(Utils.delay_seconds('13:00:1'), lambda: asyncio.ensure_future(self.check_changes_matched()))
+            loop.call_later(Utils.delay_seconds('14:57:1'), self.stop_changes_task)
+        else:
+            Utils.log(f'{__class__.__name__} start time expired.', Utils.Err)
+
+    @classmethod
+    def create_intrade_matched_message(self, match_data, subscribe_detail):
+        account = subscribe_detail['account']
+        amount = subscribe_detail['amount']
+        strategies = {
+            "grptype": "GroupStandard",
+            "strategies": {
+                "0": { "key": "StrategyBuyZTBoard", "enabled": True },
+                "1": { "key": "StrategySellELS", "enabled": False, "cutselltype": "single" },
+                "2": { "key": "StrategySellBE", "enabled": False, "selltype": "single" }
+            },
+            "transfers": { "0": { "transfer": "-1" }, "1": { "transfer": "-1" }, "2": { "transfer": "-1" } },
+            "amount": amount
+        }
+        code = match_data['code']
+        return {'type':'intrade_addwatch', 'code': code, 'strategies': strategies, 'account': account}
 
 
 class WsIntradeStrategyFactory:
-    istrategies = [StrategyI_AuctionUp]
+    istrategies = [StrategyI_AuctionUp, StrategyI_Zt1Breakup]
 
     @classmethod
     def all_available_istrategies(self):
         return [{'key': strategy.key, 'name': strategy.name, 'desc': strategy.desc} for strategy in self.istrategies]
 
     @classmethod
-    def setup_intrade_strategies(self, func_broadcast):
+    def setup_intrade_strategies(self, match_callback):
         for strategy in self.istrategies:
-            strategy.broadcast_intrade = func_broadcast
+            strategy.on_intrade_matched = match_callback
 
     @classmethod
     def delay_seconds(self, daytime):
@@ -165,11 +306,5 @@ class WsIntradeStrategyFactory:
 
     @classmethod
     async def create_tasks(self):
-        loop = asyncio.get_event_loop()
-        dnow = datetime.now()
-        if dnow.hour < 9:
-            loop.call_later(self.delay_seconds('9:20:1'), StrategyI_AuctionUp.check_dt_ranks)
-            loop.call_later(self.delay_seconds('9:20:2'), lambda: asyncio.ensure_future(StrategyI_AuctionUp.start_snapshot_task()))
-            loop.call_later(self.delay_seconds('9:24:55'), lambda: asyncio.ensure_future(StrategyI_AuctionUp.check_auction_trends(5)))
-            loop.call_later(self.delay_seconds('9:25:8'), StrategyI_AuctionUp.stop_snapshot_task)
-            loop.call_later(self.delay_seconds('9:25:16'), lambda: asyncio.ensure_future(StrategyI_AuctionUp.check_auction_trends(2)))
+        for strategy in self.istrategies:
+            await strategy.start_strategy_tasks()

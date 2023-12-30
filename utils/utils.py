@@ -78,6 +78,17 @@ class Utils:
         return datetime.now().strftime(fmt)
 
     @classmethod
+    def delay_seconds(self, daytime):
+        '''计算当前时间到daytime的时间间隔'''
+        dnow = datetime.now()
+        dtarr = daytime.split(':')
+        hr = int(dtarr[0])
+        minutes = int(dtarr[1])
+        secs = 0 if len(dtarr) < 3 else int(dtarr[2])
+        target_time = dnow.replace(hour=hr, minute=minutes, second=secs)
+        return (target_time - dnow).total_seconds()
+
+    @classmethod
     def trade_finished(self):
         return datetime.now().hour > 17
 
