@@ -133,9 +133,6 @@ class RtpTimer {
         if (this.stocks.has(code)) {
             this.stocks.delete(code);
         };
-        if (this.stocks.size == 0) {
-            this.stopTimer();
-        };
     }
 
     setTick(t) {
@@ -182,9 +179,6 @@ class ZtBoardTimer extends RtpTimer {
         };
         if (this.lazyStocks.has(code)) {
             this.lazyStocks.delete(code);
-        };
-        if (this.stocks.size == 0 && this.lazyStocks.size == 0) {
-            this.stopTimer();
         };
     }
 

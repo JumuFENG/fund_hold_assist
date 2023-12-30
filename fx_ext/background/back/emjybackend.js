@@ -490,6 +490,11 @@ class EmjyBack {
             this.tryBuyStock(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account);
             return;
         }
+        if (wsmsg.type == 'intrade_addwatch') {
+            this.log(message.data);
+            this.addWatchStock(wsmsg.account, wsmsg.code, wsmsg.strategies);
+            return;
+        }
         console.log(wsmsg);
     }
 
@@ -720,7 +725,7 @@ class EmjyBack {
         var fetchedDeals = [];
         for (let i = 0; i < deals.length; i++) {
             const deali = deals[i];
-            if (deali.Wtzt != '已成') {
+            if (deali.Wtzt != '已成' && deali.Wtzt != '部撤') {
                 emjyBack.log('uploadTodayDeals unknown deal:', JSON.stringify(deali));
                 continue;
             }

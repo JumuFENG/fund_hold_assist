@@ -11,6 +11,7 @@ class Wallet {
 }
 
 class DealsClient {
+    // 普通账户 当日成交
     constructor(validateKey, cb) {
         this.validateKey = validateKey;
         this.qqhs = 20; // 请求行数
@@ -42,35 +43,41 @@ class DealsClient {
     }
 
     onResponse(response) {
-        var deals = JSON.parse(response);
-        if (deals.Status != 0 || deals.Message) {
+        try {
+            var deals = JSON.parse(response);
+            if (deals.Status != 0 || deals.Message) {
+                emjyBack.log(response);
+            }
+            if (deals.Data.length > 0) {
+                var dend = deals.Data[deals.Data.length - 1];
+                if (dend.Dwc) {
+                    this.dwc = dend.Dwc;
+                }
+            }
+            if (!this.data || this.data.length == 0) {
+                this.data = deals.Data;
+            } else {
+                this.data.push.apply(this.data, deals.Data);
+            }
+            if (this.dwc && deals.Data.length == this.qqhs) {
+                this.GetNext();
+            } else if (typeof(this.dealsCallback) == 'function') {
+                this.dealsCallback(this.data);
+                if (typeof(this.onNextPeriod) == 'function' && this.data.length > 0) {
+                    this.data = [];
+                    this.dwc = "";
+                    this.onNextPeriod();
+                }
+            }
+        } catch (e) {
             emjyBack.log(response);
-        }
-        if (deals.Data.length > 0) {
-            var dend = deals.Data[deals.Data.length - 1];
-            if (dend.Dwc) {
-                this.dwc = dend.Dwc;
-            }
-        }
-        if (!this.data || this.data.length == 0) {
-            this.data = deals.Data;
-        } else {
-            this.data.push.apply(this.data, deals.Data);
-        }
-        if (this.dwc && deals.Data.length == this.qqhs) {
-            this.GetNext();
-        } else if (typeof(this.dealsCallback) == 'function') {
-            this.dealsCallback(this.data);
-            if (typeof(this.onNextPeriod) == 'function' && this.data.length > 0) {
-                this.data = [];
-                this.dwc = "";
-                this.onNextPeriod();
-            }
+            emjyBack.log(e);
         }
     }
 }
 
 class MarginDealsClient extends DealsClient {
+    // 信用账户 当日成交
     constructor(validateKey, cb) {
         super(validateKey, cb);
         this.dwc = 1;
@@ -86,6 +93,7 @@ class MarginDealsClient extends DealsClient {
 }
 
 class HistDealsClient extends DealsClient {
+    // 普通账户 历史成交
     constructor(validateKey, cb) {
         super(validateKey, cb);
     }
@@ -135,12 +143,26 @@ class HistDealsClient extends DealsClient {
 }
 
 class MarginHistDealsClient extends HistDealsClient {
+    // 信用账户 历史成交
     constructor(validateKey, cb) {
         super(validateKey, cb);
     }
 
+    getFormData() {
+        var fd = super.getFormData();
+        if (fd.has('st')) {
+            fd.delete('st');
+        }
+        fd.append('st', this.dateToString(this.startTime, ''));
+        if (fd.has('et')) {
+            fd.delete('et');
+        }
+        fd.append('et', this.dateToString(this.endTime, ''));
+        return fd;
+    }
+
     getUrl() {
-        return 'https://jywg.18.cn/MarginSearch/GetHisDealData?validatekey=' + this.validateKey;
+        return 'https://jywg.18.cn/MarginSearch/queryCreditHisMatchV2?validatekey=' + this.validateKey;
     }
 }
 
@@ -732,7 +754,8 @@ class NormalAccount extends Account {
         var stock = this.stocks.find(s => {return s.code == code;});
 
         if (stock) {
-            this.addStockStrategy(stock, strgrp);
+            emjyBack.log(code, this.keyword, 'already exists!');
+            // this.addStockStrategy(stock, strgrp);
             return;
         };
 

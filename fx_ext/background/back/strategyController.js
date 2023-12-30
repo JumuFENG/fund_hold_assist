@@ -974,10 +974,13 @@ class StrategySellELShort extends StrategySellEL {
             this.data.cutselltype = 'all';
         }
         if (this.data.topprice !== undefined) {
-            if (kl.c - this.data.topprice <= 0 && kl.c - this.data.guardPrice >= 0) {
+            if (kl.c - this.data.topprice <= 0 && (this.data.guardPrice === undefined || kl.c - this.data.guardPrice >= 0)) {
                 return;
             }
             delete(this.data.topprice);
+            if (this.data.guardPrice === undefined) {
+                this.data.guardPrice = 0;
+            }
         }
         var count = buydetails.getCountMatched(this.data.cutselltype, kl.c);
         if (kl.c - this.data.guardPrice < 0 && count > 0) {
