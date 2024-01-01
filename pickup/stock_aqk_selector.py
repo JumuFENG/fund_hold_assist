@@ -407,61 +407,163 @@ class StockNewIpoSelector(StockBaseSelector):
 
 
 class StockLShapeSelector(StockBaseSelector):
-    '''大跌买入, 网格法买入, L型反弹'''
-    '''破位阴不建仓， 横盘超过10交易日止损'''
+    '''大跌之后中阴线买入, 网格法买入加仓, L型反弹'''
+    '''破位阴不建仓, 横盘超过10交易日止损, 加仓3次之后再下跌5%止损, 胜率98%'''
     def __init__(self):
-        super().__init__(False)
+        super().__init__()
 
     def initConstrants(self):
         super().initConstrants()
-        self.grate = 0.02   # 网格幅度, 热门股5% 大盘股/ETF基金2%-3% 宽基指数1.5%
+        self.tablename = 'stock_qk_pickup'
+        self.colheaders = [
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'}, # 入选日期
+            {'col':'bdate','type':'varchar(20) DEFAULT NULL'},
+            {'col':'bmatch','type':'tinyint DEFAULT NULL'}
+        ]
+        self.grate = 0.05   # 网格幅度, 热门股5% 大盘股/ETF基金2%-3% 宽基指数1.5%
+        self._sim_ops = [
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_qk_ls'}
+            ]
+        self.sim_ops = self._sim_ops[0:1]
 
     def walk_prepare(self, date=None):
-        return super().walk_prepare(date)
+        super().walk_prepare(date)
+        ufstks = self.sqldb.select(self.tablename, f'{column_code}, {column_date}', 'bdate is NULL')
+        ufdic = {c: d for c,d in ufstks}
+        for stk in self.wkstocks:
+            if stk[0] in ufdic:
+                stk[1] = ufdic[stk[0]]
 
     def walk_on_history_thread(self):
-        pass
+        while len(self.wkstocks) > 0:
+            c, d = self.wkstocks.pop(0)
+            if not c.startswith('SZ00') and not c.startswith('SH60'):
+                continue
+
+            allkl = self.get_kd_data(c, start=d)
+            if allkl is None:
+                continue
+
+            i = 0
+            while i < len(allkl):
+                if allkl[i].pchange > -9:
+                    i += 1
+                    continue
+
+                wkstk = [c, allkl[i].date, None, None]
+                j = i + 1
+                top = allkl[i].high
+                if j < len(allkl):
+                    if top < allkl[j].high:
+                        top = allkl[j].high
+                btm = allkl[j].low if j < len(allkl) else allkl[i].close
+                while j < len(allkl):
+                    if allkl[j].pchange <= -5 and allkl[j].pchange > -9 and allkl[j].close < allkl[j].open:
+                        wkstk[2] = allkl[j].date
+                        wkstk[3] = 1
+                        break
+                    if allkl[j].high > top:
+                        wkstk[2] = allkl[j].date
+                        wkstk[3] = 0
+                        break
+                    if j - i > 3 and allkl[j].close > (top + btm) / 2:
+                        wkstk[2] = allkl[j].date
+                        wkstk[3] = 0
+                        break
+                    if j - i > 15:
+                        wkstk[2] = allkl[j].date
+                        wkstk[3] = 0
+                        break
+                    if allkl[j].low < btm:
+                        btm = allkl[j].low
+                    if allkl[j].high > top:
+                        top = allkl[j].high
+                    j += 1
+                self.wkselected.append(wkstk)
+                i = j
+
+    def walk_post_process(self):
+        values = []
+        for c, d, ed, m in self.wkselected:
+            if ed is None and c in self.tsdate:
+                ed = '0'
+                m = 0
+            cid = self.sqldb.selectOneValue(self.tablename, f'id', {column_code: c, column_date: d})
+            if cid is None:
+                values.append([c, d, ed, m])
+                continue
+            if ed is None:
+                continue
+            self.sqldb.update(self.tablename, {'bdate': ed, 'bmatch': m}, {'id': cid})
+        if len(values) > 0:
+            self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
+
+    def updatePickUps(self):
+        mdate = self.sqldb.selectOneValue(self.tablename, f'max({column_date})', 'bdate is NULL')
+        self.walkOnHistory(mdate)
+
+    def getDumpKeys(self):
+        return self._select_keys([column_code, column_date, 'bdate', 'bmatch'])
+
+    def getDumpCondition(self, date=None):
+        if date is None:
+            date = self._max_date()
+        return f'bdate is NULL or bdate = "{date}"'
 
     def sim_prepare(self):
-        self.sim_stks = [['SH603000', '2018-01-01']]
+        orstks = self.sqldb.select(self.tablename, f'{column_code},{column_date}, bdate, bmatch')
+        self.sim_stks = sorted(orstks, key=lambda s: (s[0], s[1]))
         self.sim_deals = []
-        self.threads_num = 1
 
     def simulate_buy_sell(self, orstks):
         kd = None
-        for c, d in orstks:
+        for c, d, bd, bm in orstks:
+            if bm == 0 or bd is None:
+                continue
+
             if kd is None:
                 kd = self.get_kd_data(c, d)
 
             ki = 0
+            st = False
+            while ki < len(kd) and kd[ki].date != bd:
+                if kd[ki].high == kd[ki].low and (round(kd[ki].pchange) == 5 or round(kd[ki].pchange) == -5):
+                    st = True
+                    break
+                ki += 1
+            if ki == len(kd) or st:
+                continue
 
-            while ki < len(kd):
-                while kd[ki].pchange > -self.grate*100 or kd[ki].pchange <= -9:
-                    ki += 1
-                    if ki >= len(kd):
-                        break
+            # while ki < len(kd):
+            while kd[ki].pchange > -self.grate*100 or kd[ki].pchange <= -9:
+                ki += 1
                 if ki >= len(kd):
                     break
-                buypd = [[kd[ki].close, kd[ki].date]]
-                sell = 0
-                sdate = None
+            if ki >= len(kd):
+                break
+            buypd = [[kd[ki].close, kd[ki].date]]
+            sell = 0
+            sdate = None
 
-                j = ki + 1
-                while j < len(kd):
-                    if kd[j].pchange > -9 and kd[j].high - buypd[-1][0] > self.grate * buypd[0][0]:
-                        sell = max(buypd[-1][0] + self.grate * buypd[0][0], (kd[j].high + kd[j].close) / 2)
+            j = ki + 1
+            while j < len(kd):
+                if kd[j].pchange > -9 and kd[j].high - buypd[-1][0] > self.grate * buypd[0][0]:
+                    sell = max(buypd[-1][0] + self.grate * buypd[0][0], (kd[j].high + kd[j].close) / 2)
+                    sdate = kd[j].date
+                    break
+                elif len(buypd) < 4:
+                    n = 2 if len(buypd) == 1 else 1
+                    if kd[j].high == kd[j].low and (round(kd[j].pchange) == 5 or round(kd[j].pchange) == -5):
+                        break
+                    if buypd[-1][0] - kd[j].close >= n * self.grate * buypd[0][0]:
+                        buypd.append([kd[j].close,kd[j].date])
+                else:
+                    if buypd[-1][0] - kd[j].low >= self.grate * buypd[0][0]:
+                        sell = kd[j].close
                         sdate = kd[j].date
                         break
-                    else:
-                        n = 2 if len(buypd) == 1 else 1
-                        if buypd[-1][0] - kd[j].close >= n * self.grate * buypd[0][0]:
-                            buypd.append([kd[j].close,kd[j].date])
-                    j += 1
+                j += 1
 
-                if sell != 0 and sdate is not None:
-                    self.sim_add_deals(c, buypd, (sell, sdate), 100000, 2, self.grate)
-                ki = j + 1
-
-    def sim_post_process(self, dtable):
-        for x in self.sim_deals:
-            print(x)
+            if sell != 0 and sdate is not None:
+                self.sim_add_deals(c, buypd, (sell, sdate), 1000, 2, self.grate)

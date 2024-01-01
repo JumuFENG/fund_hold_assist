@@ -309,13 +309,7 @@ class StockZt1BreakupSelector(StockBaseSelector):
 
             j = 1
             cutl = cl0 * (1 - self.sim_cutrate)
-            # if cl0 <= buy * (1 + 0.03):
-            #     cutl = min(cutl, cl0 * (1 - self.sim_cutrate))
-            # elif cl0 >= buy * (1 + self.sim_earnrate):
-            #     cutl = buy
             earnl = buy * (1 + self.sim_earnrate)
-            # if cl0 <= hi0 * (1 - 0.05) and hi0 >= buy * (1 + 2 * self.sim_earnrate):
-            #     earnl = hi0 * (1 - 0.02)
             while j < len(kd):
                 clp0 = kd[j-1].close
                 cl1 = kd[j].close

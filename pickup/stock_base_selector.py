@@ -22,9 +22,14 @@ class StockBaseSelector(MultiThrdTableBase):
 
     def walk_prepare(self, date=None):
         stks = StockGlobal.all_stocks()
-        self.wkstocks = [
-            [s[1], (s[7] if s[7] > '1996-12-16' else '1996-12-16') if date is None else date]
-            for s in stks if s[4] == 'ABStock' or s[4] == 'TSStock']
+        self.wkstocks = []
+        for s in stks:
+            if date is None:
+                if s[4] == 'ABStock' or s[4] == 'TSStock':
+                    self.wkstocks.append([s[1], s[7] if s[7] > '1996-12-16' else '1996-12-16'])
+            else:
+                if s[4] == 'ABStock':
+                    self.wkstocks.append([s[1], date])
         self.tsdate = {s[1]: s[8] for s in stks if s[4] == 'TSStock'}
         self.wkselected = []
 
@@ -140,13 +145,14 @@ class StockBaseSelector(MultiThrdTableBase):
                 pdc.append([p, d, count])
                 tcount += count
         elif costadding == 2:
-            count = round(bcost/(100 * p)) * 100
+            count = round(bcost/(buypds[0][0]))
+            tcount = count
             bcost = buypds[0][0] * count
             pdc.append([buypds[0][0], buypds[0][1], count])
             for i in range(1, len(buypds)):
                 amount = (bcost - buypds[i][0] * count) / addinfo
-                ncount = round((amount - buypds[i][0] * count) / (100 * buypds[i][0])) * 100
-                pdc.append([buypds[i][0], buypds[i][1], count])
+                ncount = round((amount - buypds[i][0] * count) / buypds[i][0])
+                pdc.append([buypds[i][0], buypds[i][1], ncount])
                 tcount += ncount
                 bcost += ncount * buypds[i][0]
 
@@ -154,9 +160,6 @@ class StockBaseSelector(MultiThrdTableBase):
             self.sim_deals.append({'time': d, 'code': code, 'sid': 0, 'tradeType': 'B', 'price': round(p, 2), 'count': c})
         p, d = spd
         self.sim_deals.append({'time': d, 'code': code, 'sid': 0, 'tradeType': 'S', 'price': round(p, 2), 'count': tcount})
-
-    def sim_buy_zt_sell_op(self):
-        pass
 
     def sim_post_process(self, dtable):
         if len(self.sim_deals) > 0:
