@@ -11,6 +11,7 @@ class TradingDate():
     从上证指数历史记录中查询是否是交易日
     '''
     sqldb = SqlHelper(password=db_pwd, database=history_db_name)
+    max_trading_date = None
 
     @classmethod
     def __tablename(self, date):
@@ -39,6 +40,8 @@ class TradingDate():
 
     @classmethod
     def maxTradingDate(self):
+        if self.max_trading_date is not None:
+            return self.max_trading_date
         d = self.sqldb.selectOneValue('i_k_his_000001', 'max(date)')
         if d != Utils.today_date():
             self.renewSql()
@@ -47,7 +50,9 @@ class TradingDate():
                 sys_date, tradeday = self.get_today_system_date()
                 print('TradingDate.maxTradingDate', 'get_today_system_date', sys_date, tradeday)
                 if tradeday:
+                    self.max_trading_date = sys_date
                     return sys_date
+        self.max_trading_date = d
         return d
 
     @classmethod

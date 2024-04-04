@@ -162,6 +162,7 @@ def run_regular_tasks(dnow):
             sa = StockAnnoucements()
             Utils.log(StockGlobal.klupdateFailed)
             sa.check_stock_quit(StockGlobal.klupdateFailed)
+            sa.check_fund_quit(StockGlobal.klupdateFailed)
             StockGlobal.klupdateFailed.clear()
 
         startconfig['last_updated_id'] = startIstk + perCount

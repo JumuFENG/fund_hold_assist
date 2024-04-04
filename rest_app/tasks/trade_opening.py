@@ -15,6 +15,9 @@ class AuctionTask(TimerTask):
 
 
 def stock_market_opening_task():
+    if Utils.today_date() != TradingDate.maxTradingDate():
+        TimerTask.logger.warn(f'today is not trading day!')
+        return
     sauc = StockAuction()
     sauc.update_daily_auctions()
 

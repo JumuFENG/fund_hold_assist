@@ -1180,5 +1180,51 @@ var testMeta = [{
             {"kl":{"time":"2021-04-30","o":"14","c":"15.92","h":"15.92","l":"14","v":"1392713"},"expect":{"dcount":0}},
         ]
     }]
+},{
+    testname: 'StrategyGridBuySell',
+    strategy: {
+        "grptype":"GroupStandard","strategies":{"0":{"key":"StrategyGrid","enabled":true,"stepRate":0.05}},"transfers":{"0":{"transfer":"-1"}},
+        "amount":10000
+    },
+    code: 't19001', //603530
+    kdata: [{
+        kltype:'101',
+        kldata: [
+            {"kl":{"time":"2024-01-05","o":"20.32","c":"20.45","h":"21.40","l":"20.32","v":"40243"},"expect":{"dcount":0}},
+            {"kl":{"time":"2024-01-08","o":"20","c":"18.99","h":"20","l":"18.81","v":"25877"},"expect":{"dcount":1, deal: {count: 500, price:18.99, tradeType:'B'}}},
+            {'kl':{"time":"2024-01-09","o":"19.25","c":"20.01","h":"20.27","l":"18.89","v":"27901"},"expect":{"dcount":2, deal: {count: 500, price:20.01, tradeType:'S'}}},
+        ]
+    }]
+},{
+    testname: 'StrategyGridBuyBuySell',
+    strategy: {
+        "grptype":"GroupStandard","strategies":{"0":{"key":"StrategyGrid","enabled":true,"stepRate":0.05}},"transfers":{"0":{"transfer":"-1"}},
+        "amount":10000
+    },
+    code: 't19002', //600630
+    kdata: [{
+        kltype:'101',
+        kldata: [
+            {"kl":{"time":"2023-12-29","o":"15.61","c":"14.7","h":"16.2","l":"14.51","v":"13280"},"expect":{"dcount":0}},
+            {"kl":{"time":"2024-01-02","o":"14.7","c":"13.95","h":"14.88","l":"14.51","v":"10200"},"expect":{"dcount":1, deal: {count: 700, price:13.95, tradeType:'B'}}},
+            {"kl":{"time":"2024-01-05","o":"13.52","c":"12.41","h":"13.6","l":"12.36","v":"91950"},"expect":{"dcount":2, deal: {count: 800, price:12.41, tradeType:'B'}}},
+            {'kl':{"time":"2021-01-09","o":"12.61","c":"13.93","h":"13.93","l":"12.35","v":"11890"},"expect":{"dcount":3, deal: {count: 1500, price:13.93, tradeType:'S'}}},
+        ]
+    }]
+},{
+    testname: 'StrategyGrid_Record_BuyBuy_Sell',
+    strategy: {
+        "grptype":"GroupStandard","strategies":{"0":{"key":"StrategyGrid","enabled":true,"stepRate":0.05}},"transfers":{"0":{"transfer":"-1"}},
+        "amount":10000,
+        buydetail:[{"date": "2024-01-03", "count": 300, "price": "20.7", "sid": 1, "type": "B" }]
+    },
+    code: 't19003', //002962
+    kdata: [{
+        kltype:'101',
+        kldata: [
+            {"kl":{"time":"2024-01-09","o":"18.6","c":"18.3","h":"19.63","l":"17.81","v":"52620"},"expect":{"dcount":1, deal: {count: 500, price:18.3, tradeType:'B'}}},
+            {'kl':{"time":"2021-01-12","o":"17.56","c":"17","h":"17.94","l":"16.78","v":"33380"},"expect":{"dcount":2, deal: {count: 1200, price:17, tradeType:'B'}}},
+        ]
+    }]
 }];
 

@@ -94,6 +94,7 @@ class DailyUpdater():
                 print("try to update index history for:", code)
                 ih.getKdHistoryFromSohuTillToday(code)
                 ih.getHistoryFrom163(code)
+        TradingDate.max_trading_date = None
         Utils.log('index history updated!')
 
     def download_all_stocks_khistory(self):
@@ -194,7 +195,7 @@ class DailyUpdater():
             StockDztSelector(), StockZt1Selector(), StockCentsSelector(),
             StockMaConvergenceSelector(), StockZdfRanks(), StockZtLeadingSelector(),
             StockZtLeadingSelectorST(), StockDztStSelector(), StockDztBoardSelector(), StockDztStBoardSelector(),
-            StockZt1BreakupSelector()]
+            StockZt1BreakupSelector(), StockLShapeSelector()]
         for sel in selectors:
             Utils.log(f'update { sel.__class__.__name__}')
             sel.updatePickUps()
@@ -214,8 +215,14 @@ class DailyUpdater():
         sch = StockChangesHistory()
         sch.updateDaily()
 
+    def update_fixzdt(self):
+        self.fetch_zdt_stocks()
+        self.update_stock_changes()
+        self.update_selectors()
+        self.update_twice_selectors()
+
 
 if __name__ == '__main__':
     du = DailyUpdater()
-    # du.download_newly_noticed_bonuses()
-    du.fetch_dfsorg_stocks()
+    # du.update_all()
+    du.update_fixzdt()

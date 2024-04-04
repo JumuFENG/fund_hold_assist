@@ -104,7 +104,7 @@ class Utils:
         return rsp.content.decode('utf-8')
 
     @classmethod
-    def get_em_equest(self, url, host=None):
+    def get_em_request(self, url, host=None):
         headers = {
             'Host': 'fund.eastmoney.com' if host is None else host,
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:68.0) Gecko/20100101 Firefox/68.0',

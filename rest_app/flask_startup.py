@@ -514,6 +514,10 @@ def stock():
                 ds = user.get_archived_deals()
                 track = {'tname':tname, 'deals': ds}
                 return json.dumps(track)
+        if actype == 'archivedcodes':
+            date = request.args.get('since', type=str, default=None)
+            stks = user.get_archived_since(date, True)
+            return json.dumps(stks)
         us = UserStock(user, code)
         if actype == 'buy':
             return json.dumps(us.get_buy_arr())

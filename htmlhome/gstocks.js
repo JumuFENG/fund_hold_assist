@@ -95,6 +95,15 @@ class GlobalManager {
         return (curSmi - buySmi) / buySmi;
     }
 
+    calcBuyCount(amount, price) {
+        var ct = (amount / 100) / price;
+        var d = ct - Math.floor(ct);
+        if (d <= ct * 0.15) {
+            return 100 * Math.floor(ct);
+        };
+        return 100 * Math.ceil(ct);
+    }
+
     applyGuardLevel(strgrp, allklt) {
         console.log('GlobalManager.applyGuardLevel();');
     }

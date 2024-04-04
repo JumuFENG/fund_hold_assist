@@ -24,7 +24,7 @@ class StrategyI_AuctionUp:
     def check_dt_ranks(self):
         Utils.log('check_dt_ranks')
         rankUrl = f'''http://33.push2.eastmoney.com/api/qt/clist/get?pn=1&pz=100&po=0&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f115,f152'''
-        res = Utils.get_em_equest(rankUrl, host='33.push2.eastmoney.com')
+        res = Utils.get_em_request(rankUrl, host='33.push2.eastmoney.com')
         if res is None:
             return
 
@@ -46,7 +46,7 @@ class StrategyI_AuctionUp:
     @classmethod
     def get_trends(self, secid):
         trends_url = f'http://push2his.eastmoney.com/api/qt/stock/trends2/get?fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58&ut=fa5fd1943c7b386f172d6893dbfba10b&secid={secid}&ndays=1&iscr=1&iscca=0'
-        trends_data = Utils.get_em_equest(trends_url, 'push2his.eastmoney.com')
+        trends_data = Utils.get_em_request(trends_url, 'push2his.eastmoney.com')
         trends_data = json.loads(trends_data)
         trends = []
         if 'data' in trends_data and 'trends' in trends_data['data']:
@@ -63,7 +63,7 @@ class StrategyI_AuctionUp:
     def get_snapshot(self, code):
         quote_url = f'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id={code}&callback=jSnapshotBack'
 
-        responsetext = Utils.get_em_equest(quote_url, host='emhsmarketwg.eastmoneysec.com')
+        responsetext = Utils.get_em_request(quote_url, host='emhsmarketwg.eastmoneysec.com')
         snapshot_data = responsetext.replace('jSnapshotBack(', '').rstrip(');')
         snapshot = json.loads(snapshot_data)
 
@@ -148,7 +148,7 @@ class StrategyI_AuctionUp:
             loop.call_later(Utils.delay_seconds('9:25:8'), self.stop_snapshot_task)
             loop.call_later(Utils.delay_seconds('9:25:16'), lambda: asyncio.ensure_future(self.check_auction_trends(2)))
         else:
-            Utils.log(f'{__class__.__name__} start time expired.', Utils.Err)
+            Utils.log(f'{__class__.__name__} start time expired.', Utils.Warn)
 
     @classmethod
     def create_intrade_matched_message(self, match_data, subscribe_detail):
@@ -185,6 +185,7 @@ class StrategyI_Zt1Breakup:
     @classmethod
     def stop_changes_task(self):
         self.changes_task_running = False
+        Utils.log('stop task for changes!')
 
     @classmethod
     def get_changes(self):
@@ -262,7 +263,7 @@ class StrategyI_Zt1Breakup:
             loop.call_later(Utils.delay_seconds('13:00:1'), lambda: asyncio.ensure_future(self.check_changes_matched()))
             loop.call_later(Utils.delay_seconds('14:57:1'), self.stop_changes_task)
         else:
-            Utils.log(f'{__class__.__name__} start time expired.', Utils.Err)
+            Utils.log(f'{__class__.__name__} start time expired.', Utils.Warn)
 
     @classmethod
     def create_intrade_matched_message(self, match_data, subscribe_detail):
@@ -272,8 +273,8 @@ class StrategyI_Zt1Breakup:
             "grptype": "GroupStandard",
             "strategies": {
                 "0": { "key": "StrategyBuyZTBoard", "enabled": True },
-                "1": { "key": "StrategySellELS", "enabled": False, "cutselltype": "single" },
-                "2": { "key": "StrategySellBE", "enabled": False, "selltype": "single" }
+                "1": { "key": "StrategySellELS", "enabled": False, "cutselltype": "all", "selltype":"all" },
+                "2": { "key": "StrategyGrid", "enabled": False, "buycnt": 3, "stepRate": 0.05 }
             },
             "transfers": { "0": { "transfer": "-1" }, "1": { "transfer": "-1" }, "2": { "transfer": "-1" } },
             "amount": amount
@@ -306,5 +307,9 @@ class WsIntradeStrategyFactory:
 
     @classmethod
     async def create_tasks(self):
+        if Utils.today_date() != TradingDate.maxTradingDate():
+            Utils.log(f'today is not trading day!', Utils.Warn)
+            return
+
         for strategy in self.istrategies:
             await strategy.start_strategy_tasks()

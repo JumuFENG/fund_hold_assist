@@ -63,6 +63,7 @@ class UserDealsPanel extends RadioAnchorPage {
             this.durationSelector.appendChild(new Option('近半年', 'yr.5'));
             this.durationSelector.appendChild(new Option('近3月', 'mth3'));
             this.durationSelector.appendChild(new Option('近1月', 'mth1'));
+            this.durationSelector.appendChild(new Option('近1周', 'wk1'));
             this.durationSelector.appendChild(new Option('全部', 'all'));
             this.durationSelector.onchange = e => {
                 this.showDeals();
@@ -132,14 +133,18 @@ class UserDealsPanel extends RadioAnchorPage {
                 });
             }
 
+            this.contentPanel.style.display = 'flex';
             this.dealsTable = new SortableTable();
-            this.topPanel.appendChild(this.dealsTable.container);
+            this.contentPanel.appendChild(this.dealsTable.container);
+            this.wkSoldList = document.createElement('div');
+            this.contentPanel.appendChild(this.wkSoldList);
 
             if (emjyBack.fha.uemail && emjyBack.fha.pwd && emjyBack.fha.server) {
                 this.iptHost.value = emjyBack.fha.server;
                 this.iptUser.value = emjyBack.fha.uemail;
                 this.iptPwd.value = emjyBack.fha.pwd;
                 this.getUserDeals();
+                this.getCurWeekSold();
             } else {
                 emjyBack.getFromLocal('fha_server', fha => {
                     if (fha) {
@@ -148,6 +153,7 @@ class UserDealsPanel extends RadioAnchorPage {
                         this.iptUser.value = emjyBack.fha.uemail;
                         this.iptPwd.value = emjyBack.fha.pwd;
                         this.getUserDeals();
+                        this.getCurWeekSold();
                     }
                 });
             }
@@ -168,6 +174,19 @@ class UserDealsPanel extends RadioAnchorPage {
         });
     }
 
+    getCurWeekSold() {
+        if (!emjyBack.fha.uemail || !emjyBack.fha.pwd) {
+            console.error('user/password not set!');
+            return;
+        }
+        var url = emjyBack.fha.server + 'stock?act=archivedcodes&since=' + utils.dateToString(new Date() - 7 * 24 * 60 * 60 * 1000);
+        var header = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+        utils.get(url, header, rsp => {
+            this.curWkSold = JSON.parse(rsp);
+            this.showWkSold();
+        });
+    }
+
     selectDeals() {
         var skey = this.durationSelector.value;
         if (skey == 'all') {
@@ -180,7 +199,8 @@ class UserDealsPanel extends RadioAnchorPage {
             'yr1': (new Date(now)).setFullYear(now.getFullYear() - 1),
             'yr.5': (new Date(now)).setMonth(now.getMonth() - 6),
             'mth3': (new Date(now)).setMonth(now.getMonth() - 3),
-            'mth1': (new Date(now)).setMonth(now.getMonth() - 1)
+            'mth1': (new Date(now)).setMonth(now.getMonth() - 1),
+            'wk1': new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
         };
         var fkey = this.iptFilter.value;
         var sDeals = [];
@@ -230,6 +250,32 @@ class UserDealsPanel extends RadioAnchorPage {
                 n++, dcode, emjyBack.stockAnchor(dcode), deali.tradeType,
                 deali.price, deali.count, deali.time.split(' ')[0], chkbx
             );
+        }
+    }
+
+    showWkSold() {
+        utils.removeAllChild(this.wkSoldList);
+        if (!this.curWkSold) {
+            return;
+        }
+
+        this.wkSoldList.appendChild(document.createTextNode('一周内清仓:'));
+        var slselect = document.createElement('select');
+        this.wkSoldList.appendChild(slselect);
+        var showFunds = this.chkShowFunds.checked;
+        for (const codei of this.curWkSold) {
+            var dcode = codei.length == 8 ? codei.substring(2) : codei;
+            if (!showFunds && (dcode.startsWith('5') || dcode.startsWith('1'))) {
+                continue;
+            }
+            slselect.options.add(new Option(emjyBack.stockName(dcode), dcode));
+        }
+        slselect.selectedIndex = -1;
+        slselect.onchange = e => {
+            if (e.target.selectedIndex !== -1) {
+                this.iptFilter.value = e.target.value;
+                this.iptFilter.oninput();
+            }
         }
     }
 }

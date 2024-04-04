@@ -15,11 +15,16 @@ class TradeClosedTask(TimerTask):
 
 
 def save_earning_task():
-    dnow = datetime.now()
-    TimerTask.logger.info(f'trade_closed_task {dnow.strftime(f"%Y-%m-%d %H:%M:%s")}')
+    if Utils.today_date() != TradingDate.maxTradingDate():
+        TimerTask.logger.warn(f'today is not trading day!')
+        return
+    TimerTask.logger.info(f'trade_closed_task!')
     um = UserModel()
     user = um.user_by_id(11)
     user.save_stocks_eaning_html(shared_cloud_foler)
+    dnow = datetime.now()
+    if dnow.weekday() == 4:
+        user.archive_deals(f'{dnow.year + 1}')
 
 
 if __name__ == '__main__':

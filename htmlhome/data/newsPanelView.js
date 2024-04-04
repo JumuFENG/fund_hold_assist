@@ -60,18 +60,9 @@ class NewsPages extends RadioAnchorPage {
                     nmlst.appendChild(li);
                 }
                 hnv.appendChild(nmlst);
-
-                var hs = e.querySelector('#snlist').querySelectorAll('a');
-                var ul = document.createElement('ul');
-                for(const ha of hs) {
-                    var li = document.createElement('li');
-                    li.appendChild(ha);
-                    ul.appendChild(li);
-                }
-                hnv.appendChild(ul);
                 return hnv;
             },
-            'cjdd-view': function(e) {
+            'cjdd_l': function(e) {
                 var cjdd = document.createElement('div');
                 cjdd.style.float = 'right';
                 var lk = createLink('http://finance.eastmoney.com/','财经导读');
@@ -88,7 +79,7 @@ class NewsPages extends RadioAnchorPage {
                 }
                 return cjdd;
             },
-            'hsgs-news': function(e) {
+            'hsgs_news': function(e) {
                 var hsgs = document.createElement('div');
                 hsgs.style.float = 'left';
                 var lk = createLink('http://stock.eastmoney.com/', '股市焦点');
@@ -97,67 +88,81 @@ class NewsPages extends RadioAnchorPage {
                 return hsgs;
             }
         };
+        var pick_news_l2_img_links = function(img_div) {
+            var ul = document.createElement('ul');
+            var ztimglks = img_div.querySelectorAll('div.news_l2_img_i>div>a.tip-text');
+            for (const a of ztimglks) {
+                var lkli = document.createElement('li');
+                lkli.appendChild(a);
+                ul.appendChild(lkli);
+            }
+            var ztlks_ir = img_div.querySelectorAll('div.news_l2_img_ir>ul>li');
+            for (const l of ztlks_ir) {
+                ul.appendChild(l);
+            }
+            var ztlks_l = img_div.querySelectorAll('div.news_l2_img_l>ul>li');
+            for (const l of ztlks_l) {
+                ul.appendChild(l);
+            }
+            return ul;
+        }
         var newsMoreFilters = {
-            'sj-view': function(e) {
+            '社区': function(e) {
                 var sjview = document.createElement('div');
                 sjview.style.float = 'left';
                 var lk = createLink('http://guba.eastmoney.com/', '社区');
                 sjview.appendChild(lk);
-                sjview.appendChild(e.querySelector('.nlist'));
+                sjview.appendChild(e.querySelectorAll('div.m3m>div.news_l2.bw.mmt')[0].querySelector('.nlist'));
                 return sjview;
             },
-            'qqsc-view': function(e) {
+            '全球': function(e) {
                 var qqview = document.createElement('div');
                 qqview.style.float = 'left';
                 var lk = createLink('http://stock.eastmoney.com/global.html', '全球');
                 qqview.appendChild(lk);
-                qqview.appendChild(e.querySelector('.nlist'));
+                qqview.appendChild(e.querySelectorAll('div.m3m>div.news_l2.bw.mmt')[1].querySelector('.nlist'));
                 return qqview;
             },
-            'gsjj-view': function(e) {
+            '数据': function(e) {
                 var gsjj = document.createElement('div');
                 gsjj.style.float = 'left';
                 var lk = createLink('https://data.eastmoney.com/center/', '数据');
                 gsjj.appendChild(lk);
-                gsjj.appendChild(e.querySelector('.nlist'));
+                gsjj.appendChild(e.querySelectorAll('div.m3r>div.news_l2.bw.mmt')[0].querySelector('.nlist'));
                 return gsjj
             },
-            'gdpl-view': function(e) {
+            '观点': function(e) {
                 var gdpl = document.createElement('div');
                 gdpl.style.float = 'left';
                 var lk = createLink('http://finance.eastmoney.com/pinglun.html', '观点');
                 gdpl.appendChild(lk);
-                gdpl.appendChild(e.querySelector('.nlist'));
+                gdpl.appendChild(e.querySelectorAll('div.m3r>div.news_l2.bw.mmt')[1].querySelector('.nlist'));
                 return gdpl
             },
-            'zt-view': function(e) {
+            '直播': function(e) {
+                var zbview = document.createElement('div');
+                zbview.style.float = 'left';
+                var lk = createLink('https://roadshow.eastmoney.com/', '直播');
+                zbview.appendChild(lk);
+                zbview.appendChild(pick_news_l2_img_links(e.querySelector('div.m3m>div.news_l2_img.bw.mmt')));
+                return zbview;
+            },
+            '专题': function(e) {
                 var ztview = document.createElement('div');
                 ztview.style.float = 'left';
                 var lk = createLink('http://topic.eastmoney.com/', '专题');
-                var btm = e.querySelector('.bottom-list');
-                var ztlks = btm.querySelectorAll('li');
                 ztview.appendChild(lk);
-                var ul = document.createElement('ul');
-                var ztimglks = e.querySelectorAll('a.tip-text');
-                for (const a of ztimglks) {
-                    var lkli = document.createElement('li');
-                    lkli.appendChild(a);
-                    ul.appendChild(lkli);
-                }
-                for (const l of ztlks) {
-                    ul.appendChild(l);
-                }
-                ztview.appendChild(ul);
+                ztview.appendChild(pick_news_l2_img_links(e.querySelector('div.m3r>div.news_l2_img.bw.mmt')));
                 return ztview;
             }
         }
         for (const c in newsFilters) {
-            this.newsRoot.appendChild(this.setTarget(newsFilters[c](ele.querySelector('.'+c))))
+            this.newsRoot.appendChild(this.setTarget(newsFilters[c](ele.querySelector('.'+c))));
         }
         this.articalPanel = document.createElement('div');
         this.newsRoot.appendChild(this.articalPanel);
         for (const c in newsMoreFilters) {
-            this.newsRoot.appendChild(this.setTarget(newsMoreFilters[c](ele.querySelector('.'+c))))
+            this.newsRoot.appendChild(this.setTarget(newsMoreFilters[c](ele)));
         }
     }
 
