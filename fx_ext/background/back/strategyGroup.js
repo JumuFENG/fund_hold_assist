@@ -594,22 +594,13 @@ class StrategyGroup {
         }
     }
 
-    calcBuyCount(amount, price) {
-        var ct = (amount / 100) / price;
-        var d = ct - Math.floor(ct);
-        if (d <= ct * 0.15) {
-            return 100 * Math.floor(ct);
-        };
-        return 100 * Math.ceil(ct);
-    }
-
     getBuyCount(price) {
         if (!this.count0 || this.count0 <= 0) {
             var amount = 10000;
             if (this.amount && this.amount > 0) {
                 amount = this.amount;
             };
-            this.count0 = this.calcBuyCount(amount, price);
+            this.count0 = emjyBack.calcBuyCount(amount, price);
         }
         return this.count0;
     }
@@ -662,8 +653,10 @@ class StrategyGroup {
             return;
         }
 
-        if (this.amount && info.price) {
-            this.count0 = this.calcBuyCount(this.amount, info.price);
+        if (info.count !== undefined && info.count - 0 > 0) {
+            this.count0 = info.count;
+        } else if (this.amount && info.price) {
+            this.count0 = emjyBack.calcBuyCount(this.amount, info.price);
         }
         var price = info.price === undefined ? 0 : info.price;
         if (this.account == 'normal' || this.account == 'collat') {

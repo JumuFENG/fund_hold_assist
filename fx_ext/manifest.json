@@ -37,7 +37,8 @@
         },
         {
             "matches": [
-                "https://jywg.18.cn/*"
+                "https://jywg.18.cn/*",
+                "https://jywg.eastmoneysec.com/*"
             ],
             "js": [
                 "inject/jywg_conditions.js"

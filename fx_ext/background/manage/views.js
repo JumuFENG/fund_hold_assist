@@ -81,7 +81,11 @@ class Utils {
     }
 
     dateToString(dt, sep = '') {
-        return dt.getFullYear() + sep + ('' + (dt.getMonth() + 1)).padStart(2, '0') + sep + ('' + dt.getDate()).padStart(2, '0');
+        var dstr = dt.toISOString().split('T')[0];
+        if (sep === '-') {
+            return dstr;
+        }
+        return dstr.split('-').join(sep);
     }
 
     getTodayDate(sep = '-') {

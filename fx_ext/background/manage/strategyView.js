@@ -71,6 +71,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyGEMid') {
             return new StrategyGridEarningMidView(strategy);
         }
+        if (strategy.key == 'StrategyGrid') {
+            return new StrategyGridView(strategy);
+        }
         if (strategy.key == 'StrategyTD') {
             return new StrategyTDView(strategy);
         }
@@ -1039,6 +1042,39 @@ class StrategyGridEarningMidView extends StrategyGridEarningView {
 
     maDescription() {
         return '网格买入,盈利卖出, 波段策略,不建仓不清仓';
+    }
+}
+
+class StrategyGridView extends StrategyBaseView {
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('网格法, 大阴线建仓, 跌幅达到设定值时加仓, 加仓设置次数后再次跌破止损, 加仓幅度按一次网格反弹回本.'));
+        view.appendChild(this.createGuardInput('参考价格'));
+        view.appendChild(this.createStepsInput('网格幅度', 5));
+        view.appendChild(this.createReferedInput('最大加仓次数'));
+        if (this.strategy.buycnt) {
+            this.inputRefer.value = this.strategy.buycnt;
+        }
+        view.appendChild(this.createBuyAccountSelector());
+        view.appendChild(this.createDataInput());
+        return view;
+    }
+
+    skippedDataInput() {
+        return ['enabled', 'account', 'kltype', 'key', 'meta', 'guardPrice', 'stepRate', 'buycnt'];
+    }
+
+    isChanged() {
+        var changed = super.isChanged();
+        if (this.inputRefer && this.inputRefer.value) {
+            var buycnt = this.inputRefer.value;
+            if (this.strategy.buycnt != buycnt) {
+                this.strategy.buycnt = buycnt;
+                changed = true;
+            };
+        };
+        return changed;
     }
 }
 

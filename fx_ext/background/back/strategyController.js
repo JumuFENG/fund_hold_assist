@@ -74,6 +74,9 @@ class StrategyManager {
         if (strategy.key == 'StrategyGEMid') {
             return new StrategyGEMid(strategy);
         }
+        if (strategy.key == 'StrategyGrid') {
+            return new StrategyGrid(strategy);
+        }
         if (strategy.key == 'StrategyBH') {
             return new StrategyBarginHunting(strategy);
         }
@@ -2043,6 +2046,140 @@ class StrategyGE extends Strategy {
 class StrategyGEMid extends StrategyGE {
     buyrecRemains() {
         return 1;
+    }
+}
+
+class StrategyGrid extends StrategyComplexBase {
+    guardLevel() {
+        return 'kday';
+    }
+
+    kltype() {
+        return '101';
+    }
+
+    checkMeta(buydetails) {
+        if (!this.data.meta) {
+            this.data.meta = {};
+            // s0: 未建仓/清仓，s1: 建仓/有持仓
+            if (!buydetails || buydetails.totalCount() == 0) {
+                this.data.meta.state = 's0';
+            } else {
+                this.data.meta.state = 's1';
+                this.data.guardPrice = buydetails.maxBuyPrice();
+            }
+        }
+
+        if (!this.data.stepRate) {
+            this.data.stepRate = 0.05;
+        }
+
+        if (!this.data.buycnt) {
+            this.data.buycnt = 3;
+        }
+    }
+
+    checkCreateBuy(chkInfo, matchCb) {
+        var kltype = this.kltype();
+        var klines = emjyBack.klines[chkInfo.code];
+        var updatedKlt = chkInfo.kltypes;
+        if (!updatedKlt.includes(kltype)) {
+            return;
+        }
+        var kl = klines.getLatestKline(kltype);
+        var klpre = klines.getPrevKlineByTime(kl.time, kltype);
+        if (!klpre) {
+            return;
+        }
+        var pchange = (kl.c - klpre.c) / klpre.c;
+        if (pchange < -0.09 || pchange > -this.data.stepRate || kl.c - kl.o > 0) {
+            return;
+        }
+        matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c}, bd => {
+            this.data.meta.state = 's1';
+            this.data.earnl = (bd.price * (1 + this.data.stepRate)).toFixed(2);
+            this.data.cutl = (bd.price * (1 - 2 * this.data.stepRate)).toFixed(2);
+        });
+    }
+
+    checkConsecutiveBuySell(chkInfo, matchCb) {
+        var kltype = this.kltype();
+        var klines = emjyBack.klines[chkInfo.code];
+        var updatedKlt = chkInfo.kltypes;
+        if (!updatedKlt.includes(kltype)) {
+            return;
+        }
+        var kl = klines.getLatestKline(kltype);
+        if (emjyBack.stockZdtPrices && emjyBack.stockZdtPrices[chkInfo.code] && kl.c - emjyBack.stockZdtPrices[chkInfo.code].ztprice >= 0) {
+            // 涨停不卖出，不加仓
+            return;
+        }
+        var buydetail = chkInfo.buydetail;
+        if (this.data.guardPrice === undefined) {
+            this.data.guardPrice = buydetail.maxBuyPrice();
+        }
+        var count = buydetail.availableCount();
+        if (kl.c - this.data.guardPrice > this.data.stepRate * this.data.guardPrice) {
+            // 盈利卖出
+            if (count > 0) {
+                matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                    delete(this.data.meta);
+                    delete(this.data.earnl);
+                    delete(this.data.cutl);
+                    this.setEnabled(false);
+                });
+            }
+            return;
+        }
+        var buylen = buydetail.buyRecords().length;
+        if (buylen == 1) {
+            if (this.data.guardPrice - kl.c > 2 * this.data.stepRate * this.data.guardPrice) {
+                // 首次加仓
+                var avp = buydetail.averPrice()
+                var amount = (avp - kl.c) * count / this.data.stepRate - kl.c * count;
+                var bcount = emjyBack.calcBuyCount(amount, kl.c);
+                matchCb({id: chkInfo.id, tradeType: 'B', count: bcount, price: kl.c}, bd => {
+                    this.data.earnl = (bd.price * (1 + this.data.stepRate * 1.9)).toFixed(2);
+                    this.data.cutl = (bd.price * (1 - this.data.stepRate)).toFixed(2);
+                });
+            }
+            return;
+        }
+        var mprice = buydetail.minBuyPrice();
+        if ((kl.c - mprice > this.data.stepRate * mprice && !this.data.earnl) || kl.c - this.data.earnl > 0) {
+            // 回本卖出
+            if (count > 0) {
+                matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                    delete(this.data.meta);
+                    delete(this.data.earnl);
+                    delete(this.data.cutl);
+                    this.setEnabled(false);
+                });
+            }
+            return;
+        }
+        if (mprice - kl.c > this.data.stepRate * this.data.guardPrice) {
+            if (buylen > this.data.buycnt && kl.c - this.data.guardPrice * (1 - this.data.stepRate * (this.data.buycnt + 1)) < 0) {
+                // 止损
+                if (count > 0) {
+                    matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                        delete(this.data.meta);
+                        delete(this.data.earnl);
+                        delete(this.data.cutl);
+                        this.setEnabled(false);
+                    });
+                }
+            } else {
+                // 加仓
+                var avp = buydetail.averPrice()
+                var amount = (avp - kl.c) * count / this.data.stepRate - kl.c * count;
+                var bcount = emjyBack.calcBuyCount(amount, kl.c);
+                matchCb({id: chkInfo.id, tradeType: 'B', count: bcount, price: kl.c}, bd => {
+                    this.data.earnl = (bd.price * (1 + this.data.stepRate * (1.9 - 0.25 * (buylen - 1)))).toFixed(2);
+                    this.data.cutl = (bd.price * (1 - this.data.stepRate)).toFixed(2);
+                });
+            }
+        }
     }
 }
 

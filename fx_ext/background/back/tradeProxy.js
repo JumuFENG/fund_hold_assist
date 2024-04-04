@@ -1,8 +1,8 @@
 'use strict';
-let EmjyUrlRoot = 'https://jywg.18.cn';
-let NewStockPurchaseUrl = 'https://jywg.18.cn/Trade/NewBatBuy';
-let NewBondsPurchaseUrl = 'https://jywg.18.cn/Trade/XzsgBatPurchase';
-let BondRepurchaseUrl = 'https://jywg.18.cn/BondRepurchase/SecuritiesLendingRepurchase';
+let EmjyUrlRoot = 'https://jywg.eastmoneysec.com/';
+let NewStockPurchaseUrl = EmjyUrlRoot + 'Trade/NewBatBuy';
+let NewBondsPurchaseUrl = EmjyUrlRoot + 'Trade/XzsgBatPurchase';
+let BondRepurchaseUrl = EmjyUrlRoot + 'BondRepurchase/SecuritiesLendingRepurchase';
 
 class CommanderBase {
     constructor() {
@@ -323,7 +323,7 @@ class NewStocksClient {
     }
 
     GetCanBuy() {
-        var url = 'https://jywg.18.cn/Trade/GetCanBuyNewStockListV3?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'Trade/GetCanBuyNewStockListV3?validatekey=' + this.validateKey;
         xmlHttpPost(url, null, null, response => {
             var robj = JSON.parse(response);
             if (robj.NewStockList && robj.NewStockList.length > 0) {
@@ -364,7 +364,7 @@ class NewStocksClient {
 
         var jdata = JSON.stringify(data);
         emjyBack.log('buyNewStocks', jdata);
-        var url = 'https://jywg.18.cn/Trade/SubmitBatTradeV2?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'Trade/SubmitBatTradeV2?validatekey=' + this.validateKey;
         var header = {"Content-Type": "application/json"}
         xmlHttpPost(url, jdata, header, response => {
             var robj = JSON.parse(response);
@@ -391,7 +391,7 @@ class NewBondsClient {
     }
 
     GetCanBuy() {
-        var url = 'https://jywg.18.cn/Trade/GetConvertibleBondListV2?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'Trade/GetConvertibleBondListV2?validatekey=' + this.validateKey;
         xmlHttpPost(url, null, null, response => {
             var robj = JSON.parse(response);
             if (robj.Status != 0) {
@@ -429,7 +429,7 @@ class NewBondsClient {
 
         var jdata = JSON.stringify(data);
         emjyBack.log('buyNewStocks', jdata);
-        var url = 'https://jywg.18.cn/Trade/SubmitBatTradeV2?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'Trade/SubmitBatTradeV2?validatekey=' + this.validateKey;
         var header = {"Content-Type": "application/json"}
         xmlHttpPost(url, jdata, header, response => {
             var robj = JSON.parse(response);
@@ -463,7 +463,7 @@ class BondRepurchaseClient {
     }
 
     checkCount(code, price) {
-        var url = 'https://jywg.18.cn/Com/GetCanOperateAmount?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'Com/GetCanOperateAmount?validatekey=' + this.validateKey;
         var fd = new FormData();
         fd.append('stockCode', code);
         fd.append('price', price);
@@ -485,7 +485,7 @@ class BondRepurchaseClient {
     }
 
     bondRepurchase(code, price, count) {
-        var url = 'https://jywg.18.cn/BondRepurchase/SecuritiesLendingRepurchaseTrade?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'BondRepurchase/SecuritiesLendingRepurchaseTrade?validatekey=' + this.validateKey;
         var fd = new FormData();
         fd.append('zqdm', code);
         fd.append('rqjg', price);
@@ -530,7 +530,7 @@ class RepaymentClient {
     }
 
     GetRzrqAssets() {
-        var url = 'https://jywg.18.cn/MarginSearch/GetRzrqAssets?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'MarginSearch/GetRzrqAssets?validatekey=' + this.validateKey;
         var fd = new FormData();
         fd.append('hblx', 'RMB');
         xmlHttpPost(url, fd, null, response => {
@@ -567,7 +567,7 @@ class RepaymentClient {
             return;
         }
 
-        var url = 'https://jywg.18.cn/MarginTrade/submitZjhk?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'MarginTrade/submitZjhk?validatekey=' + this.validateKey;
         var fd = new FormData();
         fd.append('hbdm', 'RMB');
         fd.append('hkje', hkje);

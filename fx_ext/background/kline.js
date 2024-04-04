@@ -386,7 +386,9 @@ class KLine {
             } else if (x.startsWith('bias')) {
                 this.calcKlineBias(klines, parseInt(x.substring(4)));
             } else {
-                console.warn('Unknown klvar:', x);
+                if (x != 'prc' && x != 'pc') {
+                    console.warn('Unknown klvar:', x);
+                }
             }
         });
     }
@@ -603,7 +605,9 @@ class KLine {
                 } else if (x.startsWith('bias')) {
                     this.incompleteKline[kltype][x] = this.getNextKlBias(klines, kl, parseInt(x.substring(4)));
                 } else {
-                    console.warn('Unknown klvar:', x);
+                    if (x != 'prc' && x != 'pc') {
+                        console.warn('Unknown klvar:', x);
+                    }
                 }
             });
         };
@@ -629,7 +633,9 @@ class KLine {
             } else if (x.startsWith('bias')) {
                 kl[x] = this.getNextKlBias(klines, kl, parseInt(x.substring(4)))
             } else {
-                console.warn('Unknown klvar:', x);
+                if (x != 'prc' && x != 'pc') {
+                    console.warn('Unknown klvar:', x);
+                }
             }
         });
         klines.push(kl);

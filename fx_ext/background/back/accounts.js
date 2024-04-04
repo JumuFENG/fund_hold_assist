@@ -1,6 +1,6 @@
 'use strict';
 let BondRepurchasePath = '/BondRepurchase/SecuritiesLendingRepurchase';
-
+let jywgroot = 'https://jywg.eastmoneysec.com/'; //'https://jywg.18.cn/';
 class Wallet {
     constructor() {
         this.fundcode = '511880';
@@ -20,7 +20,7 @@ class DealsClient {
     }
 
     getUrl() {
-        return 'https://jywg.18.cn/Search/GetDealData?validatekey=' + this.validateKey;
+        return jywgroot + 'Search/GetDealData?validatekey=' + this.validateKey;
     }
 
     getFormData() {
@@ -84,7 +84,7 @@ class MarginDealsClient extends DealsClient {
     }
 
     getUrl() {
-        return 'https://jywg.18.cn/MarginSearch/GetDealData?validatekey=' + this.validateKey;
+        return jywgroot + 'MarginSearch/GetDealData?validatekey=' + this.validateKey;
     }
 
     updateDwc() {
@@ -99,7 +99,11 @@ class HistDealsClient extends DealsClient {
     }
 
     dateToString(dt, sep = '-') {
-        return dt.getFullYear() + sep + ('' + (dt.getMonth() + 1)).padStart(2, '0') + sep + ('' + dt.getDate()).padStart(2, '0');
+        var dstr = dt.toISOString().split('T')[0];
+        if (sep === '-') {
+            return dstr;
+        }
+        return dstr.split('-').join(sep);
     }
 
     setStartDate(startDate) {
@@ -138,7 +142,7 @@ class HistDealsClient extends DealsClient {
     }
 
     getUrl() {
-        return 'https://jywg.18.cn/Search/GetHisDealData?validatekey=' + this.validateKey;
+        return jywgroot + 'Search/GetHisDealData?validatekey=' + this.validateKey;
     }
 }
 
@@ -162,7 +166,7 @@ class MarginHistDealsClient extends HistDealsClient {
     }
 
     getUrl() {
-        return 'https://jywg.18.cn/MarginSearch/queryCreditHisMatchV2?validatekey=' + this.validateKey;
+        return jywgroot + 'MarginSearch/queryCreditHisMatchV2?validatekey=' + this.validateKey;
     }
 }
 
@@ -172,7 +176,7 @@ class OrdersClient extends DealsClient {
     }
 
     getUrl() {
-        return 'https://jywg.18.cn/Search/GetOrdersData?validatekey=' + this.validateKey;
+        return jywgroot + 'Search/GetOrdersData?validatekey=' + this.validateKey;
     }
 }
 
@@ -182,7 +186,7 @@ class MarginOrdersClient extends DealsClient {
     }
 
     getUrl() {
-        return 'https://jywg.18.cn/MarginSearch/GetOrdersData?validatekey=' + this.validateKey;
+        return jywgroot + 'MarginSearch/GetOrdersData?validatekey=' + this.validateKey;
     }
 }
 
@@ -193,7 +197,7 @@ class SxlHistClient extends HistDealsClient {
     }
 
     getUrl() {
-        return 'https://jywg.18.cn/Search/GetFundsFlow?validatekey=' + this.validateKey;
+        return jywgroot + 'Search/GetFundsFlow?validatekey=' + this.validateKey;
     }
 }
 
@@ -203,7 +207,7 @@ class MarginSxlHistClient extends HistDealsClient {
     }
 
     getUrl() {
-        return 'https://jywg.18.cn/MarginSearch/GetWaterBill?validatekey=' + this.validateKey;
+        return jywgroot + 'MarginSearch/GetWaterBill?validatekey=' + this.validateKey;
     }
 }
 
@@ -216,7 +220,7 @@ class AssetsClient {
     }
 
     GetAssets() {
-        var url = 'https://jywg.18.cn/Com/queryAssetAndPositionV1?validatekey=' + this.validateKey;
+        var url = jywgroot + 'Com/queryAssetAndPositionV1?validatekey=' + this.validateKey;
         var fd = new FormData();
         fd.append('moneyType', this.moneyType);
         xmlHttpPost(url, fd, null, response => {
@@ -253,14 +257,14 @@ class MarginAssetsClient extends AssetsClient {
     }
 
     GetAssets() {
-        var url = 'https://jywg.18.cn/MarginSearch/GetRzrqAssets?validatekey=' + this.validateKey;
+        var url = jywgroot + 'MarginSearch/GetRzrqAssets?validatekey=' + this.validateKey;
         var fd = new FormData();
         fd.append('hblx', this.moneyType);
         xmlHttpPost(url, fd, null, response => {
             this.onAssetsResponse(response);
         });
 
-        var slUrl = 'https://jywg.18.cn/MarginSearch/GetStockList?validatekey=' + this.validateKey;
+        var slUrl = jywgroot + 'MarginSearch/GetStockList?validatekey=' + this.validateKey;
         xmlHttpPost(slUrl, new FormData(), null, response => {
             this.onStockListResponse(response);
         });
@@ -293,7 +297,7 @@ class TradeClient {
     }
 
     getUrl() {
-        return 'https://jywg.18.cn/Trade/SubmitTradeV2?validatekey=' + this.validateKey;
+        return jywgroot + 'Trade/SubmitTradeV2?validatekey=' + this.validateKey;
     }
 
     getBasicFormData(code, price, count, tradeType) {
@@ -348,7 +352,7 @@ class TradeClient {
     }
 
     countUrl() {
-        return 'https://jywg.18.cn/Trade/GetAllNeedTradeInfo?validatekey=' + this.validateKey;
+        return jywgroot + 'Trade/GetAllNeedTradeInfo?validatekey=' + this.validateKey;
     }
 
     countFormData(code, price, tradeType, jylx) {
@@ -469,7 +473,7 @@ class CollatTradeClient extends TradeClient {
     }
 
     getUrl() {
-        return 'https://jywg.18.cn/MarginTrade/SubmitTradeV2?validatekey=' + this.validateKey;
+        return jywgroot + 'MarginTrade/SubmitTradeV2?validatekey=' + this.validateKey;
     }
 
     getFormData(code, price, count, tradeType, jylx) {
@@ -480,7 +484,7 @@ class CollatTradeClient extends TradeClient {
     }
 
     countUrl() {
-        return 'https://jywg.18.cn/MarginTrade/GetKyzjAndKml?validatekey=' + this.validateKey;
+        return jywgroot + 'MarginTrade/GetKyzjAndKml?validatekey=' + this.validateKey;
     }
 
     countFormData(code, price, tradeType, jylx) {
@@ -754,8 +758,11 @@ class NormalAccount extends Account {
         var stock = this.stocks.find(s => {return s.code == code;});
 
         if (stock) {
-            emjyBack.log(code, this.keyword, 'already exists!');
-            // this.addStockStrategy(stock, strgrp);
+            if (stock.holdCount > 0) {
+                emjyBack.log(code, this.keyword, 'already exists and holdCount = ', stock.holdCount);
+            } else {
+                this.addStockStrategy(stock, strgrp);
+            }
             return;
         };
 

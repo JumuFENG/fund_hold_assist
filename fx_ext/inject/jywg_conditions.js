@@ -480,6 +480,12 @@ class EmjyFrontend {
                 if (btnCxcConfirm) {
                     btnCxcConfirm.click();
                     clearInterval(errorConfirmInterval);
+                } else {
+                    btnCxcConfirm = document.querySelector('#btnConfirm');
+                    if (btnCxcConfirm) {
+                        btnCxcConfirm.click();
+                        clearInterval(errorConfirmInterval);
+                    }
                 }
             }, 500);
             this.onLoginPageLoaded();
@@ -493,7 +499,7 @@ class EmjyFrontend {
     }
 }
 
-if (location.host == 'jywg.18.cn') {
+if (location.host == 'jywg.18.cn' || location.host == 'jywg.eastmoneysec.com') {
     EmjyFront = new EmjyFrontend();
     EmjyFront.Init();
     EmjyFront.onPageLoaded();

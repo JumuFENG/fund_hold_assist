@@ -7,10 +7,39 @@ let mktDict = {'SH': 1, 'SZ': 0, 'BJ': 4}
 class ManagerBack {
     constructor() {
         this.tabid = null;
+        this.mgrChangedTimeout = null;
     }
 
     isValid() {
         return this.tabid != null;
+    }
+
+    startChangedTimeout() {
+        if (this.mgrChangedTimeout) {
+            clearTimeout(this.mgrChangedTimeout);
+        }
+
+        this.mgrChangedTimeout = setTimeout(() => {
+            this.notifyMgrSave();
+        }, 300000);
+    }
+
+    notifyMgrSave() {
+        if (!this.mgrChangedTimeout) {
+            return;
+        }
+        emjyBack.normalAccount.save();
+        emjyBack.collateralAccount.save();
+        emjyBack.trackAccount.save();
+        if (emjyBack.mgrFetched) {
+            emjyBack.mgrFetched.forEach(c => {
+                emjyBack.klines[c].save();
+            });
+            delete(emjyBack.mgrFetched)
+        }
+        clearTimeout(this.mgrChangedTimeout);
+        emjyBack.log('manager saved');
+        this.mgrChangedTimeout = null;
     }
 
     onManagerMessage(message, tabid) {
@@ -20,15 +49,7 @@ class ManagerBack {
         } else if (message.command == 'mngr.inittrack') {
             this.sendStocks([emjyBack.trackAccount]);
         } else if (message.command == 'mngr.closed') {
-            emjyBack.normalAccount.save();
-            emjyBack.collateralAccount.save();
-            emjyBack.trackAccount.save();
-            if (emjyBack.mgrFetched) {
-                emjyBack.mgrFetched.forEach(c => {
-                    emjyBack.klines[c].save();
-                });
-                delete(emjyBack.mgrFetched)
-            }
+            this.notifyMgrSave();
             this.tabid = null;
         } else if (message.command == 'mngr.export') {
             emjyBack.exportConfig();
@@ -36,12 +57,16 @@ class ManagerBack {
             emjyBack.importConfig(message.config);
         } else if (message.command == 'mngr.strategy') {
             emjyBack.applyStrategy(message.account, message.code, message.strategies);
+            this.startChangedTimeout();
         } else if (message.command =='mngr.strategy.rmv') {
             emjyBack.removeStockStrategy(message.account, message.code, message.stype);
+            this.startChangedTimeout();
         } else if (message.command == 'mngr.addwatch') {
             emjyBack.addWatchStock(message.account, message.code, message.strategies);
+            this.startChangedTimeout();
         } else if (message.command == 'mngr.rmwatch') {
             emjyBack.removeStock(message.account, message.code);
+            this.startChangedTimeout();
         } else if (message.command == 'mngr.getZTPool') {
             emjyBack.postQuoteWorkerMessage({command:'quote.get.ZTPool', date: message.date});
         } else if (message.command == 'mngr.checkrzrq') {
@@ -56,6 +81,7 @@ class ManagerBack {
                 emjyBack.mgrFetched = new Set();
             }
             emjyBack.mgrFetched.add(message.code);
+            this.startChangedTimeout();
         } else if (message.command == 'mngr.saveFile') {
             emjyBack.saveToFile(message.blob, message.filename);
         };
@@ -92,6 +118,8 @@ function onQuoteWorkerMessage(e) {
 
 class EmjyBack {
     constructor() {
+        this.jywghost = 'jywg.eastmoneysec.com';
+        this.jywgroot = 'https://' + this.jywghost + '/';
         this.mainTab = null;
         this.authencated = false;
         this.normalAccount = null;
@@ -210,7 +238,7 @@ class EmjyBack {
             var emtab = null;
             for (var tab of tabs) {
                 var url = new URL(tab.url);
-                if (url.host == 'jywg.18.cn') {
+                if (url.host == this.jywghost) {
                     chrome.tabs.remove(tab.id);
                 }
             }
@@ -223,7 +251,7 @@ class EmjyBack {
         if (!tab) {
             this.getFromLocal('acc_np', anp => {
                 this.unp = anp;
-                var url = this.unp.credit ? 'https://jywg.18.cn/MarginTrade/Buy': 'https://jywg.18.cn/Trade/Buy';
+                var url = this.unp.credit ? this.jywgroot + 'MarginTrade/Buy': this.jywgroot + 'Trade/Buy';
                 chrome.tabs.create(
                     {url},
                     ctab => {
@@ -300,7 +328,7 @@ class EmjyBack {
 
     sendPendingMessages() {
         var url = new URL(this.mainTab.url);
-        if (!this.mainTab.id || url.host != 'jywg.18.cn') {
+        if (!this.mainTab.id || url.host != this.jywghost) {
             this.pendingTimeout = setTimeout(() => {
                 this.sendPendingMessages();
             }, 300);
@@ -335,7 +363,7 @@ class EmjyBack {
     }
 
     sendMessageToContent(data) {
-        if (!this.mainTab || !this.mainTab.id || (new URL(this.mainTab.url)).host != 'jywg.18.cn') {
+        if (!this.mainTab || !this.mainTab.id || (new URL(this.mainTab.url)).host != this.jywghost) {
             this.insertPendingMessage(data);
             if (this.pendingTimeout) {
                 clearTimeout(this.pendingTimeout);
@@ -635,7 +663,11 @@ class EmjyBack {
     }
 
     dateToString(dt, sep = '-') {
-        return dt.getFullYear() + sep + ('' + (dt.getMonth() + 1)).padStart(2, '0') + sep + ('' + dt.getDate()).padStart(2, '0');
+        var dstr = dt.toISOString().split('T')[0];
+        if (sep === '-') {
+            return dstr;
+        }
+        return dstr.split('-').join(sep);
     }
 
     mergeCumDeals(deals) {
@@ -1164,6 +1196,15 @@ class EmjyBack {
             return stk.c;
         }
         return this.getStockMarketHS(code) + code;
+    }
+
+    calcBuyCount(amount, price) {
+        var ct = (amount / 100) / price;
+        var d = ct - Math.floor(ct);
+        if (d <= ct * 0.15) {
+            return 100 * Math.floor(ct);
+        };
+        return 100 * Math.ceil(ct);
     }
 
     fetchStockKline(code, kltype, sdate) {

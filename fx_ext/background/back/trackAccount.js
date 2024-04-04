@@ -128,7 +128,7 @@ class TrackingAccount extends NormalAccount {
                             this.applyStrategy(s, JSON.parse(str));
                             var stockInfo = this.stocks.find(function(stocki) {return s == stocki.code});
                             stockInfo.holdCount = stockInfo.strategies.buydetail.totalCount();
-                            stockInfo.holdCost = stockInfo.strategies.buydetail.averPrice();
+                            stockInfo.holdCost = (stockInfo.strategies.buydetail.averPrice()).toFixed(2);
                         };
                     });
                 });
@@ -146,7 +146,21 @@ class TrackingAccount extends NormalAccount {
         if (!time) {
             time = emjyBack.getTodayDate('-');
         }
-        this.deals.push({time, sid: this.sid, code, tradeType, price, count});
+        var stk = this.getStock(code);
+        if (!stk) {
+            return;
+        }
+        if (tradeType == 'B') {
+            stk.holdCount += count;
+            this.deals.push({time, sid: this.sid, code, tradeType, price, count});
+        } else if (tradeType == 'S') {
+            if (stk.holdCount - count >= 0) {
+                stk.holdCount -= count;
+                this.deals.push({time, sid: this.sid, code, tradeType, price, count});
+            } else {
+                emjyBack.log(code, 'no enough holdCount to sell! holdCount:', stk.holdCount, ' count:', count);
+            }
+        }
         this.sid ++;
         this.tradeTime = undefined;
     }
