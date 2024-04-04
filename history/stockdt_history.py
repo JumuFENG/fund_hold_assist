@@ -150,63 +150,68 @@ class StockDtMap(TableBase):
             return
 
         premap = premap['data']
-        nxdate = TradingDate.nextTradingDate(mpdate)
         sdt = StockDtInfo()
-        nxdt = sdt.dumpDataByDate(nxdate)
-        if nxdt is None or nxdate != nxdt['date']:
-            print(f'dt data for {nxdate} not invalid', nxdt)
-            return
-
-        nmap = []
-        dt1 = [c for c,*_ in nxdt['pool']] if nxdt is not None and 'pool' in nxdt else []
-        for c in dt1:
-            oldmp = False
-            premapbk = []
-            for code, step, suc in premap:
-                if code == c:
-                    oldmp = True
-                    nmap.append([nxdate, (step + 1 if suc==1 else step), c, 1])
-                else:
-                    premapbk.append([code, step, suc])
-            if not oldmp:
-                nmap.append([nxdate, 1, c, 1])
-            premap = premapbk
-
         sd = StockDumps()
-        for code, step, suc in premap:
-            if code not in self.dtdtl:
-                self.dtdtl[code] = self.getdtl(code, step)
+        while mpdate < mxdate:
+            nxdate = TradingDate.nextTradingDate(mpdate)
+            nxdt = sdt.dumpDataByDate(nxdate)
+            if nxdt is None or nxdate != nxdt['date']:
+                print(f'dt data for {nxdate} not invalid', nxdt)
+                break
 
-            dtl = self.dtdtl[code]
-            kd = sd.read_kd_data(code, start=dtl[-1]['date'])
-            lkl = [KNode(k1) for k1 in kd if k1[1] == nxdate]
-            if len(lkl) != 1:
-                if kd[-1][1] < nxdate:
-                    ts = StockGlobal.checkTsStock(code)
-                    if ts is None:
-                        nmap.append([nxdate, (step + 1 if suc==1 else step), code, 0])
-            else:
-                lkl = lkl[0]
-                if lkl.date != nxdate:
-                    nmap.append([nxdate, (step + 1 if suc==1 else step), code, 0])
+            nmap = []
+            dt1 = [c for c,*_ in nxdt['pool']] if nxdt is not None and 'pool' in nxdt else []
+            for c in dt1:
+                oldmp = False
+                premapbk = []
+                for code, step, suc in premap:
+                    if code == c:
+                        oldmp = True
+                        nmap.append([nxdate, (step + 1 if suc==1 else step), c, 1])
+                    else:
+                        premapbk.append([code, step, suc])
+                if not oldmp:
+                    nmap.append([nxdate, 1, c, 1])
+                premap = premapbk
+
+            for code, step, suc in premap:
+                if code not in self.dtdtl:
+                    self.dtdtl[code] = self.getdtl(code, step)
+
+                dtl = self.dtdtl[code]
+                kd = sd.read_kd_data(code, start=dtl[-1]['date'])
+                lkl = [KNode(k1) for k1 in kd if k1[1] == nxdate]
+                if len(lkl) != 1:
+                    if kd[-1][1] < nxdate:
+                        ts = StockGlobal.checkTsStock(code)
+                        if ts is None:
+                            nmap.append([nxdate, (step + 1 if suc==1 else step), code, 0])
                 else:
-                    dkl = KNode(kd[0])
-                    if lkl.low - dkl.close * 0.9 <= 0:
-                        nmap.append([nxdate, (step + 1 if suc==1 else step), code, 1])
-                    elif lkl.close - dkl.close * 1.08 <= 0 and len(kd) <= 4:
+                    lkl = lkl[0]
+                    if lkl.date != nxdate:
                         nmap.append([nxdate, (step + 1 if suc==1 else step), code, 0])
+                    else:
+                        dkl = KNode(kd[0])
+                        if lkl.low - dkl.close * 0.9 <= 0:
+                            nmap.append([nxdate, (step + 1 if suc==1 else step), code, 1])
+                        elif lkl.close - dkl.close * 1.08 <= 0 and len(kd) <= 4:
+                            nmap.append([nxdate, (step + 1 if suc==1 else step), code, 0])
 
-        values = []
-        for d, step, c, suc in nmap:
-            mp = self._dump_data(self._select_keys('id'), self._select_condition([f'{column_date}="{d}"', f'{column_code}="{c}"']))
-            if mp is not None and len(mp) == 1:
-                (mid,), = mp
-                self.sqldb.update(self.tablename, {'step': step, 'success': suc}, {'id': mid})
-            else:
-                values.append([d, step, c, suc])
+            values = []
+            premap = []
+            for d, step, c, suc in nmap:
+                premap.append([c, step, suc])
+                mp = self._dump_data(self._select_keys('id'), self._select_condition([f'{column_date}="{d}"', f'{column_code}="{c}"']))
+                if mp is not None and len(mp) == 1:
+                    (mid,), = mp
+                    self.sqldb.update(self.tablename, {'step': step, 'success': suc}, {'id': mid})
+                else:
+                    values.append([d, step, c, suc])
 
-        if len(values) > 0:
-            self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
+            if len(values) > 0:
+                self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
+
+            mpdate = nxdate
 
     def dumpDataByDate(self, date = None):
         if date is None:

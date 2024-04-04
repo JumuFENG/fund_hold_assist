@@ -164,11 +164,43 @@ class StockAnnoucements(EmDataCenterRequest, TableBase):
             anns = self.sqldb.select(self.tablename, f'{column_date},title', [f'{column_code}="{code}"', f'(type_code=010002001 or type_code=001002004006002)'])
             for d, t in anns:
                 if '终止上市' in t and '摘牌' in t:
-                    qdate,qtime = d.split()
+                    dt = d.split()
+                    if len(dt) != 2:
+                        Utils.log(f'check_stock_quit {code} {anns}', Utils.Err)
+                        continue
+                    qdate,qtime = dt
                     if qtime > '15':
                         qdate = TradingDate.nextTradingDate(qdate)
+                    Utils.log(f'check_stock_quit {code} already quit')
                     StockGlobal.setQuitDate(code, qdate)
                     break
+
+    def check_fund_quit(self, stks):
+        for code in stks:
+            sg = StockGlobal.stock_general(code)
+            if sg.type != 'ETF' and sg.type != 'LOF':
+                continue
+            ucode = code.lstrip('SZ').lstrip('SH')
+            url = f'https://api.fund.eastmoney.com/f10/JJGG?fundcode={ucode}&pageIndex=1&pageSize=20&type=6'
+            headers = {
+                'Host': 'api.fund.eastmoney.com',
+                'Referer': 'https://fundf10.eastmoney.com/',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:68.0) Gecko/20100101 Firefox/68.0',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive'
+            }
+            annresp = Utils.get_request(url, headers)
+            anns =json.loads(annresp)
+            if 'Data' not in anns:
+                continue
+            for annobj in anns['Data']:
+                if '终止上市的公告' in annobj['TITLE']:
+                    StockGlobal.setQuitFund(code, annobj['PUBLISHDATEDesc'])
+                    Utils.log(f'check_fund_quit {code} already quit')
+                    break
+
 
 class StockShareBonus(EmDataCenterRequest, TableBase):
     '''get bonus share notice datacenter.eastmoney.com.

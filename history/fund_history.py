@@ -58,7 +58,7 @@ class AllFunds(InfoList):
         self.sqldb.insertMany(gl_all_funds_info_table, [column_code, column_name, column_url], allfund)
 
     def loadRatingInfo(self, code = None):
-        c = Utils.get_em_equest(apiUrl_fundRating)
+        c = Utils.get_em_request(apiUrl_fundRating)
         soup = BeautifulSoup(c, 'html.parser')
         fundJs = soup.select('#fundinfo > script')[0]
         vs = fundJs.get_text()
@@ -109,7 +109,7 @@ class AllFunds(InfoList):
         if not url:
             url = "http://fund.eastmoney.com/" + code + ".html"
             self.updateInfoOfFund(code, {column_url: url})
-        return Utils.get_em_equest(url)
+        return Utils.get_em_request(url)
 
     def updateInfoOfFund(self, code, infoDic):
         if not self.sqldb.isExistTable(gl_all_funds_info_table):

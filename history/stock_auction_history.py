@@ -125,7 +125,7 @@ class StockAuction(MultiThrdTableBase):
         try:
             quote_url = f'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id={code}&callback=jSnapshotBack'
 
-            responsetext = Utils.get_em_equest(quote_url, host='emhsmarketwg.eastmoneysec.com')
+            responsetext = Utils.get_em_request(quote_url, host='emhsmarketwg.eastmoneysec.com')
             snapshot_data = responsetext.replace('jSnapshotBack(', '').rstrip(');')
             snapshot = json.loads(snapshot_data)
 

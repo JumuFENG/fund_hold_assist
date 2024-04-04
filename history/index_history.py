@@ -20,7 +20,7 @@ class AllIndexes(InfoList):
 
     def loadInfo(self, code):
         url = "http://quote.eastmoney.com/zs" + code + ".html"
-        c = Utils.get_em_equest(url)
+        c = Utils.get_em_request(url)
         if not c:
             print("getRequest", url, "failed")
             return

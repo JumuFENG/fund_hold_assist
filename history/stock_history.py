@@ -69,6 +69,10 @@ class StockGlobal():
         self.sqldb.update(gl_all_stocks_info_table, {column_type: 'TSStock', 'quit_date': date}, f'{column_code}="{code}"')
 
     @classmethod
+    def setQuitFund(self, code, date):
+        self.sqldb.update(gl_all_stocks_info_table, {'quit_date': date}, f'{column_code}="{code}"')
+
+    @classmethod
     def checkTsStock(self, code):
         return self.sqldb.selectOneValue(gl_all_stocks_info_table, 'quit_date', [f'{column_code}="{code}"', f'{column_type}="TSStock"'])
 
@@ -83,7 +87,7 @@ class StockGlobal():
         pn = 1
         while True:
             rankUrl = f'''http://33.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=1000&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f115,f152'''
-            res = Utils.get_em_equest(rankUrl, host='33.push2.eastmoney.com')
+            res = Utils.get_em_request(rankUrl, host='33.push2.eastmoney.com')
             if res is None:
                 break
 
@@ -124,7 +128,7 @@ class AllStocks(InfoList):
     def loadInfo(self, code):
         code = code.upper()
         url = 'https://emweb.securities.eastmoney.com/PC_HSF10/CompanySurvey/CompanySurveyAjax?code=' + code
-        c = Utils.get_em_equest(url)
+        c = Utils.get_em_request(url)
         if c is None:
             print("getRequest", url, "failed")
             return
@@ -155,7 +159,7 @@ class AllStocks(InfoList):
         fs = 'm:0+f:81+s:2048' if market == 'BJ' else 'm:0+f:8,m:1+f:8'
         while True:
             newstocksUrl = f'''http://18.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=20&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f26&fs={fs}&fields=f12,f13,f14,f21,f26&_={Utils.time_stamp()}'''
-            res = Utils.get_em_equest(newstocksUrl)
+            res = Utils.get_em_request(newstocksUrl, host='18.push2.eastmoney.com')
             if res is None:
                 break
 
@@ -283,9 +287,9 @@ class AllStocks(InfoList):
 
     def getFundInfo(self, code):
         ucode = code.lstrip('SZ').lstrip('SH')
-        url = f'http://fund.eastmoney.com/f10/{ucode}.html'
+        url = f'https://fundf10.eastmoney.com/jbgk_{ucode}.html'
 
-        c = Utils.get_em_request(url)
+        c = Utils.get_em_request(url, 'fundf10.eastmoney.com')
         if c is None:
             print(f"getRequest {url} failed")
             return
