@@ -20,6 +20,7 @@ let BuyStrategyKeyNames = [
 {key: 'StrategyBuyR', name: '反弹(重复)买入'}, 
 {key: 'StrategyBuyIPO', name: '开板反弹买入'}, 
 {key: 'StrategyBuyZTBoard', name: '打板买入'},
+{key: 'StrategyBuyDTBoard', name: '跌停开板买入'},
 {key: 'StrategyBuyMA', name: 'MA突破买入'}, 
 {key: 'StrategyBuyMAD', name: 'MA突破(动态)买入'},
 {key: 'StrategyBuyMAE', name: 'MA突破(尾盘)买入'},

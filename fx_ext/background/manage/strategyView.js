@@ -29,6 +29,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyBuyZTBoard') {
             return new StrategyBuyZTBoardView(strategy);
         };
+        if (strategy.key == 'StrategyBuyDTBoard') {
+            return new StrategyBuyDTBoardView(strategy);
+        };
         if (strategy.key == 'StrategySellEL') {
             return new StrategySellELView(strategy);
         };
@@ -758,6 +761,17 @@ class StrategyBuyZTBoardView extends StrategyBaseView {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('打板买入'));
+        view.appendChild(this.createBuyAccountSelector());
+        return view;
+    }
+}
+
+class StrategyBuyDTBoardView extends StrategyBaseView {
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode('跌停开板买入，开盘不跌停则不操作，慎用！'));
+        view.appendChild(this.createPopbackInput('反弹幅度 '));
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }

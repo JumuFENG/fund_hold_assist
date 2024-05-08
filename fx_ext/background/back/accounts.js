@@ -99,7 +99,7 @@ class HistDealsClient extends DealsClient {
     }
 
     dateToString(dt, sep = '-') {
-        var dstr = dt.toISOString().split('T')[0];
+        var dstr = new Date(dt - dt.getTimezoneOffset()*60*1000).toISOString().split('T')[0];
         if (sep === '-') {
             return dstr;
         }
@@ -220,15 +220,30 @@ class AssetsClient {
     }
 
     GetAssets() {
+        // update assets and positions
+        this.queryAssetAndPosition(this.assetsCallback, this.positionCallback);
+    }
+
+    UpdateAssets() {
+        // update assets
+        this.queryAssetAndPosition(this.assetsCallback);
+    }
+
+    UpdatePosition() {
+        // update positions
+        this.queryAssetAndPosition(null, this.positionCallback);
+    }
+
+    queryAssetAndPosition(acb, pcb) {
         var url = jywgroot + 'Com/queryAssetAndPositionV1?validatekey=' + this.validateKey;
         var fd = new FormData();
         fd.append('moneyType', this.moneyType);
         xmlHttpPost(url, fd, null, response => {
-            this.onResponse(response);
+            this.onResponse(response, acb, pcb);
         });
     }
 
-    onResponse(response) {
+    onResponse(response, acb, pcb) {
         var assets = JSON.parse(response);
         if (assets.Status != 0 || assets.Errcode != 0) {
             emjyBack.log(response);
@@ -242,11 +257,11 @@ class AssetsClient {
                 }
             }
         }
-        if (typeof(this.assetsCallback) == 'function') {
-            this.assetsCallback(assetsInfo);
+        if (typeof(acb) == 'function') {
+            acb(assetsInfo);
         }
-        if (typeof(this.positionCallback) == 'function') {
-            this.positionCallback(data.positions);
+        if (typeof(pcb) == 'function') {
+            pcb(data.positions);
         }
     }
 }
@@ -257,13 +272,23 @@ class MarginAssetsClient extends AssetsClient {
     }
 
     GetAssets() {
+        // update assets and positions
+        this.UpdateAssets();
+        this.UpdatePosition();
+    }
+
+    UpdateAssets() {
+        // update assets
         var url = jywgroot + 'MarginSearch/GetRzrqAssets?validatekey=' + this.validateKey;
         var fd = new FormData();
         fd.append('hblx', this.moneyType);
         xmlHttpPost(url, fd, null, response => {
             this.onAssetsResponse(response);
         });
+    }
 
+    UpdatePosition() {
+        // update positions
         var slUrl = jywgroot + 'MarginSearch/GetStockList?validatekey=' + this.validateKey;
         xmlHttpPost(slUrl, new FormData(), null, response => {
             this.onStockListResponse(response);
@@ -292,8 +317,9 @@ class MarginAssetsClient extends AssetsClient {
 }
 
 class TradeClient {
-    constructor(validateKey) {
+    constructor(validateKey, amoney=0) {
         this.validateKey = validateKey;
+        this.availableMoney = amoney;
     }
 
     getUrl() {
@@ -391,6 +417,10 @@ class TradeClient {
     }
 
     doTrade(code, price, count, tradeType, jylx, cb) {
+        if (tradeType == 'B' && this.availableMoney - price * count < 0) {
+            emjyBack.log('doTrade no enough money', code, price * count, this.availableMoney, price, count);
+            return;
+        }
         emjyBack.log('doTrade', tradeType, code, price, count, jylx);
         xmlHttpPost(this.getUrl(), this.getFormData(code, price, count, tradeType, jylx), null, response => {
             var robj = JSON.parse(response);
@@ -400,6 +430,7 @@ class TradeClient {
             }
             if (robj.Data && robj.Data.length > 0) {
                 emjyBack.log(code, tradeType, 'Trade success! wtbh', robj.Data[0].Wtbh);
+                this.availableMoney -= tradeType == 'B' ? price * count : -(price * count);
                 if (typeof(cb) === 'function') {
                     cb({code, price, count, sid: robj.Data[0].Wtbh, type: tradeType});
                 }
@@ -427,6 +458,10 @@ class TradeClient {
     }
 
     trade(code, price, count, tradeType, jylx, cb) {
+        if (tradeType == 'B' && this.availableMoney < 1000) {
+            emjyBack.log('trade no enough money.', tradeType, code, price, count, jylx);
+            return;
+        }
         emjyBack.log('trade', tradeType, code, price, count, jylx);
         if (price == 0) {
             this.getRtPrice(code, pobj => {
@@ -466,8 +501,8 @@ class TradeClient {
 }
 
 class CollatTradeClient extends TradeClient {
-    constructor(validateKey) {
-        super(validateKey);
+    constructor(validateKey, amoney) {
+        super(validateKey, amoney);
         this.buy_jylx = '6';
         this.sell_jylx = '7';
     }
@@ -539,8 +574,8 @@ class CollatTradeClient extends TradeClient {
 }
 
 class CreditTradeClient extends CollatTradeClient {
-    constructor(validateKey) {
-        super(validateKey);
+    constructor(validateKey, amoney) {
+        super(validateKey, amoney);
         this.buy_jylx = 'a';
         this.sell_jylx = 'A';
     }
@@ -594,6 +629,7 @@ class NormalAccount extends Account {
         this.buyPath = '/Trade/Buy';
         this.sellPath = '/Trade/Sale';
         this.wallet = new Wallet();
+        this.availableMoney = 0;
     }
 
     loadWatchings() {
@@ -701,7 +737,7 @@ class NormalAccount extends Account {
     }
 
     createTradeClient() {
-        this.tradeClient = new TradeClient(emjyBack.validateKey);
+        this.tradeClient = new TradeClient(emjyBack.validateKey, this.availableMoney);
     }
 
     buyStock(code, price, count, cb) {
@@ -965,6 +1001,11 @@ class NormalAccount extends Account {
     onAssetsLoaded(assets) {
         this.pureAssets = parseFloat(assets.Zzc);
         this.availableMoney = parseFloat(assets.Kyzj);
+        if (!this.tradeClient) {
+            this.createTradeClient();
+        } else {
+            this.tradeClient.availableMoney = this.availableMoney;
+        }
     }
 
     parsePosition(position) {
@@ -1013,39 +1054,6 @@ class NormalAccount extends Account {
     }
 }
 
-class CreditAccount extends NormalAccount {
-    constructor() {
-        super();
-        this.keyword = 'credit';
-        this.buyPath = '/MarginTrade/MarginBuy';
-        this.sellPath = '/MarginTrade/FinanceSale';
-    }
-
-    createTradeClient() {
-        this.tradeClient = new CreditTradeClient(emjyBack.validateKey);
-    }
-
-    onAssetsLoaded(assets) {
-        this.pureAssets = 0;
-        this.availableMoney = parseFloat(assets.Bzjkys);
-    }
-
-    buyFundBeforeClose() {
-
-    }
-
-    loadDeals() {
-
-    }
-
-    loadHistDeals() {
-
-    }
-
-    loadAssets() {
-
-    }
-}
 
 class CollateralAccount extends NormalAccount {
     constructor() {
@@ -1056,7 +1064,7 @@ class CollateralAccount extends NormalAccount {
     }
 
     createTradeClient() {
-        this.tradeClient = new CollatTradeClient(emjyBack.validateKey);
+        this.tradeClient = new CollatTradeClient(emjyBack.validateKey, this.availableMoney);
     }
 
     buyFundBeforeClose() {
@@ -1105,7 +1113,7 @@ class CollateralAccount extends NormalAccount {
         sxlclt.GetNext();
     }
 
-    loadAssets(cb) {
+    loadAssets(updateposition, cb) {
         if (!emjyBack.validateKey) {
             emjyBack.log('no validateKey');
             return;
@@ -1116,7 +1124,11 @@ class CollateralAccount extends NormalAccount {
         }, positions => {
             this.onPositionsLoaded(positions);
         });
-        astClient.GetAssets();
+        if (updateposition) {
+            astClient.GetAssets();
+        } else {
+            astClient.UpdateAssets();
+        }
     }
 
     onAssetsLoaded(assets) {
@@ -1124,6 +1136,11 @@ class CollateralAccount extends NormalAccount {
         this.availableMoney = parseFloat(assets.Zjkys);
         if (typeof(this.assetsCallback) == 'function') {
             this.assetsCallback(assets);
+        }
+        if (!this.tradeClient) {
+            this.createTradeClient();
+        } else {
+            this.tradeClient.availableMoney = this.availableMoney;
         }
     }
 
@@ -1136,4 +1153,56 @@ class CollateralAccount extends NormalAccount {
         var latestPrice = position.Zxjg;
         return {code, name, holdCount, holdCost, availableCount, latestPrice};
     }
+
+    buyStock(code, price, count, cb) {
+        super.buyStock(code, price, count, bd => {
+            if (typeof(cb) === 'function') {
+                cb(bd);
+            }
+            if (bd) {
+                emjyBack.collateralAccount.loadAssets(false, assets => {emjyBack.creditAccount.onAssetsLoaded(assets);});
+            }
+        });
+    }
+
+    sellStock(code, price, count, cb) {
+        super.sellStock(code, price, count, bd => {
+            if (typeof(cb) === 'function') {
+                cb(bd);
+            }
+            if (bd) {
+                emjyBack.collateralAccount.loadAssets(false, assets => {emjyBack.creditAccount.onAssetsLoaded(assets);});
+            }
+        });
+    }
+}
+
+class CreditAccount extends CollateralAccount {
+    constructor() {
+        super();
+        this.keyword = 'credit';
+        this.buyPath = '/MarginTrade/MarginBuy';
+        this.sellPath = '/MarginTrade/FinanceSale';
+    }
+
+    createTradeClient() {
+        this.tradeClient = new CreditTradeClient(emjyBack.validateKey, this.availableMoney);
+    }
+
+    onAssetsLoaded(assets) {
+        this.pureAssets = 0;
+        this.availableMoney = parseFloat(assets.Bzjkys);
+        if (!this.tradeClient) {
+            this.createTradeClient();
+        } else {
+            this.tradeClient.availableMoney = this.availableMoney;
+        }
+    }
+
+    buyFundBeforeClose() { }
+    loadDeals() { }
+    loadOtherDeals() {}
+    loadHistDeals() { }
+    loadAssets() {}
+    parsePosition() { }
 }

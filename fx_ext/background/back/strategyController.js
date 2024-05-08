@@ -29,6 +29,9 @@ class StrategyManager {
         if (strategy.key == 'StrategyBuyZTBoard') {
             return new StrategyBuyZTBoard(strategy);
         };
+        if (strategy.key == 'StrategyBuyDTBoard') {
+            return new StrategyBuyDTBoard(strategy);
+        };
         if (strategy.key == 'StrategySellEL') {
             return new StrategySellEL(strategy);
         };
@@ -706,6 +709,7 @@ class StrategyBuyIPO extends StrategyBuy {
             return;
         }
 
+        var rtInfo = chkInfo.rtInfo;
         var price = rtInfo.latestPrice;
         var topprice = rtInfo.topprice;
         if (!this.data.inCritical) {
@@ -827,6 +831,35 @@ class StrategyBuyZTBoard extends StrategyBuy {
                 delete(this.tmpbuyonzt);
             });
         };
+    }
+}
+
+class StrategyBuyDTBoard extends StrategyBuy {
+    guardLevel() {
+        return 'rtp';
+    }
+
+    check(chkInfo, matchCb) {
+        if (!this.enabled() || typeof(matchCb) !== 'function') {
+            return;
+        }
+
+        var rtInfo = chkInfo.rtInfo;
+        var price = rtInfo.latestPrice;
+        var bottomprice = rtInfo.bottomPrice;
+        if (rtInfo.openPrice - bottomprice > 0) {
+            this.setEnabled(false);
+            return;
+        }
+        if (!this.data.backRate) {
+            this.data.backRate = 0;
+        }
+        if (price - bottomprice * (1 + this.data.backRate) >= 0) {
+            matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: (rtInfo.buysells.sale2 == '-' ? rtInfo.topprice : rtInfo.buysells.sale2)}, _ => {
+                this.setEnabled(false);
+            });
+            return;
+        }
     }
 }
 

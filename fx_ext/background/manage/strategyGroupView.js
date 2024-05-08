@@ -247,7 +247,7 @@ class StrategyGroupView {
         if (this.strGrp.buydetail && this.strGrp.buydetail.length > 0) {
             var detailDiv = document.createElement('div');
             detailDiv.style.maxHeight = 100;
-            detailDiv.style.maxWidth = 350;
+            detailDiv.style.maxWidth = 420;
             detailDiv.style.overflowY = 'auto';
             var createCell = function(t, w) {
                 var c = document.createElement('div');
@@ -263,7 +263,7 @@ class StrategyGroupView {
                 var r = document.createElement('div');
                 r.style.display = 'flex';
                 r.appendChild(createCell(d.count, 50));
-                r.appendChild(createCell(d.date, 80));
+                r.appendChild(createCell(d.date, 150));
                 r.appendChild(createCell(d.type, 30));
                 r.appendChild(createCell((d.price * d.count).toFixed(2), 70));
                 r.appendChild(createCell(parseFloat(d.price), 70));

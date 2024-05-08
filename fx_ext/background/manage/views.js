@@ -81,7 +81,7 @@ class Utils {
     }
 
     dateToString(dt, sep = '') {
-        var dstr = dt.toISOString().split('T')[0];
+        var dstr = new Date(dt - dt.getTimezoneOffset()*60*1000).toISOString().split('T')[0];
         if (sep === '-') {
             return dstr;
         }

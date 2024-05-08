@@ -551,7 +551,7 @@ class RepaymentClient {
             if (total > robj.Data.Zjkys - 0.1) {
                 var dateval = (new Date()).getDate();
                 if (dateval > 25 || dateval < 5) {
-                    payAmount = (robj.Data.Zjkys - robj.Data.Rzxf - robj.Data.Rqxf);
+                    payAmount = (robj.Data.Zjkys - robj.Data.Rzxf - robj.Data.Rqxf - robj.Data.Rzxf);
                 } else {
                     payAmount = (robj.Data.Zjkys - 0.11).toFixed(2);
                 }

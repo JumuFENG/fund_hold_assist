@@ -80,7 +80,8 @@ class TestTradeClient extends TradeClient {
         } else {
             var time = this.bindingAccount.tradeTime;
             if (!time) {
-                time = emjyBack.getTodayDate('-');
+                var dt = new Date();
+                time = (new Date(dt - dt.getTimezoneOffset()*60*1000)).toISOString().split('.')[0].replace('T', ' ');
             }
             var sid = this.bindingAccount.sid;
             this.bindingAccount.addDeal(code, price, count, tradeType);
@@ -116,6 +117,7 @@ class TrackingAccount extends NormalAccount {
     }
 
     loadAssets() {
+        var loadhour = new Date().getHours();
         var watchingStorageKey = this.keyword + '_watchings';
         emjyBack.getFromLocal(watchingStorageKey, watchings => {
             emjyBack.log('get watching_stocks', JSON.stringify(watchings));
@@ -127,6 +129,22 @@ class TrackingAccount extends NormalAccount {
                         if (str) {
                             this.applyStrategy(s, JSON.parse(str));
                             var stockInfo = this.stocks.find(function(stocki) {return s == stocki.code});
+                            if (loadhour > 16) {
+                                for (var rec of stockInfo.strategies.buydetail.records) {
+                                    if (rec.date.includes(':')) {
+                                        var rdate = rec.date.split(' ')[0];
+                                        var kl = emjyBack.klines[stockInfo.code].getKlineByTime(rdate);
+                                        if (kl) {
+                                            if (rec.date < rdate + ' ' + '09:30') {
+                                                rec.price = kl.o;
+                                            } else if (rec.date > rdate + ' ' + '14:57') {
+                                                rec.price = kl.c;
+                                            }
+                                            rec.date = rdate;
+                                        }
+                                    }
+                                }
+                            }
                             stockInfo.holdCount = stockInfo.strategies.buydetail.totalCount();
                             stockInfo.holdCost = (stockInfo.strategies.buydetail.averPrice()).toFixed(2);
                         };
@@ -169,24 +187,51 @@ class TrackingAccount extends NormalAccount {
         this.tradeClient = new TestTradeClient(this);
     }
 
+    addBuyDetail(record) {
+        var stock = this.stocks.find(s => s.code == record.code);
+        if (stock) {
+            stock.strategies.buydetail.addBuyDetail(record);
+        };
+    }
+
     buyStock(code, price, count, cb) {
         if (!this.tradeClient) {
             this.createTradeClient();
         }
 
-        var stock = this.stocks.find(s => {return s.code == code;});
+        var stock = this.stocks.find(s => s.code == code);
         if (!stock) {
             this.addWatchStock(code);
+            this.applyStrategy(code, {grptype: 'GroupStandard', strategies: {'0': {key: 'StrategySellELS', enabled: false, cutselltype: 'all', selltype: 'all'}}, transfers: {'0': {transfer: '-1'}}, amount: '5000'});
         };
 
         if (price == 0) {
             this.tradeClient.getRtPrice(code, pobj => {
                 var p = pobj.cp;
-                this.tradeClient.buy(code, p, count, cb);
+                this.tradeClient.buy(code, p, count, r => {
+                    if (typeof(cb) === 'function') {
+                        cb(r);
+                    } else {
+                        this.addBuyDetail(r);
+                    }
+                });
             });
             return;
         }
-        this.tradeClient.buy(code, price, count, cb);
+        this.tradeClient.buy(code, price, count, r => {
+            if (typeof(cb) === 'function') {
+                cb(r);
+            } else {
+                this.addBuyDetail(r);
+            }
+        });
+    }
+
+    addSellDetail(record) {
+        var stock = this.stocks.find(s => s.code === record.code);
+        if (stock) {
+            stock.strategies.buydetail.addSellDetail(record);
+        }
     }
 
     sellStock(code, price, count, cb) {
@@ -196,22 +241,28 @@ class TrackingAccount extends NormalAccount {
         if (price == 0) {
             this.tradeClient.getRtPrice(code, pobj => {
                 var p = pobj.cp;
-                this.tradeClient.sell(code, p, count, cb);
+                this.tradeClient.sell(code, p, count, r => {
+                    if (typeof(cb) === 'function') {
+                        cb(r);
+                    } else {
+                        this.addSellDetail(r);
+                    }
+                });
             });
             return;
         }
-        this.tradeClient.sell(code, price, count, cb);
+        this.tradeClient.sell(code, price, count,r => {
+            if (typeof(cb) === 'function') {
+                cb(r);
+            } else {
+                this.addSellDetail(r);
+            }
+        });
     }
 
     removeStock(code) {
         super.removeStock(code);
-        while (true) {
-            var ic = this.deals.findIndex(s => {return s.code == code;});
-            if (ic == -1) {
-                break;
-            };
-            this.deals.splice(ic, 1);
-        }
+        this.deals = this.deals.filter( s => s.code !== code);
     }
 
     save() {
