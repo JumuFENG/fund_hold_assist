@@ -195,7 +195,7 @@ class DailyUpdater():
             StockDztSelector(), StockZt1Selector(), StockCentsSelector(),
             StockMaConvergenceSelector(), StockZdfRanks(), StockZtLeadingSelector(),
             StockZtLeadingSelectorST(), StockDztStSelector(), StockDztBoardSelector(), StockDztStBoardSelector(),
-            StockZt1BreakupSelector(), StockLShapeSelector()]
+            StockZt1BreakupSelector(), StockZt1j2Selector(), StockLShapeSelector()]
         for sel in selectors:
             Utils.log(f'update { sel.__class__.__name__}')
             sel.updatePickUps()
@@ -224,5 +224,5 @@ class DailyUpdater():
 
 if __name__ == '__main__':
     du = DailyUpdater()
-    # du.update_all()
-    du.update_fixzdt()
+    du.update_all()
+    # du.update_fixzdt()

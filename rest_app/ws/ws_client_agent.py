@@ -33,8 +33,12 @@ class WsClientAgent:
             strategy = message.get('strategy')
             account = message.get('account')
             amount = message.get('amount')
-            self.intrade_strategies[strategy] = {'account': account, 'amount': amount}
-            Utils.log(json.dumps(self.intrade_strategies))
+            subscribe_detail = {'account': account, 'amount': amount}
+            amtkey = message.get('amtkey')
+            if amtkey:
+                subscribe_detail['amtkey'] = amtkey
+            self.intrade_strategies[strategy] = subscribe_detail
+            Utils.log(f'subscribe {strategy} {json.dumps(subscribe_detail)}')
 
     def is_watching(self, code, period):
         for stock in self.watch_stocks:
@@ -44,9 +48,12 @@ class WsClientAgent:
 
     def get_subscription(self, ikey):
         if ikey not in self.intrade_strategies.keys():
-            Utils.log(f'{ikey} is not in {json.dumps(self.intrade_strategies)}')
+            Utils.log(f'{ikey} not subscribed.')
             return
 
-        account = self.intrade_strategies[ikey]['account'] if 'account' in self.intrade_strategies[ikey] else 'normal'
-        amount = self.intrade_strategies[ikey]['amount'] if 'amount' in self.intrade_strategies[ikey] else 10000
-        return {'account': account, 'amount': amount}
+        subscribe_detail = {}
+        for k,v in self.intrade_strategies[ikey].items():
+            subscribe_detail[k] = v
+        if 'amount' not in subscribe_detail:
+            subscribe_detail['amount'] = 10000
+        return subscribe_detail

@@ -20,6 +20,8 @@ def stock_market_opening_task():
         return
     sauc = StockAuction()
     sauc.update_daily_auctions()
+    shr = StockHotRank()
+    shr.getNext()
 
 
 if __name__ == '__main__':

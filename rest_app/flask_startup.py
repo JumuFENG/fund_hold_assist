@@ -305,6 +305,13 @@ def stock():
             szbs = StockZt1BreakupSelector()
             szbs.setCandidates(date, stks)
             return 'OK', 200
+        if actype == 'select_zt1j2':
+            date = request.form.get('date')
+            stks = request.form.get('stocks')
+            stks = stks.split(',')
+            szs = StockZt1j2Selector()
+            szs.setCandidates(date, stks)
+            return 'OK', 200
     else:
         actype = request.args.get("act", type=str, default=None)
         if actype == 'test':
@@ -341,6 +348,9 @@ def stock():
             if key == 'zt1':
                 szi = StockZtDailyMain()
                 zt = szi.dumpDataByDate(date)
+                szi = StockZtDailyKcCy()
+                ztkc = szi.dumpDataByDate(zt['date'])
+                zt['pool'] += ztkc['pool']
                 return json.dumps(zt)
             if key == 'zt1_1':
                 szi = StockZtDailyMain()

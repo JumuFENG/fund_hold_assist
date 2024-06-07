@@ -55,7 +55,7 @@ class TimerTask:
             all_completed = all(task.completed for task in tasks)
             if all_completed:
                 if self.logger is not None:
-                    self.logger.info(f'All tasks completed.')
+                    self.logger.info(f'All tasks completed.\n')
                     for hdlr in self.logger.handlers:
                         hdlr.flush()
                 break

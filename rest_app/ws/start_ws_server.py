@@ -46,7 +46,7 @@ class WsClientManager:
                 msg = istr_message_creator(match_data, subscribe_detail)
                 if msg:
                     await wsagent.websocket.send(json.dumps(msg))
-                    Utils.log(f'send {match_data}, {subscribe_detail}')
+                    Utils.log(f'send {match_data}, {subscribe_detail}, {ikey}')
 
 
 def get_realtime_data(code):
