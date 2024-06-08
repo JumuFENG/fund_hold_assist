@@ -179,7 +179,7 @@ class UserDealsPanel extends RadioAnchorPage {
             console.error('user/password not set!');
             return;
         }
-        var url = emjyBack.fha.server + 'stock?act=archivedcodes&since=' + utils.dateToString(new Date() - 7 * 24 * 60 * 60 * 1000);
+        var url = emjyBack.fha.server + 'stock?act=archivedcodes&since=' + utils.dateToString(new Date(new Date() - 7 * 24 * 60 * 60 * 1000), '-');
         var header = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
         utils.get(url, header, rsp => {
             this.curWkSold = JSON.parse(rsp);

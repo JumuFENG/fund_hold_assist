@@ -77,6 +77,48 @@ class StkSelector {
         }
     }
 
+    createCandidateToolbar() {
+        if (!this.selStocks || !this.toolbar) {
+            return;
+        }
+
+        var btnCandidate = document.createElement('button');
+        btnCandidate.textContent = '设置预选';
+        btnCandidate.onclick = e => {
+            if (this.filteredStks.length <= 0) {
+                return;
+            }
+            var codes = [];
+            var stocks = this.selStocks.pool ? this.selStocks.pool : this.selStocks;
+            for (const c of this.filteredStks) {
+                for (var i = 0; i < stocks.length; i ++) {
+                    if (stocks[i][0].endsWith(c)) {
+                        codes.push(stocks[i][0]);
+                        break;
+                    }
+                }
+            }
+            var url = emjyBack.fha.server + 'stock';
+            var act = this.candidatesAction();
+            var fd = new FormData();
+            fd.append('act', act);
+            fd.append('date', this.ztdate);
+            fd.append('stocks', Array.from(codes).join(','));
+            utils.post(url, fd, null, c => {
+                if (c != 'OK') {
+                    console.error('set candidates error!');
+                } else {
+                    console.log('set candidates success!');
+                }
+            });
+        }
+        this.toolbar.appendChild(btnCandidate);
+    }
+
+    candidatesAction() {
+        return ''
+    }
+
     showToolbar() {}
 
     makeStrategyGrp(code, strategies, transfers, amount, gmeta=null) {
@@ -128,9 +170,17 @@ class Zt1Selector extends StkSelector {
         });
     }
 
+    showToolbar() {
+        this.createCandidateToolbar();
+    }
+
+    candidatesAction() {
+        return 'select_zt1j2';
+    }
+
     doShowSelected() {
         var table = this.stkTable;
-        table.setClickableHeader('序号', '日期', '名称(代码)', '板块', '涨停概念', this.chkbxSelectAll);
+        table.setClickableHeader('序号', '日期', '名称', '代码', '板块', '涨停概念', this.chkbxSelectAll);
         var date = this.selStocks.date;
         this.ztdate = date;
         var n = 1;
@@ -144,6 +194,7 @@ class Zt1Selector extends StkSelector {
                 n++,
                 date,
                 anchor,
+                code,
                 stocki[1],
                 cpts,
                 sel
@@ -393,40 +444,11 @@ class Zt1BrkSelector extends StkSelector {
     }
 
     showToolbar() {
-        if (!this.selStocks || !this.toolbar) {
-            return;
-        }
+        this.createCandidateToolbar();
+    }
 
-        var btnCandidate = document.createElement('button');
-        btnCandidate.textContent = '设置预选';
-        btnCandidate.onclick = e => {
-            var date = this.ztdate;
-            if (this.filteredStks.length <= 0) {
-                return;
-            }
-            var codes = [];
-            for (const c of this.filteredStks) {
-                for (var i = 0; i < this.selStocks.length; i ++) {
-                    if (this.selStocks[i][0].endsWith(c)) {
-                        codes.push(this.selStocks[i][0]);
-                        break;
-                    }
-                }
-            }
-            var url = emjyBack.fha.server + 'stock';
-            var fd = new FormData();
-            fd.append('act', 'select_zt1_brk');
-            fd.append('date', date);
-            fd.append('stocks', Array.from(codes).join(','));
-            utils.post(url, fd, null, c => {
-                if (c != 'OK') {
-                    console.error('set candidates error!');
-                } else {
-                    console.log('set candidates success!');
-                }
-            });
-        }
-        this.toolbar.appendChild(btnCandidate);
+    candidatesAction() {
+        return 'select_zt1_brk';
     }
 
     doShowSelected() {
@@ -725,6 +747,9 @@ class StkSelectorsPanelPage extends RadioAnchorPage {
         var stks = [];
         for (const stksObj of selector.filteredStks) {
             stks.push(stksObj + '\n');
+        }
+        if (!this.ztdate) {
+            this.ztdate = selector.ztdate;
         }
         emjyBack.saveToFile(stks, 'stkexp_' + selector.saveName() + '_' + this.ztdate + '.txt' );
     }

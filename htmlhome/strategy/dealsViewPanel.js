@@ -23,6 +23,11 @@ class DealsEarningLineChart {
     }
 
     showDealsByTime(deals) {
+        for (var dl of deals) {
+            if (dl.time.includes(' ')) {
+                dl.time = dl.time.split(' ')[0];
+            }
+        }
         var sortdeals = deals.sort((a,b) => {
             if (a.time == b.time) {
                 return a.code > b.code;
