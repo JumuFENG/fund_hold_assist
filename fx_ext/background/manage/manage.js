@@ -46,6 +46,7 @@ class Manager {
         this.getFromLocal('hsj_stocks', smkt => {
             this.stockMarket = smkt;
             this.sendExtensionMessage({command: 'mngr.init'});
+            this.sendExtensionMessage({command: 'mngr.costdog'});
         });
         this.getFromLocal('fha_server', fs => {
             this.fha = fs;
@@ -76,6 +77,10 @@ class Manager {
                 this.klines[code].parseKlVars();
                 this.stockList.updateStockPrice(code);
             }
+        } else if (message.command == 'mngr.costdog') {
+            this.costDogView.init(message.costdog);
+            this.stockList.addCostDogFilterOptions();
+            this.trackList.addCostDogFilterOptions();
         } else {
             this.taskMgr.handleMessage(message);
         }
@@ -355,6 +360,10 @@ class Manager {
             this.trackList = new TrackStockListPanelPage();
         }
 
+        if (!this.costDogView) {
+            this.costDogView = new CostDogPanelPage();
+        }
+
         this.page.setupNavigators();
     }
 
@@ -606,11 +615,14 @@ class ManagerPage {
         this.navigator.addRadio(emjyBack.trackList);
         this.root.appendChild(emjyBack.trackList.container);
 
-        var strategyIPage = new StrategyIntradingPanelPage('盘中策略');
+        var strategyIPage = new StrategyIntradingPanelPage();
         this.navigator.addRadio(strategyIPage);
         this.root.appendChild(strategyIPage.container);
 
-        var settingsPage = new SettingsPanelPage('设置');
+        this.navigator.addRadio(emjyBack.costDogView);
+        this.root.appendChild(emjyBack.costDogView.container);
+
+        var settingsPage = new SettingsPanelPage();
         this.navigator.addRadio(settingsPage);
         this.root.appendChild(settingsPage.container);
 

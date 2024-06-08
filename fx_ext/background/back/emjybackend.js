@@ -3,6 +3,7 @@ let emjyBack = null;
 let NewStockPurchasePath = '/Trade/NewBatBuy';
 let NewBondsPurchasePath = '/Trade/XzsgBatPurchase';
 let mktDict = {'SH': 1, 'SZ': 0, 'BJ': 4}
+let holdAccountKey = {'credit': 'collat', 'collat': 'collat', 'normal': 'normal', 'track': 'track'};
 
 class ManagerBack {
     constructor() {
@@ -37,6 +38,9 @@ class ManagerBack {
             });
             delete(emjyBack.mgrFetched)
         }
+        if (emjyBack.costDog) {
+            emjyBack.costDog.save();
+        }
         clearTimeout(this.mgrChangedTimeout);
         emjyBack.log('manager saved');
         this.mgrChangedTimeout = null;
@@ -56,13 +60,13 @@ class ManagerBack {
         } else if (message.command == 'mngr.import') {
             emjyBack.importConfig(message.config);
         } else if (message.command == 'mngr.strategy') {
-            emjyBack.applyStrategy(message.account, message.code, message.strategies);
+            emjyBack.all_accounts[message.account].applyStrategy(message.code, message.strategies);
             this.startChangedTimeout();
         } else if (message.command =='mngr.strategy.rmv') {
-            emjyBack.removeStockStrategy(message.account, message.code, message.stype);
+            emjyBack.all_accounts[message.account].removeStrategy(message.code, message.stype);
             this.startChangedTimeout();
         } else if (message.command == 'mngr.addwatch') {
-            emjyBack.addWatchStock(message.account, message.code, message.strategies);
+            emjyBack.all_accounts[message.account].addWatchStock(message.code, message.strategies);
             this.startChangedTimeout();
         } else if (message.command == 'mngr.rmwatch') {
             emjyBack.removeStock(message.account, message.code);
@@ -84,7 +88,22 @@ class ManagerBack {
             this.startChangedTimeout();
         } else if (message.command == 'mngr.saveFile') {
             emjyBack.saveToFile(message.blob, message.filename);
-        };
+        } else if (message.command == 'mngr.costdog') {
+            this.sendManagerMessage({command:'mngr.costdog', 'costdog': Object.values(emjyBack.costDog.dogdic)});
+        } else if (message.command === 'mngr.costdog.add') {
+            var cdo = message.cdo;
+            emjyBack.costDog.dogdic[cdo.key] = cdo;
+            this.startChangedTimeout();
+        } else if (message.command === 'mngr.costdog.delete') {
+            delete(emjyBack.costDog.dogdic[message.cikey]);
+            this.startChangedTimeout();
+        } else if (message.command === 'mngr.costdog.changed') {
+            var cdo = message.cdo;
+            for (const c of ['amount', 'max_amount', 'expect_earn_rate']) {
+                emjyBack.costDog.dogdic[cdo.key][c] = cdo[c];
+            }
+            this.startChangedTimeout();
+        }
     }
 
     sendManagerMessage(message) {
@@ -179,6 +198,11 @@ class EmjyBack {
         this.collateralAccount = new CollateralAccount();
         this.creditAccount = new CreditAccount();
         this.trackAccount = new TrackingAccount();
+        this.all_accounts = {};
+        this.all_accounts[this.normalAccount.keyword] = this.normalAccount;
+        this.all_accounts[this.collateralAccount.keyword] = this.collateralAccount;
+        this.all_accounts[this.creditAccount.keyword] = this.creditAccount;
+        this.all_accounts[this.trackAccount.keyword] = this.trackAccount;
         this.getFromLocal('hsj_stocks', hsj => {
             if (hsj) {
                 this.stockMarket = hsj;
@@ -200,6 +224,9 @@ class EmjyBack {
         });
         this.getFromLocal('purchase_new_stocks', pns => {
             this.purchaseNewStocks = pns;
+        });
+        this.getFromLocal('cost_dog', cd => {
+            this.costDog = new CostDog(cd);
         });
         this.setupQuoteAlarms();
         this.log('EmjyBack initialized!');
@@ -408,7 +435,7 @@ class EmjyBack {
         } else if (message.command == 'emjy.trade') {
             this.log('trade message: result =', message.result, ', what =', message.what);
         } else if (message.command == 'emjy.addwatch') {
-            this.addWatchStock(message.account, message.code, message.strategies);
+            this.all_accounts[message.account].addWatchStock(message.code, message.strategies);
             this.log('content add watch stock', message.account, message.code);
         } else if (message.command == 'emjy.save') {
             this.normalAccount.save();
@@ -505,7 +532,11 @@ class EmjyBack {
                 for (const rkey of keys_received) {
                     emjyBack.getFromLocal('itstrategy_' + rkey, istr => {
                         if (istr && istr.enabled) {
-                            emjyBack.sendWebsocketMessage({action: 'subscribe', strategy: istr.key, account: istr.account, amount: istr.amount});
+                            var subjson = {action: 'subscribe', strategy: istr.key, account: istr.account, amount: istr.amount};
+                            if (istr.amtkey) {
+                                subjson.amtkey = istr.amtkey;
+                            }
+                            emjyBack.sendWebsocketMessage(subjson);
                         }
                     });
                 }
@@ -515,12 +546,26 @@ class EmjyBack {
         if (wsmsg.type == 'intrade_buy') {
             this.log(message.data);
             this.log(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account);
-            this.tryBuyStock(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account);
+            if (!wsmsg.account) {
+                this.checkRzrq(wsmsg.code, rzrq => {
+                    var account = rzrq.Status == -1 ? 'normal' : 'credit';
+                    this.buyWithAccount(wsmsg.code, wsmsg.price, wsmsg.count, account, wsmsg.strategies);
+                });
+            } else {
+                this.buyWithAccount(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account, wsmsg.strategies);
+            }
             return;
         }
         if (wsmsg.type == 'intrade_addwatch') {
             this.log(message.data);
-            this.addWatchStock(wsmsg.account, wsmsg.code, wsmsg.strategies);
+            if (!wsmsg.account) {
+                this.checkRzrq(message.code, rzrq => {
+                    var account = rzrq.Status == -1 ? 'normal' : 'collat';
+                    this.all_accounts[account].addWatchStock(wsmsg.code, wsmsg.strategies);
+                });
+            } else {
+                this.all_accounts[wsmsg.account].addWatchStock(wsmsg.code, wsmsg.strategies);
+            }
             return;
         }
         console.log(wsmsg);
@@ -528,7 +573,7 @@ class EmjyBack {
 
     loadAssets() {
         this.normalAccount.loadAssets();
-        this.collateralAccount.loadAssets(true, assets => {this.creditAccount.onAssetsLoaded(assets);});
+        this.collateralAccount.loadAssets();
     }
 
     refreshAssets() {
@@ -639,6 +684,10 @@ class EmjyBack {
             var feeYh = deali.Yhs;
             var feeGh = deali.Ghf;
             var sid = deali.Wtbh;
+            if (count - 0 <= 0) {
+                this.log('invalid count', deali);
+                continue;
+            }
             fetchedDeals.push({time, sid, code, tradeType, price, count, fee, feeYh, feeGh});
         }
 
@@ -906,43 +955,65 @@ class EmjyBack {
     }
 
     trySellStock(code, price, count, account, cb) {
-        var sellAccount = this.normalAccount;
-        if (account) {
-            if (account == this.normalAccount.keyword) {
-                sellAccount = this.normalAccount;
-            } else if (account == this.collateralAccount.keyword) {
-                sellAccount = this.collateralAccount;
-            } else if (account == this.creditAccount.keyword) {
-                sellAccount = this.creditAccount;
-            } else if (account == this.trackAccount.keyword) {
-                sellAccount = this.trackAccount;
-            } else {
-                this.log('Error, no valid account', account);
-                return;
-            }
-        };
-
-        sellAccount.sellStock(code, price, count, cb);
+        if (account in this.all_accounts) {
+            this.all_accounts[account].sellStock(code, price, count, sd => {
+                var holdacc = holdAccountKey[account];
+                var stk = this.all_accounts[holdacc].getStock(code);
+                if (stk) {
+                    if (!stk.strategies) {
+                        this.all_accounts[holdacc].applyStrategy(code, {grptype: 'GroupStandard', strategies: {'0': {key: 'StrategySellELS', enabled: false, cutselltype: 'all', selltype: 'all'}}, transfers: {'0': {transfer: '-1'}}, amount: '5000'});
+                    }
+                    stk.strategies.buydetail.addSellDetail(sd);
+                }
+                if (typeof(cb) === 'function') {
+                    cb(sd);
+                }
+            });
+        } else {
+            this.log('Error, no valid account', account);
+        }
     }
 
     tryBuyStock(code, price, count, account, cb) {
-        var buyAccount = this.normalAccount;
-        if (account) {
-            if (account == this.normalAccount.keyword) {
-                buyAccount = this.normalAccount;
-            } else if (account == this.collateralAccount.keyword) {
-                buyAccount = this.collateralAccount;
-            } else if (account == this.creditAccount.keyword) {
-                buyAccount = this.creditAccount;
-            } else if (account == this.trackAccount.keyword) {
-                buyAccount = this.trackAccount;
-            } else {
-                this.log('Error, no valid account', account);
-                return;
-            }
-        };
+        if (account in this.all_accounts) {
+            this.all_accounts[account].buyStock(code, price, count, bd => {
+                var holdacc = holdAccountKey[account];
+                var stk = this.all_accounts[holdacc].getStock(code);
+                var strgrp = {};
+                if (!stk) {
+                    this.all_accounts[holdacc].addWatchStock(code, strgrp);
+                    stk = this.all_accounts[holdacc].getStock(code);
+                }
+                if (stk) {
+                    if (!stk.strategies) {
+                        this.all_accounts[holdacc].addStockStrategy(stk, strgrp);
+                    }
+                    stk.strategies.buydetail.addBuyDetail(bd);
+                }
+                if (typeof(cb) === 'function') {
+                    cb(bd);
+                }
+            });
+        } else {
+            this.log('Error, no valid account', account);
+        }
+    }
 
-        buyAccount.buyStock(code, price, count, cb);
+    buyWithAccount(code, price, count, account, strategies) {
+        var holdacc = holdAccountKey[account];
+        if (strategies) {
+            this.all_accounts[holdacc].addWatchStock(code, strategies);
+        }
+        if (!count) {
+            var stk = this.all_accounts[holdacc].getStock(code);
+            if (stk) {
+                count = stk.strategies.getBuyCount(price);
+            }
+            if (count * price - this.all_accounts[account].availableMoney > 0) {
+                count = this.calcBuyCount(this.all_accounts[account].availableMoney, price);
+            }
+        }
+        this.tryBuyStock(code, price, count, account);
     }
 
     applyKlVars(code, klvars) {
@@ -1123,47 +1194,10 @@ class EmjyBack {
         this.trackAccount.updateStockRtKline(code, updatedKlt);
     }
 
-    applyStrategy(account, code, str) {
-        this.log('applyStrategy', account, code, JSON.stringify(str));
-        if (account == this.normalAccount.keyword) {
-            this.normalAccount.applyStrategy(code, str);
-        } else if (account == this.collateralAccount.keyword) {
-            this.collateralAccount.applyStrategy(code, str);
-        } else if (account == this.trackAccount.keyword) {
-            this.trackAccount.applyStrategy(code, str);
-        }
-    }
-
-    removeStockStrategy(account, code, stype) {
-        if (account == this.normalAccount.keyword) {
-            this.normalAccount.removeStrategy(code, stype);
-        } else if (account == this.collateralAccount.keyword) {
-            this.collateralAccount.removeStrategy(code, stype);
-        } else if (account == this.trackAccount.keyword) {
-            this.trackAccount.removeStrategy(code, stype);
-        }
-    }
-
-    addWatchStock(account, code, str) {
-        if (account == this.normalAccount.keyword) {
-            this.normalAccount.addWatchStock(code, str);
-        } else if (account == this.collateralAccount.keyword) {
-            this.collateralAccount.addWatchStock(code, str);
-        } else if (account == this.trackAccount.keyword) {
-            this.trackAccount.addWatchStock(code, str);
-        }
-    }
-
     removeStock(account, code) {
         this.rtpTimer.removeStock(code);
         this.ztBoardTimer.removeStock(code);
-        if (account == this.normalAccount.keyword) {
-            this.normalAccount.removeStock(code);
-        } else if (account == this.collateralAccount.keyword) {
-            this.collateralAccount.removeStock(code);
-        } else if (account == this.trackAccount.keyword) {
-            this.trackAccount.removeStock(code);
-        }
+        this.all_accounts[account].removeStock(code);
     }
 
     fetchStockSnapshot(code) {
@@ -1343,6 +1377,9 @@ class EmjyBack {
             this.normalAccount.save();
             this.collateralAccount.save();
             this.trackAccount.save();
+            if (this.costDog) {
+                this.costDog.save();
+            }
             for (const c in this.klines) {
                 this.klines[c].save();
             }

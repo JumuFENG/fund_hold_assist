@@ -171,6 +171,10 @@ class StockListPanelPage extends RadioAnchorPage {
         ];
     }
 
+    getCostDogFilterItems() {
+        return emjyBack.costDogView ? emjyBack.costDogView.cikeys : new Set();
+    }
+
     isBuystrJson(str) {
         var cskid = ComplexStrategyKeyNames.findIndex(x => x.key == str.key);
         return str.key.includes('Buy') || cskid != -1;
@@ -265,19 +269,31 @@ class StockListPanelPage extends RadioAnchorPage {
                 if (!stocki.strategies) {
                     continue;
                 }
-                for (const k in stocki.strategies.strategies) {
-                    const str = stocki.strategies.strategies[k];
-                    if (str.key == fid) {
+                if (this.getCostDogFilterItems().has(fid)) {
+                    if (stocki.strategies.uramount && stocki.strategies.uramount.key == fid) {
                         this.stocks[i].container.style.display = 'block';
-                        break;
+                    }
+                } else {
+                    for (const k in stocki.strategies.strategies) {
+                        const str = stocki.strategies.strategies[k];
+                        if (str.key == fid) {
+                            this.stocks[i].container.style.display = 'block';
+                            break;
+                        }
                     }
                 }
             }
         }
         if (typeof(fid) === 'string') {
             this.selectionFilter.selectedIndex = -1;
+            if (this.getCostDogFilterItems().has(fid)) {
+                this.strategyFilter.selectedIndex = -1;
+            } else {
+                this.costDogFilter.selectedIndex = -1;
+            }
         } else {
             this.strategyFilter.selectedIndex = -1;
+            this.costDogFilter.selectedIndex = -1;
         }
     }
 
@@ -342,15 +358,15 @@ class StockListPanelPage extends RadioAnchorPage {
     }
 
     deleteStock(account, code) {
-        var idx = this.stocks.findIndex(s => s.stock.acccode == account + '_' + code);
-        if (idx == -1) {
+        var stocki = this.stocks.find(s => s.stock.acccode == account + '_' + code);
+        if (!stocki) {
             return;
         }
-        if (this.strategyGroupView.root.parentElement == this.stocks[idx].container) {
-            this.stocks[idx].container.removeChild(this.strategyGroupView.root);
+        if (this.strategyGroupView.root.parentElement == stocki.container) {
+            stocki.container.removeChild(this.strategyGroupView.root);
         }
-        utils.removeAllChild(this.stocks[idx].container);
-        this.stocks.splice(idx, 1);
+        utils.removeAllChild(stocki.container);
+        this.stocks = this.stocks.filter(s => s.stock.acccode != account + '_' + code);
     }
 
     updateStocksDailyKline() {
@@ -396,6 +412,13 @@ class StockListPanelPage extends RadioAnchorPage {
         }
         this.container.appendChild(this.strategyFilter);
 
+        this.costDogFilter = document.createElement('select');
+        this.addCostDogFilterOptions();
+        this.costDogFilter.onchange = e => {
+            this.onFiltered(e.target.value);
+        }
+        this.container.appendChild(this.costDogFilter);
+
         this.listContainer = document.createElement('div');
         this.container.appendChild(this.listContainer);
         this.container.appendChild(document.createElement('hr'));
@@ -435,6 +458,14 @@ class StockListPanelPage extends RadioAnchorPage {
         }
         watchDiv.appendChild(btnAddWatchList);
         this.container.appendChild(watchDiv);
+    }
+
+    addCostDogFilterOptions() {
+        var cdItems = this.getCostDogFilterItems();
+        for (const ci of cdItems) {
+            this.costDogFilter.options.add(new Option(ci));
+        }
+        this.costDogFilter.selectedIndex = -1;
     }
 
     createWatchCodeAccountSelector() {

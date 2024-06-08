@@ -99,6 +99,7 @@ class TrackingAccount extends NormalAccount {
         this.key_deals = 'track_deals';
         this.buyPath = null;
         this.sellPath = null;
+        this.availableMoney = Infinity;
         this.sid = 1;
         this.deals = [];
     }
@@ -119,6 +120,24 @@ class TrackingAccount extends NormalAccount {
     loadAssets() {
         var loadhour = new Date().getHours();
         var watchingStorageKey = this.keyword + '_watchings';
+        var fix_date_price = function(code, records) {
+            for (var rec of records) {
+                if (rec.date.includes(':')) {
+                    var rdate = rec.date.split(' ')[0];
+                    var kl = emjyBack.klines[code].getKlineByTime(rdate);
+                    if (kl && loadhour >= 15) {
+                        if (rec.date < rdate + ' ' + '09:30') {
+                            rec.price = kl.o;
+                        } else if (rec.date > rdate + ' ' + '14:57') {
+                            rec.price = kl.c;
+                        }
+                        rec.date = rdate;
+                    } else if (rec.date > rdate + ' ' + '09:30' && rec.date < rdate + ' ' + '14:57') {
+                        rec.date = rdate;
+                    }
+                }
+            }
+        }
         emjyBack.getFromLocal(watchingStorageKey, watchings => {
             emjyBack.log('get watching_stocks', JSON.stringify(watchings));
             if (watchings) {
@@ -129,22 +148,8 @@ class TrackingAccount extends NormalAccount {
                         if (str) {
                             this.applyStrategy(s, JSON.parse(str));
                             var stockInfo = this.stocks.find(function(stocki) {return s == stocki.code});
-                            if (loadhour > 16) {
-                                for (var rec of stockInfo.strategies.buydetail.records) {
-                                    if (rec.date.includes(':')) {
-                                        var rdate = rec.date.split(' ')[0];
-                                        var kl = emjyBack.klines[stockInfo.code].getKlineByTime(rdate);
-                                        if (kl) {
-                                            if (rec.date < rdate + ' ' + '09:30') {
-                                                rec.price = kl.o;
-                                            } else if (rec.date > rdate + ' ' + '14:57') {
-                                                rec.price = kl.c;
-                                            }
-                                            rec.date = rdate;
-                                        }
-                                    }
-                                }
-                            }
+                            fix_date_price(stockInfo.code, stockInfo.strategies.buydetail.records);
+                            fix_date_price(stockInfo.code, stockInfo.strategies.buydetail.full_records);
                             stockInfo.holdCount = stockInfo.strategies.buydetail.totalCount();
                             stockInfo.holdCost = (stockInfo.strategies.buydetail.averPrice()).toFixed(2);
                         };
@@ -187,51 +192,19 @@ class TrackingAccount extends NormalAccount {
         this.tradeClient = new TestTradeClient(this);
     }
 
-    addBuyDetail(record) {
-        var stock = this.stocks.find(s => s.code == record.code);
-        if (stock) {
-            stock.strategies.buydetail.addBuyDetail(record);
-        };
-    }
-
     buyStock(code, price, count, cb) {
         if (!this.tradeClient) {
             this.createTradeClient();
         }
 
-        var stock = this.stocks.find(s => s.code == code);
-        if (!stock) {
-            this.addWatchStock(code);
-            this.applyStrategy(code, {grptype: 'GroupStandard', strategies: {'0': {key: 'StrategySellELS', enabled: false, cutselltype: 'all', selltype: 'all'}}, transfers: {'0': {transfer: '-1'}}, amount: '5000'});
-        };
-
         if (price == 0) {
             this.tradeClient.getRtPrice(code, pobj => {
                 var p = pobj.cp;
-                this.tradeClient.buy(code, p, count, r => {
-                    if (typeof(cb) === 'function') {
-                        cb(r);
-                    } else {
-                        this.addBuyDetail(r);
-                    }
-                });
+                this.tradeClient.buy(code, p, count, cb);
             });
             return;
         }
-        this.tradeClient.buy(code, price, count, r => {
-            if (typeof(cb) === 'function') {
-                cb(r);
-            } else {
-                this.addBuyDetail(r);
-            }
-        });
-    }
-
-    addSellDetail(record) {
-        var stock = this.stocks.find(s => s.code === record.code);
-        if (stock) {
-            stock.strategies.buydetail.addSellDetail(record);
-        }
+        this.tradeClient.buy(code, price, count, cb);
     }
 
     sellStock(code, price, count, cb) {
@@ -241,26 +214,21 @@ class TrackingAccount extends NormalAccount {
         if (price == 0) {
             this.tradeClient.getRtPrice(code, pobj => {
                 var p = pobj.cp;
-                this.tradeClient.sell(code, p, count, r => {
-                    if (typeof(cb) === 'function') {
-                        cb(r);
-                    } else {
-                        this.addSellDetail(r);
-                    }
-                });
+                this.tradeClient.sell(code, p, count, cb);
             });
             return;
         }
-        this.tradeClient.sell(code, price, count,r => {
-            if (typeof(cb) === 'function') {
-                cb(r);
-            } else {
-                this.addSellDetail(r);
-            }
-        });
+        this.tradeClient.sell(code, price, count, cb);
     }
 
     removeStock(code) {
+        var stock = this.stocks.find(s => {return s.code == code;});
+        if (!stock) {
+            return;
+        };
+        if (stock.strategies) {
+            stock.strategies.archiveBuyDetail();
+        }
         super.removeStock(code);
         this.deals = this.deals.filter( s => s.code !== code);
     }

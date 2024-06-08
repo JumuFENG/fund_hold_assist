@@ -2,8 +2,6 @@
 
 class StrategyIntradingView {
     constructor(istr) {
-        this.amount = 0;
-        this.account = '';
         this.data = {key: istr.key};
         this.container = document.createElement('div');
         var strTitle = document.createTextNode(istr.name);
@@ -28,6 +26,12 @@ class StrategyIntradingView {
 
         this.amtIpt = document.createElement('input');
         addInput(this.container, this.amtIpt, '买入金额');
+        this.costSelector = document.createElement('select');
+        this.costSelector.options.add(new Option('无成本方案', ''));
+        for (const ikey of emjyBack.costDogView.cikeys) {
+            this.costSelector.options.add(new Option('方案: ' + ikey, ikey));
+        }
+        addInput(this.container, this.costSelector, '仓位管理');
         this.accSelector = document.createElement('select');
         var accountNames = [['normal', '普通账户'], ['','自动分配'], ['track', '模拟账户']];
         for (var i = 0; i < accountNames.length; i++) {
@@ -43,6 +47,7 @@ class StrategyIntradingView {
             }
             this.chkEnable.checked = svstr.enabled;
             this.accSelector.value = svstr.account;
+            this.costSelector.value = svstr.amtkey ? svstr.amtkey : '';
             this.amtIpt.value = svstr.amount;
         });
     }
@@ -53,21 +58,29 @@ class StrategyIntradingView {
             changed = true;
             this.data.enabled = this.chkEnable.checked;
         }
-        if (this.amtIpt.value - this.amount != 0) {
+        if (this.amtIpt.value - this.data.amount != 0) {
             changed = true;
             this.data.amount = this.amtIpt.value;
         }
-        if (this.accSelector.value != this.account) {
+        if (this.accSelector.value != this.data.account) {
             changed = true;
             this.data.account = this.accSelector.value;
+        }
+        var cval = this.costSelector.value;
+        if (cval == '') {
+            cval = undefined;
+        }
+        if (cval != this.data.amtkey) {
+            changed = true;
+            this.data.amtkey = cval;
         }
         return changed;
     }
 }
 
 class StrategyIntradingPanelPage extends RadioAnchorPage {
-    constructor(text) {
-        super(text);
+    constructor() {
+        super('盘中策略');
         this.intradingStrategies = [];
     }
 
@@ -86,6 +99,7 @@ class StrategyIntradingPanelPage extends RadioAnchorPage {
             var item = new StrategyIntradingView(istr);
             this.intradingStrategies.push(item);
             this.container.appendChild(item.container);
+            this.container.appendChild(document.createElement('hr'));
         }
 
         var saveBtn = document.createElement('button')

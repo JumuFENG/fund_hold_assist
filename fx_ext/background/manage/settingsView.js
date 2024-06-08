@@ -1,8 +1,8 @@
 'use strict';
 
 class SettingsPanelPage extends RadioAnchorPage {
-    constructor(text) {
-        super(text);
+    constructor() {
+        super('设置');
     }
 
     show() {

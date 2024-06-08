@@ -2,9 +2,7 @@
 
 class GroupManager {
     create(group, account, code, skey) {
-        if (group.grptype == 'GroupStandard') {
-            return new StrategyGroup(group, account, code, skey);
-        };
+        return new StrategyGroup(group, account, code, skey);
     }
 }
 
@@ -19,11 +17,16 @@ class StrategyTransferConnection {
 }
 
 class BuyDetail {
-    constructor(records) {
-        if (records) {
-            this.records = records;
-        } else {
+    constructor(records, frecords) {
+        if (!records) {
             this.records = [];
+        } else {
+            this.records = records;
+        }
+        if (!frecords) {
+            this.full_records = [];
+        } else {
+            this.full_records = frecords;
         }
     }
 
@@ -55,10 +58,12 @@ class BuyDetail {
     }
 
     addRecord(r) {
-        if (!this.records) {
-            this.records = [];
-        }
         this.records.push(r);
+        var fr = {};
+        for (let k in r) {
+            fr[k] = r[k];
+        }
+        this.full_records.push(fr);
     }
 
     addBuyDetail(detail) {
@@ -252,6 +257,11 @@ class BuyDetail {
                 this.records[didx].price = price;
                 this.records[didx].count = count;
             }
+            var frec = this.full_records.find(bd => bd.sid == sid);
+            if (frec) {
+                frec.price = price;
+                frec.count = count;
+            }
         } else if (count != 0){
             if (this.records.length == 1 && this.records[0].count == count) {
                 this.records = [];
@@ -276,6 +286,11 @@ class BuyDetail {
             } else {
                 this.records[didx].price = price;
                 this.records[didx].count = count;
+            }
+            var frec = this.full_records.find(bd => bd.sid == sid);
+            if (frec) {
+                frec.price = price;
+                frec.count = count;
             }
         } else if (count != 0){
             this.addSellDetail({count, price, sid});
@@ -409,15 +424,129 @@ class BuyDetail {
             this.records.push({date, count, price, type:'B', sid});
         });
     }
+
+    calcEarning() {
+        if (this.totalCount() != 0) {
+            return 0;
+        }
+
+        var earn = 0;
+        for (const rec of this.full_records) {
+            if (rec.type == 'B') {
+                earn -= rec.price * rec.count;
+            } else {
+                earn += rec.price * rec.count;
+            }
+        }
+        return earn;
+    }
 }
+
+class CostDog {
+    constructor(cdobj) {
+        this.dogdic = {};
+        if (cdobj && cdobj.length > 0) {
+            for (const c of cdobj) {
+                this.dogdic[c.key] = c;
+            }
+        }
+    }
+
+    save() {
+        emjyBack.saveToLocal({'cost_dog': Object.values(this.dogdic)});
+    }
+
+    urBuyCount(key, code, amount, price) {
+        var count = 0;
+        if (key in this.dogdic) {
+            var cdog = this.dogdic[key];
+            if (cdog.amount) {
+                amount = cdog.amount;
+            }
+            var ur = cdog.urque.find(u => !u.paired);
+            if (!ur) {
+                count = emjyBack.calcBuyCount(amount, price);
+            } else {
+                ur.paired = true;
+                ur.code = code;
+                var uamt = ur.lost * (1 - amount/cdog.max_amount) / cdog.expect_earn_rate + amount;
+                if (uamt - cdog.max_amount > 0) {
+                    uamt = cdog.max_amount;
+                }
+                count = emjyBack.calcBuyCount(uamt, price);
+                return {count, 'id': ur.id};
+            }
+        } else {
+            var amount = 10000;
+            count = emjyBack.calcBuyCount(amount, price);
+        }
+        return {count};
+    }
+
+    settleUr(key, earn, urid) {
+        if (!this.dogdic[key]) {
+            return;
+        }
+
+        var cdog = this.dogdic[key];
+        if (!cdog.urque) {
+            cdog.urque = [];
+        }
+        var ur = null;
+        if (urid) {
+            ur = cdog.urque.find(u => u.id == urid);
+        }
+
+        if (earn >= 0) {
+            if (!ur) {
+                ur = cdog.urque.find(u => !u.paired);
+                if (!ur) {
+                    return;
+                }
+            }
+            if (earn - ur.lost > 0) {
+                cdog.urque = cdog.urque.filter(u=> u.id !== ur.id);
+                return;
+            }
+            ur.lost -= earn;
+            ur.paired = false;
+            return;
+        }
+
+        var lost = -earn;
+        if (ur) {
+            ur.paired = false;
+            lost += ur.lost;
+        }
+        var max_single_cover = cdog.max_amount * cdog.expect_earn_rate;
+        if (lost <= max_single_cover && ur) {
+            ur.lost = lost;
+            return;
+        }
+
+        var tlost = lost;
+        if (ur) {
+            ur.lost = tlost > max_single_cover ? max_single_cover : tlost;
+            tlost -= max_single_cover;
+        }
+        var id = cdog.urque.length == 0 ? 0: Math.max(...cdog.urque.map(u => u.id));
+        while (tlost > 0) {
+            lost = tlost > max_single_cover ? max_single_cover : tlost;
+            id++;
+            cdog.urque.push({lost, id});
+            tlost -= max_single_cover;
+        }
+    }
+}
+
 
 class StrategyGroup {
     constructor(str, account, code, key) {
-        this.storeKey = key;
+        this.storeKey = key ? key : account + '_' + code + '_strategies';
         this.account = account;
         this.code = code;
         this.strategies = {};
-        this.grptype = str.grptype;
+        this.grptype = str.grptype ? str.grptype : 'GroupStandard';
         this.initStrategies(str.strategies);
         this.transfers = {};
         this.initTransfers(str.transfers);
@@ -427,10 +556,13 @@ class StrategyGroup {
         if (str.amount) {
             this.amount = str.amount;
         }
+        if (str.uramount) {
+            this.uramount = str.uramount;
+        }
         if (str.gmeta) {
             this.gmeta = str.gmeta;
         }
-        this.buydetail = new BuyDetail(str.buydetail);
+        this.buydetail = new BuyDetail(str.buydetail, str.buydetail_full);
     }
 
     enabled() {
@@ -512,11 +644,29 @@ class StrategyGroup {
         if (this.buydetail && this.buydetail.records && this.buydetail.records.length > 0) {
             data.buydetail = this.buydetail.records;
         }
+        if (this.buydetail && this.buydetail.full_records && this.buydetail.full_records.length > 0) {
+            var fcount = 0;
+            for (const record of this.buydetail.full_records) {
+                if (record.tradeType === 'B') {
+                    fcount -= -record.count;
+                } else {
+                    fcount -= record.count;
+                }
+            }
+            if (this.buydetail.totalCount() - fcount != 0) {
+                data.buydetail_full = this.buydetail.records;
+            } else {
+                data.buydetail_full = this.buydetail.full_records;
+            }
+        }
         if (this.count0 !== undefined) {
             data.count0 = this.count0;
         }
         if (this.amount !== undefined) {
             data.amount = this.amount;
+        }
+        if (this.uramount !== undefined) {
+            data.uramount = this.uramount;
         }
         if (this.gmeta !== undefined) {
             data.gmeta = this.gmeta;
@@ -545,7 +695,10 @@ class StrategyGroup {
     }
 
     archiveBuyDetail() {
-        emjyBack.log('archiveBuyDetail', this.code);
+        emjyBack.log('archiveBuyDetail', this.code, JSON.stringify(this.buydetail.full_records));
+        if (this.uramount && this.buydetail.totalCount() == 0) {
+            emjyBack.costDog.settleUr(this.uramount.key, this.buydetail.calcEarning(), this.uramount.id);
+        }
         this.buydetail.archiveRecords();
     }
 
@@ -595,11 +748,17 @@ class StrategyGroup {
     }
 
     getBuyCount(price) {
-        if (!this.count0 || this.count0 <= 0) {
-            var amount = 10000;
-            if (this.amount && this.amount > 0) {
-                amount = this.amount;
-            };
+        var amount = 10000;
+        if (this.amount && this.amount > 0) {
+            amount = this.amount;
+        };
+        if (this.uramount) {
+            var ur = emjyBack.costDog.urBuyCount(this.uramount.key, this.code, amount, price);
+            if (ur.id && ur.id != '0') {
+                this.uramount.id = ur.id;
+            }
+            this.count0 = ur.count;
+        } else if(!this.count0 || this.count0 <= 0) {
             this.count0 = emjyBack.calcBuyCount(amount, price);
         }
         return this.count0;
@@ -656,7 +815,7 @@ class StrategyGroup {
         if (info.count !== undefined && info.count - 0 > 0) {
             this.count0 = info.count;
         } else if (this.amount && info.price) {
-            this.count0 = emjyBack.calcBuyCount(this.amount, info.price);
+            this.count0 = this.getBuyCount(info.price);
         }
         var price = info.price === undefined ? 0 : info.price;
         if (this.account == 'normal' || this.account == 'collat') {
@@ -667,7 +826,6 @@ class StrategyGroup {
             var count = this.count0;
             emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy), 'buy detail', JSON.stringify(this.buydetail.records))
             emjyBack.tryBuyStock(this.code, price, count, account, bd => {
-                this.buydetail.addBuyDetail(bd);
                 if (typeof(tradeCb) === 'function') {
                     tradeCb(bd);
                 }
@@ -681,7 +839,6 @@ class StrategyGroup {
             if (count > 0) {
                 emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', info.price, JSON.stringify(curStrategy), 'aver price', this.buydetail.averPrice(), 'buy detail', JSON.stringify(this.buydetail.records));
                 emjyBack.trySellStock(this.code, price, count, this.account, sd => {
-                    this.buydetail.addSellDetail(sd);
                     if (typeof(tradeCb) === 'function') {
                         tradeCb(sd);
                     }

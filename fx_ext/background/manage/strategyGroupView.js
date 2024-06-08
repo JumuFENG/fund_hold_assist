@@ -242,6 +242,22 @@ class StrategyGroupView {
                 this.inputAmount.value = this.strGrp.amount;
             }
         }
+
+        this.cdSelector = document.createElement("select");
+        ctDiv.appendChild(this.cdSelector);
+        this.cdSelector.options.add(new Option('无成本方案', ''));
+        for (const c of emjyBack.costDogView.cikeys) {
+            this.cdSelector.options.add(new Option('方案: ' + c, c));
+        }
+        if (!this.strGrp.uramount) {
+            this.cdSelector.value = '';
+        } else {
+            this.cdSelector.value = this.strGrp.uramount.key;
+        }
+        if (this.strGrp.uramount && this.strGrp.uramount.id) {
+            this.cdSelector.disabled = true;
+        }
+
         this.strategyInfoContainer.appendChild(ctDiv);
 
         if (this.strGrp.buydetail && this.strGrp.buydetail.length > 0) {
@@ -328,6 +344,19 @@ class StrategyGroupView {
                     this.strGrp.amount = amount;
                     this.changed = true;
                 }
+            }
+        }
+        if (this.cdSelector) {
+            if (this.strGrp.uramount && this.strGrp.uramount.key != this.cdSelector.value) {
+                if (this.cdSelector.value === '') {
+                    delete(this.strGrp.uramount);
+                } else {
+                    this.strGrp.uramount = {key: this.cdSelector.value};
+                }
+                this.changed = true;
+            } else if (!this.strGrp.uramount && this.cdSelector.value !== '') {
+                this.strGrp.uramount = {key: this.cdSelector.value};
+                this.changed = true;
             }
         }
         return this.changed;

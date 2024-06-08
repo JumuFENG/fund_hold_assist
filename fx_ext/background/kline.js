@@ -816,7 +816,6 @@ class KLine {
                         if (troughprice - kl0.l > 0) {
                             downKlNum++;
                             troughprice = kl0.l;
-                            console.log(kl0);
                         }
                         upKlNum = 0;
                         continue;
