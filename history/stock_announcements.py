@@ -81,7 +81,7 @@ class StockAnnoucements(EmDataCenterRequest, TableBase):
 
     def getUrl(self):
         # ann_type=SHA,CYB,SZA,BJA
-        url = f'''https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size={self.pageSize}&page_index={self.page}&ann_type=SHA,CYB,SZA,BJA&client_source=web'''
+        url = f'''https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size={self.pageSize}&page_index={self.page}&ann_type=A,SHA,CYB,SZA,BJA&client_source=web'''
         if self.code is not None:
             url += f'&stock_list={self.code}'
         url += '&f_node=0&s_node=0'
@@ -128,9 +128,7 @@ class StockAnnoucements(EmDataCenterRequest, TableBase):
                 for ani in ann['codes']:
                     ann_type = ani['ann_type']
                     shsz = self.get_shsz_from_ann(ann_type)
-                    if shsz is None:
-                        continue
-                    s_code = shsz + ani['stock_code']
+                    s_code = (shsz + ani['stock_code']) if shsz is not None else StockGlobal.full_stockcode(ani['stock_code'])
                     inner_code = ani['inner_code'] if 'inner_code' in ani else ''
                     values.append([s_code, ann_type, inner_code, type_code, dtime, title, art_code])
 
@@ -333,7 +331,7 @@ class FundShareBonus(StockShareBonus):
             rows = fhTable.find_all('tr')
             for r in rows:
                 tr = r.find_all('td')
-                if len(tr) == 0:
+                if len(tr) < 4:
                     continue
                 rcddate = tr[1].get_text()
                 rptdate = rcddate
@@ -353,7 +351,8 @@ class FundShareBonus(StockShareBonus):
         self.fecthed = []
 
     def getBonusHis(self, code):
-        brows = self.sqldb.selectOneValue(self.tablename, 'count(*)', f'{column_code}="{self.code}"')
+        brows = self.sqldb.selectOneValue(self.tablename, 'count(*)', f'{column_code}="{code}"')
         if brows is None or brows == 0:
+            self.setCode(code)
             self.getNext()
         return self.sqldb.select(self.tablename, fields=[col['col'] for col in self.colheaders[1:]], conds=f'{column_code}="{code}"')

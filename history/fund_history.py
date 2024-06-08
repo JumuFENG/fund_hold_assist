@@ -322,7 +322,7 @@ class FundHistoryDataDownloader(HistoryDowloaderBase):
             params = {'type': 'lsjz', 'code': self.code, 'page': curpage, 'per': 49, 'sdate': start, 'edate': end}
             response = self.getRequest(f10DataApiUrl, params)
             if response is None:
-                print(params, response, 'getRequest error')
+                Utils.log(f'{params} {response} getRequest error', Utils.Err)
                 break
             content = str(response[13:-2])
             content_split = content.split(',')
@@ -331,7 +331,7 @@ class FundHistoryDataDownloader(HistoryDowloaderBase):
             self.paraseFundRecords(records)
             curpage = int(content_split[-1].split(':')[-1])
             pages = int(content_split[-2].split(':')[-1])
-            print(curpage,'pages in', pages, 'GOT!')
+            Utils.log(f'{curpage} pages in {pages} GOT!')
             if curpage >= pages:
                 break
             curpage += 1
@@ -341,17 +341,19 @@ class FundHistoryDataDownloader(HistoryDowloaderBase):
         sDate = ""
         eDate = ""
         if self.sqldb.isExistTable(self.fund_db_table):
-            maxDate = self.sqldb.selectOneValue(self.fund_db_table, "max(%s)" % column_date)  #order="ORDER BY date DESC" ASC
+            maxDate = self.sqldb.selectOneValue(self.fund_db_table, "max(%s)" % column_date)
             if maxDate:
-                sDate = (datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+                sDate = TradingDate.nextTradingDate(maxDate)
                 eDate = datetime.now().strftime("%Y-%m-%d")
-                if sDate > eDate:
-                    print("Already updated to %s" % maxDate)
+                if sDate >= eDate:
                     return
-                if datetime.strptime(eDate, "%Y-%m-%d") - datetime.strptime(sDate, "%Y-%m-%d") <= timedelta(days = 1) and datetime.strptime(sDate, "%Y-%m-%d").weekday() >= 5:
-                    print("it is weekend, no data to update.")
+                days = TradingDate.calcTradingDays(maxDate, eDate)
+                if days < 1:
+                    return
+                if days == 1 or TradingDate.isTradingDate(sDate) or datetime.now().hour < 15:
                     return
 
+        Utils.log(f'udpate fund history for {code} from {sDate} to {eDate}')
         self.getFundHistory(sDate, eDate)
         if len(self.allRecords) > 0:
             self.addFundData()

@@ -34,7 +34,7 @@ class StockGlobal():
         # simple get full stock code
         if len(code) != 6:
             return code
-        prefixes = {'60': 'SH', '68': 'SH', '30': 'SZ', '00': 'SZ', '83': 'BJ', '43': 'BJ', '87': 'BJ'}
+        prefixes = {'60': 'SH', '68': 'SH', '30': 'SZ', '00': 'SZ', '83': 'BJ', '43': 'BJ', '87': 'BJ', '90': 'BJ', '92': 'BJ'}
         if code[0:2] not in prefixes:
             return code
         return f'{prefixes[code[0:2]]}{code}'
@@ -85,6 +85,7 @@ class StockGlobal():
         print(f'StockGlobal.getStocksZdfRank {updateKl}, {today}, {tradeday}')
 
         pn = 1
+        quotes = []
         while True:
             rankUrl = f'''http://33.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=1000&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f115,f152'''
             res = Utils.get_em_request(rankUrl, host='33.push2.eastmoney.com')
@@ -108,13 +109,17 @@ class StockGlobal():
                 h = rkobj['f15']  # 最高
                 l = rkobj['f16']  # 最低
                 o = rkobj['f17']  # 今开
+                lc = rkobj['f18'] # 昨收
                 if (m != 0 and m != 1):
                     print('invalid market', m)
                     continue
                 code = 'SH' + cd if m == 1 else self.full_stockcode(cd)
+                knode = KNode([0, today, c, h, l, o, ze, zd, cj, ce/10000, lc])
+                quotes.append([code, knode])
                 if updateKl:
-                    Stock_history.updateStockKlDayData(code, KNode([0, today, c, h, l, o, ze, zd, cj, ce/10000]))
+                    Stock_history.updateStockKlDayData(code, knode)
             pn += 1
+        return quotes
 
 
 class AllStocks(InfoList):
@@ -362,7 +367,7 @@ class Stock_history(HistoryFromSohu):
             return
 
         if kl.date != TradingDate.nextTradingDate(mxd):
-            print(f'There is gap between {mxd} and {kl.date} for {code}')
+            Utils.log(f'There is gap between {mxd} and {kl.date} for {code}', Utils.Warn)
             return
 
         self.historydb.insert(ktable, {
@@ -459,7 +464,7 @@ class Stock_Fflow_History(TableBase, EmRequest):
 
         date = self._max_date()
         if date == Utils.today_date():
-            print(f'fflow already updated to {date}')
+            # print(f'fflow already updated to {date}')
             return False
 
         self.getFflowFromEm(code)
@@ -473,8 +478,9 @@ class StockHotRank(TableBase, EmRequest):
     def __init__(self) -> None:
         self.market = 0 # 1: hk 2: us
         super().__init__()
-        self.headers = None
         self.decrypter = None
+        self.headers = None
+        self.page = 1
 
     def initConstrants(self):
         self.sqldb = None
@@ -483,13 +489,14 @@ class StockHotRank(TableBase, EmRequest):
         self.colheaders = [
             {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
             {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
-            {'col':'hrank','type':'int DEFAULT NULL'}
+            {'col':'hrank','type':'int DEFAULT NULL'},
+            {'col':'newfans','type':'float DEFAULT NULL'}
         ]
 
     def getUrl(self):
-        return f'''http://gbcdn.dfcfw.com/rank/popularityList.js?type={self.market}&sort=0&page=1'''
+        return f'''http://gbcdn.dfcfw.com/rank/popularityList.js?type={self.market}&sort=0&page={self.page}'''
 
-    def getNext(self):
+    def getLatestRanks(self, page=1):
         if self.headers is None:
             self.headers = {
                 'Host': 'gbcdn.dfcfw.com',
@@ -500,6 +507,7 @@ class StockHotRank(TableBase, EmRequest):
                 'Accept-Encoding': 'gzip, deflate',
                 'Connection': 'keep-alive'
             }
+        self.page = page
         rsp = self.getRequest(params=self.headers)
         enrk = rsp.split("'")[1]
 
@@ -510,32 +518,34 @@ class StockHotRank(TableBase, EmRequest):
         ranks = json.loads(self.decrypter.decrypt(enrk))
         if ranks is None or len(ranks) == 0:
             print(rsp)
-            return
+            return []
+        return ranks
 
+    def getNext(self):
+        ranks = self.getLatestRanks()
         valranks = []
         for rk in ranks:
             code = rk['code']
+            rklatest = [rk['exactTime'], rk['rankNumber']]
             if 'history' in rk:
                 for h in rk['history']:
                     if 'SRCSECURITYCODE' in h:
                         code = h['SRCSECURITYCODE']
                 for h in rk['history']:
                     ex = self.sqldb.selectOneValue(self.tablename, 'id', [f'{column_code}="{code}"', f'''{column_date}="{h['CALCTIME']}"'''])
-                    if ex is None:
-                        valranks.append([code, h['CALCTIME'], h['RANK']])
-            rklatest = [code, rk['exactTime'], rk['rankNumber']]
-            if rklatest not in valranks:
-                valranks.append(rklatest)
+                    if ex is None and [h['CALCTIME'], h['RANK']] != rklatest:
+                        valranks.append([code, h['CALCTIME'], h['RANK'], 0])
+            valranks.append([code, rk['exactTime'], rk['rankNumber'], rk['newFans']])
 
         self.update_ranks(valranks)
 
     def update_ranks(self, ranks):
         rkdic = {}
         values = []
-        for code, dr, rr in ranks:
+        for code, dr, rr, nf in ranks:
             allranks = self.sqldb.select(self.tablename, conds=f'{column_code}="{code}"')
-            day = dr.split(' ')[0]
-            for id, code, date, r in allranks:
+            day, dtime = dr.split(' ')
+            for id, code, date, r, f in allranks:
                 if date.split(' ')[0] != day:
                     continue
                 if code not in rkdic:
@@ -543,9 +553,20 @@ class StockHotRank(TableBase, EmRequest):
                 day = date.split(' ')[0]
                 if day not in rkdic[code]:
                     rkdic[code][day] = []
-                rkdic[code][day].append([id, date, r])
-            if code not in rkdic or day not in rkdic[code] or len(rkdic[code][day]) < 2:
-                values.append([code, dr, rr])
+                rkdic[code][day].append([id, date, r, f])
+            if code not in rkdic or day not in rkdic[code] or len(rkdic[code][day]) == 0:
+                values.append([code, dr, rr, nf])
+                continue
+            if len(rkdic[code][day]) < 2:
+                exrk = rkdic[code][day][0]
+                extime = exrk[1].split(' ')[1]
+                if (extime <= '09:30:00' and dtime <= '09:30:00') or (extime > '09:30:00' and dtime > '09:30:00'):
+                    rkinfo = {column_date: dr, 'hrank': rr}
+                    if nf != 0:
+                        rkinfo['newfans'] = nf
+                    self.sqldb.update(self.tablename, rkinfo, {'id': exrk[0]})
+                else:
+                    values.append([code, dr, rr, nf])
                 continue
             sdrk = sorted(rkdic[code][day], key=lambda x : x[1])
             drk2 = [sdrk[0], sdrk[-1]]
@@ -554,14 +575,64 @@ class StockHotRank(TableBase, EmRequest):
             uid = None
             if dr < drk2[0][1]:
                 uid = 0
+            elif dtime <= '09:30:00' and dr > drk2[0][1]:
+                uid = 0
             elif dr > drk2[1][1]:
                 uid = 1
             if uid is not None:
-                self.sqldb.update(self.tablename, {column_date: dr, 'hrank': rr}, {'id': drk2[uid][0]})
+                rkinfo = {column_date: dr, 'hrank': rr}
+                if nf != 0:
+                    rkinfo['newfans'] = nf
+                self.sqldb.update(self.tablename, rkinfo, {'id': drk2[uid][0]})
 
         if len(values) > 0:
             attrs = [kv['col'] for kv in self.colheaders]
             self.sqldb.insertMany(self.tablename, attrs, values)
+
+    def getGbRanks(self, page=1):
+        ranks = self.getLatestRanks(page)
+        valranks = []
+        for rk in ranks:
+            valranks.append([rk['code'], rk['rankNumber'], float(rk['newFans'])])
+        return valranks
+
+    def getEmRanks(self, total=20):
+        url = f'''https://data.eastmoney.com/dataapi/xuangu/list?st=POPULARITY_RANK&sr=1&ps={total}&p=1&sty=SECURITY_CODE,SECURITY_NAME_ABBR,NEW_PRICE,CHANGE_RATE,VOLUME_RATIO,HIGH_PRICE,LOW_PRICE,PRE_CLOSE_PRICE,VOLUME,DEAL_AMOUNT,TURNOVERRATE,POPULARITY_RANK,NEWFANS_RATIO&filter=(POPULARITY_RANK>0)(POPULARITY_RANK<={total})(NEWFANS_RATIO>=0.00)(NEWFANS_RATIO<=100.0)&source=SELECT_SECURITIES&client=WEB'''
+        rsp = Utils.get_em_request(url, host='data.eastmoney.com')
+        jdata = json.loads(rsp)
+        if jdata['code'] != 0 or 'result' not in jdata or 'data' not in jdata['result']:
+            return []
+
+        ranks = []
+        for rk in jdata['result']['data']:
+            ranks.append([rk['SECURITY_CODE'], rk['POPULARITY_RANK'], rk['NEWFANS_RATIO']])
+        return ranks
+
+    def get10jqkaRanks(self):
+        # https://basic.10jqka.com.cn/basicph/popularityRanking.html
+        url = 'https://basic.10jqka.com.cn/api/stockph/popularity/top/'
+        rsp = Utils.get_em_request(url, host='basic.10jqka.com.cn')
+        jdata = json.loads(rsp)
+        if jdata['status_code'] != 0 or 'data' not in jdata or 'list' not in jdata['data']:
+            return []
+
+        ranks = []
+        for rk in jdata['data']['list']:
+            ranks.append([rk['code'], rk['hot_rank']])
+        return ranks
+
+    def getTgbRanks(self):
+        # https://www.taoguba.com.cn/new/nrnt/toPopularityBoard
+        url = 'https://www.taoguba.com.cn/new/nrnt/getNoticeStock?type=H'
+        rsp = Utils.get_em_request(url, host='www.taoguba.com.cn')
+        jdata = json.loads(rsp)
+        if jdata['errorCode'] != 0 or 'dto' not in jdata:
+            return []
+
+        ranks = []
+        for rk in jdata['dto']:
+            ranks.append([rk['fullCode'][2:], rk['ranking']])
+        return ranks
 
     def getDumpKeys(self):
         return [f'{column_code}, {column_date}, hrank']

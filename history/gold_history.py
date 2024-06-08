@@ -61,7 +61,7 @@ class Gold_history(HistoryDowloaderBase):
                 eDate = datetime.now()
                 days = (eDate - sDate).days
                 if sDate >= eDate:
-                    print("Already updated to %s" % maxDate)
+                    # print("Already updated to %s" % maxDate)
                     return -1
                 if days <= 2 and sDate.weekday() >= 5:
                     print("it is weekend, no data to update.")
@@ -172,7 +172,7 @@ class Gold_history(HistoryDowloaderBase):
                 sDate = datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(days=1)
                 eDate = datetime.strptime(datetime.now().strftime("%Y-%m-%d"), "%Y-%m-%d")
                 if sDate >= eDate:
-                    print("Already updated to %s" % maxDate)
+                    # print("Already updated to %s" % maxDate)
                     return
                 if (eDate - sDate).days <= 2 and sDate.weekday() >= 5:
                     print("it is weekend, no data to update.")

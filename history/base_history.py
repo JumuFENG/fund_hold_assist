@@ -87,7 +87,8 @@ class HistoryFromSohu(HistoryDowloaderBase):
         return rsp.text
 
     def getStartEnd(self, ktable):
-        eDate = datetime.now().strftime("%Y%m%d")
+        endDate = Utils.today_date()
+        eDate = datetime.strptime(endDate, '%Y-%m-%d').strftime("%Y%m%d")
         sDate = None
         if not self.sqldb.isExistTable(ktable):
             return (sDate, eDate)
@@ -96,16 +97,22 @@ class HistoryFromSohu(HistoryDowloaderBase):
         if maxDate is None:
             return (sDate, eDate)
 
-        sDate = (datetime.strptime(maxDate, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
-        if sDate > eDate:
-            print("Already updated to %s" % maxDate)
+        startDate = TradingDate.nextTradingDate(maxDate)
+        sDate = datetime.strptime(startDate, '%Y-%m-%d').strftime("%Y%m%d")
+        days = TradingDate.calcTradingDays(maxDate, endDate)
+        if days > 1:
+            return (sDate, eDate)
+
+        if startDate == maxDate:
+            # Already updated
             return
 
-        if datetime.strptime(eDate, "%Y%m%d") - datetime.strptime(sDate, "%Y%m%d") <= timedelta(days = 1) and datetime.strptime(sDate, "%Y%m%d").weekday() >= 5:
-            print("it is weekend, no data to update.")
-            return
+        if days == 1 and TradingDate.isTradingDate(startDate) and datetime.now().hour >= 15:
+            return (sDate, eDate)
 
-        return (sDate, eDate)
+        # if datetime.strptime(eDate, "%Y%m%d") - datetime.strptime(sDate, "%Y%m%d") <= timedelta(days = 1) and datetime.strptime(sDate, "%Y%m%d").weekday() >= 5:
+        #     Utils.log("it is weekend, no data to update.", Utils.Warn)
+        #     return
 
     def getSetupDate(self):
         pass
@@ -120,7 +127,8 @@ class HistoryFromSohu(HistoryDowloaderBase):
         pass
 
     def getHistoryFromSohu(self, code, sDate, eDate, period = None):
-        # get fund k history from sohu
+        ''' get k history from sohu
+        '''
         params = {'code': code}
         if sDate is not None:
             params['start'] = sDate
@@ -131,18 +139,17 @@ class HistoryFromSohu(HistoryDowloaderBase):
         try:
             response = json.loads(self.getRequest(sohuApiUrl, params))
             if not response or response[0]['status'] == 2:
-                print('getHistoryFromSohu error, response: ', response)
-                print('params', params)
+                Utils.log(f'getHistoryFromSohu error, response: {response}. params: {params}', Utils.Err)
                 return
 
             response = response[0]['hq']
             response.reverse()
             return response
         except requests.ConnectionError as ce:
-            print('getHistoryFromSohu ConnectionError, params: ', params)
+            Utils.log(f'getHistoryFromSohu ConnectionError, params: {params}')
             return
         except Exception as e:
-            print('getHistoryFromSohu Exception, params: ', params)
+            Utils.log(f'getHistoryFromSohu Exception, params: {params}')
             return
 
     def isSamePeriod(self, d1, d2, period):
@@ -189,7 +196,7 @@ class HistoryFromSohu(HistoryDowloaderBase):
             elif len(data[i]) == 10:
                 d,o,c,pr,p,l,h,v,a,_x = data[i]
             else:
-                print('cannot parse data', data[i])
+                Utils.log(f'cannot parse data {data[i]}')
                 continue
 
             if self.isSamePeriod(ldate, d, period) and d >= ldate:
@@ -246,13 +253,13 @@ class HistoryFromSohu(HistoryDowloaderBase):
                 emurl += '&lmt=512'
             response = json.loads(self.getRequest(emurl))
             if not response or response['data'] is None or len(response['data']['klines']) == 0:
-                print('getKHistoryFromEm error, response: ', response)
+                Utils.log(f'getKHistoryFromEm error, response: {response}', Utils.Err)
                 return
 
             response = response['data']['klines']
             self.saveEmData(ktable, response, kltype)
         except Exception as e:
-            print('getKHistoryFromEm Exception: ', e)
+            Utils.log(f'getKHistoryFromEm Exception: {e}', Utils.Err)
 
     def saveEmData(self, ktable, data, kltpye):
         if len(data) < 1:
@@ -270,7 +277,7 @@ class HistoryFromSohu(HistoryDowloaderBase):
             if len(kdata) == 9:
                 d,o,c,h,l,v,a,p,pr = kdata
             else:
-                print('cannot parse data', data[i])
+                Utils.log(f'cannot parse data {data[i]}')
                 continue
 
             if self.isSamePeriod(ldate, d, kltpye) and d >= ldate:
