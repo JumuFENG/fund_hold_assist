@@ -174,7 +174,7 @@ class StrategyI_AuctionUp:
         return create_strategy_matched_message_direct_buy(match_data, subscribe_detail)
 
 
-class StrategyI_Zt1Breakup(StrategyI_StkChanges_Listener):
+class StrategyI_Zt1Breakup(StrategyI_Listener):
     ''' 首板突破60最高价
     '''
     key = 'istrategy_zt1brk'
@@ -183,6 +183,9 @@ class StrategyI_Zt1Breakup(StrategyI_StkChanges_Listener):
     on_intrade_matched = None
     candidates = []
     stock_notified = []
+
+    def __init__(self):
+        self.watcher = get_watcher('stkchanges')
 
     async def on_watcher(self, fecthed):
         if len(self.candidates) == 0:
@@ -222,7 +225,7 @@ class StrategyI_Zt1Breakup(StrategyI_StkChanges_Listener):
         return {'type':'intrade_addwatch', 'code': code, 'strategies': strategies, 'account': account}
 
 
-class StrategyI_Zt1Hotrank(StrategyI_StkChanges_Listener):
+class StrategyI_Zt1Hotrank(StrategyI_Listener):
     ''' 首板人气打板
     '''
     key = 'istrategy_zt1hr'
@@ -230,7 +233,6 @@ class StrategyI_Zt1Hotrank(StrategyI_StkChanges_Listener):
     desc = '首板人气高, 排队/打板'
     on_intrade_matched = None
     shr = None
-    hrlistener = StrategyI_Hotrank_Listener()
     stock_notified = []
     latest_ranks = {}
     rankjqka = {}
@@ -238,8 +240,14 @@ class StrategyI_Zt1Hotrank(StrategyI_StkChanges_Listener):
     zt_recent = []
     changes_matched = []
 
-    async def start_strategy_tasks(self):
+    def __init__(self):
+        self.watcher = get_watcher('stkchanges')
+        self.hrwatcher = get_watcher('hotrank')
+        self.hrlistener = StrategyI_Listener()
+        self.hrlistener.watcher = self.hrwatcher
         self.hrlistener.on_watcher = self.on_hotrank_fetched
+
+    async def start_strategy_tasks(self):
         await super().start_strategy_tasks()
         await self.hrlistener.start_strategy_tasks()
 
@@ -289,12 +297,13 @@ class StrategyI_Zt1Hotrank(StrategyI_StkChanges_Listener):
         self.changes_matched = []
 
 
-class StrategyI_EndAuc_Nzt(StrategyI_EndAuction_Listener):
+class StrategyI_EndAuc_Nzt(StrategyI_Listener):
     ''' 盘中触及涨停价，尾盘竞价买入
     '''
     key = 'istrategy_eaucnzt'
     name = '炸板尾盘买入'
     desc = '盘中触及涨停, 尾盘竞价买入, 次日开盘卖出, 选上影线最小者.'
+    watcher = get_watcher('endauction')
     on_intrade_matched = None
     sd = StockDumps()
 
@@ -332,12 +341,13 @@ class StrategyI_EndAuc_Nzt(StrategyI_EndAuction_Listener):
             await self.on_intrade_matched(self.key, mnshadow_match_data, self.create_intrade_matched_message)
 
 
-class StrategyI_HighClose(StrategyI_EndAuction_Listener):
+class StrategyI_HighClose(StrategyI_Listener):
     ''' 收盘价为当日最高价，尾盘竞价买入
     '''
     key = 'istrategy_highclose'
     name = '光头阳线尾盘买入'
     desc = '收盘价为当日最高价尾盘竞价买入, 次日开盘卖出, 选涨跌幅最大者.'
+    watcher = get_watcher('endauction')
     on_intrade_matched = None
 
     async def on_watcher(self, quotes):
@@ -360,7 +370,7 @@ class StrategyI_HighClose(StrategyI_EndAuction_Listener):
             await self.on_intrade_matched(self.key, mnshadow_match_data, self.create_intrade_matched_message)
 
 
-class StrategyI_HotrankOpen(StrategyI_Hotrank_Once_Listener):
+class StrategyI_HotrankOpen(StrategyI_Listener):
     ''' 开盘人气排行
     '''
     key = 'istrategy_hotrank0'
@@ -368,18 +378,19 @@ class StrategyI_HotrankOpen(StrategyI_Hotrank_Once_Listener):
     desc = '不涨停且股价大于水下一半 选人气排行最靠前且新增粉丝>70%'
     on_intrade_matched = None
     hotblack = None
-    stockranks = []
     latest_ranks = None
     rankjqka = None
     ranktgb = None
 
+    def __init__(self):
+        self.stockranks = []
+        self.watcher = get_watcher('hotrank_open')
+        self.taskwatcher = StrategyI_Simple_Watcher('9:24:54')
+        self.taskwatcher.execute_simple_task = self.start_check_task
+
     async def start_strategy_tasks(self):
         await super().start_strategy_tasks()
-        loop = asyncio.get_event_loop()
-        if Utils.delay_seconds('9:20') > 0:
-            loop.call_later(Utils.delay_seconds('9:24:54'), lambda: asyncio.ensure_future(self.start_check_task()))
-        else:
-            Utils.log(f'{__class__.__name__} start time expired.', Utils.Warn)
+        await self.taskwatcher.start_strategy_tasks()
 
     async def on_watcher(self, hotranks):
         self.latest_ranks, self.rankjqka, self.ranktgb = hotranks
@@ -459,17 +470,14 @@ class StrategyI_HotrankClose(StrategyI_HotrankOpen):
     key = 'istrategy_hotrank1'
     name = '收盘人气排行'
     desc = '盘中不触及涨停且股价大于水下一半 选人气排行最靠前且新增粉丝>70%'
-    watcher = StrategyI_Hotrank_Once_Watcher()
 
-    async def start_strategy_tasks(self):
-        loop = asyncio.get_event_loop()
-        if Utils.delay_seconds('14:50') > 0:
-            loop.call_later(Utils.delay_seconds('14:50'), self.watcher.add_listener, self)
-            loop.call_later(Utils.delay_seconds('14:55:50'), lambda: asyncio.ensure_future(self.watcher.start_hotrank_task()))
-            loop.call_later(Utils.delay_seconds('14:59:50'), lambda: asyncio.ensure_future(self.start_check_task()))
-            loop.call_later(Utils.delay_seconds('15:0:15'), self.watcher.stop_hotrank_task)
-        else:
-            Utils.log(f'{__class__.__name__} start time expired.', Utils.Warn)
+    def __init__(self):
+        self.stockranks = []
+        self.watcher =  get_watcher('hotrank_close')
+        self.taskwatcher = StrategyI_Simple_Watcher('14:55:50')
+        self.taskwatcher.execute_simple_task = self.start_check_task
+        self.tasklistner = StrategyI_Listener()
+        self.tasklistner.watcher = self.taskwatcher
 
     def check_snapshot(self, snapshot):
         try:
@@ -485,7 +493,7 @@ class StrategyI_HotrankClose(StrategyI_HotrankOpen):
             return False
 
 
-class StrategyI_Zt1j2Open(StrategyI_Hotrank_Once_Listener):
+class StrategyI_Zt1j2Open(StrategyI_Listener):
     ''' 1进2
     '''
     key = 'istrategy_zt1j2'
@@ -494,18 +502,19 @@ class StrategyI_Zt1j2Open(StrategyI_Hotrank_Once_Listener):
     on_intrade_matched = None
     szt1j2 = None
     zt1j2_candidates = None
-    stockranks = []
     latest_ranks = None
     rankjqka = None
     ranktgb = None
 
+    def __init__(self):
+        self.stockranks = []
+        self.watcher = get_watcher('hotrank_open')
+        self.taskwatcher = StrategyI_Simple_Watcher('9:22:54')
+        self.taskwatcher.execute_simple_task = self.start_check_task
+
     async def start_strategy_tasks(self):
         await super().start_strategy_tasks()
-        loop = asyncio.get_event_loop()
-        if Utils.delay_seconds('9:20') > 0:
-            loop.call_later(Utils.delay_seconds('9:22:54'), lambda: asyncio.ensure_future(self.start_check_task()))
-        else:
-            Utils.log(f'{__class__.__name__} start time expired.', Utils.Warn)
+        await self.taskwatcher.start_strategy_tasks()
 
     async def on_watcher(self, hotranks):
         self.latest_ranks, self.rankjqka, self.ranktgb = hotranks
