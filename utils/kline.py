@@ -15,6 +15,8 @@ class KNode():
         self.pchange = float(kl[7])
         self.vol = int(kl[8])
         self.amount = float(kl[9])
+        if len(kl) > 10:
+            self.lclose = float(kl[10])
 
 class KlList():
     @classmethod
@@ -310,3 +312,31 @@ class KlList():
             return round(100 * (c - l) / l, 2)
 
         return round(100 * (c - l) / klist[-idx - 1].close, 2)
+
+    @classmethod
+    def merge_to_longterm(self, klist, mds=2):
+        if not isinstance(klist[0], KNode):
+            klist = [KNode(kl) for kl in klist]
+
+        mklist = []
+        i = 0
+        while True:
+            kl = klist[mds * i]
+            j = min(mds * (i + 1), len(klist))
+            kl.date = klist[j-1].date
+            kl.close = klist[j-1].close
+            kl.high = max([klist[x].high for x in range(mds*i, j)])
+            kl.low = min([klist[x].low for x in range(mds*i, j)])
+            if hasattr(kl, 'lclose'):
+                kl.prcchange = klist[j-1].close - kl.lclose
+                kl.pchange = kl.prcchange / kl.lclose
+            else:
+                kl.prcchange = sum([klist[x].prcchange for x in range(mds*i, j)])
+                kl.pchange = sum([klist[x].pchange for x in range(mds*i, j)])
+            kl.vol = sum([klist[x].vol for x in range(mds * i, j)])
+            kl.amount = sum([klist[x].amount for x in range(mds * i, j)])
+            mklist.append(kl)
+            i += 1
+            if mds * i >= len(klist):
+                break
+        return mklist
