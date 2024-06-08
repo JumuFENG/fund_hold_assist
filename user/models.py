@@ -983,6 +983,22 @@ class User():
         adeals = sqldb.select(self.stocks_archived_deals_table())
         return [{'code':c, 'time':d, 'tradeType':t, 'count':ptn, 'price':pr, 'fee':fee, 'feeYh':fYh, 'feeGh':fGh, 'sid':sid} for _,c,d,t,ptn,pr,fee,fYh,fGh,sid in adeals]
 
+    def get_archived_since(self, date, excludehold=False):
+        sqldb = self.stock_center_db()
+        if not sqldb.isExistTable(self.stocks_archived_deals_table()):
+            return []
+
+        adeals = sqldb.select(self.stocks_archived_deals_table())
+        astocks = set([c for _,c,d,t,ptn,pr,fee,fYh,fGh,sid in adeals if d >= date and t == 'S'])
+        if excludehold:
+            exstocks = []
+            hdstks = self.get_holding_stocks_portions()
+            for c in astocks:
+                if c not in hdstks:
+                    exstocks.append(c)
+            astocks = exstocks
+        return list(astocks)
+
     def archive_deals(self, edate):
         codes = self._all_user_stocks()
         consumed = ()
