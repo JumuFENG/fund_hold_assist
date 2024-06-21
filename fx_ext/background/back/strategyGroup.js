@@ -507,9 +507,17 @@ class CostDog {
             if (earn - ur.lost > 0) {
                 cdog.urque = cdog.urque.filter(u=> u.id !== ur.id);
                 return;
+            } else {
+                var ur_x = cdog.urque.find(u => !u.paired && earn - u.lost >= 0);
+                if (ur_x) {
+                    ur.paired = false;
+                    cdog.urque = cdog.urque.filter(u=> u.id !== ur_x.id);
+                    return;
+                }
             }
             ur.lost -= earn;
             ur.paired = false;
+            cdog.urque.sort((a,b)=>b.lost - a.lost);
             return;
         }
 
@@ -521,6 +529,7 @@ class CostDog {
         var max_single_cover = cdog.max_amount * cdog.expect_earn_rate;
         if (lost <= max_single_cover && ur) {
             ur.lost = lost;
+            cdog.urque.sort((a,b)=>b.lost - a.lost);
             return;
         }
 
@@ -536,6 +545,7 @@ class CostDog {
             cdog.urque.push({lost, id});
             tlost -= max_single_cover;
         }
+        cdog.urque.sort((a,b)=>b.lost - a.lost);
     }
 }
 
@@ -698,6 +708,7 @@ class StrategyGroup {
         emjyBack.log('archiveBuyDetail', this.code, JSON.stringify(this.buydetail.full_records));
         if (this.uramount && this.buydetail.totalCount() == 0) {
             emjyBack.costDog.settleUr(this.uramount.key, this.buydetail.calcEarning(), this.uramount.id);
+            delete(this.uramount);
         }
         this.buydetail.archiveRecords();
     }

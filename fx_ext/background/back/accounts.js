@@ -832,6 +832,10 @@ class NormalAccount extends Account {
     }
 
     removeStock(code) {
+        var stock = this.stocks.find(s => {return s.code == code;});
+        if (stock && stock.strategies) {
+            stock.strategies.archiveBuyDetail();
+        }
         emjyBack.removeLocal(this.keyword + '_' + code + '_strategies');
         this.stocks = this.stocks.filter(s => s.code !== code);
         var watchingStocks = {};

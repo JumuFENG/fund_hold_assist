@@ -222,13 +222,6 @@ class TrackingAccount extends NormalAccount {
     }
 
     removeStock(code) {
-        var stock = this.stocks.find(s => {return s.code == code;});
-        if (!stock) {
-            return;
-        };
-        if (stock.strategies) {
-            stock.strategies.archiveBuyDetail();
-        }
         super.removeStock(code);
         this.deals = this.deals.filter( s => s.code !== code);
     }
