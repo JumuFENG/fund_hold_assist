@@ -134,26 +134,41 @@ class StockView {
 }
 
 class StockListPanelPage extends RadioAnchorPage {
-    constructor(name='自选管理') {
+    constructor(key='normal', name='普通账户', filt=7) {
         super(name);
+        this.keyword = key;
+        this.defaultFilter = filt;
         this.stocks = [];
+        this.currentCode = null;
+        this.stocksFetched = false;
         this.initStockList();
         this.addWatchArea();
         this.strategyGroupView = new StrategyGroupView();
-        this.currentCode = null;
-        this.defaultFilter = 0;
+    }
+
+    show() {
+        super.show();
+        if (!this.stocksFetched) {
+            emjyBack.sendExtensionMessage({command: 'mngr.initaccstk', account: this.keyword});
+            this.stocksFetched = true;
+        } else {
+            emjyBack.checkHoldingStocks();
+        }
     }
 
     initUi(stocks) {
         emjyBack.log('init StockList');
+        this.stocksFetched = true;
         if (this.strategyGroupView.root.parentElement) {
             this.strategyGroupView.root.parentElement.removeChild(this.strategyGroupView.root);
         }
         utils.removeAllChild(this.listContainer);
+        this.stocks = [];
         for (var i = 0; i < stocks.length; i++) {
             stocks[i].strategies = JSON.parse(stocks[i].strategies);
             this.addStock(stocks[i]);
         };
+        this.selectionFilter.selectedIndex = this.defaultFilter;
         this.onFiltered(this.defaultFilter);
         this.listContainer.lastElementChild.click();
     }
@@ -310,14 +325,12 @@ class StockListPanelPage extends RadioAnchorPage {
         };
     }
 
-    stockExist(code, account) {
-        return this.accStockExists(account + '_' + code);
+    stockExist(code) {
+        return this.stocks.find(s => s.stock.code == code);
     }
 
     accStockExists(code) {
-        return this.stocks.find( s => {
-            return s.stock.acccode == code;
-        });
+        return this.stocks.find(s => s.stock.acccode == code);
     }
 
     updateStockPrice(code) {
@@ -333,11 +346,11 @@ class StockListPanelPage extends RadioAnchorPage {
     }
 
     addStock(stock) {
-        if (this.accStockExists(stock.acccode)) {
-            emjyBack.log(stock.acccode, 'already exists');
+        if (this.stockExist(stock.code)) {
+            emjyBack.log(this.keyword, stock.code, 'already exists');
             return;
         };
-        
+
         var divContainer = new StockView(stock, (target, stk) => {
             if (this.strategyGroupView && (!this.currentCode || this.currentCode != stk.acccode)) {
                 if (this.strategyGroupView) {
@@ -357,8 +370,8 @@ class StockListPanelPage extends RadioAnchorPage {
         this.stocks.push(divContainer);
     }
 
-    deleteStock(account, code) {
-        var stocki = this.stocks.find(s => s.stock.acccode == account + '_' + code);
+    deleteStock(code) {
+        var stocki = this.stocks.find(s => s.stock.code == code);
         if (!stocki) {
             return;
         }
@@ -366,7 +379,7 @@ class StockListPanelPage extends RadioAnchorPage {
             stocki.container.removeChild(this.strategyGroupView.root);
         }
         utils.removeAllChild(stocki.container);
-        this.stocks = this.stocks.filter(s => s.stock.acccode != account + '_' + code);
+        this.stocks = this.stocks.filter(s => s.stock.code != code);
     }
 
     updateStocksDailyKline() {
@@ -498,10 +511,34 @@ class StockListPanelPage extends RadioAnchorPage {
     }
 
     addWatchList() {
+        if (!this.inputWatchList.value) {
+            return;
+        }
         var candidatesObj = JSON.parse(this.inputWatchList.value);
         for(var c in candidatesObj) {
             emjyBack.addWatchingStock(c, this.getWatchListAccount(), candidatesObj[c]);
         }
         this.inputWatchList.value = '';
+    }
+}
+
+
+class PositionMgrPanelPage extends RadioAnchorPage {
+    constructor() {
+        super('持仓管理');
+        this.navigator = new RadioAnchorBar();
+        this.container.appendChild(this.navigator.container);
+    }
+
+    addAccountPanel(slp) {
+        this.navigator.addRadio(slp);
+        this.container.appendChild(slp.container);
+    }
+
+    show() {
+        super.show();
+        if (!this.navigator.selectedIndex) {
+            this.navigator.selectDefault();
+        }
     }
 }

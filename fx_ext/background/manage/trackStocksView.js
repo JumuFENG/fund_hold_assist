@@ -1,18 +1,9 @@
 'use strict';
 
 class TrackStockListPanelPage extends StockListPanelPage {
-    constructor() {
-        super('模拟账户');
+    constructor(key='track', name='模拟账户') {
+        super(key, name);
         this.defaultFilter = 7;
-        this.stocksFetched = false;
-    }
-
-    show() {
-        super.show();
-        if (!this.stocksFetched) {
-            emjyBack.sendExtensionMessage({command: 'mngr.inittrack'});
-            this.stocksFetched = true;
-        }
     }
 
     initUi(stocks) {
@@ -43,7 +34,7 @@ class TrackStockListPanelPage extends StockListPanelPage {
     }
 
     getWatchCodeAccount() {
-        return 'track';
+        return this.keyword;
     }
 
     createWatchListAccountSelector() {
@@ -51,7 +42,7 @@ class TrackStockListPanelPage extends StockListPanelPage {
     }
 
     getWatchListAccount() {
-        return 'track';
+        return this.keyword;
     }
 
     showTrackingCompletedDeals() {
@@ -172,8 +163,8 @@ class TrackStockListPanelPage extends StockListPanelPage {
                 return;
             }
             this.archiveDealsBtn.selectedStks.forEach(c => {
-                emjyBack.sendExtensionMessage({command:'mngr.rmwatch', code: c, account: 'track'});
-                this.deleteStock('track', c);
+                emjyBack.sendExtensionMessage({command:'mngr.rmwatch', code: c, account: this.keyword});
+                this.deleteStock(this.keyword, c);
             });
             this.archiveDealsBtn.selectedStks.clear();
             this.showTrackingCompletedDeals();

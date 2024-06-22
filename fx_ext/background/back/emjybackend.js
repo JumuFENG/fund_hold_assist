@@ -3,7 +3,7 @@ let emjyBack = null;
 let NewStockPurchasePath = '/Trade/NewBatBuy';
 let NewBondsPurchasePath = '/Trade/XzsgBatPurchase';
 let mktDict = {'SH': 1, 'SZ': 0, 'BJ': 4}
-let holdAccountKey = {'credit': 'collat', 'collat': 'collat', 'normal': 'normal', 'track': 'track'};
+let holdAccountKey = {'credit': 'collat', 'collat': 'collat', 'normal': 'normal'};
 
 class ManagerBack {
     constructor() {
@@ -31,7 +31,9 @@ class ManagerBack {
         }
         emjyBack.normalAccount.save();
         emjyBack.collateralAccount.save();
-        emjyBack.trackAccount.save();
+        for (const account of emjyBack.track_accounts) {
+            account.save();
+        }
         if (emjyBack.mgrFetched) {
             emjyBack.mgrFetched.forEach(c => {
                 emjyBack.klines[c].save();
@@ -50,8 +52,8 @@ class ManagerBack {
         emjyBack.log('ManagerBack ', JSON.stringify(message), tabid);
         if (message.command == 'mngr.init') {
             this.tabid = tabid;
-        } else if (message.command == 'mngr.inittrack') {
-            this.sendStocks([emjyBack.trackAccount]);
+        } else if (message.command == 'mngr.initaccstk') {
+            this.sendStocks([emjyBack.all_accounts[message.account]]);
         } else if (message.command == 'mngr.closed') {
             this.notifyMgrSave();
             this.tabid = null;
@@ -197,19 +199,17 @@ class EmjyBack {
         this.normalAccount = new NormalAccount();
         this.collateralAccount = new CollateralAccount();
         this.creditAccount = new CreditAccount();
-        this.trackAccount = new TrackingAccount();
         this.all_accounts = {};
         this.all_accounts[this.normalAccount.keyword] = this.normalAccount;
         this.all_accounts[this.collateralAccount.keyword] = this.collateralAccount;
         this.all_accounts[this.creditAccount.keyword] = this.creditAccount;
-        this.all_accounts[this.trackAccount.keyword] = this.trackAccount;
         this.getFromLocal('hsj_stocks', hsj => {
             if (hsj) {
                 this.stockMarket = hsj;
             }
             this.normalAccount.loadWatchings();
             this.collateralAccount.loadWatchings();
-            this.trackAccount.loadAssets();
+            this.initTrackAccounts();
         });
         this.getFromLocal('fha_server', fhaInfo => {
             if (fhaInfo) {
@@ -230,6 +230,25 @@ class EmjyBack {
         });
         this.setupQuoteAlarms();
         this.log('EmjyBack initialized!');
+    }
+
+    initTrackAccounts() {
+        this.track_accounts = [];
+        this.getFromLocal('track_accounts', accs => {
+            if (!accs || Object.keys(accs).length === 0) {
+                this.track_accounts.push(new TrackingAccount('track'));
+            } else {
+                for (let ac in accs) {
+                    this.track_accounts.push(new TrackingAccount(ac));
+                }
+            }
+            this.trackAccount = this.track_accounts[0];
+            for (const account of this.track_accounts) {
+                this.all_accounts[account.keyword] = account;
+                holdAccountKey[account.keyword] = account.keyword;
+                account.loadAssets();
+            }
+        });
     }
 
     setupWebsocketConnection() {
@@ -456,7 +475,7 @@ class EmjyBack {
                 for (var c in this.klines) {
                     this.manager.sendKline(c, this.klines[c].klines);
                 }
-                this.manager.sendStocks([this.normalAccount, this.collateralAccount]);
+                this.manager.sendStocks([this.normalAccount]);
             }
             chrome.tabs.onRemoved.addListener((tid, removeInfo) => {
                 if (tid == this.manager.tabid) {
@@ -1158,7 +1177,9 @@ class EmjyBack {
         this.normalAccount.updateStockRtPrice(snapshot);
         this.collateralAccount.updateStockRtPrice(snapshot);
         this.ztBoardTimer.updateStockRtPrice(snapshot);
-        this.trackAccount.updateStockRtPrice(snapshot);
+        for (const account of this.track_accounts) {
+            account.updateStockRtPrice(snapshot);
+        }
     }
 
     isTradeTime() {
@@ -1191,7 +1212,9 @@ class EmjyBack {
         }
         this.normalAccount.updateStockRtKline(code, updatedKlt);
         this.collateralAccount.updateStockRtKline(code, updatedKlt);
-        this.trackAccount.updateStockRtKline(code, updatedKlt);
+        for (const account of this.track_accounts) {
+            account.updateStockRtKline(code, updatedKlt);
+        }
     }
 
     removeStock(account, code) {
@@ -1291,7 +1314,9 @@ class EmjyBack {
         var stkset = new Set();
         this.normalAccount.stocks.forEach(s => {stkset.add(s.code)});
         this.collateralAccount.stocks.forEach(s => {stkset.add(s.code)});
-        this.trackAccount.stocks.forEach(s => {stkset.add(s.code)});
+        for (const account of this.track_accounts) {
+            account.stocks.forEach(s => {stkset.add(s.code)});
+        }
         if (!this.normalAccount.tradeClient) {
             this.normalAccount.createTradeClient();
         }
@@ -1326,7 +1351,9 @@ class EmjyBack {
         this.loadDeals();
         this.normalAccount.fillupGuardPrices();
         this.collateralAccount.fillupGuardPrices();
-        this.trackAccount.fillupGuardPrices();
+        for (const account of this.track_accounts) {
+            account.fillupGuardPrices();
+        }
         if ((new Date()).getDate() == 2) {
             this.fetchAllStocksMktInfo();
         }
@@ -1359,16 +1386,18 @@ class EmjyBack {
                 s15.add(s.code)
             }
         });
-        this.trackAccount.stocks.forEach(s => {
-            var kl = this.klines[s.code] ? this.klines[s.code].getLatestKline('101') : undefined;
-            if (kl && kl.time != this.getTodayDate('-')) {
-                s101.add(s.code);
-            }
-            var kl15 = this.klines[s.code] ? this.klines[s.code].getLatestKline('15') : undefined;
-            if (kl15 && kl15.time != this.getTodayDate('-') + ' 15:00') {
-                s15.add(s.code)
-            }
-        });
+        for (const account of this.track_accounts) {
+            account.stocks.forEach(s => {
+                var kl = this.klines[s.code] ? this.klines[s.code].getLatestKline('101') : undefined;
+                if (kl && kl.time != this.getTodayDate('-')) {
+                    s101.add(s.code);
+                }
+                var kl15 = this.klines[s.code] ? this.klines[s.code].getLatestKline('15') : undefined;
+                if (kl15 && kl15.time != this.getTodayDate('-') + ' 15:00') {
+                    s15.add(s.code)
+                }
+            });
+        }
         s101.forEach(s => {this.fetchStockKline(s, '101')});
         this.dailyAlarm.stocks['101'].forEach(s => s15.add(s));
         s15.forEach(s => {this.fetchStockKline(s, '15')});
@@ -1376,7 +1405,9 @@ class EmjyBack {
             this.updateEarning();
             this.normalAccount.save();
             this.collateralAccount.save();
-            this.trackAccount.save();
+            for (const account of this.track_accounts) {
+                account.save();
+            }
             if (this.costDog) {
                 this.costDog.save();
             }
@@ -1413,9 +1444,11 @@ class EmjyBack {
         for (var i in colConfig) {
             configs[i] = colConfig[i];
         };
-        var trackConfig = this.trackAccount.exportConfig();
-        for (var i in trackConfig) {
-            configs[i] = trackConfig[i];
+        for (const account of this.track_accounts) {
+            var trackConfig = account.exportConfig();
+            for (var i in trackConfig) {
+                configs[i] = trackConfig[i];
+            }
         }
         chrome.storage.local.get(['ztstocks','ztdels', 'hist_deals'], item => {
             if (item) {
@@ -1436,7 +1469,9 @@ class EmjyBack {
         };
         this.normalAccount.importConfig(configs);
         this.collateralAccount.importConfig(configs);
-        this.trackAccount.importConfig(configs);
+        for (const account of this.track_accounts) {
+            account.importConfig(configs);
+        }
     }
 
     clearStorage() {

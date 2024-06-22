@@ -93,10 +93,10 @@ class TestTradeClient extends TradeClient {
 }
 
 class TrackingAccount extends NormalAccount {
-    constructor() {
+    constructor(key='track') {
         super();
-        this.keyword = 'track';
-        this.key_deals = 'track_deals';
+        this.keyword = key;
+        this.key_deals = this.keyword + '_deals';
         this.buyPath = null;
         this.sellPath = null;
         this.availableMoney = Infinity;

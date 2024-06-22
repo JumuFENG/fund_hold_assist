@@ -52,6 +52,21 @@ class Manager {
             this.fha = fs;
             this.getPlannedDividen();
         });
+        this.getFromLocal('acc_np', anp => {
+            if (anp) {
+                this.creditEnabled = anp.credit;
+                if (!this.accountList['collat']) {
+                    this.initCreditAccount();
+                }
+            }
+        });
+        this.getFromLocal('track_accounts', accs => {
+            if (!accs || Object.keys(accs).length === 0) {
+                accs = {'track': '模拟账户'};
+            }
+            this.trackAccountNames = accs;
+            this.initTrackAccounts();
+        });
     }
 
     sendExtensionMessage(message) {
@@ -68,19 +83,24 @@ class Manager {
             }
             this.klines[code].updateRtKline(message);
             this.klines[code].save();
-            this.stockList.updateStockPrice(code);
+            for (var acc in this.accountList) {
+                this.accountList[acc].updateStockPrice(code);
+            }
         } else if (message.command == 'mngr.initkline') {
             var code = message.code;
             if (this.klines[code] === undefined) {
                 this.klines[code] = new KLine(code);
                 this.klines[code].klines = message.klines;
                 this.klines[code].parseKlVars();
-                this.stockList.updateStockPrice(code);
+                for (var acc in this.accountList) {
+                    this.accountList[acc].updateStockPrice(code);
+                }
             }
         } else if (message.command == 'mngr.costdog') {
             this.costDogView.init(message.costdog);
-            this.stockList.addCostDogFilterOptions();
-            this.trackList.addCostDogFilterOptions();
+            for (var acc in this.accountList) {
+                this.accountList[acc].addCostDogFilterOptions();
+            }
         } else {
             this.taskMgr.handleMessage(message);
         }
@@ -286,34 +306,14 @@ class Manager {
         }
     }
 
-    getCurrentHoldValue(code, count = 0) {
-        if (count > 0) {
-            if (this.klines[code] && this.klines[code].klines) {
-                return count * this.klines[code].getLatestKline('101').c;
-            }
-            console.log(code, count, 'no kline data');
-            return 0;
-        }
-
-        var stock = this.stockList.stocks.find(s => s.stock.code == code);
-        if (!stock || !stock.stock || !stock.stock.holdCount) {
-            return 0;
-        }
-        if (!emjyManager.klines[code].klines) {
-            return 0;
-        }
-        return stock.stock.holdCount * this.klines[code].getLatestKline('101').c;
-    }
-
     initStocks(stocks) {
         this.log('initStocks');
         if (!this.page) {
             this.initUi();
         }
 
-        var accstocks = [];
-        var trackstocks = [];
         for (var i = 0; i < stocks.length; i++) {
+            var accstocks = [];
             var tstocks = stocks[i].stocks.sort((a, b) => {
                 if (a.holdCount > 0 && b.holdCount > 0) {
                     return a.latestPrice * a.holdCount - b.latestPrice * b.holdCount < 0;
@@ -327,23 +327,13 @@ class Manager {
                 var ts = tstocks[j];
                 ts.acccode = account + '_' + ts.code;
                 ts.account = account;
-                if (account == 'track') {
-                    trackstocks.push(ts);
-                } else {
-                    accstocks.push(ts);
-                }
+                accstocks.push(ts);
             }
+            this.accountList[account].initUi(accstocks);
+            this.accountList[account].addWatchList();
         }
 
-        if (trackstocks.length > 0) {
-            this.trackList.initUi(trackstocks);
-        }
-        if (accstocks.length > 0) {
-            this.stockList.initUi(accstocks);
-            emjyBack.checkHoldingStocks();
-            this.stockList.addWatchList();
-            this.checkKl1Expired();
-        }
+        this.getSvrHoldingStocks();
     }
 
     initUi() {
@@ -352,12 +342,13 @@ class Manager {
             document.body.appendChild(this.page.root);
         };
 
-        if (!this.stockList) {
-            this.stockList = new StockListPanelPage();
-        };
-
-        if (!this.trackList) {
-            this.trackList = new TrackStockListPanelPage();
+        this.positionMgrView = new PositionMgrPanelPage();
+        this.accountList = {};
+        var normalAcc = new StockListPanelPage();
+        this.accountList['normal'] = normalAcc;
+        this.positionMgrView.addAccountPanel(normalAcc);
+        if (this.creditEnabled) {
+            this.initCreditAccount();
         }
 
         if (!this.costDogView) {
@@ -367,14 +358,31 @@ class Manager {
         this.page.setupNavigators();
     }
 
+    initCreditAccount() {
+        var collatAcc = new StockListPanelPage('collat', '担保品账户', 0);
+        this.accountList['collat'] = collatAcc;
+        this.positionMgrView.addAccountPanel(collatAcc);
+    }
+
+    initTrackAccounts() {
+        for (const acc in this.trackAccountNames) {
+            if (acc in this.accountList) {
+                continue;
+            }
+            var trackAcc = new TrackStockListPanelPage(acc, this.trackAccountNames[acc]);
+            this.accountList[acc] = trackAcc;
+            this.positionMgrView.addAccountPanel(trackAcc);
+            this.accountNames[acc] = this.trackAccountNames[acc];
+            this.accountsMap[acc] = [acc];
+        }
+    }
+
     addStock(code, account, strGrp = null) {
         var stock = {code, name:'', account, holdCount: 0, holdCost: 0};
         stock.acccode = account + '_' + code;
         stock.strategies = strGrp;
-        if (account == 'track') {
-            this.trackList.addStock(stock);
-        } else {
-            this.stockList.addStock(stock);
+        if (this.accountList[account]) {
+            this.accountList[account].addStock(stock);
         }
     }
 
@@ -386,17 +394,17 @@ class Manager {
             this.sendExtensionMessage({command: 'mngr.checkrzrq', code});
             return;
         }
-        if (!this.stockList.stockExist(code, account)) {
-            this.addStock(code, account, strGrp);
-            this.sendExtensionMessage({command:'mngr.addwatch', code, account, strategies: strGrp});
+        if (this.accountList[account]) {
+            if (!this.accountList[account].stockExist(code)) {
+                this.addStock(code, account, strGrp);
+                this.sendExtensionMessage({command:'mngr.addwatch', code, account, strategies: strGrp});
+            }
         }
     }
 
     deleteStockFromList(acc, code) {
-        if (acc == 'track') {
-            emjyBack.trackList.deleteStock(acc, code);
-        } else {
-            emjyBack.stockList.deleteStock(acc, code);
+        if (this.accountList[acc]) {
+            this.accountList[acc].deleteStock(code);
         }
     }
 
@@ -519,9 +527,8 @@ class Manager {
                     sdivide[d[1].substring(2)] = {record: recorddate, divide: dividedate, divdesc};
                 }
                 this.plannedDividen = sdivide;
-                this.stockList.stocks.forEach(s => s.refresh());
-                if (this.trackList) {
-                    this.trackList.stocks.forEach(s => s.refresh());
+                for (const acc in this.accountList) {
+                    this.accountList[acc].stocks.forEach(s => s.refresh());
                 }
             });
         }
@@ -579,27 +586,44 @@ class Manager {
         });
     }
 
-    checkHoldingStocks() {
+    getSvrHoldingStocks() {
         var url = this.fha.server + 'stock?act=allstkscount';
         var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)};
         utils.get(url, header, hstks => {
-            hstks = JSON.parse(hstks);
-            emjyBack.stockList.stocks.forEach(stk => {
-                var stkinfo = stk.stock;
-                var code = stkinfo.market + stkinfo.code;
-                var mgrCount = stkinfo.holdCount;
-                var svrCount = 0;
-                if (Object.keys(hstks).includes(code)) {
-                    svrCount = hstks[code];
-                }
-                if (svrCount - mgrCount != 0) {
-                    alert(stkinfo.name + stkinfo.account + stkinfo.code + 'not consitent svr:' + svrCount + ' act:' + mgrCount);
-                }
-            });
-            console.log('Check done!');
+            emjyBack.svrHoldingStocks = JSON.parse(hstks);
         });
+        self.checkHoldingStocks();
+    }
+
+    checkHoldingStocks() {
+        if (emjyBack.svrHoldingStocks && emjyBack.accountList['normal'].stocksFetched && emjyBack.accountList['collat'].stocksFetched) {
+            var mgrStkCounts = {};
+            for (const acc of ['normal', 'collat']) {
+                for (const stock of emjyBack.accountList[acc].stocks) {
+                    var stkinfo = stock.stock;
+                    var code = stkinfo.market + stkinfo.code;
+                    var mgrCount = stkinfo.holdCount;
+                    if (!mgrStkCounts[code]) {
+                        mgrStkCounts[code] = 0;
+                    }
+                    mgrStkCounts[code] += mgrCount;
+                }
+            }
+            for (const code in mgrStkCounts) {
+                var svrCount = 0;
+                if (emjyBack.svrHoldingStocks[code]) {
+                    svrCount = emjyBack.svrHoldingStocks[code];
+                }
+                if (mgrStkCounts[code] - svrCount != 0) {
+                    alert(code + 'not consitent svr:' + svrCount + ' act:' + mgrStkCounts[code]);
+                }
+            }
+            console.log('Check done!');
+            delete(emjyBack.svrHoldingStocks);
+        }
     }
 }
+
 
 class ManagerPage {
     constructor() {
@@ -609,11 +633,8 @@ class ManagerPage {
     }
 
     setupNavigators() {
-        this.navigator.addRadio(emjyBack.stockList);
-        this.root.appendChild(emjyBack.stockList.container);
-
-        this.navigator.addRadio(emjyBack.trackList);
-        this.root.appendChild(emjyBack.trackList.container);
+        this.navigator.addRadio(emjyBack.positionMgrView);
+        this.root.appendChild(emjyBack.positionMgrView.container);
 
         var strategyIPage = new StrategyIntradingPanelPage();
         this.navigator.addRadio(strategyIPage);
@@ -631,9 +652,11 @@ class ManagerPage {
 }
 
 window.addEventListener('beforeunload', e => {
-    if (emjyManager.stockList.strategyGroupView) {
-        emjyManager.stockList.strategyGroupView.saveStrategy();
-    };
+    for (let acc in emjyBack.accountList) {
+        if (emjyBack.accountList[acc].strategyGroupView) {
+            emjyBack.accountList[acc].strategyGroupView.saveStrategy();
+        }
+    }
 });
 
 window.onload = function() {

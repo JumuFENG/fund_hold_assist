@@ -34,28 +34,29 @@ class SettingsPanelPage extends RadioAnchorPage {
         this.container.appendChild(importDiv);
     }
 
+    addInput(fath, ele, text) {
+        var eleout = document.createElement('div');
+        eleout.appendChild(document.createTextNode(text));
+        eleout.appendChild(ele);
+        fath.appendChild(eleout);
+    }
+
     addServerPanel() {
         var svrDiv = document.createElement('div');
-        var addInput = function(fath, ele, text) {
-            var eleout = document.createElement('div');
-            eleout.appendChild(document.createTextNode(text));
-            eleout.appendChild(ele);
-            fath.appendChild(eleout);
-        }
         this.svrHost = document.createElement('input');
-        addInput(svrDiv, this.svrHost, 'Server Host');
+        this.addInput(svrDiv, this.svrHost, 'Server Host');
         this.userEmail = document.createElement('input');
-        addInput(svrDiv, this.userEmail, 'Account(e-mail)');
+        this.addInput(svrDiv, this.userEmail, 'Account(e-mail)');
         this.pwd = document.createElement('input');
-        addInput(svrDiv, this.pwd, 'Password');
+        this.addInput(svrDiv, this.pwd, 'Password');
         this.account = document.createElement('input');
-        addInput(svrDiv, this.account, '资金账户');
+        this.addInput(svrDiv, this.account, '资金账户');
         this.accpwd = document.createElement('input');
         this.accpwd.type = 'password';
-        addInput(svrDiv, this.accpwd, '密码');
+        this.addInput(svrDiv, this.accpwd, '密码');
         this.creditEnabled = document.createElement('input');
         this.creditEnabled.type = 'checkbox';
-        addInput(svrDiv, this.creditEnabled, '启用两融账户');
+        this.addInput(svrDiv, this.creditEnabled, '启用两融账户');
         emjyBack.getFromLocal('fha_server', fhainfo => {
             if (fhainfo) {
                 this.svrHost.value = fhainfo.server;
@@ -76,7 +77,7 @@ class SettingsPanelPage extends RadioAnchorPage {
         purchaseNewStocks.onchange = e => {
             emjyBack.saveToLocal('purchase_new_stocks', e.target.checked);
         }
-        addInput(svrDiv, purchaseNewStocks, '申购新股');
+        this.addInput(svrDiv, purchaseNewStocks, '申购新股');
     }
 
     addSMICenterPanel() {
@@ -121,9 +122,53 @@ class SettingsPanelPage extends RadioAnchorPage {
         }
     }
 
+    addTrackAccountPanel() {
+        if (this.taPanel) {
+            utils.removeAllChild(this.taPanel);
+        } else {
+            this.taPanel = document.createElement('div');
+            this.container.appendChild(this.taPanel);
+        }
+        this.taPanel.appendChild(document.createTextNode('模拟账户:'));
+        for (const acc in emjyBack.trackAccountNames) {
+            var traccDiv = document.createElement('div');
+            this.taPanel.appendChild(traccDiv);
+            traccDiv.appendChild(document.createTextNode(acc + ' ' + emjyBack.trackAccountNames[acc]));
+            var btnDel = document.createElement('button');
+            btnDel.textContent = 'X';
+            btnDel.accountname = acc;
+            btnDel.onclick = e => {
+                delete(emjyBack.trackAccountNames[e.target.accountname]);
+                emjyBack.saveToLocal({'track_accounts': emjyBack.trackAccountNames});
+                this.addTrackAccountPanel();
+            }
+            traccDiv.appendChild(btnDel);
+        }
+        this.taPanel.appendChild(document.createTextNode('添加模拟账户'));
+        this.newTrackKey = document.createElement('input');
+        this.addInput(this.taPanel, this.newTrackKey, '关键词');
+        this.newTrackName = document.createElement('input');
+        this.addInput(this.taPanel, this.newTrackName, '账户名');
+        var accSave = document.createElement('button');
+        accSave.textContent = '新增';
+        this.taPanel.appendChild(accSave);
+        accSave.onclick = e => {
+            var acc = this.newTrackKey.value;
+            if (!acc || acc in emjyBack.trackAccountNames) {
+                alert('key invalid or already exists:', acc, emjyBack.trackAccountNames[acc])
+                return;
+            }
+            emjyBack.trackAccountNames[acc] = this.newTrackName.value;
+            emjyBack.initTrackAccounts();
+            emjyBack.saveToLocal({'track_accounts': emjyBack.trackAccountNames});
+            this.addTrackAccountPanel();
+        }
+    }
+
     init() {
         this.addImportPanel();
         this.addServerPanel();
+        this.addTrackAccountPanel();
         this.addSMICenterPanel();
         var saveBtn = document.createElement('button');
         saveBtn.textContent = 'Save';

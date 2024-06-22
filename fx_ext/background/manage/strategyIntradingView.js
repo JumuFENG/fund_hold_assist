@@ -33,9 +33,12 @@ class StrategyIntradingView {
         }
         addInput(this.container, this.costSelector, '仓位管理');
         this.accSelector = document.createElement('select');
-        var accountNames = [['normal', '普通账户'], ['','自动分配'], ['track', '模拟账户']];
-        for (var i = 0; i < accountNames.length; i++) {
-            this.accSelector.options.add(new Option(accountNames[i][1], accountNames[i][0]));
+        var accountNames = {'normal':'普通账户','':'自动分配'};
+        for (var acc in accountNames) {
+            this.accSelector.options.add(new Option(accountNames[acc], acc));
+        }
+        for (var acc in emjyBack.trackAccountNames) {
+            this.accSelector.options.add(new Option(emjyBack.trackAccountNames[acc], acc));
         }
         addInput(this.container, this.accSelector, '买入账户');
         emjyBack.getFromLocal('itstrategy_' + this.data.key, svstr => {
