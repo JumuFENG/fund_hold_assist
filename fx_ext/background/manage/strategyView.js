@@ -926,8 +926,10 @@ class StrategySellBeforEndView extends StrategySellMAView {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode('尾盘卖出, 不涨停 或 不创新高(最高价/最低价)'));
-        view.appendChild(this.createConditionSelector());
         view.appendChild(this.createSellCountTypeSelector());
+        this.lowestEarningDiv = this.createUpEarnedInput('最低盈利比例', -3);
+        view.appendChild(this.createConditionSelector());
+        view.appendChild(this.lowestEarningDiv);
         return view;
     }
 
@@ -935,13 +937,17 @@ class StrategySellBeforEndView extends StrategySellMAView {
         var selDiv = document.createElement('div');
         selDiv.appendChild(document.createTextNode('卖出条件'));
         this.sellSelector = document.createElement('select');
-        const optConds = {'不涨停':1, '均不创新高':1<<1, '任一不创新高':1<<2};
+        const optConds = {'不涨停':1, '均不创新高':1<<1, '任一不创新高':1<<2, '收益率高于':1<<3};
         for (var k in optConds) {
             this.sellSelector.options.add(new Option(k, optConds[k]));
         }
         if (this.strategy.sell_conds) {
             this.sellSelector.value = this.strategy.sell_conds;
         }
+        this.sellSelector.onchange = e => {
+            this.lowestEarningDiv.style.display = e.target.value == 1 << 3 ? 'block' : 'none';
+        }
+        this.lowestEarningDiv.style.display = this.strategy.sell_conds == 1 << 3 ? 'block' : 'none';
         selDiv.appendChild(this.sellSelector);
         return selDiv;
     }

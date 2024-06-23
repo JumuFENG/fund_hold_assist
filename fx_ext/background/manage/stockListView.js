@@ -329,10 +329,6 @@ class StockListPanelPage extends RadioAnchorPage {
         return this.stocks.find(s => s.stock.code == code);
     }
 
-    accStockExists(code) {
-        return this.stocks.find(s => s.stock.acccode == code);
-    }
-
     updateStockPrice(code) {
         for (var i = 0; i < this.stocks.length; i++) {
             if (this.stocks[i].stock.code == code && emjyBack.klines[code]) {

@@ -1425,7 +1425,7 @@ class StrategySellBeforeEnd extends Strategy {
             return;
         }
 
-        const conditions = {'not_zt': 1,  'h_and_l_dec': 1<<1, 'h_or_l_dec':1<<2};
+        const conditions = {'not_zt': 1,  'h_and_l_dec': 1<<1, 'h_or_l_dec':1<<2, 'p_ge': 1<<3};
         var kl = klines.getLatestKline(kltype);
         if (!this.data.selltype) {
             this.data.selltype = 'single';
@@ -1463,6 +1463,19 @@ class StrategySellBeforeEnd extends Strategy {
             // 最高价或最低价不增加时卖出
             if (!hinc || !linc) {
                 emjyBack.log('StrategySellBeforeEnd kl ||', this.data.sell_conds, JSON.stringify(kl), 'prekl', JSON.stringify(prekl));
+                matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
+                    this.setEnabled(false);
+                });
+                return;
+            }
+        }
+        if (this.data.sell_conds & conditions['p_ge']) {
+            // 收益率>=, 涨停不适用
+            if (zt) {
+                return;
+            }
+            if (kl.c - buydetails.averPrice() * (1 + this.data.upRate) > 0) {
+                emjyBack.log('StrategySellBeforeEnd ge', this.data.sell_conds, JSON.stringify(kl));
                 matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
                     this.setEnabled(false);
                 });
