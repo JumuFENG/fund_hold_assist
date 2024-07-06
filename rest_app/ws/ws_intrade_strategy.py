@@ -5,36 +5,11 @@ import json
 import asyncio
 from datetime import datetime
 from utils import *
-from history import StockAuctionDetails, StockGlobal, StockEmBk, StockHotRank, StockDumps
-from pickup import StockZt1BreakupSelector, StockZt1HotrankSelector, StockBlackHotrank, StockZtDaily, StockZt1j2Selector
+from history import StockAuctionDetails, StockGlobal, StockDumps, StockBkMap
+from pickup import StockZt1BreakupSelector, StockZt1HotrankSelector, StockBlackHotrank, StockZt1j2Selector, StockZt1BkSelector
+from pickup import StockTrippleBullSelector, StockEndVolumeSelector
 
 from rest_app.ws.ws_is_base import *
-
-
-gstocks_st = []
-save_db = True
-
-def get_em_snapshot(code):
-    quote_url = f'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id={code}&callback=jSnapshotBack'
-    responsetext = Utils.get_em_request(quote_url, host='emhsmarketwg.eastmoneysec.com')
-    snapshot_data = responsetext.replace('jSnapshotBack(', '').rstrip(');')
-    return json.loads(snapshot_data)
-
-def check_st_stock(code):
-    global gstocks_st
-    if len(gstocks_st) == 0:
-        stbk = StockEmBk('BK0511')
-        gstocks_st = stbk.dumpDataByDate()
-        gstocks_st += [c[2:] for c in gstocks_st]
-    return code in gstocks_st
-
-def disable_save_db():
-    global save_db
-    save_db = False
-
-def save_db_enabled():
-    global save_db
-    return save_db
 
 
 class StrategyI_AuctionUp:
@@ -66,6 +41,8 @@ class StrategyI_AuctionUp:
             if c == '-' or zd == '-' or ze == '-' or zd > -8:
                 continue
             cd = rkobj['f12'] # 代码
+            if WsIsUtils.is_stock_blacked(cd):
+                continue
             if cd.startswith('00') or cd.startswith('60'):
                 m = rkobj['f13']  # 市场代码 0 深 1 沪
                 self.auction_quote[cd] = {'fcode': f'{StockGlobal.full_stockcode(cd)}', 'quotes': self.get_trends(f'{m}.{cd}')}
@@ -86,7 +63,7 @@ class StrategyI_AuctionUp:
         return trends
 
     def get_snapshot(self, code):
-        snapshot = get_em_snapshot(code)
+        snapshot = Utils.get_em_snapshot(code)
 
         # 解析买一买二和卖一卖二的价格和数量
         buy1_price = snapshot['fivequote']['buy1']
@@ -130,7 +107,7 @@ class StrategyI_AuctionUp:
 
     def stop_snapshot_task(self):
         self.snapshot_task_running = False
-        if save_db_enabled():
+        if WsIsUtils.save_db_enabled():
             sad = StockAuctionDetails()
             sad.saveDailyAuctions(Utils.today_date(), self.auction_quote)
 
@@ -185,7 +162,7 @@ class StrategyI_Zt1Breakup(StrategyI_Listener):
     stock_notified = []
 
     def __init__(self):
-        self.watcher = get_watcher('stkchanges')
+        self.watcher = WsIsUtils.get_watcher('stkchanges')
 
     async def on_watcher(self, fecthed):
         if len(self.candidates) == 0:
@@ -204,7 +181,6 @@ class StrategyI_Zt1Breakup(StrategyI_Listener):
                 chg_match_data = {'code': c}
                 await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
                 self.stock_notified.append(c)
-                Utils.log(f'get_changes add {c}')
 
     def create_intrade_matched_message(self, match_data, subscribe_detail):
         account = subscribe_detail['account']
@@ -237,12 +213,11 @@ class StrategyI_Zt1Hotrank(StrategyI_Listener):
     latest_ranks = {}
     rankjqka = {}
     ranktgb = {}
-    zt_recent = []
     changes_matched = []
 
     def __init__(self):
-        self.watcher = get_watcher('stkchanges')
-        self.hrwatcher = get_watcher('hotrank')
+        self.watcher = WsIsUtils.get_watcher('stkchanges')
+        self.hrwatcher = WsIsUtils.get_watcher('hotrank')
         self.hrlistener = StrategyI_Listener()
         self.hrlistener.watcher = self.hrwatcher
         self.hrlistener.on_watcher = self.on_hotrank_fetched
@@ -261,40 +236,128 @@ class StrategyI_Zt1Hotrank(StrategyI_Listener):
             self.ranktgb = rktgb
 
     async def on_watcher(self, fecthed):
-        if len(self.zt_recent) == 0:
-            szbs = StockZtDaily()
-            self.zt_recent = szbs.dumpZtStocksInDays(3, False)
-
         for c, f, t, i in fecthed:
-            if c in self.zt_recent: continue
-            if check_st_stock(c): continue
+            if WsIsUtils.recent_zt(c): continue
+            if WsIsUtils.is_stock_blacked(c): continue
             if (c,t) in self.stock_notified: continue
-            # if c not in self.latest_ranks: continue
-            # if t != 4: continue
-            # if not callable(self.on_intrade_matched):
-            #     continue
             price = 1
             if t == 4:
                 price = float(i.split(',')[0])
             elif t == 64 or t == 128 or t == 8193 or t == 8194 or t == 8201 or t == 8213:
                 price = float(i.split(',')[1])
+            if price < 1:
+                continue
             chg_match_data = {'code': c, 'price': price}
-            await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
-            self.stock_notified.append((c, t))
+            if c in self.latest_ranks and t == 4 and callable(self.on_intrade_matched):
+                await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
+                self.stock_notified.append((c, t))
             self.changes_matched.append([
                 c, f, t, self.latest_ranks[c]['rank'] if c in self.latest_ranks else 0,
                 self.rankjqka[c] if c in self.rankjqka else 0, self.ranktgb[c] if c in self.ranktgb else 0,
                 self.latest_ranks[c]['newfans'] if c in self.latest_ranks else 0, i])
-            Utils.log(f'get_changes add {c}, {t}')
 
     def on_taskstop(self):
-        szh = StockZt1HotrankSelector()
         self.changes_matched = sorted(self.changes_matched, key=lambda c: c[2])
-        if save_db_enabled():
+        if WsIsUtils.save_db_enabled():
+            szh = StockZt1HotrankSelector()
             szh.setChanges(self.changes_matched)
         else:
             print('zt1hr setChanges', self.changes_matched)
         self.changes_matched = []
+
+    def create_intrade_matched_message(self, match_data, subscribe_detail):
+        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
+
+
+class StrategyI_Zt1Bk(StrategyI_Listener):
+    ''' 热门板块首板打板
+    '''
+    key = 'istrategy_zt1bk'
+    name = '首板板块'
+    desc = '首板板块主力净流入多, 排队/打板'
+    on_intrade_matched = None
+
+    def __init__(self):
+        self.watcher = WsIsUtils.get_watcher('stkchanges')
+        self.bkwatcher = WsIsUtils.get_watcher('bkchanges')
+        self.bklistener = StrategyI_Listener()
+        self.bklistener.watcher = self.bkwatcher
+        self.bklistener.on_watcher = self.on_bk_changes
+        self.candidates_bkstks = []
+        self.changes_matched = []
+        self.stock_notified = []
+
+    async def start_strategy_tasks(self):
+        await super().start_strategy_tasks()
+        await self.bklistener.start_strategy_tasks()
+
+    def select_bk_of(self, bk_changes, attr, count=3):
+        '''选择异动板块
+        @param bk_changes 所有异动
+        @param attr 属性名: p_change, ydpos, ztcnt...
+        @param count 数量, 选排序最靠前的n个
+        '''
+        s_changes = sorted(bk_changes, key=lambda x: x[attr], reverse=True)
+        mtbk = [s_changes[0][column_code]]
+        bkpked = 1
+        i = 1
+        while bkpked < 3 and i < len(s_changes):
+            bkstks1 = set(WsIsUtils.get_bk_stocks(s_changes[i][column_code]))
+            similar = False
+            for bk in mtbk:
+                bkstks0 = set(WsIsUtils.get_bk_stocks(bk))
+                cntstks = min(len(bkstks0), len(bkstks1))
+                if cntstks == 0:
+                    Utils.log(f'bkstock is empty {bk}: {len(bkstks0)}, {s_changes[i][column_code]} {len(bkstks1)}')
+                    cntstks = max(len(bkstks0), len(bkstks1))
+                    if cntstks == 0:
+                        continue
+                if len(bkstks0.intersection(bkstks1)) / min(len(bkstks0), len(bkstks1)) > 0.3:
+                    similar = True
+                    break
+            if not similar:
+                mtbk.append(s_changes[i][column_code])
+                bkpked += 1
+            i += 1
+        return mtbk
+
+    async def on_bk_changes(self, bk_changes):
+        mtbk = self.select_bk_of(bk_changes, column_amount)
+        mtbk += self.select_bk_of(bk_changes, column_p_change)
+        mtbk += self.select_bk_of(bk_changes, 'ydabs')
+        mtbk += self.select_bk_of(bk_changes, 'ztcnt')
+        mtbk = list(set(mtbk))
+        Utils.log(f'bk changes selected: {mtbk}')
+
+        candidates = []
+        for bk in mtbk:
+            candidates += [s[2:] for s in WsIsUtils.get_bk_stocks(bk)]
+        self.candidates_bkstks = [s for s in set(candidates) if not WsIsUtils.is_stock_blacked(s) and not WsIsUtils.recent_zt(s)]
+        Utils.log(f'candidates_bkstks: {len(self.candidates_bkstks)}')
+
+    async def on_watcher(self, fecthed):
+        for c, f, t, i in fecthed:
+            if t != 4: continue
+            if c in self.stock_notified: continue
+            if c not in self.candidates_bkstks: continue
+            if not callable(self.on_intrade_matched):
+                continue
+            price = float(i.split(',')[0])
+            chg_match_data = {'code': c, 'price': price}
+            await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
+            self.changes_matched.append([c, f, t, i])
+            self.stock_notified.append(c)
+
+    def on_taskstop(self):
+        if WsIsUtils.save_db_enabled():
+            szh = StockZt1BkSelector()
+            szh.setChanges(self.changes_matched)
+        else:
+            print('zt1bk setChanges', self.changes_matched)
+        self.changes_matched = []
+
+    def create_intrade_matched_message(self, match_data, subscribe_detail):
+        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
 
 
 class StrategyI_EndAuc_Nzt(StrategyI_Listener):
@@ -303,7 +366,7 @@ class StrategyI_EndAuc_Nzt(StrategyI_Listener):
     key = 'istrategy_eaucnzt'
     name = '炸板尾盘买入'
     desc = '盘中触及涨停, 尾盘竞价买入, 次日开盘卖出, 选上影线最小者.'
-    watcher = get_watcher('endauction')
+    watcher = WsIsUtils.get_watcher('endauction')
     on_intrade_matched = None
     sd = StockDumps()
 
@@ -324,6 +387,9 @@ class StrategyI_EndAuc_Nzt(StrategyI_Listener):
                 allkl = [KNode(kl) for kl in allkl]
                 if len([kl for kl in allkl if kl.pchange > 9 and kl.high == kl.close]) > 2:
                     # 10日内涨停数>2, 忽略
+                    continue
+                if len(allkl) < 3:
+                    Utils.log(f'kldata not valid, {code}, {allkl}', Utils.Warn)
                     continue
                 if ((allkl[-1].high == allkl[-1].close and Utils.zt_priceby(allkl[-2].close))
                     ) or (
@@ -347,7 +413,7 @@ class StrategyI_HighClose(StrategyI_Listener):
     key = 'istrategy_highclose'
     name = '光头阳线尾盘买入'
     desc = '收盘价为当日最高价尾盘竞价买入, 次日开盘卖出, 选涨跌幅最大者.'
-    watcher = get_watcher('endauction')
+    watcher = WsIsUtils.get_watcher('endauction')
     on_intrade_matched = None
 
     async def on_watcher(self, quotes):
@@ -355,7 +421,7 @@ class StrategyI_HighClose(StrategyI_Listener):
         for code, knode in quotes:
             if not code.startswith('SH60') and not code.startswith('SZ00'):
                 continue
-            if check_st_stock(code) or knode.close < 1:
+            if WsIsUtils.is_stock_blacked(code) or knode.close < 1:
                 # ST股或股价低于1元
                 continue
             if knode.high == knode.close and knode.high > knode.low and knode.close < Utils.zt_priceby(knode.lclose):
@@ -384,7 +450,7 @@ class StrategyI_HotrankOpen(StrategyI_Listener):
 
     def __init__(self):
         self.stockranks = []
-        self.watcher = get_watcher('hotrank_open')
+        self.watcher = WsIsUtils.get_watcher('hotrank_open')
         self.taskwatcher = StrategyI_Simple_Watcher('9:24:54')
         self.taskwatcher.execute_simple_task = self.start_check_task
 
@@ -442,7 +508,9 @@ class StrategyI_HotrankOpen(StrategyI_Listener):
         checked_ranks = []
         for rk in self.stockranks:
             code = rk['code']
-            snapshot = get_em_snapshot(code)
+            if WsIsUtils.is_stock_blacked(code):
+                continue
+            snapshot = Utils.get_em_snapshot(code)
             if snapshot['status'] != 0:
                 continue
 
@@ -458,9 +526,9 @@ class StrategyI_HotrankOpen(StrategyI_Listener):
             self.hotblack = StockBlackHotrank()
         candidate = self.get_first_available(checked_ranks, self.hotblack.dumpDataByDate())
         if candidate is not None and callable(self.on_intrade_matched):
-            hro_match_data = {'code': candidate['code'], 'price': candidate['topprice']}
+            hro_match_data = {'code': candidate['code'], 'price': min(candidate['price'] * 1.05, candidate['topprice'])}
             await self.on_intrade_matched(self.key, hro_match_data, self.create_intrade_matched_message)
-            if save_db_enabled():
+            if WsIsUtils.save_db_enabled():
                 self.hotblack.add(candidate['code'], Utils.today_date())
 
 
@@ -473,7 +541,7 @@ class StrategyI_HotrankClose(StrategyI_HotrankOpen):
 
     def __init__(self):
         self.stockranks = []
-        self.watcher =  get_watcher('hotrank_close')
+        self.watcher =  WsIsUtils.get_watcher('hotrank_close')
         self.taskwatcher = StrategyI_Simple_Watcher('14:55:50')
         self.taskwatcher.execute_simple_task = self.start_check_task
         self.tasklistner = StrategyI_Listener()
@@ -508,7 +576,7 @@ class StrategyI_Zt1j2Open(StrategyI_Listener):
 
     def __init__(self):
         self.stockranks = []
-        self.watcher = get_watcher('hotrank_open')
+        self.watcher = WsIsUtils.get_watcher('hotrank_open')
         self.taskwatcher = StrategyI_Simple_Watcher('9:22:54')
         self.taskwatcher.execute_simple_task = self.start_check_task
 
@@ -544,7 +612,7 @@ class StrategyI_Zt1j2Open(StrategyI_Listener):
             rkobj['rktgb'] = self.ranktgb[code] if code in self.ranktgb else 0
             self.stockranks.append(rkobj)
         if len(rkvalues) > 0:
-            if save_db_enabled():
+            if WsIsUtils.save_db_enabled():
                 self.szt1j2.updateRanks(rkvalues)
             else:
                 print('zt1j2 updateRanks', rkvalues)
@@ -565,7 +633,7 @@ class StrategyI_Zt1j2Open(StrategyI_Listener):
         bivalues = []
         for rk in self.stockranks:
             code = rk['code']
-            snapshot = get_em_snapshot(code)
+            snapshot = Utils.get_em_snapshot(code)
             if snapshot['status'] != 0:
                 continue
 
@@ -580,16 +648,260 @@ class StrategyI_Zt1j2Open(StrategyI_Listener):
                     bival.append(1)
                     bivalues.append(bival)
         if len(bivalues) > 0:
-            if save_db_enabled():
+            if WsIsUtils.save_db_enabled():
                 self.szt1j2.updateBuyInfo(bivalues)
             else:
                 print('zt1j2 updateBuyInfo', bivalues)
+
+    def create_intrade_matched_message(self, match_data, subscribe_detail):
+        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
+
+
+class StrategyI_3Bull_Breakup(StrategyI_Listener):
+    ''' 三阳开泰
+    '''
+    key = 'istrategy_3brk'
+    name = '三阳开泰'
+    desc = '连续3根阳线价升量涨 以突破此3根阳线的最高价为买入点 以第一根阳线到买入日期之间的最低价为止损价 止盈设置5%'
+    on_intrade_matched = None
+    s3btbl = None
+
+    def __init__(self):
+        self.watcher = WsIsUtils.get_watcher('snapshot_5m')
+        self.prewatcher = StrategyI_Simple_Watcher('9:28')
+        self.prewatcher.execute_simple_task = self.prepare_candidates
+        self.candidates = {}
+        self.stock_notified = []
+
+    async def start_strategy_tasks(self):
+        await super().start_strategy_tasks()
+        await self.prewatcher.start_strategy_tasks()
+
+    async def prepare_candidates(self):
+        if self.s3btbl is None:
+            self.s3btbl = StockTrippleBullSelector()
+        chl = self.s3btbl.getLatestCandidatesHighLow()
+        for c, h, l in chl:
+            if WsIsUtils.is_stock_blacked(c):
+                continue
+            snap = Utils.get_em_snapshot(c)
+            if snap['topprice'] == '-' or float(snap['topprice']) <= h:
+                continue
+            self.candidates[c] = {'high': h, 'low': l}
+        self.watcher.add_stock(self.candidates.keys())
+
+    async def on_watcher(self, csnapshot):
+        code = csnapshot['code']
+        if code not in self.candidates:
+            return
+
+        if csnapshot['price'] <= self.candidates[code]['high']:
+            return
+
+        if callable(self.on_intrade_matched) and csnapshot['price'] < 1.05 * self.candidates[code]['high'] and csnapshot['sell2'] > 0:
+            mdata = {'code': code, 'price': csnapshot['sell2'], 'cutline': self.candidates[code]['low']}
+            await self.on_intrade_matched(self.key, mdata, self.create_intrade_matched_message)
+
+        self.candidates.pop(code)
+        self.watcher.remove_stock(code)
+        self.stock_notified.append(code)
+
+    def on_taskstop(self):
+        if WsIsUtils.save_db_enabled():
+            for code in self.stock_notified:
+                self.s3btbl.setFdate(code)
+        else:
+            print ('save notified', self.stock_notified)
+        self.stock_notified = []
+
+    def create_intrade_matched_message(self, match_data, subscribe_detail):
+        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
+
+
+class StrategyI_EVolume(StrategyI_Listener):
+    ''' 尾盘竞价爆量
+    '''
+    key = 'istrategy_evol'
+    name = '尾盘竞价爆量'
+    desc = '收盘集合竞价爆量 竞价成交量>0.04*全天成交量 换手>1% 成交额>1000万 30日内有涨停'
+    on_intrade_matched = None
+    evoltbl = None
+
+    def __init__(self):
+        self.owatcher = StrategyI_Simple_Watcher('9:23')
+        self.prewatcher = StrategyI_Simple_Watcher('14:57:15')
+        self.watcher = StrategyI_Simple_Watcher('14:59:20')
+        self.postwatcher = StrategyI_Simple_Watcher('14:59:50')
+        self.owatcher.execute_simple_task = self.execute_open_task
+        self.prewatcher.execute_simple_task = self.prepare_candidates
+        self.watcher.execute_simple_task = self.execute_simple_task
+        self.postwatcher.execute_simple_task = self.execute_post_task
+        self.candidates = {}
+        self.stock_notified = []
+
+    async def start_strategy_tasks(self):
+        await super().start_strategy_tasks()
+        await self.owatcher.start_strategy_tasks()
+        await self.prewatcher.start_strategy_tasks()
+        await self.postwatcher.start_strategy_tasks()
+
+    async def execute_open_task(self):
+        evoltbl = StockEndVolumeSelector()
+        mx_tdate = TradingDate.maxTradingDate()
+        if mx_tdate == Utils.today_date():
+            candi_date = TradingDate.prevTradingDate(mx_tdate)
+            candidates = evoltbl.dumpLatesetCandidates(candi_date, False)
+            Utils.log(f'evol get candidates of {candi_date}: {candidates}')
+            for c in candidates:
+                snapshot = Utils.get_em_snapshot(c)
+                price = 0 if snapshot['realtimequote']['currentPrice'] == '-' else float(snapshot['realtimequote']['currentPrice'])
+                top_price = 0 if snapshot['topprice'] == '-' else float(snapshot['topprice'])
+                if top_price == 0:
+                    continue
+                if price == 0:
+                    price = top_price
+                price = min(price * 1.02, top_price)
+                if callable(self.on_intrade_matched):
+                    mdata = {'code': c, 'price': price}
+                    await self.on_intrade_matched(self.key, mdata, self.create_intrade_matched_message)
+                    self.stock_notified.append(c)
+
+    async def prepare_candidates(self):
+        if self.evoltbl is None:
+            self.evoltbl = StockEndVolumeSelector()
+            self.evoltbl.blacked_stocks = WsIsUtils.blacklist()
+            szt = StockZtDaily()
+            self.evoltbl.ztdict30 = szt.dumpZtStockDictInDays(30)
+            # self.evoltbl.walk_post_process = self.evol_post_process
+
+    async def execute_simple_task(self):
+        if self.evoltbl is not None:
+            self.evoltbl.walkOnHistory()
+            Utils.log(f'evoltbl.walkOnHistory done! select length: {len(self.evoltbl.wkselected)}')
+
+    async def execute_post_task(self):
+        if self.evoltbl is not None and len(self.evoltbl.wkselected) > 0:
+            for evstock in self.evoltbl.wkselected:
+                # if evstock[9] < 0: continue
+                code = evstock[0][2:]
+                if callable(self.on_intrade_matched) and code not in self.stock_notified:
+                    mdata = {'code': code, 'price': min(evstock[10] * 1.02, evstock[11])}
+                    await self.on_intrade_matched(self.key, mdata, self.create_intrade_matched_message)
+                    self.stock_notified.append(code)
+
+    def evol_post_process(self):
+        pass
+
+    def create_intrade_matched_message(self, match_data, subscribe_detail):
+        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
+
+
+class StrategyI_Zt1H_Bk(StrategyI_Listener):
+    ''' 一字涨停板块打板
+    '''
+    key = 'istrategy_hbk'
+    name = '一字板块打板'
+    desc = '一字板相关板块打板买入, 首板一字板排单, 非首板的一字板不排单'
+    on_intrade_matched = None
+    bkmap = None
+
+    def __init__(self):
+        self.watcher = WsIsUtils.get_watcher('stkchanges')
+        self.candi_watcher = WsIsUtils.get_watcher('stkzt_open')
+        self.candi_listener = StrategyI_Listener()
+        self.candi_listener.watcher = self.candi_watcher
+        self.candi_listener.on_watcher = self.candi_on_watcher
+        self.zt1h_stocks = []
+        self.stock_notified = []
+        self.candidates = []
+
+    async def start_strategy_tasks(self):
+        await super().start_strategy_tasks()
+        await self.candi_listener.start_strategy_tasks()
+
+    async def candi_on_watcher(self, fecthed):
+        self.zt1h_stocks = []
+        for c, f, t, i in fecthed:
+            if t != 4: continue
+            if WsIsUtils.is_stock_blacked(c): continue
+            self.zt1h_stocks.append(StockGlobal.full_stockcode(c))
+            if WsIsUtils.recent_zt_reached(c): continue
+            price = float(i.split(',')[0])
+            chg_match_data = {'code': c, 'price': price}
+            if callable(self.on_intrade_matched):
+                await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
+                self.stock_notified.append(c)
+
+        self.get_candidates_from1h()
+
+    def get_candidates_from1h(self):
+        if self.bkmap is None:
+            self.bkmap = StockBkMap()
+        zbks = set()
+        for c in self.zt1h_stocks:
+            bks = self.bkmap.sqldb.select(self.bkmap.tablename, 'bk', f'stock="{c}"')
+            if bks is None:
+                continue
+            for bk, in bks:
+                zbks.add(bk)
+        candidates = []
+        for bk in zbks:
+            candidates += [s[2:] for s in WsIsUtils.get_bk_stocks(bk)]
+        self.candidates = [s for s in set(candidates) if not WsIsUtils.is_stock_blacked(s) and not WsIsUtils.recent_zt(s)]
+        Utils.log(f'zt1h: {self.zt1h_stocks}, bks: {zbks}')
+
+    async def on_watcher(self, fecthed):
+        for c, f, t, i in fecthed:
+            if t != 4: continue
+            if c in self.stock_notified: continue
+            if c not in self.candidates: continue
+            if WsIsUtils.recent_zt_reached(c): continue
+            if WsIsUtils.is_stock_blacked(c): continue
+
+            price = float(i.split(',')[0])
+            chg_match_data = {'code': c, 'price': price}
+            if callable(self.on_intrade_matched):
+                await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
+                self.stock_notified.append(c)
+
+    def create_intrade_matched_message(self, match_data, subscribe_detail):
+        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
+
+
+class StrategyI_Zt1H_Yzb(StrategyI_Listener):
+    ''' 首板一字涨停排单
+    '''
+    key = 'istrategy_yzb'
+    name = '首板一字板'
+    desc = '首板一字板排单买入'
+    on_intrade_matched = None
+
+    def __init__(self):
+        self.watcher = WsIsUtils.get_watcher('stkzt_open')
+        self.stock_notified = []
+
+    async def on_watcher(self, fecthed):
+        for c, f, t, i in fecthed:
+            if t != 4: continue
+            if c in self.stock_notified: continue
+            if WsIsUtils.recent_zt_reached(c): continue
+            if WsIsUtils.is_stock_blacked(c): continue
+
+            price = float(i.split(',')[0])
+            chg_match_data = {'code': c, 'price': price}
+            if callable(self.on_intrade_matched):
+                await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
+                self.stock_notified.append(c)
+
+    def create_intrade_matched_message(self, match_data, subscribe_detail):
+        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
 
 
 class WsIntradeStrategyFactory:
     istrategies = [
         StrategyI_AuctionUp(), StrategyI_Zt1Breakup(), StrategyI_EndAuc_Nzt(), StrategyI_HighClose(),
-        StrategyI_HotrankOpen(), StrategyI_HotrankClose(), StrategyI_Zt1Hotrank(), StrategyI_Zt1j2Open()]
+        StrategyI_HotrankOpen(), StrategyI_Zt1Hotrank(), StrategyI_Zt1j2Open(), StrategyI_Zt1Bk(),
+        StrategyI_3Bull_Breakup(), StrategyI_EVolume(), StrategyI_Zt1H_Bk(), StrategyI_Zt1H_Yzb()]
 
     @classmethod
     def all_available_istrategies(self):
