@@ -4,6 +4,7 @@
 from utils import *
 from history.stock_dumps import *
 from pickup.stock_base_selector import *
+from pickup.stock_zt_lead_selector import StockZtDaily
 
 class StockEuSelector(StockBaseSelector):
     '''
@@ -247,3 +248,429 @@ class StockEuSelector(StockBaseSelector):
             self.sim_ops = [{'prepare': None, 'thread': self.simulate_buy_sell1, 'post': self.sim_post_process, 'dtable': f'track_sim_euzt_bound_l{l}_u{l+1}'}]
             self.simulate()
             self.sim_deals = []
+
+
+class StockTrippleBullSelector(StockBaseSelector):
+    '''三阳买入
+    选股条件; 连续3根阳线价升量涨 以突破此3根阳线的最高价为买入点 以第一根阳线到买入日期之间的最低价为止损价 止盈设置5%
+    '''
+    def __init__(self):
+        super().__init__()
+        self.erate = 0.05
+        self.crate = 0.05
+
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_tripple_bull_pickup'
+        self.colheaders = [
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+            {'col':'预选','type':'tinyint DEFAULT 1'},
+            {'col':'bdate','type':'varchar(20) DEFAULT NULL'}, # 开始日期
+            {'col':'fdate','type':'varchar(20) DEFAULT NULL'}, # 结束日期 买入或者放弃跟踪
+        ]
+        self._sim_ops = [
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_3b'},
+            ]
+        self.sim_ops = self._sim_ops[0:1]
+
+    def walk_prepare(self, date=None):
+        self.nonefdates = {}
+        self.maxfdates = {}
+        self.wkstocks_que = queue.Queue()
+        dfdates = self.sqldb.select(self.tablename, [column_code, column_date, 'fdate'])
+        if dfdates is None or len(dfdates) == 0:
+            super().walk_prepare()
+            [self.wkstocks_que.put([c, '2020-01-01' if d < '2020' else d]) for c, d in self.wkstocks]
+            return
+        ncodes = {c: d for c,d,f in dfdates if f is None}
+        xcodes = {}
+        for c,d,f in dfdates:
+            if f is None:
+                continue
+            if c not in xcodes:
+                xcodes[c] = []
+            xcodes[c].append(f)
+        xcodes = {c:max(d) for c, d in xcodes.items()}
+        pops = []
+        for c in ncodes.keys():
+            if c in xcodes and xcodes[c] > ncodes[c]:
+                self.sqldb.delete(self.tablename, {column_code: c, column_date: ncodes[c]})
+                pops.append(c)
+        [ncodes.pop(c) for c in pops]
+        self.nonefdates = ncodes
+        super().walk_prepare(max(xcodes.values()))
+        wkstocks = []
+        for c,d in self.wkstocks:
+            if c in ncodes:
+                fdate = self.check_nonfinished(c, ncodes[c])
+                if fdate is not None:
+                    wkstocks.append([c, fdate])
+                    xcodes[c] = fdate
+                else:
+                    wkstocks.append([c, ncodes[c]])
+            elif c in xcodes:
+                wkstocks.append([c, xcodes[c]])
+            else:
+                wkstocks.append([c, d])
+        self.maxfdates = xcodes
+        [self.wkstocks_que.put([c, d]) for c,d in wkstocks]
+        [self.wkstocks_que.put([c, d]) for c,d in wkstocks if c == 'SZ002846']
+        self.upstocks = []
+        bkdb = StockEmBk('BK0511')
+        self.blockedst = bkdb.dumpDataByDate()
+
+    def check_nonfinished(self, code, date):
+        if code not in self.nonefdates:
+            return
+        kdate = (datetime.strptime(self.nonefdates[code], r'%Y-%m-%d') + timedelta(days=-10)).strftime(r"%Y-%m-%d")
+        allkl = self.get_kd_data(code, start=kdate)
+        if allkl is None or len(allkl) == 0:
+            return
+        i = 0
+        while i < len(allkl) and allkl[i].date <= self.nonefdates[code]:
+            i += 1
+        if i >= len(allkl):
+            return
+
+        updatefdate = False
+        if i >= 3 and allkl[i-1].date == self.nonefdates[code]:
+            uprice = max(allkl[i-1].high, allkl[i-2].high, allkl[i-3].high)
+            support = min(allkl[i-1].low, allkl[i-2].low, allkl[i-3].low)
+            j = i
+            while j < len(allkl) and allkl[j].date < date:
+                j += 1
+            while j < len(allkl):
+                if allkl[j].high > uprice:
+                    updatefdate = True
+                    break
+                if allkl[j].close < support and j - i > 10:
+                    updatefdate = True
+                    break
+                j += 1
+        if updatefdate:
+            self.sqldb.update(self.tablename, {'fdate': allkl[j].date}, {column_code: code, column_date: self.nonefdates[code]})
+            self.nonefdates.pop(code)
+            if j > i:
+                return allkl[j].date
+            while j < len(allkl):
+                if not (allkl[j].close > allkl[j-1].close and allkl[j].vol > allkl[j-1].vol and allkl[j].close > allkl[j].open):
+                    break
+                j += 1
+            return allkl[j if j < len(allkl) else -1].date
+
+    def walk_on_history_thread(self):
+        while self.wkstocks_que.qsize() > 0:
+            c, sdate = self.wkstocks_que.get()
+            if c in self.blockedst:
+                continue
+            kdate = (datetime.strptime(sdate, r'%Y-%m-%d') + timedelta(days=-10)).strftime(r"%Y-%m-%d")
+            allkl = self.get_kd_data(c, start=kdate)
+            if allkl is None or len(allkl) == 0:
+                continue
+
+            i = 0
+            while i < len(allkl) and allkl[i].date < sdate:
+                i += 1
+
+            if i >= len(allkl):
+                continue
+
+            while i < len(allkl):
+                if i < 2:
+                    i += 1
+                    continue
+                if allkl[i].close < allkl[i].open or allkl[i-1].close < allkl[i-1].open or allkl[i-2].close < allkl[i-2].open:
+                    i += 1
+                    continue
+                if allkl[i].close < allkl[i - 1].close or allkl[i-1].close < allkl[i - 2].close:
+                    i += 1
+                    continue
+                if allkl[i].vol < allkl[i-1].vol or allkl[i-1].vol < allkl[i-2].vol:
+                    i += 1
+                    continue
+                if allkl[i].pchange > 8 or allkl[i-1].pchange > 8 or allkl[i-2].pchange > 8:
+                    i += 1
+                    continue
+                j = i + 1
+                uprice = max(allkl[i].high, allkl[i-1].high, allkl[i-2].high)
+                support = min(allkl[i].low, allkl[i-1].low, allkl[i-2].low)
+                fdate = None
+                while j < len(allkl):
+                    if allkl[j].high > uprice or allkl[j].pchange < -5:
+                        fdate = allkl[j].date
+                        break
+                    lowest = min([kl.low for kl in allkl[i-2 : j+1]])
+                    if (uprice - lowest) / uprice > 0.1:
+                        fdate = allkl[j].date
+                        break
+                    if allkl[j].close < support and j - i > 10:
+                        fdate = allkl[j].date
+                        break
+                    j += 1
+
+                if fdate is not None:
+                    if c in self.nonefdates:
+                        if self.nonefdates[c] == allkl[i].date:
+                            self.upstocks.append([fdate, c, self.nonefdates[c]])
+                        else:
+                            self.upstocks.append([allkl[i-2].date, c, self.nonefdates[c]])
+                            self.wkselected.append([c, allkl[i].date, 1, allkl[i-2].date, fdate])
+                        self.maxfdates[c] = fdate
+                        i = j
+                        continue
+                if c not in self.maxfdates or allkl[i-2].date > self.maxfdates[c]:
+                    if fdate is not None and (c not in self.maxfdates or self.maxfdates[c] < fdate):
+                        self.maxfdates[c] = fdate
+                    if c in self.nonefdates and self.nonefdates[c] != allkl[i].date:
+                        self.upstocks.append([allkl[i-2].date, c, self.nonefdates[c]])
+                    self.wkselected.append([c, allkl[i].date, 1, allkl[i-2].date, fdate])
+                i = j
+
+    def walk_post_process(self):
+        # self.sqldb.update(self.tablename, {'fdate': fdate}, {column_code: c, column_date: self.nonefdates[c]})
+        self.sqldb.updateMany(self.tablename, ['fdate', column_code, column_date], [column_code, column_date], self.upstocks)
+        return super().walk_post_process()
+
+    def getDumpKeys(self):
+        return [column_code, 'bdate', column_date]
+
+    def getDumpCondition(self, date=None):
+        return [f'fdate is NULL', '预选=1'] if date is None else [f'{column_date}="{date}"', f'fdate is NULL', '预选=1']
+
+    def getLatestCandidatesHighLow(self, fullcode=False):
+        cdb = self.sqldb.select(self.tablename, [column_code, column_date, 'bdate'], ['预选=1', 'fdate is NULL'])
+        chl = []
+        for c, d, b in cdb:
+            allkl = self.get_kd_data(c, b, fqt=1)
+            high = allkl[0].high
+            i = 1
+            while i < len(allkl) and allkl[i].date <= d:
+                if allkl[i].high > high:
+                    high = allkl[i].high
+                i += 1
+            low = min([kl.low for kl in allkl])
+            chl.append([c if fullcode else c[2:], high, low])
+        return chl
+
+    def setFdate(self, code, date=None):
+        code = StockGlobal.full_stockcode(code)
+        if date is None:
+            date = TradingDate.maxTradingDate()
+        self.sqldb.update(self.tablename, {'fdate': date}, {column_code: code, 'fdate': None})
+
+    def unsetCandidates(self, stks):
+        cds = self.sqldb.select(self.tablename, [column_code, column_date], 'fdate is NULL')
+        cds = {c: d for c, d in cds}
+        self.sqldb.updateMany(self.tablename, [column_code, column_date, '预选'], [column_code, column_date], [[c, cds[c], 0] for c in stks])
+
+    def sim_prepare(self):
+        super().sim_prepare()
+        cdbf = self.sqldb.select(self.tablename, [c['col'] for c in self.colheaders], 'fdate is not NULL')
+        self.sim_stks = [[c,d,b,f] for c,d,x,b,f in cdbf]
+        self.simkey = 'tribull'
+
+    def simulate_buy_sell(self, orstks):
+        kd = None
+        for code, date, b, fdate in orstks:
+            if kd is None or len(kd) == 0:
+                kd = self.get_kd_data(code, b)
+                if kd is None:
+                    continue
+                ki = 0
+                while ki < len(kd) and kd[ki].date < b:
+                    ki += 1
+                kd = kd[ki:]
+
+                i = 0
+                bi, di, fi = 0,0,0
+                while i < len(kd):
+                    if kd[i].date == b:
+                        bi =i
+                    if kd[i].date == date:
+                        di =i
+                    if kd[i].date == fdate:
+                        fi = i
+                        break
+                    i += 1
+
+                uprice = max([kl.high for kl in kd[bi: di+1]])
+                support = min([kl.low for kl in kd[bi: di+1]])
+                if kd[fi].close < support or support * (1 + self.crate) < uprice:
+                    continue
+                buy,bdate,sell,sdate = 0,None,0,None
+                if kd[fi].open > uprice:
+                    if kd[fi].open < uprice * (1 + self.erate):
+                        buy = kd[fi].open
+                        bdate = kd[fi].date
+                    else:
+                        continue
+                elif kd[fi].high > uprice:
+                    buy = uprice
+                    bdate = kd[fi].date
+                else:
+                    continue
+                support = min([x.low for x in kd[di:fi+1]])
+                if support * (1 + self.crate) < uprice:
+                    buy,bdate,sell,sdate = 0,None,0,None
+                    continue
+
+                kk = fi + 1
+                while kk < len(kd):
+                    if kd[ki].open < support:
+                        sell = kd[kk].open
+                        sdate = kd[kk].date
+                    elif kd[kk].low < support:
+                        sell = support
+                        sdate = kd[kk].date
+                    elif kd[kk].high > buy * (1 + self.erate):
+                        sell = (kd[kk].high + kd[kk].close) / 2
+                        sdate = kd[kk].date
+                    else:
+                        kk += 1
+                        continue
+                    break
+                if sdate is not None:
+                    self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
+                    buy,bdate,sell,sdate = 0,None,0,None
+
+
+class StockEndVolumeSelector(StockBaseSelector):
+    ''' 尾盘竞价爆量 竞价成交量>0.04*全天成交量 换手>1% 成交额>1000万 30日内有涨停
+    '''
+    def __init__(self):
+        super().__init__()
+
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_end_volume_pickup'
+        self.colheaders = [
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_volume,'type':'float DEFAULT 0'},
+            {'col':column_amount,'type':'float(20,4) DEFAULT NULL'},
+            {'col':'换手','type':'float DEFAULT 0'},
+            {'col':'vol0','type':'float DEFAULT 0'},
+            {'col':'vol1','type':'float DEFAULT 0'},
+            {'col':'ztindays','type':'tinyint DEFAULT 0'},
+            {'col':'竞价占比','type':'float DEFAULT 0'},
+            {'col':'uvol','type':'float DEFAULT 0'}, # 未匹配量
+            {'col': column_price,'type':'float DEFAULT 0'},
+            {'col':'topprice','type':'float DEFAULT 0'},
+            {'col':'预选','type':'tinyint DEFAULT 0'},
+        ]
+        self.ztdict30 = None
+        self.blacked_stocks = None
+
+    def walk_prepare(self, date=None):
+        if self.ztdict30 is None:
+            szt = StockZtDaily()
+            self.ztdict30 = szt.dumpZtStockDictInDays(30)
+        if self.blacked_stocks is None:
+            stbk = StockEmBk('BK0511')
+            self.blacked_stocks = stbk.dumpDataByDate()
+        szdf = StockGlobal.getStocksZdfRank()
+        self.wkstocks = queue.Queue()
+        for rkobj in szdf:
+            c = rkobj['f2']   # 最新价
+            zd = rkobj['f3']  # 涨跌幅
+            ze = rkobj['f4']  # 涨跌额
+            cj = rkobj['f5']  # 成交量（手）
+            ce = rkobj['f6']  # 成交额
+            name = rkobj['f14'] # 名称
+            if name.startswith('退市') or name.endswith('退'):
+                continue
+            if c == '-' or cj == '-' or ce == '-' or zd == '-' or ze == '-':
+                continue
+            if float(ce) < 10000000:
+                continue
+            hsl = rkobj['f8'] # 换手率
+            if hsl < 1:
+                continue
+            cd = rkobj['f12'] # 代码
+            code = StockGlobal.full_stockcode(cd)
+            if code in self.ztdict30 and self.ztdict30[code] > 1 and code not in self.blacked_stocks:
+                self.wkstocks.put([code, hsl, self.ztdict30[code]])
+        self.wkselected = []
+        self.trend_date = None
+
+    def get_stock_trend(self, stock_code):
+        secid = Utils.convert_stock_code_to_secid(stock_code)
+        trends_url = f'http://push2his.eastmoney.com/api/qt/stock/trends2/get?fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58&ut=fa5fd1943c7b386f172d6893dbfba10b&secid={secid}&ndays=1&iscr=1&iscca=0'
+        trends_data = Utils.get_em_request(trends_url, 'push2his.eastmoney.com')
+        data = json.loads(trends_data)
+
+        if data["rc"] == 0:
+            trends = data["data"]["trends"]
+            trend_data_list = []
+
+            for trend in trends:
+                trend_data = trend.split(",")
+                trend_data_list.append(trend_data)
+
+            return trend_data_list
+
+        else:
+            print("请求失败，错误码:", data["rc"])
+            return None
+
+    def walk_on_history_thread(self):
+        while self.wkstocks.qsize() > 0:
+            code, hsl, zdays = self.wkstocks.get()
+            trends = self.get_stock_trend(code)
+            if trends is None:
+                continue
+            trends = [t for t in trends if int(t[5]) > 0]
+            vol = 0
+            amt = 0
+            for t in trends:
+                vol += int(t[5])
+                amt += float(t[6])
+            vol0 = int(trends[0][5]) # 开盘成交量
+            vol1 = int(trends[-1][5]) # 收盘成交量
+            if amt - float(trends[-1][6]) < 10000000 or vol1/vol < 0.04:
+                continue
+            amt /= 10000
+            if self.trend_date is None:
+                self.trend_date = trends[0][0].split()[0]
+            snapshot = Utils.get_em_snapshot(code[2:])
+            cur_price = float(snapshot['realtimequote']['currentPrice'])
+            top_price = float(snapshot['topprice'])
+            buy1 = float(snapshot['fivequote']['buy1'])
+            sell1 = float(snapshot['fivequote']['sale1'])
+            uvol = 0
+            if buy1 == sell1:
+                buy2_count = snapshot['fivequote']['buy2_count']
+                sell2_count = snapshot['fivequote']['sale2_count']
+                uvol = buy2_count if buy2_count > 0 else -sell2_count
+            else:
+                if cur_price == buy1:
+                    uvol = snapshot['fivequote']['buy1_count']
+                elif cur_price == sell1:
+                    uvol = -snapshot['fivequote']['sale1_count']
+            self.wkselected.append([code, self.trend_date, vol, amt, hsl, vol0, vol1, zdays, round(vol1/vol, 4), uvol, cur_price, top_price, 0])
+
+    def getDumpKeys(self):
+        return [column_code, column_date, column_volume, column_amount, '换手', 'vol0', 'vol1', 'uvol', '竞价占比', 'ztindays']
+
+    def getDumpCondition(self, date=None):
+        if date is None:
+            date = self._max_date()
+        return [f'{column_date}="{date}"', '预选=0']
+
+    def setCandidates(self, date, candidates):
+        self.sqldb.updateMany(self.tablename, [column_code, column_date, '预选'], [column_code, column_date], [[code, date, 1] for code in candidates])
+
+    def dumpLatesetCandidates(self, date=None, fullcode=True):
+        if date is None:
+            date = self._max_date()
+        candidates = self.sqldb.select(self.tablename, f'{column_code}, 预选', [f'{column_date} = "{date}"'])
+        picklen = len([c for c, p in candidates if p == 1])
+        if picklen > 0:
+            candidates = [c for c, p in candidates if p == 1]
+        else:
+            candidates = [c for c, p in candidates]
+        return [c if fullcode else c[2:] for c in candidates]
+
+    def updatePickUps(self):
+        self.walkOnHistory()

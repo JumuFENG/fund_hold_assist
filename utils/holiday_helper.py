@@ -30,6 +30,8 @@ class TradingDate():
     def isTradingDate(self, date):
         if date == self.max_trading_date:
             return True
+        if date in self.tmp_trading_dates:
+            return True
         self.sqllock.acquire()
         ret = 0 != self.sqldb.selectOneValue(self.__tablename(date), 'count(*)', f'{column_date} = "{date}"')
         self.sqllock.release()
@@ -39,15 +41,25 @@ class TradingDate():
     def nextTradingDate(self, date):
         if self.max_trading_date is not None and date == self.max_trading_date:
             return self.max_trading_date
-        self.sqllock.acquire()
-        d = self.sqldb.selectOneValue(self.__tablename(date), 'min(date)', f'{column_date} > "{date}"')
-        self.sqllock.release()
-        if d is None:
+        if len(self.tmp_trading_dates) == 0 or self.tmp_trading_dates[0] > date:
+            self.sqllock.acquire()
+            dates = self.sqldb.select(self.__tablename(date), column_date, f'{column_date} >= "{date}"')
+            self.sqllock.release()
+            self.tmp_trading_dates = [d for d, in dates]
+        if len(self.tmp_trading_dates) == 0 or date == self.tmp_trading_dates[-1]:
             return self.maxTradingDate()
-        return d
+        if date not in self.tmp_trading_dates:
+            if self.tmp_trading_dates[0] > date:
+                return self.tmp_trading_dates[0]
+            for d in self.tmp_trading_dates:
+                if d > date:
+                    return d
+        return self.tmp_trading_dates[self.tmp_trading_dates.index(date) + 1]
 
     @classmethod
     def prevTradingDate(self, date):
+        if self.tmp_trading_dates is not None and date > self.tmp_trading_dates[0] and date in self.tmp_trading_dates:
+            return self.tmp_trading_dates[self.tmp_trading_dates.index(date) - 1]
         self.sqllock.acquire()
         prev = self.sqldb.selectOneValue(self.__tablename(date), 'max(date)', f'{column_date} < "{date}"')
         self.sqllock.release()

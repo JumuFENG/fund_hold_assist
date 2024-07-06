@@ -43,11 +43,11 @@ class StockUstSelector(StockBaseSelector):
         date = self._max_date()
         if date is not None:
             date = (datetime.strptime(date.split()[0], '%Y-%m-%d')).strftime('%Y-%m-%d')
-        sann = StockAnnoucements()
+        self.sann = StockAnnoucements()
         conds = ['type_code="001002004003006"']
         if date is not None:
             conds.append(f'{column_date}>"{date}"')
-        nstocks = sann.sqldb.select(sann.tablename, f'{column_code}, {column_date}', conds)
+        nstocks = self.sann.sqldb.select(self.sann.tablename, f'{column_code}, {column_date}', conds)
         nstocks = sorted(nstocks, key=lambda x: (x[0], x[1]))
         for i in range(len(nstocks), 0, -1):
             if i > 1 and nstocks[i-1][0] == nstocks[i-2][0] and nstocks[i-1][1].split()[0] == nstocks[i-2][1].split()[0]:
@@ -68,6 +68,8 @@ class StockUstSelector(StockBaseSelector):
             if allkl[i].date >= ddt:
                 break
             i += 1
+        if i >= len(allkl):
+            return None
         if allkl[i].date > ddt:
             return allkl[i].date
         if int(dtm.split(':')[0]) < 9:
@@ -75,8 +77,6 @@ class StockUstSelector(StockBaseSelector):
         return allkl[i + 1].date if i + 1 < len(allkl) else None
 
     def walk_on_history_thread(self):
-        sann = StockAnnoucements()
-
         while len(self.wkstocks) > 0:
             orstks = self.get_begin_stock_records(self.wkstocks)
 
@@ -84,7 +84,7 @@ class StockUstSelector(StockBaseSelector):
                 wks = orstks[i]
                 c = wks[0]
                 d = wks[1]
-                ud = sann.getUstDateAfter(c, d)
+                ud = self.sann.getUstDateAfter(c, d)
                 ddt = d.split()[0]
                 allkl = self.get_kd_data(c, ddt)
                 ds = self.get_effect_date(allkl, d)
@@ -110,6 +110,7 @@ class StockUstSelector(StockBaseSelector):
             self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], self.wkselected)
 
     def updatePickUps(self):
+        self.threads_num = 1
         self.walkOnHistory()
 
     def getDumpKeys(self):

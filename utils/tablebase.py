@@ -7,25 +7,27 @@ from datetime import datetime
 
 class TableBase():
     def __init__(self, autocreate = True) -> None:
+        self.constraint = None
+        self.sqldb = None
+        self.dbname = None
+        self.tablename = None
+        self.colheaders = []
         self.initConstrants()
         if autocreate:
             self._check_or_create_table()
 
     def initConstrants(self):
-        self.sqldb = None
-        self.dbname = None
-        self.tablename = None
-        self.colheaders = []
+        pass
 
     def _check_table_exists(self):
-        if not hasattr(self, 'sqldb') or self.sqldb is None:
+        if self.sqldb is None:
             self.sqldb = SqlHelper(password = db_pwd, database = self.dbname)
         return self.sqldb.isExistTable(self.tablename)
 
     def _check_or_create_table(self):
         if not self._check_table_exists():
-            attrs = {self.colheaders[0]['col']: self.colheaders[0]['type']}
-            constraint = 'PRIMARY KEY(`id`)'
+            attrs = {col['col']: col['type'] for col in self.colheaders}
+            constraint = 'PRIMARY KEY(`id`)' if self.constraint is None else self.constraint
             self.sqldb.createTable(self.tablename, attrs, constraint)
 
         for col in self.colheaders:

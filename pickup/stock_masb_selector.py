@@ -344,3 +344,225 @@ class StockMaConvergenceSelector(StockBaseSelector):
                 bdate = None
                 buy = 0
                 sell = 0
+
+
+class StockMaLongtermSelector(StockBaseSelector):
+    '''
+    MA 突破买卖, 长周期下降阶段不建仓, 长周期上升阶段根据短周期的买卖点执行买卖操作, 亏损之后仓位增加, 盈利之后仓位复原.
+    长周期: 日线, 短周期: 30分钟线
+    增仓方法: 按期望收益率p, 买入仓位 = 累计亏损K/p + 初始仓位A0
+    *胜率低*
+    '''
+    def __init__(self):
+        super().__init__(False)
+        # self.simkey = 'malt'
+        self.A0 = 100000
+        self.p = 0.03
+        self.K = 0
+        self.stks = [
+            # 'SH518880',
+            # 'SZ161129',
+            'SZ162411',
+            # 'SH510050',
+            # 'SH601127',
+            # 'SH601888',
+            # 'SZ000630',
+            # 'SZ000998',
+            # 'SH601012',
+            # 'SH600918',
+            # 'SH603000',
+            # 'SZ000046',
+            # 'SZ000858',
+            # 'SZ002270'
+            ]
+        self.simkey = f'malt{self.stks[0]}_{len(self.stks)}'
+
+    def sim_prepare(self):
+        super().sim_prepare()
+        sd = StockDumps()
+        for s in self.stks:
+            sg = StockGlobal.stock_general(s)
+            md = sd.history.sqldb.selectOneValue(sg.stockK15table, 'min(date)')
+            self.sim_stks.append([s, md.split(' ')[0]])
+        # self.sim_stks = [['SZ000858', '2021-12-22'], ['SZ002270', '2021-12-22']]
+
+    def simulate_thread(self):
+        sd = StockDumps()
+        while len(self.sim_stks) > 0:
+            code, date = self.sim_stks.pop(0)
+            kd = sd.read_kd_data(code, fqt=1, start=date)
+            ks = sd.read_k15_data(code, fqt=1, start=date)
+            ks = KlList.merge_to_longterm(ks, 2)
+            if kd is None or ks is None:
+                continue
+            kd = KlList.calc_kl_bss(kd, 18)
+            ks = KlList.calc_kl_bss(ks, 18)
+            self.sim_buy_sell(code, ks, kd)
+
+    def sim_buy_sell(self, code, klshort, kllong):
+        i = 0
+        j = 0
+        buy = 0
+        bdate = None
+        er = []
+        lr = []
+        while j < len(kllong) and i < len(klshort):
+            if klshort[i].bss18 == 'u':
+                i += 1
+                continue
+            if klshort[i].bss18 == 'b':
+                if kllong[j].bss18 == 'b' or kllong[j].bss18 == 'h' or kllong[j].bss18 == 'u':
+                    bdate = klshort[i].date
+                    buy = klshort[i].close
+            elif klshort[i].bss18 == 's':
+                if buy != 0 and bdate is not None:
+                    if len(er) > 2:
+                        self.p = sum(er) / len(er)
+                    elif len(lr) > 2:
+                        self.p = sum(lr) / len(lr)
+                    if self.p < 0.01:
+                        self.p = 0.01
+                    A = self.A0 + self.K / self.p
+                    deals = self.sim_add_deals(code, [[buy, bdate]], [klshort[i].close, klshort[i].date], A)
+                    buy = 0
+                    bdate = None
+                    earn = 0
+                    cost = 0
+                    for dl in deals:
+                        if dl['tradeType'] == 'S':
+                            earn += dl['price'] * dl['count']
+                        else:
+                            cost += dl['price'] * dl['count']
+                            earn -= dl['price'] * dl['count']
+                    if earn > 0:
+                        if earn - self.K > 0:
+                            self.K = 0
+                        else:
+                            self.K -= earn
+                        if earn/cost > 0.005:
+                            er.append(earn/cost)
+                    else:
+                        self.K -= earn
+                        if earn/cost < -0.005:
+                            lr.append(-earn/cost)
+            i += 1
+            if i == len(klshort):
+                break
+            if kllong[j].date < klshort[i].date:
+                j += 1
+
+    # def sim_post_process(self, dtable):
+    #     for dl in self.sim_deals:
+    #         print(dl)
+
+class StockMaCrossSelector(StockBaseSelector):
+    ''' MA 交叉, 短周期上穿长周期买入, 下穿卖出
+    '''
+    def __init__(self) -> None:
+        super().__init__(False)
+        self.mLen0 = 5
+        self.mLen1 = 50
+        self.simkey = f'macross15_161129'
+
+    def sim_prepare(self):
+        super().sim_prepare()
+        self.sim_stks = [['SZ161129', '2007-11-02']]
+
+    def simulate_thread(self):
+        sd = StockDumps()
+        while len(self.sim_stks) > 0:
+            code, date = self.sim_stks.pop(0)
+            kd = sd.read_k15_data(code, fqt=1, start=date)
+            if kd is None:
+                continue
+            kd = KlList.calc_kl_ma(kd, self.mLen0)
+            kd = KlList.calc_kl_ma(kd, self.mLen1)
+            self.sim_buy_sell(code, kd)
+
+    def sim_buy_sell(self, code, kd):
+        i = 0
+        buy = 0
+        bdate = None
+        er = []
+        lr = []
+        while i < len(kd):
+            if getattr(kd[i], f'ma{self.mLen0}') > getattr(kd[i], f'ma{self.mLen1}') and bdate is None:
+                buy = kd[i].close
+                bdate = kd[i].date
+            elif getattr(kd[i], f'ma{self.mLen0}') < getattr(kd[i], f'ma{self.mLen1}') and bdate is not None:
+                self.sim_add_deals(code, [[buy, bdate]], [kd[i].close, kd[i].date], 100000)
+                buy = 0
+                bdate = None
+            i += 1
+
+
+class StockZt1MaSelector(StockBaseSelector):
+    '''首板涨停(包含炸板)后回踩MA买入,跌破MA止损,涨幅>2倍幅度止盈
+    MA 取100日, 回踩接近MA 3%, 止损跌破3%, 止盈6%
+    首板当日需MA5 > MA100, 不回踩且收盘价> MA100 * (1+50%)时不再跟踪, 跌破MA100后不再跟踪
+    '''
+    def __init__(self) -> None:
+        super().__init__(False)
+        self.mLen = 100
+        self.erate = 0.03
+        self.simkey = f'zt1ma'
+
+    def sim_prepare(self):
+        super().sim_prepare()
+        self.walk_prepare()
+        self.sim_stks = self.wkstocks
+
+    def simulate_thread(self):
+        while len(self.sim_stks) > 0:
+            code, date = self.sim_stks.pop(0)
+            kd = self.get_kd_data(code, date)
+            if kd is None:
+                continue
+            kd = KlList.calc_kl_ma(kd, 5)
+            kd = KlList.calc_kl_ma(kd, self.mLen)
+            self.sim_buy_sell(code, kd)
+
+    def sim_buy_sell(self, code, kd):
+        i = 0
+        buy = 0
+        bdate = None
+        er = []
+        lr = []
+        while i < len(kd):
+            if getattr(kd[i], f'ma5') > getattr(kd[i], f'ma{self.mLen}') and bdate is None and kd[i].close == kd[i].high and kd[i].close >= Utils.zt_priceby(kd[i-1].close):
+                # zt
+                j = i + 1
+                while j < len(kd) and bdate is None:
+                    ma100 = getattr(kd[j], f'ma{self.mLen}')
+                    if kd[j].close >= ma100 * 1.5:
+                        break
+                    if kd[j].close < kd[j].close > ma100 * (1 - self.erate):
+                        break
+                    if kd[j].close < ma100 * (1 + self.erate):
+                        buy = kd[j].close
+                        bdate = kd[j].date
+                        break
+                    j += 1
+                if bdate is None:
+                    i = j
+                    continue
+                j += 1
+                while j < len(kd):
+                    ma100 = getattr(kd[j], f'ma{self.mLen}')
+                    if kd[j].close < ma100 * (1 - self.erate):
+                        # 止损
+                        self.sim_add_deals(code, [[buy, bdate]], [kd[j].close, kd[j].date], 100000)
+                        buy = 0
+                        bdate = None
+                        break
+                    elif kd[j].close >= buy * (1 + 2 * self.erate):
+                        # 止盈
+                        self.sim_add_deals(code, [[buy, bdate]], [kd[j].close, kd[j].date], 100000)
+                        buy = 0
+                        bdate = None
+                        break
+                    j += 1
+                i = j
+                continue
+            i += 1
+

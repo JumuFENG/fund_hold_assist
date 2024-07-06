@@ -100,6 +100,190 @@ class StockTrackDeals(TableBase):
         track['deals'] = ds
         return track
 
+    def fork_deals(self, ftrackname, ttrackname, startdate='2024-02-19', maxbuy=0):
+        '''从现存的记录中选出符合条件的记录保存到新的表中
+        @param ftrackname: 原始交易记录表名
+        @param ttrackname: 新的交易记录表名
+        @param startdate: 开始日期, 只选择建仓日期大于该日期的记录
+        @param maxbuy: 最大买入次数, 0表示保持原样, 1 表示不加仓, 2 表示加仓一次
+        '''
+        fname = self.sqldb.select(self.tablename, '*', f'{column_name}="{ftrackname}"')
+        if fname is None or len(fname) == 0:
+            print('deals table not exist', ftrackname)
+            return
+
+        tname = self.sqldb.select(self.tablename, '*', f'{column_name}="{ttrackname}"')
+        if tname is None or len(tname) == 0:
+            self.sqldb.insert(self.tablename, {column_name: ttrackname})
+        else:
+            self.removeTrackDealsRecord(ttrackname)
+
+        deals = self.sqldb.select(ftrackname, '*')
+        ds = []
+        cur = None
+        curbuy = None
+        dsdic = {}
+        for _,d,c,tp,sid,pr,ptn in deals:
+            if tp == 'B' and curbuy is None:
+                curbuy = d
+            if cur is None and tp == 'B':
+                if d < startdate:
+                    continue
+                else:
+                    cur = c
+            if cur is None and tp == 'S':
+                continue
+            if curbuy < startdate:
+                if tp == 'S':
+                    curbuy = None
+                continue
+            fee = 0
+            deal = {'code': c, 'time': d, 'tradeType': tp, 'sid': sid, 'price': pr, 'count': ptn, 'fee': fee}
+            ds.append(deal)
+            if c not in dsdic:
+                dsdic[c] = []
+            dsdic[c].append(deal)
+            if tp == 'S':
+                cur = None
+                curbuy = None
+        if maxbuy == 0:
+            self.addDeals(ttrackname, ds)
+            return
+        dsarr = []
+        ds = []
+        for c in dsdic:
+            cds = []
+            count = 0
+            for dl in dsdic[c]:
+                if dl['tradeType'] == 'B':
+                    cds.append(dl)
+                    count += dl['count']
+                if dl['tradeType'] == 'S':
+                    cds.append(dl)
+                    count -= dl['count']
+                    if count == 0:
+                        dsarr.append(cds)
+                        cds = []
+        for dlarr in dsarr:
+            if len([dl for dl in dlarr if dl['tradeType'] == 'B']) <= maxbuy:
+                ds += dlarr
+            else:
+                mds = []
+                for dl in dlarr:
+                    if len(mds) < maxbuy:
+                        mds.append(dl)
+                dl = dlarr[maxbuy]
+                dl['tradeType'] = 'S'
+                dl['count'] = sum([x['count'] for x in mds])
+                mds.append(dl)
+                ds += mds
+
+        self.addDeals(ttrackname, ds)
+
+    def rebuild_count(self, ftrackname, ttrackname):
+        '''重新设置买卖数量(仓位)
+        @param ftrackname: 原始交易记录表名
+        @param ttrackname: 新的交易记录表名
+        '''
+        fname = self.sqldb.select(self.tablename, '*', f'{column_name}="{ftrackname}"')
+        if fname is None or len(fname) == 0:
+            print('deals table not exist', ftrackname)
+            return
+
+        tname = self.sqldb.select(self.tablename, '*', f'{column_name}="{ttrackname}"')
+        if tname is None or len(tname) == 0:
+            self.sqldb.insert(self.tablename, {column_name: ttrackname})
+        else:
+            self.removeTrackDealsRecord(ttrackname)
+
+        deals = self.sqldb.select(ftrackname, '*')
+        dsdic = {}
+        sell_ds = []
+        for _,d,c,tp,sid,pr,ptn in deals:
+            deal = {'code': c, 'time': d, 'tradeType': tp, 'sid': sid, 'price': pr, 'count': ptn, 'fee': 0}
+            if tp == 'S':
+                sell_ds.append(deal)
+            if c not in dsdic:
+                dsdic[c] = []
+            dsdic[c].append(deal)
+        sell_ds = sorted(sell_ds, key=lambda d: d['time'])
+
+        buy_ds = []
+        for c in dsdic:
+            hcount = 0
+            for dl in dsdic[c]:
+                if hcount == 0 and dl['tradeType'] == 'B':
+                    buy_ds.append(dl)
+                if dl['tradeType'] == 'B':
+                    hcount += dl['count']
+                else:
+                    hcount -= dl['count']
+        buy_ds = sorted(buy_ds, key=lambda d: d['time'])
+
+        amt_base = 5000
+        amt_max = 20000
+        expect_earn_rate = 0.05
+        max_single_cover = amt_max * expect_earn_rate
+        to_ds = []
+        for dls in sell_ds:
+            bcost = 0
+            tmpds = []
+            while len(dsdic[dls['code']]) > 0:
+                bdl = dsdic[dls['code']].pop(0)
+                tmpds.append(bdl)
+                if bdl['time'] < dls['time'] and bdl['tradeType'] == 'B':
+                    bcost += bdl['price'] * bdl['count']
+                if bdl['time'] == dls['time'] and bdl['tradeType'] == 'S':
+                    break
+
+            to_ds += tmpds
+            if bcost > dls['price'] * dls['count']:
+                lost = bcost - dls['price']*dls['count']
+                lost_split = round(lost / max_single_cover)
+                if max_single_cover * lost_split < lost:
+                    lost_split += 1
+                while len(buy_ds) > 0:
+                    if buy_ds[0]['time'] > dls['time']:
+                        break
+                    buy_ds.pop(0)
+                newcost = round((lost / lost_split) / expect_earn_rate)
+                if newcost < amt_base:
+                    newcost += amt_base
+                elif newcost < 2 * amt_base:
+                    newcost = 2 * amt_base
+                print(lost, lost_split, newcost)
+                for i in range(0, lost_split):
+                    if len(buy_ds) == 0:
+                        print('lost not covered', dls)
+                        break
+                    bdl = buy_ds.pop(0)
+                    buy_id = []
+                    sellid = 0
+                    for j, tdl in enumerate(dsdic[bdl['code']]):
+                        if tdl['time'] < bdl['time']:
+                            continue
+                        if tdl['tradeType'] == 'B':
+                            buy_id.append([j, tdl['count']])
+                        else:
+                            sellid = j
+                            break
+
+                    bcount = Utils.calc_buy_count(newcost, dsdic[bdl['code']][buy_id[0][0]]['price'])
+                    if dsdic[bdl['code']][buy_id[0][0]]['count'] == bcount:
+                        continue
+
+                    scount = bcount
+                    dsdic[bdl['code']][buy_id[0][0]]['count'] = bcount
+                    for j in range(1, len(buy_id)):
+                        tct = 100 * round(bcount * buy_id[j][1] / (buy_id[0][1] * 100))
+                        scount += tct
+                        dsdic[bdl['code']][buy_id[j][0]]['count'] = tct
+                    dsdic[bdl['code']][sellid]['count'] = scount
+                    # print(dls, lost, bdl)
+
+        self.addDeals(ttrackname, to_ds)
+
+
 class StockTrackDealReview(TableBase):
     def __init__(self) -> None:
         super().__init__(False)

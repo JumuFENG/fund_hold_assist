@@ -6,6 +6,7 @@ import sys
 import os
 import time
 import requests
+import json
 import logging
 
 
@@ -104,6 +105,14 @@ class Utils:
         return rsp.content.decode('utf-8')
 
     @classmethod
+    def convert_stock_code_to_secid(self, stock_code):
+        if stock_code.startswith('SH') or stock_code.startswith('SZ'):
+            return stock_code.replace('SH', '1.').replace('SZ', '0.')
+        elif stock_code.startswith('BJ'):
+            return stock_code.replace('BJ', '0.')
+        return stock_code
+
+    @classmethod
     def get_em_request(self, url, host=None):
         headers = {
             'Host': 'fund.eastmoney.com' if host is None else host,
@@ -114,3 +123,10 @@ class Utils:
             'Connection': 'keep-alive'
         }
         return self.get_request(url, headers)
+
+    @classmethod
+    def get_em_snapshot(self, code):
+        quote_url = f'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id={code}&callback=jSnapshotBack'
+        responsetext = Utils.get_em_request(quote_url, host='emhsmarketwg.eastmoneysec.com')
+        snapshot_data = responsetext.replace('jSnapshotBack(', '').rstrip(');')
+        return json.loads(snapshot_data)

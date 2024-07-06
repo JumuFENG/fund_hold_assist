@@ -1,6 +1,7 @@
 # Python 3
 # -*- coding:utf-8 -*-
 from threading import Thread
+import queue
 from utils import *
 from history import *
 from pickup.stock_track_deals import *
@@ -10,15 +11,18 @@ class StockBaseSelector(MultiThrdTableBase):
     def __init__(self, autocreate=True) -> None:
         self.sqldb = None
         super().__init__(autocreate)
+        self.stockdumps = None
 
     def initConstrants(self):
         self.threads_num = 2
         self.dbname = stock_db_name
+        self.constraint = None
         self.tablename = 'stock_base_pickup'
         self.sim_ops = None
         self.simkey = 'base'
         self.simed_kd = {}
         self.simlock = Lock()
+        self.dblock = Lock()
 
     def walk_prepare(self, date=None):
         stks = StockGlobal.all_stocks()
@@ -67,10 +71,24 @@ class StockBaseSelector(MultiThrdTableBase):
 
     def get_kd_data(self, code, start, fqt=0):
         # type: (str, str, int) -> list(KNode)
-        if code in self.simed_kd:
-            return self.simed_kd[code]
-        sd = StockDumps()
-        kd = sd.read_kd_data(code, start=start, fqt=fqt)
+        if not TradingDate.isTradingDate(start):
+            start = TradingDate.nextTradingDate(start)
+        if code in self.simed_kd and len(self.simed_kd[code]) > 0 and start >= self.simed_kd[code][0].date:
+            n = 0
+            while self.simed_kd[code][n].date < start:
+                n += 1
+                if n >= len(self.simed_kd[code]):
+                    print('error kline data for', code, start)
+                    return None
+            return self.simed_kd[code][n:]
+        elif code in self.simed_kd:
+            self.simed_kd.pop(code)
+            return self.get_kd_data(code, start, fqt)
+        if self.stockdumps is None:
+            self.stockdumps = StockDumps()
+        self.dblock.acquire()
+        kd = self.stockdumps.read_kd_data(code, start=start, fqt=fqt)
+        self.dblock.release()
         if kd is None:
             return None
         self.simed_kd[code] = [KNode(kl) for kl in kd]
@@ -156,10 +174,51 @@ class StockBaseSelector(MultiThrdTableBase):
                 tcount += ncount
                 bcost += ncount * buypds[i][0]
 
+        deals = []
         for p,d,c in pdc:
-            self.sim_deals.append({'time': d, 'code': code, 'sid': 0, 'tradeType': 'B', 'price': round(p, 2), 'count': c})
+            deals.append({'time': d, 'code': code, 'sid': 0, 'tradeType': 'B', 'price': round(p, 2), 'count': c})
         p, d = spd
-        self.sim_deals.append({'time': d, 'code': code, 'sid': 0, 'tradeType': 'S', 'price': round(p, 2), 'count': tcount})
+        deals.append({'time': d, 'code': code, 'sid': 0, 'tradeType': 'S', 'price': round(p, 2), 'count': tcount})
+        self.sim_deals += deals
+        return deals
+
+    def sim_quick_sell(self, allkl, code, bdate, buy, erate, crate, zdf):
+        '''快速卖出, 次日涨停不卖出 不满足止盈止损则尾盘卖出
+        '''
+        assert allkl[0].date == bdate, 'make sure the first kl data is the kl data of buy date'
+        ki = 1
+        sell, sdate = 0, None
+        cutl = buy * (1 - crate)
+        earnl = buy * (1 + erate)
+
+        while ki < len(allkl):
+            if allkl[ki].open < cutl:
+                sell = allkl[ki].open
+                sdate = allkl[ki].date
+                break
+            if allkl[ki].low < cutl:
+                sell = cutl
+                sdate = allkl[ki].date
+                break
+            if allkl[ki].high > earnl:
+                if allkl[ki].close > earnl:
+                    sell = (allkl[ki].high + allkl[ki].close) / 2
+                else:
+                    sell = earnl
+                sdate = allkl[ki].date
+                break
+            if allkl[ki].high == allkl[ki].low and allkl[ki].high >= Utils.zt_priceby(allkl[ki-1].close, zdf=zdf):
+                # 一字涨停则设置新的止盈止损位为+-5%
+                cutl = allkl[ki].close * (1 - 0.05)
+                earnl = allkl[ki].close * (1 + 0.05)
+            else:
+                sell = allkl[ki].close
+                sdate = allkl[ki].date
+                break
+
+            ki += 1
+        if sdate is not None:
+            self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
 
     def sim_post_process(self, dtable):
         if len(self.sim_deals) > 0:

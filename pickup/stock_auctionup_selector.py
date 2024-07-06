@@ -27,8 +27,10 @@ class StockAuctionUpSelector(StockBaseSelector):
             {'prepare': self.sim_prepare1, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_contup'},
             # 竞价跌停 结束时买入有剩余
             {'prepare': self.sim_prepare2, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_open'},
+            # 连续跌停 竞价抢筹
+            {'prepare': self.sim_prepare3, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_dt_auc_contup'},
             ]
-        self.sim_ops = self._sim_ops[2:3]
+        self.sim_ops = self._sim_ops[3:4]
 
     def walk_prepare(self, date=None):
         sad = StockAuctionDetails()
@@ -70,6 +72,8 @@ class StockAuctionUpSelector(StockBaseSelector):
             cqt = {'quotes': q}
             cqt['bottomprice'] = b
             cqt['topprice'] = t
+            cqt['date'] = dt
+            cqt['code'] = code
 
             if not self.sim_check_match(cqt):
                 continue
@@ -172,7 +176,7 @@ class StockAuctionUpSelector(StockBaseSelector):
         self.sim_check_match = self.sim_check_match2
 
     def sim_check_match2(self, auctions):
-        bottomprice =auctions['bottomprice']
+        bottomprice = auctions['bottomprice']
         quotes = auctions['quotes']
 
         if quotes[-1][0] < '09:25':
@@ -184,3 +188,47 @@ class StockAuctionUpSelector(StockBaseSelector):
         # if quotes[-1][1] > bottomprice:
         #     return False
         return quotes[-1][3] > 0
+
+    def sim_prepare3(self):
+        self.sim_prepare()
+        self.sim_check_match = self.sim_check_match3
+        self.threads_num = 1
+
+    def sim_check_match3(self, auctions):
+        bottomprice = auctions['bottomprice']
+        quotes = auctions['quotes']
+        dt = auctions['date']
+        sdt = dt
+        i = 0
+        while i < 10:
+            sdt = TradingDate.prevTradingDate(sdt)
+            i += 1
+        code = auctions['code']
+        kd = self.get_kd_data(code, sdt)
+        if len(kd) <= 10:
+            return False
+        if kd[i].date < dt:
+            while i < len(kd) - 1:
+                i += 1
+                if kd[i].date == dt:
+                    break
+        elif kd[i].date > dt:
+            while i > 1:
+                i -= 1
+                if kd[i].date == dt:
+                    break
+        if kd[i].date != dt:
+            print('no kl for ', dt, code)
+            return False
+
+        j = i - 1
+        cdt = 0
+        while j > 0:
+            if kd[j].close <= Utils.dt_priceby(kd[j - 1].close):
+                cdt += 1
+            else:
+                break
+            j -= 1
+
+        if cdt > 1:
+            print(code, dt, cdt, bottomprice, quotes[-1])

@@ -422,8 +422,9 @@ class StockLShapeSelector(StockBaseSelector):
             {'col':'bmatch','type':'tinyint DEFAULT NULL'}
         ]
         self.grate = 0.05   # 网格幅度, 热门股5% 大盘股/ETF基金2%-3% 宽基指数1.5%
+        self.sim_extra_buy = 1
         self._sim_ops = [
-            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_qk_ls'}
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_qk_ls_{self.sim_extra_buy}'}
             ]
         self.sim_ops = self._sim_ops[0:1]
 
@@ -552,7 +553,7 @@ class StockLShapeSelector(StockBaseSelector):
                     sell = max(buypd[-1][0] + self.grate * buypd[0][0], (kd[j].high + kd[j].close) / 2)
                     sdate = kd[j].date
                     break
-                elif len(buypd) < 4:
+                elif len(buypd) < self.sim_extra_buy + 1:
                     n = 2 if len(buypd) == 1 else 1
                     if kd[j].high == kd[j].low and (round(kd[j].pchange) == 5 or round(kd[j].pchange) == -5):
                         break

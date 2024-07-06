@@ -68,7 +68,7 @@ class SqlHelper():
             return
 
         sql = ''
-        sql_mid = '`id` bigint(11) NOT NULL AUTO_INCREMENT,'
+        sql_mid = '`id` bigint(11) NOT NULL AUTO_INCREMENT,' if 'PRIMARY KEY(`id`)' == constraint else ''
         for attr,value in attrdict.items():
             sql_mid = sql_mid + '`'+attr + '`'+' '+ value+','
         sql = sql + 'CREATE TABLE IF NOT EXISTS %s (' % tablename
@@ -358,6 +358,8 @@ class SqlHelper():
         """
         values_new = []
         values_exist = []
+        if isinstance(conkeys, str):
+            conkeys = [conkeys]
         for v in values:
             cond_list = []
             for i in range(0, len(conkeys)):

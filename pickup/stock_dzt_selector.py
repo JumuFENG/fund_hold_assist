@@ -43,8 +43,10 @@ class StockDztSelector(StockBaseSelector):
             {'prepare': self.sim_prepare2, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_dzt_fdwn'},
             # 连续暴涨+大阴+涨停
             {'prepare': self.sim_prepare3, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_dzt_spdup'},
+            # 大阴+大阳 (每天最多一支，选波动最大者)
+            {'prepare': self.sim_prepare4, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_dzt_single'},
             ]
-        self.sim_ops = self._sim_ops[0:1]
+        self.sim_ops = self._sim_ops[4:5]
 
     def walk_on_history_thread(self):
         while len(self.wkstocks) > 0:
@@ -309,6 +311,40 @@ class StockDztSelector(StockBaseSelector):
         self.sim_lowbound = -0.05
         self.sim_upbound = 0.03
         self.sim_cutrate = 0.055
+        self.sim_earnrate = 0.055
+
+    def sim_prepare4(self):
+        self.sim_deals = []
+        orstks = self.sqldb.select(self.tablename, f'{column_code}, {column_date}, dtpercent, isdt, ztdate, ztpercent, iszt')
+        self.sim_stks = sorted(orstks, key=lambda s: (s[0], s[4]))
+        costks = {}
+        for s in self.sim_stks:
+            if s[4] not in costks:
+                costks[s[4]] = []
+            costks[s[4]].append(s)
+
+        daystks = []
+        for stks in costks.values():
+            stk11 = [s for s in stks if s[3] == 1 and s[6] == 1]
+            if len(stk11) == 0:
+                stk11 = [s for s in stks if s[6] == 1]
+                if len(stk11) == 0:
+                    stk11 = stks
+            if len(stk11) == 1:
+                daystks.append([stk11[0][0], stk11[0][1], stk11[0][4]])
+                continue
+            if len(stk11) > 1:
+                azdf = stks[0][5] - stks[0][2]
+                mxid = 0
+                for i in range(1, len(stk11)):
+                    if stk11[i][5] - stk11[i][2] > azdf:
+                        mxid = i
+                daystks.append([stk11[mxid][0], stk11[mxid][1], stk11[mxid][4]])
+
+        self.sim_stks = sorted(daystks, key=lambda s: (s[2]))
+        self.sim_lowbound = -0.1
+        self.sim_upbound = 0.1
+        self.sim_cutrate = 0.08
         self.sim_earnrate = 0.055
 
 
