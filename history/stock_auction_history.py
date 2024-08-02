@@ -117,6 +117,8 @@ class StockAuction(MultiThrdTableBase):
         return values
 
     def get_stock_bid_volumes(self, code):
+        if code.startswith('HB') or code.startswith('SB'):
+            return None
         code = code.replace("SH", "").replace("SZ", "")        
         if len(code) != 6 or not code.isdigit():
             Utils.log(f'Invalid stock code format: {code}', Utils.Err)
@@ -260,7 +262,7 @@ class StockAuctionDetails(TableBase):
             if q['topprice'] == '-' and q['bottomprice'] == '-':
                 continue
 
-            qhis = self.normalize_quotes(q['quotes'][1:])
+            qhis = self.normalize_quotes(q['quotes'])
 
             qstr = json.dumps(qhis)
             cmpstr = gzip.compress(qstr.encode('utf-8'))
@@ -301,3 +303,44 @@ class StockAuctionDetails(TableBase):
     def dumpStockAuction(self, code, date):
         saucs = self.sqldb.select(self.tablename, self.getDumpKeys(), [f'{column_code}="{code}"', f'{column_date}="{date}"'])
         return self.decompress_quotes(saucs)
+
+    @classmethod
+    def check_buy_match(self, auctions):
+        # 竞价跌停, 竞价结束时报价不跌停且不跌停的报价数<5
+        bottomprice = auctions['bottomprice']
+        quotes = auctions['quotes']
+        btmcount = 0
+        othercount = 0
+        for i in range(0, len(quotes)):
+            qt, cp, mv, uv = quotes[i]
+            if cp == bottomprice:
+                btmcount += 1
+            else:
+                othercount += 1
+
+        return othercount < 5 and quotes[-1][1] > bottomprice
+
+    @classmethod
+    def check_buy_match_cont_up(self, auctions):
+        # 竞价跌停 随后持续上升 09:22之前一直跌停, 之后价格不下降
+        bottomprice = auctions['bottomprice']
+        quotes = auctions['quotes']
+        for i in range(0, len(quotes)):
+            qt, cp, mv, uv = quotes[i]
+            if qt < '09:22' and quotes[i][1] > bottomprice:
+                return False
+            if quotes[i][1] < quotes[i-1][1]:
+                return False
+
+        return quotes[-1][1] > bottomprice
+
+    @classmethod
+    def check_buy_vol_more_match(self, auctions):
+        # 竞价一直跌停 结束时买盘大于卖盘
+        bottomprice = auctions['bottomprice']
+        quotes = auctions['quotes']
+
+        if max([q[1] for q in quotes]) > bottomprice:
+            return False
+
+        return quotes[-1][3] > 0

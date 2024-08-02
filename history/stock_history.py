@@ -34,7 +34,7 @@ class StockGlobal():
         # simple get full stock code
         if len(code) != 6:
             return code
-        prefixes = {'60': 'SH', '68': 'SH', '30': 'SZ', '00': 'SZ', '83': 'BJ', '43': 'BJ', '87': 'BJ', '90': 'BJ', '92': 'BJ'}
+        prefixes = {'60': 'SH', '68': 'SH', '30': 'SZ', '00': 'SZ', '83': 'BJ', '43': 'BJ', '87': 'BJ', '92': 'BJ', '90': 'HB', '20': 'SB'}
         if code[0:2] not in prefixes:
             return code
         return f'{prefixes[code[0:2]]}{code}'
@@ -48,6 +48,12 @@ class StockGlobal():
                 self.generals = {stk[1]: StockGeneral(self.sqldb, stk) for stk in self.stocks}
             self.sqllock.release()
         return self.stocks
+
+    @classmethod
+    def all_stock_codes(self):
+        if self.stocks is None:
+            self.all_stocks()
+        return [x[1] for x in self.stocks]
 
     @classmethod
     def getAllStocksShortInfo(self):
@@ -79,13 +85,8 @@ class StockGlobal():
     @classmethod
     def getStocksZdfRank(self):
         # http://quote.eastmoney.com/center/gridlist.html#hs_a_board
-        today = datetime.now().strftime("%Y-%m-%d")
-        tradeday = TradingDate.maxTradingDate()
-        updateKl = today == tradeday and datetime.now().hour > 15
-        print(f'StockGlobal.getStocksZdfRank {updateKl}, {today}, {tradeday}')
-
         pn = 1
-        quotes = []
+        zdfranks = []
         while True:
             rankUrl = f'''http://33.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=1000&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f115,f152'''
             res = Utils.get_em_request(rankUrl, host='33.push2.eastmoney.com')
@@ -96,30 +97,39 @@ class StockGlobal():
             if r['data'] is None or len(r['data']['diff']) == 0:
                 break
 
-            for rkobj in r['data']['diff']:
-                c = rkobj['f2']   # 最新价
-                zd = rkobj['f3']  # 涨跌幅
-                ze = rkobj['f4']  # 涨跌额
-                cj = rkobj['f5']  # 成交量（手）
-                ce = rkobj['f6']  # 成交额
-                if c == '-' or cj == '-' or ce == '-' or zd == '-' or ze == '-':
-                    continue
-                cd = rkobj['f12'] # 代码
-                m = rkobj['f13']  # 市场代码 0 深 1 沪
-                h = rkobj['f15']  # 最高
-                l = rkobj['f16']  # 最低
-                o = rkobj['f17']  # 今开
-                lc = rkobj['f18'] # 昨收
-                if (m != 0 and m != 1):
-                    print('invalid market', m)
-                    continue
-                code = 'SH' + cd if m == 1 else self.full_stockcode(cd)
-                knode = KNode([0, today, c, h, l, o, ze, zd, cj, ce/10000, lc])
-                quotes.append([code, knode])
-                if updateKl:
-                    Stock_history.updateStockKlDayData(code, knode)
+            zdfranks += r['data']['diff']
             pn += 1
-        return quotes
+        return zdfranks
+
+    @classmethod
+    def updateStocksDailyData(self):
+        today = datetime.now().strftime("%Y-%m-%d")
+        tradeday = TradingDate.maxTradingDate()
+        updateKl = today == tradeday and datetime.now().hour > 15
+        print(f'StockGlobal.updateStocksDailyData {updateKl}, {today}, {tradeday}')
+
+        zdfranks = self.getStocksZdfRank()
+        for rkobj in zdfranks:
+            c = rkobj['f2']   # 最新价
+            zd = rkobj['f3']  # 涨跌幅
+            ze = rkobj['f4']  # 涨跌额
+            cj = rkobj['f5']  # 成交量（手）
+            ce = rkobj['f6']  # 成交额
+            if c == '-' or cj == '-' or ce == '-' or zd == '-' or ze == '-':
+                continue
+            cd = rkobj['f12'] # 代码
+            m = rkobj['f13']  # 市场代码 0 深 1 沪
+            h = rkobj['f15']  # 最高
+            l = rkobj['f16']  # 最低
+            o = rkobj['f17']  # 今开
+            lc = rkobj['f18'] # 昨收
+            if (m != 0 and m != 1):
+                print('invalid market', m)
+                continue
+            code = self.full_stockcode(cd)
+            knode = KNode([0, today, c, h, l, o, ze, zd, cj, ce/10000, lc])
+            if updateKl:
+                Stock_history.updateStockKlDayData(code, knode)
 
 
 class AllStocks(InfoList):
@@ -131,9 +141,13 @@ class AllStocks(InfoList):
         self.historydb = None
 
     def loadInfo(self, code):
-        code = code.upper()
-        url = 'https://emweb.securities.eastmoney.com/PC_HSF10/CompanySurvey/CompanySurveyAjax?code=' + code
-        c = Utils.get_em_request(url)
+        secode = code.upper()
+        if code.startswith('SB'):
+            secode = 'SZ' + code[2:]
+        elif code.startswith('HB'):
+            secode = 'SH' + code[2:]
+        url = 'https://emweb.securities.eastmoney.com/PC_HSF10/CompanySurvey/CompanySurveyAjax?code=' + secode
+        c = Utils.get_em_request(url, host='emweb.securities.eastmoney.com')
         if c is None:
             print("getRequest", url, "failed")
             return
@@ -143,8 +157,12 @@ class AllStocks(InfoList):
             self.updateStockCol(code, column_name, cs['SecurityShortName'])
             self.updateStockCol(code, column_type, cs['CodeType'])
             self.updateStockCol(code, column_setup_date, cs['fxxg']['ssrq'])
-            self.updateStockCol(code, column_assets_scale, cs['jbzl']['zczb'])
-            self.updateStockCol(code, column_short_name, cs['jbzl']['agjc'])
+            if 'jbzl' in cs and cs['jbzl'] is not None:
+                self.updateStockCol(code, column_assets_scale, cs['jbzl']['zczb'])
+                if code.startswith('SB') or code.startswith('HB'):
+                    self.updateStockCol(code, column_short_name, cs['jbzl']['bgjc'])
+                else:
+                    self.updateStockCol(code, column_short_name, cs['jbzl']['agjc'])
         except Exception as ex:
             print('get CompanySurvey error', c)
             print(ex)
@@ -653,10 +671,10 @@ class StockEmBkAll(TableBase):
 
     def initConstrants(self):
         super().initConstrants()
-        self.dbname = history_db_name
+        self.dbname = stock_db_name
         self.tablename = 'stock_embks'
         self.colheaders = [
-            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_code,'type':'varchar(20) UNIQUE NOT NULL'},
             {'col':column_name,'type':'varchar(20) DEFAULT NULL'}
         ]
 
@@ -667,20 +685,49 @@ class StockEmBkAll(TableBase):
         elif name != '' and name != bkname:
             self.sqldb.update(self.tablename, {column_name: name}, f'{column_code}="{code}"')
 
+    def queryBkName(self, bk):
+        return self.sqldb.selectOneValue(self.tablename, column_name, f'{column_code}="{bk}"')
 
-class StockEmBk(TableBase, EmRequest):
+
+class StockEmBkMap(TableBase):
+    def initConstrants(self):
+        super().initConstrants()
+        self.dbname = stock_db_name
+        self.tablename = 'stock_bk_map'
+        self.colheaders = [
+            {'col':'bk','type':'varchar(20)'},
+            {'col':'stock','type':'varchar(20)'}
+        ]
+        self.constraint = 'PRIMARY KEY (bk, stock), FOREIGN KEY (bk) REFERENCES stock_embks(code), FOREIGN KEY (stock) REFERENCES all_stocks(code)'
+
+    def __query_stocks_bks(self, codes, col1, col2, union=True):
+        if not isinstance(codes, list) and not isinstance(codes, tuple):
+            codes = [codes]
+        if len(codes) == 0:
+            return []
+        bks = self.sqldb.select(self.tablename, col1, f'{col2}="{codes[0]}"')
+        bkset = set([c for c, in bks] if bks is not None and len(bks) > 0 else [])
+        for i in range(1, len(codes)):
+            bks = self.sqldb.select(self.tablename, col1, f'{col2}="{codes[i]}"')
+            cbks = set([c for c, in bks] if bks is not None and len(bks) > 0 else [])
+            if union:
+                bkset = bkset.union(cbks)
+            else:
+                bkset = bkset.intersection(cbks)
+        return list(bkset)
+
+    def stock_bks(self, codes, union=True):
+        return self.__query_stocks_bks(codes, 'bk', 'stock', union)
+
+    def bk_stocks(self, bks, union=True):
+        return self.__query_stocks_bks(bks, 'stock', 'bk', union)
+
+
+class StockEmBk(EmRequest):
+    bkmap = StockEmBkMap()
     def __init__(self, bk, name='') -> None:
         self.bk = bk
         self.bname = name
-        super().__init__()
-
-    def initConstrants(self):
-        super().initConstrants()
-        self.dbname = history_db_name
-        self.tablename = 'stock_' + self.bk
-        self.colheaders = [
-            {'col':column_code,'type':'varchar(20) DEFAULT NULL'}
-        ]
         self.page = 1
         self.pageSize = 50
         self.headers = {
@@ -698,27 +745,38 @@ class StockEmBk(TableBase, EmRequest):
         return f'http://push2.eastmoney.com/api/qt/clist/get?ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fields=f12,f13,f14&pn={self.page}&pz={self.pageSize}&fs=b:{self.bk}'
 
     def getNext(self):
+        self.page = 1
+        self.bkstocks = []
+        self.fetchBkStocks()
+        self.saveFetched()
+
+    def fetchBkStocks(self):
         bkstks = json.loads(self.getRequest(self.headers))
         if 'data' in bkstks and 'diff' in bkstks['data']:
             for stk in bkstks['data']['diff'].values():
                 code = stk['f12']
                 mk = stk['f13']
-                self.bkstocks.append(f'SH{code}' if mk == 1 else StockGlobal.full_stockcode(code))
+                self.bkstocks.append(StockGlobal.full_stockcode(code))
             if bkstks['data']['total'] > len(self.bkstocks):
                 self.page += 1
-                self.getNext()
+                self.fetchBkStocks()
             else:
-                self.saveFetched()
-        elif len(self.bkstocks) > 0:
-            self.saveFetched()
+                return self.bkstocks
+        return self.bkstocks
+
+    def checkBkExists(self, bk, name):
+        seb = StockEmBkAll()
+        seb.checkBk(bk, name)
 
     def saveFetched(self):
-        seb = StockEmBkAll()
-        seb.checkBk(self.bk, self.bname)
-        exstocks = self.sqldb.select(self.tablename, column_code)
+        self.checkBkExists(self.bk, self.bname)
+        exstocks = self.bkmap.sqldb.select(self.bkmap.tablename, 'stock', f'bk="{self.bk}"')
         exstocks = [s for s, in exstocks]
+        allstocks = StockGlobal.all_stock_codes()
+        self.bkstocks = list(filter(lambda x: x in allstocks, self.bkstocks))
         if len(exstocks) == 0:
-            self.sqldb.insertMany(self.tablename, [kv['col'] for kv in self.colheaders], [[s] for s in self.bkstocks])
+            self.bkmap.sqldb.insertMany(self.bkmap.tablename, [kv['col'] for kv in self.bkmap.colheaders], [[self.bk, s] for s in self.bkstocks])
+            self.bkstocks = []
             return
 
         ex = list(set(exstocks) - set(self.bkstocks))
@@ -726,19 +784,97 @@ class StockEmBk(TableBase, EmRequest):
         while len(ex) > 0 and len(new) > 0:
             e0 = ex.pop(0)
             n0 = new.pop(0)
-            self.sqldb.update(self.tablename, {column_code: n0}, {column_code: e0})
+            self.bkmap.sqldb.update(self.bkmap.tablename, {'stock': n0}, {'stock': e0, 'bk': self.bk})
 
         if len(ex) > 0:
             for e in ex:
-                self.sqldb.delete(self.tablename, f'{column_code}="{e}"')
+                self.bkmap.sqldb.delete(self.bkmap.tablename, [f'stock="{e}"', f'bk="{self.bk}"'])
+
         if len(new) > 0:
-            self.sqldb.insertMany(self.tablename, [kv['col'] for kv in self.colheaders], [[s] for s in new])
+            self.bkmap.sqldb.insertMany(self.bkmap.tablename, [kv['col'] for kv in self.bkmap.colheaders], [[self.bk, s] for s in new])
 
         self.bkstocks = []
 
-    def getDumpKeys(self):
-        return column_code
-
     def dumpDataByDate(self, date=None):
-        pool = super().dumpDataByDate(date)
+        pool = self.bkmap.sqldb.select(self.bkmap.tablename, 'stock', f'bk="{self.bk}"')
         return [s for s, in pool]
+
+
+class StockClsBkAll(StockEmBkAll):
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_clsbks'
+
+
+class StockClsBkMap(StockEmBkMap):
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_bkcls_map'
+        self.constraint = 'PRIMARY KEY (bk, stock)'
+
+
+class StockClsBk(StockEmBk):
+    bkmap = StockClsBkMap()
+    def __init__(self, bk, name='') -> None:
+        super().__init__(bk, name)
+        self.page = 1
+        self.pageSize = 50
+        self.bkstocks = []
+
+    def getUrl(self):
+        return f'https://x-quote.cls.cn/web_quote/plate/stocks?app=CailianpressWeb&os=web&rever=1&secu_code={self.bk}&sv=7.7.5&way=change'
+
+    def fetchBkStocks(self):
+        self.headers = {
+            'Host': 'x-quote.cls.cn',
+            'Referer': f'https://www.cls.cn/plate?code={self.bk}',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
+        }
+        bkstks = json.loads(self.getRequest(self.headers))
+        if 'data' in bkstks and 'stocks' in bkstks['data']:
+            for stk in bkstks['data']['stocks']:
+                code = ''.join(reversed(stk['secu_code'].split('.'))).upper()
+                self.bkstocks.append(code)
+        return self.bkstocks
+
+    def checkBkExists(self, bk, name):
+        seb = StockClsBkAll()
+        seb.checkBk(bk, name)
+
+
+class StockBkMap():
+    __em_map = StockEmBkMap()
+    __cls_map = StockClsBkMap()
+
+    @classmethod
+    def stock_bks(self, codes, union=True):
+        return self.__em_map.stock_bks(codes, union) + self.__cls_map.stock_bks(codes, union)
+
+    @classmethod
+    def bk_stocks(self, bks, union=True):
+        if isinstance(bks, str):
+            return self.__em_map.bk_stocks(bks, union) if bks.startswith('BK') else self.__cls_map.bk_stocks(bks, union)
+        embks = [bk for bk in bks if bk.startswith('BK')]
+        clsbks = [bk for bk in bks if bk.startswith('cls')]
+        return self.__em_map.bk_stocks(embks, union) + self.__cls_map.bk_stocks(clsbks, union)
+
+class StockBkAll():
+    __emall = StockEmBkAll()
+    __clsall = StockClsBkAll()
+
+    @classmethod
+    def checkBk(self, code, name):
+        if code.startswith('BK'):
+            self.__emall.checkBk(code, name)
+            return
+        self.__clsall.checkBk(code, name)
+
+    @classmethod
+    def queryBkName(self, bk):
+        if bk.startswith('BK'):
+            return self.__emall.queryBkName(bk)
+        return self.__clsall.queryBkName(bk)

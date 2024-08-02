@@ -1,6 +1,8 @@
 # Python 3
 # -*- coding:utf-8 -*-
 from utils import *
+import re
+
 
 class DfsorgReason():
     '''
@@ -19,13 +21,17 @@ class DfsorgReason():
             self.reasons = self.sqldb.select(self.tablename)
 
     def checkReason(self, reason):
-        if '3个交易日' in reason:
-            reason = reason.replace('3个交易日', '三个交易日')
+        if '三个交易日' in reason:
+            reason = reason.replace('三个交易日', '3个交易日')
+        if '3个有成交的交易日' in reason:
+            reason = reason.replace('3个有成交的交易日', '3个交易日')
         for id, days, r in self.reasons:
             if r == reason:
                 return (id, days)
 
-        days = '3' if '三个交易日' in reason else '1'
+        pat = r'(\d+)[个]*交易日'
+        mat = re.findall(pat, reason)
+        days = mat.pop(0) if len(mat) > 0 else '1'
         self.sqldb.insert(self.tablename, {self.colheaders[0]: days, self.colheaders[1]: reason})
         self.reasons = self.sqldb.select(self.tablename)
         return self.checkReason(reason)
@@ -37,31 +43,34 @@ class DfsorgReason():
 
         return ''
 
-class DfsorgNames():
+
+class DfsorgNames(TableBase):
     '''
     营业部代码和名称
     '''
-    def __init__(self):
+    def initConstrants(self):
         self.tablename = 'dfsorg_op_names'
-        self.colheaders = [column_code, column_name, column_short_name]
-        self.sqldb = SqlHelper(password = db_pwd, database = history_db_name)
-        if not self.sqldb.isExistTable(self.tablename):
-            attrs = {self.colheaders[0]:'varchar(20) DEFAULT NULL', self.colheaders[1]:"varchar(127) DEFAULT NULL", self.colheaders[2]:"varchar(31) DEFAULT NULL"}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.createTable(self.tablename, attrs, constraint)
-            self.opnames = ()
-        else:
-            self.opnames = self.sqldb.select(self.tablename)
+        self.dbname = history_db_name
+        self.colheaders = [
+            {'col': column_code, 'type': 'varchar(20) DEFAULT NULL'},
+            {'col': column_name, 'type': 'varchar(127) DEFAULT NULL'},
+            {'col': column_short_name, 'type': 'varchar(31) DEFAULT NULL'}
+        ]
+        self.opnames = None
 
     def checkOperateDept(self, code, name):
+        if self.opnames is None:
+            self.opnames = self.sqldb.select(self.tablename)
         for id, c, n, sn in self.opnames:
             if c == code:
                 return
 
-        self.sqldb.insert(self.tablename, {self.colheaders[0]: code, self.colheaders[1]: name})
+        self.sqldb.insert(self.tablename, {column_code: code, column_name: name})
         self.opnames = self.sqldb.select(self.tablename)
 
     def getFriendlyName(self, code):
+        if self.opnames is None:
+            self.opnames = self.sqldb.select(self.tablename)
         for _,c,n,sn in self.opnames:
             if c == code:
                 return sn if sn is not None and len(sn) > 0 else n
@@ -69,36 +78,19 @@ class DfsorgNames():
         return ''
 
 
-class DailyTradeOPERATEDEPT(EmDataCenterRequest, TableBase):
+class StockDfsorgBuySellDetails(EmDataCenterRequest, TableBase):
     '''
     龙虎榜买卖成交明细
     '''
-    def __init__(self, rtable, code, date) -> None:
+    opnameTable = DfsorgNames()
+    reasonTable = DfsorgReason()
+    def __init__(self):
         super().__init__()
-        self.code = code
         super(EmRequest, self).__init__()
-        self.reasonTable = rtable
-        self.date = date
+        self.code = None
+        self.date = None
         self.buyfetched = False
-        self.opnameTable = DfsorgNames()
-
-    def setDate(self, date):
-        self.page = 1
-        self.date = date
-        self.buyfetched = False
-
-    def initConstrants(self):
-        self.dbname = history_db_name
-        self.tablename = f's_dfsorg_' + self.code
-        self.colheaders = [
-            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
-            {'col':'营业部','type':'varchar(20) DEFAULT NULL'},
-            {'col':'原因','type':'varchar(10) DEFAULT NULL'},
-            {'col':'买入额','type':'varchar(20) DEFAULT NULL'},
-            {'col':'卖出额','type':'varchar(20) DEFAULT NULL'},
-            {'col':'净买额','type':'varchar(20) DEFAULT NULL'}
-        ]
-
+        self.rptName = 'RPT_BILLBOARD_DAILYDETAILSBUY'
         self.headers = {
             'Host': 'datacenter.eastmoney.com',
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/117.0',
@@ -113,49 +105,81 @@ class DailyTradeOPERATEDEPT(EmDataCenterRequest, TableBase):
             'Upgrade-Insecure-Requests': '1'
         }
 
-    def _buy_detail_url(self):
-        url = f'''https://datacenter.eastmoney.com/api/data/v1/get?reportName=RPT_BILLBOARD_DAILYDETAILSBUY&columns=ALL&filter=(TRADE_DATE%3D%27{self.date}%27)(SECURITY_CODE%3D%22{self.code[2:]}%22)&pageNumber={self.page}&pageSize={self.pageSize}&sortTypes=-1&sortColumns=BUY&source=WEB&client=WEB'''
-        return url
-
-    def _sell_detail_url(self):
-        url = f'''https://datacenter.eastmoney.com/api/data/v1/get?reportName=RPT_BILLBOARD_DAILYDETAILSSELL&columns=ALL&filter=(TRADE_DATE%3D%27{self.date}%27)(SECURITY_CODE%3D%22{self.code[2:]}%22)&pageNumber={self.page}&pageSize={self.pageSize}&sortTypes=-1&sortColumns=BUY&source=WEB&client=WEB'''
-        return url
+    def initConstrants(self):
+        self.dbname = history_db_name
+        self.tablename = 'day_dfsorg_bs_details'
+        self.colheaders = [
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+            {'col':'营业部','type':'varchar(20) DEFAULT NULL'},
+            {'col':'原因','type':'int DEFAULT NULL'},
+            {'col':'买入额','type':'float(20,2) DEFAULT 0'},
+            {'col':'卖出额','type':'float(20,2) DEFAULT 0'},
+            {'col':'净买额','type':'float(20,2) DEFAULT 0'}
+        ]
 
     def getUrl(self):
-        return self._sell_detail_url() if self.buyfetched else self._buy_detail_url()
+        url = f'''https://datacenter.eastmoney.com/api/data/v1/get?reportName={self.rptName}&columns=ALL&filter=(TRADE_DATE%3D%27{self.date}%27)(SECURITY_CODE%3D%22{self.code[2:]}%22)&pageNumber={self.page}&pageSize={self.pageSize}&sortTypes=-1&sortColumns=BUY&source=WEB&client=WEB'''
+        return url
 
-    def getBuySellDetails(self):
+    def get_rpt_details(self, code, date):
+        self.code = code
+        self.date = date
+        self.page = 1
+        self.fecthed = []
         self.getNext(self.headers)
 
+    def getBuyDetails(self, code, date):
+        self.rptName = 'RPT_BILLBOARD_DAILYDETAILSBUY'
+        self.get_rpt_details(code, date)
+
+    def getSellDetails(self, code, date):
+        self.rptName = 'RPT_BILLBOARD_DAILYDETAILSSELL'
+        self.get_rpt_details(code, date)
+
     def saveFecthed(self):
-        if self.fecthed is not None and len(self.fecthed) > 0:
-            values = []
-            for rec in self.fecthed:
-                date = rec['TRADE_DATE'].split()[0]
-                opcode = rec['OPERATEDEPT_CODE']
-                opname = rec['OPERATEDEPT_NAME']
-                self.opnameTable.checkOperateDept(opcode, opname)
-                buyamt = rec['BUY']
-                sellamt = rec['SELL']
-                netbuy = rec['NET']
-                rid, _ = self.reasonTable.checkReason(rec['EXPLANATION'])
-                values.append([date, opcode, rid, buyamt, sellamt, netbuy])
-            self.saveToDb(values)
-
-        if not self.buyfetched:
-            self.buyfetched = True
-            self.page = 1
-            self.fecthed = []
-            self.getNext(self.headers)
-
-    def saveToDb(self, opdetails):
-        if opdetails is None or len(opdetails) == 0:
+        if self.fecthed is None or len(self.fecthed) == 0:
             return
 
-        self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], opdetails)
+        values = []
+        exists = [(dfs[1], dfs[2], dfs[3], dfs[4]) for dfs in self.dumpDataByDate(self.date)]
+        for rec in self.fecthed:
+            date = rec['TRADE_DATE'].split()[0]
+            opcode = rec['OPERATEDEPT_CODE']
+            opname = rec['OPERATEDEPT_NAME']
+            self.opnameTable.checkOperateDept(opcode, opname)
+            buyamt = rec['BUY']
+            sellamt = rec['SELL']
+            netbuy = rec['NET']
+            rid, _ = self.reasonTable.checkReason(rec['EXPLANATION'])
+            if (self.code, date, opcode, rid) not in exists:
+                values.append([self.code, date, opcode, rid, buyamt, sellamt, netbuy])
 
-    def getDumpCondition(self, date):
-        return f'{column_date}="{date}"'
+        if len(values) > 0:
+            self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
+
+    def getDumpCondition(self, date=None):
+        if date is None:
+            date = self._max_date()
+        return [f'{column_date}="{date}"']
+
+    def removeDuplicates(self):
+        x = self.sqldb.select(self.tablename)
+        exist_dfs = []
+        for r in x:
+            if r[3] == '0':
+                continue
+            if (r[1], r[2], r[3], r[4]) in exist_dfs:
+                self.sqldb.delete(self.tablename, f'id={r[0]}')
+            else:
+                exist_dfs.append((r[1], r[2], r[3], r[4]))
+        x0 = [r for r in x if r[3] == '0']
+        exist_dfs = []
+        for r in x0:
+            if (r[1], r[2], r[3], r[4], r[5], r[6]) in exist_dfs:
+                self.sqldb.delete(self.tablename, f'id={r[0]}')
+            else:
+                exist_dfs.append((r[1], r[2], r[3], r[4], r[5], r[6]))
 
 
 class StockDfsorg(EmDataCenterRequest, TableBase):
@@ -201,9 +225,10 @@ class StockDfsorg(EmDataCenterRequest, TableBase):
                 values.append([code, date, rid, buyamt, sellamt, netbuy, analyze])
 
             self.saveToDb(values)
+            dtop = StockDfsorgBuySellDetails()
             for c in dfscodes:
-                dtop = DailyTradeOPERATEDEPT(self.reasonTable, c, self.date)
-                dtop.getBuySellDetails()
+                dtop.getBuyDetails(c, self.date)
+                dtop.getSellDetails(c, self.date)
 
     def saveToDb(self, dfsdata):
         if dfsdata is None or len(dfsdata) == 0:
@@ -248,19 +273,25 @@ class StockDfsorg(EmDataCenterRequest, TableBase):
 
     def updateDetails(self):
         dfscodes = self.dumpDataByDate()
+        dfsdic = {}
+        for c,d in dfscodes:
+            # 只更新2月内的记录
+            if (datetime.now() - datetime.strptime(d, '%Y-%m-%d')).days > 60:
+                continue
+            if c not in dfsdic:
+                dfsdic[c] = set()
+            dfsdic[c].add(d)
+        dtop = StockDfsorgBuySellDetails()
+        all_ops = dtop.sqldb.select(dtop.tablename)
         xcnt = 0
         derr = []
-        while len(dfscodes) > 0:
-            code = dfscodes[0][0]
-            dfi = [d for c, d in dfscodes if c == code]
-            dfscodes = [(c, d) for c, d in dfscodes if c != code]
-            dtop = DailyTradeOPERATEDEPT(self.reasonTable, code, None)
+        for code, dfi in dfsdic.items():
             for d in dfi:
-                dayops = dtop.dumpDataByDate(d)
-                if dayops is None or len(dayops) == 0:
-                    dtop.setDate(d)
+                dayops = [x for x in all_ops if x[1] == code and x[2] == d]
+                if len(dayops) == 0:
                     try:
-                        dtop.getBuySellDetails()
+                        dtop.getBuyDetails(code, d)
+                        dtop.getSellDetails(code, d)
                         print('success', code, d)
                     except:
                         print('fail', code, d)

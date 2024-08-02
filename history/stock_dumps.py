@@ -69,7 +69,7 @@ class StockDumps(KdataDumps):
             start = None
             length = 0
         f0data = super().read_kd_data(code, fqt, length, start)
-        if f0data is None or fqt == 0:
+        if f0data is None or len(f0data) == 0 or fqt == 0:
             return f0data
 
         return self.fixPrice(code, f0data, fqt)
@@ -103,6 +103,8 @@ class StockDumps(KdataDumps):
         fid = len(f0data) - 1
         gx = (0, 0),
         l0data = list(f0data)
+        while len(bndata) > 0 and bndata[-1][2] > l0data[-1][1]:
+            bndata.pop()
         for bi in range(-1, -len(bndata) - 1, -1):
             while fid >= 0:
                 if (l0data[fid][1] >= bndata[bi][2]):

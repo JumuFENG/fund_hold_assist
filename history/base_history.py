@@ -9,7 +9,7 @@ class InfoList():
         self.infoTable = tablename
         self.sqldb = SqlHelper(password = db_pwd, database = dbname)
         if not self.sqldb.isExistTable(tablename):
-            attrs = {column_code:'varchar(20) DEFAULT NULL', column_name:"varchar(255) DEFAULT NULL"}
+            attrs = {column_code:'varchar(20) UNIQUE NOT NULL', column_name:"varchar(255) DEFAULT NULL"}
             constraint = 'PRIMARY KEY(`id`)'
             self.sqldb.createTable(tablename, attrs, constraint)
 
