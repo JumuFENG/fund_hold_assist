@@ -1,0 +1,185 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f9;
+    margin: 0;
+    padding: 10px;
+}
+.table-container {
+    margin: 10px auto;
+    max-width: 800px;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #fff;
+}
+th, td {
+    padding: 4px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+th {
+    background-color: #E2E9F5; /* 更改表头颜色 */
+    color: #459dbf;
+    cursor: pointer;
+}
+th.sortable:hover {
+    background-color: #87CEEB; /* 更改表头悬停颜色 */
+    color: white;
+}
+tr:hover {
+    background-color: #f1f1f1;
+}
+td.name {
+    color: #007bff; /* 蓝色 */
+    cursor: pointer; /* 指针样式 */
+    text-decoration: underline; /* 下划线 */
+    white-space: nowrap;
+    max-width: 65px;
+}
+
+td.name:hover {
+    color: #0056b3; /* 悬停时的颜色 */
+}
+
+.red {
+    color: red;
+}
+.green {
+    color: green;
+}
+.center {
+    text-align: center;
+}
+
+.card {
+    position: relative;
+    background-color: #ecf2fa;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 5px 2px;
+    margin: 5px 1px;
+    text-align: center;
+    max-width: 130px;
+}
+
+.card.main {
+    background-color: #d1dae5;
+}
+
+.card:hover {
+    background-color: #bdc2c8;
+    color: #fff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.card-title {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-bottom: 3px;
+}
+
+.card-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9em;
+}
+
+.subcard-title {
+    font-size: 0.9em;
+}
+
+.subcard-info {
+    font-size: 0.8em;
+    color: #999;
+}
+
+.subcard {
+    position: relative;
+    background-color: #ecf2fa;
+    border: 1px solid #ddd;
+    border-left: 2px solid lightskyblue;
+    border-radius: 3px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    padding: 3px 1px;
+    padding-left: 8px;
+    margin: 3px 1px;
+}
+
+.subcard:hover {
+    background-color: #d1dae5;
+}
+
+.left-info {
+    text-align: left;
+}
+
+.right-info {
+    text-align: right;
+}
+
+.container {
+    border-bottom: 2px solid #ccc;
+    padding: 2px;
+    margin: 2px;
+    position: relative;
+}
+
+.info-area {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.action-area {
+    text-align: left;
+}
+
+.panel {
+    padding: 3px;
+    min-width: 400px;
+    max-width: 400px;
+}
+
+.hidden-area {
+    width: 50%;
+    height: 50px;
+    border: 1px solid red;
+    padding: 10px;
+    background-color: #f2f2f2;
+    margin: auto;
+    text-align: center;
+}
+
+.dragging {
+    opacity: 0.5;
+}
+
+.tooltip {
+    font-size: 0.9em;
+    visibility: hidden;
+    background-color: #ecf2fa;;
+    color: #000;
+    text-align: center;
+    text-wrap: nowrap;
+    border-radius: 4px;
+    padding: 5px;
+    width: 200px;
+    position: absolute;
+    z-index: 1;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 5px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.card:hover .tooltip {
+    visibility: visible;
+    opacity: 1;
+}
