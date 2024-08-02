@@ -3,8 +3,10 @@
 
 import asyncio
 import traceback
+from datetime import timedelta
 from utils import *
-from history import StockGlobal, StockHotRank, StockEmBk, StockBkChangesHistory, StockChangesHistory
+from history import StockGlobal, StockHotRank, StockEmBk, StockBkChangesHistory, StockChangesHistory, StockShareBonus
+from history import StockDumps, StockClsBkChangesHistory, StockClsBk, StockBkMap
 from pickup import StockZtDaily
 
 
@@ -37,11 +39,14 @@ def create_strategy_matched_message_zt_buy(match_data, subscribe_detail):
     price = round(float(match_data['price']), 2)
     dbmsg = {'type':'intrade_buy', 'code': code, 'account': account, 'price': price, 'count': 0}
     dbmsg['count'] = Utils.calc_buy_count(amount, price)
+    sels = { "key":"StrategySellELS", "enabled":False, "cutselltype":"all", "selltype":"all", "topprice": round(price * 1.05, 2) }
+    if 'cutline' in match_data:
+        sels['guardPrice'] = round(float(match_data['cutline']), 2)
     strategies = {
         "grptype": "GroupStandard",
         "strategies": {
-            "0": { "key":"StrategySellELS", "enabled":False, "cutselltype":"all", "selltype":"all", "topprice": round(price * 1.05, 2) },
-            "1": { "key":"StrategyGrid", "enabled":False, "guardPrice": price, "buycnt": 1, "stepRate": 0.05 },
+            "0": sels,
+            "1": { "key":"StrategyGrid", "enabled":False, "buycnt": 1, "stepRate": 0.05 },
             "2": { "key":"StrategySellBE", "enabled":False, "upRate": -0.03, "selltype":"all", "sell_conds": 8}
         },
         "transfers": { "0": { "transfer": "-1" }, "1": { "transfer": "-1" }, "2": { "transfer": "-1" }},
@@ -92,16 +97,24 @@ class WsIsUtils():
     __stock_blacked = []
     @classmethod
     def setup_blacklist(self):
-        block_bks = ['BK0511', 'BK0636'] # ST股 B股
-        bkstks = []
-        for bk in block_bks:
-            bkdb = StockEmBk(bk)
-            bkstks += bkdb.dumpDataByDate()
+        bkstks = StockBkMap.bk_stocks(['BK0511', 'BK0636']) # ST股 B股
 
+        # 退市整理期
         zdfranks = StockGlobal.getStocksZdfRank()
         for rk in zdfranks:
             if rk['f14'].startswith('退市') or rk['f14'].endswith('退'):
                 bkstks.append(StockGlobal.full_stockcode(rk['f12']))
+                continue
+            if rk['f2'] == '-' or StockGlobal.full_stockcode(rk['f12']) in bkstks:
+                continue
+            if rk['f2'] < 1:
+                zdf = 10
+                if rk['f12'].startswith('30') or rk['f12'].startswith('68'):
+                    zdf = 20
+                elif 'ST' in rk['f14']:
+                    zdf = 5
+                if self.is_price_quit_risk(StockGlobal.full_stockcode(rk['f12']), rk['f2'], zdf):
+                    bkstks.append(StockGlobal.full_stockcode(rk['f12']))
 
         bkstks = list(set(bkstks))
         self.__stock_blacked = [c[2:] for c in bkstks] + bkstks
@@ -144,6 +157,16 @@ class WsIsUtils():
             cls.__zt_reached = set([c[2:] for c, in zr])
         return code in cls.__zt_reached
 
+    __dividen = []
+    @classmethod
+    def to_be_divided(cls, code):
+        if len(cls.__dividen) == 0:
+            ssb = StockShareBonus()
+            ddtl = ssb.sqldb.select(ssb.tablename, [column_code, '登记日期'], conds=f'登记日期 >= "{Utils.today_date()}"')
+            d35 = (datetime.now() + (timedelta(days=2) if datetime.now().day < 3 else timedelta(days=4))).strftime('%Y-%m-%d')
+            [cls.__dividen.append(c) for c, d in ddtl if d <= d35]
+        return code in cls.__dividen
+
     __bk_stocks = {}
     @classmethod
     def update_bk_stocks(self, bks):
@@ -151,7 +174,13 @@ class WsIsUtils():
             bks = [bks]
         assert isinstance(bks, list), "bks must be a list"
         for bk in bks:
-            sbk = StockEmBk(bk)
+            if bk.startswith('BK'):
+                sbk = StockEmBk(bk)
+            elif bk.startswith('cls'):
+                sbk = StockClsBk(bk)
+            else:
+                Utils.log(f'format error for BK code: {bk}', Utils.Err)
+                continue
             if WsIsUtils.save_db_enabled():
                 self.__bk_stocks[bk] = sbk.fetchBkStocks()
                 sbk.saveFetched()
@@ -163,6 +192,30 @@ class WsIsUtils():
         if bk not in self.__bk_stocks:
             self.update_bk_stocks(bk)
         return self.__bk_stocks[bk]
+
+    __kl_dump = None
+    @classmethod
+    def is_price_quit_risk(self, code, price, zdf=10):
+        if price >= 1:
+            return False
+        if self.__kl_dump is None:
+            self.__kl_dump = StockDumps()
+        allkl = self.__kl_dump.read_kd_data(code, fqt=1, length=20)
+        if allkl is None:
+            return False
+        allkl = [KNode(kl) for kl in allkl]
+        lowdays = 0
+        i = len(allkl) - 1
+        while i >= 0 and allkl[i].close < 1:
+            lowdays += 1
+            i -= 1
+        if lowdays == 0:
+            return False
+        leftdays = 20 - lowdays - 2 # 留2天buffer
+
+        if price * pow((100+zdf)/100, leftdays) > 1:
+            return False
+        return True
 
 
 class StrategyI_Listener:
@@ -379,6 +432,7 @@ class StrategyI_BKChanges_Watcher(StrategyI_StkChanges_Watcher):
         super().__init__()
         self.changes_period = 600
         self.bkchghis = None
+        self.clsbkhis = None
 
     async def start_strategy_tasks(self):
         loop = asyncio.get_event_loop()
@@ -397,12 +451,18 @@ class StrategyI_BKChanges_Watcher(StrategyI_StkChanges_Watcher):
     def bk_changes_prepare(self):
         if self.bkchghis is None:
             self.bkchghis = StockBkChangesHistory()
+        if self.clsbkhis is None:
+            self.clsbkhis = StockClsBkChangesHistory()
         WsIsUtils.update_bk_stocks(self.bkchghis.dumpDataByDate())
+        WsIsUtils.update_bk_stocks(self.clsbkhis.dumpDataByDate())
 
     async def get_changes(self):
         if self.bkchghis is None:
             self.bkchghis = StockBkChangesHistory()
+        if self.clsbkhis is None:
+            self.clsbkhis = StockClsBkChangesHistory()
         bks = self.bkchghis.getLatestChanges()
+        bks += self.clsbkhis.getLatestChanges()
         if len(bks) == 0:
             Utils.log(f'{__class__.__name__} StockBkChangesHistory get bk changes empty')
             return
