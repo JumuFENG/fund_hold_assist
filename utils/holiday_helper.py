@@ -13,8 +13,9 @@ class TradingDate():
     '''
     sqldb = SqlHelper(password=db_pwd, database=history_db_name)
     max_trading_date = None
-    tmp_trading_dates = []
+    trading_dates = []
     sqllock = Lock()
+    marketkl = {}
 
     @classmethod
     def __tablename(self, date):
@@ -30,7 +31,7 @@ class TradingDate():
     def isTradingDate(self, date):
         if date == self.max_trading_date:
             return True
-        if date in self.tmp_trading_dates:
+        if date in self.trading_dates:
             return True
         self.sqllock.acquire()
         ret = 0 != self.sqldb.selectOneValue(self.__tablename(date), 'count(*)', f'{column_date} = "{date}"')
@@ -38,28 +39,32 @@ class TradingDate():
         return ret
 
     @classmethod
+    def query_trading_dates(self, date='2020-01-01'):
+        self.sqllock.acquire()
+        dates = self.sqldb.select(self.__tablename(date), column_date)
+        self.sqllock.release()
+        self.trading_dates = [d for d, in dates]
+
+    @classmethod
     def nextTradingDate(self, date):
         if self.max_trading_date is not None and date == self.max_trading_date:
             return self.max_trading_date
-        if len(self.tmp_trading_dates) == 0 or self.tmp_trading_dates[0] > date:
-            self.sqllock.acquire()
-            dates = self.sqldb.select(self.__tablename(date), column_date, f'{column_date} >= "{date}"')
-            self.sqllock.release()
-            self.tmp_trading_dates = [d for d, in dates]
-        if len(self.tmp_trading_dates) == 0 or date == self.tmp_trading_dates[-1]:
+        if len(self.trading_dates) == 0 or self.trading_dates[0] > date:
+            self.query_trading_dates(date)
+        if len(self.trading_dates) == 0 or date >= self.trading_dates[-1]:
             return self.maxTradingDate()
-        if date not in self.tmp_trading_dates:
-            if self.tmp_trading_dates[0] > date:
-                return self.tmp_trading_dates[0]
-            for d in self.tmp_trading_dates:
+        if date not in self.trading_dates:
+            if self.trading_dates[0] > date:
+                return self.trading_dates[0]
+            for d in self.trading_dates:
                 if d > date:
                     return d
-        return self.tmp_trading_dates[self.tmp_trading_dates.index(date) + 1]
+        return self.trading_dates[self.trading_dates.index(date) + 1]
 
     @classmethod
     def prevTradingDate(self, date):
-        if self.tmp_trading_dates is not None and date > self.tmp_trading_dates[0] and date in self.tmp_trading_dates:
-            return self.tmp_trading_dates[self.tmp_trading_dates.index(date) - 1]
+        if len(self.trading_dates) > 0 and date > self.trading_dates[0] and date in self.trading_dates:
+            return self.trading_dates[self.trading_dates.index(date) - 1]
         self.sqllock.acquire()
         prev = self.sqldb.selectOneValue(self.__tablename(date), 'max(date)', f'{column_date} < "{date}"')
         self.sqllock.release()
@@ -67,12 +72,9 @@ class TradingDate():
 
     @classmethod
     def calcTradingDays(self, bdate, edate):
-        if len(self.tmp_trading_dates) == 0 or self.tmp_trading_dates[0] > bdate:
-            self.sqllock.acquire()
-            dates = self.sqldb.select(self.__tablename(bdate), column_date, f'{column_date} >= "{bdate}"')
-            self.sqllock.release()
-            self.tmp_trading_dates = [d for d, in dates]
-        return len([d for d in self.tmp_trading_dates if d >= bdate and d <= edate])
+        if len(self.trading_dates) == 0 or bdate < self.trading_dates[0] or self.trading_dates[-1] < bdate:
+            self.query_trading_dates(bdate)
+        return len([d for d in self.trading_dates if d >= bdate and d <= edate])
 
     @classmethod
     def maxTradingDate(self):
@@ -120,7 +122,28 @@ class TradingDate():
             return not tradeday
 
         return True
-
+    
+    @classmethod
+    def isKlAboveMa(self, date, code=None, ma=10):
+        '''
+        @param date: 日期
+        @param code: 根据code决定使用上证指数还是深证成指
+        @param ma: MA天数, 默认10
+        '''
+        mkt = 'SZ' if code is not None and (code.startswith('SZ') or code.startswith('00') or code.startswith('30')) else 'SH'
+        if mkt not in self.marketkl:
+            tname = 'i_k_his_000001' if mkt == 'SH' else 'i_k_his_399001'
+            self.sqllock.acquire()
+            kd = self.sqldb.select(tname)
+            self.sqllock.release()
+            self.marketkl[mkt] = KlList.calc_kl_ma(kd, ma)
+        if not hasattr(self.marketkl[mkt][-1], f'ma{ma}'):
+            self.marketkl[mkt] = KlList.calc_kl_ma(self.marketkl[mkt], ma)
+        dkl = list(filter(lambda kl: kl.date == date, self.marketkl[mkt]))
+        if len(dkl) > 0:
+            dkl = dkl[0]
+            return dkl.low > getattr(dkl, f'ma{ma}')
+        return False
 
 class Holiday():
     """check if is Holiday"""

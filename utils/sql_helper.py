@@ -360,17 +360,26 @@ class SqlHelper():
         values_exist = []
         if isinstance(conkeys, str):
             conkeys = [conkeys]
+        allvalues = self.select(table, attrs)
+        conidx = [attrs.index(k) for k in conkeys]
+        allvalues = {tuple([v[x] for x in conidx]):v for v in allvalues}
         for v in values:
-            cond_list = []
-            for i in range(0, len(conkeys)):
-                tmpv = v[attrs.index(conkeys[i])]
-                cond_list.append(f'{conkeys[i]} is NULL' if tmpv is None else f'{conkeys[i]} = \'{str(tmpv)}\'')
-            cond_sql = ' and '.join(cond_list)
-            selectrows = self.select(table, conkeys, conds = cond_sql)
-            if selectrows is None or len(selectrows) == 0:
-                values_new.append(v)
+            condv = tuple([v[x] for x in conidx])
+            if condv in allvalues:
+                if allvalues[condv] != tuple(v):
+                    values_exist.append(v)
             else:
-                values_exist.append(v)
+                values_new.append(v)
+            # cond_list = []
+            # for i in range(0, len(conkeys)):
+            #     tmpv = v[attrs.index(conkeys[i])]
+            #     cond_list.append(f'{conkeys[i]} is NULL' if tmpv is None else f'{conkeys[i]} = \'{str(tmpv)}\'')
+            # cond_sql = ' and '.join(cond_list)
+            # selectrows = self.select(table, conkeys, conds = cond_sql)
+            # if selectrows is None or len(selectrows) == 0:
+            #     values_new.append(v)
+            # else:
+            #     values_exist.append(v)
 
         if len(values_new) > 0:
             self.insertMany(table, attrs, values_new)

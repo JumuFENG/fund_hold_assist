@@ -30,21 +30,29 @@ class KlList():
                 return KNode(kl)
 
     @classmethod
-    def calc_kl_ma(self, klist, mlen=18):
+    def calc_kl_ma(self, klist, mlen=18, attr='ma', kattr='close'):
         if isinstance(klist[0], (list, tuple)):
             klist = [KNode(kl) for kl in klist]
 
         csum = 0
         klen = 0
         for i in range(0, len(klist)):
-            csum += klist[i].close
+            csum += getattr(klist[i], kattr)
             if klen < mlen:
                 klen += 1
             else:
                 if i >= mlen:
-                    csum -= klist[i - mlen].close
-            setattr(klist[i], f'ma{mlen}', round(csum/klen, 2))
+                    csum -= getattr(klist[i - mlen], kattr)
+            setattr(klist[i], f'{attr}{mlen}', round(csum/klen, 2))
         return klist
+
+    @classmethod
+    def calc_vol_ma(self, klist, mlen=5):
+        return self.calc_kl_ma(klist, mlen, 'vol', 'vol')
+
+    @classmethod
+    def calc_amt_ma(self, klist, mlen=5):
+        return self.calc_kl_ma(klist, mlen, 'amt', 'amount')
 
     @classmethod
     def get_next_kl_bss(self, pkl, kl, mlen=18):
