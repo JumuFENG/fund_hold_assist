@@ -138,6 +138,17 @@ class TrackingAccount extends NormalAccount {
                 }
             }
         }
+        var enable_track_strategies = function (strategies) {
+            if (Object.values(strategies).filter(x=>x.enabled()).length != 0) {
+                return;
+            }
+            const interested_strategies = ['StrategyGrid', 'StrategySellELS', 'StrategySellBE'];
+            for (var s in strategies) {
+                if (interested_strategies.includes(strategies[s].data.key) && !strategies[s].enabled()) {
+                    strategies[s].setEnabled(true);
+                }
+            }
+        }
         emjyBack.getFromLocal(watchingStorageKey, watchings => {
             emjyBack.log('get watching_stocks', JSON.stringify(watchings));
             if (watchings) {
@@ -152,6 +163,9 @@ class TrackingAccount extends NormalAccount {
                             fix_date_price(stockInfo.code, stockInfo.strategies.buydetail.full_records);
                             stockInfo.holdCount = stockInfo.strategies.buydetail.totalCount();
                             stockInfo.holdCost = (stockInfo.strategies.buydetail.averPrice()).toFixed(2);
+                            if (stockInfo.holdCount > 0 && stockInfo.strategies.buydetail.lastBuyDate() >= emjyBack.getTodayDate('-')) {
+                                enable_track_strategies(stockInfo.strategies.strategies);
+                            }
                         };
                     });
                 });

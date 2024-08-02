@@ -164,7 +164,7 @@ class TrackStockListPanelPage extends StockListPanelPage {
             }
             this.archiveDealsBtn.selectedStks.forEach(c => {
                 emjyBack.sendExtensionMessage({command:'mngr.rmwatch', code: c, account: this.keyword});
-                this.deleteStock(this.keyword, c);
+                this.deleteStock(c);
             });
             this.archiveDealsBtn.selectedStks.clear();
             this.showTrackingCompletedDeals();

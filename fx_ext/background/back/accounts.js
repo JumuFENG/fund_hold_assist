@@ -924,6 +924,14 @@ class NormalAccount extends Account {
         var bdeals = deals.filter(d => d.Mmsm.includes('买入'));
         for (let i = 0; i < bdeals.length; i++) {
             const deali = bdeals[i];
+            if (deali.Cjsl > 0) {
+                var s = this.getStock(deali.Zqdm);
+                if (!s) {
+                    this.addWatchStock(deali.Zqdm, {});
+                } else if (!s.strategies) {
+                    this.addStockStrategy(s, {});
+                }
+            }
             this.stocks.forEach(s => {
                 if (s.code == deali.Zqdm && deali.Cjsl > 0) {
                     tradedCode.add(deali.Zqdm);
@@ -1054,6 +1062,9 @@ class NormalAccount extends Account {
         var name = position.Zqmc;
         var holdCount = parseInt(position.Zqsl);
         var availableCount = parseInt(position.Kysl);
+        if (holdCount - availableCount != 0 && (new Date()).getHours() >= 15) {
+            availableCount = holdCount;
+        }
         var holdCost = position.Cbjg;
         var latestPrice = position.Zxjg;
         return {code, name, holdCount, holdCost, availableCount, latestPrice};
@@ -1186,6 +1197,9 @@ class CollateralAccount extends NormalAccount {
         var name = position.Zqmc;
         var holdCount = parseInt(position.Zqsl);
         var availableCount = parseInt(position.Gfky);
+        if (holdCount - availableCount != 0 && (new Date()).getHours() >= 15) {
+            availableCount = holdCount;
+        }
         var holdCost = position.Cbjg;
         var latestPrice = position.Zxjg;
         return {code, name, holdCount, holdCost, availableCount, latestPrice};

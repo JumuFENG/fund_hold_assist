@@ -182,7 +182,9 @@ class StockListPanelPage extends RadioAnchorPage {
             '持仓连板',
             '割肉',
             '盈利清仓',
-            '全部'
+            '全部',
+            '今日买入',
+            '持有>1周'
         ];
     }
 
@@ -280,6 +282,34 @@ class StockListPanelPage extends RadioAnchorPage {
                 }
             } else if (fid == 7) { // 全部
                 this.stocks[i].container.style.display = 'block';
+            } else if (fid == 8) { // 今日买入
+                if (stocki.strategies && stocki.strategies.buydetail && stocki.strategies.buydetail.length > 0) {
+                    var lbd = stocki.strategies.buydetail[0].date;
+                    if (stocki.strategies.buydetail.length > 1) {
+                        for (const bd of stocki.strategies.buydetail) {
+                            if (bd.date > lbd) {
+                                lbd = bd.date;
+                            }
+                        }
+                    }
+                    if (lbd >= utils.getTodayDate()) {
+                        this.stocks[i].container.style.display = 'block';
+                    }
+                }
+            } else if (fid == 9) { // 持有时间>1周
+                if (stocki.strategies && stocki.strategies.buydetail && stocki.strategies.buydetail.length > 0) {
+                    var mbd = stocki.strategies.buydetail[0].date;
+                    if (stocki.strategies.buydetail.length > 1) {
+                        for (const bd of stocki.strategies.buydetail) {
+                            if (bd.date < mbd) {
+                                mbd = bd.date;
+                            }
+                        }
+                    }
+                    if (new Date(mbd) < new Date(new Date() - 7 * 24 * 60 * 60 * 1000)) {
+                        this.stocks[i].container.style.display = 'block';
+                    }
+                }
             } else if (typeof(fid) === 'string') {
                 if (!stocki.strategies) {
                     continue;
