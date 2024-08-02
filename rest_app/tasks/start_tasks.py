@@ -154,13 +154,13 @@ def run_regular_tasks(dnow):
             if upid >= len(stocks):
                 upid -= len(stocks)
             (i, c, n, s, t, sn, m, st, qt) = stocks[upid]
-            if t == 'TSStock' or qt is not None:
+            if t == 'TSStock' or qt is not None or c.startswith('HB') or c.startswith('SB'):
                 continue
             sh.getKHistoryFromSohuTillToday(c)
 
         if len(StockGlobal.klupdateFailed) > 0:
             sa = StockAnnoucements()
-            Utils.log(StockGlobal.klupdateFailed)
+            Utils.log(f'stocks update failed: {StockGlobal.klupdateFailed}')
             sa.check_stock_quit(StockGlobal.klupdateFailed)
             sa.check_fund_quit(StockGlobal.klupdateFailed)
             StockGlobal.klupdateFailed.clear()

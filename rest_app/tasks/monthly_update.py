@@ -28,9 +28,18 @@ class MonthlyUpdater():
         stocks = astk.sqldb.select(astk.infoTable, '*')
         sh = Stock_history()
         for (i, c, n, s, t, sn, m, st) in stocks:
-            if t == 'TSSTOCK':
+            if t == 'TSSTOCK' or c.startswith('HB') or c.startswith('SB'):
                 continue
             sh.getKmHistoryFromSohuTillToday(c)
+
+        Utils.log('update B bk stocks')
+        bbk = StockEmBk('BK0636')
+        bbk.getNext()
+
+        Utils.log('update dfsorg details')
+        dfsorg = StockDfsorg()
+        dfsorg.updateDetails()
+
 
 if __name__ == '__main__':
     mu = MonthlyUpdater()

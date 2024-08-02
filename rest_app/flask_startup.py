@@ -312,6 +312,19 @@ def stock():
             szs = StockZt1j2Selector()
             szs.setCandidates(date, stks)
             return 'OK', 200
+        if actype == 'unselect_3brk':
+            stks = request.form.get('stocks')
+            stks = stks.split(',')
+            stb = StockTrippleBullSelector()
+            stb.unsetCandidates(stks)
+            return 'OK', 200
+        if actype == 'select_evol':
+            date = request.form.get('date')
+            stks = request.form.get('stocks')
+            stks = stks.split(',')
+            sev = StockEndVolumeSelector()
+            sev.setCandidates(date, stks)
+            return 'OK', 200
     else:
         actype = request.args.get("act", type=str, default=None)
         if actype == 'test':
@@ -389,6 +402,12 @@ def stock():
             if key == 'ust':
                 sus = StockUstSelector()
                 return json.dumps(sus.dumpDataByDate())
+            if key == '3brk':
+                stb = StockTrippleBullSelector()
+                return json.dumps(stb.dumpDataByDate())
+            if key == 'evol':
+                sev = StockEndVolumeSelector()
+                return json.dumps(sev.dumpDataWithRecents(date))
             return f'Unknown key {key}', 404
         if actype == 'updatepickup':
             return f'Unknown key {key}', 404

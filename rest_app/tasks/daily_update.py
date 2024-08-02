@@ -98,7 +98,7 @@ class DailyUpdater():
         Utils.log('index history updated!')
 
     def download_all_stocks_khistory(self):
-        StockGlobal.getStocksZdfRank()
+        StockGlobal.updateStocksDailyData()
         stkall = AllStocks()
         stkall.loadNewStock()
         stkall.loadNewStock('BJ')
@@ -134,6 +134,8 @@ class DailyUpdater():
         sfh = Stock_Fflow_History()
         while len(self.allcodes) > 0:
             code = self.allcodes.pop()
+            if code.startswith('HB') or code.startswith('SB'):
+                continue
             sh.getKdHistoryFromSohuTillToday(code)
             sfh.updateFflow(code)
 
@@ -195,7 +197,8 @@ class DailyUpdater():
             StockDztSelector(), StockZt1Selector(), StockCentsSelector(),
             StockMaConvergenceSelector(), StockZdfRanks(), StockZtLeadingSelector(),
             StockZtLeadingSelectorST(), StockDztStSelector(), StockDztBoardSelector(), StockDztStBoardSelector(),
-            StockZt1BreakupSelector(), StockZt1j2Selector(), StockLShapeSelector()]
+            StockZt1BreakupSelector(), StockZt1j2Selector(), StockLShapeSelector(), StockDfsorgSelector(),
+            StockTrippleBullSelector(), StockEndVolumeSelector()]
         for sel in selectors:
             Utils.log(f'update { sel.__class__.__name__}')
             sel.updatePickUps()
