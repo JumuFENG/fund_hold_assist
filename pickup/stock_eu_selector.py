@@ -270,9 +270,15 @@ class StockTrippleBullSelector(StockBaseSelector):
             {'col':'fdate','type':'varchar(20) DEFAULT NULL'}, # 结束日期 买入或者放弃跟踪
         ]
         self._sim_ops = [
-            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_3b'},
+            {'prepare': self.sim_preparema, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_3b_ma'},
+            {'prepare': self.sim_prepare1, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_3b1_ma'},
+            # {'prepare': self.sim_prepare2, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_3b2x'},
+            # {'prepare': self.sim_prepare3, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_3b3x'},
+            # {'prepare': self.sim_prepare4, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_3b4x'},
+            {'prepare': self.sim_prepare5, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_3b5_ma'},
+            {'prepare': self.sim_prepare5xma, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_3b5x_ma'},
             ]
-        self.sim_ops = self._sim_ops[0:1]
+        self.sim_ops = self._sim_ops
 
     def walk_prepare(self, date=None):
         self.nonefdates = {}
@@ -453,6 +459,26 @@ class StockTrippleBullSelector(StockBaseSelector):
             chl.append([c if fullcode else c[2:], high, low])
         return chl
 
+    def getDaysCandidatesHighLow(self, days = 5, fullcode=False):
+        date = TradingDate.maxTradingDate()
+        i = 1
+        while i < days:
+            date = TradingDate.prevTradingDate(date)
+            i += 1
+        cdb = self.sqldb.select(self.tablename, [column_code, column_date, 'bdate'], [f'{column_date}<"{date}"', '预选=1', 'fdate is NULL'])
+        chl = []
+        for c, d, b in cdb:
+            allkl = self.get_kd_data(c, b, fqt=1)
+            high = allkl[0].high
+            i = 1
+            while i < len(allkl) and allkl[i].date <= d:
+                if allkl[i].high > high:
+                    high = allkl[i].high
+                i += 1
+            low = min([kl.low for kl in allkl])
+            chl.append([c if fullcode else c[2:], high, low])
+        return chl
+
     def setFdate(self, code, date=None):
         code = StockGlobal.full_stockcode(code)
         if date is None:
@@ -470,6 +496,45 @@ class StockTrippleBullSelector(StockBaseSelector):
         self.sim_stks = [[c,d,b,f] for c,d,x,b,f in cdbf]
         self.simkey = 'tribull'
 
+    def checkfdate(self, di, fi):
+        return True
+
+    def check_market_ma(self, code, date):
+        return True
+
+    def check_market_ma1(self, code, date):
+        return TradingDate.isKlAboveMa(date, code)
+
+    def sim_preparema(self):
+        self.sim_prepare()
+        self.check_market_ma = self.check_market_ma1
+    def sim_prepare1(self):
+        self.sim_prepare()
+        self.checkfdate = lambda di, fi: fi == di + 1
+        self.check_market_ma = self.check_market_ma1
+
+    def sim_prepare2(self):
+        self.sim_prepare()
+        self.checkfdate = lambda di, fi: fi >= di + 2
+    def sim_prepare3(self):
+        self.sim_prepare()
+        self.checkfdate = lambda di, fi: fi >= di + 3
+    def sim_prepare4(self):
+        self.sim_prepare()
+        self.checkfdate = lambda di, fi: fi >= di + 4
+    def sim_prepare5(self):
+        self.sim_prepare()
+        self.checkfdate = lambda di, fi: fi == di + 5
+        self.check_market_ma = self.check_market_ma1
+    def sim_prepare6(self):
+        self.sim_prepare()
+        self.checkfdate = lambda di, fi: fi >= di + 6
+        self.check_market_ma = self.check_market_ma1
+    def sim_prepare5xma(self):
+        self.sim_prepare()
+        self.checkfdate = lambda di, fi: fi >= di + 5
+        self.check_market_ma = self.check_market_ma1
+
     def simulate_buy_sell(self, orstks):
         kd = None
         for code, date, b, fdate in orstks:
@@ -477,62 +542,68 @@ class StockTrippleBullSelector(StockBaseSelector):
                 kd = self.get_kd_data(code, b)
                 if kd is None:
                     continue
-                ki = 0
-                while ki < len(kd) and kd[ki].date < b:
-                    ki += 1
-                kd = kd[ki:]
+            ki = 0
+            while ki < len(kd) and kd[ki].date < b:
+                ki += 1
+            kd = kd[ki:]
 
-                i = 0
-                bi, di, fi = 0,0,0
-                while i < len(kd):
-                    if kd[i].date == b:
-                        bi =i
-                    if kd[i].date == date:
-                        di =i
-                    if kd[i].date == fdate:
-                        fi = i
-                        break
-                    i += 1
+            i = 0
+            bi, di, fi = 0,0,0
+            while i < len(kd):
+                if kd[i].date == b:
+                    bi =i
+                if kd[i].date == date:
+                    di =i
+                if kd[i].date == fdate:
+                    fi = i
+                    break
+                i += 1
 
-                uprice = max([kl.high for kl in kd[bi: di+1]])
-                support = min([kl.low for kl in kd[bi: di+1]])
-                if kd[fi].close < support or support * (1 + self.crate) < uprice:
-                    continue
-                buy,bdate,sell,sdate = 0,None,0,None
-                if kd[fi].open > uprice:
-                    if kd[fi].open < uprice * (1 + self.erate):
-                        buy = kd[fi].open
-                        bdate = kd[fi].date
-                    else:
-                        continue
-                elif kd[fi].high > uprice:
-                    buy = uprice
+            if not self.checkfdate(di, fi):
+                continue
+
+            uprice = max([kl.high for kl in kd[bi: di+1]])
+            support = min([kl.low for kl in kd[bi: di+1]])
+            if kd[fi].close < support or support * (1 + self.crate) < uprice:
+                continue
+            buy,bdate,sell,sdate = 0,None,0,None
+            if kd[fi].open > uprice:
+                if kd[fi].open < uprice * (1 + self.erate):
+                    buy = kd[fi].open
                     bdate = kd[fi].date
                 else:
                     continue
-                support = min([x.low for x in kd[di:fi+1]])
-                if support * (1 + self.crate) < uprice:
-                    buy,bdate,sell,sdate = 0,None,0,None
-                    continue
+            elif kd[fi].high > uprice:
+                buy = uprice
+                bdate = kd[fi].date
+            else:
+                continue
+            support = min([x.low for x in kd[di:fi+1]])
+            if support * (1 + self.crate) < uprice:
+                buy,bdate,sell,sdate = 0,None,0,None
+                continue
 
-                kk = fi + 1
-                while kk < len(kd):
-                    if kd[ki].open < support:
-                        sell = kd[kk].open
-                        sdate = kd[kk].date
-                    elif kd[kk].low < support:
-                        sell = support
-                        sdate = kd[kk].date
-                    elif kd[kk].high > buy * (1 + self.erate):
-                        sell = (kd[kk].high + kd[kk].close) / 2
-                        sdate = kd[kk].date
-                    else:
-                        kk += 1
-                        continue
-                    break
-                if sdate is not None:
-                    self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
-                    buy,bdate,sell,sdate = 0,None,0,None
+            if not self.check_market_ma(code, TradingDate.prevTradingDate(bdate)):
+                continue
+
+            kk = fi + 1
+            while kk < len(kd):
+                if kd[kk].open < support:
+                    sell = kd[kk].open
+                    sdate = kd[kk].date
+                elif kd[kk].low < support:
+                    sell = support
+                    sdate = kd[kk].date
+                elif kd[kk].high > buy * (1 + self.erate):
+                    sell = (kd[kk].high + kd[kk].close) / 2
+                    sdate = kd[kk].date
+                else:
+                    kk += 1
+                    continue
+                break
+            if sdate is not None:
+                self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
+                buy,bdate,sell,sdate = 0,None,0,None
 
 
 class StockEndVolumeSelector(StockBaseSelector):
@@ -561,6 +632,17 @@ class StockEndVolumeSelector(StockBaseSelector):
         ]
         self.ztdict30 = None
         self.blacked_stocks = None
+        self.sim_zdays = 4
+        self._sim_ops = [
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_evol_d4'},
+            {'prepare': self.sim_prepare3, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_evol_d3'},
+            {'prepare': self.sim_prepare2, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_evol_d2'},
+            {'prepare': self.sim_prepare5, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_evol_d5'},
+            # {'prepare': self.sim_prepare4, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_evol_d4'},
+            # {'prepare': self.sim_prepare5, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_evol_d4'},
+            # {'prepare': self.sim_prepare5xma, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_evol_d4'},
+            ]
+        self.sim_ops = self._sim_ops[0:1]
 
     def walk_prepare(self, date=None):
         if self.ztdict30 is None:
@@ -571,6 +653,8 @@ class StockEndVolumeSelector(StockBaseSelector):
             self.blacked_stocks = stbk.dumpDataByDate()
         szdf = StockGlobal.getStocksZdfRank()
         self.wkstocks = queue.Queue()
+        stocks_not_match = []
+        stocks_match = []
         for rkobj in szdf:
             c = rkobj['f2']   # 最新价
             zd = rkobj['f3']  # 涨跌幅
@@ -591,6 +675,9 @@ class StockEndVolumeSelector(StockBaseSelector):
             code = StockGlobal.full_stockcode(cd)
             if code in self.ztdict30 and self.ztdict30[code] > 1 and code not in self.blacked_stocks:
                 self.wkstocks.put([code, hsl, self.ztdict30[code]])
+                stocks_match.append(code)
+            else:
+                stocks_not_match.append(code)
         self.wkselected = []
         self.trend_date = None
 
@@ -672,5 +759,127 @@ class StockEndVolumeSelector(StockBaseSelector):
             candidates = [c for c, p in candidates]
         return [c if fullcode else c[2:] for c in candidates]
 
+    def dumpDataWithRecents(self, date=None):
+        if date is None:
+            date = self._max_date()
+        tdata = self.dumpDataByDate(date)
+        rdata = []
+        for td in tdata:
+            c, d, zd = td[0], td[1], td[9]
+            cdata = self.sqldb.select(self.tablename, self.getDumpKeys(), [f'{column_code}="{c}"', f'{column_date}<"{date}"'])
+            cdata = sorted(cdata, key=lambda x: x[1], reverse=True)
+            rdata.append(td)
+            for cd in cdata:
+                d1 = cd[1]
+                zd1 = cd[9]
+                if TradingDate.calcTradingDays(d1, d) == zd - zd1 + 1:
+                    rdata.append(cd)
+        return rdata
+
     def updatePickUps(self):
         self.walkOnHistory()
+
+    def sim_prepare(self):
+        super().sim_prepare()
+        evlist = self.sqldb.select(self.tablename, f'{column_code}, {column_date}', f'ztindays={self.sim_zdays}')
+        self.sim_stks = sorted(evlist, key=lambda s: (s[0], s[1]))
+
+    def sim_prepare3(self):
+        self.sim_zdays = 3
+        self.sim_prepare()
+    def sim_prepare2(self):
+        self.sim_zdays = 2
+        self.sim_prepare()
+    def sim_prepare5(self):
+        self.sim_zdays = 5
+        self.sim_prepare()
+
+    def simulate_buy_sell(self, orstks):
+        kd = None
+        for code, date in orstks:
+            if kd is None or len(kd) == 0:
+                kd = self.get_kd_data(code, date)
+                if kd is None:
+                    continue
+            ki = 0
+            while ki < len(kd) and kd[ki].date < date:
+                ki += 1
+            kd = kd[ki+1:]
+            if len(kd) == 0:
+                continue
+            self.sim_quick_sell(kd, code, kd[0].date, kd[0].open, 0.05, 0.08, mxdays=5)
+
+    def dumpTrainingData(self, date=None):
+        conds = f'{column_date}>="{date}"' if date is not None else ''
+        evlist = self.sqldb.select(self.tablename, conds=conds)
+        rdata, ry, tdata = [], [], []
+        for i,c,d,v,a,hs,v0,v1,zdi,jz,uv,pr,top,pk in evlist:
+            kdate = d
+            for i in range(0, 20):
+                kdate = TradingDate.prevTradingDate(kdate)
+            allkl = self.get_kd_data(c, kdate, fqt=1)
+            if allkl[0].date != kdate:
+                print('kl data not valid', c, d)
+                continue
+
+            allkl = KlList.calc_kl_ma(allkl, 10)
+            allkl = KlList.calc_vol_ma(allkl, 5)
+            allkl = KlList.calc_amt_ma(allkl, 5)
+
+            j = 0
+            while j < len(allkl) and allkl[j].date < d:
+                j += 1
+            if allkl[j].date != d:
+                print('kl data not valid', c, d)
+                continue
+
+            kl = allkl[j]
+            raw0 = [c, d]
+            v5 = (v-getattr(kl, 'vol5'))/getattr(kl, 'vol5')
+            if v5 > 1:
+                v5 = 1
+            raw0.append(v5)
+            a5 = (a-getattr(kl, 'amt5'))/getattr(kl, 'amt5')
+            if a5 > 1:
+                a5 = 1
+            raw0.append(a5)
+            raw0.append(hs/100)
+            raw0.append(v0/v)
+            raw0.append(v1/v)
+            raw0.append(uv/v)
+            raw0.append(jz)
+            raw0.append(zdi/30)
+            o = (kl.open-getattr(kl, 'ma10'))/getattr(kl, 'ma10')
+            if o > 1:
+                o = 1
+            raw0.append(o)
+            h = (kl.high-getattr(kl, 'ma10'))/getattr(kl, 'ma10')
+            if h > 1:
+                h = 1
+            raw0.append(h)
+            l = (kl.low-getattr(kl, 'ma10'))/getattr(kl, 'ma10')
+            if l > 1:
+                l = 1
+            raw0.append(l)
+            cl = (kl.close-getattr(kl, 'ma10'))/getattr(kl, 'ma10')
+            if cl > 1:
+                cl = 1
+            raw0.append(cl)
+            lcl = allkl[j-1].close
+            raw0.append((kl.close - lcl)/lcl)
+
+            if j + 2 < len(allkl):
+                ztcount = 0
+                for ki in range(j+1, j+3):
+                    if allkl[ki].high >= Utils.zt_priceby(allkl[ki - 1].close, zdf=8):
+                        ztcount += 1
+
+                if ztcount > 0 and allkl[j+2].close >= 1.05 * allkl[j+1].open:
+                    ry.append(1)
+                else:
+                    ry.append(0)
+                rdata.append(raw0)
+            else:
+                tdata.append(raw0)
+
+        return rdata, ry, tdata

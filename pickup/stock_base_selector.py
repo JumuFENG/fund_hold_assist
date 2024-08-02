@@ -182,16 +182,24 @@ class StockBaseSelector(MultiThrdTableBase):
         self.sim_deals += deals
         return deals
 
-    def sim_quick_sell(self, allkl, code, bdate, buy, erate, crate, zdf):
-        '''快速卖出, 次日涨停不卖出 不满足止盈止损则尾盘卖出
+    def sim_quick_sell(self, allkl, code, bdate, buy, erate, crate, zdf=None, mxdays=1):
+        '''快速卖出, 涨停不卖出, mxdays日之内满足止盈止损卖出, 否则mxdays后尾盘卖出
         '''
         assert allkl[0].date == bdate, 'make sure the first kl data is the kl data of buy date'
+
+        if allkl[0].low == allkl[0].high:
+            # 买入当日为1字板,忽略
+            return
+
         ki = 1
         sell, sdate = 0, None
         cutl = buy * (1 - crate)
         earnl = buy * (1 + erate)
+        if zdf is None:
+            scode = code.replace('SH', '').replace('SZ', '')
+            zdf = 10 if scode.startswith('60') or scode.startswith('00') else 20
 
-        while ki < len(allkl):
+        while ki < len(allkl) and ki <= mxdays:
             if allkl[ki].open < cutl:
                 sell = allkl[ki].open
                 sdate = allkl[ki].date
@@ -211,14 +219,25 @@ class StockBaseSelector(MultiThrdTableBase):
                 # 一字涨停则设置新的止盈止损位为+-5%
                 cutl = allkl[ki].close * (1 - 0.05)
                 earnl = allkl[ki].close * (1 + 0.05)
-            else:
+            elif allkl[ki].high == allkl[ki].low and allkl[ki].high <= Utils.dt_priceby(allkl[ki-1].close, zdf=zdf):
+                # 一字跌停 次日再卖
+                cutl = allkl[ki].close * (1 - 0.05)
+                earnl = buy
+            elif ki == mxdays:
                 sell = allkl[ki].close
                 sdate = allkl[ki].date
                 break
 
             ki += 1
+        if sdate is None and ki == len(allkl):
+            sdate = allkl[-1].date
+            sell = allkl[-1].close
+        if len(allkl) == 1 and allkl[0].date < TradingDate.maxTradingDate():
+            sdate = TradingDate.nextTradingDate(allkl[0].date)
+            sell = 0
         if sdate is not None:
             self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
+            return [sell, sdate]
 
     def sim_post_process(self, dtable):
         if len(self.sim_deals) > 0:

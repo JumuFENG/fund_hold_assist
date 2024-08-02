@@ -4,7 +4,6 @@
 from utils import *
 from history import *
 from pickup.stock_base_selector import *
-from rest_app.ws.ws_intrade_strategy import *
 
 
 class StockAuctionUpSelector(StockBaseSelector):
@@ -12,25 +11,33 @@ class StockAuctionUpSelector(StockBaseSelector):
     '''
     def initConstrants(self):
         super().initConstrants()
-        self.tablename = 'stock_auc_up_pickup'
+        self.tablename = 'stock_auction_pickup'
         self.colheaders = [
-            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
-            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
-            {'col':'end','type':'varchar(20) DEFAULT NULL'},
+            {'col': column_code, 'type': 'varchar(20) DEFAULT NULL'},
+            {'col': column_date, 'type': 'varchar(20) DEFAULT NULL'},
+            {'col': 'top', 'type': 'varchar(10) DEFAULT NULL'},
+            {'col': 'bottom', 'type': 'varchar(10) DEFAULT NULL'},
+            {'col': 'zdays', 'type': 'int DEFAULT 0'}, # 连板天数
+            {'col': 'zdistance', 'type': 'int DEFAULT 0'}, # 涨停之后调整天数
+            {'col': 'ddays', 'type': 'int DEFAULT 0'}, # 跌停天数
+            {'col': 'ddistance', 'type': 'int DEFAULT 0'}, # 跌停之后调整天数
         ]
+
         self.sim_cutrate = 0.08
         self.sim_earnrate = 0.06
         self._sim_ops = [
-            # 竞价跌停 结束时打开
-            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_up'},
-            # 竞价跌停 随后持续上升
-            {'prepare': self.sim_prepare1, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_contup'},
-            # 竞价跌停 结束时买入有剩余
-            {'prepare': self.sim_prepare2, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_open'},
             # 连续跌停 竞价抢筹
-            {'prepare': self.sim_prepare3, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_dt_auc_contup'},
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_dt_all'},
+            # 竞价跌停 结束时打开
+            {'prepare': self.sim_prepare1, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_dt_up'},
+            # 竞价跌停 随后持续上升
+            {'prepare': self.sim_prepare2, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_dt_contup'},
+            # 竞价跌停 结束时买入有剩余
+            {'prepare': self.sim_prepare3, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_dt_volmore'},
+            # 竞价跌停 结束时打开/买入有剩余
+            {'prepare': self.sim_prepare4, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_auc_dt_uv'},
             ]
-        self.sim_ops = self._sim_ops[3:4]
+        self.sim_ops = self._sim_ops[0:1]
 
     def walk_prepare(self, date=None):
         sad = StockAuctionDetails()
@@ -38,6 +45,7 @@ class StockAuctionUpSelector(StockBaseSelector):
             self.wkstocks = list(sad.dumpAllRows())
         else:
             self.wkstocks = list(sad.dumpDataByDate(date))
+        self.wkselected = []
 
     def walk_on_history_thread(self):
         while len(self.wkstocks) > 0:
@@ -47,23 +55,90 @@ class StockAuctionUpSelector(StockBaseSelector):
             cqt['bottomprice'] = b
             cqt['topprice'] = t
 
-            if StrategyI_AuctionUp.check_buy_match(cqt):
-                self.wkselected.append([d, c, q[-1][1]])
+            zdays, zdist, ddays, ddist = self.calc_dzt_num(c, d)
 
-            # allkl = self.get_kd_data(c, start=d)
-            # if allkl is None:
-            #     continue
+            if not self.sim_check_dzt_num(zdays, zdist, ddays, ddist):
+                continue
+            if self.sim_check_match(cqt):
+                self.wkselected.append([c, d, t, b, zdays, zdist, ddays, ddist])
 
-    def post_process(self):
-        [print(x) for x in self.wkselected]
+    def save_daily_auction_matched(self, values):
+        if not isinstance(values, list) or len(values) == 0:
+            return
+        self.wkselected = values
+        self.walk_post_process()
 
     def sim_prepare(self):
         self.walk_prepare()
         self.sim_stks = sorted(self.wkstocks, key=lambda s: (s[0], s[1]))
         self.sim_deals = []
 
-    def sim_check_match(self, cqt):
-        return StrategyI_AuctionUp.check_buy_match(cqt)
+    def calc_dzt_num(self, code, date):
+        i = 0
+        sdt = date
+        while i < 10:
+            sdt = TradingDate.prevTradingDate(sdt)
+            i += 1
+        kd = self.get_kd_data(code, sdt)
+        if len(kd) < 10:
+            return 0,0,0,0
+
+        i = 0
+        while i < len(kd) and kd[i].date < date:
+            i += 1
+
+        scode = code.replace('SH', '').replace('SZ', '')
+        zdf = 10 if scode.startswith('60') or scode.startswith('00') else 20
+        j = i - 1
+        while j > 0:
+            if kd[j].high == kd[j].close and kd[j].high >= Utils.zt_priceby(kd[j-1].close, zdf=zdf):
+                break
+            j -= 1
+        while j > 0 and kd[j].high == kd[j].close and kd[j].high >= Utils.zt_priceby(kd[j-1].close, zdf=zdf):
+            j -= 1
+
+        i = j
+        zdays, zdist, ddays, ddist = 0,0,0,0
+        if i == 0 and round(kd[i].pchange) == zdf and kd[i].high == kd[i].close:
+            zdays = 1
+        i += 1
+        while i < len(kd) and kd[i].date < date:
+            if kd[i].close >= Utils.zt_priceby(kd[i-1].close, zdf=zdf) and kd[i].high == kd[i].close:
+                zdays += 1
+            else:
+                if kd[i].close <= Utils.dt_priceby(kd[i-1].close, zdf=zdf) and kd[i].low == kd[i].close:
+                    ddays += 1
+                elif ddays > 0:
+                    ddist += 1
+                if zdays > 0:
+                    zdist += 1
+            i += 1
+        return zdays, zdist, ddays, ddist
+    
+    def sim_check_dzt_num(self, zdays, zdist, ddays, ddist):
+        if zdays == 0 and zdist == 0 and ddays > 0 and ddist < ddays:
+            # 无涨停, 有跌停
+            return True
+        # if zdays > 0 and zdist == 1:
+        #     # 涨停 无调整
+        #     return True
+        # if zdays > 0 and zdist == 2:
+        #     # 调整1天
+        #     return True
+        # if zdays > 0 and zdist == 3:
+        #     # 调整1天
+        #     return True
+        # if zdays > 0 and zdist > 4:
+        #     # 调整天数大于3
+        #     return True
+        return False
+
+    def sim_check_match(self, auctions):
+        # 连续跌停 竞价打开/买入有剩余
+        return (
+                StockAuctionDetails.check_buy_match(auctions) or 
+                # StockAuctionDetails.check_buy_match_cont_up(auctions) or 
+                StockAuctionDetails.check_buy_vol_more_match(auctions))
 
     def simulate_buy_sell(self, orstks):
         kd = None
@@ -75,6 +150,10 @@ class StockAuctionUpSelector(StockBaseSelector):
             cqt['date'] = dt
             cqt['code'] = code
 
+            zdays, zdist, ddays, ddist = self.calc_dzt_num(code, dt)
+
+            if not self.sim_check_dzt_num(zdays, zdist, ddays, ddist):
+                continue
             if not self.sim_check_match(cqt):
                 continue
 
@@ -86,86 +165,20 @@ class StockAuctionUpSelector(StockBaseSelector):
                 ki += 1
             if ki > 0:
                 kd = kd[ki:]
-                if kd is None or len(kd) < 2:
-                    continue
 
-            op0 = kd[0].open
-            hi0 = kd[0].high
-            lo0 = kd[0].low
-            cl0 = kd[0].close
-
-            buy = min(op0 * 1.03, hi0)
-            bdate = kd[0].date
-            sell = 0
-            sdate = kd[0].date
-
-            j = 1
-            cutl = buy * (1 - self.sim_cutrate)
-            if cl0 <= buy * (1 + 0.03):
-                cutl = min(cutl, cl0 * (1 - self.sim_cutrate))
-            elif cl0 >= buy * (1 + self.sim_earnrate):
-                cutl = buy
-            earnl = buy * (1 + self.sim_earnrate)
-            if cl0 <= hi0 * (1 - 0.05) and hi0 >= buy * (1 + 2 * self.sim_earnrate):
-                earnl = hi0 * (1 - 0.02)
-            while j < len(kd):
-                clp0 = kd[j-1].close
-                cl1 = kd[j].close
-                hi1 = kd[j].high
-                lo1 = kd[j].low
-                op1 = kd[j].open
-
-                if lo1 == hi1 and hi1 <= Utils.dt_priceby(clp0):
-                    # 一字跌停，无法卖出
-                    j += 1
-                    continue
-
-                if lo1 == hi1 and hi1 >= Utils.zt_priceby(clp0):
-                    # 一字涨停，持股不动
-                    cutl = cl1 * (1 - self.sim_cutrate)
-                    earnl = hi1
-                    j += 1
-                    continue
-
-                if op1 < cutl:
-                    if op1 > Utils.dt_priceby(clp0):
-                        sell = op1
-                        sdate = kd[j].date
-                        break
-
-                if lo1 < cutl:
-                    sell = cutl
-                    sdate = kd[j].date
-                    break
-
-                if hi1 >= earnl:
-                    sell = (hi1 + earnl) / 2
-                    sdate = kd[j].date
-                    break
-
-                j += 1
-
-            if sdate != bdate:
-                self.sim_add_deals(code, [[buy, bdate]], [sell, sdate], 100000)
-                sdate = None
-                bdate = None
-                buy = 0
-                sell = 0
+            self.sim_quick_sell(kd, code, kd[0].date, kd[0].open, 0.05, 0.08)
 
     def sim_check_match1(self, auctions):
-        bottomprice = auctions['bottomprice']
-        quotes = auctions['quotes']
-        if quotes[0][1] > bottomprice:
-            return False
+        return StockAuctionDetails.check_buy_match(auctions)
 
-        for i in range(1, len(quotes)):
-            qt, cp, mv, uv = quotes[i]
-            if qt < '09:22' and quotes[i][1] > bottomprice:
-                return False
-            if quotes[i][1] < quotes[i - 1][1]:
-                return False
+    def sim_check_match2(self, auctions):
+        return StockAuctionDetails.check_buy_match_cont_up(auctions)
 
-        return quotes[-1][1] > bottomprice
+    def sim_check_match3(self, auctions):
+        return StockAuctionDetails.check_buy_vol_more_match(auctions)
+
+    def sim_check_match13(self, auctions):
+        return StockAuctionDetails.check_buy_match(auctions) or StockAuctionDetails.check_buy_vol_more_match(auctions)
 
     def sim_prepare1(self):
         self.sim_prepare()
@@ -175,60 +188,10 @@ class StockAuctionUpSelector(StockBaseSelector):
         self.sim_prepare()
         self.sim_check_match = self.sim_check_match2
 
-    def sim_check_match2(self, auctions):
-        bottomprice = auctions['bottomprice']
-        quotes = auctions['quotes']
-
-        if quotes[-1][0] < '09:25':
-            return False
-
-        if max([q[1] for q in quotes]) > bottomprice:
-            return False
-
-        # if quotes[-1][1] > bottomprice:
-        #     return False
-        return quotes[-1][3] > 0
-
     def sim_prepare3(self):
         self.sim_prepare()
         self.sim_check_match = self.sim_check_match3
-        self.threads_num = 1
 
-    def sim_check_match3(self, auctions):
-        bottomprice = auctions['bottomprice']
-        quotes = auctions['quotes']
-        dt = auctions['date']
-        sdt = dt
-        i = 0
-        while i < 10:
-            sdt = TradingDate.prevTradingDate(sdt)
-            i += 1
-        code = auctions['code']
-        kd = self.get_kd_data(code, sdt)
-        if len(kd) <= 10:
-            return False
-        if kd[i].date < dt:
-            while i < len(kd) - 1:
-                i += 1
-                if kd[i].date == dt:
-                    break
-        elif kd[i].date > dt:
-            while i > 1:
-                i -= 1
-                if kd[i].date == dt:
-                    break
-        if kd[i].date != dt:
-            print('no kl for ', dt, code)
-            return False
-
-        j = i - 1
-        cdt = 0
-        while j > 0:
-            if kd[j].close <= Utils.dt_priceby(kd[j - 1].close):
-                cdt += 1
-            else:
-                break
-            j -= 1
-
-        if cdt > 1:
-            print(code, dt, cdt, bottomprice, quotes[-1])
+    def sim_prepare4(self):
+        self.sim_prepare()
+        self.sim_check_match = self.sim_check_match13

@@ -139,7 +139,7 @@ class StockZtDailyMain(StockBaseSelector):
         if self.bktable is None:
             self.bktable = StockEmBkAll()
         if self.bkmap is None:
-            self.bkmap = StockBkMap()
+            self.bkmap = StockEmBkMap()
         bkid = self.bkmap.stock_bks(code)[0]
         bkname = self.bktable.queryBkName(bkid)
         return bkname if bkname is not None else bkid
@@ -982,10 +982,10 @@ class StockZtDaily():
             i += 1
             date = TradingDate.prevTradingDate(date)
         ztdic = {}
-        mdate = TradingDate.maxTradingDate()
         zts = self.dailyMain.sqldb.select(self.dailyMain.tablename, [column_code, column_date], f'{column_date} >= "{date}"')
         zts += self.dailyKccy.sqldb.select(self.dailyKccy.tablename, [column_code, column_date], f'{column_date} >= "{date}"')
         zts += self.dailySt.sqldb.select(self.dailySt.tablename, [column_code, column_date], f'{column_date} >= "{date}"')
+        mdate = TradingDate.maxTradingDate()
         for c, d in zts:
             zdays = TradingDate.calcTradingDays(d, mdate)
             if c not in ztdic:

@@ -85,9 +85,11 @@ class StockZt1Selector(StockBaseSelector):
         ]
         self._sim_ops = [
             # 首板次日买入, MA卖出
-            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_zt1_1'}
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_zt1_1'},
+            # 首板3阴买入，
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell3, 'post': self.sim_post_process, 'dtable': f'track_sim_zt1d3'}
             ]
-        self.sim_ops = self._sim_ops[0:1]
+        self.sim_ops = self._sim_ops[1:2]
 
     def walk_on_history_thread(self):
         while len(self.wkstocks) > 0:
@@ -201,6 +203,46 @@ class StockZt1Selector(StockBaseSelector):
                 bdate = None
                 buy = 0
                 sell = 0
+
+    def check_3bear_kl(self, allkl, start=0, zdf=10):
+        if len(allkl) <= start + 2:
+            return False
+        for i in range(0, 3):
+            if allkl[start+i].close >= Utils.zt_priceby(allkl[start+i-1].close, zdf=zdf):
+                return False
+            if allkl[start+i].close > allkl[start+i].open:
+                return False
+        for i in range(1, 3):
+            if allkl[start+i].vol > allkl[start+i-1].vol:
+                return False
+        return True
+
+    def simulate_buy_sell3(self, orstks):
+        kd = None
+        for code, date in orstks:
+            if kd is None or len(kd) == 0:
+                kd = self.get_kd_data(code, date)
+                if kd is None:
+                    continue
+            ki = 0
+            while ki < len(kd) and kd[ki].date < date:
+                ki += 1
+            if ki+4 >= len(kd):
+                continue
+            if kd[ki].open < kd[ki].high: # 一字涨停或T字涨停
+                continue
+            zdf = 10
+            if code.startswith('SH68') or code.startswith('SZ30'):
+                zdf = 20
+            elif code.startswith('BJ'):
+                zdf = 30
+            if not self.check_3bear_kl(kd, ki+1, zdf):
+                continue
+
+            kd = kd[ki+4:]
+            self.sim_quick_sell(kd, code, kd[0].date, kd[0].open, 0.05, 0.08, zdf)
+
+
 
     def getDumpKeys(self):
         return self._select_keys([column_code, column_date, '上板强度', '放量程度'])
@@ -318,9 +360,10 @@ class StockZtYzbSelector(StockBaseSelector):
             {'prepare': self.sim_prepare1, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_yzb_tz'},
             {'prepare': self.sim_prepare2, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_yzb_yz'},
             {'prepare': self.sim_prepare3, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_yzb_fai'},
-            {'prepare': self.sim_prepare4, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_yzb_mb'}
+            {'prepare': self.sim_prepare4, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_yzb_mb'},
+            {'prepare': self.sim_prepare5, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_yzb_tzfai'},
             ]
-        self.sim_ops = self._sim_ops[4:]
+        self.sim_ops = self._sim_ops[5:]
         self.crate = 0.08
         self.erate = 0.05
 
@@ -372,6 +415,10 @@ class StockZtYzbSelector(StockBaseSelector):
     def sim_prepare3(self):
         self.sim_prepare()
         self.check_buy = lambda kl: kl.open == kl.high and kl.close < kl.high
+
+    def sim_prepare5(self):
+        self.sim_prepare()
+        self.check_buy = lambda kl: kl.open == kl.high and kl.low < kl.high
 
     def sim_prepare4(self):
         self.check_zt_time = lambda ztm: ztm >= '09:30' and ztm <= '09:31'
@@ -931,6 +978,10 @@ class StockZt1j2Selector(StockBaseSelector):
             {'col':'排名TG','type':'int DEFAULT 0'},
             {'col':'newfans','type':'float DEFAULT 0'},
         ]
+        self._sim_ops = [
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_predict_zt_1j2_ww7_3'},
+            ]
+        self.sim_ops = self._sim_ops
 
     def setCandidates(self, date, candidates):
         self.sqldb.updateMany(self.tablename, [column_code, column_date, '预选'], [column_code, column_date], [[code, date, 1] for code in candidates])
@@ -944,6 +995,29 @@ class StockZt1j2Selector(StockBaseSelector):
         pool = self.sqldb.select(self.tablename, f'{column_code}, {column_date}, 预选', self.getDumpCondition(date))
         if pool is None or len(pool) == 0:
             return []
+        kdate = pool[0][1]
+        for i in range(0, 20):
+            kdate = TradingDate.prevTradingDate(kdate)
+        for i in range(0, len(pool)):
+            allkl = self.get_kd_data(pool[i][0], start=kdate, fqt=1)
+            allkl = KlList.calc_kl_ma(allkl, 10)
+            allkl = KlList.calc_vol_ma(allkl, 5)
+            allkl = KlList.calc_amt_ma(allkl, 5)
+            kl = allkl[-1]
+            if kl.date != pool[i][1]:
+                continue
+            v5 = (kl.vol - getattr(kl, 'vol5'))/getattr(kl, 'vol5')
+            if v5 > 1:
+                v5 = 1
+            a5 = (kl.amount - getattr(kl, 'amt5'))/getattr(kl, 'amt5')
+            if a5 > 1:
+                a5 = 1
+            lclose = kl.lclose if hasattr(kl, 'lclose') else allkl[-2].close
+            o = (kl.open - lclose) / lclose
+            l = (kl.low - lclose) / lclose
+            h = (kl.close - lclose) / lclose
+            zdf = 0.1 if pool[i][0].startswith('SH60') or pool[i][0].startswith('SZ00') else 0.2
+            pool[i] += (zdf, v5, a5, o, l, h)
         return pool
     
     def updateRanks(self, ranks):
@@ -961,6 +1035,181 @@ class StockZt1j2Selector(StockBaseSelector):
             ztkc = szi.dumpDataByDate(zt['date'])
             zt['pool'] += ztkc['pool']
             self.sqldb.insertMany(self.tablename, [column_code, column_date], [[x[0], zt['date']] for x in zt['pool']])
+
+    def dumpTrainingData(self, date=None):
+        conds = f'{column_date}>="{date}"' if date is not None else ''
+        z1j2data = self.sqldb.select(self.tablename, [column_code, column_date, '排名', '排名TH', '排名TG', 'newfans'], conds)
+        rdata, ry, tdata = [], [], []
+        for c, d, p, pt, pg, f in z1j2data:
+            kdate = d
+            for i in range(0, 20):
+                kdate = TradingDate.prevTradingDate(kdate)
+            allkl = self.get_kd_data(c, start=kdate, fqt=1)
+            allkl = KlList.calc_kl_ma(allkl, 10)
+            allkl = KlList.calc_vol_ma(allkl, 5)
+            allkl = KlList.calc_amt_ma(allkl, 5)
+            if p == 0:
+                p = 100
+            if pt == 0:
+                pt = 100
+            if pg == 0:
+                pg = 100
+            f = f / 100
+            kl = allkl[0]
+            i = 1
+            while i < len(allkl) and allkl[i].date < d:
+                i += 1
+            if allkl[i].date == d:
+                kl = allkl[i]
+            v5 = (kl.vol - getattr(kl, 'vol5'))/getattr(kl, 'vol5')
+            if v5 > 1:
+                v5 = 1
+            a5 = (kl.amount - getattr(kl, 'amt5'))/getattr(kl, 'amt5')
+            if a5 > 1:
+                a5 = 1
+            lclose = kl.lclose if hasattr(kl, 'lclose') else allkl[i-1].close
+            o = (kl.open - lclose) / lclose
+            l = (kl.low - lclose) / lclose
+            h = (kl.close - lclose) / lclose
+            zdf = 0.1 if c.startswith('SH60') or c.startswith('SZ00') else 0.2
+            zprice = kl.close
+            if i + 2 < len(allkl):
+                if allkl[i+1].close >= Utils.zt_priceby(zprice, zdf=zdf*100) and allkl[i + 2].close >= Utils.zt_priceby(allkl[i+1].close, zdf=zdf*100):
+                    ry.append(1)
+                else:
+                    ry.append(0)
+                rdata.append([c, d, p/100, pt/100, pg/100, f, zdf, v5, a5, o, l, h])
+            elif i + 1 < len(rdata):
+                tdata.append([c, d, p/100, pt/100, pg/100, f, zdf, v5, a5, o, l, h])
+        return rdata, ry, tdata
+
+    def sim_prepare(self):
+        super().sim_prepare()
+        stks = [['SH600855', '2024-06-25'],
+['SZ002963', '2024-07-12'],
+['SH605090', '2024-06-06'],
+['SH600624', '2024-07-17'],
+['SZ002168', '2024-07-17'],
+['SH603679', '2024-06-05'],
+['SH603679', '2024-06-17'],
+['SZ301183', '2024-06-14'],
+['SH600693', '2024-07-03'],
+['SH603586', '2024-06-20'],
+['SZ002789', '2024-07-10'],
+['SZ002883', '2024-07-16'],
+['SZ300311', '2024-07-02'],
+['SH603155', '2024-07-04'],
+['SZ002549', '2024-07-18'],
+['SZ002654', '2024-06-11'],
+['SH601133', '2024-06-12'],
+['SH600297', '2024-07-11'],
+['SH600676', '2024-07-16'],
+['SH600386', '2024-07-16'],
+['SH603528', '2024-06-05'],
+['SH600686', '2024-07-12'],
+['SZ000042', '2024-07-12'],
+['SH603803', '2024-06-18'],
+['SH600889', '2024-06-19'],
+['SH600084', '2024-07-15'],
+['SH600491', '2024-06-19'],
+['SZ300834', '2024-06-19'],
+['SZ300778', '2024-06-21'],
+['SH603887', '2024-06-26'],
+['SH603863', '2024-06-24'],
+['SZ002178', '2024-06-27'],
+['SH603577', '2024-07-15'],
+['SZ001258', '2024-06-26'],
+['SZ300546', '2024-06-19'],
+['SZ000679', '2024-06-12'],
+['SZ003008', '2024-06-05'],
+['SZ000859', '2024-06-07'],
+['SH605277', '2024-07-09'],
+['SH600355', '2024-06-12'],
+['SZ301279', '2024-06-25'],
+['SH600192', '2024-06-13'],
+['SZ300386', '2024-06-21'],
+['SZ000692', '2024-06-04'],
+['SH603991', '2024-06-11'],
+['SH603320', '2024-06-07'],
+['SH600421', '2024-06-25'],
+['SZ002857', '2024-06-26'],
+['SZ300899', '2024-07-17'],
+['SZ002713', '2024-07-02'],
+['SH600178', '2024-06-25'],
+['SZ002279', '2024-07-02'],
+['SZ002015', '2024-07-11'],
+['SH600302', '2024-06-07'],
+['SH600811', '2024-07-02'],
+['SZ002584', '2024-07-09'],
+['SZ002429', '2024-07-09'],
+['SH600518', '2024-07-04'],
+['SH600421', '2024-07-02'],
+['SH603685', '2024-06-13'],
+['SZ002636', '2024-07-16'],
+['SZ001208', '2024-06-28'],
+['SH600830', '2024-06-04'],
+['SZ002199', '2024-06-12'],
+['SZ002793', '2024-07-05'],
+['SZ002861', '2024-06-26'],
+['SH600345', '2024-06-14'],
+['SH605258', '2024-06-03'],
+['SH603171', '2024-06-25'],
+['SZ002823', '2024-07-08'],
+['SZ001217', '2024-07-08'],
+['SZ002829', '2024-07-09'],
+['SH603150', '2024-07-15'],
+['SZ002741', '2024-07-03'],
+['SH603055', '2024-07-15'],
+['SH601236', '2024-07-09'],
+['SZ300462', '2024-06-17'],
+['SH605189', '2024-07-12'],
+['SH600822', '2024-07-17'],
+['SH600076', '2024-06-28'],
+['SZ002766', '2024-06-17'],
+['SZ300262', '2024-06-05'],
+['SZ001298', '2024-06-11'],
+['SH600881', '2024-07-01'],
+['SZ002869', '2024-06-17'],
+['SZ002823', '2024-06-25'],]
+
+        track_table = 'track_zt1j2'
+        for c, d in stks:
+            dt = TradingDate.nextTradingDate(d)
+            deals = self.sqldb.select(track_table, conds=[f'{column_code}="{c}"', f'{column_date}>={dt}'])
+            if deals is None or len(deals) == 0:
+                deals = self.sqldb.select(track_table, conds=[f'{column_code}="{c[2:]}"', f'{column_date}>={dt}'])
+            if deals is None or len(deals) == 0:
+                self.sim_stks.append([c, d])
+                continue
+            bcount = 0
+            bds = []
+            sds = []
+            for dl in deals:
+                if dl[3] == 'B':
+                    bds.append([dl[5], dl[1]])
+                    bcount += dl[6]
+                else:
+                    bcount -= dl[6]
+                    sds = [dl[5], dl[1]]
+                    if bcount == 0:
+                        break
+            if len(bds) > 0:
+                self.sim_add_deals(c, bds, sds, 100000)
+
+    def simulate_buy_sell(self, orstks):
+        kd = None
+        for code, date in orstks:
+            kd = self.get_kd_data(code, date)
+            if kd is None:
+                continue
+
+            ki = 0
+            while ki < len(kd) and kd[ki].date <= date:
+                ki += 1
+
+            kd = kd[ki:]
+            zdf = 10 if code.startswith('SH60') or code.startswith('SZ00') else 20
+            self.sim_quick_sell(kd, code, kd[0].date, kd[0].open, 0.05, 0.08, zdf)
 
 
 class StockZt1BkSelector(StockBaseSelector):
