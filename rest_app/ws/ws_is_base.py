@@ -7,7 +7,7 @@ from datetime import timedelta
 from utils import *
 from history import StockGlobal, StockHotRank, StockEmBk, StockBkChangesHistory, StockChangesHistory, StockShareBonus
 from history import StockDumps, StockClsBkChangesHistory, StockClsBk, StockBkMap
-from pickup import StockZtDaily
+from pickup import StockZtDaily, StockZtLeadingSelector
 
 
 def create_strategy_matched_message_direct_buy(match_data, subscribe_detail):
@@ -18,18 +18,28 @@ def create_strategy_matched_message_direct_buy(match_data, subscribe_detail):
     dbmsg = {'type':'intrade_buy', 'code': code, 'account': account, 'price': price, 'count': 0}
     if 'amtkey' not in subscribe_detail:
         dbmsg['count'] = Utils.calc_buy_count(amount, price)
+
+    strategies = {
+        "grptype": "GroupStandard",
+        "strategies": {},
+        "transfers": {},
+        "amount": amount
+    }
+    strobjs = {
+        "StrategySellELS": {"key": "StrategySellELS", "enabled": False, "cutselltype": "all", "selltype":"all", "topprice": round(price * 1.05, 2) },
+        "StrategyGrid": { "key": "StrategyGrid", "enabled": False, "buycnt": 1, "stepRate": 0.05 },
+        "StrategySellBE": { "key":"StrategySellBE", "enabled":False, "upRate": -0.03, "selltype":"all", "sell_conds": 8}
+    }
+    if 'strategies' in match_data:
+        mstrategies = match_data['strategies']
+        for i, mstr in enumerate(mstrategies):
+            strategies['strategies'][i] = strobjs[mstr[0]]
+            for k, v in mstr[1]:
+                strategies['strategies'][i][k] = v
+            strategies['transfers'][i] = { "transfer": "-1" }
     if 'amtkey' in subscribe_detail:
-        strategies = {
-            "grptype": "GroupStandard",
-            "strategies": {
-                "0": { "key": "StrategySellELS", "enabled": False, "cutselltype": "all", "selltype":"all" },
-                "1": { "key": "StrategyGrid", "enabled": False, "buycnt": 1, "stepRate": 0.05 }
-            },
-            "transfers": { "0": { "transfer": "-1" }, "1": { "transfer": "-1" }},
-            "amount": amount
-        }
         strategies['uramount'] = {"key": subscribe_detail['amtkey']}
-        dbmsg['strategies'] = strategies
+    dbmsg['strategies'] = strategies
     return dbmsg
 
 def create_strategy_matched_message_zt_buy(match_data, subscribe_detail):
@@ -82,6 +92,8 @@ class WsIsUtils():
                 self.__watchers[name] = StrategyI_Snapshot_Watcher()
             elif name == 'stkzt_open':
                 self.__watchers[name] = StrategyI_StkZtChanges_Once_Watcher('9:25:05')
+            elif name == 'sm_stats':
+                self.__watchers[name] = StockMarket_Quote_Watcher()
 
         return self.__watchers[name]
 
@@ -217,6 +229,42 @@ class WsIsUtils():
             return False
         return True
 
+    __leading_selector = StockZtLeadingSelector()
+    @classmethod
+    def get_fetch_results(self, wsmsg):
+        query = wsmsg.get('query')
+        result = {}
+        if query == 'bkstocks':
+            bks = wsmsg.get('bks')
+            result['type'] = 'answer'
+            result['query'] = query
+            result['stocks'] = {bk:StockBkMap.bk_stocks(bk) for bk in bks}
+        if query == 'hdstocks':
+            try:
+                bks = wsmsg.get('bks')
+                start = wsmsg.get('start')
+                result['type'] = 'answer'
+                result['query'] = query
+                result['main'] = wsmsg.get('main')
+                bkstocks = StockBkMap.bk_stocks(bks)
+                result['hdstocks'] = self.__leading_selector.getHeadedStocks(bkstocks, start)
+            except Exception as e:
+                Utils.log(f'{e}', Utils.Err)
+                Utils.log(traceback.format_exc(), Utils.Err)
+        if query == 'stkchanges':
+            result['type'] = 'answer'
+            result['query'] = query
+            watcher = self.get_watcher('stkchanges')
+            if (len(watcher.full_changes)) == 0:
+                watcher.read_latest_history_changes()
+            result['changes'] = watcher.full_changes
+        if query == 'sm_stats':
+            result['type'] = 'answer'
+            result['query'] = query
+            watcher = self.get_watcher('sm_stats')
+            result['stats'] = watcher.sm_statistics
+        return result
+
 
 class StrategyI_Listener:
     async def start_strategy_tasks(self):
@@ -237,6 +285,7 @@ class StrategyI_Listener:
 class StrategyI_Watcher_Base:
     def __init__(self):
         self.listeners = []
+        self.client_listeners = []
 
     def add_listener(self, listener):
         self.listeners.append(listener)
@@ -244,6 +293,9 @@ class StrategyI_Watcher_Base:
     def remove_listener(self, listener):
         if listener in self.listeners:
             self.listeners.remove(listener)
+
+    def add_client_listener(self, listener):
+        self.client_listeners.append(listener)
 
     async def notify_change(self, params):
         for listener in self.listeners:
@@ -322,6 +374,7 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Base):
         self.changes_task_running = False
         self.changes_period = 60
         self.exist_changes = set()
+        self.full_changes = []
 
     async def start_strategy_tasks(self):
         loop = asyncio.get_event_loop()
@@ -350,6 +403,22 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Base):
         self.notify_stop()
         Utils.log('stop task for changes!')
 
+    async def notify_change(self, params):
+        await super().notify_change(params)
+        if len(self.client_listeners) == 0:
+            return
+
+        notification = {'type': 'notification', 'subject': 'stkchanges' }
+        notification['date'] = Utils.today_date()
+        notification['changes'] = params
+        for client in self.client_listeners[:]:
+            try:
+                await client.send(json.dumps(notification))
+            except Exception as e:
+                Utils.log(f'{e}', Utils.Err)
+                Utils.log(traceback.format_exc(), Utils.Err)
+                self.client_listeners.remove(client)
+
     async def get_changes(self, types=None):
         self.chg_page = 0
         self.chg_pagesize = 1000
@@ -359,8 +428,8 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Base):
 
     def get_next_changes(self, types=None):
         if types is None:
-            types = '8213,8201,8193,8194,64,128,4'
-        # 60日新高,火箭发射, 大笔买入, 大笔卖出, 有大买盘, 有大卖盘, 封涨停板
+            types = '8213,8201,8193,8194,64,128,4,16'
+        # 60日新高,火箭发射, 大笔买入, 大笔卖出, 有大买盘, 有大卖盘, 封涨停板, 打开涨停板
         url = f'http://push2ex.eastmoney.com/getAllStockChanges?type={types}&ut=7eea3edcaed734bea9cbfc24409ed989&pageindex={self.chg_page}&pagesize={self.chg_pagesize}&dpt=wzchanges'
         params = {
             'Host': 'push2ex.eastmoney.com',
@@ -385,6 +454,7 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Base):
 
     def merge_fetched(self, changes):
         f2ch = ['00', '60', '30', '68', '83', '87', '43', '92', '90', '20']
+        date = Utils.today_date()
         for chg in changes:
             code = chg['c']
             if code[0:2] not in f2ch:
@@ -396,7 +466,12 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Base):
             info = chg['i']
             if (code, ftm, tp) not in self.exist_changes:
                 self.fecthed.append([code, ftm, tp, info])
+                self.full_changes.append([code, f'{date} {ftm}', tp, info])
                 self.exist_changes.add((code, ftm, tp))
+
+    def read_latest_history_changes(self):
+        sch = StockChangesHistory()
+        self.full_changes = sch.dumpDataByDate()
 
 
 class StrategyI_StkZtChanges_Once_Watcher(StrategyI_StkChanges_Watcher):
@@ -433,6 +508,7 @@ class StrategyI_BKChanges_Watcher(StrategyI_StkChanges_Watcher):
         self.changes_period = 600
         self.bkchghis = None
         self.clsbkhis = None
+        self.topbks5 = []
 
     async def start_strategy_tasks(self):
         loop = asyncio.get_event_loop()
@@ -444,7 +520,7 @@ class StrategyI_BKChanges_Watcher(StrategyI_StkChanges_Watcher):
             loop.call_later(Utils.delay_seconds('9:30:45'), lambda: asyncio.ensure_future(self.start_changes_task()))
             loop.call_later(Utils.delay_seconds('11:30'), self.stop_changes_task)
             loop.call_later(Utils.delay_seconds('12:50:45'), lambda: asyncio.ensure_future(self.start_changes_task()))
-            loop.call_later(Utils.delay_seconds('15:0:5'), self.stop_changes_task)
+            loop.call_later(Utils.delay_seconds('15:2:5'), self.stop_changes_task)
         else:
             Utils.log(f'{__class__.__name__} start time expired.', Utils.Warn)
 
@@ -455,6 +531,16 @@ class StrategyI_BKChanges_Watcher(StrategyI_StkChanges_Watcher):
             self.clsbkhis = StockClsBkChangesHistory()
         WsIsUtils.update_bk_stocks(self.bkchghis.dumpDataByDate())
         WsIsUtils.update_bk_stocks(self.clsbkhis.dumpDataByDate())
+        date = TradingDate.maxTradingDate()
+        date = TradingDate.prevTradingDate(date)
+        for i in range(5):
+            self.topbks5 += self.bkchghis.dumpTopBks(date)
+            self.topbks5 += self.clsbkhis.dumpTopBks(date)
+            date = TradingDate.prevTradingDate(date)
+        self.topbks5 = list(set(self.topbks5))
+
+    def is_topbk5(self, bk):
+        return bk in self.topbks5
 
     async def get_changes(self):
         if self.bkchghis is None:
@@ -467,6 +553,14 @@ class StrategyI_BKChanges_Watcher(StrategyI_StkChanges_Watcher):
             Utils.log(f'{__class__.__name__} StockBkChangesHistory get bk changes empty')
             return
         await self.notify_change(self.bkchghis.changesToDict(bks))
+
+    def stop_changes_task(self):
+        if self.clsbkhis is None:
+            self.clsbkhis = StockClsBkChangesHistory()
+        self.clsbkhis.updateBkChangedIn5Days()
+        self.changes_task_running = False
+        self.notify_stop()
+        Utils.log('stop task for changes!')
 
 
 class StrategyI_Hotrank_Watcher(StrategyI_Watcher_Base):
@@ -621,3 +715,97 @@ class StrategyI_Snapshot_Watcher(StrategyI_Watcher_Base):
             if c not in self.stock_ref or self.stock_ref[c] == 0:
                 continue
             self.stock_ref[c] -= 1
+
+
+class Client_Watcher_Base(StrategyI_Watcher_Base):
+    def __init__(self, stime):
+        super().__init__()
+        self.stime = [stime]
+        if isinstance(stime, list) or isinstance(stime, tuple):
+            self.stime = stime
+        self.simple_task_running = False
+
+    async def start_strategy_tasks(self):
+        loop = asyncio.get_event_loop()
+        for stime in self.stime:
+            if Utils.delay_seconds(stime) > 0:
+                loop.call_later(Utils.delay_seconds(stime), lambda: asyncio.ensure_future(self.start_simple_task()))
+
+    async def start_simple_task(self):
+        if self.simple_task_running:
+            return
+        self.simple_task_running = True
+        await self.execute_simple_task()
+
+    async def execute_simple_task(self):
+        pass
+
+    async def notify_change(self, notification):
+        for client in self.client_listeners[:]:
+            try:
+                await client.send(json.dumps(notification))
+            except Exception as e:
+                Utils.log(f'{e}', Utils.Err)
+                Utils.log(traceback.format_exc(), Utils.Err)
+                self.client_listeners.remove(client)
+
+
+class StockMarket_Quote_Watcher(Client_Watcher_Base):
+    '''股市概况, 早盘竞价结束自动执行一次， 早上9:40自动执行一次'''
+    def __init__(self):
+        super().__init__(['9:25:05', '9:40'])
+        self.sm_statistics = []
+
+    async def execute_simple_task(self):
+        zdfranks = StockGlobal.getStocksZdfRank()
+        today = Utils.today_date()
+        up_down_stocks = []
+        for rkobj in zdfranks:
+            c = rkobj['f2']   # 最新价
+            zd = rkobj['f3']  # 涨跌幅
+            if c == '-' or zd == '-':
+                continue
+            cd = rkobj['f12'] # 代码
+            m = rkobj['f13']  # 市场代码 0 深 1 沪
+            if (m != 0 and m != 1):
+                Utils.log(f'invalid market {m}')
+                continue
+            if zd >= 8 or zd <= -8:
+                code = StockGlobal.full_stockcode(cd)
+                up_down_stocks.append(code)
+
+        sm_statistics = {'time': datetime.now().strftime('%Y-%m-%d %H:%M'), 'zt_yzb':[], 'zt':[], 'dt':[], 'up':[], 'down':[]}
+        fields = 'open_px,av_px,high_px,low_px,change,change_px,down_price,cmc,business_amount,business_balance,secu_name,secu_code,trade_status,secu_type,preclose_px,up_price,last_px';
+        for i in range(0,len(up_down_stocks),200):
+            ccodes = ','.join([c[2:] + '.BJ' if c.startswith('BJ') else c.lower() for c in up_down_stocks[i: i+200]])
+            bUrl = f'https://x-quote.cls.cn/quote/stocks/basic?app=CailianpressWeb&fields={fields}&os=web&secu_codes={ccodes}&sv=7.7.5'
+            sbasics = json.loads(Utils.get_em_request(bUrl, 'x-quote.cls.cn'))
+            if 'data' in sbasics:
+                for secu in sbasics['data']:
+                    sbasic = sbasics['data'][secu]
+                    o,h,l,c = sbasic['open_px'], sbasic['high_px'], sbasic['low_px'], sbasic['last_px']
+                    u,d,lc = sbasic['up_price'], sbasic['down_price'], sbasic['preclose_px']
+                    if c == u:
+                        if h == l:
+                            # 一字
+                            sm_statistics['zt_yzb'].append(sbasic)
+                        else:
+                            # 涨停
+                            sm_statistics['zt'].append(sbasic)
+                    elif c == d:
+                        sm_statistics['dt'].append(sbasic)
+                        # 跌停
+                    elif sbasic['change'] >= 0.08:
+                        sm_statistics['up'].append(sbasic)
+                        # 大涨
+                    elif sbasic['change'] <= -0.08:
+                        # 大跌
+                        sm_statistics['down'].append(sbasic)
+
+        self.sm_statistics.append(sm_statistics)
+
+        notification = {'type': 'notification', 'subject': 'sm_stats' }
+        notification['date'] = Utils.today_date()
+        notification['stats'] = self.sm_statistics
+
+        await self.notify_change(notification)

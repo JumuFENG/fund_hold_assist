@@ -75,9 +75,12 @@ async def handle_client(websocket, path):
                 action = message_data.get("action")
                 if action == 'initialize':
                     await websocket.send(json.dumps({'type': 'str_available', 'strategies': WsIntradeStrategyFactory.all_available_istrategies()}))
-                # elif action == 'subscribe':
-                #     skey = message.get("key")
-                #     pass
+                elif action == 'fetch' or action == 'get':
+                    await websocket.send(json.dumps(WsIsUtils.get_fetch_results(message_data)))
+                elif action == 'listen':
+                    watch_name = message_data.get('watcher')
+                    watcher = WsIsUtils.get_watcher(watch_name)
+                    watcher.add_client_listener(websocket)
                 else:
                     wsagent.process_message(message_data)
             except json.JSONDecodeError:

@@ -48,7 +48,6 @@ class WsClientAgent:
 
     def get_subscription(self, ikey):
         if ikey not in self.intrade_strategies.keys():
-            Utils.log(f'{ikey} not subscribed.')
             return
 
         subscribe_detail = {}

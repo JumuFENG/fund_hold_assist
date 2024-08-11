@@ -10,7 +10,7 @@ from pickup import StockZt1BreakupSelector, StockZt1HotrankSelector, StockBlackH
 from pickup import StockAuctionUpSelector, StockTrippleBullSelector, StockEndVolumeSelector
 from training.models import ModelAnn1j2, ModelAnnEndVolume
 
-from rest_app.ws.ws_is_base import *
+from ws_is_base import *
 
 
 class StrategyI_AuctionUp:
@@ -151,6 +151,7 @@ class StrategyI_AuctionUp:
                     if auctions['quotes'][-1][1] == auctions['bottomprice']:
                         price = float(auctions["lclose"]) * 0.97
                     aucup_match_data = {'code': code, 'price': price}
+                    aucup_match_data['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2)}, 'StrategySellBE': {}}
                     await self.on_intrade_matched(self.key, aucup_match_data, self.create_intrade_matched_message)
 
     async def start_strategy_tasks(self):
@@ -302,7 +303,7 @@ class StrategyI_Zt1Bk(StrategyI_Listener):
     '''
     key = 'istrategy_zt1bk'
     name = '首板板块'
-    desc = '首板板块主力净流入多, 排队/打板'
+    desc = '板块5日内首次满足涨幅>2%, 涨停家数>=5且主力净流入时, 排队/打板'
     on_intrade_matched = None
 
     def __init__(self):
@@ -319,45 +320,28 @@ class StrategyI_Zt1Bk(StrategyI_Listener):
         await super().start_strategy_tasks()
         await self.bklistener.start_strategy_tasks()
 
-    def select_bk_of(self, bk_changes, attr, count=3):
+    def select_bk_of(self, bk_changes, attr, selector):
         '''选择异动板块
         @param bk_changes 所有异动
         @param attr 属性名: p_change, ydpos, ztcnt...
-        @param count 数量, 选排序最靠前的n个
+        @param selector 选择方法， e.g. lanmbda x: x > 0
         '''
         s_changes = [chg for chg in bk_changes if attr in chg]
         if len(s_changes) == 0:
-            return []
-        s_changes = sorted(s_changes, key=lambda x: x[attr], reverse=True)
-        mtbk = [s_changes[0][column_code]]
-        bkpked = 1
+            return set()
+        mtbk = set()
         i = 1
-        while bkpked < 3 and i < len(s_changes):
-            bkstks1 = set(WsIsUtils.get_bk_stocks(s_changes[i][column_code]))
-            similar = False
-            for bk in mtbk:
-                bkstks0 = set(WsIsUtils.get_bk_stocks(bk))
-                cntstks = min(len(bkstks0), len(bkstks1))
-                if cntstks == 0:
-                    Utils.log(f'bkstock is empty {bk}: {len(bkstks0)}, {s_changes[i][column_code]} {len(bkstks1)}')
-                    cntstks = max(len(bkstks0), len(bkstks1))
-                    if cntstks == 0:
-                        continue
-                if len(bkstks0.intersection(bkstks1)) / min(len(bkstks0), len(bkstks1)) > 0.3:
-                    similar = True
-                    break
-            if not similar:
-                mtbk.append(s_changes[i][column_code])
-                bkpked += 1
+        while i < len(s_changes):
+            if selector(s_changes[i][attr]):
+                mtbk.add(s_changes[i][column_code])
             i += 1
         return mtbk
 
     async def on_bk_changes(self, bk_changes):
-        mtbk = self.select_bk_of(bk_changes, column_amount)
-        mtbk += self.select_bk_of(bk_changes, column_p_change)
-        mtbk += self.select_bk_of(bk_changes, 'ydabs')
-        mtbk += self.select_bk_of(bk_changes, 'ztcnt')
-        mtbk = list(set(mtbk))
+        mtbk = self.select_bk_of(bk_changes, column_amount, lambda a: a > 0)
+        mtbk = mtbk.intersection(self.select_bk_of(bk_changes, column_p_change, lambda a: a >= 2))
+        mtbk = mtbk.intersection(self.select_bk_of(bk_changes, 'ztcnt', lambda a: a >= 5))
+        mtbk = [bk for bk in mtbk if not self.bkwatcher.is_topbk5(bk)]
         Utils.log(f'bk changes selected: {mtbk}')
 
         candidates = []
@@ -370,6 +354,21 @@ class StrategyI_Zt1Bk(StrategyI_Listener):
             self.candidates_bkstks.append(s)
         Utils.log(f'candidates_bkstks: {len(self.candidates_bkstks)}')
 
+        watch_zts = {}
+        date = bk_changes[-1][column_date].split(' ')[0]
+        for c,f,t,i in self.watcher.full_changes:
+            if c in self.stock_notified:
+                continue
+            if c not in self.candidates_bkstks:
+                continue
+            if f.split(' ')[0] != date:
+                continue
+            if t == 4:
+                watch_zts[c] = [c, f, t, i]
+            elif t == 16:
+                watch_zts.pop(c)
+        await self.on_watcher(watch_zts.values())
+
     async def on_watcher(self, fecthed):
         for c, f, t, i in fecthed:
             if t != 4: continue
@@ -379,6 +378,7 @@ class StrategyI_Zt1Bk(StrategyI_Listener):
                 continue
             price = float(i.split(',')[0])
             chg_match_data = {'code': c, 'price': price}
+            chg_match_data['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2), 'guardPrice': round(price * 0.92, 2)}, 'StrategySellBE': {'sell_conds': 1}}
             await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
             self.changes_matched.append([c, f, t, i])
             self.stock_notified.append(c)
@@ -391,8 +391,8 @@ class StrategyI_Zt1Bk(StrategyI_Listener):
             print('zt1bk setChanges', self.changes_matched)
         self.changes_matched = []
 
-    def create_intrade_matched_message(self, match_data, subscribe_detail):
-        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
+    # def create_intrade_matched_message(self, match_data, subscribe_detail):
+    #     return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
 
 
 class StrategyI_EndAuc_Nzt(StrategyI_Listener):
@@ -829,6 +829,36 @@ class StrategyI_EVolume(StrategyI_Listener):
         return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
 
 
+class StrategyI_EVolumeD4(StrategyI_EVolume):
+    ''' 尾盘竞价爆量
+    '''
+    key = 'istrategy_evold4'
+    name = '尾盘竞价爆量4日'
+    desc = '收盘集合竞价爆量 竞价成交量>0.04*全天成交量 换手>1% 成交额>1000万 4日前有涨停(涨停后调整3天)'
+
+    async def execute_open_task(self):
+        evoltbl = StockEndVolumeSelector()
+        mx_tdate = TradingDate.maxTradingDate()
+        if mx_tdate == Utils.today_date():
+            candi_date = TradingDate.prevTradingDate(mx_tdate)
+            candidates = evoltbl.dumpLatesetD4Candidates(candi_date, False)
+            for c in candidates:
+                if WsIsUtils.is_stock_blacked(c): continue
+                if WsIsUtils.to_be_divided(c): continue
+                snapshot = Utils.get_em_snapshot(c)
+                price = 0 if snapshot['realtimequote']['currentPrice'] == '-' else float(snapshot['realtimequote']['currentPrice'])
+                top_price = 0 if snapshot['topprice'] == '-' else float(snapshot['topprice'])
+                if top_price == 0:
+                    continue
+                if price == 0:
+                    price = top_price
+                price = min(price * 1.02, top_price)
+                if callable(self.on_intrade_matched):
+                    mdata = {'code': c, 'price': price}
+                    await self.on_intrade_matched(self.key, mdata, self.create_intrade_matched_message)
+                    self.stock_notified.append(c)
+
+
 class StrategyI_Zt1H_Bk(StrategyI_Listener):
     ''' 一字涨停板块打板
     '''
@@ -932,7 +962,7 @@ class WsIntradeStrategyFactory:
     istrategies = [
         StrategyI_AuctionUp(), StrategyI_Zt1Breakup(), StrategyI_EndAuc_Nzt(), StrategyI_HighClose(),
         StrategyI_HotrankOpen(), StrategyI_Zt1Hotrank(), StrategyI_Zt1j2Open(), StrategyI_Zt1Bk(),
-        StrategyI_3Bull_Breakup(), StrategyI_EVolume(), StrategyI_Zt1H_Bk(), StrategyI_Zt1H_Yzb()]
+        StrategyI_3Bull_Breakup(), StrategyI_EVolume(), StrategyI_EVolumeD4(), StrategyI_Zt1H_Bk(), StrategyI_Zt1H_Yzb()]
 
     @classmethod
     def all_available_istrategies(self):
@@ -951,3 +981,7 @@ class WsIntradeStrategyFactory:
 
         for strategy in self.istrategies:
             await strategy.start_strategy_tasks()
+
+        watchers = ['sm_stats']
+        for watcher in watchers:
+            await WsIsUtils.get_watcher(watcher).start_strategy_tasks()
