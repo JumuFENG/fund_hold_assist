@@ -53,6 +53,20 @@ class BuyDetail {
         return date0;
     }
 
+    minBuyDate() {
+        var buyrec = this.buyRecords();
+        if (buyrec.length == 0) {
+            return '';
+        }
+        var date0 = buyrec[0].date;
+        for (let i = 1; i < buyrec.length; i++) {
+            if (buyrec[i].date < date0) {
+                date0 = buyrec[i].date;
+            }
+        }
+        return date0;
+    }
+
     sellRecords() {
         return this.records.filter(r => r.type == 'S');
     }
@@ -263,9 +277,6 @@ class BuyDetail {
                 frec.count = count;
             }
         } else if (count != 0){
-            if (this.records.length == 1 && this.records[0].count == count) {
-                this.records = [];
-            }
             this.addBuyDetail({count, price, sid});
         }
     }
@@ -300,16 +311,17 @@ class BuyDetail {
     setHoldCount(tcount, acount, price) {
         if (tcount === undefined || tcount <= 0) {
             this.records = [];
+            this.full_records = [];
             return;
         }
 
         if (this.records && this.totalCount() == tcount) {
-            if (this.availableCount() == acount || (new Date()).getHours() > 15) {
-                return;
-            }
+            return;
         }
 
+        emjyBack.log('setHoldCount reset buy records', tcount, acount, JSON.stringify(this.records), JSON.stringify(this.full_records))
         this.records = [];
+        this.full_records = [];
         if (acount == 0) {
             this.addBuyDetail({count: tcount, price});
         } else if (tcount == acount) {
@@ -695,7 +707,7 @@ class StrategyGroup {
     }
 
     updateBuyDetail(sid, price, count) {
-        emjyBack.log('updateBuyDetail', this.code, sid, price, count);
+        emjyBack.log('updateBuyDetail', this.code, sid, price, count, JSON.stringify(this.buydetail.records), JSON.stringify(this.full_records));
         this.buydetail.updateBuyDetail(sid, price, count);
     }
 
@@ -707,6 +719,7 @@ class StrategyGroup {
     archiveBuyDetail() {
         emjyBack.log('archiveBuyDetail', this.code, JSON.stringify(this.buydetail.full_records));
         if (this.uramount && this.buydetail.totalCount() == 0) {
+            emjyBack.log('archiveBuyDetail.settleUr', this.buydetail.totalCount(), JSON.stringify(this.buydetail.records));
             emjyBack.costDog.settleUr(this.uramount.key, this.buydetail.calcEarning(), this.uramount.id);
             delete(this.uramount);
         }
@@ -769,7 +782,7 @@ class StrategyGroup {
                 this.uramount.id = ur.id;
             }
             this.count0 = ur.count;
-        } else if(!this.count0 || this.count0 <= 0) {
+        } else {
             this.count0 = emjyBack.calcBuyCount(amount, price);
         }
         return this.count0;
@@ -849,15 +862,25 @@ class StrategyGroup {
             }
             if (count > 0) {
                 emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', info.price, JSON.stringify(curStrategy), 'aver price', this.buydetail.averPrice(), 'buy detail', JSON.stringify(this.buydetail.records));
-                emjyBack.trySellStock(this.code, price, count, this.account, sd => {
-                    if (typeof(tradeCb) === 'function') {
+                emjyBack.trySellStock(this.code, price, count, this.account, (sd, response) => {
+                    if (typeof(tradeCb) === 'function' && sd) {
                         tradeCb(sd);
+                    }
+                    if (response) {
+                        this.checkTradeResponse(info, response);
                     }
                     this.onTradeMatch(info);
                 });
             }
         }
         this.save();
+    }
+
+    checkTradeResponse(refer, response) {
+        var curStrategy = this.strategies[refer.id];
+        if (response && response.includes('可用股份数不足')) {
+            curStrategy.setEnabled(false);
+        }
     }
 
     onTradeMatch(refer) {

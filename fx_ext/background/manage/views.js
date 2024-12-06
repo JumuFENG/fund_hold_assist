@@ -125,11 +125,10 @@ class Utils {
 
     calcBuyCount(amount, price) {
         var ct = (amount / 100) / price;
-        var d = ct - Math.floor(ct);
-        if (d <= ct * 0.15) {
-            return 100 * Math.floor(ct);
-        };
-        return 100 * Math.ceil(ct);
+        if (amount - price * Math.floor(ct) * 100 - (price * Math.call(ct) * 100 - amount) > 0) {
+            return 100 * Math.ceil(ct);
+        }
+        return 100 * Math.floor(ct);
     }
     
     createSingleRow(c, span = 2) {
@@ -198,7 +197,7 @@ class RadioAnchorPage {
     constructor(text) {
         this.container = document.createElement('div');
         this.anchorBar = document.createElement('a');
-        this.anchorBar.href = 'javascript:void(0)';
+        this.anchorBar.href = '#';
         this.anchorBar.textContent = text;
         this.anchorBar.onclick = () => {
             if (this.onAnchorClicked) {

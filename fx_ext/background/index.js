@@ -50,8 +50,7 @@ function xmlHttpGet(url, exheader, cb) {
     let emjyBack = null;
 
     function logInfo(...args) {
-        var dt = new Date();
-        console.log('[' + dt.getHours() + ':' + dt.getMinutes() + ':' + dt.getSeconds()  + '] ' +  args.join(' '));
+        console.log(`[${new Date().toLocaleTimeString('zh',{hour12:false})}] ${args.join(' ')}`);
     }
 
     function sendMessage(data) {
@@ -76,7 +75,7 @@ function xmlHttpGet(url, exheader, cb) {
         };
     }
 
-    function notify(message, sender) {
+    function notify(message, sender, response) {
         logInfo("background receive message: " + message.command);
         if (message.command == 'REST.Get') {
             getHttpRequest(message.url);
@@ -91,6 +90,8 @@ function xmlHttpGet(url, exheader, cb) {
             } else {
                 emjyBack.onManagerMessageReceived(message, null);
             }
+        } else if (message.command.startsWith('popup.')) {
+            emjyBack.onPopupMessageReceived(message, sender, response);
         }
     }
 

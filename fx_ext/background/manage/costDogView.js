@@ -11,7 +11,7 @@ class CostItemView {
         this.ciKey = document.createElement('input');
         this.ciKey.value = citem.key;
         this.ciKey.disabled = citem.key !== '';
-        this.ciKey.style.maxWidth = 80;
+        this.ciKey.style.maxWidth = '80px';
         this.addInput(this.rootview, this.ciKey, '关键词');
         if (citem.key !== '') {
             var delBtn = document.createElement('button');
@@ -24,15 +24,15 @@ class CostItemView {
         }
         this.ciAmt = document.createElement('input');
         this.ciAmt.value = citem.amount;
-        this.ciAmt.style.maxWidth = 60;
+        this.ciAmt.style.maxWidth = '60px';
         this.addInput(this.rootview, this.ciAmt, '基础仓位');
         this.ciMxAmt = document.createElement('input');
         this.ciMxAmt.value = citem.max_amount;
-        this.ciMxAmt.style.maxWidth = 60;
+        this.ciMxAmt.style.maxWidth = '60px';
         this.addInput(this.rootview, this.ciMxAmt, '最大仓位');
         this.ciEer = document.createElement('input');
         this.ciEer.value = 100 * citem.expect_earn_rate;
-        this.ciEer.style.maxWidth = 50;
+        this.ciEer.style.maxWidth = '50px';
         var eerdiv = document.createElement('div');
         eerdiv.appendChild(document.createTextNode('期望收益率'));
         eerdiv.appendChild(this.ciEer);

@@ -165,14 +165,16 @@ class Manager {
 
     updateShownStocksDailyKline() {
         var today = utils.getTodayDate('');
-        for (var i = 0; i < this.stockList.stocks.length; i++) {
-            var code = this.stockList.stocks[i].stock.code;
-            if (this.klines[code] === undefined || this.klines[code].klines === undefined) {
-                this.getDailyKlineSinceMonthAgo(code, today);
-                continue;
-            }
-            if (!this.updateKlineDaily(code)) {
-                this.stockList.updateStockPrice(code);
+        for (const acc in this.accountList) {
+            for (var i = 0; i < this.accountList[acc].stocks.length; i++) {
+                var code = this.accountList[acc].stocks[i].stock.code;
+                if (this.klines[code] === undefined || this.klines[code].klines === undefined) {
+                    this.getDailyKlineSinceMonthAgo(code, today);
+                    continue;
+                }
+                if (!this.updateKlineDaily(code)) {
+                    this.accountList[acc].updateStockPrice(code);
+                }
             }
         }
     }

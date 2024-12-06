@@ -463,6 +463,9 @@ class EmjyFrontend {
     }
 
     submitCaptcha(text) {
+        text = text.replaceAll('g', '9').replaceAll('Q','0').replaceAll('i', '1')
+                .replaceAll('D', '0').replaceAll('C', '0').replaceAll('u', '0').replaceAll('U', '0')
+                .replaceAll('z', '7').replaceAll('Z', '7').replaceAll('c', '0').replaceAll('o', '0');
         if (!text || text.length != 4 || isNaN(text)) {
             document.querySelector('#imgValidCode').click();
             return;

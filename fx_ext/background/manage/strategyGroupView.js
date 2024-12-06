@@ -219,11 +219,11 @@ class StrategyGroupView {
         var ctDiv = document.createElement('div');
         ctDiv.appendChild(document.createTextNode('满仓数量 '));
         this.inputCount = document.createElement('input');
-        this.inputCount.style.maxWidth = 60;
+        this.inputCount.style.maxWidth = '60px';
         ctDiv.appendChild(this.inputCount);
         ctDiv.appendChild(document.createTextNode(' 金额 '));
         this.inputAmount = document.createElement('input');
-        this.inputAmount.style.maxWidth = 80;
+        this.inputAmount.style.maxWidth = '80px';
         ctDiv.appendChild(this.inputAmount);
         this.inputAmount.onchange = e => {
             this.inputCount.value = utils.calcBuyCount(this.inputAmount.value, this.latestPrice);
@@ -262,14 +262,14 @@ class StrategyGroupView {
 
         if (this.strGrp.buydetail && this.strGrp.buydetail.length > 0) {
             var detailDiv = document.createElement('div');
-            detailDiv.style.maxHeight = 100;
-            detailDiv.style.maxWidth = 420;
+            detailDiv.style.maxHeight = '100px';
+            detailDiv.style.maxWidth = '420px';
             detailDiv.style.overflowY = 'auto';
             var createCell = function(t, w) {
                 var c = document.createElement('div');
                 c.textContent = t;
                 if (w) {
-                    c.style.minWidth = w;
+                    c.style.minWidth = w+'px';
                 }
                 c.style.textAlign = 'center';
                 c.style.borderLeft = 'solid 1px';

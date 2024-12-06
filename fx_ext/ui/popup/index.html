@@ -11,32 +11,49 @@
 
     <body class="fundholdpopup">
         <div class="popup_container">
-            <table>
-                <tr>
-                    <td><button id='btn_open_start_page'>Open Start Page</button></td>
-                    <td><button id='btn_open_dashbard'>Dashboard</button></td>
-                </tr>
-                <tr>
-                    <td><label id="fund_code_name">Fund Code:</label></td>
-                    <td><input id="fund_code_value" width = "30px" /><button id="btn_ok">OK</button></td>
-                </tr>
-                <tr>
-                    <td><label id="fund_name_name">Fund Name:</label></td>
-                    <td id="fund_name"></td>
-                </tr>
-                <tr>
-                    <td><label id="fund_value_name">Fund Value:</label></td>
-                    <td id="fund_value"></td>
-                </tr>
-                <tr>
-                    <td><label id="fund_esti_name">Fund Estimate:</label></td>
-                    <td id="fund_value_gsz"></td>
-                </tr>
-                <tr>
-                    <td><label id="fund_growth_name">Growth Rate:</label></td>
-                    <td id="fund_growth" class="growth_increase"></td>
-                </tr>
-            </table>
+            <div style="margin: 5px;">
+                <button id='btn_open_start_page'>Open Start Page</button>
+                <button id='btn_open_dashbard'>Dashboard</button>
+            </div>
+            <div>
+                <input type="radio" id="rstock" name="popradius" value="rstock" checked="true"></input>
+                <label for="rstock">股票买入</label>
+                <input type="radio" id="rfund" name="popradius" value="rfund"></input>
+                <label for="rfund">基金查询</label>
+            </div>
+            <div id="stock_op_block" style="margin: 5px;">
+                <label id="stock_code_name">股票代码:</label>
+                <input id="stock_code_value" width="30px"/>
+                <label id="stock_name"></label><br/>
+                <label id="stock_price_chg" style="font-size: 0.9em;"></label><br/>
+                <label id="stock_buy_price">买入价格:</label>
+                <input id="stock_buy_price_value" width="30px"/><br/>
+                <label id="stock_buy_amt" >买入金额:</label>
+                <input id="stock_buy_amt_value" width="30px"/>
+                <select id="stock_buy_cost"></select> <br>
+                <label id="stock_buy_acc">买入账户:</label>
+                <select id="stock_buy_acc_select">
+                    <option value="" >自动选择</option>
+                    <option value="normal" >普通账户</option>
+                    <option value="track" >模拟账户</option>
+                </select>
+                <br />
+                <button id="btn_stock_ok" >快速买入</button>
+                <label id="stock_err_info" style="color: red;"></label>
+            </div>
+            <div id="fund_op_block" style="display: none; margin: 5px;">
+                <label id="fund_code_name">Fund Code:</label>
+                <input id="fund_code_value" width = "30px" />
+                <button id="btn_ok">OK</button><br />
+                <label id="fund_name_name">Fund Name:</label>
+                <label id="fund_name"> </label><br />
+                <label id="fund_value_name">Fund Value:</label>
+                <label id="fund_value"> </label><br />
+                <label id="fund_esti_name">Fund Estimate:</label>
+                <label id="fund_value_gsz"> </label><br />
+                <label id="fund_growth_name">Growth Rate:</label>
+                <label id="fund_growth" class="growth_increase"></label>
+            </div>
         </div>
     </body>
 </html>

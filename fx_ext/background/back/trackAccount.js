@@ -240,6 +240,16 @@ class TrackingAccount extends NormalAccount {
         this.deals = this.deals.filter( s => s.code !== code);
     }
 
+    removeStocksWithNoDeals() {
+        let s0 = [];
+        this.stocks.forEach(s=>{
+            if (s.holdCount==0 && s.strategies.buydetail.full_records.length==0 && s.strategies.buydetail.records.length == 0){
+                s0.push(s.code);
+            }
+        });
+        s0.forEach(c=>this.removeStock(c));
+    }
+
     save() {
         super.save();
         var dsobj = {};

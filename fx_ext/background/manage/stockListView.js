@@ -482,8 +482,8 @@ class StockListPanelPage extends RadioAnchorPage {
         watchDiv.appendChild(document.createElement('br'));
 
         this.inputWatchList = document.createElement('textarea');
-        this.inputWatchList.style.height = 150;
-        this.inputWatchList.style.width = 200;
+        this.inputWatchList.style.height = '150px';
+        this.inputWatchList.style.width = '200px';
         watchDiv.appendChild(this.inputWatchList);
 
         this.createWatchListAccountSelector();

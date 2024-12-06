@@ -327,7 +327,7 @@ class StrategyBaseView {
         var guardDiv = document.createElement('div');
         guardDiv.appendChild(document.createTextNode(text));
         this.inputGuard = document.createElement('input');
-        this.inputGuard.style.maxWidth = 120;
+        this.inputGuard.style.maxWidth = '120px';
         if (this.strategy.guardPrice !== undefined) {
             this.inputGuard.value = this.strategy.guardPrice;
         };
@@ -339,7 +339,7 @@ class StrategyBaseView {
         var guardDiv = document.createElement('div');
         guardDiv.appendChild(document.createTextNode(text));
         this.inputGuard = document.createElement('input');
-        this.inputGuard.style.maxWidth = 120;
+        this.inputGuard.style.maxWidth = '120px';
         if (this.strategy.guardPrice !== undefined) {
             this.inputGuard.value = this.strategy.guardPrice;
         }
@@ -358,7 +358,7 @@ class StrategyBaseView {
         var refDiv = document.createElement('div');
         refDiv.appendChild(document.createTextNode(text));
         this.inputRefer = document.createElement('input');
-        this.inputRefer.style.maxWidth = 120;
+        this.inputRefer.style.maxWidth = '120px';
         refDiv.appendChild(this.inputRefer);
         return refDiv;
     }
@@ -367,7 +367,7 @@ class StrategyBaseView {
         var refDiv = document.createElement('div');
         refDiv.appendChild(document.createTextNode(text));
         this.inputRefer = document.createElement('input');
-        this.inputRefer.style.maxWidth = 120;
+        this.inputRefer.style.maxWidth = '120px';
         refDiv.appendChild(this.inputRefer);
         this.sellCntSelector = this.createSellCountTypeOptions();
         if (this.strategy.selltype === undefined) {
@@ -383,7 +383,7 @@ class StrategyBaseView {
         var stepDiv = document.createElement('div');
         stepDiv.appendChild(document.createTextNode(text));
         this.inputStep = document.createElement('input');
-        this.inputStep.style.maxWidth = 120;
+        this.inputStep.style.maxWidth = '120px';
         if (this.strategy.stepRate) {
             this.inputStep.value = 100 * this.strategy.stepRate;
         } else {
@@ -398,7 +398,7 @@ class StrategyBaseView {
         var popDiv = document.createElement('div');
         popDiv.appendChild(document.createTextNode(text));
         this.inputPop = document.createElement('input');
-        this.inputPop.style.maxWidth = 120;
+        this.inputPop.style.maxWidth = '120px';
         if (this.strategy.backRate) {
             this.inputPop.value = 100 * this.strategy.backRate;
         } else {
@@ -413,7 +413,7 @@ class StrategyBaseView {
         var upDiv = document.createElement('div');
         upDiv.appendChild(document.createTextNode(text));
         this.inputUpEarn = document.createElement('input');
-        this.inputUpEarn.style.maxWidth = 120;
+        this.inputUpEarn.style.maxWidth = '120px';
         if (this.strategy.upRate) {
             this.inputUpEarn.value = 100 * this.strategy.upRate;
         } else {
@@ -428,7 +428,7 @@ class StrategyBaseView {
         var vDiv = document.createElement('div');
         vDiv.appendChild(document.createTextNode(text));
         this.inputVolGuard = document.createElement('input');
-        this.inputVolGuard.style.maxWidth = 120;
+        this.inputVolGuard.style.maxWidth = '120px';
         if (this.strategy.guardVol) {
             this.inputVolGuard.value = this.strategy.guardVol;
         }
@@ -440,7 +440,7 @@ class StrategyBaseView {
         var dDiv = document.createElement('div');
         dDiv.appendChild(document.createTextNode(text));
         this.inputZt0Date = document.createElement('input');
-        this.inputZt0Date.style.maxWidth = 120;
+        this.inputZt0Date.style.maxWidth = '120px';
         if (this.strategy.zt0date) {
             this.inputZt0Date.value = this.strategy.zt0date;
         }
@@ -452,7 +452,7 @@ class StrategyBaseView {
         var ctDiv = document.createElement('div');
         ctDiv.appendChild(document.createTextNode(text));
         this.inputCount = document.createElement('input');
-        this.inputCount.style.maxWidth = 120;
+        this.inputCount.style.maxWidth = '120px';
         if (this.strategy.count) {
             this.inputCount.value = this.strategy.count;
         } else {
@@ -467,7 +467,7 @@ class StrategyBaseView {
         var amtDiv = document.createElement('div');
         amtDiv.appendChild(document.createTextNode(text));
         this.inputAmount = document.createElement('input');
-        this.inputAmount.style.maxWidth = 120;
+        this.inputAmount.style.maxWidth = '120px';
         if (this.strategy.amount) {
             this.inputAmount.value = this.strategy.amount;
         } else {
@@ -547,7 +547,7 @@ class StrategyBaseView {
         if (text) {
             this.inputData.placeholder = text;
         }
-        this.inputData.style.width = 600;
+        this.inputData.style.width = '600px';
         dataDiv.appendChild(document.createTextNode('data:'));
         dataDiv.appendChild(this.inputData);
         var skipped = this.skippedDataInput();

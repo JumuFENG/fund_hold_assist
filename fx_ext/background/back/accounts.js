@@ -366,6 +366,11 @@ class TradeClient {
                         var cp = resobj.realtimequote.currentPrice;
                         var s5 = resobj.fivequote.sale5;
                         var b5 = resobj.fivequote.buy5;
+                        if (resobj.fivequote.sale1 == resobj.fivequote.buy1) {
+                            // 集合竞价
+                            s5 = cp * 1.03 - tp > 0 ? tp : cp * 1.03;
+                            b5 = cp * 0.97 - bp > 0 ? cp * 0.97 : bp;
+                        }
                         cb({bp, tp, cp, s5, b5});
                     } else {
                         cb();
@@ -426,6 +431,9 @@ class TradeClient {
             var robj = JSON.parse(response);
             if (robj.Status != 0) {
                 emjyBack.log(code, tradeType, response);
+                if (typeof(cb) == 'function') {
+                    cb(null, response);
+                }
                 return;
             }
             if (robj.Data && robj.Data.length > 0) {
@@ -747,12 +755,10 @@ class NormalAccount extends Account {
         }
 
         this.tradeClient.buy(code, price, count, bd => {
-            if (typeof(cb) === 'function') {
+            if (typeof(cb) === 'function' && bd) {
                 cb(bd);
             }
-            if (bd) {
-                this.updateAssets();
-            }
+            this.updateAssets();
         });
     }
 
@@ -761,13 +767,11 @@ class NormalAccount extends Account {
             this.createTradeClient();
         }
 
-        this.tradeClient.sell(code, price, count, sd => {
+        this.tradeClient.sell(code, price, count, (sd, response)=> {
             if (typeof(cb) === 'function') {
-                cb(sd);
+                cb(sd, response);
             }
-            if (sd) {
-                this.updateAssets();
-            }
+            this.updateAssets();
         });
     }
 

@@ -160,8 +160,7 @@ class EmjyBack {
     }
 
     log(...args) {
-        var dt = new Date();
-        var l = '[' + dt.getHours() + ':' + dt.getMinutes() + ':' + dt.getSeconds()  + '] ' +  args.join(' ');
+        var l = `[${new Date().toLocaleTimeString('zh',{hour12:false})}] ${args.join(' ')}`;
         this.logs.push(l + '\n');
         console.log(l);
     }
@@ -264,9 +263,11 @@ class EmjyBack {
         }
         this.websocket.onclose = (cevt) => {
             this.log('websocket closed with code: ' + cevt.code + ' reason: ' + cevt.reason);
+            this.setupWebsocketConnection();
         }
         this.websocket.onerror = err => {
             this.log('websocket error! ');
+            this.setupWebsocketConnection();
         }
     }
 
@@ -482,6 +483,30 @@ class EmjyBack {
                     this.manager.onManagerMessage({command: 'mngr.closed'}, tid);
                 }
             });
+        }
+    }
+
+    onPopupMessageReceived(message, sender, popcb) {
+        if (message.command === 'popup.stockinfo') {
+            popcb(this.stockMarket[message.code]);
+        } else if (message.command === 'popup.costdogs') {
+            popcb(this.costDog.dogdic);
+        } else if (message.command === 'popup.buystock') {
+            this.log('popup buy stock', JSON.stringify(message));
+            let code = message.code;
+            let price = message.price;
+            let amount = message.amount;
+            let strategies = message.strategies;
+            let count = strategies?.uramount?.urkey ? this.costDog.urBuyCount(amtkey, code, amount, price).count : this.calcBuyCount(amount, price);
+            let account = message.account;
+            if (!account) {
+                this.checkRzrq(message.code, rzrq => {
+                    var racc = rzrq.Status == -1 ? 'normal' : 'credit';
+                    this.buyWithAccount(code, price, count, racc, strategies);
+                });
+            } else {
+                this.buyWithAccount(code, price, count, account, strategies);
+            }
         }
     }
 
@@ -975,17 +1000,19 @@ class EmjyBack {
 
     trySellStock(code, price, count, account, cb) {
         if (account in this.all_accounts) {
-            this.all_accounts[account].sellStock(code, price, count, sd => {
+            this.all_accounts[account].sellStock(code, price, count, (sd, response) => {
                 var holdacc = holdAccountKey[account];
                 var stk = this.all_accounts[holdacc].getStock(code);
                 if (stk) {
                     if (!stk.strategies) {
                         this.all_accounts[holdacc].applyStrategy(code, {grptype: 'GroupStandard', strategies: {'0': {key: 'StrategySellELS', enabled: false, cutselltype: 'all', selltype: 'all'}}, transfers: {'0': {transfer: '-1'}}, amount: '5000'});
                     }
-                    stk.strategies.buydetail.addSellDetail(sd);
+                    if (sd) {
+                        stk.strategies.buydetail.addSellDetail(sd);
+                    }
                 }
                 if (typeof(cb) === 'function') {
-                    cb(sd);
+                    cb(sd,response);
                 }
             });
         } else {
@@ -1257,11 +1284,10 @@ class EmjyBack {
 
     calcBuyCount(amount, price) {
         var ct = (amount / 100) / price;
-        var d = ct - Math.floor(ct);
-        if (d <= ct * 0.15) {
-            return 100 * Math.floor(ct);
-        };
-        return 100 * Math.ceil(ct);
+        if (amount - price * Math.floor(ct) * 100 - (price * Math.call(ct) * 100 - amount) > 0) {
+            return 100 * Math.ceil(ct);
+        }
+        return 100 * Math.floor(ct);
     }
 
     fetchStockKline(code, kltype, sdate) {
@@ -1366,28 +1392,8 @@ class EmjyBack {
         this.dailyAlarm.stocks['15'].forEach(s => s101.add(s));
         this.klineAlarms.stocks['15'].forEach(s => s101.add(s));
         this.klineAlarms.stocks['101'].forEach(s => s101.add(s));
-        this.normalAccount.stocks.forEach(s => {
-            var kl = this.klines[s.code] ? this.klines[s.code].getLatestKline('101') : undefined;
-            if (kl && kl.time != this.getTodayDate('-')) {
-                s101.add(s.code);
-            }
-            var kl15 = this.klines[s.code] ? this.klines[s.code].getLatestKline('15') : undefined;
-            if (kl15 && kl15.time != this.getTodayDate('-') + ' 15:00') {
-                s15.add(s.code)
-            }
-        });
-        this.collateralAccount.stocks.forEach(s => {
-            var kl = this.klines[s.code] ? this.klines[s.code].getLatestKline('101') : undefined;
-            if (kl && kl.time != this.getTodayDate('-')) {
-                s101.add(s.code);
-            }
-            var kl15 = this.klines[s.code] ? this.klines[s.code].getLatestKline('15') : undefined;
-            if (kl15 && kl15.time != this.getTodayDate('-') + ' 15:00') {
-                s15.add(s.code)
-            }
-        });
-        for (const account of this.track_accounts) {
-            account.stocks.forEach(s => {
+        for(let k in emjyBack.all_accounts) {
+            emjyBack.all_accounts[k].stocks.forEach(s=> {
                 var kl = this.klines[s.code] ? this.klines[s.code].getLatestKline('101') : undefined;
                 if (kl && kl.time != this.getTodayDate('-')) {
                     s101.add(s.code);
@@ -1398,6 +1404,7 @@ class EmjyBack {
                 }
             });
         }
+
         s101.forEach(s => {this.fetchStockKline(s, '101')});
         this.dailyAlarm.stocks['101'].forEach(s => s15.add(s));
         s15.forEach(s => {this.fetchStockKline(s, '15')});
