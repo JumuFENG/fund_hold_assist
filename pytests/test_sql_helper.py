@@ -180,7 +180,7 @@ class TestSQL():
         if not self.sqldb.isExistTable(self.tablename):
             self.test_create_table()
 
-        clns = self.sqldb.getCloumns(self.tablename)
+        clns = self.sqldb.getColumns(self.tablename)
         assert len(clns) == 5
         assert 'code' in clns
 
