@@ -770,8 +770,7 @@ class StrategyBuyDTBoardView extends StrategyBaseView {
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
-        view.appendChild(document.createTextNode('跌停开板买入，开盘不跌停则不操作，慎用！'));
-        view.appendChild(this.createPopbackInput('反弹幅度 '));
+        view.appendChild(document.createTextNode('跌停开板买入，尽量跌停后盘中设置！'));
         view.appendChild(this.createBuyAccountSelector());
         return view;
     }

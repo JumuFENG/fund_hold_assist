@@ -22,6 +22,12 @@
                 csel.options.add(new Option(k, k));
             }
         });
+        var stsel = document.querySelector('#stock_buy_strategy');
+        stsel.options.add(new Option('买入策略', ''));
+        const buystratiegies = {'StrategyBuyDTBoard': '跌停开板买入'};
+        for (var k in buystratiegies) {
+            stsel.options.add(new Option(buystratiegies[k], k));
+        }
     }
 
     document.querySelector('#btn_open_start_page').onclick = e => {
@@ -159,11 +165,17 @@
             return;
         }
         let price = document.querySelector('#stock_buy_price_value').value;
+        let buystr = document.querySelector('#stock_buy_strategy').value;
         var account = document.querySelector('#stock_buy_acc_select').value;
         var strategies = {};
         if (urkey) {
             strategies.uramount = {key: urkey};
         }
-        chrome.runtime.sendMessage({command: 'popup.buystock', code, price, amount, account, strategies});
+        if (buystr) {
+            strategies.key = buystr;
+            chrome.runtime.sendMessage({command: 'popup.addwatch', code, amount, account, strategies});
+        } else {
+            chrome.runtime.sendMessage({command: 'popup.buystock', code, price, amount, account, strategies});
+        }
     }
 })();

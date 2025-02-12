@@ -125,12 +125,12 @@ class Utils {
 
     calcBuyCount(amount, price) {
         var ct = (amount / 100) / price;
-        if (amount - price * Math.floor(ct) * 100 - (price * Math.call(ct) * 100 - amount) > 0) {
+        if (amount - price * Math.floor(ct) * 100 - (price * Math.ceil(ct) * 100 - amount) > 0) {
             return 100 * Math.ceil(ct);
         }
-        return 100 * Math.floor(ct);
+        return ct > 1 ? 100 * Math.floor(ct) : 100;
     }
-    
+
     createSingleRow(c, span = 2) {
         var row = document.createElement("tr");
         var col = document.createElement("td");

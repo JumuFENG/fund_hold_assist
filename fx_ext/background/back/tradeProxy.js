@@ -318,12 +318,8 @@ class TradeCommander extends CommanderBase {
 }
 
 class NewStocksClient {
-    constructor(validateKey) {
-        this.validateKey = validateKey;
-    }
-
     GetCanBuy() {
-        var url = EmjyUrlRoot + 'Trade/GetCanBuyNewStockListV3?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'Trade/GetCanBuyNewStockListV3?validatekey=' + emjyBack.validateKey;
         xmlHttpPost(url, null, null, response => {
             var robj = JSON.parse(response);
             if (robj.NewStockList && robj.NewStockList.length > 0) {
@@ -364,7 +360,7 @@ class NewStocksClient {
 
         var jdata = JSON.stringify(data);
         emjyBack.log('buyNewStocks', jdata);
-        var url = EmjyUrlRoot + 'Trade/SubmitBatTradeV2?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'Trade/SubmitBatTradeV2?validatekey=' + emjyBack.validateKey;
         var header = {"Content-Type": "application/json"}
         xmlHttpPost(url, jdata, header, response => {
             var robj = JSON.parse(response);
@@ -377,8 +373,8 @@ class NewStocksClient {
     }
 
     buy() {
-        if (!this.validateKey) {
-            emjyBack.log('no valid validateKey', this.validateKey);
+        if (!emjyBack.validateKey) {
+            emjyBack.log('no valid validateKey', emjyBack.validateKey);
             return;
         }
         this.GetCanBuy();
@@ -386,12 +382,8 @@ class NewStocksClient {
 }
 
 class NewBondsClient {
-    constructor(validateKey) {
-        this.validateKey = validateKey;
-    }
-
     GetCanBuy() {
-        var url = EmjyUrlRoot + 'Trade/GetConvertibleBondListV2?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'Trade/GetConvertibleBondListV2?validatekey=' + emjyBack.validateKey;
         xmlHttpPost(url, null, null, response => {
             var robj = JSON.parse(response);
             if (robj.Status != 0) {
@@ -429,7 +421,7 @@ class NewBondsClient {
 
         var jdata = JSON.stringify(data);
         emjyBack.log('buyNewStocks', jdata);
-        var url = EmjyUrlRoot + 'Trade/SubmitBatTradeV2?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'Trade/SubmitBatTradeV2?validatekey=' + emjyBack.validateKey;
         var header = {"Content-Type": "application/json"}
         xmlHttpPost(url, jdata, header, response => {
             var robj = JSON.parse(response);
@@ -442,8 +434,8 @@ class NewBondsClient {
     }
 
     buy() {
-        if (!this.validateKey) {
-            emjyBack.log('no valid validateKey', this.validateKey);
+        if (!emjyBack.validateKey) {
+            emjyBack.log('no valid validateKey', emjyBack.validateKey);
             return;
         }
         this.GetCanBuy();
@@ -451,8 +443,7 @@ class NewBondsClient {
 }
 
 class BondRepurchaseClient {
-    constructor(validateKey, cb) {
-        this.validateKey = validateKey;
+    constructor(cb) {
         this.exitcb = cb;
     }
 
@@ -463,7 +454,7 @@ class BondRepurchaseClient {
     }
 
     checkCount(code, price) {
-        var url = EmjyUrlRoot + 'Com/GetCanOperateAmount?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'Com/GetCanOperateAmount?validatekey=' + emjyBack.validateKey;
         var fd = new FormData();
         fd.append('stockCode', code);
         fd.append('price', price);
@@ -485,7 +476,7 @@ class BondRepurchaseClient {
     }
 
     bondRepurchase(code, price, count) {
-        var url = EmjyUrlRoot + 'BondRepurchase/SecuritiesLendingRepurchaseTrade?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'BondRepurchase/SecuritiesLendingRepurchaseTrade?validatekey=' + emjyBack.validateKey;
         var fd = new FormData();
         fd.append('zqdm', code);
         fd.append('rqjg', price);
@@ -507,8 +498,8 @@ class BondRepurchaseClient {
     }
 
     buy(code, price) {
-        if (!this.validateKey) {
-            emjyBack.log('no valid validateKey', this.validateKey);
+        if (!emjyBack.validateKey) {
+            emjyBack.log('no valid validateKey', emjyBack.validateKey);
             this.exit();
             return;
         }
@@ -518,8 +509,7 @@ class BondRepurchaseClient {
 }
 
 class RepaymentClient {
-    constructor(validateKey, cb) {
-        this.validateKey = validateKey;
+    constructor(cb) {
         this.exitcb = cb;
     }
 
@@ -530,7 +520,7 @@ class RepaymentClient {
     }
 
     GetRzrqAssets() {
-        var url = EmjyUrlRoot + 'MarginSearch/GetRzrqAssets?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'MarginSearch/GetRzrqAssets?validatekey=' + emjyBack.validateKey;
         var fd = new FormData();
         fd.append('hblx', 'RMB');
         xmlHttpPost(url, fd, null, response => {
@@ -567,7 +557,7 @@ class RepaymentClient {
             return;
         }
 
-        var url = EmjyUrlRoot + 'MarginTrade/submitZjhk?validatekey=' + this.validateKey;
+        var url = EmjyUrlRoot + 'MarginTrade/submitZjhk?validatekey=' + emjyBack.validateKey;
         var fd = new FormData();
         fd.append('hbdm', 'RMB');
         fd.append('hkje', hkje);
@@ -583,8 +573,8 @@ class RepaymentClient {
     }
 
     go() {
-        if (!this.validateKey) {
-            emjyBack.log('no valid validateKey', this.validateKey);
+        if (!emjyBack.validateKey) {
+            emjyBack.log('no valid validateKey', emjyBack.validateKey);
             this.exit();
             return;
         }

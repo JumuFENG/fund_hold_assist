@@ -12,15 +12,14 @@ class Wallet {
 
 class DealsClient {
     // 普通账户 当日成交
-    constructor(validateKey, cb) {
-        this.validateKey = validateKey;
+    constructor(cb) {
         this.qqhs = 20; // 请求行数
         this.dwc = '';
         this.dealsCallback = cb;
     }
 
     getUrl() {
-        return jywgroot + 'Search/GetDealData?validatekey=' + this.validateKey;
+        return jywgroot + 'Search/GetDealData?validatekey=' + emjyBack.validateKey;
     }
 
     getFormData() {
@@ -78,13 +77,13 @@ class DealsClient {
 
 class MarginDealsClient extends DealsClient {
     // 信用账户 当日成交
-    constructor(validateKey, cb) {
-        super(validateKey, cb);
+    constructor(cb) {
+        super(cb);
         this.dwc = 1;
     }
 
     getUrl() {
-        return jywgroot + 'MarginSearch/GetDealData?validatekey=' + this.validateKey;
+        return jywgroot + 'MarginSearch/GetDealData?validatekey=' + emjyBack.validateKey;
     }
 
     updateDwc() {
@@ -94,8 +93,8 @@ class MarginDealsClient extends DealsClient {
 
 class HistDealsClient extends DealsClient {
     // 普通账户 历史成交
-    constructor(validateKey, cb) {
-        super(validateKey, cb);
+    constructor(cb) {
+        super(cb);
     }
 
     dateToString(dt, sep = '-') {
@@ -142,14 +141,14 @@ class HistDealsClient extends DealsClient {
     }
 
     getUrl() {
-        return jywgroot + 'Search/GetHisDealData?validatekey=' + this.validateKey;
+        return jywgroot + 'Search/GetHisDealData?validatekey=' + emjyBack.validateKey;
     }
 }
 
 class MarginHistDealsClient extends HistDealsClient {
     // 信用账户 历史成交
-    constructor(validateKey, cb) {
-        super(validateKey, cb);
+    constructor(cb) {
+        super(cb);
     }
 
     getFormData() {
@@ -166,54 +165,53 @@ class MarginHistDealsClient extends HistDealsClient {
     }
 
     getUrl() {
-        return jywgroot + 'MarginSearch/queryCreditHisMatchV2?validatekey=' + this.validateKey;
+        return jywgroot + 'MarginSearch/queryCreditHisMatchV2?validatekey=' + emjyBack.validateKey;
     }
 }
 
 class OrdersClient extends DealsClient {
-    constructor(validateKey, cb) {
-        super(validateKey, cb);
+    constructor(cb) {
+        super(cb);
     }
 
     getUrl() {
-        return jywgroot + 'Search/GetOrdersData?validatekey=' + this.validateKey;
+        return jywgroot + 'Search/GetOrdersData?validatekey=' + emjyBack.validateKey;
     }
 }
 
 class MarginOrdersClient extends DealsClient {
-    constructor(validateKey, cb) {
-        super(validateKey, cb);
+    constructor(cb) {
+        super(cb);
     }
 
     getUrl() {
-        return jywgroot + 'MarginSearch/GetOrdersData?validatekey=' + this.validateKey;
+        return jywgroot + 'MarginSearch/GetOrdersData?validatekey=' + emjyBack.validateKey;
     }
 }
 
 class SxlHistClient extends HistDealsClient {
     // Stock Exchange List
-    constructor(validateKey, cb) {
-        super(validateKey, cb);
+    constructor(cb) {
+        super(cb);
     }
 
     getUrl() {
-        return jywgroot + 'Search/GetFundsFlow?validatekey=' + this.validateKey;
+        return jywgroot + 'Search/GetFundsFlow?validatekey=' + emjyBack.validateKey;
     }
 }
 
 class MarginSxlHistClient extends HistDealsClient {
-    constructor(validateKey, cb) {
-        super(validateKey, cb);
+    constructor(cb) {
+        super(cb);
     }
 
     getUrl() {
-        return jywgroot + 'MarginSearch/GetWaterBill?validatekey=' + this.validateKey;
+        return jywgroot + 'MarginSearch/GetWaterBill?validatekey=' + emjyBack.validateKey;
     }
 }
 
 class AssetsClient {
-    constructor(validateKey, cb, pcb) {
-        this.validateKey = validateKey;
+    constructor(cb, pcb) {
         this.moneyType = 'RMB';
         this.assetsCallback = cb;
         this.positionCallback = pcb;
@@ -235,7 +233,7 @@ class AssetsClient {
     }
 
     queryAssetAndPosition(acb, pcb) {
-        var url = jywgroot + 'Com/queryAssetAndPositionV1?validatekey=' + this.validateKey;
+        var url = jywgroot + 'Com/queryAssetAndPositionV1?validatekey=' + emjyBack.validateKey;
         var fd = new FormData();
         fd.append('moneyType', this.moneyType);
         xmlHttpPost(url, fd, null, response => {
@@ -267,8 +265,8 @@ class AssetsClient {
 }
 
 class MarginAssetsClient extends AssetsClient {
-    constructor(validateKey, cb, pcb) {
-        super(validateKey, cb, pcb);
+    constructor(cb, pcb) {
+        super(cb, pcb);
     }
 
     GetAssets() {
@@ -279,7 +277,7 @@ class MarginAssetsClient extends AssetsClient {
 
     UpdateAssets() {
         // update assets
-        var url = jywgroot + 'MarginSearch/GetRzrqAssets?validatekey=' + this.validateKey;
+        var url = jywgroot + 'MarginSearch/GetRzrqAssets?validatekey=' + emjyBack.validateKey;
         var fd = new FormData();
         fd.append('hblx', this.moneyType);
         xmlHttpPost(url, fd, null, response => {
@@ -289,7 +287,7 @@ class MarginAssetsClient extends AssetsClient {
 
     UpdatePosition() {
         // update positions
-        var slUrl = jywgroot + 'MarginSearch/GetStockList?validatekey=' + this.validateKey;
+        var slUrl = jywgroot + 'MarginSearch/GetStockList?validatekey=' + emjyBack.validateKey;
         xmlHttpPost(slUrl, new FormData(), null, response => {
             this.onStockListResponse(response);
         });
@@ -317,13 +315,12 @@ class MarginAssetsClient extends AssetsClient {
 }
 
 class TradeClient {
-    constructor(validateKey, amoney=0) {
-        this.validateKey = validateKey;
+    constructor(amoney=0) {
         this.availableMoney = amoney;
     }
 
     getUrl() {
-        return jywgroot + 'Trade/SubmitTradeV2?validatekey=' + this.validateKey;
+        return jywgroot + 'Trade/SubmitTradeV2?validatekey=' + emjyBack.validateKey;
     }
 
     getBasicFormData(code, price, count, tradeType) {
@@ -336,8 +333,8 @@ class TradeClient {
             tradeType = '0' + tradeType;
         }
         fd.append('tradeType', tradeType);
-        var market = stock.mkt == '0' ? 'SA' : (stock.mkt == '4' ? 'B' : 'HA');
-        fd.append('market', market);
+        const mdic = {0: 'SA', 1: 'HA', 4: 'B'};
+        fd.append('market', mdic[stock.mkt]);
         return fd;
     }
 
@@ -383,7 +380,7 @@ class TradeClient {
     }
 
     countUrl() {
-        return jywgroot + 'Trade/GetAllNeedTradeInfo?validatekey=' + this.validateKey;
+        return jywgroot + 'Trade/GetAllNeedTradeInfo?validatekey=' + emjyBack.validateKey;
     }
 
     countFormData(code, price, tradeType, jylx) {
@@ -392,8 +389,8 @@ class TradeClient {
         fd.append('stockCode', code);
         fd.append('price', price);
         fd.append('tradeType', tradeType);
-        var market = stock.mkt == '0' ? 'SA' : 'HA';
-        fd.append('market', market);
+        const mdic = {0: 'SA', 1: 'HA', 4: 'B'};
+        fd.append('market', mdic[stock.mkt]);
         fd.append('stockName', stock.n);
         fd.append('gddm', '');
         return fd;
@@ -509,14 +506,14 @@ class TradeClient {
 }
 
 class CollatTradeClient extends TradeClient {
-    constructor(validateKey, amoney) {
-        super(validateKey, amoney);
+    constructor(amoney) {
+        super(amoney);
         this.buy_jylx = '6';
         this.sell_jylx = '7';
     }
 
     getUrl() {
-        return jywgroot + 'MarginTrade/SubmitTradeV2?validatekey=' + this.validateKey;
+        return jywgroot + 'MarginTrade/SubmitTradeV2?validatekey=' + emjyBack.validateKey;
     }
 
     getFormData(code, price, count, tradeType, jylx) {
@@ -527,7 +524,7 @@ class CollatTradeClient extends TradeClient {
     }
 
     countUrl() {
-        return jywgroot + 'MarginTrade/GetKyzjAndKml?validatekey=' + this.validateKey;
+        return jywgroot + 'MarginTrade/GetKyzjAndKml?validatekey=' + emjyBack.validateKey;
     }
 
     countFormData(code, price, tradeType, jylx) {
@@ -539,8 +536,8 @@ class CollatTradeClient extends TradeClient {
         fd.append('xyjylx', jylx); // 信用交易类型
         fd.append('moneyType', 'RMB');
         fd.append('stockName', stock.n);
-        var market = stock.mkt == '0' ? 'SA' : 'HA';
-        fd.append('market', market);
+        const mdic = {0: 'SA', 1: 'HA', 4: 'B'};
+        fd.append('market', mdic[stock.mkt]);
         return fd;
     }
 
@@ -582,8 +579,8 @@ class CollatTradeClient extends TradeClient {
 }
 
 class CreditTradeClient extends CollatTradeClient {
-    constructor(validateKey, amoney) {
-        super(validateKey, amoney);
+    constructor(amoney) {
+        super(amoney);
         this.buy_jylx = 'a';
         this.sell_jylx = 'A';
     }
@@ -746,7 +743,7 @@ class NormalAccount extends Account {
     }
 
     createTradeClient() {
-        this.tradeClient = new TradeClient(emjyBack.validateKey, this.availableMoney);
+        this.tradeClient = new TradeClient(this.availableMoney);
     }
 
     buyStock(code, price, count, cb) {
@@ -897,7 +894,7 @@ class NormalAccount extends Account {
             this.createTradeClient();
         }
         this.bondRepurchaseList = ['204001', '131810'];
-        this.brClient = new BondRepurchaseClient(emjyBack.validateKey, () => {
+        this.brClient = new BondRepurchaseClient(() => {
             this.buyBondRepurchase();
         });
         this.buyBondRepurchase();
@@ -916,7 +913,7 @@ class NormalAccount extends Account {
     }
 
     loadDeals() {
-        var dealclt = new OrdersClient(emjyBack.validateKey, (deals) => {
+        var dealclt = new OrdersClient((deals) => {
             this.handleDeals(deals);
         });
         dealclt.GetNext();
@@ -976,7 +973,7 @@ class NormalAccount extends Account {
     }
 
     loadHistDeals(startDate, cb) {
-        var dealclt = new HistDealsClient(emjyBack.validateKey, (deals) => {
+        var dealclt = new HistDealsClient((deals) => {
             if (!this.fecthedDeals || this.fecthedDeals.length == 0) {
                 this.fecthedDeals = deals;
             } else {
@@ -992,7 +989,7 @@ class NormalAccount extends Account {
     }
 
     loadOtherDeals(startDate, cb) {
-        var sxlclt = new SxlHistClient(emjyBack.validateKey, deals => {
+        var sxlclt = new SxlHistClient(deals => {
             if (!this.otherDeals || this.otherDeals.length == 0) {
                 this.otherDeals = deals;
             } else {
@@ -1013,7 +1010,7 @@ class NormalAccount extends Account {
             return;
         }
         if (!this.assetsClient) {
-            this.assetsClient = new AssetsClient(emjyBack.validateKey, assets => {
+            this.assetsClient = new AssetsClient(assets => {
                 this.onAssetsLoaded(assets);
             }, positions => {
                 this.onPositionsLoaded(positions);
@@ -1120,25 +1117,25 @@ class CollateralAccount extends NormalAccount {
     }
 
     createTradeClient() {
-        this.tradeClient = new CollatTradeClient(emjyBack.validateKey, this.availableMoney);
+        this.tradeClient = new CollatTradeClient(this.availableMoney);
     }
 
     buyFundBeforeClose() {
-        var rpclt = new RepaymentClient(emjyBack.validateKey, () => {
+        var rpclt = new RepaymentClient(() => {
             this.buyStock(this.wallet.fundcode, 0, 1);
         });
         rpclt.go();
     }
 
     loadDeals() {
-        var dealclt = new MarginOrdersClient(emjyBack.validateKey, (deals) => {
+        var dealclt = new MarginOrdersClient((deals) => {
             this.handleDeals(deals);
         });
         dealclt.GetNext();
     }
 
     loadHistDeals(startDate, cb) {
-        var dealclt = new MarginHistDealsClient(emjyBack.validateKey, (deals) => {
+        var dealclt = new MarginHistDealsClient((deals) => {
             if (!this.fecthedDeals || this.fecthedDeals.length == 0) {
                 this.fecthedDeals = deals;
             } else {
@@ -1154,7 +1151,7 @@ class CollateralAccount extends NormalAccount {
     }
 
     loadOtherDeals(startDate, cb) {
-        var sxlclt = new MarginSxlHistClient(emjyBack.validateKey, deals => {
+        var sxlclt = new MarginSxlHistClient(deals => {
             if (!this.otherDeals || this.otherDeals.length == 0) {
                 this.otherDeals = deals;
             } else {
@@ -1175,7 +1172,7 @@ class CollateralAccount extends NormalAccount {
             return;
         }
         if (!this.assetsClient) {
-            this.assetsClient = new MarginAssetsClient(emjyBack.validateKey, assets => {
+            this.assetsClient = new MarginAssetsClient(assets => {
                 this.onAssetsLoaded(assets);
             }, positions => {
                 this.onPositionsLoaded(positions);
@@ -1219,7 +1216,7 @@ class CreditAccount extends CollateralAccount {
     }
 
     createTradeClient() {
-        this.tradeClient = new CreditTradeClient(emjyBack.validateKey, this.availableMoney);
+        this.tradeClient = new CreditTradeClient(this.availableMoney);
     }
 
     setReleatedAssets(assets) {

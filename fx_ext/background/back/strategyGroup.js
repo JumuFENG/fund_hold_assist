@@ -776,7 +776,7 @@ class StrategyGroup {
         if (this.amount && this.amount > 0) {
             amount = this.amount;
         };
-        if (this.uramount) {
+        if (this.uramount && this.uramount.key) {
             var ur = emjyBack.costDog.urBuyCount(this.uramount.key, this.code, amount, price);
             if (ur.id && ur.id != '0') {
                 this.uramount.id = ur.id;
@@ -842,7 +842,7 @@ class StrategyGroup {
             this.count0 = this.getBuyCount(info.price);
         }
         var price = info.price === undefined ? 0 : info.price;
-        if (this.account == 'normal' || this.account == 'collat') {
+        if (!info.fixed && (this.account == 'normal' || this.account == 'collat')) {
             price = 0;
         }
         if (info.tradeType == 'B') {

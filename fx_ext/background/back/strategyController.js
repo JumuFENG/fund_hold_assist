@@ -845,20 +845,28 @@ class StrategyBuyDTBoard extends StrategyBuy {
         }
 
         var rtInfo = chkInfo.rtInfo;
-        var price = rtInfo.latestPrice;
-        var bottomprice = rtInfo.bottomPrice;
-        if (rtInfo.openPrice - bottomprice > 0) {
-            this.setEnabled(false);
+        if (rtInfo.buysells.buy1 == rtInfo.buysells.sale1) {
             return;
         }
-        if (!this.data.backRate) {
-            this.data.backRate = 0;
-        }
-        if (price - bottomprice * (1 + this.data.backRate) >= 0) {
-            matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: (rtInfo.buysells.sale2 == '-' ? rtInfo.topprice : rtInfo.buysells.sale2)}, _ => {
+
+        var price = rtInfo.latestPrice;
+        var bottomprice = rtInfo.bottomprice;
+        if (price - bottomprice > 0) {
+            matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: bottomprice-0.01+0.03, fixed: true}, _ => {
                 this.setEnabled(false);
             });
             return;
+        }
+        if (rtInfo.buysells.buy1_count == '-') {
+            if (!this.data.fdcount || rtInfo.buysells.sale1_count - this.data.fdcount > 0) {
+                this.data.fdcount = rtInfo.buysells.sale1_count;
+            }
+            if (rtInfo.buysells.sale1_count < 3000 || rtInfo.buysells.sale1_count - this.data.fdcount * 0.2 < 0) {
+                matchCb({id: chkInfo.id, tradeType: 'B', count: 0, price: rtInfo.buysells.sale2, fixed: true}, _ => {
+                    this.setEnabled(false);
+                });
+                return;
+            }
         }
     }
 }
@@ -1450,8 +1458,8 @@ class StrategySellBeforeEnd extends Strategy {
         var hinc = kl.h - prekl.h > 0 || zt;
         var linc = kl.l - prekl.l > 0;
         if (this.data.sell_conds & conditions['h_and_l_dec']) {
-            // 最高价和最低价都不增加时卖出
-            if (!hinc && !linc) {
+            // 最高价和最低价都不增加时卖出 阴线也卖出
+            if ((!hinc && !linc) || kl.c - kl.o < 0) {
                 emjyBack.log('StrategySellBeforeEnd kl &&', this.data.sell_conds, JSON.stringify(kl), 'prekl', JSON.stringify(prekl));
                 matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
                     this.setEnabled(false);
@@ -1460,8 +1468,8 @@ class StrategySellBeforeEnd extends Strategy {
             }
         }
         if (this.data.sell_conds & conditions['h_or_l_dec']) {
-            // 最高价或最低价不增加时卖出
-            if (!hinc || !linc) {
+            // 最高价或最低价不增加时卖出 阴线也卖出
+            if (!hinc || !linc || kl.c - kl.o < 0) {
                 emjyBack.log('StrategySellBeforeEnd kl ||', this.data.sell_conds, JSON.stringify(kl), 'prekl', JSON.stringify(prekl));
                 matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
                     this.setEnabled(false);

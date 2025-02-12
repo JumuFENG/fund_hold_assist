@@ -157,6 +157,7 @@ class EmjyBack {
         this.manager = null;
         this.klines = {};
         this.fha = null;
+        this.istrMgr = new IstrFactory();
     }
 
     log(...args) {
@@ -228,6 +229,7 @@ class EmjyBack {
             this.costDog = new CostDog(cd);
         });
         this.setupQuoteAlarms();
+        this.istrMgr.initExtStrs();
         this.log('EmjyBack initialized!');
     }
 
@@ -492,12 +494,11 @@ class EmjyBack {
         } else if (message.command === 'popup.costdogs') {
             popcb(this.costDog.dogdic);
         } else if (message.command === 'popup.buystock') {
-            this.log('popup buy stock', JSON.stringify(message));
             let code = message.code;
             let price = message.price;
             let amount = message.amount;
             let strategies = message.strategies;
-            let count = strategies?.uramount?.urkey ? this.costDog.urBuyCount(amtkey, code, amount, price).count : this.calcBuyCount(amount, price);
+            let count = strategies?.uramount?.key ? this.costDog.urBuyCount(strategies.uramount.key, code, amount, price).count : this.calcBuyCount(amount, price);
             let account = message.account;
             if (!account) {
                 this.checkRzrq(message.code, rzrq => {
@@ -506,6 +507,30 @@ class EmjyBack {
                 });
             } else {
                 this.buyWithAccount(code, price, count, account, strategies);
+            }
+        } else if (message.command === 'popup.addwatch') {
+            this.log('popup message popup.addwatch');
+            let code = message.code;
+            let amount = message.amount;
+            let strategies = message.strategies;
+            let account = message.account;
+            let str0 = {"key":strategies.key,"enabled":true, account};
+            if (!account) {
+                this.checkRzrq(code, rzrq => {
+                    var racc = rzrq.Status == -1 ? 'normal' : 'credit';
+                    var hacc =holdAccountKey[racc];
+                    str0.account = racc;
+                    let bstrs = {
+                        "grptype":"GroupStandard","transfers":{"0":{"transfer":"-1"}},
+                        "strategies":{"0":str0},amount,"uramount":{"key":strategies?.uramount?.key}
+                    };
+                    this.all_accounts[hacc].addWatchStock(code, bstrs);
+                });
+            } else {
+                let bstrs = {
+                    "grptype":"GroupStandard","transfers":{"0":{"transfer":"-1"}},
+                    "strategies":{"0":str0},amount,"uramount":{"key":strategies?.uramount?.key}};
+                this.all_accounts[account].addWatchStock(code, bstrs);
             }
         }
     }
@@ -1284,10 +1309,10 @@ class EmjyBack {
 
     calcBuyCount(amount, price) {
         var ct = (amount / 100) / price;
-        if (amount - price * Math.floor(ct) * 100 - (price * Math.call(ct) * 100 - amount) > 0) {
+        if (amount - price * Math.floor(ct) * 100 - (price * Math.ceil(ct) * 100 - amount) > 0) {
             return 100 * Math.ceil(ct);
         }
-        return 100 * Math.floor(ct);
+        return ct > 1 ? 100 * Math.floor(ct) : 100;
     }
 
     fetchStockKline(code, kltype, sdate) {
@@ -1296,10 +1321,10 @@ class EmjyBack {
 
     tradeDailyRoutineTasks() {
         if (this.purchaseNewStocks) {
-            var nsClient = new NewStocksClient(this.validateKey);
+            var nsClient = new NewStocksClient();
             nsClient.buy();
         }
-        var nbClient = new NewBondsClient(this.validateKey);
+        var nbClient = new NewBondsClient();
         nbClient.buy();
     }
 

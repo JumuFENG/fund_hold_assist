@@ -1,7 +1,7 @@
 'use strict';
 
 class StrategyIntradingView {
-    constructor(istr) {
+    constructor(istr, isext=false) {
         this.data = {key: istr.key};
         this.container = document.createElement('div');
         var strTitle = document.createTextNode(istr.name);
@@ -41,7 +41,7 @@ class StrategyIntradingView {
             this.accSelector.options.add(new Option(emjyBack.trackAccountNames[acc], acc));
         }
         addInput(this.container, this.accSelector, '买入账户');
-        emjyBack.getFromLocal('itstrategy_' + this.data.key, svstr => {
+        emjyBack.getFromLocal((isext ? 'exstrategy_' : 'itstrategy_') + this.data.key, svstr => {
             if (!svstr) {
                 return;
             }
@@ -85,6 +85,7 @@ class StrategyIntradingPanelPage extends RadioAnchorPage {
     constructor() {
         super('盘中策略');
         this.intradingStrategies = [];
+        this.exStrsStrategies = [];
     }
 
     show() {
@@ -92,6 +93,12 @@ class StrategyIntradingPanelPage extends RadioAnchorPage {
         if (!this.initialized) {
             emjyBack.getFromLocal('all_available_istr', all_str => {
                 this.init(all_str);
+                for (const estr of ExtIstrStrategies) {
+                    var item = new StrategyIntradingView(estr, true);
+                    this.exStrsStrategies.push(item);
+                    this.exStrsContainer.appendChild(item.container);
+                    this.exStrsContainer.appendChild(document.createElement('hr'));
+                }
             });
         }
     }
@@ -105,7 +112,13 @@ class StrategyIntradingPanelPage extends RadioAnchorPage {
             this.container.appendChild(document.createElement('hr'));
         }
 
-        var saveBtn = document.createElement('button')
+        var hext = document.createElement('h3');
+        hext.textContent = '盘中策略(ext)';
+        this.container.appendChild(hext);
+        this.exStrsContainer = document.createElement('div');
+        this.container.appendChild(this.exStrsContainer);
+
+        var saveBtn = document.createElement('button');
         saveBtn.textContent = 'Save';
         saveBtn.onclick = _ => {
             this.save()
@@ -121,11 +134,17 @@ class StrategyIntradingPanelPage extends RadioAnchorPage {
                 this.saveStrategy(item.data);
             }
         }
+        for (var i = 0; i < this.exStrsStrategies.length; i++) {
+            var item = this.exStrsStrategies[i];
+            if (item.isChanged()) {
+                this.saveStrategy(item.data, true);
+            }
+        }
     }
 
-    saveStrategy(item) {
+    saveStrategy(item, isext=false) {
         var data = {};
-        data['itstrategy_' + item.key] = item;
+        data[(isext ? 'exstrategy_' : 'itstrategy_') + item.key] = item;
         emjyBack.saveToLocal(data);
     }
 }

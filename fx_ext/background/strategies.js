@@ -39,3 +39,17 @@ let SellStrategyKeyNames = [
 {key: 'StrategySellMAD', name: 'MA突破(动态)卖出'},
 {key: 'StrategySellBE', name: '尾盘卖出'},
 ];
+
+let ExtIstrStrategies = [{
+    key: 'istrategy_zt1wb',
+    name: '首板烂板1进2',
+    desc: '首板烂板1进2,超预期开盘,开盘>-3%,以开盘价买入'
+},{
+    key: 'istrategy_3brk',
+    name: '三阳开泰',
+    desc: '连续3根阳线价升量涨 以突破此3根阳线的最高价为买入点 以第一根阳线到买入日期之间的最低价为止损价 止盈设置5%'
+},{
+    key: 'istrategy_hotrank0',
+    name: '开盘人气排行',
+    desc: '不涨停且股价涨跌幅介于[-3, 9] 选人气排行前10中新增粉丝>70%排名最前者'
+}];
