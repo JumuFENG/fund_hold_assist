@@ -13,6 +13,7 @@ class TableBase():
         self.tablename = None
         self.colheaders = []
         self.initConstrants()
+        self.sqldb = SqlHelper(password = db_pwd, database = self.dbname)
         if autocreate:
             self._check_or_create_table()
 

@@ -13,15 +13,11 @@ class TradingDate():
     '''
     sqldb = SqlHelper(password=db_pwd, database=history_db_name)
     max_trading_date = None
+    max_traded_date = None
     trading_dates = []
     sqllock = Lock()
     marketkl = {}
-
-    @classmethod
-    def __tablename(self, date):
-        # 'i_k_his_000001' # start: 2019-12-31 to latest
-        # 'i_ful_his_000001' # start: 1990-12-19 end: 2020-04-30
-        return 'i_k_his_000001' if date >= '2020-01-10' else 'i_ful_his_000001'
+    sha_his_table = 'i_k_his_000001'
 
     @classmethod
     def renewSql(self):
@@ -34,23 +30,26 @@ class TradingDate():
         if date in self.trading_dates:
             return True
         self.sqllock.acquire()
-        ret = 0 != self.sqldb.selectOneValue(self.__tablename(date), 'count(*)', f'{column_date} = "{date}"')
+        ret = 0 != self.sqldb.selectOneValue(self.sha_his_table, 'count(*)', f'{column_date} = "{date}"')
         self.sqllock.release()
         return ret
 
     @classmethod
-    def query_trading_dates(self, date='2020-01-01'):
+    def query_trading_dates(self):
         self.sqllock.acquire()
-        dates = self.sqldb.select(self.__tablename(date), column_date)
+        dates = self.sqldb.select(self.sha_his_table, column_date)
         self.sqllock.release()
         self.trading_dates = [d for d, in dates]
+        self.max_traded_date = self.trading_dates[-1]
+        if self.max_trading_date is not None and self.max_trading_date > self.trading_dates[-1]:
+            self.trading_dates.append(self.max_trading_date)
 
     @classmethod
-    def nextTradingDate(self, date):
+    def nextTradingDate(self, date, ndays=1):
         if self.max_trading_date is not None and date == self.max_trading_date:
             return self.max_trading_date
         if len(self.trading_dates) == 0 or self.trading_dates[0] > date:
-            self.query_trading_dates(date)
+            self.query_trading_dates()
         if len(self.trading_dates) == 0 or date >= self.trading_dates[-1]:
             return self.maxTradingDate()
         if date not in self.trading_dates:
@@ -59,21 +58,21 @@ class TradingDate():
             for d in self.trading_dates:
                 if d > date:
                     return d
-        return self.trading_dates[self.trading_dates.index(date) + 1]
+        return self.trading_dates[min(len(self.trading_dates) - 1, self.trading_dates.index(date) + ndays)]
 
     @classmethod
-    def prevTradingDate(self, date):
+    def prevTradingDate(self, date, ndays=1):
         if len(self.trading_dates) > 0 and date > self.trading_dates[0] and date in self.trading_dates:
-            return self.trading_dates[self.trading_dates.index(date) - 1]
-        self.sqllock.acquire()
-        prev = self.sqldb.selectOneValue(self.__tablename(date), 'max(date)', f'{column_date} < "{date}"')
-        self.sqllock.release()
-        return prev
+            return self.trading_dates[max(0, self.trading_dates.index(date) - ndays)]
+        if date > self.maxTradedDate():
+            return self.prevTradingDate(self.maxTradedDate(), ndays-1)
+        self.query_trading_dates()
+        return self.prevTradingDate(date, ndays)
 
     @classmethod
     def calcTradingDays(self, bdate, edate):
         if len(self.trading_dates) == 0 or bdate < self.trading_dates[0] or self.trading_dates[-1] < bdate:
-            self.query_trading_dates(bdate)
+            self.query_trading_dates()
         return len([d for d in self.trading_dates if d >= bdate and d <= edate])
 
     @classmethod
@@ -96,6 +95,14 @@ class TradingDate():
                     return sys_date
         self.max_trading_date = d
         return d
+
+    @classmethod
+    def maxTradedDate(self):
+        if self.max_traded_date is None:
+            self.sqllock.acquire()
+            self.max_traded_date = self.sqldb.selectOneValue(self.sha_his_table, 'max(date)')
+            self.sqllock.release()
+        return self.max_traded_date
 
     @classmethod
     def get_today_system_date(self):

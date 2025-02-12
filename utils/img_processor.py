@@ -47,7 +47,7 @@ class OcrCaptcha():
     @classmethod
     def img_to_text(self, img):
         if self.ocr is None:
-            ocr = ddddocr.DdddOcr()
+            self.ocr = ddddocr.DdddOcr()
 
         if isinstance(img, str):
             if os.path.isfile(img):
@@ -55,7 +55,7 @@ class OcrCaptcha():
                     img = f.read()
             else:
                 img = base64.b64decode(img.encode())
-        return ocr.classification(img)
+        return self.ocr.classification(img)
 
 
 class ReadBMPFile():

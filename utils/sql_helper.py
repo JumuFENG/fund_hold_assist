@@ -207,7 +207,7 @@ class SqlHelper():
 
             mydb.select(table, fields, conds = conds)
         """
-        sql = self.__gen_select_sql(tablename, fields, conds) + order
+        sql = self.__gen_select_sql(tablename, fields, conds) + ' ' + order
         try:
             self.cur.execute(sql)
             return self.cur.fetchall()
@@ -362,7 +362,7 @@ class SqlHelper():
             conkeys = [conkeys]
         allvalues = self.select(table, attrs)
         conidx = [attrs.index(k) for k in conkeys]
-        allvalues = {tuple([v[x] for x in conidx]):v for v in allvalues}
+        allvalues = {tuple([v[x] for x in conidx]):v for v in allvalues} if allvalues else {}
         for v in values:
             condv = tuple([v[x] for x in conidx])
             if condv in allvalues:
@@ -370,16 +370,6 @@ class SqlHelper():
                     values_exist.append(v)
             else:
                 values_new.append(v)
-            # cond_list = []
-            # for i in range(0, len(conkeys)):
-            #     tmpv = v[attrs.index(conkeys[i])]
-            #     cond_list.append(f'{conkeys[i]} is NULL' if tmpv is None else f'{conkeys[i]} = \'{str(tmpv)}\'')
-            # cond_sql = ' and '.join(cond_list)
-            # selectrows = self.select(table, conkeys, conds = cond_sql)
-            # if selectrows is None or len(selectrows) == 0:
-            #     values_new.append(v)
-            # else:
-            #     values_exist.append(v)
 
         if len(values_new) > 0:
             self.insertMany(table, attrs, values_new)
@@ -422,7 +412,7 @@ class SqlHelper():
     def isExistTableColumn(self, tablename, column_name):
         return 0 != self.selectOneValue("information_schema.columns","count(*)", [f"table_name = '{tablename}'", f"column_name = '{column_name}'", f"table_schema = '{self.database}'"])
 
-    def getCloumns(self, tablename):
+    def getColumns(self, tablename):
         return [c for c, in self.select("information_schema.columns","column_name", [f"table_name = '{tablename}'", f"table_schema = '{self.database}'"])]
 
     def addColumn(self, tablename, col, tp):
@@ -459,7 +449,7 @@ class SqlHelper():
         ids = self.select(tablename, 'id')
 
         # 将排序后的记录与对应的'id'值合并
-        sorted_records = [record + [id] for record, id in zip(frecs, ids)]
+        sorted_records = [record + id for record, id in zip(frecs, ids)]
 
         # 更新表中的记录，包括合并后的记录和'id'值
         self.updateMany(tablename, cols + ['id'], ['id'], sorted_records)

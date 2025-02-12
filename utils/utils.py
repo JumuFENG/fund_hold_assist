@@ -58,21 +58,39 @@ class Utils:
         # exp = self.precious_decimal(precious)
         # return round(lclose + round(lclose * 0.1, precious), precious)
         pdec = self.precious_decimal(precious)
-        return float(Decimal(str(lclose * (100 + zdf) / 100)).quantize(pdec, ROUND_HALF_UP))
+        zprc = float(Decimal(str(lclose * (100 + zdf) / 100)).quantize(pdec, ROUND_HALF_UP))
+        if zdf == 30 and zprc > lclose * 1.3:
+            zprc -= 0.01
+        return round(zprc, precious)
 
     @classmethod
     def dt_priceby(self, lclose, precious=2, zdf=10):
         ''' 以昨日收盘价计算涨停价格
         '''
         pdec = self.precious_decimal(precious)
-        return float(Decimal(str(lclose * (100 - zdf) / 100)).quantize(pdec, ROUND_HALF_UP))
+        dprc = float(Decimal(str(lclose * (100 - zdf) / 100)).quantize(pdec, ROUND_HALF_UP))
+        if zdf == 30 and dprc < lclose * 0.7:
+            dprc += 0.01
+        return round(dprc, precious)
+
+    @classmethod
+    def zdf_from_code(self, code):
+        zdf = 10
+        if code.startswith('SZ30') or code.startswith('SH68') or code.startswith('30') or code.startswith('68'):
+            zdf = 20
+        elif code.startswith('BJ'):
+            zdf = 30
+        return zdf
 
     @classmethod
     def calc_buy_count(self, amount, price):
         amount = float(amount)
         price = float(price)
         count = int(amount / (100 * price))
-        return 100 * (count if count * 100 * price > amount * 0.85 else (count + 1))
+        if amount > (100 * count + 50) * price:
+            # amout > price * 100 * (2 * count + 1) / 2
+            count += 1
+        return 100 * count
 
     @classmethod
     def today_date(self, fmt='%Y-%m-%d'):
@@ -113,6 +131,14 @@ class Utils:
         return stock_code
 
     @classmethod
+    def to_cls_secucode(self, code):
+        return code[2:] + '.BJ' if code.startswith('BJ') else code.lower()
+
+    @classmethod
+    def cls_secucode_back(self, secu):
+        return 'BJ' + secu[0:6] if secu.endswith('BJ') else secu.upper()
+
+    @classmethod
     def get_em_request(self, url, host=None):
         headers = {
             'Host': 'fund.eastmoney.com' if host is None else host,
@@ -130,3 +156,18 @@ class Utils:
         responsetext = Utils.get_em_request(quote_url, host='emhsmarketwg.eastmoneysec.com')
         snapshot_data = responsetext.replace('jSnapshotBack(', '').rstrip(');')
         return json.loads(snapshot_data)
+
+    @classmethod
+    def get_cls_basics(self, codes):
+        if isinstance(codes, str):
+            codes = [codes]
+        codes = [self.to_cls_secucode(c) for c in codes]
+        fields = 'open_px,av_px,high_px,low_px,change,change_px,down_price,cmc,business_amount,business_balance,secu_name,secu_code,trade_status,secu_type,preclose_px,up_price,last_px'
+        sbasics = {}
+        for i in range(0, len(codes), 200):
+            gcodes = codes[i: i+200]
+            burl = f'https://x-quote.cls.cn/quote/stocks/basic?app=CailianpressWeb&fields={fields}&os=web&secu_codes={",".join(gcodes)}&sv=7.7.5'
+            nbasics = json.loads(self.get_em_request(burl, 'x-quote.cls.cn'))
+            sbasics = {**sbasics, **nbasics['data']}
+
+        return {self.cls_secucode_back(k):v for k, v in sbasics.items()}
