@@ -280,12 +280,14 @@ class HistoryFromSohu(HistoryDowloaderBase):
                 Utils.log(f'cannot parse data {data[i]}')
                 continue
 
+            a = float(a) / 10000
             if self.isSamePeriod(ldate, d, kltpye) and d >= ldate:
                 self.sqldb.update(ktable, {column_date: d, column_close: c, column_high: h, column_low: l, column_open: o, column_price_change: pr, column_p_change: p, column_volume: v, column_amount: a}, {'id': lid})
             else:
                 values.append([d,c,h,l,o,pr,p,v,a])
 
-        self.sqldb.insertMany(ktable, self.colheaders, values)
+        if len(values) > 0:
+            self.sqldb.insertMany(ktable, self.colheaders, values)
 
     def getK15HistoryFromEmTillToday(self, code):
         self.setCode(code)

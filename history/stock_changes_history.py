@@ -1,7 +1,7 @@
 import json
 import gzip
 from utils import *
-from history import StockGlobal, StockEmBkAll, StockClsBkAll
+from history import StockGlobal, StockEmBkAll, StockClsBkAll, StockBkAll, StockEmBkChgIgnore
 
 
 class StockChangesHistory(EmRequest, TableBase):
@@ -86,20 +86,26 @@ class StockChangesHistory(EmRequest, TableBase):
 
         self.getNext()
 
+    def getDumpKeys(self):
+        return [col['col'] for col in self.colheaders]
+
     def getDumpCondition(self, date=None):
         if date is None:
             date = self._max_date()
             date = date.split()[0]
         return [f'{column_date}>="{date}"']
 
-
-class StockEmBkChgIgnore(StockEmBkAll):
-    '''记录忽略异动的板块列表, 这些板块属于超大板块或者经常出现或者不适用于题材炒作
-    '''
-    def initConstrants(self):
-        super().initConstrants()
-        self.tablename = 'stock_embks_chg_ignored'
-
+    def changesList(self, code, date):
+        code = StockGlobal.full_stockcode(code)
+        cdt = self.sqldb.select(self.tablename, [column_code, column_date, column_type], [f'{column_code}="{code}"', f'{column_date}>="{date}"'])
+        counts = {}
+        for c,d,t in cdt:
+            dt = d.split(' ')[0]
+            if dt not in counts:
+                counts[dt] = []
+            counts[dt].append(t)
+        for dt, ts in counts.items():
+            print(dt, len([t for t in ts if t == 8193]), len([t for t in ts if t == 8194]))
 
 
 class StockBkChangesHistory(EmRequest, TableBase):
@@ -196,7 +202,7 @@ class StockBkChangesHistory(EmRequest, TableBase):
                 self.fecthed.append(ydrow)
                 self.exist_changes.add((code, ftm))
 
-    def getLatestChanges(self):
+    def getLatestChanges(self, save_db=True):
         self.fecthed = []
         self.exist_changes = set()
         self.page = 0
@@ -227,13 +233,15 @@ class StockBkChangesHistory(EmRequest, TableBase):
             else:
                 break
         bkset = set()
-        self.fecthed = []
+        bkchanges = []
         for x in bkyd:
             if x[0] not in bkset:
-                self.fecthed.append(x)
+                bkchanges.append(x)
                 bkset.add(x[0])
-        self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_code, column_date], self.fecthed)
-        return self.fecthed
+
+        if save_db:
+            self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_code, column_date], bkchanges)
+        return bkchanges
 
     def changesToDict(self, changes):
         if changes is None or len(changes) == 0:
@@ -252,6 +260,39 @@ class StockBkChangesHistory(EmRequest, TableBase):
 
     def dumpDataByDate(self, date=None):
         return [c for c, in super().dumpDataByDate(date)]
+
+    def dumpTopBks(self, date):
+        ndate = TradingDate.nextTradingDate(date)
+        conds=[f'{column_date} >= "{date} 14:50"']
+        if ndate > date:
+            conds.append(f'{column_date} < "{ndate}"')
+        chgs = self.sqldb.select(self.tablename, ['id', column_code, column_date, column_p_change, column_amount, 'ztcnt', 'dtcnt'], conds=conds)
+        bks = []
+        for i,c,d,p,a,zcnt,dcnt in chgs:
+            if c in self.ignoredBks:
+                continue
+            if p >= 2 and a > 0 and zcnt >= 5:
+               bks.append(c)
+        return bks
+
+    def updateBkChangedIn5Days(self):
+        mdate = self._max_date().split(' ')[0]
+        ibks = self.dumpTopBks(mdate)
+        sdate = mdate
+        for i in range(0, 5):
+            sdate = TradingDate.prevTradingDate(sdate)
+            ibks += self.dumpTopBks(sdate)
+
+        ibks = set(ibks)
+        if len(self.fecthed) == 0:
+            self.getLatestChanges(False)
+
+        bkchanges5 = []
+        for x in self.fecthed:
+            if x[0] in ibks:
+                bkchanges5.append(x)
+
+        self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_code, column_date], bkchanges5)
 
 
 class StockClsBkChangesHistory(EmRequest, TableBase):
@@ -319,7 +360,7 @@ class StockClsBkChangesHistory(EmRequest, TableBase):
             self.fecthed.append([code, ftm, pchange, amount, ztcnt, dtcnt])
             self.exist_changes.add((code, ftm))
 
-    def getLatestChanges(self):
+    def getLatestChanges(self, save_db=True):
         ways = ['change', 'main_fund_diff', 'limit_up_num']
         self.fecthed = []
         self.exist_changes = set()
@@ -358,7 +399,9 @@ class StockClsBkChangesHistory(EmRequest, TableBase):
             if x[0] not in bkset:
                 self.fecthed.append(x)
                 bkset.add(x[0])
-        self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_code, column_date], self.fecthed)
+
+        if save_db:
+            self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_code, column_date], self.fecthed)
         return self.fecthed
 
     def changesToDict(self, changes):
@@ -378,6 +421,48 @@ class StockClsBkChangesHistory(EmRequest, TableBase):
 
     def dumpDataByDate(self, date=None):
         return [c for c, in super().dumpDataByDate(date)]
+
+    def dumpTopBks(self, date):
+        ndate = TradingDate.nextTradingDate(date)
+        conds=[f'{column_date} >= "{date} 15:00"']
+        if ndate > date:
+            conds.append(f'{column_date} < "{ndate}"')
+        chgs = self.sqldb.select(self.tablename, conds=conds)
+        bks = []
+        for i,c,d,p,a,zcnt,dcnt in chgs:
+            if c in self.ignoredBks:
+                continue
+            if p >= 2 and a > 0 and zcnt >= 5:
+               bks.append(c)
+        return bks
+
+    def updateBkChangedIn5Days(self):
+        mdate = self._max_date().split(' ')[0]
+        ibks = self.dumpTopBks(mdate)
+        sdate = mdate
+        for i in range(0, 5):
+            sdate = TradingDate.prevTradingDate(sdate)
+            ibks += self.dumpTopBks(sdate)
+
+        ibks = set(ibks)
+        bkvalues = []
+        ftm = mdate + ' 15:00'
+        for bk in ibks:
+            iurl = f'https://x-quote.cls.cn/web_quote/plate/info?app=CailianpressWeb&os=web&secu_code={bk}&sv=7.7.5'
+            plinfo = json.loads(Utils.get_em_request(iurl, host='x-quote.cls.cn'))
+            if 'data' not in plinfo:
+                continue
+            plinfo = plinfo['data']
+            code = plinfo['secu_code']
+            pchange = round(plinfo['change'] * 100, 2)
+            amount = plinfo['fundflow']/10000
+            ztcnt = plinfo['limit_up_num']
+            dtcnt = plinfo['limit_down_num']
+            bkvalues.append([code, ftm, pchange, amount, ztcnt, dtcnt])
+
+        if len(bkvalues) > 0:
+            self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_code, column_date], bkvalues)
+
 
 class StockBkAllChangesHistory():
     __em_changes = StockBkChangesHistory()
@@ -412,3 +497,78 @@ class StockBkAllChangesHistory():
             'ztcnt': chg[4],
             'dtcnt': chg[5],
             } for chg in changes]
+
+    @classmethod
+    def __topbks_to_date(self, bkchanges):
+        mdate = TradingDate.maxTradedDate()
+        sdate = mdate
+        ibks = []
+        bkhist = {}
+        for i in range(0, 10):
+            sdate = TradingDate.prevTradingDate(sdate)
+            ibks += bkchanges.dumpTopBks(sdate)
+
+        conds=[f'{column_date} >= "{sdate} 14:50"']
+        chgs = bkchanges.sqldb.select(bkchanges.tablename, [column_code, column_date, column_p_change, column_amount, 'ztcnt', 'dtcnt'], conds=conds)
+        for c, d, ch, amt, zcnt, dcnt in chgs:
+            dt, tm = d.split()
+            if tm < '14:50':
+                continue
+            if c not in ibks:
+                continue
+            if c not in bkhist:
+                bkhist[c] = {}
+            bkhist[c][dt] = [c, dt, ch, amt, zcnt, dcnt]
+
+        faded = []
+        for c, hist in bkhist.items():
+            if max(hist.keys()) < mdate:
+                faded.append(c)
+        for c in faded:
+            bkhist.pop(c)
+
+        bkhistarr = {}
+        for c, hist in bkhist.items():
+            if c not in bkhistarr:
+                bkhistarr[c] = []
+            for d, h in hist.items():
+                bkhistarr[c].append(h)
+            shist = sorted(bkhistarr[c], key=lambda x: x[1], reverse=True)
+            bkhistarr[c] = [shist[0]]
+            for i in range(1, len(shist)):
+                if shist[i][1] != TradingDate.prevTradingDate(bkhistarr[c][0][1]):
+                    break
+                bkhistarr[c].insert(0, shist[i])
+        bkhist = bkhistarr
+
+        bkkickdetail = {}
+        topbktetail = {}
+        for c, hist in bkhist.items():
+            mxch = hist[-1][2]
+            kickid = len(hist) - 1
+            for i in range(len(hist) - 1, -1, -1):
+                if hist[i][2] > mxch:
+                    mxch = hist[i][2]
+                    kickid = i
+            for i in range(kickid, -1, -1):
+                if hist[i][2] < 0.3 * mxch:
+                    break
+                kickid = i
+            tch = 0
+            for i in range(kickid, len(hist)):
+                tch += hist[i][2]
+            tch = round(tch, 2)
+            name = StockBkAll.queryBkName(c)
+            kick_days = TradingDate.calcTradingDays(hist[kickid][1], min(hist[-1][1], TradingDate.maxTradingDate()))
+            if len(topbktetail.keys()) == 0 or tch > list(topbktetail.values())[0]['change_to_date']:
+                topbktetail[c] = {'code':c, 'name':name, 'kickdate': hist[kickid][1], 'change_to_date': tch, 'kick_days': kick_days}
+            if tch / kick_days < 0.8:
+                continue
+            bkkickdetail[c] = {'code':c, 'name':name, 'kickdate': hist[kickid][1], 'change_to_date': tch, 'kick_days': kick_days}
+        return bkkickdetail if len(bkkickdetail.keys()) > 0 else topbktetail
+
+    @classmethod
+    def get_topbks(self):
+        embkkicks = self.__topbks_to_date(self.__em_changes)
+        clsbkkicks = self.__topbks_to_date(self.__cls_changes)
+        return {**embkkicks, **clsbkkicks}

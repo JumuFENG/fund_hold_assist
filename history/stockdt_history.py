@@ -39,15 +39,19 @@ class StockDtInfo(EmRequest, TableBase):
         }
 
     def getUrl(self):
+        return f'{self.urlroot}{self.date}'
+
+    def getNext(self):
         if self.date is None:
             mdate = self._max_date()
             if mdate is None:
                 self.date = Utils.today_date('%Y%m%d')
             else:
-                self.date = TradingDate.nextTradingDate(mdate).replace('-', '')
-        return f'{self.urlroot}{self.date}'
-
-    def getNext(self):
+                ndate = TradingDate.nextTradingDate(mdate)
+                if ndate == mdate:
+                    Utils.log(f'StockDtInfo already updated to {mdate}')
+                    return
+                self.date = ndate.replace('-', '')
         emback = json.loads(self.getRequest(self.headers))
         if emback is None or emback['data'] is None:
             print('StockDtInfo invalid response!', emback)
@@ -65,13 +69,14 @@ class StockDtInfo(EmRequest, TableBase):
         date = datetime.strptime(self.date, "%Y%m%d").strftime('%Y-%m-%d')
         for dtobj in emback['data']['pool']:
             code = StockGlobal.full_stockcode(dtobj['c']) # code
-            hsl = dtobj['hs'] # 换手率 %
-            fund = dtobj['fund'] # 封单金额
-            fba = dtobj['fba'] # 板上成交额
-            lbc = dtobj['days'] # 连板次数
-            zbc = dtobj['oc'] # 开板次数
-            hybk = dtobj['hybk'] # 行业板块
-            self.dtdata.append([code, date, fund, fba, hsl, lbc, zbc, hybk])
+            if code.startswith('SH') or code.startswith('SZ'):
+                hsl = dtobj['hs'] # 换手率 %
+                fund = dtobj['fund'] # 封单金额
+                fba = dtobj['fba'] # 板上成交额
+                lbc = dtobj['days'] # 连板次数
+                zbc = dtobj['oc'] # 开板次数
+                hybk = dtobj['hybk'] # 行业板块
+                self.dtdata.append([code, date, fund, fba, hsl, lbc, zbc, hybk])
         if len(self.dtdata) > 0:
             self.saveFetched()
 

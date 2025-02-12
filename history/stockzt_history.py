@@ -82,6 +82,7 @@ class StockZtInfo10jqka(StockZtInfo):
         self.ztdata = {}
         self.ztdata_kccy = {}
         self.ztdata_st = {}
+        self.ztdata_bj = {}
 
     def getNext(self):
         jqkback = json.loads(self.getRequest(self.headers))
@@ -104,7 +105,9 @@ class StockZtInfo10jqka(StockZtInfo):
             ztrec = [date, zdf, fund, hsl, lbc, zbc, '', cpt]
 
             rzdf = round(zdf)
-            if rzdf == 20:
+            if rzdf == 30:
+                self.ztdata_bj[code] = ztrec
+            elif rzdf == 20:
                 self.ztdata_kccy[code] = ztrec
             elif rzdf == 5:
                 self.ztdata_st[code] = ztrec
@@ -198,7 +201,7 @@ class StockZtConcepts(TableBase):
             date = '2021-01-04'
         else:
             date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
-        zthisttable = ['day_zt_stocks', 'day_zt_stocks_kccy', 'day_zt_stocks_st']
+        zthisttable = ['day_zt_stocks', 'day_zt_stocks_kccy'] #, 'day_zt_stocks_st']
         ztconceptsdata = []
         while date <= datetime.now().strftime(r'%Y-%m-%d'):
             pool = ()

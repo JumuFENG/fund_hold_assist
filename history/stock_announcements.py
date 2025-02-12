@@ -176,6 +176,9 @@ class StockAnnoucements(EmDataCenterRequest, TableBase):
     def check_fund_quit(self, stks):
         for code in stks:
             sg = StockGlobal.stock_general(code)
+            if not hasattr(sg, 'type'):
+                Utils.log(f'{code} cannot get general information!')
+                continue
             if sg.type != 'ETF' and sg.type != 'LOF':
                 continue
             ucode = code.lstrip('SZ').lstrip('SH')
@@ -198,6 +201,24 @@ class StockAnnoucements(EmDataCenterRequest, TableBase):
                     StockGlobal.setQuitFund(code, annobj['PUBLISHDATEDesc'])
                     Utils.log(f'check_fund_quit {code} already quit')
                     break
+
+    def check_buyment(self, date=None):
+        '''回购
+        param date: 起始日期
+        '''
+        anns = self.sqldb.select(self.tablename, f'{column_date},{column_code},title', f'{column_date}>="{date}"')
+        bmdict = {}
+        for d,c,t in anns:
+            if not c.startswith('SH') and not c.startswith('SZ') and not c.startswith('BJ'):
+                continue
+            if '回购' not in t:
+                continue
+            if c not in bmdict:
+                bmdict[c] = []
+            bmdict[c].append([d,t])
+
+        return bmdict
+
 
 
 class StockShareBonus(EmDataCenterRequest, TableBase):

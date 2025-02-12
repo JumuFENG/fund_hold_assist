@@ -50,10 +50,10 @@ class StockGlobal():
         return self.stocks
 
     @classmethod
-    def all_stock_codes(self):
+    def all_stock_codes(self, exclude_quit=True):
         if self.stocks is None:
             self.all_stocks()
-        return [x[1] for x in self.stocks]
+        return [x[1] for x in self.stocks if not(exclude_quit and x[4] == 'TSStock')]
 
     @classmethod
     def getAllStocksShortInfo(self):
@@ -83,12 +83,17 @@ class StockGlobal():
         return self.sqldb.selectOneValue(gl_all_stocks_info_table, 'quit_date', [f'{column_code}="{code}"', f'{column_type}="TSStock"'])
 
     @classmethod
-    def getStocksZdfRank(self):
+    def getStocksZdfRank(self, minzdf=None):
         # http://quote.eastmoney.com/center/gridlist.html#hs_a_board
         pn = 1
         zdfranks = []
+        pgsize = 1000
+        fs = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048'
+        fields = 'f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f115,f152'
+        if minzdf is not None:
+            pgsize = 200
         while True:
-            rankUrl = f'''http://33.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz=1000&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f115,f152'''
+            rankUrl = f'''http://33.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz={pgsize}&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3&fs={fs}&fields={fields}'''
             res = Utils.get_em_request(rankUrl, host='33.push2.eastmoney.com')
             if res is None:
                 break
@@ -97,7 +102,11 @@ class StockGlobal():
             if r['data'] is None or len(r['data']['diff']) == 0:
                 break
 
-            zdfranks += r['data']['diff']
+            zdfranks += [rk for rk in r['data']['diff'] if rk['f3'] != '-']
+            if len(zdfranks) == 0:
+                break
+            if minzdf is not None and zdfranks[-1]['f3'] < minzdf:
+                break
             pn += 1
         return zdfranks
 
@@ -409,6 +418,7 @@ class Stock_history(HistoryFromSohu):
 
 class Stock_Fflow_History(TableBase, EmRequest):
     '''get fflow from em pushhis 资金流向
+        https://data.eastmoney.com/zjlx/detail.html
        ref: https://data.eastmoney.com/zjlx/600777.html
     '''
     def __init__(self) -> None:
@@ -430,6 +440,16 @@ class Stock_Fflow_History(TableBase, EmRequest):
             {'col':'bigp','type':'float DEFAULT 0'},
             {'col':'superp','type':'float DEFAULT 0'}
         ]
+        self.headers = {
+            'Host': 'push2.eastmoney.com',
+            'Referer': 'http://quote.eastmoney.com/',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
+            'Accept': '/',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
+        }
+
 
     def setCode(self, code):
         self.sg = StockGlobal.stock_general(code)
@@ -441,19 +461,12 @@ class Stock_Fflow_History(TableBase, EmRequest):
         return f'''https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get?lmt=0&klt=101&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65&ut=b2884a393a59ad64002292a3e90d46a5&secid={emsecid}&_={Utils.time_stamp()}'''
 
     def getNext(self):
-        headers = {
-            'Host': 'push2.eastmoney.com',
-            'Referer': 'http://quote.eastmoney.com/',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
-            'Accept': '/',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
-            'Connection': 'keep-alive'
-        }
+        headers = self.headers
+        headers['Referer'] = 'http://quote.eastmoney.com/'
         rsp = self.getRequest(params=headers)
         fflow = json.loads(rsp)
-        if fflow is None or 'data' not in fflow or 'klines' not in fflow['data']:
-            print(rsp)
+        if fflow is None or 'data' not in fflow or fflow['data'] is None or 'klines' not in fflow['data']:
+            Utils.log(rsp)
             return
 
         fflow = [f.split(',') for f in fflow['data']['klines']]
@@ -469,6 +482,10 @@ class Stock_Fflow_History(TableBase, EmRequest):
         if len(fflow) == 0:
             return
 
+        if len(values) == 1 and TradingDate.prevTradingDate(values[0][0]) != self._max_date():
+            Utils.log(f'Stock_Fflow_History got only 1 data {self.code}, and not continously, discarded!')
+            return
+
         self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
 
     def getFflowFromEm(self, code):
@@ -481,12 +498,65 @@ class Stock_Fflow_History(TableBase, EmRequest):
             return True
 
         date = self._max_date()
-        if date == Utils.today_date():
+        if date == TradingDate.maxTradingDate():
             # print(f'fflow already updated to {date}')
             return False
 
         self.getFflowFromEm(code)
         return True
+
+    def updateLatestFflow(self, save_to_db=True):
+        psize = 1500
+        pageno = 1
+        fields = 'fields=f1,f2,f3,f12,f13,f14,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87,f124'
+        fs = 'fs=m:0+t:6+f:!2,m:0+t:13+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2,m:0+t:7+f:!2,m:1+t:3+f:!2'
+        date = TradingDate.maxTradingDate()
+        headers = self.headers
+        headers['Referer'] = 'https://data.eastmoney.com/zjlx/detail.html'
+        mainflows = []
+        while True:
+            url = f'https://push2.eastmoney.com/api/qt/clist/get?fid=f62&po=1&pz={psize}&pn={pageno}&np=1&fltt=2&invt=2&ut=b2884a393a59ad64002292a3e90d46a5&{fs}&{fields}'
+            fflows = json.loads(Utils.get_request(url, headers))
+            if 'data' in fflows and 'diff' in fflows['data']:
+                for fobj in fflows['data']['diff']:
+                    code = StockGlobal.full_stockcode(fobj['f12'])
+                    if fobj['f62'] == '-' or fobj['f184'] == '-':
+                        continue
+                    mainflows.append([code, date, fobj['f62'], fobj['f184']])
+                    if not save_to_db:
+                        continue
+
+                    self.setCode(code)
+                    if not self._check_table_exists():
+                        self.getFflowFromEm(code)
+                        continue
+                    if date == self._max_date():
+                        continue
+                    if TradingDate.prevTradingDate(date) == self._max_date():
+                        self.sqldb.insert(self.tablename, {
+                            column_date: date, 'main': fobj['f62'], 'mainp': fobj['f184'],
+                            'small': fobj['f84'], 'middle': fobj['f78'], 'big': fobj['f72'], 'super': fobj['f66'],
+                            'smallp': fobj['f87'], 'midllep': fobj['f81'], 'bigp': fobj['f75'], 'superp': fobj['f69']})
+                    else:
+                        self.getFflowFromEm(code)
+            if 'data' not in fflows or 'total' not in fflows['data'] or pageno * psize >= fflows['data']['total']:
+                break
+            pageno += 1
+        return mainflows
+
+    def getDumpCondition(self, date=None):
+        if date is None:
+            date = self._max_date()
+        return f'{column_date}="{date}"'
+
+    def dumpMainFlow(self, code, date=None, date1=None):
+        self.setCode(code)
+        if date is None:
+            date = self._max_date()
+        conds = [f'{column_date}>="{date}"']
+        if date1 is not None:
+            conds.append(f'{column_date}<="{date1}"')
+        return self.sqldb.select(self.tablename, conds=conds)
 
 
 class StockHotRank(TableBase, EmRequest):
@@ -608,6 +678,8 @@ class StockHotRank(TableBase, EmRequest):
             self.sqldb.insertMany(self.tablename, attrs, values)
 
     def getGbRanks(self, page=1):
+        ''' max page = 5
+        '''
         ranks = self.getLatestRanks(page)
         valranks = []
         for rk in ranks:
@@ -642,15 +714,34 @@ class StockHotRank(TableBase, EmRequest):
     def getTgbRanks(self):
         # https://www.taoguba.com.cn/new/nrnt/toPopularityBoard
         url = 'https://www.taoguba.com.cn/new/nrnt/getNoticeStock?type=H'
-        rsp = Utils.get_em_request(url, host='www.taoguba.com.cn')
-        jdata = json.loads(rsp)
-        if jdata['errorCode'] != 0 or 'dto' not in jdata:
-            return []
+        try:
+            headers = {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br, zstd',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Connection': 'keep-alive',
+                'Host': 'www.taoguba.com.cn',
+                'Priority': 'u=0, i',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'TE': 'trailers',
+                'Upgrade-Insecure-Requests': '1',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:129.0) Gecko/20100101 Firefox/129.0',
+            }
+            rsp = Utils.get_request(url, headers)
+            jdata = json.loads(rsp)
+            if jdata['errorCode'] != 0 or 'dto' not in jdata:
+                return []
 
-        ranks = []
-        for rk in jdata['dto']:
-            ranks.append([rk['fullCode'][2:], rk['ranking']])
-        return ranks
+            ranks = []
+            for rk in jdata['dto']:
+                ranks.append([rk['fullCode'][2:], rk['ranking']])
+            return ranks
+        except Exception as e:
+            Utils.log(f'{e}', Utils.Err)
+            return []
 
     def getDumpKeys(self):
         return [f'{column_code}, {column_date}, hrank']
@@ -687,6 +778,14 @@ class StockEmBkAll(TableBase):
 
     def queryBkName(self, bk):
         return self.sqldb.selectOneValue(self.tablename, column_name, f'{column_code}="{bk}"')
+
+
+class StockEmBkChgIgnore(StockEmBkAll):
+    '''记录忽略异动的板块列表, 这些板块属于超大板块或者经常出现或者不适用于题材炒作
+    '''
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_embks_chg_ignored'
 
 
 class StockEmBkMap(TableBase):
@@ -752,7 +851,7 @@ class StockEmBk(EmRequest):
 
     def fetchBkStocks(self):
         bkstks = json.loads(self.getRequest(self.headers))
-        if 'data' in bkstks and 'diff' in bkstks['data']:
+        if 'data' in bkstks and bkstks['data'] is not None and 'diff' in bkstks['data']:
             for stk in bkstks['data']['diff'].values():
                 code = stk['f12']
                 mk = stk['f13']
@@ -762,6 +861,8 @@ class StockEmBk(EmRequest):
                 self.fetchBkStocks()
             else:
                 return self.bkstocks
+        else:
+            Utils.log(f'{self.bk} get bkstocks error! {bkstks}')
         return self.bkstocks
 
     def checkBkExists(self, bk, name):
@@ -860,7 +961,12 @@ class StockBkMap():
             return self.__em_map.bk_stocks(bks, union) if bks.startswith('BK') else self.__cls_map.bk_stocks(bks, union)
         embks = [bk for bk in bks if bk.startswith('BK')]
         clsbks = [bk for bk in bks if bk.startswith('cls')]
-        return self.__em_map.bk_stocks(embks, union) + self.__cls_map.bk_stocks(clsbks, union)
+        emstks = set(self.__em_map.bk_stocks(embks, union))
+        clsstks = set(self.__cls_map.bk_stocks(clsbks, union))
+        if union:
+            return list(emstks.union(clsstks))
+        return list(emstks.intersection(clsstks))
+
 
 class StockBkAll():
     __emall = StockEmBkAll()
@@ -878,3 +984,11 @@ class StockBkAll():
         if bk.startswith('BK'):
             return self.__emall.queryBkName(bk)
         return self.__clsall.queryBkName(bk)
+
+    __bk_ignored = []
+    @classmethod
+    def bkIgnored(self, bk):
+        if len(self.__bk_ignored) == 0:
+            ignoreBkTable = StockEmBkChgIgnore()
+            self.__bk_ignored = [bk for i,bk,n in ignoreBkTable.dumpDataByDate()]
+        return bk in self.__bk_ignored
