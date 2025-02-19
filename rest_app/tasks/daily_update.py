@@ -99,6 +99,8 @@ class DailyUpdater():
 
     def download_all_stocks_khistory(self):
         StockGlobal.updateStocksDailyData()
+        sfh = Stock_Fflow_History()
+        sfh.updateLatestFflow()
         stkall = AllStocks()
         stkall.loadNewStock()
         stkall.loadNewStock('BJ')
@@ -123,6 +125,11 @@ class DailyUpdater():
         for t in thds:
             t.join()
 
+        if len(StockGlobal.klupdateFailed) > 0:
+            for c in StockGlobal.klupdateFailed:
+                sh = Stock_history()
+                sh.setCode(c)
+                sh.getKHistoryFromEm(sh.k_histable, '101')
         Utils.log('download_all_stocks_khistory done!')
         Utils.log(f'time used: { datetime.now() - d}')
 
@@ -131,13 +138,11 @@ class DailyUpdater():
             return
 
         sh = Stock_history()
-        sfh = Stock_Fflow_History()
         while len(self.allcodes) > 0:
             code = self.allcodes.pop()
             if code.startswith('HB') or code.startswith('SB'):
                 continue
             sh.getKdHistoryFromSohuTillToday(code)
-            sfh.updateFflow(code)
 
     def download_newly_noticed_bonuses(self):
         Utils.log("update noticed bonuses")
@@ -195,8 +200,9 @@ class DailyUpdater():
 
         selectors = [
             StockDztSelector(), StockZt1Selector(), StockCentsSelector(),
-            StockMaConvergenceSelector(), StockZdfRanks(), StockZtLeadingSelector(),
+            StockMaConvergenceSelector(), StockZdfRanks(), StockZtLeadingSelector(), StockZtLeadingStepsSelector(),
             StockZtLeadingSelectorST(), StockDztStSelector(), StockDztBoardSelector(), StockDztStBoardSelector(),
+            StockZdtEmotion(),
             StockZt1BreakupSelector(), StockZt1j2Selector(), StockLShapeSelector(), StockDfsorgSelector(),
             StockTrippleBullSelector(), StockEndVolumeSelector()]
         for sel in selectors:
