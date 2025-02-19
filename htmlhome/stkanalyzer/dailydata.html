@@ -12,36 +12,51 @@
         class GlobalManager {
             constructor() {
                 this.fha = {'server':'http://localhost/'};
+                this.plate_stocks = {};
+                this.stock_basics = {};
+                this.stock_extra = {};
+                this.stock_bks = {};
+                this.stock_events = {};
+                this.plate_basics = {};
+                this.stock_tlines = {};
+                this.stock_precloses = {};
+                this.tline_que = new Set();
+                this.tline_focused = {};
+                this.tline_listeners = [];
+                this.event_listeners = [];
+                this.stats_listeners = [];
+                this.daily_ranks = [];
+                this.daily_ranks_all = [];
             }
 
             log(...args) {
-                var dt = new Date();
-                var l = '[' + dt.getHours() + ':' + dt.getMinutes() + ':' + dt.getSeconds()  + '] ' +  args.join(' ');
-                console.log(l);
+                console.log(`[${new Date().toLocaleTimeString('zh',{hour12:false})}] ${args.join(' ')}`);
             }
         }
 
         var emjyBack = new GlobalManager();
         window.addEventListener('load', _ => {
-            emjyBack.fha.server = location.origin + '/';
+            if (location.host) {
+                emjyBack.fha.server = location.origin + '/';
+            }
         });
     </script>
     <script type="text/javascript" src="../../static/src/js/dailytrading.js"></script>
 </head>
 <body style="height: 100%; margin: 0">
     <div id="banner"></div>
-    <div id="header-area" style="display: flex; height: 35%;"></div>
+    <div id="header-area" style="display: flex;"></div>
+    <div id="steps-panel" style="margin: 3px 40px;"></div>
+    <div id="auctions-panel"></div>
     <div id="body-area" style="display: flex;">
-        <div id="bk_div" style="width: 25%;">
+        <div id="bk_div">
             <div id="plate-list-table" class="table-container">
             </div>
         </div>
-        <div id="charts-panel">
+        <div id="charts-panel" style="width: 750px">
 
         </div>
         <div id="plates-manage-panel">
-            <button id="replay-tline-charts" type="button">分时回放</button>
-            <button id="save-panel-containers" type="button">保存板块信息</button>
 
         </div>
     </div>

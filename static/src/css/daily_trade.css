@@ -85,6 +85,7 @@ td.name:hover {
 
 .card-info {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     font-size: 0.9em;
 }
@@ -106,7 +107,6 @@ td.name:hover {
     border-radius: 3px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     text-align: center;
-    padding: 3px 1px;
     padding-left: 8px;
     margin: 3px 1px;
 }
@@ -115,7 +115,14 @@ td.name:hover {
     background-color: #d1dae5;
 }
 
+.subcard.selected {
+    border-left: 8px solid #007bff;
+    border-radius: 6px 3px 3px 6px;
+    padding-left: 2px;
+}
+
 .left-info {
+    width: 50%;
     text-align: left;
 }
 
@@ -136,6 +143,7 @@ td.name:hover {
 }
 
 .action-area {
+    display: flex;
     text-align: left;
 }
 
@@ -146,8 +154,8 @@ td.name:hover {
 }
 
 .hidden-area {
-    width: 50%;
-    height: 50px;
+    width: 70%;
+    height: 80px;
     border: 1px solid red;
     padding: 10px;
     background-color: #f2f2f2;
@@ -167,6 +175,7 @@ td.name:hover {
     text-align: center;
     text-wrap: nowrap;
     border-radius: 4px;
+    border: solid 1px #ccc;
     padding: 5px;
     width: 200px;
     position: absolute;
@@ -174,12 +183,64 @@ td.name:hover {
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    margin-top: 5px;
+    margin-top: 2px;
     opacity: 0;
     transition: opacity 0.3s;
 }
 
-.card:hover .tooltip {
+.tooltip::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: transparent transparent #999 transparent;
+}
+
+.card:hover .tooltip,
+.subcard:hover .tooltip {
     visibility: visible;
     opacity: 1;
 }
+
+button {
+    border: none;
+    min-width: 25px;
+    border-radius: 2px;
+    margin: 1px;
+}
+
+.container-button {
+    background-color: #777;
+    color: white;
+}
+
+button.pressed {
+    background-color: #007bff;
+}
+
+.editable {
+	padding: 1px 2px;
+	border: 1px solid #ccc;
+	border-radius: 2px;
+	cursor: pointer;
+	transition: background-color 0.3s ease;
+	width: 73px;
+	font-size: 0.9em;
+    text-wrap: nowrap;
+}
+
+.editable:hover {
+    background-color: #e0e0e0;
+}
+
+input.editing {
+	padding: 1px 2px;
+	border: 1px solid #007bff;
+	border-radius: 2px;
+	font-size: 0.9em;
+	width: 73px;
+}
+

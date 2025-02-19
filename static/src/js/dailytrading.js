@@ -542,7 +542,7 @@ GlobalManager.prototype.getZtOrBrkStocks = function() {
     let brk0 = new Set();
     let recent_zts = [];
     if (!emjyBack.recent_zt_map) {
-        return {up_stocks, up0, up_brk, brk0, zf0};
+        return {up_stocks, up0, up_brk, brk0, zf0:[]};
     }
     var mxdate = emjyBack.recent_zt_map[1].reduce((m, cur) => cur[1] > m ? cur[1] : m, '');
     for (let k in this.recent_zt_map) {
@@ -2399,7 +2399,20 @@ class MainFundFlow {
 
         var series = this.getSeries(flow);
         var option = this.setYRange({yAxis:[{},{},{}], series}, series);
+        var opt = this.flowChart.getOptions();
+        if (opt.series[0].data.length > option.series[0].data.length) {
+            opt.series = option.series;
+            opt.yAxis = option.yAxis;
+            this.flowChart.setOption(opt, true);
+            return;
+        }
         this.flowChart.setOption(option);
+    }
+
+    clearChart() {
+        delete this.flowChart;
+        utils.removeAllChild(this.flow_container);
+        this.flow_container.removeAttribute('_echarts_instance_');
     }
 }
 
