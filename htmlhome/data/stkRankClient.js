@@ -6,7 +6,6 @@ class StockRankClient {
     }
 
     getRanks() {
-        // this.GetFromDabanke();
         //this.GetFromWencai();
         var rkurl = emjyBack.fha.server + 'stock?act=hotrank';
         utils.get(rkurl, null, rk => {
@@ -23,12 +22,6 @@ class StockRankClient {
                 ranks.push(ri);
             }
             this.mergeRanks(ranks);
-        });
-    }
-
-    GetFromDabanke() {
-        dbkCommon.getRanks(r => {
-            this.mergeRanks(r);
         });
     }
 
