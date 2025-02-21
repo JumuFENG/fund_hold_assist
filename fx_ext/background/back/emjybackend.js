@@ -76,7 +76,7 @@ class ManagerBack {
         } else if (message.command == 'mngr.getZTPool') {
             emjyBack.postQuoteWorkerMessage({command:'quote.get.ZTPool', date: message.date});
         } else if (message.command == 'mngr.checkrzrq') {
-            emjyBack.checkRzrq(message.code, rzrq => {
+            emjyBack.checkRzrq(message.code).then(rzrq => {
                 this.sendManagerMessage({command:'mngr.checkrzrq', rzrq});
             });
         } else if (message.command == 'mngr.getkline') {
@@ -501,7 +501,7 @@ class EmjyBack {
             let count = strategies?.uramount?.key ? this.costDog.urBuyCount(strategies.uramount.key, code, amount, price).count : this.calcBuyCount(amount, price);
             let account = message.account;
             if (!account) {
-                this.checkRzrq(message.code, rzrq => {
+                this.checkRzrq(message.code).then(rzrq => {
                     var racc = rzrq.Status == -1 ? 'normal' : 'credit';
                     this.buyWithAccount(code, price, count, racc, strategies);
                 });
@@ -516,7 +516,7 @@ class EmjyBack {
             let account = message.account;
             let str0 = {"key":strategies.key,"enabled":true, account};
             if (!account) {
-                this.checkRzrq(code, rzrq => {
+                this.checkRzrq(code).then(rzrq => {
                     var racc = rzrq.Status == -1 ? 'normal' : 'credit';
                     var hacc =holdAccountKey[racc];
                     str0.account = racc;
@@ -616,7 +616,7 @@ class EmjyBack {
             this.log(message.data);
             this.log(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account);
             if (!wsmsg.account) {
-                this.checkRzrq(wsmsg.code, rzrq => {
+                this.checkRzrq(wsmsg.code).then(rzrq => {
                     var account = rzrq.Status == -1 ? 'normal' : 'credit';
                     this.buyWithAccount(wsmsg.code, wsmsg.price, wsmsg.count, account, wsmsg.strategies);
                 });
@@ -628,7 +628,7 @@ class EmjyBack {
         if (wsmsg.type == 'intrade_addwatch') {
             this.log(message.data);
             if (!wsmsg.account) {
-                this.checkRzrq(message.code, rzrq => {
+                this.checkRzrq(message.code).then(rzrq => {
                     var account = rzrq.Status == -1 ? 'normal' : 'collat';
                     this.all_accounts[account].addWatchStock(wsmsg.code, wsmsg.strategies);
                 });
@@ -1012,15 +1012,19 @@ class EmjyBack {
         return (curSmi - buySmi) / buySmi;
     }
 
-    checkRzrq(code, cb) {
-        if (!this.creditAccount) {
-            cb(null);
-            return;
-        }
-        if (!this.creditAccount.tradeClient) {
-            this.creditAccount.createTradeClient();
-        }
-        this.creditAccount.tradeClient.checkRzrqTarget(code, cb);
+    checkRzrq(code) {
+        return new Promise((resolve) => {
+            if (!this.creditAccount) {
+                resolve(null);
+                return;
+            }
+            if (!this.creditAccount.tradeClient) {
+                this.creditAccount.createTradeClient();
+            }
+            this.creditAccount.tradeClient.checkRzrqTarget(code, rzrq => {
+                resolve(rzrq);
+            });
+        });
     }
 
     trySellStock(code, price, count, account, cb) {
@@ -1315,6 +1319,33 @@ class EmjyBack {
         return ct > 1 ? 100 * Math.floor(ct) : 100;
     }
 
+    getStockZdf(code, name) {
+        if (code.startsWith('68') || code.startsWith('30')) {
+            return 20;
+        }
+        if (code.startsWith('60') || code.startsWith('00')) {
+            if (name?.includes('S')) {
+                return 5;
+            }
+            return 10;
+        }
+        return 30;
+    }
+
+    calcZtPrice(lclose, zdf) {
+        if (zdf == 30) {
+            return Math.floor(lclose * 130) / 100;
+        }
+        return Math.round(lclose * 100 + lclose * zdf + 0.00000001) / 100;
+    }
+
+    calcDtPrice(lclose, zdf) {
+        if (zdf == 30) {
+            return Math.ceil(lclose * 70) / 100;
+        }
+        return Math.round(lclose * 100 - lclose * zdf + 0.00000001) / 100;
+    }
+
     fetchStockKline(code, kltype, sdate) {
         this.postQuoteWorkerMessage({command:'quote.kline.rt', code, kltype, market: this.getStockMarketHS(code), sdate});
     }
@@ -1451,8 +1482,7 @@ class EmjyBack {
     }
 
     getTodayDate(sep = '') {
-        var dt = new Date();
-        return dt.getFullYear() + sep + ('' + (dt.getMonth() + 1)).padStart(2, '0') + sep + ('' + dt.getDate()).padStart(2, '0');
+        return new Date().toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
     }
 
     flushLogs() {

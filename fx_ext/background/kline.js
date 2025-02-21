@@ -60,8 +60,8 @@ class KLine {
             if (klines) {
                 this.klines = klines;
                 for (var i in this.klines) {
-                    if (this.klines[i].length > 600 && i - 120 < 0) {
-                        this.klines[i] = this.klines[i].slice(this.klines[i].length - 600);
+                    if (this.klines[i].length > 240 && i - 120 < 0) {
+                        this.klines[i] = this.klines[i].slice(this.klines[i].length - 240);
                     }
                     if (i - 10 < 0 && this.klines[i].length > 0 && this.kltimeExpired(this.klines[i][this.klines[i].length - 1].time)) {
                         console.log(this.code);

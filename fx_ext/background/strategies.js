@@ -52,4 +52,8 @@ let ExtIstrStrategies = [{
     key: 'istrategy_hotrank0',
     name: '开盘人气排行',
     desc: '不涨停且股价涨跌幅介于[-3, 9] 选人气排行前10中新增粉丝>70%排名最前者'
+}, {
+    key: 'istrategy_hotstks_open',
+    name: '开盘热门领涨股',
+    desc: '最近涨停的高标人气股，最近连板高度前10左右，开盘时选这些票中人气排行前5的股票买入，需择时.'
 }];
