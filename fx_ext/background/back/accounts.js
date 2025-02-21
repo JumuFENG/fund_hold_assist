@@ -225,108 +225,158 @@ class MarginSxlHistClient extends HistDealsClient {
 
 
 class AssetsClient {
-    constructor(cb, pcb) {
-        this.moneyType = 'RMB';
-        this.assetsCallback = cb;
-        this.positionCallback = pcb;
+    constructor() {
+        this.moneyType = 'RMB'; // 默认货币类型
     }
 
-    GetAssets() {
-        // update assets and positions
-        this.queryAssetAndPosition(this.assetsCallback, this.positionCallback);
+    // 构造 URL
+    buildUrl(endpoint) {
+        return `${jywgroot}${endpoint}?validatekey=${emjyBack.validateKey}`;
     }
 
-    UpdateAssets() {
-        // update assets
-        this.queryAssetAndPosition(this.assetsCallback);
-    }
-
-    UpdatePosition() {
-        // update positions
-        this.queryAssetAndPosition(null, this.positionCallback);
-    }
-
-    queryAssetAndPosition(acb, pcb) {
-        var url = jywgroot + 'Com/queryAssetAndPositionV1?validatekey=' + emjyBack.validateKey;
-        var fd = new FormData();
-        fd.append('moneyType', this.moneyType);
-        xmlHttpPost(url, fd, null, response => {
-            this.onResponse(response, acb, pcb);
+    // 通用的 fetch 请求方法
+    async fetchData(url, formData = new FormData()) {
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData
         });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
     }
 
-    onResponse(response, acb, pcb) {
-        var assets = JSON.parse(response);
-        if (assets.Status != 0 || assets.Errcode != 0) {
-            emjyBack.log(response);
+    // 处理 API 错误
+    handleApiError(response) {
+        if (response.Status !== 0 || response.Errcode !== 0) {
+            throw new Error(`API error: ${JSON.stringify(response)}`);
         }
-        var assetsInfo = {};
-        var data = assets.Data[0];
+    }
+
+    // 获取资产
+    async getAssets() {
+        const url = this.buildUrl('Com/queryAssetAndPositionV1');
+        const fd = new FormData();
+        fd.append('moneyType', this.moneyType);
+
+        try {
+            const response = await this.fetchData(url, fd);
+            this.handleApiError(response);
+            return this.extractAssets(response);
+        } catch (error) {
+            emjyBack.log(error);
+            throw error;
+        }
+    }
+
+    // 获取持仓
+    async getPositions() {
+        const url = this.buildUrl('Com/queryAssetAndPositionV1');
+        const fd = new FormData();
+        fd.append('moneyType', this.moneyType);
+
+        try {
+            const response = await this.fetchData(url, fd);
+            this.handleApiError(response);
+            return this.extractPositions(response);
+        } catch (error) {
+            emjyBack.log(error);
+            throw error;
+        }
+    }
+
+    // 同时获取资产和持仓
+    async getAssetsAndPositions() {
+        const url = this.buildUrl('Com/queryAssetAndPositionV1');
+        const fd = new FormData();
+        fd.append('moneyType', this.moneyType);
+
+        try {
+            const response = await this.fetchData(url, fd);
+            this.handleApiError(response);
+            return {
+                assets: this.extractAssets(response),
+                positions: this.extractPositions(response)
+            };
+        } catch (error) {
+            emjyBack.log(error);
+            throw error;
+        }
+    }
+
+    // 提取资产信息
+    extractAssets(response) {
+        const assetsInfo = {};
+        const data = response.Data[0];
         for (const key in data) {
-            if (Object.hasOwnProperty.call(data, key)) {
-                if (key != 'positions') {
-                    assetsInfo[key] = data[key];
-                }
+            if (Object.hasOwnProperty.call(data, key) && key !== 'positions') {
+                assetsInfo[key] = data[key];
             }
         }
-        if (typeof(acb) == 'function') {
-            acb(assetsInfo);
-        }
-        if (typeof(pcb) == 'function') {
-            pcb(data.positions);
-        }
+        return assetsInfo;
+    }
+
+    // 提取持仓信息
+    extractPositions(response) {
+        return response.Data[0].positions || [];
     }
 }
+
 
 class MarginAssetsClient extends AssetsClient {
-    constructor(cb, pcb) {
-        super(cb, pcb);
+    constructor() {
+        super();
     }
 
-    GetAssets() {
-        // update assets and positions
-        this.UpdateAssets();
-        this.UpdatePosition();
+    handleApiError(response) {
+        if (response.Status != 0 || response.Message) {
+            emjyBack.log(response);
+        }
     }
 
-    UpdateAssets() {
-        // update assets
-        var url = jywgroot + 'MarginSearch/GetRzrqAssets?validatekey=' + emjyBack.validateKey;
-        var fd = new FormData();
+    // 获取融资融券资产
+    async getAssets() {
+        const url = this.buildUrl('MarginSearch/GetRzrqAssets');
+        const fd = new FormData();
         fd.append('hblx', this.moneyType);
-        xmlHttpPost(url, fd, null, response => {
-            this.onAssetsResponse(response);
-        });
-    }
 
-    UpdatePosition() {
-        // update positions
-        var slUrl = jywgroot + 'MarginSearch/GetStockList?validatekey=' + emjyBack.validateKey;
-        xmlHttpPost(slUrl, new FormData(), null, response => {
-            this.onStockListResponse(response);
-        });
-    }
-
-    onAssetsResponse(response) {
-        var assets = JSON.parse(response);
-        if (assets.Status != 0 || assets.Message) {
-            emjyBack.log(response);
-        }
-        if (typeof(this.assetsCallback) == 'function') {
-            this.assetsCallback(assets.Data);
+        try {
+            const response = await this.fetchData(url, fd);
+            this.handleApiError(response);
+            return response.Data;
+        } catch (error) {
+            emjyBack.log(error);
+            throw error;
         }
     }
 
-    onStockListResponse(response) {
-        var assets = JSON.parse(response);
-        if (assets.Status != 0 || assets.Message) {
-            emjyBack.log(response);
+    // 获取融资融券持仓
+    async getPositions() {
+        const url = this.buildUrl('MarginSearch/GetStockList');
+
+        try {
+            const response = await this.fetchData(url);
+            this.handleApiError(response);
+            return response.Data;
+        } catch (error) {
+            emjyBack.log(error);
+            throw error;
         }
-        if (typeof(this.positionCallback) == 'function') {
-            this.positionCallback(assets.Data);
+    }
+
+    // 同时获取融资融券资产和持仓
+    async getAssetsAndPositions() {
+        try {
+            const assets = await this.getAssets();
+            const positions = await this.getPositions();
+            return {assets, positions};
+        } catch (error) {
+            emjyBack.log(error);
+            throw error;
         }
     }
 }
+
 
 class TradeClient {
     constructor(amoney=0) {
@@ -1004,11 +1054,7 @@ class NormalAccount extends Account {
             return;
         }
         if (!this.assetsClient) {
-            this.assetsClient = new AssetsClient(assets => {
-                this.onAssetsLoaded(assets);
-            }, positions => {
-                this.onPositionsLoaded(positions);
-            });
+            this.assetsClient = new AssetsClient();
         }
         return this.assetsClient;
     }
@@ -1018,7 +1064,10 @@ class NormalAccount extends Account {
             this.createAssetsClient();
         }
         if (this.assetsClient) {
-            this.assetsClient.GetAssets();
+            this.assetsClient.getAssetsAndPositions().then(x => {
+                this.onAssetsLoaded(x.assets);
+                this.onPositionsLoaded(x.positions);
+            });
         }
     }
 
@@ -1027,7 +1076,9 @@ class NormalAccount extends Account {
             this.createAssetsClient();
         }
         if (this.assetsClient) {
-            this.assetsClient.UpdateAssets();
+            this.assetsClient.getAssets().then(assets => {
+                this.onAssetsLoaded(assets);
+            });
         }
     }
 
@@ -1146,11 +1197,7 @@ class CollateralAccount extends NormalAccount {
             return;
         }
         if (!this.assetsClient) {
-            this.assetsClient = new MarginAssetsClient(assets => {
-                this.onAssetsLoaded(assets);
-            }, positions => {
-                this.onPositionsLoaded(positions);
-            });
+            this.assetsClient = new MarginAssetsClient();
         }
         return this.assetsClient;
     }
