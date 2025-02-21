@@ -10,12 +10,13 @@ class Wallet {
     }
 }
 
+
 class DealsClient {
     // 普通账户 当日成交
-    constructor(cb) {
+    constructor() {
         this.qqhs = 20; // 请求行数
         this.dwc = '';
-        this.dealsCallback = cb;
+        this.data = []; // 用于存储所有获取的数据
     }
 
     getUrl() {
@@ -23,62 +24,65 @@ class DealsClient {
     }
 
     getFormData() {
-        var fd = new FormData();
+        const fd = new FormData();
         fd.append('qqhs', this.qqhs);
         fd.append('dwc', this.dwc);
         return fd;
     }
 
-    GetNext() {
-        var fd = this.getFormData();
-        this.updateDwc();
-        xmlHttpPost(this.getUrl(), fd, null, response => {
-            this.onResponse(response);
-        });
+    // 使用 fetch 替代 xmlHttpPost
+    async fetchData() {
+        const url = this.getUrl();
+        const fd = this.getFormData();
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                body: fd
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            emjyBack.log(this.constructor.name, 'error url', this.getUrl());
+            emjyBack.log(error);
+        }
+    }
+
+    // 获取所有分页数据
+    async getAllData() {
+        let hasMoreData = true;
+        while (hasMoreData) {
+            const deals = await this.fetchData();
+            if (deals.Status !== 0 || deals.Message) {
+                emjyBack.log(deals);
+                break;
+            }
+            if (deals.Data.length > 0) {
+                this.data.push(...deals.Data);
+                const dend = deals.Data[deals.Data.length - 1];
+                if (dend.Dwc) {
+                    this.dwc = dend.Dwc;
+                }
+            }
+            if (!this.dwc || deals.Data.length < this.qqhs) {
+                hasMoreData = false;
+            }
+        }
+        return this.data;
     }
 
     updateDwc() {
         this.dwc = '';
     }
-
-    onResponse(response) {
-        try {
-            var deals = JSON.parse(response);
-            if (deals.Status != 0 || deals.Message) {
-                emjyBack.log(response);
-            }
-            if (deals.Data.length > 0) {
-                var dend = deals.Data[deals.Data.length - 1];
-                if (dend.Dwc) {
-                    this.dwc = dend.Dwc;
-                }
-            }
-            if (!this.data || this.data.length == 0) {
-                this.data = deals.Data;
-            } else {
-                this.data.push.apply(this.data, deals.Data);
-            }
-            if (this.dwc && deals.Data.length == this.qqhs) {
-                this.GetNext();
-            } else if (typeof(this.dealsCallback) == 'function') {
-                this.dealsCallback(this.data);
-                if (typeof(this.onNextPeriod) == 'function' && this.data.length > 0) {
-                    this.data = [];
-                    this.dwc = "";
-                    this.onNextPeriod();
-                }
-            }
-        } catch (e) {
-            emjyBack.log(response);
-            emjyBack.log(e);
-        }
-    }
 }
+
 
 class MarginDealsClient extends DealsClient {
     // 信用账户 当日成交
-    constructor(cb) {
-        super(cb);
+    constructor() {
+        super();
         this.dwc = 1;
     }
 
@@ -91,66 +95,77 @@ class MarginDealsClient extends DealsClient {
     }
 }
 
+
 class HistDealsClient extends DealsClient {
     // 普通账户 历史成交
-    constructor(cb) {
-        super(cb);
-    }
-
+    // 将日期转换为字符串格式
     dateToString(dt, sep = '-') {
-        var dstr = new Date(dt - dt.getTimezoneOffset()*60*1000).toISOString().split('T')[0];
+        const dstr = new Date(dt - dt.getTimezoneOffset() * 60 * 1000).toISOString().split('T')[0];
         if (sep === '-') {
             return dstr;
         }
         return dstr.split('-').join(sep);
     }
 
+    // 设置起始日期
     setStartDate(startDate) {
-        this.startDate = startDate;
-        this.endTime = new Date();
-        this.setStartTime();
+        this.startDate = new Date(startDate);
+        this.endTime = new Date(); // 默认结束时间为当前时间
     }
 
-    onNextPeriod() {
-        this.endTime = new Date(this.startTime);
-        this.endTime.setDate(this.startTime.getDate() - 1);
-        this.setStartTime();
-        if (this.startDate && this.endTime < this.startDate) {
-            if (typeof(this.dealsCallback) == 'function') {
-                this.dealsCallback(null);
+    // 获取从某一天开始的所有历史成交数据
+    async getAllHistoryData() {
+        if (!this.startDate) {
+            throw new Error('起始日期未设置');
+        }
+
+        this.data = []; // 重置数据
+        let currentEndTime = new Date(this.endTime);
+        let currentStartTime = new Date(currentEndTime);
+        currentStartTime.setDate(currentEndTime.getDate() - 90); // 每次查询最多 90 天
+
+        while (currentStartTime >= this.startDate) {
+            // 如果当前查询的起始时间早于设置的起始日期，调整起始时间
+            if (currentStartTime < this.startDate) {
+                currentStartTime = new Date(this.startDate);
             }
-            return;
+
+            // 设置查询时间范围
+            this.startTime = currentStartTime;
+            this.endTime = currentEndTime;
+
+            // 获取数据
+            const deals = await super.getAllData();
+            if (deals.length === 0) {
+                break;
+            }
+
+            // 更新查询时间范围
+            currentEndTime = new Date(currentStartTime);
+            currentEndTime.setDate(currentStartTime.getDate() - 1);
+            currentStartTime.setDate(currentStartTime.getDate() - 90);
         }
-        this.GetNext();
+
+        return this.data;
     }
 
-    setStartTime() {
-        if (!this.startDate || this.endTime - this.startDate > 90 * 86400000) {
-            this.startTime = new Date(this.endTime);
-            this.startTime.setDate(this.endTime.getDate() - 90);
-        } else {
-            this.startTime = this.startDate;
-        }
-    }
-
+    // 重写 getFormData 方法，添加时间范围参数
     getFormData() {
-        var fd = super.getFormData();
+        const fd = super.getFormData();
         fd.append('st', this.dateToString(this.startTime));
         fd.append('et', this.dateToString(this.endTime));
         return fd;
     }
 
+    // 重写 getUrl 方法，使用历史成交数据的接口
     getUrl() {
         return jywgroot + 'Search/GetHisDealData?validatekey=' + emjyBack.validateKey;
     }
 }
 
+
 class MarginHistDealsClient extends HistDealsClient {
     // 信用账户 历史成交
-    constructor(cb) {
-        super(cb);
-    }
-
     getFormData() {
         var fd = super.getFormData();
         if (fd.has('st')) {
@@ -170,20 +185,12 @@ class MarginHistDealsClient extends HistDealsClient {
 }
 
 class OrdersClient extends DealsClient {
-    constructor(cb) {
-        super(cb);
-    }
-
     getUrl() {
         return jywgroot + 'Search/GetOrdersData?validatekey=' + emjyBack.validateKey;
     }
 }
 
 class MarginOrdersClient extends DealsClient {
-    constructor(cb) {
-        super(cb);
-    }
-
     getUrl() {
         return jywgroot + 'MarginSearch/GetOrdersData?validatekey=' + emjyBack.validateKey;
     }
@@ -191,24 +198,31 @@ class MarginOrdersClient extends DealsClient {
 
 class SxlHistClient extends HistDealsClient {
     // Stock Exchange List
-    constructor(cb) {
-        super(cb);
-    }
-
     getUrl() {
         return jywgroot + 'Search/GetFundsFlow?validatekey=' + emjyBack.validateKey;
     }
 }
 
 class MarginSxlHistClient extends HistDealsClient {
-    constructor(cb) {
-        super(cb);
+    // 交割单查询
+    getFormData() {
+        const fd = super.getFormData();
+        if (fd.has('st')) {
+            fd.delete('st');
+        }
+        fd.append('st', this.dateToString(this.startTime, ''));
+        if (fd.has('et')) {
+            fd.delete('et');
+        }
+        fd.append('et', this.dateToString(this.endTime, ''));
+        return fd;
     }
 
     getUrl() {
-        return jywgroot + 'MarginSearch/GetWaterBill?validatekey=' + emjyBack.validateKey;
+        return jywgroot + 'MarginSearch/queryCreditLogAssetV2?validatekey=' + emjyBack.validateKey;
     }
 }
+
 
 class AssetsClient {
     constructor(cb, pcb) {
@@ -913,10 +927,10 @@ class NormalAccount extends Account {
     }
 
     loadDeals() {
-        var dealclt = new OrdersClient((deals) => {
+        var dealclt = new OrdersClient();
+        dealclt.getAllData().then((deals) => {
             this.handleDeals(deals);
         });
-        dealclt.GetNext();
     }
 
     handleDeals(deals) {
@@ -945,9 +959,9 @@ class NormalAccount extends Account {
             });
         }
 
-        var sdeails = deals.filter(d => d.Mmsm.includes('卖出'));
-        for (let i = 0; i < sdeails.length; i++) {
-            const deali = sdeails[i];
+        var sdeals = deals.filter(d => d.Mmsm.includes('卖出'));
+        for (let i = 0; i < sdeals.length; i++) {
+            const deali = sdeals[i];
             this.stocks.forEach(s => {
                 if (s.code == deali.Zqdm && deali.Cjsl > 0) {
                     tradedCode.add(deali.Zqdm);
@@ -972,36 +986,16 @@ class NormalAccount extends Account {
         });
     }
 
-    loadHistDeals(startDate, cb) {
-        var dealclt = new HistDealsClient((deals) => {
-            if (!this.fecthedDeals || this.fecthedDeals.length == 0) {
-                this.fecthedDeals = deals;
-            } else {
-                this.fecthedDeals.push.apply(this.fecthedDeals, deals);
-            }
-            if (typeof(cb) === 'function' && (!deals || deals.length == 0) && this.fecthedDeals && this.fecthedDeals.length > 0) {
-                cb(this.fecthedDeals);
-                this.fecthedDeals = [];
-            }
-        });
+    loadHistDeals(startDate) {
+        var dealclt = new HistDealsClient();
         dealclt.setStartDate(startDate);
-        dealclt.GetNext();
+        return dealclt.getAllHistoryData();
     }
 
-    loadOtherDeals(startDate, cb) {
-        var sxlclt = new SxlHistClient(deals => {
-            if (!this.otherDeals || this.otherDeals.length == 0) {
-                this.otherDeals = deals;
-            } else {
-                this.otherDeals.push.apply(this.otherDeals, deals);
-            }
-            if (typeof(cb) === 'function' && (!deals || deals.length == 0) && this.otherDeals && this.otherDeals.length > 0) {
-                cb(this.otherDeals);
-                this.otherDeals = [];
-            }
-        });
+    loadOtherDeals(startDate) {
+        var sxlclt = new SxlHistClient();
         sxlclt.setStartDate(startDate);
-        sxlclt.GetNext();
+        return sxlclt.getAllHistoryData();
     }
 
     createAssetsClient() {
@@ -1128,42 +1122,22 @@ class CollateralAccount extends NormalAccount {
     }
 
     loadDeals() {
-        var dealclt = new MarginOrdersClient((deals) => {
+        var dealclt = new MarginOrdersClient();
+        dealclt.getAllData().then((deals) => {
             this.handleDeals(deals);
         });
-        dealclt.GetNext();
     }
 
-    loadHistDeals(startDate, cb) {
-        var dealclt = new MarginHistDealsClient((deals) => {
-            if (!this.fecthedDeals || this.fecthedDeals.length == 0) {
-                this.fecthedDeals = deals;
-            } else {
-                this.fecthedDeals.push.apply(this.fecthedDeals, deals);
-            }
-            if (typeof(cb) === 'function' && (!deals || deals.length == 0) && this.fecthedDeals && this.fecthedDeals.length > 0) {
-                cb(this.fecthedDeals);
-                this.fecthedDeals = [];
-            }
-        });
+    loadHistDeals(startDate) {
+        var dealclt = new MarginHistDealsClient();
         dealclt.setStartDate(startDate);
-        dealclt.GetNext();
+        return dealclt.getAllHistoryData();
     }
 
-    loadOtherDeals(startDate, cb) {
-        var sxlclt = new MarginSxlHistClient(deals => {
-            if (!this.otherDeals || this.otherDeals.length == 0) {
-                this.otherDeals = deals;
-            } else {
-                this.otherDeals.push.apply(this.otherDeals, deals);
-            }
-            if (typeof(cb) === 'function' && (!deals  || deals.length == 0) && this.otherDeals && this.otherDeals.length > 0) {
-                cb(this.otherDeals);
-                this.otherDeals = [];
-            }
-        });
+    loadOtherDeals(startDate) {
+        var sxlclt = new MarginSxlHistClient();
         sxlclt.setStartDate(startDate);
-        sxlclt.GetNext();
+        return sxlclt.getAllHistoryData();
     }
 
     createAssetsClient() {

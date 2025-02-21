@@ -684,8 +684,8 @@ class EmjyBack {
         if (typeof(date) === 'string') {
             startDate = new Date(date);
         }
-        this.normalAccount.loadHistDeals(startDate, deals => {this.addHistDeals(deals);});
-        this.collateralAccount.loadHistDeals(startDate, deals => {this.addHistDeals(deals);});
+        this.normalAccount.loadHistDeals(startDate).then(deals => {this.addHistDeals(deals);});
+        this.collateralAccount.loadHistDeals(startDate).then(deals => {this.addHistDeals(deals);});
     }
 
     loadOtherDeals(date) {
@@ -693,8 +693,8 @@ class EmjyBack {
         if (typeof(startDate) === 'string') {
             startDate = new Date(date);
         }
-        this.normalAccount.loadOtherDeals(startDate, deals => {this.addOtherDeals(deals)});
-        this.collateralAccount.loadOtherDeals(startDate, deals => {this.addOtherDeals(deals)});
+        this.normalAccount.loadOtherDeals(startDate).then(deals => {this.addOtherDeals(deals)});
+        this.collateralAccount.loadOtherDeals(startDate).then(deals => {this.addOtherDeals(deals)});
     }
 
     getDealTime(cjrq, cjsj) {
@@ -742,7 +742,7 @@ class EmjyBack {
             } else if (deali.Mmsm == '证券买入' || deali.Mmsm == '配售申购' || deali.Mmsm == '配股缴款' || deali.Mmsm == '网上认购') {
                 tradeType = 'B';
             } else {
-                this.log('unknown trade type', deali.Mmsm, deali);
+                this.log('unknown trade type', deali.Mmsm, JSON.stringify(deali));
                 continue;
             }
             var code = deali.Zqdm;
