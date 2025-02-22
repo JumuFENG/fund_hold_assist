@@ -849,7 +849,7 @@ class StrategyGroup {
             var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
             var count = this.count0;
             emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy), 'buy detail', JSON.stringify(this.buydetail.records))
-            emjyBack.tryBuyStock(this.code, price, count, account, bd => {
+            emjyBack.tryBuyStock(this.code, price, count, account).then(bd => {
                 if (typeof(tradeCb) === 'function') {
                     tradeCb(bd);
                 }
@@ -862,12 +862,14 @@ class StrategyGroup {
             }
             if (count > 0) {
                 emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', info.price, JSON.stringify(curStrategy), 'aver price', this.buydetail.averPrice(), 'buy detail', JSON.stringify(this.buydetail.records));
-                emjyBack.trySellStock(this.code, price, count, this.account, (sd, response) => {
+                emjyBack.trySellStock(this.code, price, count, this.account).then(sd => {
                     if (typeof(tradeCb) === 'function' && sd) {
                         tradeCb(sd);
                     }
-                    if (response) {
-                        this.checkTradeResponse(info, response);
+                    this.onTradeMatch(info);
+                }).catch(err => {
+                    if (err) {
+                        this.checkTradeResponse(info, err);
                     }
                     this.onTradeMatch(info);
                 });

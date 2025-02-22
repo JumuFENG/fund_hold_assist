@@ -148,7 +148,6 @@ class EmjyBack {
         this.creditAccount = null;
         this.contentProxies = [];
         this.stockMarket = {};
-        this.stockZdtPrices = {};
         this.klineAlarms = null;
         this.ztBoardTimer = null;
         this.rtpTimer = null;
@@ -1013,65 +1012,58 @@ class EmjyBack {
     }
 
     checkRzrq(code) {
-        return new Promise((resolve) => {
-            if (!this.creditAccount) {
-                resolve(null);
-                return;
-            }
-            if (!this.creditAccount.tradeClient) {
-                this.creditAccount.createTradeClient();
-            }
-            this.creditAccount.tradeClient.checkRzrqTarget(code, rzrq => {
-                resolve(rzrq);
-            });
-        });
+        if (!this.creditAccount) {
+            return Promise.resolve();
+        }
+        if (!this.creditAccount.tradeClient) {
+            this.creditAccount.createTradeClient();
+        }
+        return this.creditAccount.tradeClient.checkRzrqTarget(code);
     }
 
     trySellStock(code, price, count, account, cb) {
-        if (account in this.all_accounts) {
-            this.all_accounts[account].sellStock(code, price, count, (sd, response) => {
-                var holdacc = holdAccountKey[account];
-                var stk = this.all_accounts[holdacc].getStock(code);
-                if (stk) {
-                    if (!stk.strategies) {
-                        this.all_accounts[holdacc].applyStrategy(code, {grptype: 'GroupStandard', strategies: {'0': {key: 'StrategySellELS', enabled: false, cutselltype: 'all', selltype: 'all'}}, transfers: {'0': {transfer: '-1'}}, amount: '5000'});
-                    }
-                    if (sd) {
-                        stk.strategies.buydetail.addSellDetail(sd);
-                    }
-                }
-                if (typeof(cb) === 'function') {
-                    cb(sd,response);
-                }
-            });
-        } else {
+        if (!this.all_accounts[account]) {
             this.log('Error, no valid account', account);
+            return Promise.resolve();
         }
+
+        return this.all_accounts[account].sellStock(code, price, count, sd => {
+            var holdacc = holdAccountKey[account];
+            var stk = this.all_accounts[holdacc].getStock(code);
+            if (stk) {
+                if (!stk.strategies) {
+                    this.all_accounts[holdacc].applyStrategy(code, {grptype: 'GroupStandard', strategies: {'0': {key: 'StrategySellELS', enabled: false, cutselltype: 'all', selltype: 'all'}}, transfers: {'0': {transfer: '-1'}}, amount: '5000'});
+                }
+                if (sd) {
+                    stk.strategies.buydetail.addSellDetail(sd);
+                }
+            }
+            return sd;
+        });
     }
 
-    tryBuyStock(code, price, count, account, cb) {
-        if (account in this.all_accounts) {
-            this.all_accounts[account].buyStock(code, price, count, bd => {
-                var holdacc = holdAccountKey[account];
-                var stk = this.all_accounts[holdacc].getStock(code);
-                var strgrp = {};
-                if (!stk) {
-                    this.all_accounts[holdacc].addWatchStock(code, strgrp);
-                    stk = this.all_accounts[holdacc].getStock(code);
-                }
-                if (stk) {
-                    if (!stk.strategies) {
-                        this.all_accounts[holdacc].addStockStrategy(stk, strgrp);
-                    }
-                    stk.strategies.buydetail.addBuyDetail(bd);
-                }
-                if (typeof(cb) === 'function') {
-                    cb(bd);
-                }
-            });
-        } else {
+    tryBuyStock(code, price, count, account) {
+        if (!this.all_accounts[account]) {
             this.log('Error, no valid account', account);
+            return Promise.resolve();
         }
+
+        return this.all_accounts[account].buyStock(code, price, count).then(bd => {
+            var holdacc = holdAccountKey[account];
+            var stk = this.all_accounts[holdacc].getStock(code);
+            var strgrp = {};
+            if (!stk) {
+                this.all_accounts[holdacc].addWatchStock(code, strgrp);
+                stk = this.all_accounts[holdacc].getStock(code);
+            }
+            if (stk) {
+                if (!stk.strategies) {
+                    this.all_accounts[holdacc].addStockStrategy(stk, strgrp);
+                }
+                stk.strategies.buydetail.addBuyDetail(bd);
+            }
+            return bd;
+        });
     }
 
     buyWithAccount(code, price, count, account, strategies) {
@@ -1088,7 +1080,7 @@ class EmjyBack {
                 count = this.calcBuyCount(this.all_accounts[account].availableMoney, price);
             }
         }
-        this.tryBuyStock(code, price, count, account);
+        return this.tryBuyStock(code, price, count, account);
     }
 
     applyKlVars(code, klvars) {
@@ -1180,7 +1172,6 @@ class EmjyBack {
     onAlarm(alarmInfo) {
         if (alarmInfo.name == 'morning-prestart') {
             this.ztBoardTimer.startTimer();
-            this.fetchAllStocksZdtPrices();
         } else if (alarmInfo.name == 'morning-start') {
             this.rtpTimer.startTimer();
             this.klineAlarms.startTimer();
@@ -1319,11 +1310,14 @@ class EmjyBack {
         return ct > 1 ? 100 * Math.floor(ct) : 100;
     }
 
-    getStockZdf(code, name) {
+    getStockZdf(code, name='') {
         if (code.startsWith('68') || code.startsWith('30')) {
             return 20;
         }
         if (code.startsWith('60') || code.startsWith('00')) {
+            if (!name) {
+                name = this.stockMarket[code]?.n;
+            }
             if (name?.includes('S')) {
                 return 5;
             }
@@ -1352,11 +1346,9 @@ class EmjyBack {
 
     tradeDailyRoutineTasks() {
         if (this.purchaseNewStocks) {
-            var nsClient = new NewStocksClient();
-            nsClient.buy();
+            feng.buyNewStocks();
         }
-        var nbClient = new NewBondsClient();
-        nbClient.buy();
+        feng.buyNewBonds();
     }
 
     getHSMarketFlag(code) {
@@ -1390,30 +1382,6 @@ class EmjyBack {
             this.fetchingBKstocks.fetchBkStcoks();
         }
         this.log('fetch all stock market info!');
-    }
-
-    fetchAllStocksZdtPrices() {
-        var stkset = new Set();
-        this.normalAccount.stocks.forEach(s => {stkset.add(s.code)});
-        this.collateralAccount.stocks.forEach(s => {stkset.add(s.code)});
-        for (const account of this.track_accounts) {
-            account.stocks.forEach(s => {stkset.add(s.code)});
-        }
-        if (!this.normalAccount.tradeClient) {
-            this.normalAccount.createTradeClient();
-        }
-        for (const code of stkset) {
-            if (code.length != 6 || !(code.startsWith('6') || code.startsWith('3') || code.startsWith('0'))) {
-                continue;
-            }
-            if (!this.stockZdtPrices[code]) {
-                this.normalAccount.tradeClient.getRtPrice(code, pobj => {
-                    if (pobj) {
-                        this.stockZdtPrices[code] = {'ztprice': pobj.tp, 'dtprice': pobj.bp};
-                    }
-                });
-            }
-        }
     }
 
     scheduleNewTabCommand(command) {

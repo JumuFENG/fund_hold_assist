@@ -1,583 +1,225 @@
 'use strict';
-let EmjyUrlRoot = 'https://jywg.eastmoneysec.com/';
-let NewStockPurchaseUrl = EmjyUrlRoot + 'Trade/NewBatBuy';
-let NewBondsPurchaseUrl = EmjyUrlRoot + 'Trade/XzsgBatPurchase';
-let BondRepurchaseUrl = EmjyUrlRoot + 'BondRepurchase/SecuritiesLendingRepurchase';
 
-class CommanderBase {
+
+class feng {
     constructor() {
-        this.tabid = null;
-        this.url = null;
-        this.triggered = false;
-        this.tabOpened = false;
-        this.active = true;
+        throw new Error('Cannot instantiate StaticClass');
     }
 
-    triggerTask() {
-        if (this.triggered) {
+    static jywg = 'https://jywg.eastmoneysec.com/'; //'https://jywg.18.cn/';
+
+    static async buyNewStocks() {
+        if (!emjyBack.validateKey) {
+            emjyBack.log('no valid validateKey', emjyBack.validateKey);
             return;
-        };
-        this.openTab(this.url, this.active);
-        this.tabOpened = true;
-        this.triggered = true;
-    }
-
-    openTab(url, active) {
-        chrome.tabs.create({url, active}, tab => {
-            this.tabid = tab.id;
-            var loadInterval = setInterval(() => {
-                chrome.tabs.get(this.tabid, t => {
-                    if (t.status == 'complete' && t.url == this.url) {
-                        clearInterval(loadInterval);
-                        this.sendTaskMessage();
-                    };
-                });
-            }, 200);
-        });
-    }
-
-    sendTaskMessage() {
-        if (this.command) {
-            emjyBack.log('sendTaskMessage', this.command, 'to tab', this.tabid);
-            chrome.tabs.sendMessage(this.tabid, {command: this.command}, r => {
-                this.onReactResponsed(r);
-            });
         }
-    }
 
-    onReactResponsed(r) {
-        emjyBack.log('onReactResponsed: ', JSON.stringify(r), 'tab', this.tabid);
-    }
+        const url = `${feng.jywg}Trade/GetCanBuyNewStockListV3?validatekey=${emjyBack.validateKey}`;
+        try {
+            const response = await fetch(url, { method: 'POST' });
+            const robj = await response.json();
 
-    sendStepMessage(step) {
-        setTimeout(()=>{
-            emjyBack.log('sendStepMessage', step, 'tab', this.tabid);
-            chrome.tabs.sendMessage(this.tabid, {command: 'emjy.step', step}, r => {
-                this.onReactResponsed(r);
-            });
-        }, 100);
-    }
-
-    pageLoaded() {
-        emjyBack.log('pageLoaded', this.url, 'tab', this.tabid);
-    }
-
-    closeTab() {
-        if (this.tabid && this.tabOpened) {
-            emjyBack.log('closeTab tab', this.tabid);
-            chrome.tabs.remove(this.tabid);
-            this.tabOpened = false;
-        };
-    }
-}
-
-class DirectCommander extends CommanderBase {
-    constructor(path) {
-        super();
-        this.url = EmjyUrlRoot + path;
-    }
-
-    onReactResponsed(r) {
-        if (r.command == 'step') {
-            if (r.step == 'waiting') {
-                this.sendStepMessage('get');
-                emjyBack.log(JSON.stringify(r), 'tab', this.tabid);
-                return;
-            }
-            if (r.step == 'got') {
-                this.onGotResponsed(r);
-                this.closeTab();
-                return;
-            }
-        }
-        emjyBack.log('Direct command', this.command, JSON.stringify(r), 'tab', this.tabid);
-    }
-}
-
-class NewStocksCommander extends CommanderBase {
-    constructor() {
-        super();
-        this.url = NewStockPurchaseUrl;
-        this.command = 'emjy.trade.newstocks';
-    }
-
-    onReactResponsed(r) {
-        if (r.command == 'step') {
-            if (r.step == 'set') {
-                var count = r.count;
-                if (count > 0) {
-                    this.sendStepMessage('batclick');
-                    return;
-                } else {
-                    emjyBack.log(this.command, 'stock/bond count =', count, 'tab', this.tabid);
-                    this.closeTab();
-                    return;
-                }
-            } else if (r.step == 'batclick') {
-                if (r.status == 'done') {
-                    this.sendStepMessage('confirm');
-                    return;
-                }
-            } else if (r.step == 'confirm') {
-                if (r.status == 'done') {
-                    this.sendStepMessage('waitcomplete');
-                    return;
-                } else if (r.status == 'waiting') {
-                    this.sendStepMessage('confirm');
-                    return;
-                }
-            } else if (r.step == 'waitcomplete') {
-                if (r.status == 'done') {
-                    emjyBack.log('new stock/bond bat buy success, alert =', r.alert, 'tab', this.tabid);
-                    this.closeTab();
-                    return;
-                } else if (r.status == 'waiting') {
-                    this.sendStepMessage('waitcomplete');
-                    return;
-                }
-            }
-            emjyBack.log('error: ', r, 'tab', this.tabid);
-        }
-    }
-}
-
-class NewBondsCommander extends NewStocksCommander {
-    constructor() {
-        super();
-        this.url = NewBondsPurchaseUrl;
-        this.command = 'emjy.trade.newbonds';
-    }
-}
-
-class BondRepurchaseCommander extends CommanderBase {
-    constructor(code, active) {
-        super();
-        this.url = BondRepurchaseUrl;
-        this.command = 'emjy.trade.bonds';
-        this.code = code;
-        this.active = active;
-        this.chkcountRetry = 0;
-    }
-
-    sendTaskMessage() {
-        emjyBack.log('sendTaskMessage', this.command, 'to tab', this.tabid);
-        chrome.tabs.sendMessage(this.tabid, {command: this.command, code: this.code}, r => {
-            this.onReactResponsed(r);
-        });
-    }
-
-    onReactResponsed(r) {
-        if (r.command == 'step') {
-            if (r.step == 'codeinput') {
-                if (r.status == 'waiting') {
-                    this.sendStepMessage('codeinput');
-                    return;
-                }
-                if (r.status == 'done') {
-                    this.sendStepMessage('quicksale');
-                    return;
-                }
-            }
-            if (r.step == 'quicksale') {
-                if (r.status == 'waiting') {
-                    this.sendStepMessage('quicksale');
-                    return;
-                }
-                if (r.status == 'done') {
-                    this.sendStepMessage('chkcount');
-                    return;
-                }
-            }
-            if (r.step == 'chkcount') {
-                if (r.status == 'done') {
-                    this.sendStepMessage('confirm');
-                    return;
-                }
-                if (r.status == 'waiting') {
-                    if (this.chkcountRetry < 80) {
-                        this.sendStepMessage('chkcount');
-                        this.chkcountRetry ++;
-                        return;
-                    } else {
-                        emjyBack.log('BondRepurchase retry =', this.chkcountRetry, 'tab', this.tabid);
-                        this.closeTab();
-                        return;
-                    }
-                }
-            }
-            if (r.step == 'confirm') {
-                if (r.status == 'waiting') {
-                    this.sendStepMessage('confirm');
-                    return;
-                }
-                if (r.status == 'done') {
-                    this.sendStepMessage('waitcomplete');
-                    return;
-                }
-            }
-            if (r.step == 'waitcomplete') {
-                if (r.status == 'waiting') {
-                    this.sendStepMessage('waitcomplete');
-                    return;
-                }
-                if (r.status == 'done') {
-                    emjyBack.log('BondRepurchase complete, alert =', r.alert, 'tab', this.tabid);
-                    this.closeTab();
-                    return;
-                }
-            }
-        }
-        emjyBack.log(JSON.stringify(r), 'tab', this.tabid);
-    }
-}
-
-class TradeCommander extends CommanderBase {
-    constructor(path, code, name, count, price) {
-        super();
-        this.command = 'emjy.trade';
-        this.url = EmjyUrlRoot + path;
-        this.url += '?code=' + code;
-        var market = emjyBack.getHSMarketFlag(code);
-        if (market != '') {
-            this.url += '&mt=' + market;
-        };
-        this.code = code;
-        this.name = name;
-        this.count = count;
-        this.price = price;
-        this.chksubmitRetry = 0;
-    }
-
-    sendTaskMessage() {
-        emjyBack.log('sendTaskMessage', this.command, 'to tab', this.tabid);
-        chrome.tabs.sendMessage(this.tabid, {command: this.command, code: this.code, name: this.name, count: this.count, price: this.price}, r => {
-            this.onReactResponsed(r);
-        });
-    }
-
-    onReactResponsed(r) {
-        if (r.command == 'step') {
-            if (r.step == 'stockinput') {
-                if (r.status == 'waiting') {
-                    this.sendStepMessage('stockinput');
-                } else if (r.status == 'done') {
-                    this.sendStepMessage('chksubmit');
-                } else if (r.status == 'error') {
-                    emjyBack.log('Trade error, what =', r.what, 'tab', this.tabid);
-                }
-                return;
-            }
-            if (r.step == 'chksubmit') {
-                if (r.status == 'waiting') {
-                    if (r.what !== undefined) {
-                        emjyBack.log('Trade submit waiting, what =', r.what, 'tab', this.tabid);
-                    }
-                    if (this.chksubmitRetry < 80) {
-                        this.sendStepMessage('chksubmit');
-                        this.chksubmitRetry ++;
-                        return;
-                    } else {
-                        emjyBack.log('Trade check submit retry =', this.chksubmitRetry, 'tab', this.tabid);
-                        this.closeTab();
-                        return;
-                    }
-                }
-                if (r.status == 'error') {
-                    emjyBack.log('Trade error, what =', r.what, 'tab', this.tabid);
-                    return;
-                }
-                if (r.status == 'done') {
-                    this.sendStepMessage('confirm');
-                    return;
-                }
-            }
-            if (r.step == 'confirm') {
-                if (r.status == 'waiting') {
-                    this.sendStepMessage('confirm');
-                    return;
-                }
-                if (r.status == 'done') {
-                    this.sendStepMessage('waitcomplete');
-                    return;
-                }
-            }
-            if (r.step == 'waitcomplete') {
-                if (r.status == 'waiting') {
-                    this.sendStepMessage('waitcomplete');
-                    return;
-                }
-                if (r.status == 'done') {
-                    emjyBack.log('Trade complete, alert =', r.alert, 'tab', this.tabid);
-                    this.closeTab();
-                    return;
-                }
-            }
-        }
-        emjyBack.log(JSON.stringify(r), 'tab', this.tabid);
-    }
-}
-
-class NewStocksClient {
-    GetCanBuy() {
-        var url = EmjyUrlRoot + 'Trade/GetCanBuyNewStockListV3?validatekey=' + emjyBack.validateKey;
-        xmlHttpPost(url, null, null, response => {
-            var robj = JSON.parse(response);
             if (robj.NewStockList && robj.NewStockList.length > 0) {
-                this.buyNewStocks(robj.NewStockList);
-                return;
-            }
-            console.log(robj);
-        });
-    }
+                const data = robj.NewStockList
+                    .filter(stk => stk.Fxj - 100 > 0 && stk.Ksgsx > 0)
+                    .map(stk => ({
+                        StockCode: stk.Sgdm,
+                        StockName: stk.Zqmc,
+                        Price: stk.Fxj,
+                        Amount: parseInt(stk.Ksgsx),
+                        TradeType: "B",
+                        Market: stk.Market
+                    }));
 
-    buyNewStocks(stocks) {
-        var data = [];
-        for (let i = 0; i < stocks.length; i++) {
-            const stk = stocks[i];
-            // if (!stk.Zqdm.startsWith('00') && !stk.Zqdm.startsWith('60')) {
-            //     continue;
-            // }
-            if (!stk.Fxj - 100 > 0) {
-                // ignore.
-                continue;
-            }
-            if (stk.Ksgsx - 0 <= 0) {
-                continue;
-            }
-            var StockCode = stk.Sgdm;
-            var StockName = stk.Zqmc;
-            var Price = stk.Fxj;
-            var Amount = parseInt(stk.Ksgsx);
-            var TradeType = "B";
-            var Market = stk.Market;
-            data.push({StockCode, StockName, Price, Amount, TradeType, Market});
-        }
+                if (data.length > 0) {
+                    const jdata = JSON.stringify(data);
+                    emjyBack.log('buyNewStocks', jdata);
 
-        if (data.length == 0) {
-            emjyBack.log('buyNewStocks no new stocks to buy!');
-            return;
-        }
+                    const postUrl = `${feng.jywg}Trade/SubmitBatTradeV2?validatekey=${emjyBack.validateKey}`;
+                    const header = { "Content-Type": "application/json" };
+                    const postResponse = await fetch(postUrl, { method: 'POST', headers: header, body: jdata });
+                    const robjPost = await postResponse.json();
 
-        var jdata = JSON.stringify(data);
-        emjyBack.log('buyNewStocks', jdata);
-        var url = EmjyUrlRoot + 'Trade/SubmitBatTradeV2?validatekey=' + emjyBack.validateKey;
-        var header = {"Content-Type": "application/json"}
-        xmlHttpPost(url, jdata, header, response => {
-            var robj = JSON.parse(response);
-            if (robj.Status == 0) {
-                emjyBack.log('buyNewStocks success', robj.Message);
-            } else {
-                emjyBack.log('buyNewStocks error', response);
-            }
-        });
-    }
-
-    buy() {
-        if (!emjyBack.validateKey) {
-            emjyBack.log('no valid validateKey', emjyBack.validateKey);
-            return;
-        }
-        this.GetCanBuy();
-    }
-}
-
-class NewBondsClient {
-    GetCanBuy() {
-        var url = EmjyUrlRoot + 'Trade/GetConvertibleBondListV2?validatekey=' + emjyBack.validateKey;
-        xmlHttpPost(url, null, null, response => {
-            var robj = JSON.parse(response);
-            if (robj.Status != 0) {
-                emjyBack.log('unknown error', response);
-                return;
-            }
-            if (robj.Data && robj.Data.length > 0) {
-                this.buyNewBonds(robj.Data);
-                return;
-            }
-            emjyBack.log('no new bonds', response);
-        });
-    }
-
-    buyNewBonds(bonds) {
-        var data = [];
-        for (let i = 0; i < bonds.length; i++) {
-            const bondi = bonds[i];
-            if (!bondi.ExIsToday) {
-                continue;
-            }
-            var StockCode = bondi.SUBCODE;
-            var StockName = bondi.SUBNAME;
-            var Price = bondi.PARVALUE;
-            var Amount = bondi.LIMITBUYVOL;
-            var TradeType = "B";
-            var Market = bondi.Market;
-            data.push({StockCode, StockName, Price, Amount, TradeType, Market});
-        }
-
-        if (data.length == 0) {
-            emjyBack.log('buyNewBonds no new bonds to buy!');
-            return;
-        }
-
-        var jdata = JSON.stringify(data);
-        emjyBack.log('buyNewStocks', jdata);
-        var url = EmjyUrlRoot + 'Trade/SubmitBatTradeV2?validatekey=' + emjyBack.validateKey;
-        var header = {"Content-Type": "application/json"}
-        xmlHttpPost(url, jdata, header, response => {
-            var robj = JSON.parse(response);
-            if (robj.Status == 0) {
-                emjyBack.log('buyNewBonds success', robj.Message);
-            } else {
-                emjyBack.log('buyNewBonds error', response);
-            }
-        });
-    }
-
-    buy() {
-        if (!emjyBack.validateKey) {
-            emjyBack.log('no valid validateKey', emjyBack.validateKey);
-            return;
-        }
-        this.GetCanBuy();
-    }
-}
-
-class BondRepurchaseClient {
-    constructor(cb) {
-        this.exitcb = cb;
-    }
-
-    exit() {
-        if (typeof(this.exitcb) == 'function') {
-            this.exitcb();
-        }
-    }
-
-    checkCount(code, price) {
-        var url = EmjyUrlRoot + 'Com/GetCanOperateAmount?validatekey=' + emjyBack.validateKey;
-        var fd = new FormData();
-        fd.append('stockCode', code);
-        fd.append('price', price);
-        fd.append('tradeType', '0S');
-        xmlHttpPost(url, fd, null, response => {
-            var robj = JSON.parse(response);
-            if (robj.Status != 0) {
-                emjyBack.log('unknown error', response);
-                this.exit();
-                return;
-            }
-            if (robj.Data && robj.Data.length > 0 && robj.Data[0].Kczsl > 0) {
-                this.bondRepurchase(code, price, robj.Data[0].Kczsl);
-                return;
-            }
-            emjyBack.log('no enough money to repurchase', response);
-            this.exit();
-        });
-    }
-
-    bondRepurchase(code, price, count) {
-        var url = EmjyUrlRoot + 'BondRepurchase/SecuritiesLendingRepurchaseTrade?validatekey=' + emjyBack.validateKey;
-        var fd = new FormData();
-        fd.append('zqdm', code);
-        fd.append('rqjg', price);
-        fd.append('rqsl', count);
-        emjyBack.log('bondRepurchase', code, price, count);
-        xmlHttpPost(url, fd, null, response => {
-            var robj = JSON.parse(response);
-            if (robj.Status != 0) {
-                emjyBack.log('repurchase error', response);
-                this.exit();
-                return;
-            }
-            if (robj.Data && robj.Data.length > 0) {
-                emjyBack.log('repurchase success');
-            }
-            emjyBack.log(response);
-            this.exit();
-        });
-    }
-
-    buy(code, price) {
-        if (!emjyBack.validateKey) {
-            emjyBack.log('no valid validateKey', emjyBack.validateKey);
-            this.exit();
-            return;
-        }
-
-        this.checkCount(code, price);
-    }
-}
-
-class RepaymentClient {
-    constructor(cb) {
-        this.exitcb = cb;
-    }
-
-    exit() {
-        if (typeof(this.exitcb) == 'function') {
-            this.exitcb();
-        }
-    }
-
-    GetRzrqAssets() {
-        var url = EmjyUrlRoot + 'MarginSearch/GetRzrqAssets?validatekey=' + emjyBack.validateKey;
-        var fd = new FormData();
-        fd.append('hblx', 'RMB');
-        xmlHttpPost(url, fd, null, response => {
-            var robj = JSON.parse(response);
-            if (robj.Status != 0 || !robj.Data) {
-                emjyBack.log(response);
-                this.exit();
-                return;
-            }
-            var total = -(-robj.Data.Rzfzhj - robj.Data.Rqxf);
-            if (total <= 0 || robj.Data.Zjkys - 1 < 0) {
-                emjyBack.log('待还款金额', total, '可用金额', robj.Data.Zjkys);
-                this.exit();
-                return;
-            }
-
-            var payAmount = total;
-            if (total > robj.Data.Zjkys - 0.1) {
-                var dateval = (new Date()).getDate();
-                if (dateval > 25 || dateval < 5) {
-                    payAmount = (robj.Data.Zjkys - robj.Data.Rzxf - robj.Data.Rqxf - robj.Data.Rzxf);
+                    if (robjPost.Status === 0) {
+                        emjyBack.log('buyNewStocks success', robjPost.Message);
+                    } else {
+                        emjyBack.log('buyNewStocks error', robjPost);
+                    }
                 } else {
-                    payAmount = (robj.Data.Zjkys - 0.11).toFixed(2);
+                    emjyBack.log('buyNewStocks no new stocks to buy!');
+                }
+            } else {
+                console.log(robj);
+            }
+        } catch (error) {
+            console.error('Error in buyNewStocks:', error);
+        }
+    }
+
+    static async buyNewBonds() {
+        if (!emjyBack.validateKey) {
+            emjyBack.log('no valid validateKey', emjyBack.validateKey);
+            return;
+        }
+
+        const url = `${feng.jywg}Trade/GetConvertibleBondListV2?validatekey=${emjyBack.validateKey}`;
+        try {
+            const response = await fetch(url, { method: 'POST' });
+            const robj = await response.json();
+
+            if (robj.Status !== 0) {
+                emjyBack.log('unknown error', robj);
+                return;
+            }
+
+            if (robj.Data && robj.Data.length > 0) {
+                const data = robj.Data
+                    .filter(bondi => bondi.ExIsToday)
+                    .map(bondi => ({
+                        StockCode: bondi.SUBCODE,
+                        StockName: bondi.SUBNAME,
+                        Price: bondi.PARVALUE,
+                        Amount: bondi.LIMITBUYVOL,
+                        TradeType: "B",
+                        Market: bondi.Market
+                    }));
+
+                if (data.length > 0) {
+                    const jdata = JSON.stringify(data);
+                    emjyBack.log('buyNewBonds', jdata);
+
+                    const postUrl = `${feng.jywg}Trade/SubmitBatTradeV2?validatekey=${emjyBack.validateKey}`;
+                    const header = { "Content-Type": "application/json" };
+                    const postResponse = await fetch(postUrl, { method: 'POST', headers: header, body: jdata });
+                    const robjPost = await postResponse.json();
+
+                    if (robjPost.Status === 0) {
+                        emjyBack.log('buyNewBonds success', robjPost.Message);
+                    } else {
+                        emjyBack.log('buyNewBonds error', robjPost);
+                    }
+                } else {
+                    emjyBack.log('buyNewBonds no new bonds to buy!');
+                }
+            } else {
+                emjyBack.log('no new bonds', robj);
+            }
+        } catch (error) {
+            console.error('Error in buyNewBonds:', error);
+        }
+    }
+
+
+    static async buyBondRepurchase(code) {
+        if (!emjyBack.validateKey) {
+            emjyBack.log('No valid validateKey');
+            return;
+        }
+
+        try {
+            // 获取最新价格
+            const priceData = await this.tradeClient.getRtPrice(code);
+            let price = priceData.cp;
+            price = priceData.b5 === '-' ? priceData.bp : priceData.b5;
+
+            // 获取可操作数量
+            const amountUrl = `${feng.jywg}Com/GetCanOperateAmount?validatekey=${emjyBack.validateKey}`;
+            const amountFd = new FormData();
+            amountFd.append('stockCode', code);
+            amountFd.append('price', price);
+            amountFd.append('tradeType', '0S');
+
+            const amountResponse = await fetch(amountUrl, { method: 'POST', body: amountFd });
+            const amountData = await amountResponse.json();
+
+            if (amountData.Status !== 0 || !amountData.Data || amountData.Data.length === 0 || amountData.Data[0].Kczsl <= 0) {
+                emjyBack.log('No enough funds to repurchase', JSON.stringify(amountData));
+                return;
+            }
+
+            const count = amountData.Data[0].Kczsl;
+
+            // 进行国债逆回购交易
+            const repurchaseUrl = `${feng.jywg}BondRepurchase/SecuritiesLendingRepurchaseTrade?validatekey=${emjyBack.validateKey}`;
+            const repurchaseFd = new FormData();
+            repurchaseFd.append('zqdm', code);
+            repurchaseFd.append('rqjg', price);
+            repurchaseFd.append('rqsl', count);
+
+            emjyBack.log('Executing bond repurchase:', code, price, count);
+            const repurchaseResponse = await fetch(repurchaseUrl, { method: 'POST', body: repurchaseFd });
+            const repurchaseData = await repurchaseResponse.json();
+
+            if (repurchaseData.Status === 0 && repurchaseData.Data && repurchaseData.Data.length > 0) {
+                emjyBack.log('Repurchase successful!', JSON.stringify(repurchaseData));
+            } else {
+                emjyBack.log('Repurchase failed:', JSON.stringify(repurchaseData));
+            }
+        } catch (error) {
+            emjyBack.log('Error in bond repurchase process:', error);
+        }
+    }
+
+    static async repayMarginLoan() {
+        const validateKey = emjyBack.validateKey;
+        if (!validateKey) {
+            return;
+        }
+
+        const assetsUrl = `${feng.jywg}MarginSearch/GetRzrqAssets?validatekey=${validateKey}`;
+        const fd = new FormData();
+        fd.append('hblx', 'RMB');
+
+        try {
+            // 获取融资融券资产信息
+            const assetsResponse = await fetch(assetsUrl, { method: 'POST', body: fd });
+            const assetsData = await assetsResponse.json();
+
+            if (assetsData.Status !== 0 || !assetsData.Data) {
+                emjyBack.log('Failed to fetch assets:', assetsData);
+                return;
+            }
+
+            // 计算待还款金额
+            const total = -(-assetsData.Data.Rzfzhj - assetsData.Data.Rqxf);
+            if (total <= 0 || assetsData.Data.Zjkys - 1 < 0) {
+                emjyBack.log('待还款金额:', total, '可用金额:', assetsData.Data.Zjkys);
+                return;
+            }
+
+            let payAmount = total;
+            if (total > assetsData.Data.Zjkys - 0.1) {
+                const dateval = new Date().getDate();
+                if (dateval > 25 || dateval < 5) {
+                    payAmount = assetsData.Data.Zjkys - assetsData.Data.Rzxf - assetsData.Data.Rqxf - assetsData.Data.Rzxf;
+                } else {
+                    payAmount = (assetsData.Data.Zjkys - 0.11).toFixed(2);
                 }
             }
-            this.Repayment(payAmount);
-        });
-    }
 
-    Repayment(hkje) {
-        if (hkje <= 0) {
-            emjyBack.log('Error number hkje', hkje);
-            this.exit();
-            return;
-        }
-
-        var url = EmjyUrlRoot + 'MarginTrade/submitZjhk?validatekey=' + emjyBack.validateKey;
-        var fd = new FormData();
-        fd.append('hbdm', 'RMB');
-        fd.append('hkje', hkje);
-        fd.append('bzxx', ''); // 备注信息
-        xmlHttpPost(url, fd, null, response => {
-            var robj = JSON.parse(response);
-            if (robj.Status == 0) {
-                emjyBack.log('Repayment success!', robj.Data[0].Sjhkje);
+            payAmount = parseFloat(payAmount);
+            if (payAmount <= 0) {
+                emjyBack.log('Invalid repayment amount:', payAmount);
+                return;
             }
-            emjyBack.log('Repayment response:', response);
-            this.exit();
-        });
-    }
 
-    go() {
-        if (!emjyBack.validateKey) {
-            emjyBack.log('no valid validateKey', emjyBack.validateKey);
-            this.exit();
-            return;
+            // 提交还款请求
+            const repaymentUrl = `${feng.jywg}MarginTrade/submitZjhk?validatekey=${validateKey}`;
+            const repaymentFd = new FormData();
+            repaymentFd.append('hbdm', 'RMB');
+            repaymentFd.append('hkje', payAmount);
+            repaymentFd.append('bzxx', ''); // 备注信息
+
+            const repaymentResponse = await fetch(repaymentUrl, { method: 'POST', body: repaymentFd });
+            const repaymentData = await repaymentResponse.json();
+
+            if (repaymentData.Status === 0) {
+                emjyBack.log('Repayment success!', repaymentData.Data?.[0]?.Sjhkje ?? 'Unknown amount');
+            } else {
+                emjyBack.log('Repayment failed:', repaymentData);
+            }
+        } catch (error) {
+            emjyBack.log('Repayment process failed:', error);
         }
-        this.GetRzrqAssets();
     }
 }

@@ -72,23 +72,20 @@ class TestTradeClient extends TradeClient {
         this.bindingAccount = account;
     }
 
-    trade(code, price, count, tradeType, jylx, cb) {
+    trade(code, price, count, tradeType, jylx) {
         console.log(this.bindingAccount.keyword, 'trade', tradeType, code, price, count, jylx);
         if (price == 0 || count < 100) {
             console.log('please set correct price and count for test trade!');
-            return;
-        } else {
-            var time = this.bindingAccount.tradeTime;
-            if (!time) {
-                var dt = new Date();
-                time = (new Date(dt - dt.getTimezoneOffset()*60*1000)).toISOString().split('.')[0].replace('T', ' ');
-            }
-            var sid = this.bindingAccount.sid;
-            this.bindingAccount.addDeal(code, price, count, tradeType);
-            if (typeof(cb) === 'function') {
-                cb({time, code, price, count, sid});
-            }
+            return Promise.resolve(null);
         }
+        var time = this.bindingAccount.tradeTime;
+        if (!time) {
+            var dt = new Date();
+            time = (new Date(dt - dt.getTimezoneOffset()*60*1000)).toISOString().split('.')[0].replace('T', ' ');
+        }
+        var sid = this.bindingAccount.sid;
+        this.bindingAccount.addDeal(code, price, count, tradeType);
+        return Promise.resolve({time, code, price, count, sid});
     }
 }
 
@@ -206,19 +203,18 @@ class TrackingAccount extends NormalAccount {
         this.tradeClient = new TestTradeClient(this);
     }
 
-    buyStock(code, price, count, cb) {
+    buyStock(code, price, count) {
         if (!this.tradeClient) {
             this.createTradeClient();
         }
 
         if (price == 0) {
-            this.tradeClient.getRtPrice(code, pobj => {
+            return this.tradeClient.getRtPrice(code).then(pobj => {
                 var p = pobj.cp;
-                this.tradeClient.buy(code, p, count, cb);
+                return this.tradeClient.buy(code, p, count);
             });
-            return;
         }
-        this.tradeClient.buy(code, price, count, cb);
+        return this.tradeClient.buy(code, price, count);
     }
 
     sellStock(code, price, count, cb) {
@@ -226,13 +222,12 @@ class TrackingAccount extends NormalAccount {
             this.createTradeClient();
         }
         if (price == 0) {
-            this.tradeClient.getRtPrice(code, pobj => {
+            return this.tradeClient.getRtPrice(code).then( pobj => {
                 var p = pobj.cp;
-                this.tradeClient.sell(code, p, count, cb);
+                return this.tradeClient.sell(code, p, count);
             });
-            return;
         }
-        this.tradeClient.sell(code, price, count, cb);
+        return this.tradeClient.sell(code, price, count);
     }
 
     removeStock(code) {

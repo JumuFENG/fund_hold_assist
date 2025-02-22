@@ -1,6 +1,6 @@
 'use strict';
 let BondRepurchasePath = '/BondRepurchase/SecuritiesLendingRepurchase';
-let jywgroot = 'https://jywg.eastmoneysec.com/'; //'https://jywg.18.cn/';
+
 class Wallet {
     constructor() {
         this.fundcode = '511880';
@@ -20,7 +20,7 @@ class DealsClient {
     }
 
     getUrl() {
-        return jywgroot + 'Search/GetDealData?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'Search/GetDealData?validatekey=' + emjyBack.validateKey;
     }
 
     getFormData() {
@@ -87,7 +87,7 @@ class MarginDealsClient extends DealsClient {
     }
 
     getUrl() {
-        return jywgroot + 'MarginSearch/GetDealData?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'MarginSearch/GetDealData?validatekey=' + emjyBack.validateKey;
     }
 
     updateDwc() {
@@ -159,7 +159,7 @@ class HistDealsClient extends DealsClient {
 
     // 重写 getUrl 方法，使用历史成交数据的接口
     getUrl() {
-        return jywgroot + 'Search/GetHisDealData?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'Search/GetHisDealData?validatekey=' + emjyBack.validateKey;
     }
 }
 
@@ -180,26 +180,26 @@ class MarginHistDealsClient extends HistDealsClient {
     }
 
     getUrl() {
-        return jywgroot + 'MarginSearch/queryCreditHisMatchV2?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'MarginSearch/queryCreditHisMatchV2?validatekey=' + emjyBack.validateKey;
     }
 }
 
 class OrdersClient extends DealsClient {
     getUrl() {
-        return jywgroot + 'Search/GetOrdersData?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'Search/GetOrdersData?validatekey=' + emjyBack.validateKey;
     }
 }
 
 class MarginOrdersClient extends DealsClient {
     getUrl() {
-        return jywgroot + 'MarginSearch/GetOrdersData?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'MarginSearch/GetOrdersData?validatekey=' + emjyBack.validateKey;
     }
 }
 
 class SxlHistClient extends HistDealsClient {
     // Stock Exchange List
     getUrl() {
-        return jywgroot + 'Search/GetFundsFlow?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'Search/GetFundsFlow?validatekey=' + emjyBack.validateKey;
     }
 }
 
@@ -219,7 +219,7 @@ class MarginSxlHistClient extends HistDealsClient {
     }
 
     getUrl() {
-        return jywgroot + 'MarginSearch/queryCreditLogAssetV2?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'MarginSearch/queryCreditLogAssetV2?validatekey=' + emjyBack.validateKey;
     }
 }
 
@@ -231,7 +231,7 @@ class AssetsClient {
 
     // 构造 URL
     buildUrl(endpoint) {
-        return `${jywgroot}${endpoint}?validatekey=${emjyBack.validateKey}`;
+        return `${feng.jywg}${endpoint}?validatekey=${emjyBack.validateKey}`;
     }
 
     // 通用的 fetch 请求方法
@@ -379,17 +379,17 @@ class MarginAssetsClient extends AssetsClient {
 
 
 class TradeClient {
-    constructor(amoney=0) {
+    constructor(amoney = 0) {
         this.availableMoney = amoney;
     }
 
     getUrl() {
-        return jywgroot + 'Trade/SubmitTradeV2?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'Trade/SubmitTradeV2?validatekey=' + emjyBack.validateKey;
     }
 
     getBasicFormData(code, price, count, tradeType) {
-        var fd = new FormData();
-        var stock = emjyBack.stockMarket[code];
+        const fd = new FormData();
+        const stock = emjyBack.stockMarket[code];
         fd.append('stockCode', code);
         fd.append('price', price);
         fd.append('amount', count);
@@ -397,54 +397,53 @@ class TradeClient {
             tradeType = '0' + tradeType;
         }
         fd.append('tradeType', tradeType);
-        const mdic = {0: 'SA', 1: 'HA', 4: 'B'};
+        const mdic = { 0: 'SA', 1: 'HA', 4: 'B' };
         fd.append('market', mdic[stock.mkt]);
         return fd;
     }
 
     getFormData(code, price, count, tradeType) {
-        var fd = this.getBasicFormData(code, price, count, tradeType);
+        const fd = this.getBasicFormData(code, price, count, tradeType);
         fd.append('zqmc', emjyBack.stockMarket[code].n);
         return fd;
     }
 
-    getRtPrice(code, cb) {
-        var cbprefix = 'jSnapshotBack';
-        var url = 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id=' + code + '&callback=' + cbprefix + '&_=' + Date.now();
-        var httpRequest = new XMLHttpRequest();//第一步：建立所需的对象
-        httpRequest.open('GET', url, true);//第二步：打开连接
-        httpRequest.send();//第三步：发送请求
-        /**
-         * 获取数据后的处理程序
-         */
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                if (typeof(cb) === 'function') {
-                    var resobj = JSON.parse(httpRequest.responseText.substring(cbprefix.length + 1, httpRequest.responseText.length - 2));
-                    if (resobj) {
-                        var bp = resobj.bottomprice;
-                        var tp = resobj.topprice;
-                        var cp = resobj.realtimequote.currentPrice;
-                        var s5 = resobj.fivequote.sale5;
-                        var b5 = resobj.fivequote.buy5;
-                        if (resobj.fivequote.sale1 == resobj.fivequote.buy1) {
-                            // 集合竞价
-                            s5 = cp * 1.03 - tp > 0 ? tp : cp * 1.03;
-                            b5 = cp * 0.97 - bp > 0 ? cp * 0.97 : bp;
-                        }
-                        cb({bp, tp, cp, s5, b5});
-                    } else {
-                        cb();
-                    }
-                } else {
-                    emjyBack.log('getRtPrice no callback cb set!', httpRequest.responseText);
+    getRtPrice(code) {
+        const cbprefix = 'jSnapshotBack';
+        const url = `https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id=${code}&callback=${cbprefix}&_=${Date.now()}`;
+
+        return fetch(url)
+            .then(response => response.text()) // 先转换为文本
+            .then(text => {
+                const jsonText = text.substring(cbprefix.length + 1, text.length - 2); // 去掉 JSONP 包装
+                return JSON.parse(jsonText); // 解析 JSON
+            })
+            .then(resobj => {
+                if (!resobj) {
+                    throw new Error('getRtPrice Invalid response');
                 }
-            }
-        };
+
+                const { bottomprice: bp, topprice: tp, realtimequote, fivequote } = resobj;
+                const cp = realtimequote.currentPrice;
+                let s5 = fivequote.sale5;
+                let b5 = fivequote.buy5;
+
+                if (fivequote.sale1 == fivequote.buy1) {
+                    // 集合竞价
+                    s5 = cp * 1.03 - tp > 0 ? tp : cp * 1.03;
+                    b5 = cp * 0.97 - bp > 0 ? cp * 0.97 : bp;
+                }
+
+                return { bp, tp, cp, s5, b5 };
+            })
+            .catch(error => {
+                console.error('getRtPrice failed:', error);
+                return null;
+            });
     }
 
     countUrl() {
-        return jywgroot + 'Trade/GetAllNeedTradeInfo?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'Trade/GetAllNeedTradeInfo?validatekey=' + emjyBack.validateKey;
     }
 
     countFormData(code, price, tradeType, jylx) {
@@ -460,114 +459,72 @@ class TradeClient {
         return fd;
     }
 
-    getCount(code, price, tradeType, jylx, cb) {
-        var url = this.countUrl();
-        var fd = this.countFormData(code, price, tradeType, jylx);
-        xmlHttpPost(url, fd, null, response => {
-            var robj = JSON.parse(response);
-            if (robj.Status != 0) {
-                emjyBack.log(code, tradeType, 'trade getCount error');
-                emjyBack.log(response);
-                return;
-            }
-            if (robj.Data && robj.Data.Kmml > 0) {
-                if (typeof(cb) === 'function') {
-                    cb({availableCount: robj.Data.Kmml});
-                    return;
+    getCount(code, price, tradeType, jylx) {
+        return fetch(this.countUrl(), {
+            method: 'POST',
+            body: this.countFormData(code, price, tradeType, jylx),
+        })
+            .then(response => response.json())
+            .then(robj => {
+                if (robj.Status !== 0 || !robj.Data?.Kmml) {
+                    throw new Error('Trade getCount error: ' + JSON.stringify(robj));
                 }
-            } else {
-                emjyBack.log(code, tradeType, 'trade error:', 'getCount unresolved response:');
-            }
-            emjyBack.log(response);
-        });
+                return { availableCount: robj.Data.Kmml };
+            });
     }
 
-    doTrade(code, price, count, tradeType, jylx, cb) {
-        if (tradeType == 'B' && this.availableMoney - price * count < 0) {
-            emjyBack.log('doTrade no enough money', code, price * count, this.availableMoney, price, count);
-            return;
-        }
-        emjyBack.log('doTrade', tradeType, code, price, count, jylx);
-        xmlHttpPost(this.getUrl(), this.getFormData(code, price, count, tradeType, jylx), null, response => {
-            var robj = JSON.parse(response);
-            if (robj.Status != 0) {
-                emjyBack.log(code, tradeType, response);
-                if (typeof(cb) == 'function') {
-                    cb(null, response);
+    doTrade(code, price, count, tradeType, jylx) {
+        return fetch(this.getUrl(), {
+            method: 'POST',
+            body: this.getFormData(code, price, count, tradeType, jylx),
+        })
+            .then(response => response.json())
+            .then(robj => {
+                if (robj.Status !== 0 || !robj.Data?.length) {
+                    throw new Error('Trade failed: ' + JSON.stringify(robj));
                 }
-                return;
-            }
-            if (robj.Data && robj.Data.length > 0) {
-                emjyBack.log(code, tradeType, 'Trade success! wtbh', robj.Data[0].Wtbh);
-                this.availableMoney -= tradeType == 'B' ? price * count : -(price * count);
-                if (typeof(cb) === 'function') {
-                    cb({code, price, count, sid: robj.Data[0].Wtbh, type: tradeType});
-                }
-            }
-            emjyBack.log(code, tradeType, JSON.stringify(robj));
-        });
+                this.availableMoney -= tradeType === 'B' ? price * count : -(price * count);
+                return { code, price, count, sid: robj.Data[0].Wtbh, type: tradeType };
+            });
     }
 
-    tradeValidPrice(code, price, count, tradeType, jylx, cb) {
+    async tradeValidPrice(code, price, count, tradeType, jylx) {
+        let finalCount = count;
         if (count < 10) {
-            if (count < 1) {
-                emjyBack.log(code, tradeType, 'unknwn count', count);
-                return;
+            if (count < 1) throw new Error(`Invalid count: ${count}`);
+            const cobj = await this.getCount(code, price, tradeType, jylx);
+            finalCount = cobj.availableCount;
+            if (count > 1) {
+                finalCount = 100 * Math.floor(cobj.availableCount / 100 / count);
             }
-            this.getCount(code, price, tradeType, jylx, cobj => {
-                var finalCount = cobj.availableCount;
-                if (count > 1) {
-                    finalCount = 100 * ((cobj.availableCount / 100) / count).toFixed();
-                }
-                this.doTrade(code, price, finalCount, tradeType, jylx, cb);
-            });
-        } else {
-            this.doTrade(code, price, count, tradeType, jylx, cb);
         }
+        return this.doTrade(code, price, finalCount, tradeType, jylx);
     }
 
-    trade(code, price, count, tradeType, jylx, cb) {
-        if (tradeType == 'B' && this.availableMoney < 1000) {
-            emjyBack.log('trade no enough money.', tradeType, code, price, count, jylx);
-            return;
+    async trade(code, price, count, tradeType, jylx) {
+        if (tradeType === 'B' && this.availableMoney < 1000) {
+            throw new Error('Insufficient funds');
         }
-        emjyBack.log('trade', tradeType, code, price, count, jylx);
-        if (price == 0) {
-            this.getRtPrice(code, pobj => {
-                var p = pobj.cp;
-                if (tradeType == 'B') {
-                    p = pobj.s5 == '-' ? pobj.tp : pobj.s5;
-                } else if (tradeType == 'S') {
-                    p = pobj.b5 == '-' ? pobj.bp : pobj.b5;
-                }
-                this.tradeValidPrice(code, p, count, tradeType, jylx, cb);
-            });
-        } else {
-            this.tradeValidPrice(code, price, count, tradeType, jylx, cb);
+
+        if (price === 0) {
+            const pobj = await this.getRtPrice(code);
+            price =
+                tradeType === 'B' ? (pobj.s5 === '-' ? pobj.tp : pobj.s5) :
+                tradeType === 'S' ? (pobj.b5 === '-' ? pobj.bp : pobj.b5) :
+                price;
         }
+        return this.tradeValidPrice(code, price, count, tradeType, jylx);
     }
 
-    // stockCode	"002084"
-    // price	"5.67"
-    // amount	"900"
-    // tradeType	"S"
-    // zqmc	"海鸥住工"
-    // gddm	""
-    // market	"SA"
-    sell(code, price, count, cb) {
-        this.trade(code, price, count, 'S', null, cb);
+    sell(code, price, count) {
+        return this.trade(code, price, count, 'S', null);
     }
 
-    // stockCode	"605033"
-    // price	"15.71"
-    // amount	"100"
-    // tradeType	"B"
-    // zqmc	"美邦股份"
-    // market	"HA"
-    buy(code, price, count, cb) {
-        this.trade(code, price, count, 'B', null, cb);
+    buy(code, price, count) {
+        return this.trade(code, price, count, 'B', null);
     }
 }
+
 
 class CollatTradeClient extends TradeClient {
     constructor(amoney) {
@@ -577,18 +534,14 @@ class CollatTradeClient extends TradeClient {
     }
 
     getUrl() {
-        return jywgroot + 'MarginTrade/SubmitTradeV2?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'MarginTrade/SubmitTradeV2?validatekey=' + emjyBack.validateKey;
     }
 
     getFormData(code, price, count, tradeType, jylx) {
-        var fd = super.getBasicFormData(code, price, count, tradeType);
+        const fd = super.getBasicFormData(code, price, count, tradeType);
         fd.append('stockName', emjyBack.stockMarket[code].n);
-        fd.append('xyjylx', jylx); // 信用交易类型
+        fd.append('xyjylx', jylx);
         return fd;
-    }
-
-    countUrl() {
-        return jywgroot + 'MarginTrade/GetKyzjAndKml?validatekey=' + emjyBack.validateKey;
     }
 
     countFormData(code, price, tradeType, jylx) {
@@ -605,42 +558,29 @@ class CollatTradeClient extends TradeClient {
         return fd;
     }
 
-    // stockCode   "601456"
-    // stockName   "国联证券"
-    // price   "13.87"
-    // amount  "100"
-    // tradeType   "S"
-    // xyjylx  "7"
-    // market  "HA"
-    sell(code, price, count, cb) {
-        this.trade(code, price, count, 'S', this.sell_jylx, cb);
+    countUrl() {
+        return feng.jywg + 'MarginTrade/GetKyzjAndKml?validatekey=' + emjyBack.validateKey;
     }
 
-    // stockCode	"000531"
-    // stockName	"穗恒运Ａ"
-    // price	"10.20"
-    // amount	"100"
-    // tradeType	"B"
-    // xyjylx	"6"
-    // market	"SA"
-    buy(code, price, count, cb) {
-        this.trade(code, price, count, 'B', this.buy_jylx, cb);
+    async checkRzrqTarget(code) {
+        const pobj = await this.getRtPrice(code);
+        const url = this.countUrl();
+        const fd = this.countFormData(code, pobj.cp, 'B', this.buy_jylx);
+
+        const response = await fetch(url, { method: 'POST', body: fd });
+        const robj = await response.json();
+        return { Status: robj.Status, Kmml: robj.Data.Kmml, Message: robj.Message, code };
     }
 
-    checkRzrqTarget(code, cb) {
-        this.getRtPrice(code, pobj => {
-            var p = pobj.cp;
-            var url = this.countUrl();
-            var fd = this.countFormData(code, p, 'B', this.buy_jylx);
-            xmlHttpPost(url, fd, null, response => {
-                var robj = JSON.parse(response);
-                if (typeof(cb) === 'function') {
-                    cb({Status: robj.Status, Kmml: robj.Data.Kmml, Message: robj.Message, code});
-                }
-            });
-        });
+    sell(code, price, count) {
+        return this.trade(code, price, count, 'S', this.sell_jylx);
+    }
+
+    buy(code, price, count) {
+        return this.trade(code, price, count, 'B', this.buy_jylx);
     }
 }
+
 
 class CreditTradeClient extends CollatTradeClient {
     constructor(amoney) {
@@ -656,12 +596,12 @@ class CreditTradeClient extends CollatTradeClient {
     // tradeType	"B"
     // xyjylx	"a"
     // market	"HA"
-    buy(code, price, count, cb) {
+    buy(code, price, count) {
         if (count < 100) {
             emjyBack.log('trade error:', 'must set correct buy count for credit buy');
-            return;
+            return Promise.resolve();
         }
-        this.trade(code, price, count, 'B', 'a', cb);
+        return this.trade(code, price, count, 'B', 'a');
     }
 
     // stockCode	"510300"
@@ -671,10 +611,11 @@ class CreditTradeClient extends CollatTradeClient {
     // tradeType	"S"
     // xyjylx	"A"
     // market	"HA"
-    sell(code, price, count, cb) {
-        this.trade(code, price, count, 'S', 'A', cb);
+    sell(code, price, count) {
+        return this.trade(code, price, count, 'S', 'A');
     }
 }
+
 
 class Account {
     constructor() {
@@ -810,29 +751,25 @@ class NormalAccount extends Account {
         this.tradeClient = new TradeClient(this.availableMoney);
     }
 
-    buyStock(code, price, count, cb) {
+    buyStock(code, price, count) {
         if (!this.tradeClient) {
             this.createTradeClient();
         }
 
-        this.tradeClient.buy(code, price, count, bd => {
-            if (typeof(cb) === 'function' && bd) {
-                cb(bd);
-            }
+        return this.tradeClient.buy(code, price, count).then(bd => {
             this.updateAssets();
+            return bd;
         });
     }
 
-    sellStock(code, price, count, cb) {
+    sellStock(code, price, count) {
         if (!this.tradeClient) {
             this.createTradeClient();
         }
 
-        this.tradeClient.sell(code, price, count, (sd, response)=> {
-            if (typeof(cb) === 'function') {
-                cb(sd, response);
-            }
+        return this.tradeClient.sell(code, price, count).then(sd => {
             this.updateAssets();
+            return sd;
         });
     }
 
@@ -941,31 +878,16 @@ class NormalAccount extends Account {
         });
     }
 
-    buyBondRepurchase() {
-        if (!this.bondRepurchaseList || this.bondRepurchaseList.length == 0) {
-            return;
-        }
-        var code = this.bondRepurchaseList.shift();
-        this.tradeClient.getRtPrice(code, pobj => {
-            var p = pobj.cp;
-            p = pobj.b5 == '-' ? pobj.bp : pobj.b5;
-            this.brClient.buy(code, p);
-        });
-    }
-
     buyFundBeforeClose() {
         if (!this.tradeClient) {
             this.createTradeClient();
         }
-        this.bondRepurchaseList = ['204001', '131810'];
-        this.brClient = new BondRepurchaseClient(() => {
-            this.buyBondRepurchase();
-        });
-        this.buyBondRepurchase();
+        feng.buyBondRepurchase('204001');
+        // feng.buyBondRepurchase('131810');
     }
 
     sellWalletFund() {
-        this.sellStock(this.wallet.fundcode, 0, 1);
+        return this.sellStock(this.wallet.fundcode, 0, 1);
     }
 
     fillupGuardPrices() {
@@ -1166,10 +1088,9 @@ class CollateralAccount extends NormalAccount {
     }
 
     buyFundBeforeClose() {
-        var rpclt = new RepaymentClient(() => {
+        feng.repayMarginLoan().then(() => {
             this.buyStock(this.wallet.fundcode, 0, 1);
         });
-        rpclt.go();
     }
 
     loadDeals() {
@@ -1227,6 +1148,7 @@ class CollateralAccount extends NormalAccount {
         return {code, name, holdCount, holdCost, availableCount, latestPrice};
     }
 }
+
 
 class CreditAccount extends CollateralAccount {
     constructor() {

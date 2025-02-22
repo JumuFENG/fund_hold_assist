@@ -1035,10 +1035,10 @@ class StrategySellELShort extends StrategySellEL {
         }
 
         var troughprice = klines.getLastTrough('1');
-        if (emjyBack.stockZdtPrices && emjyBack.stockZdtPrices[chkInfo.code]) {
-            if (kl.c - kl.l == 0 && kl.c - emjyBack.stockZdtPrices[chkInfo.code].ztprice >= 0 && kl.c * 0.98 - troughprice > 0) {
-                troughprice = kl.c * 0.96;
-            }
+
+        let ztprice = emjyBack.calcZtPrice(chkInfo.lastClose, emjyBack.getStockZdf(chkInfo.code));
+        if (kl.c - kl.l == 0 && kl.c - ztprice >= 0 && kl.c * 0.98 - troughprice > 0) {
+            troughprice = kl.c * 0.96;
         }
         if (troughprice > 0 && troughprice - this.data.guardPrice > 0) {
             this.data.guardPrice = troughprice;
@@ -1116,12 +1116,12 @@ class StrategySellELTop extends StrategySell {
 
         if (updatedKlt.includes(this.dkltype)) {
             var kl = klines.getLatestKline(this.dkltype);
-            if (emjyBack.stockZdtPrices && emjyBack.stockZdtPrices[chkInfo.code]) {
-                if (kl.c - emjyBack.stockZdtPrices[chkInfo.code].ztprice >= 0) {
-                    // 涨停不卖出
-                    return;
-                }
-            } else if (klines.latestKlinePercentage() - 0.09 > 0 && kl.c - kl.h == 0) {
+            let ztprice = emjyBack.calcZtPrice(chkInfo.lastClose, emjyBack.getStockZdf(chkInfo.code));
+            if (kl.c - ztprice >= 0) {
+                // 涨停不卖出
+                return;
+            }
+            if (klines.latestKlinePercentage() - 0.09 > 0 && kl.c - kl.h == 0) {
                 // 涨停不卖出
                 return;
             }
@@ -1440,7 +1440,8 @@ class StrategySellBeforeEnd extends Strategy {
         }
         count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
         if (this.data.sell_conds & conditions['not_zt']) {
-            if (emjyBack.stockZdtPrices && emjyBack.stockZdtPrices[chkInfo.code] && kl.c - emjyBack.stockZdtPrices[chkInfo.code].ztprice < 0) {
+            let ztprice = emjyBack.calcZtPrice(chkInfo.lastClose, emjyBack.getStockZdf(chkInfo.code));
+            if (kl.c - ztprice < 0) {
                 matchCb({id: chkInfo.id, tradeType: 'S', count, price: kl.c}, _ => {
                     this.setEnabled(false);
                 });
@@ -1454,7 +1455,8 @@ class StrategySellBeforeEnd extends Strategy {
             return;
         }
 
-        var zt = emjyBack.stockZdtPrices && emjyBack.stockZdtPrices[chkInfo.code] && kl.c - emjyBack.stockZdtPrices[chkInfo.code].ztprice >= 0
+        let ztprice = emjyBack.calcZtPrice(chkInfo.lastClose, emjyBack.getStockZdf(chkInfo.code));
+        var zt = kl.c - ztprice >= 0
         var hinc = kl.h - prekl.h > 0 || zt;
         var linc = kl.l - prekl.l > 0;
         if (this.data.sell_conds & conditions['h_and_l_dec']) {
@@ -2164,7 +2166,8 @@ class StrategyGrid extends StrategyComplexBase {
             return;
         }
         var kl = klines.getLatestKline(kltype);
-        if (emjyBack.stockZdtPrices && emjyBack.stockZdtPrices[chkInfo.code] && kl.c - emjyBack.stockZdtPrices[chkInfo.code].ztprice >= 0) {
+        let ztprice = emjyBack.calcZtPrice(chkInfo.lastClose, emjyBack.getStockZdf(chkInfo.code));
+        if (kl.c - ztprice >= 0) {
             // 涨停不卖出，不加仓
             return;
         }
