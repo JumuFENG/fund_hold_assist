@@ -98,15 +98,6 @@ class MarginDealsClient extends DealsClient {
 
 class HistDealsClient extends DealsClient {
     // 普通账户 历史成交
-    // 将日期转换为字符串格式
-    dateToString(dt, sep = '-') {
-        const dstr = new Date(dt - dt.getTimezoneOffset() * 60 * 1000).toISOString().split('T')[0];
-        if (sep === '-') {
-            return dstr;
-        }
-        return dstr.split('-').join(sep);
-    }
-
     // 设置起始日期
     setStartDate(startDate) {
         this.startDate = new Date(startDate);
@@ -152,8 +143,8 @@ class HistDealsClient extends DealsClient {
     // 重写 getFormData 方法，添加时间范围参数
     getFormData() {
         const fd = super.getFormData();
-        fd.append('st', this.dateToString(this.startTime));
-        fd.append('et', this.dateToString(this.endTime));
+        fd.append('st', emjyBack.dateToString(this.startTime));
+        fd.append('et', emjyBack.dateToString(this.endTime));
         return fd;
     }
 
@@ -171,11 +162,11 @@ class MarginHistDealsClient extends HistDealsClient {
         if (fd.has('st')) {
             fd.delete('st');
         }
-        fd.append('st', this.dateToString(this.startTime, ''));
+        fd.append('st', emjyBack.dateToString(this.startTime, ''));
         if (fd.has('et')) {
             fd.delete('et');
         }
-        fd.append('et', this.dateToString(this.endTime, ''));
+        fd.append('et', emjyBack.dateToString(this.endTime, ''));
         return fd;
     }
 
@@ -210,11 +201,11 @@ class MarginSxlHistClient extends HistDealsClient {
         if (fd.has('st')) {
             fd.delete('st');
         }
-        fd.append('st', this.dateToString(this.startTime, ''));
+        fd.append('st', emjyBack.dateToString(this.startTime, ''));
         if (fd.has('et')) {
             fd.delete('et');
         }
-        fd.append('et', this.dateToString(this.endTime, ''));
+        fd.append('et', emjyBack.dateToString(this.endTime, ''));
         return fd;
     }
 

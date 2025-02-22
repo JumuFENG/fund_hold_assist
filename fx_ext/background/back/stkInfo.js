@@ -12,7 +12,7 @@ class StockInfo {
         this.strategies = null;
     }
 
-    updateRtPrice(snapshot) {
+    async updateRtPrice(snapshot) {
         if (!this.name) {
             this.name = snapshot.name;
         }
@@ -38,7 +38,7 @@ class StockInfo {
         //tradeAnalyzer.updateStockRtPrice(snapshot);
     }
 
-    updateRtKline(updatedKlt) {
+    async updateRtKline(updatedKlt) {
         if (this.strategies) {
             this.strategies.checkKlines(updatedKlt);
         };

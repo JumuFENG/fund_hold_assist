@@ -12,9 +12,8 @@ class TradingData {
         this.dayPriceAvg[snapshot.code].push([snapshot.realtimequote.currentPrice, snapshot.realtimequote.avg]);
     }
 
-    getTodayDate() {
-        var now = new Date();
-        return now.getFullYear() + ('' + (now.getMonth()+1)).padStart(2, '0') + ('' + now.getDate()).padStart(2, '0');
+    getTodayDate(sep='') {
+        return new Date().toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
     }
 
     save() {
@@ -80,14 +79,14 @@ class TestTradeClient extends TradeClient {
         }
         var time = this.bindingAccount.tradeTime;
         if (!time) {
-            var dt = new Date();
-            time = (new Date(dt - dt.getTimezoneOffset()*60*1000)).toISOString().split('.')[0].replace('T', ' ');
+            time = new Date().toLocaleString('zh', {year:'numeric', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit'}).replace(/\//g, '-');
         }
         var sid = this.bindingAccount.sid;
         this.bindingAccount.addDeal(code, price, count, tradeType);
         return Promise.resolve({time, code, price, count, sid});
     }
 }
+
 
 class TrackingAccount extends NormalAccount {
     constructor(key='track') {
@@ -160,7 +159,7 @@ class TrackingAccount extends NormalAccount {
                             fix_date_price(stockInfo.code, stockInfo.strategies.buydetail.full_records);
                             stockInfo.holdCount = stockInfo.strategies.buydetail.totalCount();
                             stockInfo.holdCost = (stockInfo.strategies.buydetail.averPrice()).toFixed(2);
-                            if (stockInfo.holdCount > 0 && stockInfo.strategies.buydetail.lastBuyDate() >= emjyBack.getTodayDate('-')) {
+                            if (stockInfo.holdCount > 0 && stockInfo.strategies.buydetail.lastBuyDate() >= tradeAnalyzer.getTodayDate('-')) {
                                 enable_track_strategies(stockInfo.strategies.strategies);
                             }
                         };
@@ -178,7 +177,7 @@ class TrackingAccount extends NormalAccount {
     addDeal(code, price, count, tradeType) {
         var time = this.tradeTime;
         if (!time) {
-            time = emjyBack.getTodayDate('-');
+            time = tradeAnalyzer.getTodayDate('-');
         }
         var stk = this.getStock(code);
         if (!stk) {

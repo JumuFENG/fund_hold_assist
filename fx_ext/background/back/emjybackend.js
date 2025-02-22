@@ -681,7 +681,7 @@ class EmjyBack {
     doUpdateHistDeals(date) {
         var startDate = date;
         if (typeof(date) === 'string') {
-            startDate = new Date(date);
+            startDate = new Date(date.split('-'));
         }
         this.normalAccount.loadHistDeals(startDate).then(deals => {this.addHistDeals(deals);});
         this.collateralAccount.loadHistDeals(startDate).then(deals => {this.addHistDeals(deals);});
@@ -690,7 +690,7 @@ class EmjyBack {
     loadOtherDeals(date) {
         var startDate = date;
         if (typeof(startDate) === 'string') {
-            startDate = new Date(date);
+            startDate = new Date(date.split('-'));
         }
         this.normalAccount.loadOtherDeals(startDate).then(deals => {this.addOtherDeals(deals)});
         this.collateralAccount.loadOtherDeals(startDate).then(deals => {this.addOtherDeals(deals)});
@@ -780,11 +780,7 @@ class EmjyBack {
     }
 
     dateToString(dt, sep = '-') {
-        var dstr = new Date(dt - dt.getTimezoneOffset()*60*1000).toISOString().split('T')[0];
-        if (sep === '-') {
-            return dstr;
-        }
-        return dstr.split('-').join(sep);
+        return dt.toLocaleString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
     }
 
     mergeCumDeals(deals) {

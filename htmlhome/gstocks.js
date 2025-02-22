@@ -24,9 +24,7 @@ class GlobalManager {
     }
 
     log(...args) {
-        var dt = new Date();
-        var l = '[' + dt.getHours() + ':' + dt.getMinutes() + ':' + dt.getSeconds()  + '] ' +  args.join(' ');
-        console.log(l);
+        console.log(`[${new Date().toLocaleTimeString('zh',{hour12:false})}] ${args.join(' ')}`);
     }
 
     saveToLocal(data) {
@@ -104,6 +102,30 @@ class GlobalManager {
         return 100 * Math.ceil(ct);
     }
 
+    getStockZdf(code, name='') {
+        if (code.startsWith('68') || code.startsWith('30')) {
+            return 20;
+        }
+        if (code.startsWith('60') || code.startsWith('00')) {
+            return 10;
+        }
+        return 30;
+    }
+
+    calcZtPrice(lclose, zdf) {
+        if (zdf == 30) {
+            return Math.floor(lclose * 130) / 100;
+        }
+        return Math.round(lclose * 100 + lclose * zdf + 0.00000001) / 100;
+    }
+
+    calcDtPrice(lclose, zdf) {
+        if (zdf == 30) {
+            return Math.ceil(lclose * 70) / 100;
+        }
+        return Math.round(lclose * 100 - lclose * zdf + 0.00000001) / 100;
+    }
+
     applyGuardLevel(strgrp, allklt) {
         console.log('GlobalManager.applyGuardLevel();');
     }
@@ -136,7 +158,7 @@ class GlobalManager {
         this.retroEngine = new RetroEngine();
     }
 
-    trySellStock(code, price, count, account, cb) {
+    trySellStock(code, price, count, account) {
         var sellAccount = this.normalAccount;
         if (account) {
             if (this.retroAccount && account == this.retroAccount.keyword) {
@@ -145,15 +167,26 @@ class GlobalManager {
                 sellAccount = this.testAccount;
             } else {
                 console.log('Error, no valid account', account);
-                return;
+                return Promise.resolve();
             }
         };
 
-        sellAccount.sellStock(code, price, count, cb);
+        return sellAccount.sellStock(code, price, count).then(sd => {
+            var stk = sellAccount.getStock(code);
+            if (stk) {
+                if (!stk.strategies) {
+                    sellAccount.applyStrategy(code, {grptype: 'GroupStandard', strategies: {'0': {key: 'StrategySellELS', enabled: false, cutselltype: 'all', selltype: 'all'}}, transfers: {'0': {transfer: '-1'}}, amount: '5000'});
+                }
+                if (sd) {
+                    stk.strategies.buydetail.addSellDetail(sd);
+                }
+            }
+            return sd;
+        });
     }
 
-    tryBuyStock(code, price, count, account, cb) {
-        var buyAccount = this.normalAccount;
+    tryBuyStock(code, price, count, account) {
+        let buyAccount = this.normalAccount;
         if (account) {
             if (this.retroAccount && account == this.retroAccount.keyword) {
                 buyAccount = this.retroAccount;
@@ -165,7 +198,16 @@ class GlobalManager {
             }
         };
 
-        buyAccount.buyStock(code, price, count, cb);
+        return buyAccount.buyStock(code, price, count).then(bd => {
+            var stk = buyAccount.getStock(code);
+            if (stk) {
+                if (!stk.strategies) {
+                    buyAccount.addStockStrategy(stk, strgrp);
+                }
+                stk.strategies.buydetail.addBuyDetail(bd);
+            }
+            return bd;
+        });
     }
 
     getLongStockCode(code) {
@@ -282,6 +324,29 @@ class GlobalManager {
             }
             this.klines[code].updateRtKline(klmessage);
             this.klines[code].save();
+        });
+    }
+
+    fetchStockBks(stocks) {
+        const ssize = 440;
+        if (stocks.length > ssize) {
+            let i = 0;
+            while (i < stocks.length) {
+                let stks = stocks.slice(i, i + ssize);
+                this.fetchStockBks(stks);
+                i += ssize;
+            }
+            return;
+        }
+        var url = this.fha.server + 'stock?act=stockbks&stocks=' + stocks.join(',');
+        utils.get(url, null, sbks => {
+            if (!this.stock_bks) {
+                this.stock_bks = {};
+            }
+            sbks = JSON.parse(sbks);
+            for (let c in sbks) {
+                this.stock_bks[c] = sbks[c];
+            }
         });
     }
 

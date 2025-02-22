@@ -24,7 +24,7 @@ class BuyDetail {
             this.records = records;
         }
         if (!frecords) {
-            this.full_records = [];
+            this.full_records = [...this.records];
         } else {
             this.full_records = frecords;
         }
@@ -788,52 +788,58 @@ class StrategyGroup {
         return this.count0;
     }
 
-    onOtpAlarm(id) {
+    async onOtpAlarm(id) {
         var curStrategy = this.strategies[id];
+        if (!curStrategy) {
+            emjyBack.log('!!!NOT IMPLEMENTED!!! onOtpAlarm sell match', this.code, JSON.stringify(curStrategy));
+        }
         if (!curStrategy.enabled()) {
             return;
         }
 
-        if (curStrategy) {
-            curStrategy.check({id, rtInfo: {latestPrice:0, count: this.count0 === undefined ? 0 : this.count0}, buydetail: this.buydetail}, (matchResult, cb) => {
-                if (matchResult) {
-                    this.doTrade(matchResult, cb);
-                }
-            });
-        } else {
-            emjyBack.log('!!!NOT IMPLEMENTED!!! onOtpAlarm sell match', this.code, JSON.stringify(curStrategy));
+        const matchResult = await curStrategy.check({id, rtInfo: {latestPrice:0, count: this.count0 === undefined ? 0 : this.count0}, buydetail: this.buydetail});
+        if (!matchResult) {
+            return;
         }
+        const tradeResult = this.doTrade(matchResult);
+        if (tradeResult) {
+            curStrategy.confirmMatched(tradeResult);
+        }
+        this.save();
     }
 
-    check(rtInfo) {
+    async check(rtInfo) {
         for (var id in this.strategies) {
             var curStrategy = this.strategies[id];
             if (!curStrategy.enabled()) {
                 continue;
             }
 
-            curStrategy.check({id, rtInfo, buydetail: this.buydetail}, (matchResult, cb) => {
-                if (matchResult) {
-                    this.doTrade(matchResult, cb);
-                }
-            });
+            const matchResult = await curStrategy.check({id, rtInfo, buydetail: this.buydetail});
+            if (!matchResult) {
+                continue;
+            }
+            const tradeResult = await this.doTrade(matchResult);
+            if (tradeResult) {
+                curStrategy.confirmMatched(tradeResult);
+            }
+            this.save();
         };
     }
 
-    doTrade(info, tradeCb) {
+    async doTrade(info) {
         if (info.tradeType === undefined) {
-            this.save();
-            return;
+            return false;
         }
 
         var curStrategy = this.strategies[info.id];
         if (!curStrategy) {
-            return;
+            return false;
         }
 
         if (info.tradeType === undefined) {
             emjyBack.log('error in doTrade! info.tradeType is undefined');
-            return;
+            return false;
         }
 
         if (info.count !== undefined && info.count - 0 > 0) {
@@ -849,12 +855,9 @@ class StrategyGroup {
             var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
             var count = this.count0;
             emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy), 'buy detail', JSON.stringify(this.buydetail.records))
-            emjyBack.tryBuyStock(this.code, price, count, account).then(bd => {
-                if (typeof(tradeCb) === 'function') {
-                    tradeCb(bd);
-                }
-                this.onTradeMatch(info);
-            });
+            const bd = await emjyBack.tryBuyStock(this.code, price, count, account);
+            this.onTradeMatch(info);
+            return bd;
         } else if (info.tradeType == 'S') {
             var count = this.count0;
             if (info.count - 10 >= 0) {
@@ -862,20 +865,18 @@ class StrategyGroup {
             }
             if (count > 0) {
                 emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', info.price, JSON.stringify(curStrategy), 'aver price', this.buydetail.averPrice(), 'buy detail', JSON.stringify(this.buydetail.records));
-                emjyBack.trySellStock(this.code, price, count, this.account).then(sd => {
-                    if (typeof(tradeCb) === 'function' && sd) {
-                        tradeCb(sd);
-                    }
+                try {
+                    const sd = await emjyBack.trySellStock(this.code, price, count, this.account);
                     this.onTradeMatch(info);
-                }).catch(err => {
+                    return sd;
+                } catch(err) {
                     if (err) {
                         this.checkTradeResponse(info, err);
                     }
                     this.onTradeMatch(info);
-                });
+                };
             }
         }
-        this.save();
     }
 
     checkTradeResponse(refer, response) {
@@ -906,7 +907,7 @@ class StrategyGroup {
         this.save();
     }
 
-    checkKlines(updatedKlt) {
+    async checkKlines(updatedKlt) {
         for (var id in this.strategies) {
             var curStrategy = this.strategies[id];
             if (!curStrategy.enabled()) {
@@ -916,11 +917,15 @@ class StrategyGroup {
                 continue;
             }
 
-            curStrategy.checkKlines({id, code:this.code, kltypes: updatedKlt, buydetail: this.buydetail}, (matchResult, cb) => {
-                if (matchResult) {
-                    this.doTrade(matchResult, cb);
-                }
-            });
+            const matchResult = await curStrategy.checkKlines({id, code:this.code, kltypes: updatedKlt, buydetail: this.buydetail});
+            if (!matchResult) {
+                continue;
+            }
+            const tradeResult = await this.doTrade(matchResult);
+            if (tradeResult) {
+                curStrategy.confirmMatched(tradeResult, this.buydetail);
+            }
+            this.save();
         }
     }
 }

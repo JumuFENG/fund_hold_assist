@@ -9,7 +9,6 @@ let ComplexStrategyKeyNames = [
 {key: 'StrategyBH', name: '低吸 短线买卖'},
 {key: 'StrategyBias', name: '乖离率买卖'},
 {key: 'StrategyIncDec', name: '大跌买 大涨卖'},
-{key: 'StrategyZt0', name: '首板战法'},
 {key: 'StrategyZt1', name: '一字巨量阴'},
 ]
 // StrategySD

@@ -81,11 +81,7 @@ class Utils {
     }
 
     dateToString(dt, sep = '') {
-        var dstr = new Date(dt - dt.getTimezoneOffset()*60*1000).toISOString().split('T')[0];
-        if (sep === '-') {
-            return dstr;
-        }
-        return dstr.split('-').join(sep);
+        return dt.toLocaleString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
     }
 
     getTodayDate(sep = '-') {
