@@ -85,8 +85,7 @@ GlobalManager.prototype.nextRandomColor = function(){
 
 GlobalManager.prototype.closestTradingDate = function() {
     let dUrl = emjyBack.fha.server + 'fwd/clsquote/quote/stock/closest_trading_day?app=CailianpressWeb&os=web&sv=7.7.5';
-    utils.get(dUrl, null, rtd => {
-        let jrtd = JSON.parse(rtd);
+    fetch(dUrl).then(r => r.json()).then(jrtd => {
         this.last_traded_date = jrtd.data[1];
         // this.latest_trading_date = jrtd.data[0];
         this.closet_trading_date = jrtd.data;
@@ -132,8 +131,7 @@ GlobalManager.prototype.updateStockBasic = function(stocks, force=false) {
     while (i < stocks.length) {
         let group = stocks.slice(i, i + psize);
         let fUrl = emjyBack.fha.server + `fwd/clsquote/quote/stocks/basic?app=CailianpressWeb&fields=${fields}&os=web&secu_codes=${group.join(',')}&sv=7.7.5`;
-        utils.get(fUrl, null, b => {
-            var bdata = JSON.parse(b);
+        fetch(fUrl).then(r=>r.json()).then(bdata => {
             bdata = bdata.data;
             let date = this.closet_trading_date[0];
             if (this.market_status == 'ENDTR' && new Date().getHours() < 10) {
@@ -171,8 +169,7 @@ GlobalManager.prototype.addTlineListener = function(lsner) {
 
 GlobalManager.prototype.updateTline = function(secu_code) {
     var fUrl = emjyBack.fha.server + `fwd/clsquote/quote/stock/tline?app=CailianpressWeb&fields=date,minute,last_px,business_balance,business_amount,open_px,preclose_px,av_px&os=web&secu_code=${secu_code}&sv=7.7.5`;
-    utils.get(fUrl, null, tl => {
-        var tldata = JSON.parse(tl);
+    fetch(fUrl).then(r=>r.json()).then(tldata => {
         if (!this.stock_tlines[secu_code]) {
             this.stock_tlines[secu_code] = [];
         }
@@ -280,8 +277,7 @@ GlobalManager.prototype.getBkStocks = function(bks, cb) {
         bks = bks.join(',');
     }
     let url = emjyBack.fha.server + 'stock?act=bkstocks&bks=' + bks;
-    utils.get(url, null, _b => {
-        var bstks = JSON.parse(_b);
+    fetch(url).then(r=>r.json()).then(bstks => {
         for (const s in bstks) {
             emjyBack.plate_stocks[s] = bstks[s].map(c=>emjyBack.convertToSecu(c));
         }
@@ -293,9 +289,8 @@ GlobalManager.prototype.getBkStocks = function(bks, cb) {
 
 GlobalManager.prototype.getHotStocks = function(days=2) {
     let url = emjyBack.fha.server + 'stock?act=hotstocks&days=' + days;
-    utils.get(url, null, _s => {
+    fetch(url).then(r=>r.json()).then(recent_zt_stocks => {
         this.recent_zt_map = {};
-        let recent_zt_stocks = JSON.parse(_s);
         let nsecus = [];
         for (let zr of recent_zt_stocks) {
             zr[0] = this.convertToSecu(zr[0]);
@@ -466,16 +461,15 @@ GlobalManager.prototype.updateZdfRank = function(pn=1) {
     let fs = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
     let fields = 'f2,f3,f12,f18';
     let url = emjyBack.fha.server + `fwd/empush2qt/clist/get?pn=${pn}&pz=200&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3&fs=${fs}&fields=${fields}`
-    utils.get(url, null, _res => {
-        let r = JSON.parse(_res);
-        if(!r.data || r.data.diff.length == 0) {
+    fetch(url).then(r=>r.json()).then(res => {
+        if(!res.data || res.data.diff.length == 0) {
             return;
         }
         if (pn == 1) {
             this.zdfranks = [];
         }
-        for (let i = 0; i < r.data.diff.length; i++) {
-            let rk = r.data.diff[i];
+        for (let i = 0; i < res.data.diff.length; i++) {
+            let rk = res.data.diff[i];
             if (rk.f3 == '-' || rk.f2 == '-') {
                 continue;
             }
@@ -485,7 +479,7 @@ GlobalManager.prototype.updateZdfRank = function(pn=1) {
                 break;
             }
         }
-        if (r.data.diff[r.data.diff.length - 1].f3 - 8 < 0) {
+        if (res.data.diff[res.data.diff.length - 1].f3 - 8 < 0) {
             this.onStockZdfRankReceived(this.zdfranks);
             return;
         }
@@ -749,8 +743,8 @@ class DailyHome {
     updateBanner() {
         var indices = 'sh000001,sz399001,sh000905,sz399006,sh000300,899050.BJ'
         var fUrl = emjyBack.fha.server + `fwd/clsquote/quote/stocks/basic?app=CailianpressWeb&fields=secu_name,secu_code,trade_status,change,change_px,last_px&os=web&secu_codes=${indices}&sv=7.7.5`
-        utils.get(fUrl, null, emo => {
-            this.showBanner(JSON.parse(emo));
+        fetch(fUrl).then(r=>r.json()).then(emo => {
+            this.showBanner(emo);
         });
     }
 
@@ -770,7 +764,9 @@ class DailyHome {
         var nstatus = indice_info.data['sh000001'].trade_status;
         if (nstatus != emjyBack.market_status) {
             emjyBack.market_status = indice_info.data['sh000001'].trade_status;
-            emjyBack.stock_tlines['sh000001'] = [];
+            if (emjyBack.market_status == 'TRADE') {
+                emjyBack.stock_tlines['sh000001'] = [];
+            }
             if (this.clsTelegraphs) {
                 this.clsTelegraphs.startRefresh(emjyBack.market_status !== 'TRADE');
             }
@@ -779,12 +775,12 @@ class DailyHome {
 
     updateEmotions() {
         var fUrl = emjyBack.fha.server + 'fwd/clsquote/v2/quote/a/stock/emotion?app=CailianpressWeb&os=web&sv=7.7.5';
-        utils.get(fUrl, null, emo => {
-            this.showEmotion(JSON.parse(emo));
+        fetch(fUrl).then(r=>r.json()).then(emo => {
+            this.showEmotion(emo);
         });
         var fUrl1 = emjyBack.fha.server + 'fwd/empush2qt/stock/fflow/kline/get?lmt=0&klt=1&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65&ut=b2884a393a59ad64002292a3e90d46a5&secid=1.000001&secid2=0.399001';
-        utils.get(fUrl1, null, flow => {
-            this.showMainFundFlow(JSON.parse(flow));
+        fetch(fUrl1).then(r=>r.json()).then(emo => {
+            this.showMainFundFlow(emo);
         });
     }
 
@@ -793,8 +789,8 @@ class DailyHome {
         this.fetchingPlates = {};
         for (let w of pways) {
             var fUrl = emjyBack.fha.server + 'fwd/clsquote/web_quote/plate/plate_list?app=CailianpressWeb&os=web&page=1&rever=1&sv=7.7.5&type=concept&way=' + w;
-            utils.get(fUrl, null, pl => {
-                this.fetchingPlates[w] = JSON.parse(pl);
+            fetch(fUrl).then(r=>r.json()).then(pl => {
+                this.fetchingPlates[w] = pl;
                 if (Object.keys(this.fetchingPlates).length == 3) {
                     let secu_codes = new Set();
                     for (const p in this.fetchingPlates) {
@@ -1828,8 +1824,7 @@ class StocksBkRanks {
         if (nbks.length > 0) {
             let strstocks = nbks.map(s=> emjyBack.secuConvert(s)).join(',');
             let bUrl = emjyBack.fha.server + 'stock?act=stockbks&stocks=' + strstocks;
-            utils.get(bUrl, null, _b => {
-                var sbks = JSON.parse(_b);
+            fetch(bUrl).then(r=>r.json()).then(sbks => {
                 for (const s in sbks) {
                     emjyBack.stock_bks[emjyBack.convertToSecu(s)] = sbks[s].map(sn=>sn[0]);
                     for (const sn of sbks[s]) {
@@ -2399,7 +2394,7 @@ class MainFundFlow {
 
         var series = this.getSeries(flow);
         var option = this.setYRange({yAxis:[{},{},{}], series}, series);
-        var opt = this.flowChart.getOptions();
+        var opt = this.flowChart.getOption();
         if (opt.series[0].data.length > option.series[0].data.length) {
             opt.series = option.series;
             opt.yAxis = option.yAxis;
@@ -2411,7 +2406,13 @@ class MainFundFlow {
 
     clearChart() {
         delete this.flowChart;
-        utils.removeAllChild(this.flow_container);
+        function removeAllChild(ele) {
+            while(ele.hasChildNodes()) {
+                ele.removeChild(ele.lastChild);
+            }
+        }
+
+        removeAllChild(this.flow_container);
         this.flow_container.removeAttribute('_echarts_instance_');
     }
 }
@@ -3871,15 +3872,16 @@ class ClsTelegraphRed extends LeftColumnBarItem {
     getRollList(cb) {
         var param = 'app=CailianpressWeb&category=red&last_time=' + this.roll_stamp + '&os=web&refresh_type=1&rn=20&sv=7.7.5'
         var fUrl = emjyBack.fha.server + 'fwd/clscn/v1/roll/get_roll_list?' + param + '&sign=' + emjyBack.md5(emjyBack.hash(param));
-        utils.get(fUrl, null, response => {
-            if (!response.startsWith('{')) {
-                this.requestError(grlUrl, cb);
-                return;
+        fetch(fUrl).then(r=>{
+            if (r.headers.get('Content-Type').includes('application/json')) {
+                return r.json();
+            } else {
+                return r.text();
             }
+        }).then(rl => {
             if (typeof(cb) === 'function') {
-                let rl = JSON.parse(response);
                 if (!rl.data) {
-                    this.requestError(grlUrl, cb);
+                    this.requestError(fUrl, cb);
                     return;
                 }
                 cb(rl);
@@ -3904,13 +3906,19 @@ class ClsTelegraphRed extends LeftColumnBarItem {
         var stamp = this.getUpdatedTimestamp();
         var param = 'app=CailianpressWeb&lastTime=' + stamp + '&os=web&sv=7.7.5';
         var fUrl = emjyBack.fha.server + 'fwd/clscn/nodeapi/refreshTelegraphList?' + param + '&sign=' + emjyBack.md5(emjyBack.hash(param));
-        utils.get(fUrl, null, response => {
-            if (!response.startsWith('{')) {
-                this.requestError(grlUrl);
+        fetch(fUrl).then(r=>{
+            if (r.headers.get('Content-Type').includes('application/json')) {
+                return r.json();
+            } else {
+                return r.text();
+            }
+        }).then(tl => {
+            if (!tl.l) {
+                this.requestError(fUrl);
                 return;
             }
             if (typeof(cb) === 'function') {
-                cb(JSON.parse(response));
+                cb(tl);
             }
         });
     }
@@ -3919,13 +3927,19 @@ class ClsTelegraphRed extends LeftColumnBarItem {
         var stamp = this.getUpdatedTimestamp();
         var param = 'app=CailianpressWeb&category=red&hasFirstVipArticle=0&lastTime=' + stamp + '&os=web&rn=20&subscribedColumnIds=&sv=7.7.5'
         var fUrl = emjyBack.fha.server + 'fwd/clscn/nodeapi/updateTelegraphList?' + param + '&sign=' + emjyBack.md5(emjyBack.hash(param))
-        utils.get(fUrl, null, response => {
-            if (!response.startsWith('{')) {
-                this.requestError(grlUrl);
+        fetch(fUrl).then(r=>{
+            if (r.headers.get('Content-Type').includes('application/json')) {
+                return r.json();
+            } else {
+                return r.text();
+            }
+        }).then(tl => {
+            if (!tl.data) {
+                this.requestError(fUrl);
                 return;
             }
             if (typeof(cb) === 'function') {
-                cb(JSON.parse(response));
+                cb(tl);
             }
         });
     }
@@ -4072,12 +4086,16 @@ class EmPopularity extends LeftColumnBarItem {
 
     getPopularity(cb) {
         var fUrl = emjyBack.fha.server + 'fwd/emdata/dataapi/xuangu/list?st=POPULARITY_RANK&sr=1&ps=1000&p=1&sty=SECURITY_CODE,SECURITY_NAME_ABBR,NEW_PRICE,CHANGE_RATE,VOLUME_RATIO,HIGH_PRICE,LOW_PRICE,PRE_CLOSE_PRICE,VOLUME,DEAL_AMOUNT,TURNOVERRATE,POPULARITY_RANK,NEWFANS_RATIO&filter=(POPULARITY_RANK>0)(POPULARITY_RANK<=1000)(NEWFANS_RATIO>=0.00)(NEWFANS_RATIO<=100.0)&source=SELECT_SECURITIES&client=WEB';
-        utils.get(fUrl, null, response => {
-            if (!response.startsWith('{')) {
-                console.log('Error: ', response);
-                return;
+        fetch(fUrl).then(r=>{
+            if (r.headers.get('Content-Type').includes('application/json')) {
+                return r.json();
+            } else {
+                return r.text();
             }
-            let rl = JSON.parse(response);
+        }).then(rl => {
+            if (!rl.result) {
+                console.log('Error: ', rl);
+            }
             this.popularityList = rl.result.data;
             this.rootPanel.querySelector('#refresh_label').textContent = emjyBack.timeString(new Date());
             if (typeof(cb) === 'function') {
