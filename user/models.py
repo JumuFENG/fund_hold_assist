@@ -953,6 +953,9 @@ class User():
                 sqldb.insertMany(self.stocks_archived_deals_table(), cols, newval)
 
     def _archived(self, deal):
+        if 'fee' not in deal:
+            return False
+
         sqldb = self.stock_center_db()
         if not sqldb.isExistTable(self.stocks_archived_deals_table()):
             return False

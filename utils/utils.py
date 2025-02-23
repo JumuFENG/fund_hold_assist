@@ -1,6 +1,6 @@
 # Python 3
 # -*- coding:utf-8 -*-
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, ROUND_FLOOR, ROUND_CEILING
 from datetime import datetime
 import sys
 import os
@@ -55,23 +55,21 @@ class Utils:
     def zt_priceby(self, lclose, precious=2, zdf=10):
         ''' 以昨日收盘价计算涨停价格
         '''
-        # exp = self.precious_decimal(precious)
-        # return round(lclose + round(lclose * 0.1, precious), precious)
+        if zdf == 30:
+            return Decimal(str(lclose * 1.3)).quantize(Decimal('0.00'), ROUND_FLOOR)
         pdec = self.precious_decimal(precious)
-        zprc = float(Decimal(str(lclose * (100 + zdf) / 100)).quantize(pdec, ROUND_HALF_UP))
-        if zdf == 30 and zprc > lclose * 1.3:
-            zprc -= 0.01
-        return round(zprc, precious)
+        zprc = float(Decimal(str((int(round(lclose * 100, 0)) + lclose * zdf) / 100.0)).quantize(pdec, ROUND_HALF_UP))
+        return zprc
 
     @classmethod
     def dt_priceby(self, lclose, precious=2, zdf=10):
         ''' 以昨日收盘价计算涨停价格
         '''
+        if zdf == 30:
+            return Decimal(str(lclose * 0.7)).quantize(Decimal('0.00'), ROUND_CEILING)
         pdec = self.precious_decimal(precious)
-        dprc = float(Decimal(str(lclose * (100 - zdf) / 100)).quantize(pdec, ROUND_HALF_UP))
-        if zdf == 30 and dprc < lclose * 0.7:
-            dprc += 0.01
-        return round(dprc, precious)
+        dprc = float(Decimal(str((int(round(lclose * 100, 0)) - lclose * zdf) / 100.0)).quantize(pdec, ROUND_HALF_UP))
+        return dprc
 
     @classmethod
     def zdf_from_code(self, code):
