@@ -105,7 +105,7 @@ class StrategyI_Base {
 
     get_cls_stockbasics(stocks) {
         if (!stocks || stocks.length === 0) {
-            return new Promise.resolve({});
+            return Promise.resolve({});
         }
 
         let fields = 'open_px,av_px,high_px,low_px,change,change_px,down_price,cmc,business_amount,business_balance,secu_name,secu_code,trade_status,secu_type,preclose_px,up_price,last_px';
@@ -126,46 +126,56 @@ class StrategyI_Base {
     common_get_hotranks(fetchth=true) {
         // var emrkUrl = 'https://data.eastmoney.com/dataapi/xuangu/list?st=POPULARITY_RANK&sr=1&ps=100&p=1&sty=SECURITY_CODE,SECURITY_NAME_ABBR,NEW_PRICE,CHANGE_RATE,VOLUME_RATIO,HIGH_PRICE,LOW_PRICE,PRE_CLOSE_PRICE,VOLUME,DEAL_AMOUNT,TURNOVERRATE,POPULARITY_RANK,NEWFANS_RATIO&filter=(POPULARITY_RANK>0)(POPULARITY_RANK<=100)(NEWFANS_RATIO>=0.00)(NEWFANS_RATIO<=100.0)&source=SELECT_SECURITIES&client=WEB'
         var emrkUrl = 'http://datacenter-web.eastmoney.com/wstock/selection/api/data/get?type=RPTA_PCNEW_STOCKSELECT&sty=POPULARITY_RANK,NEWFANS_RATIO&filter=(POPULARITY_RANK>0)(POPULARITY_RANK<=100)(NEWFANS_RATIO>=0.00)(NEWFANS_RATIO<=100.0)&p=1&ps=100&st=POPULARITY_RANK&sr=1&source=SELECT_SECURITIES&client=WEB';
-        fetch(emrkUrl).then(r => r.json()).then(jdata => {
-            if (jdata.code != 0 || !jdata.result || !jdata.result.data) {
-                var rkUrl = emjyBack.fha.server + 'stock?act=hotrankrt&rank=40';
-                fetch(rkUrl).then(r1 => r1.json()).then(rdata => {
-                    for (const rrk of rdata) {
-                        let code = rrk[0];
-                        if (!this.candidates[code]) {
-                            this.candidates[code] = {secu_code: emjyBack.convertToSecu(code)};
-                        }
-                        this.candidates[code].rank = rrk[1];
-                        this.candidates[code].newfans = rrk[2];
-                    }
+        guang.fetchData(emrkUrl, {}, 10 * 60000, jdata => {
+            // 数据初选：如果 jdata.code 不为 0 或缺少必要数据，则进行第二次请求
+            if (jdata.code !== 0 || !jdata.result || !jdata.result.data) {
+                let rkUrl = emjyBack.fha.server + 'stock?act=hotrankrt&rank=40';
+                // 返回第二次请求的数据处理
+                return guang.fetchData(rkUrl, {}, 10 * 60000, rdata => {
+                    return rdata.map(x => ({
+                        SECURITY_CODE: x[0],
+                        POPULARITY_RANK: x[1],
+                        NEWFANS_RATIO: x[2]
+                    }));
                 });
-                return;
             }
-            for (const rk of jdata.result.data) {
+
+            // 如果数据有效，直接返回结果
+            return jdata.result.data;
+        }).then(rkdata => {
+            for (const rk of rkdata) {
                 let code = rk.SECURITY_CODE;
                 if (!this.candidates[code]) {
-                    this.candidates[code] = {secu_code: emjyBack.convertToSecu(code)};
+                    this.candidates[code] = { secu_code: emjyBack.convertToSecu(code) };
                 }
                 this.candidates[code].rank = rk.POPULARITY_RANK;
                 this.candidates[code].newfans = rk.NEWFANS_RATIO;
             }
+        }).catch(error => {
+            console.error("数据请求失败:", error);
         });
+
         if (!fetchth) {
             return;
         }
+
         // 获取同花顺人气排行
         var jqrkUrl = 'https://basic.10jqka.com.cn/api/stockph/popularity/top/';
-        fetch(jqrkUrl).then(r => r.json()).then(jdata => {
+        guang.fetchData(jqrkUrl, {}, 10*60000, jdata => {
             if (jdata.status_code != 0 || !jdata.data || !jdata.data.list) {
                 return;
             }
-            for (const rk of jdata.data.list) {
+            return jdata.data.list;
+        }).then(rkdata => {
+            for (const rk of rkdata) {
                 let code = rk.code;
                 if (!this.candidates[code]) {
                     this.candidates[code] = {secu_code: emjyBack.convertToSecu(code)};
                 }
                 this.candidates[code].rkjqka = rk.hot_rank;
             }
+        }).catch(error => {
+            console.error("获取同花顺人气排行失败:", error);
         });
     }
 }

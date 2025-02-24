@@ -101,10 +101,14 @@ function codeToSecid(code, market) {
 
 function quoteSnapshot(code) {
     var url = quoteUrl + '?id=' + code + '&callback=jSnapshotBack&_=' + Date.now();
-    xmlHttpGet(url, response => {
+    fetch(url).then(r => r.text()).then(response => {
         var snapshot = JSON.parse(response.match(/jSnapshotBack\((.+?)\);/)[1]);
         postMessage({command: 'quote.snapshot', snapshot});
     });
+    // xmlHttpGet(url, response => {
+    //     var snapshot = JSON.parse(response.match(/jSnapshotBack\((.+?)\);/)[1]);
+    //     postMessage({command: 'quote.snapshot', snapshot});
+    // });
 }
 
 function getTopicZTPool(date) {

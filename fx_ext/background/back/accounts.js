@@ -400,6 +400,23 @@ class TradeClient {
     }
 
     getRtPrice(code) {
+        return feng.getStockSnapshot(code).then(snap => {
+            const bp = snap.bottomprice;
+            const tp = snap.topprice;
+            const cp = snap.latestPrice;
+            let s5 = snap.buysells.sale5;
+            let b5 = snap.buysells.buy5;
+            if (snap.buysells.sale1 == snap.buysells.buy1) {
+                // 集合竞价
+                s5 = Math.min(cp * 1.03, tp);
+                b5 = Math.max(cp * 0.97, bp);
+            }
+            return { bp, tp, cp, s5, b5 };
+        }).catch(error => {
+            console.error('getRtPrice failed:', error);
+            return null;
+        });
+
         const cbprefix = 'jSnapshotBack';
         const url = `https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id=${code}&callback=${cbprefix}&_=${Date.now()}`;
 

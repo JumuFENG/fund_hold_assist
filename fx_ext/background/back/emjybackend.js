@@ -1,9 +1,8 @@
 'use strict';
 let emjyBack = null;
-let NewStockPurchasePath = '/Trade/NewBatBuy';
-let NewBondsPurchasePath = '/Trade/XzsgBatPurchase';
 let mktDict = {'SH': 1, 'SZ': 0, 'BJ': 4}
 let holdAccountKey = {'credit': 'collat', 'collat': 'collat', 'normal': 'normal'};
+
 
 class ManagerBack {
     constructor() {
@@ -186,13 +185,6 @@ class EmjyBack {
         };
         if (!this.otpAlarm) {
             this.otpAlarm = new OtpAlarm();
-        }
-        if ((new Date()).getDate() == 1) {
-            if (!this.fetchingBKstocks) {
-                this.fetchingBKstocks = new BkStocksFetch('BK0596', 1000);
-            }
-            this.log('update rzrq BK stcoks, BK0596');
-            this.fetchingBKstocks.fetchBkStcoks();
         }
         this.strategyManager = new StrategyManager();
         this.normalAccount = new NormalAccount();
@@ -1023,7 +1015,7 @@ class EmjyBack {
             return Promise.resolve();
         }
 
-        return this.all_accounts[account].sellStock(code, price, count, sd => {
+        return this.all_accounts[account].sellStock(code, price, count).then(sd => {
             var holdacc = holdAccountKey[account];
             var stk = this.all_accounts[holdacc].getStock(code);
             if (stk) {
@@ -1429,7 +1421,7 @@ class EmjyBack {
         this.dailyAlarm.stocks['101'].forEach(s => s15.add(s));
         s15.forEach(s => {this.fetchStockKline(s, '15')});
         setTimeout(()=> {
-            this.updateEarning();
+            // this.updateEarning();
             this.normalAccount.save();
             this.collateralAccount.save();
             for (const account of this.track_accounts) {
