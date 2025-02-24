@@ -52,6 +52,13 @@ class TestsPanelPage extends RadioAnchorPage {
         }
         this.container.appendChild(btnClear);
 
+        const btnUpdateStockName = document.createElement('button');
+        btnUpdateStockName.textContent = '更新股票名称';
+        btnUpdateStockName.onclick = () => {
+            emjyBack.fetchStocksMarket();
+        };
+        this.container.appendChild(btnUpdateStockName);
+
         this.resultPanel = document.createElement('div');
         this.container.appendChild(this.resultPanel);
     }
@@ -96,6 +103,9 @@ class TestingAccount extends TrackingAccount {
         var market = '';
         var stock = new StockInfo({ code, name, holdCount: 0, availableCount: 0, market});
         this.addStockStrategy(stock, strgrp);
+        if (stock.strategies.buydetail) {
+            stock.holdCount = stock.strategies.buydetail.totalCount();
+        }
         this.stocks.push(stock);
     }
 
@@ -163,7 +173,7 @@ class TestEngine {
         }
     }
 
-    doRunTest(testid) {
+    async doRunTest(testid) {
         var code = testMeta[testid].code;
         var str = JSON.parse(JSON.stringify(testMeta[testid].strategy));
         emjyBack.testAccount.removeStock(code);
@@ -176,8 +186,8 @@ class TestEngine {
         if (testMeta[testid].snapshot) {
             for (let j = 0; j < testMeta[testid].snapshot.length; j++) {
                 emjyBack.testAccount.tradeTime = testMeta[testid].snapshot[j].time;
-                stock.updateRtPrice(testMeta[testid].snapshot[j].sn);
-                var expect = testMeta[testid].snapshot[j].expect;
+                await stock.updateRtPrice(testMeta[testid].snapshot[j].sn);
+                let expect = testMeta[testid].snapshot[j].expect;
                 if (expect) {
                     this.checkTestResultDeal(testid, code, testMeta[testid].testname, expect, emjyBack.testAccount.deals);
                 }
@@ -186,13 +196,13 @@ class TestEngine {
             emjyBack.klines[code].klines = {};
             for (let k = 0; k < testMeta[testid].kdata.length; k++) {
                 const datai = testMeta[testid].kdata[k];
-                var kltype = datai.kltype;
+                let kltype = datai.kltype;
                 emjyBack.klines[code].klines[kltype] = [];
             }
             var testKdata = JSON.parse(JSON.stringify(testMeta[testid].kdata));
             while (testKdata.length > 0) {
-                var earliest = testKdata[0];
-                var earlk = 0;
+                let earliest = testKdata[0];
+                let earlk = 0;
                 for (let k = 1; k < testKdata.length; k++) {
                     const datai = testKdata[k].kldata[0];
                     if (datai.kl.time < earliest.kldata[0].kl.time) {
@@ -200,16 +210,16 @@ class TestEngine {
                         earliest = datai;
                     }
                 }
-                var kldataj = testKdata[earlk].kldata.shift();
-                var kltype = testKdata[earlk].kltype;
+                let kldataj = testKdata[earlk].kldata.shift();
+                let kltype = testKdata[earlk].kltype;
                 if (testKdata[earlk].kldata.length == 0) {
                     testKdata.splice(earlk, 1);
                 }
                 emjyBack.klines[code].klines[kltype].push(kldataj.kl);
                 console.log(kldataj.kl.time);
                 emjyBack.testAccount.tradeTime = kldataj.kl.time;
-                stock.strategies.checkKlines([kltype]);
-                var expect = kldataj.expect;
+                await stock.strategies.checkKlines([kltype]);
+                let expect = kldataj.expect;
                 if (expect) {
                     this.checkTestResultDeal(testid, code, testMeta[testid].testname, expect, emjyBack.testAccount.deals);
                 }
@@ -217,7 +227,7 @@ class TestEngine {
         }
     }
 
-    runTests(testid) {
+    async runTests(testid) {
         if (!emjyBack.testAccount) {
             emjyBack.setupTestAccount();
         }
@@ -230,11 +240,11 @@ class TestEngine {
                 }
                 return;
             }
-            this.doRunTest(testid);
+            await this.doRunTest(testid);
             return;
         }
         for (let i = 0; i < testMeta.length; i++) {
-            this.doRunTest(i);
+            await this.doRunTest(i);
         }
     }
 

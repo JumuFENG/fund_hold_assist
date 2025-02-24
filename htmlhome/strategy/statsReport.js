@@ -234,13 +234,19 @@ class StatisticsReport {
         trtable.setClickableHeader('代码','名称','收益','收益率','买入日期','卖出日期');
         this.tradeResults.sort((a,b) => a[3] - b[3] > 0);
         this.tradeResults.forEach(r => {
+            var bdiv = document.createElement('div');
+            bdiv.style.maxWidth = '500px';
+            bdiv.textContent = r[1].join(',');
+            var sdiv = document.createElement('div');
+            sdiv.style.maxWidth = '160px';
+            sdiv.textContent = r[2].join(',');
             trtable.addRow(
                 r[0],
                 emjyBack.stockAnchor(r[0]),
                 r[3],
                 r[4],
-                r[1].join(','),
-                r[2].join(',')
+                bdiv,
+                sdiv
             );
         });
     }
