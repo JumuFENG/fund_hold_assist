@@ -414,40 +414,7 @@ class TradeClient {
             return { bp, tp, cp, s5, b5 };
         }).catch(error => {
             console.error('getRtPrice failed:', error);
-            return null;
         });
-
-        const cbprefix = 'jSnapshotBack';
-        const url = `https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?id=${code}&callback=${cbprefix}&_=${Date.now()}`;
-
-        return fetch(url)
-            .then(response => response.text()) // 先转换为文本
-            .then(text => {
-                const jsonText = text.substring(cbprefix.length + 1, text.length - 2); // 去掉 JSONP 包装
-                return JSON.parse(jsonText); // 解析 JSON
-            })
-            .then(resobj => {
-                if (!resobj) {
-                    throw new Error('getRtPrice Invalid response');
-                }
-
-                const { bottomprice: bp, topprice: tp, realtimequote, fivequote } = resobj;
-                const cp = realtimequote.currentPrice;
-                let s5 = fivequote.sale5;
-                let b5 = fivequote.buy5;
-
-                if (fivequote.sale1 == fivequote.buy1) {
-                    // 集合竞价
-                    s5 = cp * 1.03 - tp > 0 ? tp : cp * 1.03;
-                    b5 = cp * 0.97 - bp > 0 ? cp * 0.97 : bp;
-                }
-
-                return { bp, tp, cp, s5, b5 };
-            })
-            .catch(error => {
-                console.error('getRtPrice failed:', error);
-                return null;
-            });
     }
 
     countUrl() {

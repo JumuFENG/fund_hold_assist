@@ -157,7 +157,10 @@ class TrackStockListPanelPage extends StockListPanelPage {
         fd.append('act', 'trackdeals');
         fd.append('name', track_name);
         fd.append('data', JSON.stringify(ardeals));
-        utils.post(dlUrl, fd, null, dl => {
+        fetch(dlUrl, {
+            method: 'POST',
+            body: fd
+        }).then(r => r.text()).then(dl => {
             if (dl != 'OK') {
                 console.error('archive track deals failed!');
                 return;

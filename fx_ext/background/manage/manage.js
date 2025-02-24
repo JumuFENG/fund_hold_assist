@@ -277,16 +277,13 @@ class Manager {
         this.zt1stocks[idx].rmvdate = date;
     }
 
-    getTotalEarned(code, cb) {
+    getTotalEarned(code) {
         if (this.fha) {
-            this.getEarned(code, cb);
+            return this.getEarned(code);
         }
 
         if (!emjyManager.savedDeals || emjyManager.savedDeals.length == 0) {
-            if (typeof(cb) === 'function') {
-                cb(0);
-            }
-            return;
+            return Promise.resolve(0);
         }
 
         var allDeals = emjyManager.savedDeals.filter(d => d.code == code);
@@ -303,9 +300,7 @@ class Manager {
                 earned += amount;
             }
         }
-        if (typeof(cb) === 'function') {
-            cb(earned);
-        }
+        return Promise.resolve(earned);
     }
 
     initStocks(stocks) {
@@ -476,29 +471,20 @@ class Manager {
         return anchor;
     }
 
-    getEarned(code, cb) {
+    getEarned(code) {
         if (this.fha) {
             var url = this.fha.server + 'stock?act=getearned&code=' + this.getLongStockCode(code);
             var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)}
-            utils.get(url, header, rsp => {
-                if (typeof(cb) === 'function') {
-                    cb(rsp);
-                } else {
-                    console.log(rsp);
-                }
-            });
-            return;
+            return fetch(url, header).then(rsp => rsp.text());
         }
-        if (typeof(cb) === 'function') {
-            cb(0);
-        }
+        return Promise.resolve();
     }
 
     checkDividened(code, sdate) {
         var mktCode = this.getLongStockCode(code);
         if (this.fha) {
             var url = this.fha.server + 'stock?act=checkdividen&code=' + mktCode + '&date=' + sdate;
-            utils.get(url, null, rd => {
+            fetch(url).then(rsp=>rsp.text()).then(rd => {
                 if (rd === 'True') {
                     this.klines[code].klines = {};
                     var zdate = new Date(sdate);
@@ -519,8 +505,7 @@ class Manager {
     getPlannedDividen() {
         if (this.fha) {
             var url = this.fha.server + 'stock?act=planeddividen';
-            utils.get(url, null, dv => {
-                var pdivide = JSON.parse(dv);
+            fetch(url).then(r=>r.json()).then(pdivide => {
                 var sdivide = {};
                 for (const d of pdivide) {
                     var recorddate = d[3];
@@ -569,8 +554,7 @@ class Manager {
             url += '&start=' + dashdate;
         }
 
-        utils.get(url, null, ksdata => {
-            var kdata = JSON.parse(ksdata);
+        fetch(url).then(r=>r.json()).then(kdata => {
             if (!kdata || kdata.length == 0) {
                 console.error('no kline data for', code, 'kltype:', kltype);
                 return;
@@ -591,9 +575,7 @@ class Manager {
     getSvrHoldingStocks() {
         var url = this.fha.server + 'stock?act=allstkscount';
         var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)};
-        utils.get(url, header, hstks => {
-            emjyBack.svrHoldingStocks = JSON.parse(hstks);
-        });
+        fetch(url, header).then(r => r.json()).then(s => emjyBack.svrHoldingStocks = s);
         self.checkHoldingStocks();
     }
 

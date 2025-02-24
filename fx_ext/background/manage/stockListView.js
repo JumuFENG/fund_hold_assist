@@ -49,7 +49,7 @@ class StockView {
         }
 
         if (this.stock.earned === undefined) {
-            emjyBack.getTotalEarned(this.stock.code, e => {
+            emjyBack.getTotalEarned(this.stock.code).then(e => {
                 this.stock.earned = e;
                 this.refreshDetailView();
             });
