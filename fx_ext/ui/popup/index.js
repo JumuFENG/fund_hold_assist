@@ -2,16 +2,7 @@
     "use strict";
     var stockInfo = {};
 
-    function logInfo(...args) {
-        console.log(args);
-    }
-
     window.onload = function() {
-        document.querySelector("#fund_code_name").textContent = chrome.i18n.getMessage("popup_fund_code");
-        document.querySelector("#fund_name_name").textContent = chrome.i18n.getMessage("fund_name_name");
-        document.querySelector("#fund_value_name").textContent = chrome.i18n.getMessage("fund_value_name");
-        document.querySelector("#fund_esti_name").textContent = chrome.i18n.getMessage("fund_esti_name");
-        document.querySelector("#fund_growth_name").textContent = chrome.i18n.getMessage("fund_growth_name");
         document.querySelector('#btn_open_start_page').textContent = chrome.i18n.getMessage("btn_open_start_page");
         document.querySelector('#btn_open_dashbard').textContent = chrome.i18n.getMessage("btn_open_dashbard");
         chrome.runtime.sendMessage({command: 'popup.costdogs'}, cdogs => {
@@ -61,44 +52,9 @@
         toggleRenderBlock(document.querySelector('input[name="popradius"]:checked').value)
     }
 
-    function getHttpResponse(url, cb) {
-        var httpRequest = new XMLHttpRequest();//第一步：建立所需的对象
-        httpRequest.open('GET', url, true);//第二步：打开连接 
-        httpRequest.send();//第三步：发送请求 
-        /**
-         * 获取数据后的处理程序
-         */
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState == 4 && httpRequest.status == 200) {
-                logInfo("httpRequest get response OK.");
-                if (typeof(cb) == "function") {
-                    cb(httpRequest.responseText);
-                }
-            }
-        };
-    }
-
-    function getFundInfo (code) {
-        var url = 'http://fundgz.1234567.com.cn/js/' + code + '.js?rt=' +  (new Date()).getTime();
-        getHttpResponse(url, rsp => {
-            var json = rsp.substr("jsonpgz(".length);
-            var jsonp = JSON.parse(json.substr(0, json.length - 2));
-            document.getElementById('fund_name').innerText = jsonp["name"];
-            document.getElementById('fund_value').innerText = jsonp["dwjz"];
-            document.getElementById('fund_value_gsz').innerText = jsonp["gsz"];
-            var tdfundgrowth = document.getElementById('fund_growth');
-            tdfundgrowth.innerText = jsonp["gszzl"] + "%";
-            if (parseFloat(jsonp["gszzl"]) < 0) {
-                tdfundgrowth.className = "growth_decrease";
-            } else {
-                tdfundgrowth.className = "growth_increase";
-            }
-        });
-    }
-
     function getStockInfo(code) {
         var url = 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot?callback=jSnapshotBack&id=' + code;
-        getHttpResponse(url, rsp => {
+        fetch(url).then(r=>r.text()).then(rsp => {
             var snapshot = JSON.parse(rsp.match(/jSnapshotBack\((.+?)\);/)[1]);
             if (snapshot.code !== code) {
                 document.querySelector('#stock_err_info').textContent = 'Error when get stock info!';
@@ -127,17 +83,6 @@
             document.querySelector('#stock_buy_price_value').value = s3;
         });
     }
-
-    document.querySelector('#btn_ok').onclick = function(e) {
-        var fundcode = document.querySelector('#fund_code_value').value;
-        getFundInfo(fundcode);
-    }
-
-    document.querySelector('#fund_code_value').onkeydown = function(e) {
-        if (e.keyCode == 13) {
-            getFundInfo(e.target.value);
-        };
-    };
 
     document.querySelector('#stock_code_value').onkeydown = function(e) {
         if (e.keyCode == 13) {
