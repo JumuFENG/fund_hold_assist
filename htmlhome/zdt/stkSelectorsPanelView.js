@@ -88,22 +88,8 @@ class StkSelector {
             if (this.filteredStks.length <= 0) {
                 return;
             }
-            var codes = [];
-            var stocks = this.selStocks.pool ? this.selStocks.pool : this.selStocks;
-            for (const c of this.filteredStks) {
-                for (var i = 0; i < stocks.length; i ++) {
-                    if (stocks[i][0].endsWith(c)) {
-                        codes.push(stocks[i][0]);
-                        break;
-                    }
-                }
-            }
             var url = emjyBack.fha.server + 'stock';
-            var act = this.candidatesAction();
-            var fd = new FormData();
-            fd.append('act', act);
-            fd.append('date', this.ztdate);
-            fd.append('stocks', Array.from(codes).join(','));
+            var fd = this.candidatesForm();
             utils.post(url, fd, null, c => {
                 if (c != 'OK') {
                     console.error('set candidates error!');
@@ -117,6 +103,25 @@ class StkSelector {
 
     candidatesAction() {
         return ''
+    }
+
+    candidatesForm() {
+        var fd = new FormData();
+        var codes = [];
+        var stocks = this.selStocks.pool ? this.selStocks.pool : this.selStocks;
+        for (const c of this.filteredStks) {
+            for (var i = 0; i < stocks.length; i ++) {
+                if (stocks[i][0].endsWith(c)) {
+                    codes.push(stocks[i][0]);
+                    break;
+                }
+            }
+        }
+
+        fd.append('act', this.candidatesAction());
+        fd.append('date', this.ztdate);
+        fd.append('stocks', Array.from(codes).join(','));
+        return fd;
     }
 
     showToolbar() {}
@@ -166,12 +171,37 @@ class Zt1Selector extends StkSelector {
         utils.get(ztUrl, null, zt => {
             this.selStocks = JSON.parse(zt);
             this.ztdate = this.selStocks.date;
+            this.selStocks.pool.sort((x, y) => {
+                return x[0].substring(2) < y[0].substring(2);
+            });
             this.showSelected();
         });
     }
 
     showToolbar() {
         this.createCandidateToolbar();
+        if (!this.selStocks || !this.toolbar) {
+            return;
+        }
+
+        var btnCandidate = document.createElement('button');
+        btnCandidate.textContent = '添加烂板';
+        btnCandidate.onclick = e => {
+            if (this.filteredStks.length <= 0) {
+                return;
+            }
+            var url = emjyBack.fha.server + 'stock';
+            var fd = this.candidatesForm();
+            fd.set('act', 'add_zt1wb');
+            utils.post(url, fd, null, c => {
+                if (c != 'OK') {
+                    console.error('add zt1wb error!');
+                } else {
+                    console.log('add zt1wb success!');
+                }
+            });
+        }
+        this.toolbar.appendChild(btnCandidate);
     }
 
     candidatesAction() {
@@ -278,11 +308,20 @@ class ZtPredictLeadSelector extends StkSelector {
     }
 
     saveName() {
-        if (this.cptKey == 'dayzt') {
-            return '涨停';
+        if (this.cptSelector && this.cptSelector.selectedIndex !== -1) {
+            if (this.cptSelector.value == 'dayzt') {
+                return '涨停';
+            }
+            if (this.cptSelector.value == 'notzt') {
+                return '涨停断板';
+            }
+            if (this.cptSelector.value == '') {
+                return this.name;
+            }
+            return this.cptSelector.value;
         }
-        if (this.cptKey == 'notzt') {
-            return '涨停断板';
+        if (this.bkSelector && this.bkSelector.selectedIndex !== -1) {
+            return this.bkSelector.value;
         }
         return this.name;
     }
@@ -305,16 +344,16 @@ class ZtPredictLeadSelector extends StkSelector {
             }
         }
         var cpts = Object.keys(cptCnts);
+        cpts = cpts.filter(c => cptCnts[c] > 3);
         cpts.sort((c1, c2) => cptCnts[c1] < cptCnts[c2]);
-        var cptSelector = document.createElement('select');
-        cptSelector.options.add(new Option('全部' + this.selStocks.length, ''));
-        cptSelector.options.add(new Option('今日涨停', 'dayzt'));
-        cptSelector.options.add(new Option('断板', 'notzt'));
+        this.cptSelector = document.createElement('select');
+        this.cptSelector.options.add(new Option('全部' + this.selStocks.length, ''));
+        this.cptSelector.options.add(new Option('今日涨停', 'dayzt'));
+        this.cptSelector.options.add(new Option('断板', 'notzt'));
         for (const cpt of cpts) {
-            cptSelector.options.add(new Option(cpt+cptCnts[cpt], cpt));
+            this.cptSelector.options.add(new Option(cpt+cptCnts[cpt], cpt));
         }
-        cptSelector.onchange = e => {
-            this.cptKey = e.target.value;
+        this.cptSelector.onchange = e => {
             if (this.filteredStks) {
                 this.filteredStks.clear();
             }
@@ -324,9 +363,128 @@ class ZtPredictLeadSelector extends StkSelector {
                     this.chkbxSelectAll.checked = false;
                 }
             }
+            if (this.bkSelector) {
+                if (this.cptSelector.selectedIndex > 2) {
+                    this.bkSelector.selectedIndex = -1;
+                }
+            }
+            this.updateBkSelector();
             this.doShowSelected();
         }
-        this.toolbar.appendChild(cptSelector);
+        this.toolbar.appendChild(this.cptSelector);
+
+        let nbkstocks = [];
+        for (const stocki of this.selStocks) {
+            var code = stocki[0];
+            if (!emjyBack.stock_bks || !emjyBack.stock_bks[code]) {
+                nbkstocks.push(code);
+                continue;
+            }
+        }
+        if (nbkstocks.length > 0) {
+            emjyBack.fetchStockBks(nbkstocks);
+            return;
+        }
+        this.updateBkSelector();
+    }
+
+    updateBkSelector() {
+        let bks = [];
+        if (!this.stockbks) {
+            this.stockbks = {};
+        }
+        for (const stocki of this.selStocks) {
+            var code = stocki[0];
+            if (!emjyBack.stock_bks || !emjyBack.stock_bks[code]) {
+                return;
+            }
+            emjyBack.stock_bks[code].forEach(bk=>{
+                if (!this.stockbks[code]) {
+                    this.stockbks[code] = [];
+                }
+                if (!this.stockbks[code].includes(bk[1])) {
+                    this.stockbks[code].push(bk[1]);
+                }
+                if (!bks.includes(bk[1])) {
+                    bks.push(bk[1]);
+                }
+            });
+        }
+        let bkcnt = {};
+        for (const bk of bks) {
+            for (const stocki of this.selStocks) {
+                if (this.cptSelector.selectedIndex <= 2) {
+                    if (stocki[1] != this.ztdate && this.cptSelector.value == 'dayzt') {
+                        continue;
+                    }
+                    if (stocki[1] == this.ztdate && this.cptSelector.value == 'notzt') {
+                        continue;
+                    }
+                }
+                if (this.stockbks[stocki[0]] && this.stockbks[stocki[0]].includes(bk)) {
+                    if (!bkcnt[bk]) {
+                        bkcnt[bk] = 1;
+                    } else {
+                        bkcnt[bk] += 1;
+                    }
+                }
+            }
+        }
+        bks = bks.filter(bk => bkcnt[bk] > 3);
+        bks.sort((c1, c2) => bkcnt[c1] < bkcnt[c2]);
+        if (!this.bkSelector) {
+            this.bkSelector = document.createElement('select');
+            this.toolbar.appendChild(this.bkSelector);
+        } else {
+            while (this.bkSelector.options.length > 0) {
+                this.bkSelector.options.remove(0);
+            }
+        }
+        if (!this.bkSelector.parentElement) {
+            this.toolbar.appendChild(this.bkSelector);
+        }
+        for (const bk of bks) {
+            this.bkSelector.options.add(new Option(bk + bkcnt[bk], bk));
+        }
+        this.bkSelector.selectedIndex = -1;
+        this.bkSelector.onchange = e => {
+            if (this.filteredStks) {
+                this.filteredStks.clear();
+            }
+            if (this.stkTable) {
+                this.stkTable.reset();
+                if (this.chkbxSelectAll) {
+                    this.chkbxSelectAll.checked = false;
+                }
+            }
+            if (this.cptSelector.selectedIndex > 2) {
+                this.cptSelector.selectedIndex = 0;
+            }
+            this.doShowSelected();
+        };
+    }
+
+    shouldShow(stock) {
+        let cptMatch = true;
+        if (this.cptSelector.selectedIndex !== -1) {
+            if (this.cptSelector.value == 'dayzt') {
+                cptMatch = stock[1] == this.ztdate;
+            } else if (this.cptSelector.value == 'notzt') {
+                cptMatch = stock[1] != this.ztdate;
+            } else if (this.cptSelector.value) {
+                cptMatch = stock[7].includes(this.cptSelector.value);
+            }
+        }
+        if (!this.bkSelector) {
+            return cptMatch;
+        }
+        if (this.bkSelector.selectedIndex !== -1) {
+            let code = stock[0];
+            if (this.stockbks && this.stockbks[code]) {
+                return cptMatch && this.stockbks[code].includes(this.bkSelector.value);
+            }
+        }
+        return cptMatch;
     }
 
     doShowSelected() {
@@ -334,18 +492,8 @@ class ZtPredictLeadSelector extends StkSelector {
         table.setClickableHeader('序号', '日期', '名称(代码)', '天数', '连板数', '10日涨幅', '30日涨幅', '行业板块', '概念', this.chkbxSelectAll);
         var n = 1;
         for (const stocki of this.selStocks) {
-            if (this.cptKey) {
-                if (this.cptKey == 'dayzt') {
-                    if (stocki[1] != this.ztdate) {
-                        continue;
-                    }
-                } else if (this.cptKey == 'notzt') {
-                    if (stocki[1] == this.ztdate) {
-                        continue;
-                    }
-                } else if (!stocki[7].includes(this.cptKey)) {
-                    continue;
-                }
+            if (!this.shouldShow(stocki)) {
+                continue;
             }
             var code = stocki[0].substring(2);
             var anchor = emjyBack.stockAnchor(code);
@@ -434,10 +582,7 @@ class Zt1BrkSelector extends StkSelector {
         utils.get(ztUrl, null, zt => {
             this.selStocks = JSON.parse(zt);
             this.selStocks.sort((x, y) => {
-                if (x[0][2] != y[0][2]) {
-                    return x[0][2] < y[0][2];
-                }
-                return x[0] < y[0];
+                return x[0].substring(2) < y[0].substring(2);
             });
             this.showSelected();
         });
@@ -478,6 +623,132 @@ class Zt1BrkSelector extends StkSelector {
         return this.makeStrategyGrp(code, strategies, transfers, 10000);
     }
 }
+
+
+class TripleBullSelector extends StkSelector {
+    constructor() {
+        super();
+        this.key = '3brk';
+        this.name = '三阳开泰';
+    }
+
+    getSelectorData() {
+        var tbrkUrl = emjyBack.fha.server + 'stock?act=pickup&key=3brk';
+        utils.get(tbrkUrl, null, tbrk => {
+            this.selStocks = JSON.parse(tbrk);
+            if (this.selStocks.length > 0) {
+                this.showSelected();
+            }
+        });
+    }
+
+    showToolbar() {
+        this.createCandidateToolbar();
+    }
+
+    candidatesAction() {
+        return 'unselect_3brk';
+    }
+
+    candidatesForm() {
+        var fd = new FormData();
+        var selcodes = [];
+        var stocks = this.selStocks;
+        for (const c of this.filteredStks) {
+            for (var i = 0; i < stocks.length; i ++) {
+                if (stocks[i][0].endsWith(c)) {
+                    selcodes.push(stocks[i][0]);
+                    break;
+                }
+            }
+        }
+        var codes = [];
+        for (const stk of this.selStocks) {
+            if (!selcodes.includes(stk[0])) {
+                codes.push(stk[0])
+            }
+        }
+
+        fd.append('act', this.candidatesAction());
+        fd.append('stocks', Array.from(codes).join(','));
+        return fd;
+    }
+
+    doShowSelected() {
+        var table = this.stkTable;
+        table.setClickableHeader('序号', '1阳日期', '3阳日期', '名称', '代码', this.chkbxSelectAll);
+        var n = 1;
+        for (const stocki of this.selStocks) {
+            var code = stocki[0].substring(2);
+            var anchor = emjyBack.stockAnchor(code);
+            var sel = this.createSelCheckbox(code);
+            table.addRow(
+                n++,
+                stocki[1],
+                stocki[2],
+                anchor,
+                code,
+                sel
+            );
+        }
+    }
+}
+
+
+class EndVolumeSelector extends StkSelector {
+    constructor() {
+        super();
+        this.key = 'evol';
+        this.name = '收盘竞价爆量';
+        this.ztdate = '';
+    }
+
+    getSelectorData() {
+        var evUrl = emjyBack.fha.server + 'stock?act=pickup&key=evol&date=' + this.ztdate;
+        utils.get(evUrl, null, dzt => {
+            this.selStocks = JSON.parse(dzt);
+            if (this.selStocks.length > 0) {
+                this.showSelected();
+            }
+        });
+    }
+
+    showToolbar() {
+        this.createCandidateToolbar();
+    }
+
+    candidatesAction() {
+        return 'select_evol';
+    }
+
+    doShowSelected() {
+        var table = this.stkTable;
+        table.setClickableHeader('序号', '日期', '名称', '代码', '成交量', '成交额(万)', '换手率(%)', '竞价量(开)', '竞价量(收)',
+            '未匹配量', '竞价占比', '涨停距今(日)', this.chkbxSelectAll);
+        var n = 1;
+        for (const stocki of this.selStocks) {
+            var code = stocki[0].substring(2);
+            var anchor = emjyBack.stockAnchor(code);
+            var sel = this.createSelCheckbox(code);
+            table.addRow(
+                n++,
+                stocki[1],
+                anchor,
+                code,
+                stocki[2],
+                stocki[3],
+                stocki[4],
+                stocki[5],
+                stocki[6],
+                stocki[7],
+                stocki[8],
+                stocki[9],
+                sel
+            );
+        }
+    }
+}
+
 
 class DztSelector extends StkSelector {
     constructor() {
@@ -661,6 +932,7 @@ class UstSelector extends StkSelector {
     }
 }
 
+
 class StkSelectorsPanelPage extends RadioAnchorPage {
     constructor() {
         super('选股');
@@ -670,6 +942,8 @@ class StkSelectorsPanelPage extends RadioAnchorPage {
             new ZtPredictLeadSelector(),
             new Zt1d1Selector(),
             new Zt1BrkSelector(),
+            new TripleBullSelector(),
+            new EndVolumeSelector(),
             new DztSelector(),
             new DtBoardSelector(),
             new MaConvSelector(),

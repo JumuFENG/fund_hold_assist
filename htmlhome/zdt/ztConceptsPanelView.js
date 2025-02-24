@@ -23,6 +23,169 @@ class RandomColor {
     }
 }
 
+class ZtLeadLbcChart {
+    constructor(parent) {
+        this.container = parent;
+        this.chartdiv = document.createElement('div');
+        this.chartdiv.style.height = '600px';
+        this.container.appendChild(this.chartdiv);
+        this.chart = echarts.init(this.chartdiv);
+    }
+
+    setupChart() {
+        let option = {
+            grid: [{top:'10', height: '40%'}, {top: '42%', height: '48%'}],
+            xAxis: [{type: 'category', gridIndex: 0}, {type: 'category', gridIndex: 1}],
+            yAxis: [
+                {type: 'value', gridIndex: 0},
+                {type: 'value', gridIndex: 1, splitLine: { show: false }},
+                {type: 'value', gridIndex: 1, splitLine: { show: false }},
+                {type: 'value', gridIndex: 1, axisLabel: { show: false }}],
+            series: [],
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {type: 'cross'},
+                formatter: function(params) {
+                    const tipseries = {'ztcnt': '连板', 'zt1cnt': '首板', 'dtcnt': '跌停', 'ztamt':'成交'};
+                    let result = '';
+                    params.forEach(p => {
+                        if (tipseries[p.seriesName]) {
+                            result += p.marker + tipseries[p.seriesName] + p.value[1] + (p.seriesName == 'ztamt' ? '亿': '') + '<br>';
+                        }
+                    });
+                    if (result.length > 0) {
+                        result = params[0].value[0] + '<br>' + result;
+                    }
+                    return result;
+                }
+            },
+            dataZoom: [{
+                type: 'inside',
+                show: true,
+                xAxisIndex: [0, 1],
+                end: 100,
+                zoomLock: true
+            }, {
+                type: 'slider',
+                brushSelect: false
+            }]
+        };
+
+        this.chart.setOption(option);
+    }
+
+    lbcSeries() {
+        let series = [];
+        let seriescnt = {};
+        for (let si of emjyBack.lbc_series) {
+            if (!seriescnt[si.code]) {
+                seriescnt[si.code] = 0;
+            } else {
+                seriescnt[si.code] += 1;
+            }
+            si.sname = si.code + '_' + seriescnt[si.code];
+        }
+
+        var day_lbc = function(d, l) {
+            if (d == l) {
+                return d == 1 ? '首板' : `${d}连板`;
+            }
+            return `${d}天${l}板`;
+        }
+        for (const si of emjyBack.lbc_series) {
+            let s = {};
+            s.name = si.sname;
+            s.type = 'line';
+            s.step = 'middle';
+            s.yAxisIndex = 0;
+            s.xAxisIndex = 0;
+            s.data = si.daylbc.sort((a, b) => a[0] > b[0]);
+            s.showSymbol = false;
+            s.label = {
+                show: true,
+                position: 'top',
+                color: 'inherit',
+                formatter: function(param) {
+                    var result = emjyBack.stockName(param.seriesName.split('_')[0].substring(2));
+                    result += '\n' + day_lbc(param.data[2], param.data[1]);
+                    return result;
+                }
+            }
+            s.labelLayout = {
+                moveOverlap: 'shiftY'
+            }
+            series.push(s);
+        }
+        return series;
+    }
+
+    statsSeries() {
+        if (!emjyBack.zdtDailyStats) {
+            return [];
+        }
+        let series = [];
+        series[0] = {
+            name:'zt1cnt', type:'bar', stack:'zt', xAxisIndex:1, yAxisIndex:1, showSymbol: false,
+            data: emjyBack.zdtDailyStats.map(x=>[x[0], x[2]])
+        };
+        series[1] = {
+            name:'ztcnt', type:'bar', stack:'zt', xAxisIndex:1, yAxisIndex:1, showSymbol: false,
+            data: emjyBack.zdtDailyStats.map(x=>[x[0], x[1]-x[2]])
+        };
+        series[2] = {
+            name:'dtcnt', type:'bar', stack:'dt', xAxisIndex:1, yAxisIndex:2, showSymbol: false,
+            data: emjyBack.zdtDailyStats.map(x=>[x[0], x[3]])
+        };
+        series[3] = {
+            name:'ztamt', type:'line', xAxisIndex:1, yAxisIndex:3, showSymbol: false,
+            label: {show:true, formatter: function(params) {return params.value[1].toFixed(2) + '亿'}},
+            data: emjyBack.zdtDailyStats.map(x=>[x[0], x[4]/10000])
+        };
+        return series;
+    }
+
+    showAll() {
+        let s1 = this.lbcSeries();
+        let s2 = this.statsSeries();
+        var option = {series: s1.concat(s2)};
+        var xAxis = [{data: []}, {data: []}];
+        var dates = [];
+        for (const si of emjyBack.lbc_series) {
+            si.daylbc.forEach(dn => {
+                if (!dates.includes(dn[0])) {
+                    dates.push(dn[0]);
+                }
+            });
+        }
+        if (emjyBack.zdtDailyStats) {
+            emjyBack.zdtDailyStats.forEach(x => {if(!dates.includes(x[0])) dates.push(x[0]);});
+        }
+        dates.sort();
+        xAxis[0].data = dates;
+        xAxis[1].data = dates;
+        option.xAxis = xAxis;
+        if (dates.length > 120) {
+            option.dataZoom = [{
+                start: (dates.length - 120) * 100 / dates.length,
+                minSpan: 4000/dates.length,
+            }]
+        }
+        if (s2.length > 0) {
+            option.legend = {
+                top: '42%',
+                right: '10',
+                orient: 'vertical',
+                data: s2.map(x => x.name)
+            }
+        }
+        if (this.chart.getWidth() == 0) {
+            this.chart.resize();
+        }
+        this.chart.setOption(option);
+    }
+}
+
+
 class ZtConceptsPanelPage extends RadioAnchorPage {
     constructor() {
         super('涨停热度');
@@ -35,7 +198,17 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
         if (!this.topPanel) {
             this.colorGenerator = new RandomColor();
             this.conceptBk['border'] = 'red';
-            var title = document.createElement('h1');
+            this.ztLbcPanel = document.createElement('div');
+            this.ztlbcChart = new ZtLeadLbcChart(this.ztLbcPanel);
+            this.ztlbcChart.setupChart();
+            this.getZtLbcHistory();
+            this.container.appendChild(this.ztLbcPanel);
+            const btnLoadMore = document.createElement('button');
+            btnLoadMore.textContent = '更多';
+            btnLoadMore.onclick = () => this.getZtLbcHistory();
+            this.container.appendChild(btnLoadMore);
+
+            var title = document.createElement('h3');
             title.textContent = '涨停分布';
             title.style.textAlign = 'center';
             title.style.color = this.colorGenerator.next();
@@ -46,7 +219,6 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
             this.container.appendChild(this.topPanel);
             this.getZtConcepts();
             this.getStocksRank();
-            this.getDailyZtStats();
 
             this.ztConceptPanel = document.createElement('div');
             this.ztConceptPanel.style.display = 'flex';
@@ -114,6 +286,21 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
         });
     }
 
+    getZtLbcHistory() {
+        let ldate = this.hdate ? new Date(this.hdate) : new Date();
+        this.hdate = new Date(ldate - 90*24*60*60000).toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, '-');
+        var lbcUrl = emjyBack.fha.server + 'stock?act=ztlbc&date=' + this.hdate;
+        utils.get(lbcUrl, null, lrsp => {
+            emjyBack.lbc_series = JSON.parse(lrsp);
+            this.ztlbcChart.showAll();
+        });
+        var sUrl = emjyBack.fha.server + 'stock?act=zdtemot&date=' + this.hdate;
+        utils.get(sUrl, null, lrsp => {
+            emjyBack.zdtDailyStats = JSON.parse(lrsp);
+            this.ztlbcChart.showAll();
+        });
+    }
+
     showZtConcepts() {
         if (!this.ztconcepts) {
             return;
@@ -132,7 +319,7 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
         for (var d in concpetdict) {
             conceptsBand.appendChild(this.createConceptsRow(d, concpetdict[d]));
         }
-        conceptsBand.lastElementChild.scrollIntoView();
+        // conceptsBand.lastElementChild.scrollIntoView();
     }
 
     createConceptsCol(date, concepts) {
@@ -202,10 +389,11 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
                 this.conceptBk[x[0]] = this.colorGenerator.next();
             }
             con.style.background = this.conceptBk[x[0]];
-            con.appendChild(document.createTextNode(x[0] + ' (' + x[1] + ')'));
+            con.appendChild(document.createTextNode(`${x[1]} ${x[0]}`));
             con.style.width = x[1] * this.topPanel.clientWidth / sum;
             con.style.border = '3px solid';
             con.style.borderColor = con.style.backgroundColor;
+            con.style.textWrap = 'nowrap';
             con.concept = x[0];
             con.date = date;
             con.onmouseenter = e => {
