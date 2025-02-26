@@ -147,8 +147,6 @@ class EmjyBack {
         this.normalAccount = null;
         this.collateralAccount = null;
         this.creditAccount = null;
-        this.contentProxies = [];
-        this.stockMarket = {};
         this.klineAlarms = null;
         this.ztBoardTimer = null;
         this.rtpTimer = null;
@@ -334,18 +332,7 @@ class EmjyBack {
             this.mainTab.url = message.url;
             this.checkAuthencated();
             chrome.tabs.executeScript(this.mainTab.tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
-            if (this.contentProxies.length > 0 && this.authencated) {
-                for (var i = 0; i < this.contentProxies.length; i++) {
-                    this.contentProxies[i].triggerTask();
-                }
-            };
             this.log('onContentLoaded', this.mainTab.url);
-        } else {
-            this.contentProxies.forEach(c => {
-                if (c.tabid == tabid) {
-                    c.pageLoaded();
-                };
-            });
         };
     }
 
@@ -1299,13 +1286,6 @@ class EmjyBack {
             feng.buyNewStocks();
         }
         feng.buyNewBonds();
-    }
-
-    scheduleNewTabCommand(command) {
-        if (this.authencated) {
-            command.triggerTask();
-        };
-        this.contentProxies.push(command);
     }
 
     tradeBeforeClose() {

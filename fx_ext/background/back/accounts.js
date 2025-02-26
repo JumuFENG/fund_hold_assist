@@ -787,11 +787,7 @@ class NormalAccount extends Account {
 
         var name = feng.getStockName(code);
         if (!name) {
-            if (emjyBack.stockMarket[code]) {
-                name = emjyBack.stockMarket[code].name;
-            } else {
-                name = code;
-            }
+            name = code;
         }
         var stock = { code, name, holdCount: 0, availableCount: 0};
         this.addStockStrategy(stock, strgrp);
