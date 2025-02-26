@@ -475,7 +475,13 @@ class Manager {
         if (this.fha) {
             var url = this.fha.server + 'stock?act=getearned&code=' + this.getLongStockCode(code);
             var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)}
-            return fetch(url, header).then(rsp => rsp.text());
+            return fetch(url, header).then(rsp => rsp.text()).then(e => {
+                if (!isNaN(e)) {
+                    return e;
+                } else {
+                    throw new Error('Not a number!');
+                }
+            });
         }
         return Promise.resolve();
     }

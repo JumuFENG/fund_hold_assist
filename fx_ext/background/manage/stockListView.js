@@ -52,6 +52,8 @@ class StockView {
             emjyBack.getTotalEarned(this.stock.code).then(e => {
                 this.stock.earned = e;
                 this.refreshDetailView();
+            }).catch(er => {
+                console.log(er);
             });
         }
         if (this.deleteBtn && emjyBack.klines[this.stock.code] && emjyBack.klines[this.stock.code].continuouslyBellowMaDays() >= 5) {

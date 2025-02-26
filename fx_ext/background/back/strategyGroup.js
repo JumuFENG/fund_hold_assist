@@ -637,6 +637,18 @@ class StrategyGroup {
         this.save();
     }
 
+    disableStrategy(skey) {
+        for (const id in this.strategies) {
+            if (this.strategies[id] && this.strategies[id].key() == skey) {
+                if (this.strategies[id].enabled()) {
+                    this.strategies[id].setEnabled(false);
+                    this.save();
+                }
+                break;
+            }
+        }
+    }
+
     initTransfers(conn) {
         for (var id in conn) {
             this.transfers[id] = new StrategyTransferConnection(conn[id]);
@@ -669,7 +681,7 @@ class StrategyGroup {
         if (this.buydetail && this.buydetail.full_records && this.buydetail.full_records.length > 0) {
             var fcount = 0;
             for (const record of this.buydetail.full_records) {
-                if (record.tradeType === 'B') {
+                if (record.type === 'B') {
                     fcount -= -record.count;
                 } else {
                     fcount -= record.count;
@@ -871,7 +883,7 @@ class StrategyGroup {
                     return sd;
                 } catch(err) {
                     if (err) {
-                        this.checkTradeResponse(info, err);
+                        this.checkTradeError(info, err);
                     }
                     this.onTradeMatch(info);
                 };
@@ -879,9 +891,9 @@ class StrategyGroup {
         }
     }
 
-    checkTradeResponse(refer, response) {
+    checkTradeError(refer, err) {
         var curStrategy = this.strategies[refer.id];
-        if (response && response.includes('可用股份数不足')) {
+        if (err && err.details && err.details.Message.includes('可用股份数不足')) {
             curStrategy.setEnabled(false);
         }
     }

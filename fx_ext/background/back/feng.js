@@ -17,28 +17,50 @@ class feng {
     * @returns {Promise<Object>} 返回 {name, latestPrice, openPrice, lastClose, topprice, bottomprice, buysells}
     */
     static async getStockSnapshot(code) {
-        let url = feng.quotewg + '?id=' + code + '&callback=jSnapshotBack?';
-        return guang.fetchData(url, {}, 1000, ssnap => {
-            // let snapshot = JSON.parse(ssnap.match(/jSnapshotBack\((.+?)\);/)[1]);
-            let snapshot = ssnap;
-            let name = snapshot.name;
-            let latestPrice = snapshot.realtimequote.currentPrice;
-            let buysells = Object.fromEntries(
-                Object.entries(snapshot.fivequote).filter(([key]) => key.startsWith('buy') || key.startsWith('sale'))
-            );
-            let openPrice = snapshot.fivequote.openPrice;
-            let lastClose = snapshot.fivequote.yesClosePrice
-            let topprice = snapshot.topprice;
-            let bottomprice = snapshot.bottomprice;
-            let data = {name, latestPrice, openPrice, lastClose, topprice, bottomprice, buysells};
-            let expireTime = 0;
-            let now = new Date()
-            let [day, tm] = now.toLocaleString('zh', {year:'numeric', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit'}).replaceAll('/','').split(' ');
-            if (snapshot.realtimequote.date	!= day || tm < '09:15' || tm > '15:00') {
-                expireTime = now.setDate(now.getDate() + 1);
+        const setTimeTo0915 = (date) => {
+            date.setHours(9);
+            date.setMinutes(15);
+            date.setSeconds(0);
+            date.setMilliseconds(0);
+            return date;
+        };
+
+        const snapExpireTime = (date) => {
+            const now = new Date();
+
+            if (date !== now.toLocaleDateString('zh-CN').replaceAll('/', '') || now.getHours() >= 15) {
+                const tomorrow = new Date(now);
+                tomorrow.setDate(now.getDate() + 1);
+                return setTimeTo0915(tomorrow).getTime();
             }
 
-            return expireTime > 0 ? {data, expireTime} : data;
+            if (now.getHours() < 9 || (now.getHours() === 9 && now.getMinutes() < 15)) {
+                return setTimeTo0915(new Date(now)).getTime();
+            }
+
+            return 0;
+        }
+
+        if (code.length != 6) {
+            throw new Error('Please check your stock code, code length for snapshort is 6!');
+        }
+
+        let url = feng.quotewg + '?id=' + code + '&callback=?';
+        return guang.fetchData(url, {}, 1000, snapshot => {
+            const {
+                name, code, topprice, bottomprice,
+                realtimequote: { currentPrice: latestPrice, date },
+                fivequote: { openPrice, yesClosePrice: lastClose, ...fivequote },
+            } = snapshot;
+
+            const buysells = Object.fromEntries(
+                Object.entries(fivequote).filter(([key]) => key.startsWith('buy') || key.startsWith('sale'))
+            );
+
+            const data = { code, name, latestPrice, openPrice, lastClose, topprice, bottomprice, buysells };
+            const expireTime = snapExpireTime(date);
+
+            return expireTime > 0 ? { data, expireTime } : data;
         });
     }
 
@@ -73,11 +95,15 @@ class feng {
     * @returns {Promise<any>} 返回数据的 Promise
     */
     static async getStockKline(code, klt, date) {
+        if (!klt) {
+            klt = '101';
+        }
         let secid = await feng.getStockSecId(code);
         let beg = 0;
         if (klt == '101') {
             beg = date;
             if (!beg) {
+                beg = new Date();
                 beg = new Date(beg.setDate(beg.getDate() - 30));
                 beg = beg.toLocaleString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, '')
             } else if (date.includes('-')) {
@@ -91,7 +117,7 @@ class feng {
             if (!emjyBack.klines[code]) {
                 emjyBack.klines[code] = new KLine(code);
             }
-            emjyBack.klines[code].updateRtKline({kltype: klt, kline: klrsp});
+            let updatedKlt = emjyBack.klines[code].updateRtKline({kltype: klt, kline: klrsp});
             let kl0 = emjyBack.klines[code].getLatestKline(klt);
             const getExpireTime = function(kltime, kltype) {
                 const currentDate = new Date();
@@ -140,7 +166,8 @@ class feng {
                 }
             };
 
-            return {data: emjyBack.klines[code], expireTime: getExpireTime(kl0.time, klt)};
+            let data = Object.fromEntries(updatedKlt.map(x => [x, emjyBack.klines[code].klines[x]]));
+            return {data, expireTime: getExpireTime(kl0.time, klt)};
         });
     }
 

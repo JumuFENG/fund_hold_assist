@@ -10,7 +10,7 @@ class guang {
     * @returns {string} 缓存的唯一键
     */
     static buildParams(url, params) {
-        return Object.keys(params) > 0 ? `${url}?${new URLSearchParams(params)}` : url;
+        return Object.keys(params).length > 0 ? `${url}?${new URLSearchParams(params)}` : url;
     }
 
     /**

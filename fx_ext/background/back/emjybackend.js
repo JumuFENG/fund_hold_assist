@@ -509,7 +509,7 @@ class EmjyBack {
             if (!account) {
                 this.checkRzrq(code).then(rzrq => {
                     var racc = rzrq.Status == -1 ? 'normal' : 'credit';
-                    var hacc =holdAccountKey[racc];
+                    var hacc = holdAccountKey[racc];
                     str0.account = racc;
                     let bstrs = {
                         "grptype":"GroupStandard","transfers":{"0":{"transfer":"-1"}},
@@ -1259,7 +1259,10 @@ class EmjyBack {
     }
 
     fetchStockSnapshot(code) {
-        this.postQuoteWorkerMessage({command:'quote.fetch.code', code});
+        return feng.getStockSnapshot(code).then(snap => {
+            this.updateStockRtPrice(snap);
+            return snap;
+        });
     }
 
     getStockMarketHS(code) {
@@ -1329,7 +1332,18 @@ class EmjyBack {
     }
 
     fetchStockKline(code, kltype, sdate) {
-        this.postQuoteWorkerMessage({command:'quote.kline.rt', code, kltype, market: this.getStockMarketHS(code), sdate});
+        return feng.getStockKline(code, kltype, sdate).then(kline => {
+            if (!this.isTradeTime()) {
+                return Promise.resolve(kline);
+            }
+            let updatedKlt = Object.keys(kline);
+            this.normalAccount.updateStockRtKline(code, updatedKlt);
+            this.collateralAccount.updateStockRtKline(code, updatedKlt);
+            for (const account of this.track_accounts) {
+                account.updateStockRtKline(code, updatedKlt);
+            }
+            return Promise.resolve(kline);
+        });
     }
 
     tradeDailyRoutineTasks() {

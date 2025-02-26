@@ -456,7 +456,9 @@ class TradeClient {
             .then(response => response.json())
             .then(robj => {
                 if (robj.Status !== 0 || !robj.Data?.length) {
-                    throw new Error('Trade failed: ' + JSON.stringify(robj));
+                    const err = new Error('Trade failed!');
+                    err.details = robj;
+                    throw err;
                 }
                 this.availableMoney -= tradeType === 'B' ? price * count : -(price * count);
                 return { code, price, count, sid: robj.Data[0].Wtbh, type: tradeType };
@@ -471,6 +473,9 @@ class TradeClient {
             finalCount = cobj.availableCount;
             if (count > 1) {
                 finalCount = 100 * Math.floor(cobj.availableCount / 100 / count);
+            }
+            if (finalCount - 100 < 0) {
+                throw new Error(`Invalid count: ${finalCount} available count: ${cobj.availableCount}`);
             }
         }
         return this.doTrade(code, price, finalCount, tradeType, jylx);
@@ -649,14 +654,12 @@ class NormalAccount extends Account {
         });
     }
 
-    loadStrategies() {
-        this.stocks.forEach(s => {
-            var strStorageKey = this.keyword + '_' + s.code + '_strategies';
-            emjyBack.getFromLocal(strStorageKey, str => {
-                if (str) {
-                    this.applyStrategy(s.code, JSON.parse(str));
-                };
-            });
+    loadStrategies(code) {
+        var strStorageKey = this.keyword + '_' + code + '_strategies';
+        emjyBack.getFromLocal(strStorageKey, str => {
+            if (str) {
+                this.applyStrategy(code, JSON.parse(str));
+            };
         });
     }
 
@@ -706,8 +709,8 @@ class NormalAccount extends Account {
         };
 
         var stock = this.stocks.find(function(s) { return s.code == snapshot.code});
-        if (stock) {
-            stock.updateRtPrice(snapshot);
+        if (stock && stock.strategies) {
+            stock.strategies.check(snapshot);
         }
     }
 
@@ -760,7 +763,6 @@ class NormalAccount extends Account {
         strategyGroup.setHoldCount(stock.holdCount, stock.availableCount, stock.holdCost);
         strategyGroup.applyGuardLevel();
         stock.strategies = strategyGroup;
-        emjyBack.sendWebsocketMessage({action:'addwatch', account: this.keyword, code, strategy: str});
     }
 
     removeStrategy(code, stype) {
@@ -771,6 +773,15 @@ class NormalAccount extends Account {
 
         stock.strategies = null;
         emjyBack.removeLocal(this.keyword + '_' + code + '_strategies');
+    }
+
+    disableStrategy(code, skey) {
+        var stock = this.stocks.find(s => s.code == code);
+        if (!stock || !stock.strategies) {
+            return;
+        }
+
+        stock.strategies.disableStrategy(skey);
     }
 
     addStockStrategy(stock, strgrp) {
@@ -1027,14 +1038,8 @@ class NormalAccount extends Account {
             };
             var stocki = this.parsePosition(positions[i]);
             var stockInfo = this.stocks.find(function(s) {return s.code == stocki.code});
-            if (stockInfo) {
-                stockInfo.code = stocki.code;
-                stockInfo.name = stocki.name;
-                stockInfo.holdCount = stocki.holdCount;
-                stockInfo.availableCount = stocki.availableCount;
-                stockInfo.holdCost = stocki.holdCost;
-                stockInfo.latestPrice = stocki.latestPrice;
-            } else {
+            if (!stockInfo) {
+                stockInfo = new StockInfo(stocki);
                 var market = '';
                 if (emjyBack.stockMarket[stocki.code]) {
                     market = emjyBack.getStockMarketHS(stocki.code);
@@ -1042,10 +1047,17 @@ class NormalAccount extends Account {
                     emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code: stocki.code});
                 }
                 stocki.market = market;
-                this.stocks.push(new StockInfo(stocki));
+                this.stocks.push(stockInfo);
+            } else {
+                stockInfo.code = stocki.code;
+                stockInfo.name = stocki.name;
+                stockInfo.holdCount = stocki.holdCount;
+                stockInfo.availableCount = stocki.availableCount;
+                stockInfo.holdCost = stocki.holdCost;
+                stockInfo.latestPrice = stocki.latestPrice;
             }
+            this.loadStrategies(stockInfo.code);
         }
-        this.loadStrategies();
     }
 }
 

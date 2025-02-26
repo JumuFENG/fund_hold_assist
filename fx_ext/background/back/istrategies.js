@@ -71,7 +71,8 @@ class StrategyI_Base {
             "StrategyBuyZTBoard": { "key": "StrategyBuyZTBoard", "enabled": true },
             "StrategySellELS": {"key": "StrategySellELS", "enabled": false, "cutselltype": "all", "selltype":"all", "topprice": (price * 1.05).toFixed(2) },
             "StrategyGrid": { "key": "StrategyGrid", "enabled": false, "buycnt": 1, "stepRate": 0.05 },
-            "StrategySellBE": { "key":"StrategySellBE", "enabled": false, "upRate": -0.03, "selltype":"all", 'sell_conds': 1}
+            "StrategySellBE": { "key":"StrategySellBE", "enabled": false, "upRate": -0.03, "selltype":"all", 'sell_conds': 1},
+            "StrategyBuyDTBoard": { "key":"StrategyBuyDTBoard", "enabled": true}
         }
         let ekeys = Object.keys(this.estr);
         for (var i = 0; i < ekeys.length; i++) {
@@ -177,6 +178,29 @@ class StrategyI_Base {
         }).catch(error => {
             console.error("获取同花顺人气排行失败:", error);
         });
+    }
+
+    async common_get_zdfranks_em(n=500) {
+        if (n == 0) {
+            return;
+        }
+
+        const params = {
+            pn: 1,
+            np: 1,
+            ut: 'bd1d9ddb04089700cf9c27f6f7426281',
+            fltt: '2',
+            invt: '2',
+            wbp2u: '|0|0|0|web',
+            fid: 'f3',
+            fs: 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048',
+            fields: 'f2,f3,f4,f5,f6,f7,f8,f12,f13,f14,f15,f16,f18',
+            pz: Math.abs(n),
+            po: n > 0 ? 1 : 0,
+        };
+
+        let url = 'http://33.push2.eastmoney.com/api/qt/clist/get';
+        return guang.fetchData(url, params, 60000);
     }
 }
 
@@ -506,13 +530,9 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
             return Promise.resolve(true);
         }
 
-        const fs = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
-        const fields = 'f2,f3,f4,f5,f6,f7,f8,f12,f13,f14,f15,f16,f18';
-        const pre = `http://33.push2.eastmoney.com/api/qt/clist/get?pn=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3&fs=${fs}&fields=${fields}`;
-
         let pfetches = [
-            fetch(pre + '&pz=500&po=1').then(r1 => r1.json()),
-            fetch(pre + '&pz=200&po=0').then(r2 => r2.json())
+            this.common_get_zdfranks_em(500),
+            this.common_get_zdfranks_em(-200)
         ];
 
         return Promise.all(pfetches).then(([jz, jd]) => {
@@ -574,6 +594,118 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
 }
 
 
+class StrategyI_DtStocksUp extends StrategyI_Base {
+    constructor(istr) {
+        super(istr, '9:24');
+        this.kicktime1 = '9:33';
+        this.kicktime2 = '14:30';
+    }
+
+    prepare() {
+        var now = new Date();
+        var ticks0 = new Date(now.toDateString() + ' ' + this.kicktime) - now;
+        var ticks1 = new Date(now.toDateString() + ' ' + this.kicktime1) - now;
+        if (ticks1 < 0) {
+            return;
+        }
+        if (ticks0 > 0) {
+            setTimeout(() => this.trigger(), ticks0);
+        }
+        setTimeout(() => this.trigger1(), ticks1);
+        var ticks2 = new Date(now.toDateString() + ' ' + this.kicktime2) - now;
+        setTimeout(() => this.trigger2(), ticks2);
+    }
+
+    addToWatch(stocks) {
+        stocks.forEach(s => {
+            if (!this.candidates[s]) {
+                this.candidates[s] = {watched: true};
+            }
+            this.expected_account(this.istr.account, s).then(account => {
+                let hacc = holdAccountKey[account];
+                this.estr = {'StrategyBuyDTBoard': {account}};
+                emjyBack.all_accounts[hacc].addWatchStock(s, this.generate_strategy_json());
+                this.candidates[s].account = hacc;
+            });
+        })
+    }
+
+    trigger() {
+        // 竞价结束前
+    }
+
+    trigger1() {
+        // 开盘三分钟
+        this.common_get_zdfranks_em(-50).then(jd=>{
+            let drks = jd.data.diff.filter(r => r.f3 <= -8);
+            if (drks.filter(r => r.f3 <= -10).length > 15) {
+                emjyBack.log('istrategy_dtstocks more stocks zdf < 10 than 15');
+                return;
+            }
+            let dtstocks = drks.filter(r => r.f2 - emjyBack.calcDtPrice(r.f18, emjyBack.getStockZdf(r.f12, r.f14)) <= 0)
+            dtstocks = dtstocks.filter(r => !r.f14.startsWith('退市') && !r.f14.endsWith('退') && !r.f14.includes('ST'));
+            if (dtstocks.length > 10) {
+                emjyBack.log('istrategy_dtstocks more stocks dt than 10');
+                return;
+            }
+            // 封单金额最大前三
+            let snapRequests = dtstocks.map(r => feng.getStockSnapshot(r.f12));
+            Promise.all(snapRequests).then((snaps) => {
+                let top3 = snaps.sort((a, b) => {
+                    if (a.buysells.buy1 != '-') {
+                        return 1;
+                    }
+                    if (b.buysells.buy1 != '-') {
+                        return -1;
+                    }
+                    return b.buysells.sale1 * b.buysells.sale1_count - a.buysells.sale1 * a.buysells.sale1_count;
+                }).slice(0, 3).map(x=>x.code);
+                this.addToWatch(top3);
+                return top3;
+            }).then(t3 => {
+                let dtcodes = dtstocks.map(r => r.f12);
+                let klRequests = dtstocks.map(r => feng.getStockKline(r.f12, '101'));
+                Promise.all(klRequests).then(() => {
+                    let latestPrice = Object.fromEntries(dtstocks.map(r => [r.f12, r.f2]));
+                    let klpvs = dtcodes.map(c => {
+                        let kl5 = emjyBack.klines[c].klines['101'].slice(-5);
+                        let mxhigh = Math.max(...kl5.map(x=>x.h))
+                        let downp = (mxhigh - latestPrice[c]) / mxhigh;
+                        let mxVol = Math.max(...kl5.map(x=>x.v));
+                        let minVol = kl5[kl5.length - 1].v;
+                        for (let i = kl5.length - 2; i >= 0; --i) {
+                            if (kl5[i].v - minVol < 0) {
+                                minVol = kl5[i].v;
+                            }
+                            if (kl5[i].v == mxVol) {
+                                break;
+                            }
+                        }
+                        let downv = (mxVol - minVol) / mxVol;
+                        return [c, downp, downv];
+                    });
+                    // 五天内最高点至今跌幅前三
+                    // 五天内最高点至今有大幅缩量者前三
+                    let p3 = klpvs.sort((a, b) => b[1] - a[1]).slice(0, 3).map(x=>x[0]);
+                    let v3 = klpvs.sort((a, b) => b[2] - a[2]).slice(0, 3).map(x=>x[0]);
+                    return p3.concat(v3).filter(x => !t3.includes(x));
+                }).then(pv3 => {
+                    this.addToWatch(pv3);
+                });
+            });
+        });
+    }
+
+    trigger2() {
+        // 尾盘取消
+        for (const c in this.candidates) {
+            const account = this.candidates[c].account;
+            emjyBack.all_accounts[account].disableStrategy(c, 'StrategyBuyDTBoard');
+        }
+    }
+}
+
+
 class IstrFactory {
     constructor() {
         this.istrs = {};
@@ -614,6 +746,8 @@ class IstrFactory {
             iks = new StrategyI_HotrankOpen(istr);
         } else if (istr.key == 'istrategy_hotstks_open') {
             iks = new StrategyI_HotStocksOpen(istr);
+        } else if (istr.key == 'istrategy_dtstocks') {
+            iks = new StrategyI_DtStocksUp(istr);
         }
         if (iks) {
             this.istrs[istr.key] = iks;
