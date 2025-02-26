@@ -77,11 +77,11 @@ class Manager {
         if (message.command == 'mngr.stocks') {
             this.initStocks(message.stocks);
         } else if (message.command == 'mngr.getkline') {
-            var code = message.kline.data.code;
+            var code = message.code;
             if (this.klines[code] === undefined) {
                 this.klines[code] = new KLine(code);
             }
-            this.klines[code].updateRtKline(message);
+            this.klines[code].klines['101'] = message.klines;
             this.klines[code].save();
             for (var acc in this.accountList) {
                 this.accountList[acc].updateStockPrice(code);

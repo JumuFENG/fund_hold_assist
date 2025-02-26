@@ -11,6 +11,152 @@ class feng {
     static emklapi = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56';
     static emshszac = 'https://emhsmarketwg.eastmoneysec.com/api/SHSZQuery/GetCodeAutoComplete2?count=10&callback=sData&id='
 
+
+    static stkcache = new Map();
+    static loadSaved(cached) {
+        for (const code in cached) {
+            this.stkcache.set(code, cached[code]);
+        }
+    }
+
+    static dumpCached(intrested) {
+        let holdcached = {};
+        for (const [k, { name, code, market, mktcode, secid }] of this.stkcache.entries()) {
+            if (intrested.includes(k)) {
+                holdcached[k] = { name, code, market, mktcode, secid };
+            }
+        }
+        return holdcached;
+    }
+
+    static async getEmStcokInfo(code) {
+        let url = feng.emshszac + code;
+        return guang.fetchData(url, {}, 24*60*60000, emsinf => {
+            const match = emsinf.match(/var sData = "(.+?);";/);
+            if (!match) throw new Error('Invalid response format, code: ' + code, ' response: ' + emsinf);
+
+            const sData = match[1].split(',');
+            const mm = { '1': 'SH', '2': 'SZ', '4': 'BJ' };
+            const [code, , , , name, market, , , sec] = sData;
+            return {name, code, market, mktcode: mm[market], secid: `${sec}.${code}`};
+        });
+    }
+
+    /**
+    * 从cache中获取属性值，不存在则从stockinfo获取
+    * @param {string} code 股票代码, 如: 002261
+    * @param {string} k 属性名称, 如: 'secid‘
+    * @returns {string} 获取的属性值
+    */
+    static async cachedStockGen(code, k) {
+        const cached = this.stkcache.get(code);
+        if (cached && cached[k]) {
+            return cached[k];
+        }
+        const s = await feng.getEmStcokInfo(code);
+        this.stkcache.set(code, Object.assign(cached || {}, s));
+        return s[k];
+    }
+
+    /**
+    * 从cache中获取属性值，不存在则返回默认值
+    * @param {string} code 股票代码, 如: 002261
+    * @param {string} k 属性名称, 如: 'name'
+    * @param {string} v 属性默认值
+    * @returns {string} 获取的属性值
+    */
+    static cachedStockGenSimple(code, k, v='') {
+        const cached = this.stkcache.get(code);
+        if (cached && cached[k]) {
+            return cached[k];
+        }
+        return v;
+    }
+
+    /**
+    * 获取东方财富股票secid 如 002261 -> 2.002261
+    * @param {string} code 股票代码, 如: 002261
+    * @returns {string} secid
+    */
+    static async getStockSecId(code) {
+        return this.cachedStockGen(code, 'secid');
+    }
+
+    /**
+    * 获取股票的交易所信息 如 002261 -> SZ
+    * @param {string} code 股票代码, 如: 002261
+    * @returns {string} 市场代码 SH|SZ|BJ
+    */
+    static async getStockMktcode(code) {
+        return this.cachedStockGen(code, 'mktcode');
+    }
+
+    /**
+    * 获取缓存中股票的名称, 没有则返回空字符串.
+    * @param {string} code 股票代码, 如: 002261
+    * @returns {string} 股票名称
+    */
+    static getStockName(code) {
+        return this.cachedStockGenSimple(code, 'name');
+    }
+
+    /**
+    * 获取缓存中股票价格相关的信息,主要用于涨停/跌停价查询.
+    * @param {string} code 股票代码, 如: 002261
+    * @param {string} k 属性名称, 如: 'zt'
+    * @returns {string} 属性值
+    */
+    static async cachedStockPrcs(code, k) {
+        const cached = this.stkcache.get(code);
+        if (cached && cached[k]) {
+            return cached[k];
+        }
+    }
+
+    /**
+    * 获取股票涨停价.
+    * @param {string} code 股票代码, 如: 002261
+    * @param {number} lclose 昨日收盘价
+    * @returns {number} 涨停价
+    */
+    static getStockZt(code, lclose=null) {
+        let zt = this.cachedStockPrcs(code, 'zt');
+        if (!zt) {
+            const name = this.getStockName(code);
+            try {
+                if (!lclose) {
+                    lclose = emjyBack.klines[code].getKline('101').slice(-1)[0].c;
+                }
+                zt = guang.calcZtPrice(lclose, guang.getStockZdf(code, name));
+            } catch (e) {
+                throw new Error('calcZtPrice in getStockZt!');
+            }
+        }
+        return zt;
+    }
+
+    /**
+    * 获取股票跌停价.
+    * @param {string} code 股票代码, 如: 002261
+    * @param {number} lclose 昨日收盘价
+    * @returns {number} 跌停价
+    */
+    static getStockDt(code, lclose=null) {
+        let dt = this.cachedStockPrcs(code, 'dt');
+        if (!dt) {
+            const name = this.getStockName(code);
+            try {
+                if (!lclose) {
+                    lclose = emjyBack.klines[code].getKline('101').slice(-1)[0].c;
+                }
+                dt = guang.calcDtPrice(lclose, guang.getStockZdf(code, name));
+            } catch (e) {
+                throw new Error('calcDtPrice in getStockDt!');
+            }
+        }
+        return dt;
+    }
+
     /**
     * 获取股票实时盘口数据, 包括最新价，开盘价，昨收价，涨停价，跌停价以及五档买卖情况，要获取涨停价跌停价不需要用本接口，可以直接计算。
     * @param {string} code 股票代码, 如: 002261
@@ -28,7 +174,7 @@ class feng {
         const snapExpireTime = (date) => {
             const now = new Date();
 
-            if (date !== now.toLocaleDateString('zh-CN').replaceAll('/', '') || now.getHours() >= 15) {
+            if (date !== now.toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replaceAll('/', '') || now.getHours() >= 15) {
                 const tomorrow = new Date(now);
                 tomorrow.setDate(now.getDate() + 1);
                 return setTimeTo0915(tomorrow).getTime();
@@ -49,7 +195,7 @@ class feng {
         return guang.fetchData(url, {}, 1000, snapshot => {
             const {
                 name, code, topprice, bottomprice,
-                realtimequote: { currentPrice: latestPrice, date },
+                realtimequote: { currentPrice: latestPrice, date, zdf },
                 fivequote: { openPrice, yesClosePrice: lastClose, ...fivequote },
             } = snapshot;
 
@@ -57,34 +203,16 @@ class feng {
                 Object.entries(fivequote).filter(([key]) => key.startsWith('buy') || key.startsWith('sale'))
             );
 
-            const data = { code, name, latestPrice, openPrice, lastClose, topprice, bottomprice, buysells };
+            const data = { code, name, latestPrice, zdf, openPrice, lastClose, topprice, bottomprice, buysells };
             const expireTime = snapExpireTime(date);
+
+            const cached = this.stkcache.get(code);
+            if (!cached || !cached.lcose || !cached.lcose != lastClose) {
+                this.stkcache.set(code, Object.assign(cached || {}, {name, zt:topprice, dt:bottomprice, lcose: lastClose}));
+            }
 
             return expireTime > 0 ? { data, expireTime } : data;
         });
-    }
-
-    static async getEmStcokInfo(code) {
-        let url = feng.emshszac + code;
-        return guang.fetchData(url, {}, 24*60*60000, emsinf => {
-            const match = emsinf.match(/var sData = "(.+?);";/);
-            if (!match) throw new Error('Invalid response format');
-
-            const sData = match[1].split(',');
-            const mm = { '1': 'SH', '2': 'SZ', '4': 'BJ' };
-            const [code, , , , name, market, , , sec] = sData;
-            return {name, code, market, mktcode: mm[market], secid: `${sec}.${code}`};
-        });
-    }
-
-    /**
-    * 获取东方财富股票secid 如 002261 -> 2.002261
-    * @param {string} code 股票代码, 如: 002261
-    * @returns {string} secid
-    */
-    static async getStockSecId(code) {
-        const s = await feng.getEmStcokInfo(code);
-        return s.secid;
     }
 
     /**

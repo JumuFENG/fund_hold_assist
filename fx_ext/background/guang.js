@@ -65,4 +65,49 @@ class guang {
         this.cache.set(cacheKey, { data: requestPromise, expireTime: Date.now() + cacheTime }); // 缓存 Promise
         return requestPromise;
     }
+
+    /**
+    * 根据代码获取股票的涨跌停幅度
+    * @param {string} code 代码
+    * @param {string} name 名称，用于判断是否ST
+    * @returns {int} 返回涨停/跌停幅度
+    */
+    static getStockZdf(code, name='') {
+        if (code.startsWith('68') || code.startsWith('30')) {
+            return 20;
+        }
+        if (code.startsWith('60') || code.startsWith('00')) {
+            if (name?.includes('S')) {
+                return 5;
+            }
+            return 10;
+        }
+        return 30;
+    }
+
+    /**
+    * 根据昨天收盘价及涨跌幅限制计算今日涨停价
+    * @param {number} lclose 昨日收盘价
+    * @param {number} zdf 涨停幅度 5/10/20/30
+    * @returns {number} 返回涨停价
+    */
+    static calcZtPrice(lclose, zdf) {
+        if (zdf == 30) {
+            return Math.floor(lclose * 130) / 100;
+        }
+        return Math.round(lclose * 100 + lclose * zdf + 0.00000001) / 100;
+    }
+
+    /**
+    * 根据昨天收盘价及涨跌幅限制计算今日跌停价
+    * @param {number} lclose 昨日收盘价
+    * @param {number} zdf 跌停幅度 5/10/20/30
+    * @returns {number} 返回跌停价
+    */
+    static calcDtPrice(lclose, zdf) {
+        if (zdf == 30) {
+            return Math.ceil(lclose * 70) / 100;
+        }
+        return Math.round(lclose * 100 - lclose * zdf + 0.00000001) / 100;
+    }
 }

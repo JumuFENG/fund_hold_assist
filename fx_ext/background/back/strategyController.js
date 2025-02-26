@@ -995,7 +995,7 @@ class StrategySellELShort extends StrategySellEL {
             return Promise.resolve();
         }
 
-        let ztprice = emjyBack.calcZtPrice(prekl.c, emjyBack.getStockZdf(chkInfo.code));
+        let ztprice = feng.getStockZt(chkInfo.code, prekl.c);
         if (kl.c - kl.l == 0 && kl.c - ztprice >= 0 && kl.c * 0.98 - troughprice > 0) {
             troughprice = kl.c * 0.96;
         }
@@ -1072,7 +1072,7 @@ class StrategySellELTop extends StrategySell {
                 return Promise.resolve();
             }
 
-            let ztprice = emjyBack.calcZtPrice(prekl.c, emjyBack.getStockZdf(chkInfo.code));
+            let ztprice = feng.getStockZt(chkInfo.code, prekl.c);
             if (kl.c - ztprice >= 0) {
                 // 涨停不卖出
                 return Promise.resolve();
@@ -1364,7 +1364,7 @@ class StrategySellBeforeEnd extends Strategy {
         if (!this.data.selltype) {
             this.data.selltype = 'single';
         }
-        let ztprice = emjyBack.calcZtPrice(prekl.c, emjyBack.getStockZdf(chkInfo.code));
+        let ztprice = feng.getStockZt(chkInfo.code, prekl.c);
         count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
         if (this.data.sell_conds & conditions['not_zt']) {
             if (kl.c - ztprice < 0) {
@@ -2099,7 +2099,7 @@ class StrategyGrid extends StrategyComplexBase {
             return Promise.resolve();
         }
 
-        let ztprice = emjyBack.calcZtPrice(prekl.c, emjyBack.getStockZdf(chkInfo.code));
+        let ztprice = feng.getStockZt(chkInfo.code, prekl.c);
         if (kl.c - ztprice >= 0) {
             // 涨停不卖出，不加仓
             return;

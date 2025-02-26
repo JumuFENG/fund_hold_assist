@@ -187,10 +187,11 @@ class ZtBoardTimer extends RtpTimer {
         if (!this.stocks.has(code) && !this.lazyStocks.has(code)) {
             return;
         };
-        var zdf = snapshot.realtimequote.zdf;
+        var zdf = snapshot.zdf;
         if (zdf.charAt(zdf.length - 1) == '%') {
             zdf = zdf.substring(0, zdf.length - 1);
         };
+        // var zdf = (snapshot.latestPrice - snapshot.lastClose) / snapshot.lastClose;
         if (zdf > 6.5) {
             if (this.lazyStocks.has(code)) {
                 this.lazyStocks.delete(code);

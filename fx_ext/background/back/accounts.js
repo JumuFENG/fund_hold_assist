@@ -30,7 +30,6 @@ class DealsClient {
         return fd;
     }
 
-    // 使用 fetch 替代 xmlHttpPost
     async fetchData() {
         const url = this.getUrl();
         const fd = this.getFormData();
@@ -378,24 +377,24 @@ class TradeClient {
         return feng.jywg + 'Trade/SubmitTradeV2?validatekey=' + emjyBack.validateKey;
     }
 
-    getBasicFormData(code, price, count, tradeType) {
+    async getBasicFormData(code, price, count, tradeType) {
         const fd = new FormData();
-        const stock = emjyBack.stockMarket[code];
         fd.append('stockCode', code);
         fd.append('price', price);
         fd.append('amount', count);
-        if (stock.mkt == '4') {
+        const mkt = await feng.getStockMktcode(code);
+        if (mkt == 'BJ') {
             tradeType = '0' + tradeType;
         }
         fd.append('tradeType', tradeType);
-        const mdic = { 0: 'SA', 1: 'HA', 4: 'B' };
-        fd.append('market', mdic[stock.mkt]);
+        const mdic = { 'SZ': 'SA', 'SH': 'HA', 'BJ': 'B' };
+        fd.append('market', mdic[mkt]);
         return fd;
     }
 
-    getFormData(code, price, count, tradeType) {
-        const fd = this.getBasicFormData(code, price, count, tradeType);
-        fd.append('zqmc', emjyBack.stockMarket[code].n);
+    async getFormData(code, price, count, tradeType) {
+        const fd = await this.getBasicFormData(code, price, count, tradeType);
+        fd.append('zqmc', feng.getStockName(code));
         return fd;
     }
 
@@ -421,31 +420,30 @@ class TradeClient {
         return feng.jywg + 'Trade/GetAllNeedTradeInfo?validatekey=' + emjyBack.validateKey;
     }
 
-    countFormData(code, price, tradeType, jylx) {
+    async countFormData(code, price, tradeType, jylx) {
         var fd = new FormData();
-        var stock = emjyBack.stockMarket[code];
         fd.append('stockCode', code);
         fd.append('price', price);
         fd.append('tradeType', tradeType);
-        const mdic = {0: 'SA', 1: 'HA', 4: 'B'};
-        fd.append('market', mdic[stock.mkt]);
-        fd.append('stockName', stock.n);
+        const mkt = await feng.getStockMktcode(code);
+        const mdic = {'SZ': 'SA', 'SH': 'HA', 'BJ': 'B'};
+        fd.append('market', mdic[mkt]);
+        fd.append('stockName', feng.getStockName(code));
         fd.append('gddm', '');
         return fd;
     }
 
-    getCount(code, price, tradeType, jylx) {
+    async getCount(code, price, tradeType, jylx) {
+        const fd = await this.countFormData(code, price, tradeType, jylx);
         return fetch(this.countUrl(), {
             method: 'POST',
-            body: this.countFormData(code, price, tradeType, jylx),
-        })
-            .then(response => response.json())
-            .then(robj => {
-                if (robj.Status !== 0 || !robj.Data?.Kmml) {
-                    throw new Error('Trade getCount error: ' + JSON.stringify(robj));
-                }
-                return { availableCount: robj.Data.Kmml };
-            });
+            body: fd
+        }).then(response => response.json()).then(robj => {
+            if (robj.Status !== 0 || !robj.Data?.Kmml) {
+                throw new Error('Trade getCount error: ' + JSON.stringify(robj));
+            }
+            return { availableCount: robj.Data.Kmml };
+        });
     }
 
     doTrade(code, price, count, tradeType, jylx) {
@@ -517,24 +515,24 @@ class CollatTradeClient extends TradeClient {
         return feng.jywg + 'MarginTrade/SubmitTradeV2?validatekey=' + emjyBack.validateKey;
     }
 
-    getFormData(code, price, count, tradeType, jylx) {
-        const fd = super.getBasicFormData(code, price, count, tradeType);
-        fd.append('stockName', emjyBack.stockMarket[code].n);
+    async getFormData(code, price, count, tradeType, jylx) {
+        const fd = await super.getBasicFormData(code, price, count, tradeType);
+        fd.append('stockName', feng.getStockName(code));
         fd.append('xyjylx', jylx);
         return fd;
     }
 
-    countFormData(code, price, tradeType, jylx) {
+    async countFormData(code, price, tradeType, jylx) {
         var fd = new FormData();
-        var stock = emjyBack.stockMarket[code];
         fd.append('stockCode', code);
         fd.append('price', price);
         fd.append('tradeType', tradeType);
         fd.append('xyjylx', jylx); // 信用交易类型
         fd.append('moneyType', 'RMB');
-        fd.append('stockName', stock.n);
-        const mdic = {0: 'SA', 1: 'HA', 4: 'B'};
-        fd.append('market', mdic[stock.mkt]);
+        const mkt = await feng.getStockMktcode(code);
+        fd.append('stockName', feng.getStockName(code));
+        const mdic = {'SZ': 'SA', 'SH': 'HA', 'BJ': 'B'};
+        fd.append('market', mdic[mkt]);
         return fd;
     }
 
@@ -544,8 +542,8 @@ class CollatTradeClient extends TradeClient {
 
     async checkRzrqTarget(code) {
         const pobj = await this.getRtPrice(code);
+        const fd = await this.countFormData(code, pobj.cp, 'B', this.buy_jylx);
         const url = this.countUrl();
-        const fd = this.countFormData(code, pobj.cp, 'B', this.buy_jylx);
 
         const response = await fetch(url, { method: 'POST', body: fd });
         const robj = await response.json();
@@ -668,38 +666,20 @@ class NormalAccount extends Account {
             return null;
         };
 
-        var stocks = [];
-        for (var i = 0; i < this.stocks.length; i++) {
-            stocks.push({
-                code: this.stocks[i].code,
-                name: this.stocks[i].name,
-                market: this.stocks[i].market,
-                holdCost: this.stocks[i].holdCost,
-                holdCount: this.stocks[i].holdCount,
-                availableCount: this.stocks[i].availableCount,
-                latestPrice: this.stocks[i].latestPrice,
-                strategies: this.stocks[i].strategies ? this.stocks[i].strategies.tostring() : null
-            });
-        };
-
+        var stocks = this.stocks.map(({code, name, holdCost, holdCount, availableCount, latestPrice, strategies, }) => ({
+            code,
+            name,
+            holdCost,
+            holdCount,
+            availableCount,
+            latestPrice,
+            strategies: strategies?.tostring() ?? null,
+        }));
+        stocks.sort((a, b) => b.holdCount * b.latestPrice - a.holdCount * a.latestPrice);
         return {account: this.keyword, stocks};
     }
 
-    updateStockMarketInfo(sdata) {
-        if (!this.stocks || this.stocks.length == 0) {
-            return;
-        };
-        var stock = this.stocks.find(s => { return s.code == sdata.code});
-        if (stock) {
-            if (!stock.name) {
-                stock.name = sdata.name;
-            }
-            stock.market = sdata.market;
-        };
-    }
-
     updateStockRtPrice(snapshot) {
-        // emjyBack.log('updateStockRtPrice', JSON.stringify(snapshot));
         if (this.wallet && snapshot.code == this.wallet.fundcode) {
             return;
         };
@@ -720,8 +700,8 @@ class NormalAccount extends Account {
         };
 
         var stock = this.stocks.find((s) => { return s.code == code});
-        if (stock) {
-            stock.updateRtKline(updatedKlt);
+        if (stock && stock.strategies) {
+            stock.strategies.checkKlines(updatedKlt);
         };
     }
 
@@ -805,16 +785,15 @@ class NormalAccount extends Account {
             return;
         };
 
-        var name = '';
-        var market = '';
-        if (emjyBack.stockMarket[code]) {
-            name = emjyBack.stockMarket[code].n;
-            market = emjyBack.getStockMarketHS(code);
-        } else {
-            emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code});
+        var name = feng.getStockName(code);
+        if (!name) {
+            if (emjyBack.stockMarket[code]) {
+                name = emjyBack.stockMarket[code].name;
+            } else {
+                name = code;
+            }
         }
-
-        var stock = new StockInfo({ code, name, holdCount: 0, availableCount: 0, market});
+        var stock = { code, name, holdCount: 0, availableCount: 0};
         this.addStockStrategy(stock, strgrp);
         this.stocks.push(stock);
     }
@@ -1036,27 +1015,14 @@ class NormalAccount extends Account {
                 this.wallet.holdCount = positions[i].Zqsl;
                 continue;
             };
-            var stocki = this.parsePosition(positions[i]);
-            var stockInfo = this.stocks.find(function(s) {return s.code == stocki.code});
-            if (!stockInfo) {
-                stockInfo = new StockInfo(stocki);
-                var market = '';
-                if (emjyBack.stockMarket[stocki.code]) {
-                    market = emjyBack.getStockMarketHS(stocki.code);
-                } else {
-                    emjyBack.postQuoteWorkerMessage({command:'quote.query.stock', code: stocki.code});
-                }
-                stocki.market = market;
-                this.stocks.push(stockInfo);
+            let stocki = this.parsePosition(positions[i]);
+            var stockInfo = this.stocks.find(s=> s.code == stocki.code);
+            if (stockInfo) {
+                Object.assign(stockInfo, stocki);
             } else {
-                stockInfo.code = stocki.code;
-                stockInfo.name = stocki.name;
-                stockInfo.holdCount = stocki.holdCount;
-                stockInfo.availableCount = stocki.availableCount;
-                stockInfo.holdCost = stocki.holdCost;
-                stockInfo.latestPrice = stocki.latestPrice;
+                this.stocks.push(stocki);
             }
-            this.loadStrategies(stockInfo.code);
+            this.loadStrategies(stocki.code);
         }
     }
 }

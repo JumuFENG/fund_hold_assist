@@ -79,7 +79,9 @@ class ManagerBack {
                 this.sendManagerMessage({command:'mngr.checkrzrq', rzrq});
             });
         } else if (message.command == 'mngr.getkline') {
-            emjyBack.postQuoteWorkerMessage({command: 'quote.get.kline', code: message.code, date: message.date, len: message.len, market: emjyBack.getStockMarketHS(message.code)});
+            feng.getStockKline(message.code, '101', message.date).then(kline => {
+                this.sendManagerMessage({command:'mngr.getkline', code: message.code, klines: emjyBack.klines[message.code].klines['101']});
+            });
         } else if (message.command == 'mngr.fetchkline') {
             emjyBack.fetchStockKline(message.code, message.kltype, message.date);
             if (!emjyBack.mgrFetched) {
@@ -196,7 +198,7 @@ class EmjyBack {
         this.all_accounts[this.creditAccount.keyword] = this.creditAccount;
         this.getFromLocal('hsj_stocks', hsj => {
             if (hsj) {
-                this.stockMarket = hsj;
+                feng.loadSaved(hsj);
             }
             this.normalAccount.loadWatchings();
             this.collateralAccount.loadWatchings();
@@ -480,9 +482,7 @@ class EmjyBack {
     }
 
     onPopupMessageReceived(message, sender, popcb) {
-        if (message.command === 'popup.stockinfo') {
-            popcb(this.stockMarket[message.code]);
-        } else if (message.command === 'popup.costdogs') {
+        if (message.command === 'popup.costdogs') {
             popcb(this.costDog.dogdic);
         } else if (message.command === 'popup.buystock') {
             let code = message.code;
@@ -538,7 +538,7 @@ class EmjyBack {
         } else if (message.command == 'quote.snapshot') {
             this.updateStockRtPrice(message.snapshot);
         } else if (message.command == 'quote.query.stock') {
-            this.updateStockMarketInfo(message.sdata);
+            throw new Error('updateStockMarketInfo deprecated!')
         } else if (message.command == 'quote.get.ZTPool') {
             this.manager.sendManagerMessage({command:'mngr.getZTPool', ztpool: message.ztpool});
         } else if (message.command == 'quote.get.kline') {
@@ -893,12 +893,12 @@ class EmjyBack {
 
     testFhaServer() {
         var url = this.fha.server + 'stock?act=test';
-        var header = {}
+        var headers = {}
         if (this.fha) {
-            header['Authorization'] = 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd);
+            headers['Authorization'] = 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd);
         }
-        xmlHttpGet(url, header, r => {
-            if (r == 'OK') {
+        fetch(url, {headers}).then(r=>r.text()).then(txt => {
+            if (txt == 'OK') {
                 emjyBack.log('testFhaServer,Good!');
             }
         });
@@ -915,19 +915,23 @@ class EmjyBack {
 
         this.testFhaServer();
         if (this.fha) {
-            var url = this.fha.server + 'stock'
-            deals.forEach(d => {
-                d.code = emjyBack.getLongStockCode(d.code);
+            var url = this.fha.server + 'stock';
+            const pd = deals.map(d => emjyBack.getLongStockCode(d.code).then(fcode => d.code = fcode));
+            Promise.all(pd).then(() => {
+                var dfd = new FormData();
+                dfd.append('act', 'deals');
+                dfd.append('data', JSON.stringify(deals));
+                var headers = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)};
+                this.log('uploadDeals', JSON.stringify(deals));
+                fetch(url, {method: 'POST', headers, body: dfd}).then(r=>r.text()).then(p => {
+                    this.log('upload deals to server,', p);
+                });
             });
-            var dfd = new FormData();
-            dfd.append('act', 'deals');
-            dfd.append('data', JSON.stringify(deals));
-            var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)};
-
-            this.log('uploadDeals', JSON.stringify(deals));
-            xmlHttpPost(url, dfd, header, p => {
-                this.log('upload deals to server,', p);
-            });
+            // deals.forEach(d => {
+            //     emjyBack.getLongStockCode(d.code).then(fcode => {
+            //         d.code = fcode;
+            //     })
+            // });
         }
     }
 
@@ -945,8 +949,8 @@ class EmjyBack {
         var url = this.fha.server + 'api/captcha';
         var dfd = new FormData();
         dfd.append('img', img);
-        xmlHttpPost(url, dfd, null, r => {
-            this.sendMessageToContent({'command': 'emjy.captcha', 'text': r});
+        fetch(url, {method: 'POST', body: dfd}).then(r=>r.text()).then(text => {
+            this.sendMessageToContent({'command': 'emjy.captcha', text});
         });
     }
 
@@ -1199,16 +1203,8 @@ class EmjyBack {
         this.klineAlarms.stopTimer();
     }
 
-    updateStockMarketInfo(sdata) {
-        this.normalAccount.updateStockMarketInfo(sdata);
-        this.collateralAccount.updateStockMarketInfo(sdata);
-        var mkt = sdata.market == 'SH' ? 1 : (sdata.market == 'BJ' ? 4 : 0);
-        this.stockMarket[sdata.code] = {c: sdata.market + sdata.code, n:sdata.name, mkt};
-        this.marketInfoUpdated = true;
-    }
 
     updateStockRtPrice(snapshot) {
-        //this.log('updateStockRtPrice', JSON.stringify(snapshot));
         this.normalAccount.updateStockRtPrice(snapshot);
         this.collateralAccount.updateStockRtPrice(snapshot);
         this.ztBoardTimer.updateStockRtPrice(snapshot);
@@ -1265,32 +1261,14 @@ class EmjyBack {
         });
     }
 
-    getStockMarketHS(code) {
-        var prefixes = {'60': 'SH', '68': 'SH', '30': 'SZ', '00': 'SZ', '83': 'BJ', '43': 'BJ', '87': 'BJ'};
-        var stk = this.stockMarket[code];
-        if (!stk) {
-            return prefixes[code.substring(0, 2)];
-        }
-
-        if (stk.c) {
-            return stk.c.substring(0, 2);
-        }
-        if (stk.mkt == '1') {
-            return 'SH';
-        }
-        return prefixes[code.substring(0, 2)];
-    }
-
     getLongStockCode(code) {
         if (code.startsWith('S') || code == '') {
-            return code;
+            return Promise.resolve(code);
         }
 
-        var stk = this.stockMarket[code];
-        if (stk && stk.c) {
-            return stk.c;
-        }
-        return this.getStockMarketHS(code) + code;
+        return feng.getStockMktcode(code).then(mkt => {
+            return mkt + code;
+        });
     }
 
     calcBuyCount(amount, price) {
@@ -1299,36 +1277,6 @@ class EmjyBack {
             return 100 * Math.ceil(ct);
         }
         return ct > 1 ? 100 * Math.floor(ct) : 100;
-    }
-
-    getStockZdf(code, name='') {
-        if (code.startsWith('68') || code.startsWith('30')) {
-            return 20;
-        }
-        if (code.startsWith('60') || code.startsWith('00')) {
-            if (!name) {
-                name = this.stockMarket[code]?.n;
-            }
-            if (name?.includes('S')) {
-                return 5;
-            }
-            return 10;
-        }
-        return 30;
-    }
-
-    calcZtPrice(lclose, zdf) {
-        if (zdf == 30) {
-            return Math.floor(lclose * 130) / 100;
-        }
-        return Math.round(lclose * 100 + lclose * zdf + 0.00000001) / 100;
-    }
-
-    calcDtPrice(lclose, zdf) {
-        if (zdf == 30) {
-            return Math.ceil(lclose * 70) / 100;
-        }
-        return Math.round(lclose * 100 - lclose * zdf + 0.00000001) / 100;
     }
 
     fetchStockKline(code, kltype, sdate) {
@@ -1353,39 +1301,6 @@ class EmjyBack {
         feng.buyNewBonds();
     }
 
-    getHSMarketFlag(code) {
-        var market = this.getStockMarketHS(code);
-        if (market == 'SH') {
-            return '1';// 'HA';
-        };
-        if (market == 'SZ') {
-            return '2'; // 'SA';
-        };
-        if (market == 'BJ') {
-            return '4'; // 'BJ';
-        }
-        return '';
-    }
-
-    fetchAllStocksMktInfo() {
-        if (this.fha && this.fha.server) {
-            var url = this.fha.server + 'api/allstockinfo';
-            xmlHttpGet(url, null, mkt => {
-                var mktInfo = JSON.parse(mkt);
-                this.stockMarket = {};
-                for (var miinfo of mktInfo) {
-                    miinfo.mkt = mktDict[miinfo.c.substring(0, 2)];
-                    this.stockMarket[miinfo.c.substring(2)] = miinfo;
-                }
-                this.saveToLocal({'hsj_stocks': this.stockMarket});
-            });
-        } else {
-            this.fetchingBKstocks = new BkStocksMarketFetch();
-            this.fetchingBKstocks.fetchBkStcoks();
-        }
-        this.log('fetch all stock market info!');
-    }
-
     scheduleNewTabCommand(command) {
         if (this.authencated) {
             command.triggerTask();
@@ -1406,12 +1321,11 @@ class EmjyBack {
         for (const account of this.track_accounts) {
             account.fillupGuardPrices();
         }
-        if ((new Date()).getDate() == 2) {
-            this.fetchAllStocksMktInfo();
-        }
-        if (this.marketInfoUpdated) {
-            chrome.storage.local.set({'hsj_stocks': this.stockMarket});
-        }
+
+        const allstks = Object.values(this.all_accounts).map(a => a.stocks.map(x=>x.code)).flat();
+        let holdcached = feng.dumpCached(allstks);
+        this.saveToLocal({'hsj_stocks': holdcached});
+
         var s101 = new Set();
         var s15 = new Set();
         this.dailyAlarm.stocks['101'].forEach(s => s101.add(s));
@@ -1435,7 +1349,6 @@ class EmjyBack {
         this.dailyAlarm.stocks['101'].forEach(s => s15.add(s));
         s15.forEach(s => {this.fetchStockKline(s, '15')});
         setTimeout(()=> {
-            // this.updateEarning();
             this.normalAccount.save();
             this.collateralAccount.save();
             for (const account of this.track_accounts) {
@@ -1616,85 +1529,9 @@ class EmjyBack {
         cheatOperation(this.collateralAccount);
     }
 
-    updateEarning() {
-        if (!this.fha) {
-            return;
-        }
-
-        if (this.fha) {
-            var url = this.fha.server + 'stock?act=userearning';
-            var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)};
-            xmlHttpGet(url, header, rsp => {
-                this.log('updateEarning', rsp);
-            });
-        }
-    }
-
     dumpTestKl(code, kltype = '101') {
         var r = [];
         this.klines[code].klines[kltype].forEach(kl => {r.push({kl:kl, expect:{dcount:0}})});
         console.log(JSON.stringify(r));
-    }
-}
-
-class BkStocksFetch {
-    constructor(bk, pz) {
-        this.bk = 'b:' + bk;
-        this.pn = 1;
-        this.pz = pz;
-        this.stocks = new Set();
-    }
-
-    fetchBkStcoks() {
-        emjyBack.postQuoteWorkerMessage({command:'quote.get.bkcode', bk: this.bk, pn: this.pn, pz: this.pz});
-    }
-
-    updateBkStocks(message) {
-        for (var i in message.data) {
-            var code = message.data[i].f12;
-            this.stocks.add(code);
-        }
-
-        if (this.stocks.size != message.total) {
-            this.pn++;
-            this.fetchBkStcoks();
-            return;
-        }
-
-        var bkstocks = {};
-        bkstocks['bkstocks_' + this.bk] = [...this.stocks];
-        chrome.storage.local.set(bkstocks);
-    }
-}
-
-class BkStocksMarketFetch extends BkStocksFetch {
-    constructor(pz = 1000) {
-        super('', pz);
-        this.bk = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
-        this.stockDetails = {};
-    }
-
-    updateBkStocks(message) {
-        for (var i in message.data) {
-            var code = message.data[i].f12;
-            var n = message.data[i].f14;
-            var mkt = message.data[i].f13;
-            var c = (mkt == '1'? 'SH': 'SZ') + code;
-            if (!this.stocks.has(code)) {
-                this.stocks.add(code);
-                this.stockDetails[code] = {c, n, mkt};
-            }
-        }
-
-        if (this.stocks.size != message.total) {
-            this.pn++;
-            this.fetchBkStcoks();
-            return;
-        }
-
-        var bkstocks = {};
-        bkstocks['hsj_stocks'] = this.stockDetails;
-        chrome.storage.local.set(bkstocks);
-        emjyBack.stockMarket = this.stockDetails;
     }
 }

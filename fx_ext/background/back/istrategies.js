@@ -538,7 +538,8 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
         return Promise.all(pfetches).then(([jz, jd]) => {
             let zrks = jz.data.diff.filter(r => r.f3 >= 8);
             let drks = jd.data.diff.filter(r => r.f3 <= -8);
-            let dtcnt_open = drks.filter(r => r.f2 - emjyBack.calcDtPrice(r.f18, emjyBack.getStockZdf(r.f12, r.f14)) <= 0).length;
+
+            let dtcnt_open = drks.filter(r => r.f2 - feng.getStockDt(r.f12, r.f18) <= 0).length;
             emjyBack.log('last dtcnt=', this.lastzdt.dtcnt, 'today open dtcnt=', dtcnt_open);
             // 检查大盘竞价情况
             if (this.lastzdt.dtcnt > 10) {
@@ -584,7 +585,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                             // 已经有持仓，买入价低于+5%。不追高.
                             price = Math.min(price, b.preclose_px * 1.05);
                         }
-                        emjyBack.log('istrategy_hotstks_open buy with cccount', code, price, account);
+                        emjyBack.log('istrategy_hotstks_open buy with account', code, price, account);
                         emjyBack.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
                     });
                 }
@@ -642,7 +643,7 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                 emjyBack.log('istrategy_dtstocks more stocks zdf < 10 than 15');
                 return;
             }
-            let dtstocks = drks.filter(r => r.f2 - emjyBack.calcDtPrice(r.f18, emjyBack.getStockZdf(r.f12, r.f14)) <= 0)
+            let dtstocks = drks.filter(r => r.f2 - feng.getStockDt(r.f12, r.f18) <= 0)
             dtstocks = dtstocks.filter(r => !r.f14.startsWith('退市') && !r.f14.endsWith('退') && !r.f14.includes('ST'));
             if (dtstocks.length > 10) {
                 emjyBack.log('istrategy_dtstocks more stocks dt than 10');
