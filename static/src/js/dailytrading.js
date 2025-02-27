@@ -2392,15 +2392,14 @@ class MainFundFlow {
             return;
         }
 
-        var series = this.getSeries(flow);
-        var option = this.setYRange({yAxis:[{},{},{}], series}, series);
         var opt = this.flowChart.getOption();
-        if (opt.series[0].data.length > option.series[0].data.length) {
-            opt.series = option.series;
-            opt.yAxis = option.yAxis;
-            this.flowChart.setOption(opt, true);
+        if (opt.series[0].data.length > flow.length) {
+            this.clearChart();
+            this.updateFundFlow(flow);
             return;
         }
+        var series = this.getSeries(flow);
+        var option = this.setYRange({yAxis:[{},{},{}], series}, series);
         this.flowChart.setOption(option);
     }
 
@@ -4085,12 +4084,16 @@ class EmPopularity extends LeftColumnBarItem {
     }
 
     getPopularity(cb) {
-        var fUrl = emjyBack.fha.server + 'fwd/emdata/dataapi/xuangu/list?st=POPULARITY_RANK&sr=1&ps=1000&p=1&sty=SECURITY_CODE,SECURITY_NAME_ABBR,NEW_PRICE,CHANGE_RATE,VOLUME_RATIO,HIGH_PRICE,LOW_PRICE,PRE_CLOSE_PRICE,VOLUME,DEAL_AMOUNT,TURNOVERRATE,POPULARITY_RANK,NEWFANS_RATIO&filter=(POPULARITY_RANK>0)(POPULARITY_RANK<=1000)(NEWFANS_RATIO>=0.00)(NEWFANS_RATIO<=100.0)&source=SELECT_SECURITIES&client=WEB';
+        var fUrl = emjyBack.fha.server + 'fwd/emwebselectiondata/get?type=RPTA_PCNEW_STOCKSELECT&sty=POPULARITY_RANK,NEWFANS_RATIO&filter=(POPULARITY_RANK>0)(POPULARITY_RANK<=1000)(NEWFANS_RATIO>=0.00)(NEWFANS_RATIO<=100.0)&p=1&ps=1000&st=POPULARITY_RANK&sr=1&source=SELECT_SECURITIES&client=WEB';
         fetch(fUrl).then(r=>{
             if (r.headers.get('Content-Type').includes('application/json')) {
                 return r.json();
             } else {
-                return r.text();
+                try {
+                    return r.text().then(t => JSON.parse(t));
+                } catch (e) {
+                    throw new Error("cannot parse");
+                }
             }
         }).then(rl => {
             if (!rl.result) {
