@@ -117,9 +117,3 @@ class RtpTimer {
         }
     }
 }
-
-class ZtBoardTimer extends RtpTimer {
-    constructor() {
-        super(300);
-    }
-}

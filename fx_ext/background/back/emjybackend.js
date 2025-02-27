@@ -72,8 +72,6 @@ class ManagerBack {
         } else if (message.command == 'mngr.rmwatch') {
             emjyBack.removeStock(message.account, message.code);
             this.startChangedTimeout();
-        } else if (message.command == 'mngr.getZTPool') {
-            emjyBack.postQuoteWorkerMessage({command:'quote.get.ZTPool', date: message.date});
         } else if (message.command == 'mngr.checkrzrq') {
             emjyBack.checkRzrq(message.code).then(rzrq => {
                 this.sendManagerMessage({command:'mngr.checkrzrq', rzrq});
@@ -82,13 +80,6 @@ class ManagerBack {
             feng.getStockKline(message.code, '101', message.date).then(kline => {
                 this.sendManagerMessage({command:'mngr.getkline', code: message.code, klines: emjyBack.klines[message.code].klines['101']});
             });
-        } else if (message.command == 'mngr.fetchkline') {
-            emjyBack.fetchStockKline(message.code, message.kltype, message.date);
-            if (!emjyBack.mgrFetched) {
-                emjyBack.mgrFetched = new Set();
-            }
-            emjyBack.mgrFetched.add(message.code);
-            this.startChangedTimeout();
         } else if (message.command == 'mngr.saveFile') {
             emjyBack.saveToFile(message.blob, message.filename);
         } else if (message.command == 'mngr.costdog') {
@@ -134,10 +125,6 @@ class ManagerBack {
     }
 }
 
-function onQuoteWorkerMessage(e) {
-    emjyBack.onQuoteWorkerMessageReceived(e.data);
-}
-
 class EmjyBack {
     constructor() {
         this.jywghost = 'jywg.eastmoneysec.com';
@@ -151,7 +138,6 @@ class EmjyBack {
         this.ztBoardTimer = null;
         this.rtpTimer = null;
         this.dailyAlarm = null;
-        this.quoteWorker = null;
         this.manager = null;
         this.klines = {};
         this.fha = null;
@@ -167,15 +153,11 @@ class EmjyBack {
     Init() {
         this.logs = [];
         emjyBack = this;
-        if (!this.quoteWorker) {
-            this.quoteWorker = new Worker('workers/quoteworker.js');
-            this.quoteWorker.onmessage = onQuoteWorkerMessage;
-        };
         if (!this.klineAlarms) {
             this.klineAlarms = new KlineAlarms();
         };
         if (!this.ztBoardTimer) {
-            this.ztBoardTimer = new ZtBoardTimer();
+            this.ztBoardTimer = new RtpTimer(300);
         };
         if (!this.rtpTimer) {
             this.rtpTimer = new RtpTimer();
@@ -509,33 +491,6 @@ class EmjyBack {
                     "grptype":"GroupStandard","transfers":{"0":{"transfer":"-1"}},
                     "strategies":{"0":str0},amount,"uramount":{"key":strategies?.uramount?.key}};
                 this.all_accounts[account].addWatchStock(code, bstrs);
-            }
-        }
-    }
-
-    postQuoteWorkerMessage(message) {
-        // this.log('post message to quote worker', JSON.stringify(message));
-        this.quoteWorker.postMessage(message);
-    }
-
-    onQuoteWorkerMessageReceived(message) {
-        // this.log('message from quoteWorker', JSON.stringify(message));
-        if (message.command == 'quote.log') {
-            this.log('quote.log', message.log);
-        } else if (message.command == 'quote.snapshot') {
-            this.updateStockRtPrice(message.snapshot);
-        } else if (message.command == 'quote.query.stock') {
-            throw new Error('updateStockMarketInfo deprecated!')
-        } else if (message.command == 'quote.get.ZTPool') {
-            this.manager.sendManagerMessage({command:'mngr.getZTPool', ztpool: message.ztpool});
-        } else if (message.command == 'quote.get.kline') {
-            message.command = 'mngr.getkline';
-            this.manager.sendManagerMessage(message);
-        } else if (message.command == 'quote.kline.rt') {
-            this.updateStockRtKline(message);
-        } else if (message.command == 'quote.get.bkcode') {
-            if (this.fetchingBKstocks) {
-                this.fetchingBKstocks.updateBkStocks(message);
             }
         }
     }
@@ -1142,15 +1097,6 @@ class EmjyBack {
         this.klineAlarms.stopTimer();
     }
 
-    updateStockRtPrice(snapshot) {
-        this.normalAccount.updateStockRtPrice(snapshot);
-        this.collateralAccount.updateStockRtPrice(snapshot);
-        this.ztBoardTimer.updateStockRtPrice(snapshot);
-        for (const account of this.track_accounts) {
-            account.updateStockRtPrice(snapshot);
-        }
-    }
-
     isTradeTime() {
         var now = new Date();
         if (now > new Date(now.toDateString() + ' 9:30') && now < new Date(now.toDateString() + ' 15:00')) {
@@ -1170,31 +1116,8 @@ class EmjyBack {
         }
     }
 
-    updateStockRtKline(message) {
-        var code = message.kline.data.code;
-        if (!this.klines[code]) {
-            this.klines[code] = new KLine(code);
-        }
-        var updatedKlt = this.klines[code].updateRtKline(message);
-        if (!this.isTradeTime()) {
-            return;
-        }
-        this.normalAccount.updateStockRtKline(code, updatedKlt);
-        this.collateralAccount.updateStockRtKline(code, updatedKlt);
-        for (const account of this.track_accounts) {
-            account.updateStockRtKline(code, updatedKlt);
-        }
-    }
-
     removeStock(account, code) {
         this.all_accounts[account].removeStock(code);
-    }
-
-    fetchStockSnapshot(code) {
-        return feng.getStockSnapshot(code).then(snap => {
-            this.updateStockRtPrice(snap);
-            return snap;
-        });
     }
 
     getLongStockCode(code) {
@@ -1213,21 +1136,6 @@ class EmjyBack {
             return 100 * Math.ceil(ct);
         }
         return ct > 1 ? 100 * Math.floor(ct) : 100;
-    }
-
-    fetchStockKline(code, kltype, sdate) {
-        return feng.getStockKline(code, kltype, sdate).then(kline => {
-            if (!this.isTradeTime()) {
-                return Promise.resolve(kline);
-            }
-            let updatedKlt = Object.keys(kline);
-            this.normalAccount.updateStockRtKline(code, updatedKlt);
-            this.collateralAccount.updateStockRtKline(code, updatedKlt);
-            for (const account of this.track_accounts) {
-                account.updateStockRtKline(code, updatedKlt);
-            }
-            return Promise.resolve(kline);
-        });
     }
 
     tradeDailyRoutineTasks() {
@@ -1275,10 +1183,9 @@ class EmjyBack {
             });
         }
 
-        s101.forEach(s => {this.fetchStockKline(s, '101')});
+        let p101 = Array.from(s101).map(s=>feng.getStockKline(s, '101'))
         this.dailyAlarm.stocks['101'].forEach(s => s15.add(s));
-        s15.forEach(s => {this.fetchStockKline(s, '15')});
-        setTimeout(()=> {
+        Promise.all(p101.concat(Array.from(s15)).map(s=>feng.getStockKline(s, '15'))).then(()=>{
             this.normalAccount.save();
             this.collateralAccount.save();
             for (const account of this.track_accounts) {
@@ -1291,7 +1198,7 @@ class EmjyBack {
                 this.klines[c].save();
             }
             this.flushLogs();
-        }, 20000);
+        });
     }
 
     flushLogs() {
