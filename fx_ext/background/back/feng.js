@@ -204,6 +204,9 @@ class feng {
             );
 
             const data = { code, name, latestPrice, zdf, openPrice, lastClose, topprice, bottomprice, buysells };
+            if (data.zdf.includes('%')) {
+                data.zdf = data.zdf.replace('%','');
+            }
             const expireTime = snapExpireTime(date);
 
             const cached = this.stkcache.get(code);

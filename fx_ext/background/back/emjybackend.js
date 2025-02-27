@@ -914,11 +914,6 @@ class EmjyBack {
                     this.log('upload deals to server,', p);
                 });
             });
-            // deals.forEach(d => {
-            //     emjyBack.getLongStockCode(d.code).then(fcode => {
-            //         d.code = fcode;
-            //     })
-            // });
         }
     }
 
@@ -1068,49 +1063,6 @@ class EmjyBack {
         }
     }
 
-    applyGuardLevel(strgrp, allklt) {
-        var addToKlineAlarm = function(code, kl, isall) {
-            if (kl % 101 == 0) {
-                emjyBack.dailyAlarm.addStock(code, kl);
-            } else {
-                emjyBack.klineAlarms.addStock(code, kl, isall);
-            }
-        };
-
-        for (var id in strgrp.strategies) {
-            if (!strgrp.strategies[id].enabled()) {
-                continue;
-            };
-
-            this.applyKlVars(strgrp.code, strgrp.strategies[id].klvars());
-            var gl = strgrp.strategies[id].guardLevel();
-            if (gl == 'kline') {
-                addToKlineAlarm(strgrp.code, strgrp.strategies[id].kltype(), allklt);
-            } else if (gl == 'klines') {
-                strgrp.strategies[id].kltype().forEach(kl => {
-                    addToKlineAlarm(strgrp.code, kl);
-                });
-            } else if (gl == 'kday') {
-                this.dailyAlarm.addStock(strgrp.code, strgrp.strategies[id].kltype());
-            } else if (gl == 'otp') {
-                if (strgrp.count0 !== undefined && strgrp.count0 > 0 && strgrp.strategies[id].data.bway == 'direct') {
-                    this.otpAlarm.addTask({params:{id, code: strgrp.code}, exec: (params) => {
-                        strgrp.onOtpAlarm(params.id);
-                    }});
-                } else {
-                    this.otpAlarm.addStock(strgrp.code);
-                }
-            } else if (gl == 'rtp') {
-                this.rtpTimer.addStock(strgrp.code);
-            } else if (gl == 'zt') {
-                this.ztBoardTimer.addStock(strgrp.code);
-            } else if (gl == 'kzt') {
-                this.rtpTimer.addStock(strgrp.code);
-                this.klineAlarms.addStock(strgrp.code);
-            };
-        };
-    }
-
     setupQuoteAlarms() {
         chrome.alarms.onAlarm.addListener(alarmInfo =>  {
             this.onAlarm(alarmInfo);
@@ -1190,7 +1142,6 @@ class EmjyBack {
         this.klineAlarms.stopTimer();
     }
 
-
     updateStockRtPrice(snapshot) {
         this.normalAccount.updateStockRtPrice(snapshot);
         this.collateralAccount.updateStockRtPrice(snapshot);
@@ -1236,8 +1187,6 @@ class EmjyBack {
     }
 
     removeStock(account, code) {
-        this.rtpTimer.removeStock(code);
-        this.ztBoardTimer.removeStock(code);
         this.all_accounts[account].removeStock(code);
     }
 
@@ -1312,14 +1261,15 @@ class EmjyBack {
         this.dailyAlarm.stocks['15'].forEach(s => s101.add(s));
         this.klineAlarms.stocks['15'].forEach(s => s101.add(s));
         this.klineAlarms.stocks['101'].forEach(s => s101.add(s));
+        const todaystr = guang.getTodayDate('-');
         for(let k in emjyBack.all_accounts) {
             emjyBack.all_accounts[k].stocks.forEach(s=> {
                 var kl = this.klines[s.code] ? this.klines[s.code].getLatestKline('101') : undefined;
-                if (kl && kl.time != this.getTodayDate('-')) {
+                if (kl && kl.time != todaystr) {
                     s101.add(s.code);
                 }
                 var kl15 = this.klines[s.code] ? this.klines[s.code].getLatestKline('15') : undefined;
-                if (kl15 && kl15.time != this.getTodayDate('-') + ' 15:00') {
+                if (kl15 && kl15.time != todaystr + ' 15:00') {
                     s15.add(s.code)
                 }
             });
@@ -1344,14 +1294,10 @@ class EmjyBack {
         }, 20000);
     }
 
-    getTodayDate(sep = '') {
-        return new Date().toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
-    }
-
     flushLogs() {
         emjyBack.log('flush log!');
         var blob = new Blob(this.logs, {type: 'application/text'});
-        this.saveToFile(blob, 'logs/stock.assist' + this.getTodayDate() + '.log');
+        this.saveToFile(blob, 'logs/stock.assist' + guang.getTodayDate() + '.log');
         this.logs = [];
     }
 

@@ -30,10 +30,6 @@ class BuyDetail {
         }
     }
 
-    getTodayDate() {
-        var now = new Date();
-        return now.getFullYear() + '-' + ('' + (now.getMonth()+1)).padStart(2, '0') + '-' + ('' + now.getDate()).padStart(2, '0');
-    }
 
     buyRecords() {
         return this.records.filter(r => r.type == 'B');
@@ -83,7 +79,7 @@ class BuyDetail {
     addBuyDetail(detail) {
         var date = detail.time;
         if (date === undefined) {
-            date = this.getTodayDate();
+            date = guang.getTodayDate('-');
         }
         this.addRecord({date, count: detail.count, price: detail.price, sid: detail.sid, type:'B'});
     }
@@ -91,7 +87,7 @@ class BuyDetail {
     addSellDetail(detail) {
         var date = detail.time;
         if (!date) {
-            date = this.getTodayDate();
+            date = guang.getTodayDate('-');
         }
         this.addRecord({date, count: detail.count, price: detail.price, sid: detail.sid, type:'S'});
     }
@@ -123,7 +119,7 @@ class BuyDetail {
         }
 
         var tdcount = 0;
-        var td = this.getTodayDate();
+        var td = guang.getTodayDate('-');
         for (let i = 0; i < soldrec.length; i++) {
             if (soldrec[i].date == td) {
                 tdcount -= soldrec[i].count;
@@ -162,7 +158,7 @@ class BuyDetail {
             return 0;
         }
 
-        var td = this.getTodayDate();
+        var td = guang.getTodayDate('-');
         var count = 0;
         for (var i = 0; i < buyrec.length; i++) {
             if (buyrec[i].date < td) {
@@ -191,7 +187,7 @@ class BuyDetail {
 
         var count = 0;
         var tdcount = 0;
-        var td = this.getTodayDate();
+        var td = guang.getTodayDate('-');
         for (var i = 0; i < lessDetail.length; i++) {
             if (lessDetail[i].date < td) {
                 count -= lessDetail[i].count;
@@ -381,7 +377,7 @@ class BuyDetail {
     latestBuyDate() {
         var buyrec = this.buyRecords();
         if (!buyrec || buyrec.length == 0) {
-            return this.getTodayDate();
+            return guang.getTodayDate('-');
         }
 
         var date = buyrec[0].date;
@@ -396,7 +392,7 @@ class BuyDetail {
     highestBuyDate() {
         var buyrec = this.buyRecords();
         if (!buyrec || buyrec.length == 0) {
-            return this.getTodayDate();
+            return guang.getTodayDate('-');
         }
 
         var price = buyrec[0].price;
@@ -588,12 +584,7 @@ class StrategyGroup {
     }
 
     enabled() {
-        for (var i in this.strategies) {
-            if (this.strategies[i].enabled()) {
-                return true;
-            };
-        };
-        return false;
+        return Object.values(this.strategies).filter(s=>s.enabled()).length > 0;
     }
 
     initStrategies(strs) {
@@ -603,17 +594,7 @@ class StrategyGroup {
     }
 
     getNextValidId() {
-        var ids = Object.keys(this.strategies);
-        var id = 0;
-        if (ids) {
-            for (let i = 0; i < ids.length; i++) {
-                if (ids[i] - id > 0) {
-                    id = ids[i];
-                }
-            }
-            ++id;
-        }
-        return id;
+        return Math.max(...Object.keys(this.strategies)) + 1;
     }
 
     addStrategy(str) {
@@ -738,10 +719,6 @@ class StrategyGroup {
         this.buydetail.archiveRecords();
     }
 
-    applyGuardLevel(allklt = true) {
-        emjyBack.applyGuardLevel(this, allklt);
-    }
-
     applyKlines(klines) {
         if (!klines) {
             return;
@@ -818,6 +795,76 @@ class StrategyGroup {
             curStrategy.confirmMatched(tradeResult);
         }
         this.save();
+    }
+
+    async checkStockRtSnapshot(is1time, islazy=true) {
+        let changed = false;
+        for (const [id, s] of Object.entries(this.strategies)) {
+            if (!s.enabled()) {
+                continue;
+            }
+
+            let snap = null;
+            if (is1time) {
+                if (s.guardLevel() !== 'otp') continue;
+                if (s.data.bway === 'direct' && this.count0) {
+                    snap = { latestPrice: 0, count: this.count0 };
+                }
+            } else if (!islazy && !s.highspeed) {
+                continue;
+            }
+
+            if (!snap) {
+                snap = await feng.getStockSnapshot(this.code);
+            }
+            const matchResult = await s.check({id, rtInfo: snap, buydetail: this.buydetail});
+            if (!matchResult) {
+                continue;
+            }
+            const tradeResult = await this.doTrade(matchResult);
+            if (tradeResult) {
+                s.confirmMatched(tradeResult);
+            }
+            changed = true;
+        }
+        if (changed) {
+            this.save();
+        }
+    }
+
+    async checkStockRtKlines(klt) {
+        let changed = false;
+        for (const [id, s] of Object.entries(this.strategies)) {
+            if (!s.enabled() || typeof(s.checkKlines) !== 'function') {
+                continue;
+            }
+            const gl = s.guardLevel();
+            if (!['kline', 'klines', 'kday', 'kzt'].includes(gl)) {
+                continue;
+            }
+            const canklt = [1,2,4,8].map(i => String(i * klt));
+            let skl = s.kltype();
+            if (typeof skl === 'string') {
+                skl = [skl];
+            }
+            if (skl.filter(k => canklt.includes(k)).length <= 0) {
+                continue;
+            }
+
+            const kline = await feng.getStockKline(this.code, klt);
+            const matchResult = await s.checkKlines({id, code:this.code, kltypes: Object.keys(kline), buydetail: this.buydetail});
+            if (!matchResult) {
+                continue;
+            }
+            const tradeResult = await this.doTrade(matchResult);
+            if (tradeResult) {
+                s.confirmMatched(tradeResult, this.buydetail);
+            }
+            changed = true;
+        }
+        if (changed) {
+            this.save();
+        }
     }
 
     async check(rtInfo) {
@@ -914,7 +961,6 @@ class StrategyGroup {
             } else {
                 this.strategies[tid].sellMatch(refer);
             };
-            this.applyGuardLevel();
         };
         this.save();
     }

@@ -398,22 +398,19 @@ class TradeClient {
         return fd;
     }
 
-    getRtPrice(code) {
-        return feng.getStockSnapshot(code).then(snap => {
-            const bp = snap.bottomprice;
-            const tp = snap.topprice;
-            const cp = snap.latestPrice;
-            let s5 = snap.buysells.sale5;
-            let b5 = snap.buysells.buy5;
+    async getRtPrice(code) {
+        try {
+            const snap = await feng.getStockSnapshot(code);
+            let {bottomprice:bp, topprice:tp, latestPrice:cp, buysells: {sale5: s5, buy5: b5}} = snap;
             if (snap.buysells.sale1 == snap.buysells.buy1) {
                 // 集合竞价
                 s5 = Math.min(cp * 1.03, tp);
                 b5 = Math.max(cp * 0.97, bp);
             }
             return { bp, tp, cp, s5, b5 };
-        }).catch(error => {
+        } catch (error) {
             console.error('getRtPrice failed:', error);
-        });
+        }
     }
 
     countUrl() {
@@ -446,21 +443,20 @@ class TradeClient {
         });
     }
 
-    doTrade(code, price, count, tradeType, jylx) {
+    async doTrade(code, price, count, tradeType, jylx) {
+        const body = await this.getFormData(code, price, count, tradeType, jylx);
         return fetch(this.getUrl(), {
             method: 'POST',
-            body: this.getFormData(code, price, count, tradeType, jylx),
-        })
-            .then(response => response.json())
-            .then(robj => {
-                if (robj.Status !== 0 || !robj.Data?.length) {
-                    const err = new Error('Trade failed!');
-                    err.details = robj;
-                    throw err;
-                }
-                this.availableMoney -= tradeType === 'B' ? price * count : -(price * count);
-                return { code, price, count, sid: robj.Data[0].Wtbh, type: tradeType };
-            });
+            body,
+        }).then(response => response.json()).then(robj => {
+            if (robj.Status !== 0 || !robj.Data?.length) {
+                const err = new Error('Trade failed!');
+                err.details = robj;
+                throw err;
+            }
+            this.availableMoney -= tradeType === 'B' ? price * count : -(price * count);
+            return { code, price, count, sid: robj.Data[0].Wtbh, type: tradeType };
+        });
     }
 
     async tradeValidPrice(code, price, count, tradeType, jylx) {
@@ -735,13 +731,12 @@ class NormalAccount extends Account {
         if (!str) {
             return;
         };
-        var stock = this.stocks.find(function(s) {return s.code == code; });
+        var stock = this.stocks.find(s => s.code == code);
         if (!stock) {
             return;
         };
         var strategyGroup = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
         strategyGroup.setHoldCount(stock.holdCount, stock.availableCount, stock.holdCost);
-        strategyGroup.applyGuardLevel();
         stock.strategies = strategyGroup;
     }
 
@@ -766,9 +761,7 @@ class NormalAccount extends Account {
 
     addStockStrategy(stock, strgrp) {
         if (strgrp) {
-            var strategyGroup = strategyGroupManager.create(strgrp, this.keyword, stock.code, this.keyword + '_' + stock.code + '_strategies');
-            strategyGroup.applyGuardLevel();
-            stock.strategies = strategyGroup;
+            stock.strategies = strategyGroupManager.create(strgrp, this.keyword, stock.code, this.keyword + '_' + stock.code + '_strategies');
         }
     }
 

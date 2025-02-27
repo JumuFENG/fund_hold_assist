@@ -3,28 +3,18 @@
 class DailyAlarm {
     constructor() {
         this.baseKlt = new Set(['1', '15', '101']);
-        this.stocks = {};
-        this.baseKlt.forEach(k => {
-            this.stocks[k] = new Set();
-        });
-    }
-
-    addStock(code, kltype) {
-        var klt = '101';
-        if (kltype - 15 < 0) {
-            klt = '1';
-        } else if (kltype - 100 < 0 || kltype - 120 == 0) {
-            klt = '15';
-        }
-        this.stocks[klt].add(code);
     }
 
     onTimer() {
         emjyBack.log('daily alarm start update daily kline');
         this.baseKlt.forEach(kltype => {
-            this.stocks[kltype].forEach(s => {
-                emjyBack.fetchStockKline(s, kltype);
-            });
+            for (const acc of Object.values(emjyBack.all_accounts)) {
+                acc.stocks.forEach(s => {
+                    if (s.strategies) {
+                        s.strategies.checkStockRtKlines(kltype);
+                    }
+                });
+            }
         });
         emjyBack.log('daily alarm update daily kline done!');
     }
@@ -34,21 +24,8 @@ class KlineAlarms extends DailyAlarm {
     constructor() {
         super();
         this.baseKlt = new Set(['1', '15']);
-        this.baseKlt.forEach(k => {
-            this.stocks[k] = new Set();
-        });
         this.hitCount = 0;
         this.klineInterval = null;
-    }
-
-    addStock(code, kltype, allklt = true) {
-        if (allklt || !kltype) {
-            this.baseKlt.forEach(k => {
-                this.stocks[k].add(code);
-            });
-        } else {
-            super.addStock(code, kltype);
-        }
     }
 
     startTimer() {
@@ -76,12 +53,13 @@ class KlineAlarms extends DailyAlarm {
                 fetch = this.hitCount % kltype == 0;
             };
             if (fetch) {
-                if (kltype == '15') {
-                    emjyBack.log('hitCount = ', this.hitCount);
-                };
-                this.stocks[kltype].forEach(s => {
-                    emjyBack.fetchStockKline(s, kltype);
-                });
+                for (const acc of Object.values(emjyBack.all_accounts)) {
+                    acc.stocks.forEach(s => {
+                        if (s.strategies) {
+                            s.strategies.checkStockRtKlines(kltype);
+                        }
+                    });
+                }
             };
         });
         this.hitCount++;
@@ -89,50 +67,21 @@ class KlineAlarms extends DailyAlarm {
 }
 
 class OtpAlarm {
-    constructor() {
-        this.stocks = new Set();
-        this.tasks = [];
-    }
-
-    addTask(tsk) {
-        this.tasks.push(tsk);
-    }
-
-    addStock(code) {
-        this.stocks.add(code);
-    }
-
-    removeStock(code) {
-        if (this.stocks.has(code)) {
-            this.stocks.delete(code);
-        };
-    }
-
     onTimer() {
-        this.tasks.forEach(tsk => {
-            tsk.exec(tsk.params);
-        });
-        this.stocks.forEach(s => {
-            emjyBack.fetchStockSnapshot(s);
-        });
+        for (const acc of Object.values(emjyBack.all_accounts)) {
+            acc.stocks.forEach(s => {
+                if (s.strategies) {
+                    s.strategies.checkStockRtSnapshot(true);
+                }
+            });
+        }
     }
 }
 
 class RtpTimer {
-    constructor() {
-        this.stocks = new Set();
+    constructor(ticks=5000) {
         this.rtInterval = null;
-        this.ticks = 5000;
-    }
-
-    addStock(code) {
-        this.stocks.add(code);
-    }
-
-    removeStock(code) {
-        if (this.stocks.has(code)) {
-            this.stocks.delete(code);
-        };
+        this.ticks = ticks;
     }
 
     setTick(t) {
@@ -159,71 +108,18 @@ class RtpTimer {
     }
 
     onTimer() {
-        this.stocks.forEach(s => {
-            emjyBack.fetchStockSnapshot(s);
-        });
+        for (const acc of Object.values(emjyBack.all_accounts)) {
+            acc.stocks.forEach(s => {
+                if (s.strategies) {
+                    s.strategies.checkStockRtSnapshot(false, this.ticks > 2000);
+                }
+            });
+        }
     }
 }
 
 class ZtBoardTimer extends RtpTimer {
     constructor() {
-        super();
-        this.ticks = 300;
-        this.lazyInterval = null;
-        this.lazyStocks = new Set();
-    }
-
-    removeStock(code) {
-        if (this.stocks.has(code)) {
-            this.stocks.delete(code);
-        };
-        if (this.lazyStocks.has(code)) {
-            this.lazyStocks.delete(code);
-        };
-    }
-
-    updateStockRtPrice(snapshot) {
-        var code = snapshot.code;
-        if (!this.stocks.has(code) && !this.lazyStocks.has(code)) {
-            return;
-        };
-        var zdf = snapshot.zdf;
-        if (zdf.charAt(zdf.length - 1) == '%') {
-            zdf = zdf.substring(0, zdf.length - 1);
-        };
-        // var zdf = (snapshot.latestPrice - snapshot.lastClose) / snapshot.lastClose;
-        if (zdf > 6.5) {
-            if (this.lazyStocks.has(code)) {
-                this.lazyStocks.delete(code);
-                this.stocks.add(code);
-            };
-        } else {
-            if (this.stocks.has(code)) {
-                this.stocks.delete(code);
-                this.lazyStocks.add(code);
-            };
-        };
-    }
-
-    startTimer() {
-        super.startTimer();
-        this.lazyInterval = setInterval(() => {
-            this.onLazyTimer();
-        }, 60000); // 60 * 1000 (1 min)
-        this.onLazyTimer();
-    }
-
-    stopTimer() {
-        super.stopTimer();
-        if (this.lazyInterval) {
-            clearInterval(this.lazyInterval);
-            this.lazyInterval = null;
-        };
-    }
-
-    onLazyTimer() {
-        this.lazyStocks.forEach(s => {
-            emjyBack.fetchStockSnapshot(s);
-        });
+        super(300);
     }
 }

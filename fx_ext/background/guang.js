@@ -110,4 +110,8 @@ class guang {
         }
         return Math.round(lclose * 100 - lclose * zdf + 0.00000001) / 100;
     }
+
+    static getTodayDate(sep = '') {
+        return new Date().toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
+    }
 }

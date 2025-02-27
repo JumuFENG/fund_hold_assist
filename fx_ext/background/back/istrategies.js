@@ -714,7 +714,7 @@ class IstrFactory {
         if (now.getDay() > 0 && now.getDay() < 6) {
             var curl = 'https://x-quote.cls.cn/quote/stock/closest_trading_day?app=CailianpressWeb&os=web&sv=7.7.5';
             fetch(curl).then(r => r.json()).then(jrtd => {
-                this.istradingdate = jrtd.data[0] == emjyBack.getTodayDate('-') && now.getHours() < 15;
+                this.istradingdate = jrtd.data[0] == guang.getTodayDate('-') && now.getHours() < 15;
             });
         } else {
             this.istradingdate = false;

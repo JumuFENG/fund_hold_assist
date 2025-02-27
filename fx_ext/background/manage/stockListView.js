@@ -294,7 +294,7 @@ class StockListPanelPage extends RadioAnchorPage {
                             }
                         }
                     }
-                    if (lbd >= utils.getTodayDate()) {
+                    if (lbd >= guang.getTodayDate('-')) {
                         this.stocks[i].container.style.display = 'block';
                     }
                 }

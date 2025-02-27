@@ -12,12 +12,8 @@ class TradingData {
         this.dayPriceAvg[snapshot.code].push([snapshot.realtimequote.currentPrice, snapshot.realtimequote.avg]);
     }
 
-    getTodayDate(sep='') {
-        return new Date().toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
-    }
-
     save() {
-        var fileDate = this.getTodayDate();
+        var fileDate = guang.getTodayDate();
         for (var c in this.dayPriceAvg) {
             var blob = new Blob([JSON.stringify(this.dayPriceAvg[c])], {type: 'application/json'});
             var url = URL.createObjectURL(blob);
@@ -108,9 +104,7 @@ class TrackingAccount extends NormalAccount {
         if (!stock) {
             return;
         };
-        var strategyGroup = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
-        strategyGroup.applyGuardLevel(false);
-        stock.strategies = strategyGroup;
+        stock.strategies = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
     }
 
     loadAssets() {
@@ -159,7 +153,7 @@ class TrackingAccount extends NormalAccount {
                             fix_date_price(stockInfo.code, stockInfo.strategies.buydetail.full_records);
                             stockInfo.holdCount = stockInfo.strategies.buydetail.totalCount();
                             stockInfo.holdCost = (stockInfo.strategies.buydetail.averPrice()).toFixed(2);
-                            if (stockInfo.holdCount > 0 && stockInfo.strategies.buydetail.lastBuyDate() >= tradeAnalyzer.getTodayDate('-')) {
+                            if (stockInfo.holdCount > 0 && stockInfo.strategies.buydetail.lastBuyDate() >= guang.getTodayDate('-')) {
                                 enable_track_strategies(stockInfo.strategies.strategies);
                             }
                         };
@@ -177,7 +171,7 @@ class TrackingAccount extends NormalAccount {
     addDeal(code, price, count, tradeType) {
         var time = this.tradeTime;
         if (!time) {
-            time = tradeAnalyzer.getTodayDate('-');
+            time = guang.getTodayDate('-');
         }
         var stk = this.getStock(code);
         if (!stk) {

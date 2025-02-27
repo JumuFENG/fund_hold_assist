@@ -12,7 +12,7 @@ class TrackStockListPanelPage extends StockListPanelPage {
     }
 
     updateStocksDailyKline() {
-        var today = utils.getTodayDate('');
+        var today = guang.getTodayDate('-');
         for (var i = 0; i < this.stocks.length; i++) {
             var code = this.stocks[i].stock.code;
             if (emjyBack.klines[code] === undefined || emjyBack.klines[code].klines === undefined) {

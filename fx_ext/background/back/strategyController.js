@@ -780,6 +780,7 @@ class StrategyBuyZTBoard extends StrategyBuy {
         }
 
         var rtInfo = chkInfo.rtInfo;
+        this.highspeed = rtInfo.zdf > 6.5;
         if (rtInfo.buysells.buy1 == rtInfo.buysells.sale1) {
             // 集合竞价
             return Promise.resolve();
@@ -865,6 +866,7 @@ class StrategySellEL extends StrategySell {
         var latestPrice = rtInfo.latestPrice;
         var guardPrice = this.data.guardPrice;
         var averPrice = buydetail.averPrice();
+        this.highspeed = rtInfo.zdf > 6.5;
         if (latestPrice - averPrice * 1.18 >= 0 && latestPrice - averPrice * 0.1 - guardPrice > 0) {
             guardPrice = latestPrice - averPrice * 0.1;
         } else if (latestPrice - averPrice * 1.09 >= 0 && latestPrice - averPrice * 0.08 - guardPrice > 0 ) {
@@ -924,6 +926,7 @@ class StrategySellELShort extends StrategySellEL {
         var rtInfo = chkInfo.rtInfo;
         var buydetails = chkInfo.buydetail;
         var latestPrice = rtInfo.latestPrice;
+        this.highspeed = rtInfo.zdf > 6.5;
         if (this.data.topprice !== undefined && latestPrice - this.data.topprice < 0) {
             return Promise.resolve();
         }

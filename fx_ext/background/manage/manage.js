@@ -164,7 +164,7 @@ class Manager {
     }
 
     updateShownStocksDailyKline() {
-        var today = utils.getTodayDate('');
+        var today = guang.getTodayDate('');
         for (const acc in this.accountList) {
             for (var i = 0; i < this.accountList[acc].stocks.length; i++) {
                 var code = this.accountList[acc].stocks[i].stock.code;
@@ -407,10 +407,10 @@ class Manager {
 
     getStockCode(name) {
         for (const code in this.stockMarket) {
-            if (this.stockMarket[code].n == name) {
+            if (this.stockMarket[code].name == name) {
                 return code;
             }
-            if (name.includes('ST') && ('*' + name == this.stockMarket[code].n || name == '*' + this.stockMarket[code].n)) {
+            if (name.includes('ST') && ('*' + name == this.stockMarket[code].name || name == '*' + this.stockMarket[code].name)) {
                 return code;
             }
         }
@@ -420,10 +420,10 @@ class Manager {
 
     stockEmLink(code) {
         if (this.stockMarket && this.stockMarket[code]) {
-            if (this.stockMarket[code].c) {
-                return emStockUrl + this.stockMarket[code].c.toLowerCase() + emStockUrlTail;
+            if (this.stockMarket[code].code) {
+                return emStockUrl + this.stockMarket[code].mktcode.toLowerCase() + emStockUrlTail;
             }
-            return emStockUrl + (this.stockMarket[code].mkt == '0' ? 'sz' : 'sh') + code + emStockUrlTail;
+            return emStockUrl + (this.stockMarket[code].market == '0' ? 'sz' : 'sh') + code + emStockUrlTail;
         }
         return emStockUrl + (code.startsWith('60') || code.startsWith('68') ? 'sh' : 'sz') + code + emStockUrlTail;
     }
@@ -435,8 +435,8 @@ class Manager {
             return prefixes[code.substring(0, 2)];
         }
 
-        if (stk.c) {
-            return stk.c.substring(0, 2);
+        if (stk.mktcode) {
+            return stk.mktcode;
         }
         if (stk.mkt == '1') {
             return 'SH'
@@ -463,7 +463,7 @@ class Manager {
         } else {
             anchor.textContent = code;
             if (this.stockMarket && this.stockMarket[code]) {
-                anchor.textContent = this.stockMarket[code].n;
+                anchor.textContent = this.stockMarket[code].name;
             }
         }
         anchor.href = this.stockEmLink(code);
@@ -591,7 +591,7 @@ class Manager {
             for (const acc of ['normal', 'collat']) {
                 for (const stock of emjyBack.accountList[acc].stocks) {
                     var stkinfo = stock.stock;
-                    var code = stkinfo.market + stkinfo.code;
+                    var code = emjyBack.stockMarket[stkinfo.code].mktcode + stkinfo.code;
                     var mgrCount = stkinfo.holdCount;
                     if (!mgrStkCounts[code]) {
                         mgrStkCounts[code] = 0;
