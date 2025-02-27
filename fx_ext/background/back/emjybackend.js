@@ -458,7 +458,7 @@ class EmjyBack {
             let price = message.price;
             let amount = message.amount;
             let strategies = message.strategies;
-            let count = strategies?.uramount?.key ? this.costDog.urBuyCount(strategies.uramount.key, code, amount, price).count : this.calcBuyCount(amount, price);
+            let count = strategies?.uramount?.key ? this.costDog.urBuyCount(strategies.uramount.key, code, amount, price).count : guang.calcBuyCount(amount, price);
             let account = message.account;
             if (!account) {
                 this.checkRzrq(message.code).then(rzrq => {
@@ -713,10 +713,6 @@ class EmjyBack {
         this.clearCompletedDeals();
     }
 
-    dateToString(dt, sep = '-') {
-        return dt.toLocaleString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
-    }
-
     mergeCumDeals(deals) {
         // 合并时间相同的融资利息
         var tdeals = {};
@@ -858,7 +854,7 @@ class EmjyBack {
         this.testFhaServer();
         if (this.fha) {
             var url = this.fha.server + 'stock';
-            const pd = deals.map(d => emjyBack.getLongStockCode(d.code).then(fcode => d.code = fcode));
+            const pd = deals.map(d => feng.getLongStockCode(d.code).then(fcode => d.code = fcode));
             Promise.all(pd).then(() => {
                 var dfd = new FormData();
                 dfd.append('act', 'deals');
@@ -1006,7 +1002,7 @@ class EmjyBack {
                 count = stk.strategies.getBuyCount(price);
             }
             if (count * price - this.all_accounts[account].availableMoney > 0) {
-                count = this.calcBuyCount(this.all_accounts[account].availableMoney, price);
+                count = guang.calcBuyCount(this.all_accounts[account].availableMoney, price);
             }
         }
         return this.tryBuyStock(code, price, count, account);
@@ -1120,24 +1116,6 @@ class EmjyBack {
         this.all_accounts[account].removeStock(code);
     }
 
-    getLongStockCode(code) {
-        if (code.startsWith('S') || code == '') {
-            return Promise.resolve(code);
-        }
-
-        return feng.getStockMktcode(code).then(mkt => {
-            return mkt + code;
-        });
-    }
-
-    calcBuyCount(amount, price) {
-        var ct = (amount / 100) / price;
-        if (amount - price * Math.floor(ct) * 100 - (price * Math.ceil(ct) * 100 - amount) > 0) {
-            return 100 * Math.ceil(ct);
-        }
-        return ct > 1 ? 100 * Math.floor(ct) : 100;
-    }
-
     tradeDailyRoutineTasks() {
         if (this.purchaseNewStocks) {
             feng.buyNewStocks();
@@ -1163,29 +1141,17 @@ class EmjyBack {
         let holdcached = feng.dumpCached(allstks);
         this.saveToLocal({'hsj_stocks': holdcached});
 
-        var s101 = new Set();
-        var s15 = new Set();
-        this.dailyAlarm.stocks['101'].forEach(s => s101.add(s));
-        this.dailyAlarm.stocks['15'].forEach(s => s101.add(s));
-        this.klineAlarms.stocks['15'].forEach(s => s101.add(s));
-        this.klineAlarms.stocks['101'].forEach(s => s101.add(s));
         const todaystr = guang.getTodayDate('-');
-        for(let k in emjyBack.all_accounts) {
-            emjyBack.all_accounts[k].stocks.forEach(s=> {
-                var kl = this.klines[s.code] ? this.klines[s.code].getLatestKline('101') : undefined;
-                if (kl && kl.time != todaystr) {
-                    s101.add(s.code);
-                }
-                var kl15 = this.klines[s.code] ? this.klines[s.code].getLatestKline('15') : undefined;
-                if (kl15 && kl15.time != todaystr + ' 15:00') {
-                    s15.add(s.code)
-                }
-            });
+        const lastkltime = function(kl, klt) {
+            if (!kl.klines[klt] || kl.klines[klt].length < 1) {
+                return '';
+            }
+            return kl.klines[klt].slice(-1)[0].time;
         }
-
-        let p101 = Array.from(s101).map(s=>feng.getStockKline(s, '101'))
-        this.dailyAlarm.stocks['101'].forEach(s => s15.add(s));
-        Promise.all(p101.concat(Array.from(s15)).map(s=>feng.getStockKline(s, '15'))).then(()=>{
+        const s101 = allstks.filter(s=>this.klines[s] && lastkltime(this.klines[s], '101') != todaystr);
+        const s15 = allstks.filter(s=>this.klines[s] && lastkltime(this.klines[s], '15') != todaystr + ' 15:00');
+        const prm = s101.map(s => feng.getStockKline(s, '101'));
+        Promise.all(prm.concat(s15).map(s=>feng.getStockKline(s, '15'))).then(()=>{
             this.normalAccount.save();
             this.collateralAccount.save();
             for (const account of this.track_accounts) {
@@ -1282,17 +1248,6 @@ class EmjyBack {
 
     removeLocal(key) {
         chrome.storage.local.remove(key);
-    }
-
-    listAllBuySellPrice() {
-        for (var i = 0; i < this.normalAccount.stocks.length; i++) {
-            var stocki = this.normalAccount.stocks[i];
-            tradeAnalyzer.listAllBuySellPrice(emjyBack.klines[stocki.code].klines, stocki.code, stocki.name);
-        }
-        for (var i = 0; i < this.collateralAccount.stocks.length; i++) {
-            var stocki = this.collateralAccount.stocks[i];
-            tradeAnalyzer.listAllBuySellPrice(emjyBack.klines[stocki.code].klines, stocki.code, stocki.name);
-        }
     }
 
     addMissedStocks(days = 1) {

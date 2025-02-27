@@ -8,14 +8,6 @@ class Utils {
         return true;
     }
 
-    dateToString(dt, sep = '') {
-        return dt.toLocaleString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
-    }
-
-    getTodayDate(sep = '-') {
-        return this.dateToString(new Date(), sep);
-    }
-
     days_since_2000(date) {
         var d = new Date("2000-01-01");
         var dt = new Date(date);
@@ -45,14 +37,6 @@ class Utils {
         while(ele.hasChildNodes()) {
             ele.removeChild(ele.lastChild);
         }
-    }
-
-    calcBuyCount(amount, price) {
-        var ct = (amount / 100) / price;
-        if (amount - price * Math.floor(ct) * 100 - (price * Math.ceil(ct) * 100 - amount) > 0) {
-            return 100 * Math.ceil(ct);
-        }
-        return ct > 1 ? 100 * Math.floor(ct) : 100;
     }
 
     createSingleRow(c, span = 2) {

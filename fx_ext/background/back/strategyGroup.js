@@ -1,7 +1,7 @@
 'use strict';
 
 class GroupManager {
-    create(group, account, code, skey) {
+    static create(group, account, code, skey) {
         return new StrategyGroup(group, account, code, skey);
     }
 }
@@ -473,7 +473,7 @@ class CostDog {
             }
             var ur = cdog.urque.find(u => !u.paired);
             if (!ur) {
-                count = emjyBack.calcBuyCount(amount, price);
+                count = guang.calcBuyCount(amount, price);
             } else {
                 ur.paired = true;
                 ur.code = code;
@@ -481,12 +481,12 @@ class CostDog {
                 if (uamt - cdog.max_amount > 0) {
                     uamt = cdog.max_amount;
                 }
-                count = emjyBack.calcBuyCount(uamt, price);
+                count = guang.calcBuyCount(uamt, price);
                 return {count, 'id': ur.id};
             }
         } else {
             var amount = 10000;
-            count = emjyBack.calcBuyCount(amount, price);
+            count = guang.calcBuyCount(amount, price);
         }
         return {count};
     }
@@ -772,35 +772,18 @@ class StrategyGroup {
             }
             this.count0 = ur.count;
         } else {
-            this.count0 = emjyBack.calcBuyCount(amount, price);
+            this.count0 = guang.calcBuyCount(amount, price);
         }
         return this.count0;
-    }
-
-    async onOtpAlarm(id) {
-        var curStrategy = this.strategies[id];
-        if (!curStrategy) {
-            emjyBack.log('!!!NOT IMPLEMENTED!!! onOtpAlarm sell match', this.code, JSON.stringify(curStrategy));
-        }
-        if (!curStrategy.enabled()) {
-            return;
-        }
-
-        const matchResult = await curStrategy.check({id, rtInfo: {latestPrice:0, count: this.count0 === undefined ? 0 : this.count0}, buydetail: this.buydetail});
-        if (!matchResult) {
-            return;
-        }
-        const tradeResult = this.doTrade(matchResult);
-        if (tradeResult) {
-            curStrategy.confirmMatched(tradeResult);
-        }
-        this.save();
     }
 
     async checkStockRtSnapshot(is1time, islazy=true) {
         let changed = false;
         for (const [id, s] of Object.entries(this.strategies)) {
             if (!s.enabled()) {
+                continue;
+            }
+            if (SellStrategyKeyNames.map(ss=>ss.key).includes(s.key()) && this.buydetail.availableCount() == 0) {
                 continue;
             }
 
@@ -838,6 +821,9 @@ class StrategyGroup {
             if (!s.enabled() || typeof(s.checkKlines) !== 'function') {
                 continue;
             }
+            if (SellStrategyKeyNames.map(ss=>ss.key).includes(s.key()) && this.buydetail.availableCount() == 0) {
+                continue;
+            }
             const gl = s.guardLevel();
             if (!['kline', 'klines', 'kday', 'kzt'].includes(gl)) {
                 continue;
@@ -865,25 +851,6 @@ class StrategyGroup {
         if (changed) {
             this.save();
         }
-    }
-
-    async check(rtInfo) {
-        for (var id in this.strategies) {
-            var curStrategy = this.strategies[id];
-            if (!curStrategy.enabled()) {
-                continue;
-            }
-
-            const matchResult = await curStrategy.check({id, rtInfo, buydetail: this.buydetail});
-            if (!matchResult) {
-                continue;
-            }
-            const tradeResult = await this.doTrade(matchResult);
-            if (tradeResult) {
-                curStrategy.confirmMatched(tradeResult);
-            }
-            this.save();
-        };
     }
 
     async doTrade(info) {
@@ -964,28 +931,5 @@ class StrategyGroup {
         };
         this.save();
     }
-
-    async checkKlines(updatedKlt) {
-        for (var id in this.strategies) {
-            var curStrategy = this.strategies[id];
-            if (!curStrategy.enabled()) {
-                continue;
-            }
-            if (typeof(curStrategy.checkKlines) !== 'function') {
-                continue;
-            }
-
-            const matchResult = await curStrategy.checkKlines({id, code:this.code, kltypes: updatedKlt, buydetail: this.buydetail});
-            if (!matchResult) {
-                continue;
-            }
-            const tradeResult = await this.doTrade(matchResult);
-            if (tradeResult) {
-                curStrategy.confirmMatched(tradeResult, this.buydetail);
-            }
-            this.save();
-        }
-    }
 }
 
-let strategyGroupManager = new GroupManager();

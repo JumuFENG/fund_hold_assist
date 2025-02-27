@@ -92,6 +92,21 @@ class feng {
     }
 
     /**
+    * 获取股票的完整代码 如 002261 -> SZ002261
+    * @param {string} code 股票代码, 如: 002261
+    * @returns {string}
+    */
+    static async getLongStockCode(code) {
+        if (code.startsWith('S') || code == '') {
+            return code;
+        }
+
+        return feng.getStockMktcode(code).then(mkt => {
+            return mkt + code;
+        });
+    }
+
+    /**
     * 获取缓存中股票的名称, 没有则返回空字符串.
     * @param {string} code 股票代码, 如: 002261
     * @returns {string} 股票名称

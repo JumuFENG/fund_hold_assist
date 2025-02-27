@@ -142,8 +142,8 @@ class HistDealsClient extends DealsClient {
     // 重写 getFormData 方法，添加时间范围参数
     getFormData() {
         const fd = super.getFormData();
-        fd.append('st', emjyBack.dateToString(this.startTime));
-        fd.append('et', emjyBack.dateToString(this.endTime));
+        fd.append('st', guang.dateToString(this.startTime, '-'));
+        fd.append('et', guang.dateToString(this.endTime, '-'));
         return fd;
     }
 
@@ -161,11 +161,11 @@ class MarginHistDealsClient extends HistDealsClient {
         if (fd.has('st')) {
             fd.delete('st');
         }
-        fd.append('st', emjyBack.dateToString(this.startTime, ''));
+        fd.append('st', guang.dateToString(this.startTime, ''));
         if (fd.has('et')) {
             fd.delete('et');
         }
-        fd.append('et', emjyBack.dateToString(this.endTime, ''));
+        fd.append('et', guang.dateToString(this.endTime, ''));
         return fd;
     }
 
@@ -200,11 +200,11 @@ class MarginSxlHistClient extends HistDealsClient {
         if (fd.has('st')) {
             fd.delete('st');
         }
-        fd.append('st', emjyBack.dateToString(this.startTime, ''));
+        fd.append('st', guang.dateToString(this.startTime, ''));
         if (fd.has('et')) {
             fd.delete('et');
         }
-        fd.append('et', emjyBack.dateToString(this.endTime, ''));
+        fd.append('et', guang.dateToString(this.endTime, ''));
         return fd;
     }
 
@@ -675,32 +675,6 @@ class NormalAccount extends Account {
         return {account: this.keyword, stocks};
     }
 
-    updateStockRtPrice(snapshot) {
-        if (this.wallet && snapshot.code == this.wallet.fundcode) {
-            return;
-        };
-
-        if (!this.stocks) {
-            return;
-        };
-
-        var stock = this.stocks.find(function(s) { return s.code == snapshot.code});
-        if (stock && stock.strategies) {
-            stock.strategies.check(snapshot);
-        }
-    }
-
-    updateStockRtKline(code, updatedKlt) {
-        if (!this.stocks) {
-            return;
-        };
-
-        var stock = this.stocks.find((s) => { return s.code == code});
-        if (stock && stock.strategies) {
-            stock.strategies.checkKlines(updatedKlt);
-        };
-    }
-
     createTradeClient() {
         this.tradeClient = new TradeClient(this.availableMoney);
     }
@@ -735,7 +709,7 @@ class NormalAccount extends Account {
         if (!stock) {
             return;
         };
-        var strategyGroup = strategyGroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
+        var strategyGroup = GroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
         strategyGroup.setHoldCount(stock.holdCount, stock.availableCount, stock.holdCost);
         stock.strategies = strategyGroup;
     }
@@ -761,7 +735,7 @@ class NormalAccount extends Account {
 
     addStockStrategy(stock, strgrp) {
         if (strgrp) {
-            stock.strategies = strategyGroupManager.create(strgrp, this.keyword, stock.code, this.keyword + '_' + stock.code + '_strategies');
+            stock.strategies = GroupManager.create(strgrp, this.keyword, stock.code, this.keyword + '_' + stock.code + '_strategies');
         }
     }
 

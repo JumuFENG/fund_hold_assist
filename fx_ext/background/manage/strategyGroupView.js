@@ -226,7 +226,7 @@ class StrategyGroupView {
         this.inputAmount.style.maxWidth = '80px';
         ctDiv.appendChild(this.inputAmount);
         this.inputAmount.onchange = e => {
-            this.inputCount.value = utils.calcBuyCount(this.inputAmount.value, this.latestPrice);
+            this.inputCount.value = guang.calcBuyCount(this.inputAmount.value, this.latestPrice);
         }
 
         if (!this.strGrp || !this.strGrp.count0) {
@@ -235,7 +235,7 @@ class StrategyGroupView {
                 amount = this.strGrp.amount;
             }
             this.inputAmount.value = amount;
-            this.inputCount.value = utils.calcBuyCount(amount, this.latestPrice);
+            this.inputCount.value = guang.calcBuyCount(amount, this.latestPrice);
         } else {
             this.inputCount.value = this.strGrp.count0;
             if (this.strGrp.amount) {

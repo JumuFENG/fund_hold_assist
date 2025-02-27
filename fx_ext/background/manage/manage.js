@@ -135,7 +135,7 @@ class Manager {
         }
         zdate.setHours(15);
         if (new Date() - zdate > 24 * 3600000) {
-            var date = utils.dateToString(zdate);
+            var date = guang.dateToString(zdate, '');
             if (this.fha) {
                 this.fetchStockKline(code, '101', date);
             } else {
@@ -152,7 +152,7 @@ class Manager {
         var ldate = new Date(this.klines[code].getLatestKline('101').time);
         ldate.setDate(ldate.getDate() + 1);
         if (ldate < new Date()) {
-            var date = utils.dateToString(ldate);
+            var date = guang.dateToString(ldate, '');
             if (this.fha) {
                 this.fetchStockKline(code, '101', date);
             } else {
@@ -495,7 +495,7 @@ class Manager {
                     this.klines[code].klines = {};
                     var zdate = new Date(sdate);
                     zdate.setMonth(zdate.getMonth() - 1);
-                    var ndate = utils.dateToString(zdate, '-');
+                    var ndate = guang.dateToString(zdate, '-');
                     this.doFetchKline(code, '101', sdate < ndate ? sdate : ndate);
                 } else {
                     this.doFetchKline(code, '101', sdate);

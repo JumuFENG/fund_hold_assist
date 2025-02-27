@@ -111,7 +111,36 @@ class guang {
         return Math.round(lclose * 100 - lclose * zdf + 0.00000001) / 100;
     }
 
+    /**
+    * 今日日期的字符串形式
+    * @param {string} sep 间隔符号
+    * @returns {string}
+    */
     static getTodayDate(sep = '') {
         return new Date().toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
+    }
+
+    /**
+    * 日期转字符串形式
+    * @param {Date} dt 日期
+    * @param {string} sep 间隔符号
+    * @returns {string}
+    */
+    dateToString(dt, sep = '') {
+        return dt.toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
+    }
+
+    /**
+    * 计算股数, 1手为100股
+    * @param {number} amount 金额
+    * @param {number} price 股价
+    * @returns {number} 股数(整百股)
+    */
+    calcBuyCount(amount, price) {
+        var ct = (amount / 100) / price;
+        if (amount - price * Math.floor(ct) * 100 - (price * Math.ceil(ct) * 100 - amount) > 0) {
+            return 100 * Math.ceil(ct);
+        }
+        return ct > 1 ? 100 * Math.floor(ct) : 100;
     }
 }

@@ -2126,7 +2126,7 @@ class StrategyGrid extends StrategyComplexBase {
                 // 首次加仓
                 var avp = buydetail.averPrice()
                 var amount = (avp - kl.c) * count / this.data.stepRate - kl.c * count;
-                var bcount = emjyBack.calcBuyCount(amount, kl.c);
+                var bcount = guang.calcBuyCount(amount, kl.c);
                 this.tobeconfirm = 'checkConsecutiveBuy';
                 return {id: chkInfo.id, tradeType: 'B', count: bcount, price: kl.c};
             }
@@ -2152,7 +2152,7 @@ class StrategyGrid extends StrategyComplexBase {
                 // 加仓
                 var avp = buydetail.averPrice()
                 var amount = (avp - kl.c) * count / this.data.stepRate - kl.c * count;
-                var bcount = emjyBack.calcBuyCount(amount, kl.c);
+                var bcount = guang.calcBuyCount(amount, kl.c);
                 this.tobeconfirm = 'checkConsecutiveBuy2';
                 return {id: chkInfo.id, tradeType: 'B', count: bcount, price: kl.c};
             }
