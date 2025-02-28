@@ -21,9 +21,9 @@ class feng {
 
     static dumpCached(intrested) {
         let holdcached = {};
-        for (const [k, { name, code, market, mktcode, secid }] of this.stkcache.entries()) {
+        for (const [k, { name, code, mktcode, secid }] of this.stkcache.entries()) {
             if (intrested.includes(k)) {
-                holdcached[k] = { name, code, market, mktcode, secid };
+                holdcached[k] = { name, code, mktcode, secid };
             }
         }
         return holdcached;
@@ -32,13 +32,17 @@ class feng {
     static async getEmStcokInfo(code) {
         let url = feng.emshszac + code;
         return guang.fetchData(url, {}, 24*60*60000, emsinf => {
-            const match = emsinf.match(/var sData = "(.+?);";/);
-            if (!match) throw new Error('Invalid response format, code: ' + code, ' response: ' + emsinf);
+            try {
+                const match = emsinf.match(/var sData = "(.+?);";/);
+                if (!match) throw new Error('Invalid response format, code: ' + code, ' response: ' + emsinf);
 
-            const sData = match[1].split(',');
-            const mm = { '1': 'SH', '2': 'SZ', '4': 'BJ' };
-            const [code, , , , name, market, , , sec] = sData;
-            return {name, code, market, mktcode: mm[market], secid: `${sec}.${code}`};
+                const sData = match[1].split(',');
+                const mm = { '1': 'SH', '2': 'SZ', '4': 'BJ' };
+                const [, , , , name, market, , , sec] = sData;
+                return {name, code, mktcode: mm[market], secid: `${sec}.${code}`};
+            } catch (e) {
+                return feng.searchSecurity(code, {classify: 'AStock'}).then(data => data[0]);
+            }
         });
     }
 
@@ -80,6 +84,41 @@ class feng {
     */
     static async getStockSecId(code) {
         return this.cachedStockGen(code, 'secid');
+    }
+
+    /**
+    * 获取东方财富指数secid 如 000001 -> 2.002261
+    * @param {string} code 代码, 如: 002261/001/399/4002
+    * @param {string} params 查询条件
+    * markettype:
+    * mktnum:
+    * jys:
+    * classify: AStock 股票 | Fund 基金 | Index 指数 | NEEQ 三板...
+    * securitytype:
+    * @returns {Array} 查询到的对象
+    */
+    static async searchSecurity(code, params={}) {
+        let q = {markettype: '', mktnum: '', jys:'', classify: 'AStock', securitytype:''};
+        Object.assign(q, params);
+        let sUrl = `https://searchadapter.eastmoney.com/api/suggest/get?type=14&markettype=${q.markettype}&mktnum=${q.mktnum}&jys=${q.jys}&classify=${q.classify}&securitytype=${q.securitytype}&status=&count=5&input=${code}`;
+        return fetch(sUrl).then(r=>r.json()).then(qct=> {
+            qct = qct.QuotationCodeTable;
+            if (qct.Status != 0 || qct.TotalCount < 1) {
+                throw new Error('Error get quotes ' + JSON.stringify(qct));
+            }
+            return qct.Data.map(d=>{
+                return {code: d.Code, name: d.Name, secid: d.QuoteID, jsy: d.JYS, mType: d.MarketType, mNum: d.MktNum}
+            });
+        });
+    }
+
+    /**
+    * 获取东方财富指数secid 如 000001 -> 1.000001 399001 -> 0.399001
+    * @param {string} code 指数代码, 如: 000001
+    * @returns {string} secid
+    */
+    static async getIndexSecId(code) {
+        return feng.searchSecurity(code, {classify: 'Index'}).then(data => data[0].secid);
     }
 
     /**

@@ -134,10 +134,6 @@ class EmjyBack {
         this.normalAccount = null;
         this.collateralAccount = null;
         this.creditAccount = null;
-        this.klineAlarms = null;
-        this.ztBoardTimer = null;
-        this.rtpTimer = null;
-        this.dailyAlarm = null;
         this.manager = null;
         this.klines = {};
         this.fha = null;
@@ -152,21 +148,6 @@ class EmjyBack {
     Init() {
         this.logs = [];
         emjyBack = this;
-        if (!this.klineAlarms) {
-            this.klineAlarms = new KlineAlarms();
-        };
-        if (!this.ztBoardTimer) {
-            this.ztBoardTimer = new RtpTimer(300);
-        };
-        if (!this.rtpTimer) {
-            this.rtpTimer = new RtpTimer();
-        };
-        if (!this.dailyAlarm) {
-            this.dailyAlarm = new DailyAlarm();
-        };
-        if (!this.otpAlarm) {
-            this.otpAlarm = new OtpAlarm();
-        }
         this.strategyManager = new StrategyManager();
         this.normalAccount = new NormalAccount();
         this.collateralAccount = new CollateralAccount();
@@ -200,7 +181,7 @@ class EmjyBack {
         this.getFromLocal('cost_dog', cd => {
             this.costDog = new CostDog(cd);
         });
-        this.setupQuoteAlarms();
+        alarmHub.setupAlarms();
         istrManager.initExtStrs();
         this.log('EmjyBack initialized!');
     }
@@ -1013,85 +994,6 @@ class EmjyBack {
         }
     }
 
-    setupQuoteAlarms() {
-        chrome.alarms.onAlarm.addListener(alarmInfo =>  {
-            this.onAlarm(alarmInfo);
-        });
-        var now = new Date();
-        if (now.getDay() == 0 || now.getDay() == 6) {
-            return;
-        };
-
-        var alarms = [
-        {name:'morning-prestart', tick: new Date(now.toDateString() + ' 9:24:45').getTime()},
-        {name:'morning-start', tick: new Date(now.toDateString() + ' 9:29:56').getTime()},
-        {name:'morning-otp', tick: new Date(now.toDateString() + ' 9:30:02').getTime()},
-        {name:'morning-middle', tick: new Date(now.toDateString() + ' 9:35').getTime() + ((Math.random() * 110 * 60000).toFixed() - 1)},
-        {name:'morning-end', tick: new Date(now.toDateString() + ' 11:30:3').getTime()},
-        {name:'afternoon', tick: new Date(now.toDateString() + ' 12:59:56').getTime()},
-        {name:'daily-preend', tick: new Date(now.toDateString() + ' 14:56:45').getTime()},
-        {name:'afternoon-preend', tick: new Date(now.toDateString() + ' 14:59:38').getTime()},
-        {name:'afternoon-end', tick: new Date(now.toDateString() + ' 15:0:10').getTime()}
-        ];
-
-        if (now >= alarms[alarms.length - 1].tick) {
-            this.log('setupQuoteAlarms, time passed.');
-            return;
-        };
-
-        for (var i = 0; i < alarms.length; i++) {
-            if (now < alarms[i].tick) {
-                this.log('setupQuoteAlarms', alarms[i].name);
-                chrome.alarms.create(alarms[i].name, {when: alarms[i].tick});
-            } else {
-                this.log(alarms[i].name, 'expired, trigger now');
-                this.onAlarm({name: alarms[i].name});
-            };
-        };
-    }
-
-    onAlarm(alarmInfo) {
-        if (alarmInfo.name == 'morning-prestart') {
-            this.ztBoardTimer.startTimer();
-        } else if (alarmInfo.name == 'morning-start') {
-            this.rtpTimer.startTimer();
-            this.klineAlarms.startTimer();
-        } else if (alarmInfo.name == 'morning-otp') {
-            this.otpAlarm.onTimer();
-        } else if (alarmInfo.name == 'morning-middle') {
-            this.tradeDailyRoutineTasks();
-            this.rtpTimer.setTick(10000);
-        } else if (alarmInfo.name == 'morning-end') {
-            this.rtpTimer.stopTimer();
-            this.klineAlarms.stopTimer();
-            this.ztBoardTimer.stopTimer();
-        } else if (alarmInfo.name == 'afternoon') {
-            this.rtpTimer.startTimer();
-            this.klineAlarms.startTimer();
-            this.ztBoardTimer.startTimer();
-        } else if (alarmInfo.name == 'daily-preend') {
-            this.dailyAlarm.onTimer();
-        } else if (alarmInfo.name == 'afternoon-preend') {
-            this.tradeBeforeClose();
-        } else if (alarmInfo.name == 'afternoon-end') {
-            this.stopAllTimers();
-            this.tradeClosed();
-        };
-    }
-
-    startAllTimers() {
-        this.ztBoardTimer.startTimer();
-        this.rtpTimer.setTick(10000);
-        this.rtpTimer.startTimer();
-        this.klineAlarms.startTimer();
-    }
-
-    stopAllTimers() {
-        this.ztBoardTimer.stopTimer();
-        this.rtpTimer.stopTimer();
-        this.klineAlarms.stopTimer();
-    }
-
     isTradeTime() {
         var now = new Date();
         if (now > new Date(now.toDateString() + ' 9:30') && now < new Date(now.toDateString() + ' 15:00')) {
@@ -1136,32 +1038,32 @@ class EmjyBack {
             account.fillupGuardPrices();
         }
 
-        const allstks = Object.values(this.all_accounts).map(a => a.stocks.map(x=>x.code)).flat();
+        const allstks = Object.values(emjyBack.all_accounts).map(a => a.stocks.map(x=>x.code)).flat();
         let holdcached = feng.dumpCached(allstks);
         this.saveToLocal({'hsj_stocks': holdcached});
 
         const todaystr = guang.getTodayDate('-');
         const lastkltime = function(kl, klt) {
-            if (!kl.klines[klt] || kl.klines[klt].length < 1) {
+            if (!kl.klines || !kl.klines[klt] || kl.klines[klt].length < 1) {
                 return '';
             }
             return kl.klines[klt].slice(-1)[0].time;
         }
-        const s101 = allstks.filter(s=>this.klines[s] && lastkltime(this.klines[s], '101') != todaystr);
-        const s15 = allstks.filter(s=>this.klines[s] && lastkltime(this.klines[s], '15') != todaystr + ' 15:00');
-        const prm = s101.map(s => feng.getStockKline(s, '101'));
-        Promise.all(prm.concat(s15).map(s=>feng.getStockKline(s, '15'))).then(()=>{
+        let stks = allstks.filter(s=>emjyBack.klines[s]);
+        let prm = stks.filter(s=>lastkltime(emjyBack.klines[s], '101') != todaystr).map(s => feng.getStockKline(s, '101'));
+        for (t of ['15', '1']) {
+            let s15 = stks.filter(s => emjyBack.klines[s] && emjyBack.klines[s].length > 0 && lastkltime(emjyBack.klines[s], t) != todaystr + ' 15:00');
+            prm = prm.concat(s15.map(s=>feng.getStockKline(s, t)));
+        }
+
+        Promise.all(prm).then(()=>{
             this.normalAccount.save();
             this.collateralAccount.save();
-            for (const account of this.track_accounts) {
-                account.save();
-            }
+            this.track_accounts.forEach(acc => {acc.save()});
             if (this.costDog) {
                 this.costDog.save();
             }
-            for (const c in this.klines) {
-                this.klines[c].save();
-            }
+            Object.values(this.klines).forEach(kl => kl.save());
             this.flushLogs();
         });
     }
