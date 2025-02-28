@@ -411,7 +411,7 @@ class feng {
                     emjyBack.log('buyNewBonds no new bonds to buy!');
                 }
             } else {
-                emjyBack.log('no new bonds', robj);
+                emjyBack.log('no new bonds', JSON.stringify(robj));
             }
         } catch (error) {
             console.error('Error in buyNewBonds:', error);

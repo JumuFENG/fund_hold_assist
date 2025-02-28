@@ -202,6 +202,15 @@ class StrategyI_Base {
         let url = 'http://33.push2.eastmoney.com/api/qt/clist/get';
         return guang.fetchData(url, params, 60000);
     }
+
+    async common_get_dailyzdt() {
+        var eurl = emjyBack.fha.server + 'stock?act=zdtemot&days=10';
+        const zdtarr = await guang.fetchData(eurl, {}, 6 * 60 * 60000);
+        this.zdtdaily = zdtarr.reduce((acc, curr) => {
+            acc[curr[0]] = { ztcnt: curr[1], ztcnt0: curr[2], dtcnt: curr[3] };
+            return acc;
+        }, {});
+    }
 }
 
 
@@ -224,7 +233,7 @@ class StrategyI_Interval extends StrategyI_Base {
                     this.toggleTimer('stop');
                 }, new Date(now.toDateString() + ' ' + actions['stop']) - now);
             } else {
-                emjyBack.log('stop time expired', actions);
+                emjyBack.log('stop time expired', JSON.stringify(actions));
             }
         }
         var ticks = new Date(now.toDateString() + ' ' + this.kicktime) - now;
@@ -307,7 +316,7 @@ class StrategyI_Zt1WbOpen extends StrategyI_Base {
                 this.candidates[code].matched = true;
                 let account = this.candidates[code].account;
                 if (this.check_holdcount(account, code) > 0) {
-                    emjyBack.log('istr_zt1wb stock exists', code, account);
+                    emjyBack.log(this.istr.key, 'stock exists', code, account);
                     continue;
                 }
 
@@ -377,7 +386,7 @@ class StrategyI_HotrankOpen extends StrategyI_Base {
                 }
                 this.matched = true;
 
-                emjyBack.log('istr_hotrank0 binfo', JSON.stringify(b));
+                emjyBack.log(this.istr.key, 'binfo', JSON.stringify(b));
                 price *= this.pupfix;
                 price = Math.min(price, b.up_price);
                 this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2)}};
@@ -385,9 +394,9 @@ class StrategyI_HotrankOpen extends StrategyI_Base {
 
                 this.expected_account(this.istr.account, code).then(account => {
                     if (this.check_holdcount(account, code) > 0) {
-                        emjyBack.log('istr_hotrank0 stock exists', code, holdacc);
+                        emjyBack.log(this.istr.key, 'stock exists', code, holdacc);
                     } else {
-                        emjyBack.log('istr_hotrank0 buy with account', code, price, account);
+                        emjyBack.log(this.istr.key, 'buy with account', code, price, account);
                         emjyBack.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
                     }
                 });
@@ -408,9 +417,9 @@ class StrategyI_HotrankOpen extends StrategyI_Base {
                 method: 'POST',
                 body: fd
             }).then(r => r.text()).then(p => {
-                emjyBack.log('istr hotrank0 update data', p);
+                emjyBack.log(this.istr.key, 'update data', p);
             }).catch(e => {
-                emjyBack.log('istr hotrank0 update data error', e);
+                emjyBack.log(this.istr.key, 'update data error', e);
             });
         }
     }
@@ -449,7 +458,7 @@ class StrategyI_3Bull_Breakup extends StrategyI_Interval {
                 if (price - this.candidates[code].high <= 0) {
                     continue;
                 }
-                emjyBack.log('istr 3b buy match', code);
+                emjyBack.log(this.istr.key, 'buy match', code);
                 if (b.up_price - price < 0.02) {
                     price = b.up_price;
                 } else {
@@ -461,7 +470,7 @@ class StrategyI_3Bull_Breakup extends StrategyI_Interval {
                 this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2), 'guardPrice': this.candidates[code].low}};
                 let strategy = this.generate_strategy_json(price);
                 emjyBack.buyWithAccount(code, price, 0, account, strategy);
-                emjyBack.log('istr 3b buy', code, price, account);
+                emjyBack.log(this.istr.key, 'buy', code, price, account);
                 this.candidates[code].matched = true;
             }
         });
@@ -513,14 +522,8 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
             }
         });
         this.common_get_hotranks(false);
-        var eurl = emjyBack.fha.server + 'stock?act=zdtemot&days=10';
-        fetch(eurl).then(r => r.json()).then(zdtarr => {
-            this.zdtdaily = zdtarr.reduce((acc, curr) => {
-                acc[curr[0]] = {ztcnt: curr[1], ztcnt0: curr[2], dtcnt: curr[3]};
-                return acc;
-            }, {});
-            let zdtarr_1 = zdtarr[zdtarr.length - 1];
-            this.lastzdt = {date: zdtarr_1[0], ztcnt: zdtarr_1[1], ztcnt0: zdtarr_1[2], dtcnt: zdtarr_1[3]};
+        this.common_get_dailyzdt().then(()=>{
+            this.lastzdt = this.zdtdaily[Math.max(Object.keys(this.zdtdaily))];
         });
     }
 
@@ -575,7 +578,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                     }
 
                     let price = b.last_px;
-                    emjyBack.log('istr_hotstks_open binfo', JSON.stringify(b));
+                    emjyBack.log(this.istr.key, 'binfo', JSON.stringify(b));
                     price *= this.pupfix;
                     price = Math.min(price, b.up_price);
                     this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2)}, 'StrategySellBE': {}};
@@ -585,7 +588,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                             // 已经有持仓，买入价低于+5%。不追高.
                             price = Math.min(price, b.preclose_px * 1.05);
                         }
-                        emjyBack.log('istrategy_hotstks_open buy with account', code, price, account);
+                        emjyBack.log(this.istr.key, 'buy with account', code, price, account);
                         emjyBack.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
                     });
                 }
@@ -633,6 +636,57 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
 
     trigger() {
         // 竞价结束前
+        this.common_get_dailyzdt().then(()=>{
+            const lastzdt = this.zdtdaily[Object.keys(this.zdtdaily).slice(-1)[0]];
+            return lastzdt.dtcnt;
+        }).then(dtcnt => {
+            if (dtcnt < 5) {
+                return;
+            }
+            this.common_get_zdfranks_em(-50).then(jd => {
+                let drks = jd.data.diff.filter(r => r.f3 <= -8);
+                let dtstocks = drks.filter(r => r.f2 - feng.getStockDt(r.f12, r.f18) <= 0);
+                if (dtstocks.length > 0) {
+                    return;
+                }
+            }).then(() => {
+                const date = Object.keys(this.zdtdaily).slice(-1)[0];
+                const durl = emjyBack.fha.server + 'api/stockdthist?date=' + date;
+                return guang.fetchData(durl, {}, 6*60*60000, d => {
+                    if (d.date != date) {
+                        return [];
+                    }
+                    return d.pool;
+                });
+            }).then(ydl => {
+                for (const yd of ydl) {
+                    const code = yd[0].substring('2');
+                    if (!this.candidates[code]) {
+                        this.candidates[code] = {secu_code: emjyBack.convertToSecu(code)};
+                    }
+                }
+            }).then(()=>{
+                return this.get_cls_stockbasics(Object.values(this.candidates).map(x=>x.secu_code));
+            }).then(basics => {
+                for (let code in basics) {
+                    let b = basics[code];
+                    let zdf = b.change * 100;
+                    if (zdf > -5.5) {
+                        continue;
+                    }
+
+                    let price = b.last_px;
+                    price *= this.pupfix;
+                    price = Math.min(price, b.preclose_px * 0.95);
+                    this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2)}};
+                    let strategy = this.generate_strategy_json(price);
+                    this.expected_account(this.istr.account, code).then(account => {
+                        emjyBack.log(this.istr.key, 'buy with account', code, price, account);
+                        emjyBack.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
+                    });
+                }
+            });
+        });
     }
 
     trigger1() {
@@ -640,13 +694,13 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
         this.common_get_zdfranks_em(-50).then(jd=>{
             let drks = jd.data.diff.filter(r => r.f3 <= -8);
             if (drks.filter(r => r.f3 <= -10).length > 15) {
-                emjyBack.log('istrategy_dtstocks more stocks zdf < 10 than 15');
+                emjyBack.log(this.istr.key, 'more stocks zdf < 10 than 15');
                 return;
             }
             let dtstocks = drks.filter(r => r.f2 - feng.getStockDt(r.f12, r.f18) <= 0)
             dtstocks = dtstocks.filter(r => !r.f14.startsWith('退市') && !r.f14.endsWith('退') && !r.f14.includes('ST'));
             if (dtstocks.length > 10) {
-                emjyBack.log('istrategy_dtstocks more stocks dt than 10');
+                emjyBack.log(this.istr.key, 'more stocks dt than 10');
                 return;
             }
             // 封单金额最大前三
@@ -707,54 +761,55 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
 }
 
 
-class IstrFactory {
-    constructor() {
+class istrManager {
+    static initExtStrs() {
         this.istrs = {};
         var now = new Date();
-        if (now.getDay() > 0 && now.getDay() < 6) {
-            var curl = 'https://x-quote.cls.cn/quote/stock/closest_trading_day?app=CailianpressWeb&os=web&sv=7.7.5';
-            fetch(curl).then(r => r.json()).then(jrtd => {
-                this.istradingdate = jrtd.data[0] == guang.getTodayDate('-') && now.getHours() < 15;
-            });
-        } else {
-            this.istradingdate = false;
-        }
-    }
-
-    initExtStrs() {
-        if (this.istradingdate === undefined) {
-            setTimeout(() => {this.initExtStrs();}, 1000);
+        if (now.getDay() == 6 || now.getDay() == 0) {
             return;
         }
+        var curl = 'https://x-quote.cls.cn/quote/stock/closest_trading_day?app=CailianpressWeb&os=web&sv=7.7.5';
+        guang.fetchData(curl, {}, 60*60000).then(jrtd => {
+            let istradingdate = jrtd.data[0] == guang.getTodayDate('-') && now.getHours() < 15;
+            if (istradingdate) {
+                this.setupExtStrategy();
+            }
+        }).catch(err => {
+            throw err;
+        });
+    }
+
+    static setupExtStrategy() {
+        const build_istr = function (istr) {
+            let iks = null;
+            if (istr.key == 'istrategy_zt1wb') {
+                iks = new StrategyI_Zt1WbOpen(istr);
+            } else if (istr.key == 'istrategy_3brk') {
+                iks = new StrategyI_3Bull_Breakup(istr);
+            } else if (istr.key == 'istrategy_hotrank0') {
+                iks = new StrategyI_HotrankOpen(istr);
+            } else if (istr.key == 'istrategy_hotstks_open') {
+                iks = new StrategyI_HotStocksOpen(istr);
+            } else if (istr.key == 'istrategy_dtstocks') {
+                iks = new StrategyI_DtStocksUp(istr);
+            }
+            return iks;
+        }
+
         for (const extstr of ExtIstrStrategies) {
             emjyBack.getFromLocal('exstrategy_' + extstr.key, istr => {
                 if (!istr) {
                     emjyBack.log('ext strategy', extstr.key, 'not configured');
                     return;
                 }
-                this.setupExtStrategy(istr);
+                let iks = build_istr(istr);
+                if (iks) {
+                    this.istrs[istr.key] = iks;
+                    if (iks.enabled()) {
+                        iks.prepare();
+                    }
+                }
             });
-        }
-    }
-
-    setupExtStrategy(istr) {
-        let iks = null;
-        if (istr.key == 'istrategy_zt1wb') {
-            iks = new StrategyI_Zt1WbOpen(istr);
-        } else if (istr.key == 'istrategy_3brk') {
-            iks = new StrategyI_3Bull_Breakup(istr);
-        } else if (istr.key == 'istrategy_hotrank0') {
-            iks = new StrategyI_HotrankOpen(istr);
-        } else if (istr.key == 'istrategy_hotstks_open') {
-            iks = new StrategyI_HotStocksOpen(istr);
-        } else if (istr.key == 'istrategy_dtstocks') {
-            iks = new StrategyI_DtStocksUp(istr);
-        }
-        if (iks) {
-            this.istrs[istr.key] = iks;
-            if (this.istradingdate && iks.enabled()) {
-                iks.prepare();
-            }
         }
     }
 }

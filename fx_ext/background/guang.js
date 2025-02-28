@@ -126,7 +126,7 @@ class guang {
     * @param {string} sep 间隔符号
     * @returns {string}
     */
-    dateToString(dt, sep = '') {
+    static dateToString(dt, sep = '') {
         return dt.toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
     }
 
@@ -136,7 +136,7 @@ class guang {
     * @param {number} price 股价
     * @returns {number} 股数(整百股)
     */
-    calcBuyCount(amount, price) {
+    static calcBuyCount(amount, price) {
         var ct = (amount / 100) / price;
         if (amount - price * Math.floor(ct) * 100 - (price * Math.ceil(ct) * 100 - amount) > 0) {
             return 100 * Math.ceil(ct);

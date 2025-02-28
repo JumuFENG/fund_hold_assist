@@ -780,7 +780,7 @@ class StrategyGroup {
     async checkStockRtSnapshot(is1time, islazy=true) {
         let changed = false;
         for (const [id, s] of Object.entries(this.strategies)) {
-            if (!s.enabled()) {
+            if (!s.enabled() || !['otp', 'rtp', 'kzt', 'zt'].includes(s.guardLevel())) {
                 continue;
             }
             if (SellStrategyKeyNames.map(ss=>ss.key).includes(s.key()) && this.buydetail.availableCount() == 0) {
@@ -818,16 +818,13 @@ class StrategyGroup {
     async checkStockRtKlines(klt) {
         let changed = false;
         for (const [id, s] of Object.entries(this.strategies)) {
-            if (!s.enabled() || typeof(s.checkKlines) !== 'function') {
+            if (!s.enabled() || typeof(s.checkKlines) !== 'function' || !['kline', 'klines', 'kday', 'kzt'].includes(s.guardLevel())) {
                 continue;
             }
             if (SellStrategyKeyNames.map(ss=>ss.key).includes(s.key()) && this.buydetail.availableCount() == 0) {
                 continue;
             }
-            const gl = s.guardLevel();
-            if (!['kline', 'klines', 'kday', 'kzt'].includes(gl)) {
-                continue;
-            }
+
             const canklt = [1,2,4,8].map(i => String(i * klt));
             let skl = s.kltype();
             if (typeof skl === 'string') {

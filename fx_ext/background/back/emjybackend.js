@@ -141,7 +141,6 @@ class EmjyBack {
         this.manager = null;
         this.klines = {};
         this.fha = null;
-        this.istrMgr = new IstrFactory();
     }
 
     log(...args) {
@@ -202,7 +201,7 @@ class EmjyBack {
             this.costDog = new CostDog(cd);
         });
         this.setupQuoteAlarms();
-        this.istrMgr.initExtStrs();
+        istrManager.initExtStrs();
         this.log('EmjyBack initialized!');
     }
 
@@ -1025,11 +1024,11 @@ class EmjyBack {
 
         var alarms = [
         {name:'morning-prestart', tick: new Date(now.toDateString() + ' 9:24:45').getTime()},
-        {name:'morning-start', tick: new Date(now.toDateString() + ' 9:29:42').getTime()},
+        {name:'morning-start', tick: new Date(now.toDateString() + ' 9:29:56').getTime()},
         {name:'morning-otp', tick: new Date(now.toDateString() + ' 9:30:02').getTime()},
         {name:'morning-middle', tick: new Date(now.toDateString() + ' 9:35').getTime() + ((Math.random() * 110 * 60000).toFixed() - 1)},
         {name:'morning-end', tick: new Date(now.toDateString() + ' 11:30:3').getTime()},
-        {name:'afternoon', tick: new Date(now.toDateString() + ' 12:59:5').getTime()},
+        {name:'afternoon', tick: new Date(now.toDateString() + ' 12:59:56').getTime()},
         {name:'daily-preend', tick: new Date(now.toDateString() + ' 14:56:45').getTime()},
         {name:'afternoon-preend', tick: new Date(now.toDateString() + ' 14:59:38').getTime()},
         {name:'afternoon-end', tick: new Date(now.toDateString() + ' 15:0:10').getTime()}

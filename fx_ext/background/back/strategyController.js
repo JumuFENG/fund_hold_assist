@@ -954,6 +954,7 @@ class StrategySellELShort extends StrategySellEL {
             if (rtInfo.buysells.sale1 != '-' || rtInfo.buysells.buy1_count < this.tmpmaxb1count * 0.1) {
                 var count = buydetails.getCountMatched(this.data.cutselltype, latestPrice);
                 if (count > 0) {
+                    emjyBack.log(this.key(), JSON.stringify(rtInfo));
                     return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: (rtInfo.buysells.buy2 == '-' ? rtInfo.bottomprice : rtInfo.buysells.buy2)});
                 }
             }
@@ -988,6 +989,7 @@ class StrategySellELShort extends StrategySellEL {
         }
         var count = buydetails.getCountMatched(this.data.cutselltype, kl.c);
         if (kl.c - this.data.guardPrice < 0 && count > 0) {
+            emjyBack.log(this.key(), JSON.stringify(kl));
             return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: kl.c});
         }
 
