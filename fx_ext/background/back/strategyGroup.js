@@ -918,6 +918,9 @@ class StrategyGroup {
             return;
         };
         var tid = this.transfers[refer.id].getTransferId();
+        if (tid == refer.id) {
+            return;
+        }
         if (tid >= 0) {
             this.strategies[tid].setEnabled(true);
             if (refer.tradeType == 'B') {

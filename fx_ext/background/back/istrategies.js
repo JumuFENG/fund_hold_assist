@@ -96,12 +96,18 @@ class StrategyI_Base {
     }
 
     check_holdcount(account, code) {
-        let holdacc = holdAccountKey[account];
-        let holdstock = emjyBack.all_accounts[holdacc].getStock(code);
+        const holdacc = holdAccountKey[account];
+        const holdstock = emjyBack.all_accounts[holdacc].getStock(code);
         if (holdstock && holdstock.holdCount > 0) {
             return holdstock.holdCount;
         }
         return 0;
+    }
+
+    get_buydetail(account, code) {
+        const holdacc = holdAccountKey[account];
+        const holdstock = emjyBack.all_accounts[holdacc].getStock(code);
+        return holdstock?.strategies?.buydetail;
     }
 
     get_cls_stockbasics(stocks) {
@@ -247,7 +253,7 @@ class StrategyI_Interval extends StrategyI_Base {
     }
 
     toggleTimer(act) {
-        emjyBack.log('strategyi_interval toggleTimer', act);
+        emjyBack.log(this.constructor.name, 'toggleTimer', act);
         if (!this.chkInterval && act == 'start') {
             this.chkInterval = setInterval(() => {
                 this.trigger();
@@ -761,21 +767,82 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
 }
 
 
+class StrategyI_IndexTracking extends StrategyI_Interval {
+    constructor(istr) {
+        super(istr, 60000, '9:33:59');
+        this.candidates = {
+            '1.000001': ['510210']
+        }
+        this.earnRate = 0.03;  // 止盈幅度
+        this.stepRate = 0.006; // 日内价差幅度
+    }
+
+    getIndexFflow(icode) {
+        const iUrl = 'https://push2.eastmoney.com/api/qt/stock/fflow/kline/get?lmt=0&klt=1&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65&ut=b2884a393a59ad64002292a3e90d46a5&secid=' + icode;
+        return guang.fetchData(iUrl, {}, 59000, fdata => {
+            return fdata.data.klines.map(f=>f.split(',').slice(0, 2)).reduce((acc, current, index, array) => {
+                if (current.length < 3) {
+                    current.push(0);
+                }
+
+                if (index === 0) {
+                    current[2] = current[1] - 0;
+                    acc.push(current);
+                } else {
+                    const diff = current[1] - array[index - 1][1];
+                    current[2] = diff;
+                    acc.push(current);
+                }
+                return acc;
+            }, []);
+        });
+    }
+
+    trigger() {
+        for (const [i, s] of Object.entries(this.candidates)) {
+            this.getIndexFflow(i).then(idata => {
+                if (idata.slice(-1)[0][2] > 1e8) {
+                    return true;
+                }
+                if (idata.slice(-10).reduce((acc,cur) => acc += cur[2], 0) > 5e8) {
+                    return true;
+                }
+                return false;
+            }).then(satisfied => {
+                if (!satisfied) {
+                    return;
+                }
+
+                return Promise.all(s.map(sc => this.expected_account(this.istr.account, sc).then(acc => {
+                    const buydetails = this.get_buydetail(acc, sc);
+                    return feng.getStockSnapshot(sc).then(snap=> {
+                        if (buydetails.totalCount() == 0 || snap.latestPrice - buydetails.minBuyPrice() * (1 - this.stepRate) < 0) {
+                            return {code: sc, price: snap.latestPrice, account: acc};
+                        }
+                    });
+                })));
+            }).then(mpas => {
+                if (!mpas || mpas.length == 0) {
+                    return [];
+                }
+                this.estr = {'StrategySellMA': {}};
+                mpas.forEach(mpa=> {
+                    const strategy = this.generate_strategy_json(mpa.price);
+                    emjyBack.log(this.istr.key, 'buy with account ', mpa.account, mpa.price);
+                    emjyBack.buyWithAccount(mpa.code, mpa.price, 0, mpa.account, strategy);
+                })
+            });
+        }
+    }
+}
+
+
 class istrManager {
     static initExtStrs() {
         this.istrs = {};
-        var now = new Date();
-        if (now.getDay() == 6 || now.getDay() == 0) {
-            return;
-        }
-        var curl = 'https://x-quote.cls.cn/quote/stock/closest_trading_day?app=CailianpressWeb&os=web&sv=7.7.5';
-        guang.fetchData(curl, {}, 60*60000).then(jrtd => {
-            let istradingdate = jrtd.data[0] == guang.getTodayDate('-') && now.getHours() < 15;
-            if (istradingdate) {
-                this.setupExtStrategy();
-            }
-        }).catch(err => {
-            throw err;
+        guang.isTodayTradingDay().then(trade => {
+            this.isTradingDay = trade;
+            this.setupExtStrategy();
         });
     }
 
@@ -792,6 +859,8 @@ class istrManager {
                 iks = new StrategyI_HotStocksOpen(istr);
             } else if (istr.key == 'istrategy_dtstocks') {
                 iks = new StrategyI_DtStocksUp(istr);
+            } else if (istr.key == 'istrategy_idxtrack') {
+                iks = new StrategyI_IndexTracking(istr);
             }
             return iks;
         }
@@ -805,11 +874,14 @@ class istrManager {
                 let iks = build_istr(istr);
                 if (iks) {
                     this.istrs[istr.key] = iks;
-                    if (iks.enabled()) {
+                    if (iks.enabled() && this.isTradingDay) {
                         iks.prepare();
                     }
                 }
             });
+        }
+        if (!this.isTradingDay) {
+            console.log('not trading day, please prepare manually!');
         }
     }
 }

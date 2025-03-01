@@ -1142,10 +1142,10 @@ class StrategySellMA extends StrategySell {
 
     checkKlines(chkInfo) {
         if (this.bss18SellMatch(chkInfo, this.kltype())) {
-            var count = chkInfo.buydetail.availableCount();
+            var kl = klines.getLatestKline(this.kltype());
+            const count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c, this.data.upRate);
             if (count > 0) {
                 var klines = emjyBack.klines[chkInfo.code];
-                var kl = klines.getLatestKline(this.kltype());
                 return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: kl.c});
             }
         }

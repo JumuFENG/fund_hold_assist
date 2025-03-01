@@ -210,10 +210,16 @@ class alarmHub {
             emjyBack.tradeClosed();
         }
 
-        [talarm, talarm, bclose, closed,
-            this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
-        ].forEach(a => {
-            a.setupTimer();
+        guang.isTodayTradingDay().then(trade => {
+            if (trade) {
+                [talarm, talarm, bclose, closed,
+                    this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
+                ].forEach(a => {
+                    a.setupTimer();
+                });
+            } else {
+                console.log('not trading day! start timer manually if necessary!');
+            }
         });
     }
 

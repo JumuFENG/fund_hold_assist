@@ -898,7 +898,7 @@ class StrategySellMAView extends StrategyBaseView {
     }
 
     maDescription() {
-        return '连续2根K线<18周期均线,以第3根K线开盘时(全部)卖出';
+        return '连续2根K线<18周期均线,以第3根K线开盘时卖出, 设置盈利部分卖出时设置最低止盈比例有效';
     }
 
     createView() {
@@ -906,6 +906,8 @@ class StrategySellMAView extends StrategyBaseView {
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode(this.maDescription()));
         view.appendChild(this.createKlineTypeSelector());
+        view.appendChild(this.createSellCountTypeSelector());
+        view.appendChild(this.createUpEarnedInput('最低止盈比例', 5));
         return view;
     }
 }

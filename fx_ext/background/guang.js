@@ -143,4 +143,25 @@ class guang {
         }
         return ct > 1 ? 100 * Math.floor(ct) : 100;
     }
+
+    static async isTodayTradingDay() {
+        var now = new Date();
+        if (now.getDay() == 6 || now.getDay() == 0) {
+            return false;
+        }
+
+        date = this.getTodayDate('-');
+        return this.fetchData('http://www.sse.com.cn/js/common/systemDate_global.js', {}, 10*60*60000, r => {
+            let matchsd = r.match(/var systemDate_global\s*=\s*"([^"]+)"/);
+            let matchtd = r.match(/var whetherTradeDate_global\s*=\s*(\w+)/);
+            let matchlast = r.match(/var lastTradeDate_global\s*=\s*"([^"]+)"/);
+
+            let systemDate = matchsd ? matchsd[1] : null;
+            let isTradeDay = matchtd ? matchtd[1] === 'true' : false;
+            let lastTradeDate = matchlast ? matchlast[1] : null;
+            return {data: {systemDate, isTradeDay, lastTradeDate}, expireTime: new Date(new Date(date.split('-')).getTime() + 30*60*60000)};
+        }).then(d=> {
+            return date == d.systemDate && d.isTradeDay;
+        });
+    }
 }
