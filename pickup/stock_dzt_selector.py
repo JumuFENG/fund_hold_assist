@@ -46,7 +46,7 @@ class StockDztSelector(StockBaseSelector):
             # 大阴+大阳 (每天最多一支，选波动最大者)
             {'prepare': self.sim_prepare4, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_dzt_single'},
             ]
-        self.sim_ops = self._sim_ops[4:5]
+        self.sim_ops = self._sim_ops[0:1]
 
     def walk_on_history_thread(self):
         while len(self.wkstocks) > 0:
@@ -122,8 +122,8 @@ class StockDztSelector(StockBaseSelector):
                 ki += 1
             if ki > 0:
                 kd = kd[ki:]
-                if kd is None or len(kd) < 4:
-                    continue
+            if kd is None or len(kd) < 4:
+                continue
 
             kldt = kd[0]
             assert kldt.date == dt, 'wrong kl data!'

@@ -182,10 +182,11 @@ class StockBaseSelector(MultiThrdTableBase):
         self.sim_deals += deals
         return deals
 
-    def sim_quick_sell(self, allkl, code, bdate, buy, erate, crate, zdf=None, mxdays=1):
+    def sim_quick_sell(self, allkl, code, bdate, buy, erate, crate=None, cutl=None, zdf=None, mxdays=1):
         '''快速卖出, 涨停不卖出, mxdays日之内满足止盈止损卖出, 否则mxdays后尾盘卖出
         '''
         assert allkl[0].date == bdate, 'make sure the first kl data is the kl data of buy date'
+        assert crate is not None or cutl is not None, 'crate or cutl should be set one of each'
 
         if allkl[0].low == allkl[0].high:
             # 买入当日为1字板,忽略
@@ -193,11 +194,11 @@ class StockBaseSelector(MultiThrdTableBase):
 
         ki = 1
         sell, sdate = 0, None
-        cutl = buy * (1 - crate)
+        if cutl is None and crate is not None:
+            cutl = buy * (1 - crate)
         earnl = buy * (1 + erate)
         if zdf is None:
-            scode = code.replace('SH', '').replace('SZ', '')
-            zdf = 10 if scode.startswith('60') or scode.startswith('00') else 20
+            zdf = Utils.zdf_from_code(code)
 
         while ki < len(allkl) and ki <= mxdays:
             if allkl[ki].open < cutl:
