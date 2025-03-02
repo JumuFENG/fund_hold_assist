@@ -4,7 +4,7 @@
 from utils import *
 from history import *
 from pickup.stock_base_selector import *
-
+from pickup.stock_zt_lead_selector import *
 
 class StockAqkSelector(StockBaseSelector):
     ''' 'A' 字快速杀跌反弹选股
@@ -27,6 +27,12 @@ class StockAqkSelector(StockBaseSelector):
             {'col':'实盘',   'type':'tinyint DEFAULT 0'},
             {'col':'交易记录','type':'varchar(255) DEFAULT NULL'}
         ]
+
+        self._sim_ops = [
+            # 连续涨停(3连板以上)后，持续缩量，以第一根放量且不破前低的阴线为买入点，止损点为缩量下跌的最低点，止盈5%
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_aqk'}
+            ]
+        self.sim_ops = self._sim_ops[0:1]
 
     def walk_on_history_thread(self):
         while len(self.wkstocks) > 0:
@@ -110,6 +116,62 @@ class StockAqkSelector(StockBaseSelector):
             for i in range(0, len(picked)):
                 # code, 前低 高 后低
                 print(code, klines[picked[i][1]].date, picked[i][0], klines[picked[i][3]].date, picked[i][2], klines[picked[i][5]].date, picked[i][4])
+
+    def sim_prepare(self):
+        super().sim_prepare()
+        szd = StockZtDaily()
+        date = '2022-01-01'
+        zts = szd.dailyMain.sqldb.select(szd.dailyMain.tablename, 'code, date, 总天数, 连板数', conds=f'{column_date}>="{date}"')
+        zts += szd.dailyKccy.sqldb.select(szd.dailyKccy.tablename, 'code, date, 总天数, 连板数', conds=f'{column_date}>="{date}"')
+        hstocks = []
+        ztbycode = {}
+        for c, d, days, lbc in zts:
+            if c not in ztbycode:
+                ztbycode[c] = []
+            ztbycode[c].append([c, d, days, lbc])
+
+        for c, ztc in ztbycode.items():
+            for i in range(1, len(ztc)):
+                if ztc[i][3] == 1 and ztc[i-1][3] > 1:
+                    hstocks.append(ztc[i-1])
+        self.sim_stks = sorted([hs for hs in hstocks if hs[3] >= 2], key=lambda s: (s[0], s[1]))
+
+    def simulate_buy_sell(self, orstks):
+        kd = None
+        for code, date, days, lbc in orstks:
+            if (code.startswith('SH60') or code.startswith('SZ00')) and lbc < 3:
+                continue
+
+            if kd is None or len(kd) == 0:
+                kd = self.get_kd_data(code, date)
+                if kd is None:
+                    continue
+            ki = 0
+            while ki < len(kd) and kd[ki].date < date:
+                ki += 1
+            kd = kd[ki+1:]
+            if len(kd) < 3:
+                continue
+            decdays = 0
+            ki = 1
+            low = kd[0].low
+            mxchg = kd[0].pchange
+            while ki < len(kd) and kd[ki].vol <= kd[ki - 1].vol:
+                decdays += 1
+                if kd[ki].low < low:
+                    low = kd[ki].low
+                if kd[ki].pchange > mxchg:
+                    mxchg = kd[ki].pchange
+                ki += 1
+            if  ki >= len(kd) or kd[ki].low < low or kd[ki].close > kd[ki - 1].close:
+                continue
+            if decdays < 3 or mxchg > 8:
+                continue
+            if kd[0].high * 0.8 < low:
+                continue
+
+            kd = kd[ki:]
+            self.sim_quick_sell(kd, code, kd[0].date, kd[0].close, 0.05, cutl=low, mxdays=5)
 
 
 class StockAmkSelector(StockBaseSelector):
