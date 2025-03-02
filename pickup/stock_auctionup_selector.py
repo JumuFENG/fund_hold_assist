@@ -80,7 +80,7 @@ class StockAuctionUpSelector(StockBaseSelector):
             sdt = TradingDate.prevTradingDate(sdt)
             i += 1
         kd = self.get_kd_data(code, sdt)
-        if len(kd) < 10:
+        if kd is None or len(kd) < 10:
             return 0,0,0,0
 
         i = 0
@@ -195,3 +195,120 @@ class StockAuctionUpSelector(StockBaseSelector):
     def sim_prepare4(self):
         self.sim_prepare()
         self.sim_check_match = self.sim_check_match13
+
+
+class StockHotrank0Selector(StockBaseSelector):
+    '''
+    早盘人气排行选股
+    '''
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_hotrank0_pickup'
+        self.colheaders = [
+            {'col': column_code, 'type': 'varchar(20) DEFAULT NULL'},
+            {'col': column_date, 'type': 'varchar(20) DEFAULT NULL'},
+            {'col': 'rankem', 'type': 'int DEFAULT 0'}, # 东财人气排名
+            {'col': 'newfans', 'type': 'float DEFAULT 0'},
+            {'col': 'rankjq', 'type': 'int DEFAULT 0'}, # 同花顺人气排名
+            {'col': 'ranktg', 'type': 'int DEFAULT 0'}, # 淘股吧人气排名
+            {'col': 'zdf', 'type': 'float DEFAULT 0'}, # 涨跌幅
+        ]
+
+        self.sim_cutrate = 0.08
+        self.sim_earnrate = 0.05
+        self.daymxbuy = 1
+        self._sim_ops = [
+            # 连续跌停 竞价抢筹
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_hotrank0_m{self.daymxbuy}'},
+            ]
+        self.sim_ops = self._sim_ops[0:1]
+
+    def saveDailyHotrank0(self, hotranks):
+        self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_code, column_date], hotranks)
+
+    def getRanked(self, date, days=5, rank=10):
+        '''
+        查询近date日前days天内人气排名前rank
+        '''
+        bdate = TradingDate.prevTradingDate(date, days)
+        sranks = self.sqldb.select(self.tablename, conds=[f'{column_date} >= "{bdate}"' , f'{column_date} <= "{date}"'])
+        codes = []
+        for rk in sranks:
+            if rk[3] <= rank and rk[1] not in codes:
+                codes.append(rk[1])
+        return codes
+
+    def sim_prepare(self):
+        super().sim_prepare()
+        upzdf = 9
+        botzdf = -3
+        dayhr = {}
+        hr0 = self.sqldb.select(self.tablename, [col['col'] for col in self.colheaders])
+        for hx in hr0:
+            if hx[1] not in dayhr: dayhr[hx[1]] = []
+            dayhr[hx[1]].append(hx)
+
+        lastbuydate = {}
+        for d, hrx in dayhr.items():
+            shrs = []
+            hrx = sorted(hrx, key=lambda x: int(x[2]))
+            for hx in hrx:
+                if hx[0] in lastbuydate:
+                    if TradingDate.calcTradingDays(lastbuydate[hx[0]], hx[1]) < 5:
+                        lastbuydate[hx[0]] = hx[1]
+                        continue
+                if hx[0] not in lastbuydate:
+                    lastbuydate[hx[0]] = hx[1]
+                if float(hx[-1]) < botzdf or float(hx[-1]) > upzdf or int(hx[2]) > 10:
+                    continue
+                shrs.append(hx)
+                if len(shrs) >= self.daymxbuy:
+                    break
+            for hx in hrx:
+                if int(hx[2]) <= 10:
+                    lastbuydate[hx[0]] = hx[1]
+            self.sim_stks += shrs
+
+    def simulate_buy_sell(self, orstks):
+        for hrx in orstks:
+            code = hrx[0]
+            date = hrx[1]
+            allkl = self.get_kd_data(code, date, fqt=1)
+            if allkl is None or len(allkl) == 0:
+                continue
+            if allkl[0].date != date:
+                continue
+            self.sim_quick_sell(allkl, code, date, allkl[0].open, self.sim_earnrate, self.sim_cutrate, mxdays=3)
+
+
+
+class StockHotrankDaySelector(StockBaseSelector):
+    ''' 人气排行, 每10分钟更新一次, 记录新晋前10且新粉丝数>60%
+    '''
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_hotrank10_pickup'
+        self.colheaders = [
+            {'col': column_code, 'type': 'varchar(20) DEFAULT NULL'},
+            {'col': column_date, 'type': 'varchar(20) DEFAULT NULL'},
+            {'col': 'time', 'type': 'varchar(10) DEFAULT NULL'},
+            {'col': 'rankem', 'type': 'int DEFAULT 0'}, # 东财人气排名
+            {'col': 'newfans', 'type': 'float DEFAULT 0'},
+            {'col': column_price, 'type': 'float DEFAULT 0'},
+            {'col': 'zdf', 'type': 'float DEFAULT 0'}, # 涨跌幅
+        ]
+
+    def saveHotRanks(self, hotranks):
+        self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_code, column_date, 'time'], hotranks)
+
+    def getRanked(self, date, days=5):
+        '''
+        查询近date日前days天内
+        '''
+        bdate = TradingDate.prevTradingDate(date, days)
+        sranks = self.sqldb.select(self.tablename, conds=[f'{column_date} >= "{bdate}"' , f'{column_date} <= "{date}"'])
+        codes = []
+        for rk in sranks:
+            if rk[1] not in codes:
+                codes.append(rk[1])
+        return codes
