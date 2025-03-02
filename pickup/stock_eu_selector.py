@@ -321,7 +321,6 @@ class StockTrippleBullSelector(StockBaseSelector):
                 wkstocks.append([c, d])
         self.maxfdates = xcodes
         [self.wkstocks_que.put([c, d]) for c,d in wkstocks]
-        [self.wkstocks_que.put([c, d]) for c,d in wkstocks if c == 'SZ002846']
         self.upstocks = []
         bkdb = StockEmBk('BK0511')
         self.blockedst = bkdb.dumpDataByDate()
@@ -329,7 +328,7 @@ class StockTrippleBullSelector(StockBaseSelector):
     def check_nonfinished(self, code, date):
         if code not in self.nonefdates:
             return
-        kdate = (datetime.strptime(self.nonefdates[code], r'%Y-%m-%d') + timedelta(days=-10)).strftime(r"%Y-%m-%d")
+        kdate = (datetime.strptime(self.nonefdates[code], r'%Y-%m-%d') + timedelta(days=-12)).strftime(r"%Y-%m-%d")
         allkl = self.get_kd_data(code, start=kdate)
         if allkl is None or len(allkl) == 0:
             return
@@ -370,7 +369,7 @@ class StockTrippleBullSelector(StockBaseSelector):
             c, sdate = self.wkstocks_que.get()
             if c in self.blockedst:
                 continue
-            kdate = (datetime.strptime(sdate, r'%Y-%m-%d') + timedelta(days=-10)).strftime(r"%Y-%m-%d")
+            kdate = (datetime.strptime(sdate, r'%Y-%m-%d') + timedelta(days=-12)).strftime(r"%Y-%m-%d")
             allkl = self.get_kd_data(c, start=kdate)
             if allkl is None or len(allkl) == 0:
                 continue
@@ -606,6 +605,28 @@ class StockTrippleBullSelector(StockBaseSelector):
                 buy,bdate,sell,sdate = 0,None,0,None
 
 
+class StockTrippleBullBjSelect(StockTrippleBullSelector):
+    def walk_prepare(self, date=None):
+        self.nonefdates = {}
+        self.maxfdates = {}
+        self.wkstocks_que = queue.Queue()
+        stks = StockGlobal.all_stocks()
+        self.wkstocks = []
+        for s in stks:
+            if s[4] == 'BJStock':
+                self.wkstocks.append([s[1], '2024-09-24'])
+
+        [self.wkstocks_que.put([c, '2020-01-01' if d < '2020' else d]) for c, d in self.wkstocks]
+        self.upstocks = []
+        self.blockedst = []
+        self.wkselected = []
+
+    def walk_post_process(self):
+        for wk in self.wkselected:
+            if wk[-1] is None or wk[-1] > '2024-10-25':
+                print(wk)
+
+
 class StockEndVolumeSelector(StockBaseSelector):
     ''' 尾盘竞价爆量 竞价成交量>0.04*全天成交量 换手>1% 成交额>1000万 30日内有涨停
     '''
@@ -680,6 +701,8 @@ class StockEndVolumeSelector(StockBaseSelector):
                 stocks_not_match.append(code)
         self.wkselected = []
         self.trend_date = None
+        if len(stocks_match) == 0:
+            Utils.log(f'StockEndVolumeSelector szdf {len(szdf)}, ztdict30 {self.ztdict30}')
 
     def get_stock_trend(self, stock_code):
         secid = Utils.convert_stock_code_to_secid(stock_code)
@@ -708,6 +731,9 @@ class StockEndVolumeSelector(StockBaseSelector):
             if trends is None:
                 continue
             trends = [t for t in trends if int(t[5]) > 0]
+            if len([t for t in trends if t[3] == t[4]]) >= 60:
+                # 封板(涨停/跌停) 累计时间大于1小时
+                continue
             vol = 0
             amt = 0
             for t in trends:
@@ -759,6 +785,12 @@ class StockEndVolumeSelector(StockBaseSelector):
             candidates = [c for c, p in candidates]
         return [c if fullcode else c[2:] for c in candidates]
 
+    def dumpLatesetD4Candidates(self, date=None, fullcode=True):
+        if date is None:
+            date = self._max_date()
+        candidates = self.sqldb.select(self.tablename, f'{column_code}', [f'{column_date} = "{date}"', 'ztindays=4'])
+        return [c if fullcode else c[2:] for c, in candidates]
+
     def dumpDataWithRecents(self, date=None):
         if date is None:
             date = self._max_date()
@@ -774,6 +806,8 @@ class StockEndVolumeSelector(StockBaseSelector):
                 zd1 = cd[9]
                 if TradingDate.calcTradingDays(d1, d) == zd - zd1 + 1:
                     rdata.append(cd)
+        if len(rdata) == len(tdata):
+            Utils.log(f'no recents data, {date}')
         return rdata
 
     def updatePickUps(self):
