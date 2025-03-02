@@ -140,6 +140,9 @@ class StockZtDailyMain(StockBaseSelector):
             self.bktable = StockEmBkAll()
         if self.bkmap is None:
             self.bkmap = StockEmBkMap()
+        bk = self.bkmap.stock_bks(code)
+        if bk is None or len(bk) == 0:
+            return ''
         bkid = self.bkmap.stock_bks(code)[0]
         bkname = self.bktable.queryBkName(bkid)
         return bkname if bkname is not None else bkid
@@ -309,7 +312,6 @@ class StockZtDailyST(StockZtDailyMain):
     def initConstrants(self):
         super().initConstrants()
         self.tablename = 'day_zt_stocks_st'
-        self.maintablename = 'day_zt_stocks'
 
     def code_matches(self, code):
         if code in self.ststocks:
@@ -330,6 +332,39 @@ class StockZtDailyST(StockZtDailyMain):
                 break
             i -= 1
         return allkl[i:]
+
+
+class StockZtDailyBJ(StockZtDailyMain):
+    def __init__(self):
+        super().__init__()
+        self.zdf = 30
+
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'day_zt_stocks_bj'
+
+    def walk_prepare(self, date=None):
+        self.wkselected = []
+        if self.wkstocks is None:
+            stks = StockGlobal.all_stocks()
+            if date is None:
+                self.wkstocks = [
+                    [s[1], (s[7] if s[7] > '1996-12-16' else '1996-12-16')]
+                    for s in stks if (s[4] == 'BJStock' or s[4] == 'TSStock') and self.code_matches(s[1])]
+                self.tsdate = {s[1]: s[8] for s in stks if s[4] == 'TSStock'}
+            else:
+                self.wkstocks = [[s[1], date] for s in stks if s[4] == 'BJStock' and self.code_matches(s[1])]
+
+        for i in range(0, len(self.wkstocks)):
+            sdate = self.sqldb.selectOneValue(self.tablename, 'max(date)', [f'{column_code}="{self.wkstocks[i][0]}"', f'连板数=1'])
+            if sdate is None or sdate == 0:
+                sdate = '0'
+            else:
+                sdate = TradingDate.prevTradingDate(sdate)
+            self.wkstocks[i].append(sdate)
+
+    def code_matches(self, code):
+        return code.startswith('BJ')
 
 
 class StockZtLeadingSelector(StockBaseSelector):
@@ -426,7 +461,7 @@ class StockZtLeadingSelector(StockBaseSelector):
 
     def updatePickUps(self):
         if self.sqldb.selectOneValue(self.tablename, 'max(edate)') == TradingDate.maxTradingDate():
-            print(self.__class__.__name__, 'updatePickUps already updated to latest!')
+            Utils.log(f'{self.__class__.__name__} already updated to latest!')
             return
         self.walkOnHistory()
 
@@ -499,6 +534,48 @@ class StockZtLeadingSelector(StockBaseSelector):
             if n > 1:
                 print(c)
 
+    def getHeadedStocks(self, stocks, date):
+        minZdays = 0 if date == TradingDate.maxTradingDate() else 1
+        date = TradingDate.prevTradingDate(date)
+        zddic = {}
+        mxzday = 0
+        for code in stocks:
+            allkl = self.get_kd_data(code, date, fqt=1)
+            zdays = 0
+            i = 1
+            zdf = 10
+            if code.startswith('SZ30') or code.startswith('SH68'):
+                zdf = 20
+            elif code.startswith('BJ'):
+                zdf = 30
+            while i < len(allkl):
+                if allkl[i].high == allkl[i].close and allkl[i].close >= Utils.zt_priceby(allkl[i-1].close, zdf=zdf):
+                    zdays += 1
+                i += 1
+            zddic[code] = zdays
+            if zdays > mxzday:
+                mxzday = zdays
+
+        ztcntarr = [0] * (mxzday + 1)
+        for n in zddic.values():
+            ztcntarr[n] += 1
+
+        hdcnt = 0
+        ztcntsel = []
+        for i in range(mxzday, 0, -1):
+            hdcnt += ztcntarr[i]
+            if ztcntarr[i] > 0 and i > minZdays:
+                ztcntsel.append(i)
+            if hdcnt >= 10:
+                break
+
+        rstks = []
+        for code in zddic:
+            if zddic[code] in ztcntsel:
+                rstks.append([code, zddic[code]])
+        rstks = sorted(rstks, key=lambda x: x[1], reverse=True)
+        return [c for c, n in rstks]
+
 
 class StockZtLeadingSelectorKcCy(StockZtLeadingSelector):
     def __init__(self) -> None:
@@ -532,6 +609,23 @@ class StockZtLeadingSelectorST(StockZtLeadingSelector):
 
     def genZtDailyObj(self):
         return StockZtDailyST()
+
+
+class StockZtLeadingSelectorBJ(StockZtLeadingSelector):
+    def __init__(self) -> None:
+        super().__init__()
+        self.zdf = 30
+
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_zt_lead_bj_pickup'
+        self._sim_ops = [
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_zt_lead_bj'},
+            ]
+        self.sim_ops = self._sim_ops[0:1]
+
+    def genZtDailyObj(self):
+        return StockZtDailyBJ()
 
 
 class StockZtLeadingAbsSelector(StockZtLeadingSelector):
@@ -712,6 +806,8 @@ class StockZtLeadingStepsSelector(StockZtLeadingSelector):
         szd = self.genZtDailyObj()
         fdate = ndate if date is None else date
         fdatex = szd.sqldb.selectOneValue(szd.tablename, f'min({column_date})', f'{column_date} > "{fdate}"')
+        if fdatex is None:
+            return
         lbc = szd.sqldb.selectOneValue(szd.tablename, f'max(连板数)', f'{column_date} = "{fdatex}"')
         sleads = szd.sqldb.select(szd.tablename, f'{column_code}, {column_date}, 连板数, 总天数', [f'连板数={lbc}', f'{column_date} = "{fdatex}"'])
         sdate0 = fdatex
@@ -721,11 +817,9 @@ class StockZtLeadingStepsSelector(StockZtLeadingSelector):
                 lmx = [c, dt, l, d]
 
         sdate0 = szd.sqldb.selectOneValue(szd.tablename, f'max({column_date})', [f'{column_date} <= "{lmx[1]}"', f'连板数=1', f'{column_code} = "{lmx[0]}"'])
-        for i in range(0, 5):
-            sdate0 = TradingDate.prevTradingDate(sdate0)
+        sdate0 = TradingDate.prevTradingDate(sdate0, 5)
         all_zts = szd.sqldb.select(szd.tablename, f'{column_code}, {column_date}, 连板数, 总天数', f'{column_date} >= "{sdate0}"')
 
-        # all_zts = [x for x in all_zts if x[1] <= '2023-11-07']
         mxdate = max([dt for c, dt, l, d in all_zts])
 
         leads = []
@@ -803,7 +897,76 @@ class StockZtLeadingStepsSelector(StockZtLeadingSelector):
                 i += 1
                 if i == len(allkl):
                     break
+
         self.walk_post_process()
+
+    def updatePickUps(self):
+        self.walkOnHistory()
+        self.fixNztIn2Days()
+
+    def dumpDaysLbc(self, date=None):
+        if date is None:
+            date = TradingDate.prevTradingDate(self._max_date(), 200)
+        cdld = self.sqldb.select(self.tablename, [column_code, column_date, '连板数', '总天数'], [f'{column_date}>="{date}"'])
+        cddic = {}
+        for c,d,l,dd in cdld:
+            if c not in cddic:
+                cddic[c] = []
+            cddic[c].append([d, l, dd])
+        dlbcarr = []
+        for c, dldd in cddic.items():
+            dlbc = []
+            for d,l,dd in dldd:
+                if len(dlbc) == 0 or d == TradingDate.nextTradingDate(dlbc[-1][0]):
+                    dlbc.append([d, l, dd])
+                else:
+                    dlbcarr.append({'code': c, 'daylbc': dlbc})
+                    dlbc = [[d, l, dd]]
+            if len(dlbc) > 0:
+                dlbcarr.append({'code': c, 'daylbc': dlbc})
+        return dlbcarr
+
+    def fixNztIn2Days(self, date=None):
+        if date is None:
+            date = TradingDate.prevTradingDate(self._max_date(), 30)
+        dlbarr = self.dumpDaysLbc(date)
+        ldcodes = []
+        for dlbobj in dlbarr:
+            ldcodes.append([dlbobj['code'], dlbobj['daylbc'][-1]])
+
+        szd = self.genZtDailyObj()
+        tofix = []
+        for c, dlbc in ldcodes:
+            d0 = dlbc[0]
+            if d0 == TradingDate.maxTradedDate():
+                continue
+            fxdlbc = [dlbc]
+            i = 0
+            while i < 3:
+                d1 = TradingDate.nextTradingDate(d0)
+                dl1 = szd.sqldb.select(szd.tablename, f'连板数, 总天数', [f'{column_code}="{c}"', f'{column_date} = "{d1}"'])
+                if dl1 is None or len(dl1) == 0:
+                    i += 1
+                    d0 = d1
+                    continue
+                dx = TradingDate.nextTradingDate(fxdlbc[-1][0])
+                while dx < d1:
+                    fxdlbc.append([dx, fxdlbc[-1][1], fxdlbc[-1][2] + 1])
+                    dx = TradingDate.nextTradingDate(dx)
+                fxdlbc.append([d1, dl1[0][0], dl1[0][1]])
+                if d1 == TradingDate.maxTradedDate():
+                    break
+                d0 = d1
+                i = 0
+            if len(fxdlbc) > 1:
+                tofix.append([c, fxdlbc])
+
+        values = []
+        for c, fxdlbc in tofix:
+            for i in range(1, len(fxdlbc)):
+                values.append([c] + fxdlbc[i])
+        if len(values) > 0:
+            self.sqldb.insertMany(self.tablename, [column_code, column_date, '连板数', '总天数'], values)
 
 
 class StockZtDaily():
@@ -813,10 +976,12 @@ class StockZtDaily():
         self.dailyMain = StockZtDailyMain()
         self.dailyKccy = StockZtDailyKcCy()
         self.dailySt = StockZtDailyST()
+        self.dailyBj = StockZtDailyBJ()
         self.leadingMain = None
         self.leadingKccy = None
         self.leadingSt = None
-        self.stkAcution = None
+        self.leadingBj = None
+        self.stkAuction = None
 
     def getNext(self):
         date = max(self.dailyMain._max_date(), self.dailyKccy._max_date(), self.dailySt._max_date())
@@ -857,14 +1022,22 @@ class StockZtDaily():
                 dailyztinfo[code][7] = rc[7]
             else:
                 dailyztinfo[code] = rc
+        for code, rc in self.ztleading.ztdata_bj.items():
+            if code in dailyztinfo:
+                dailyztinfo[code][7] = rc[7]
+            else:
+                dailyztinfo[code] = rc
         self.dailyMain.dailyztinfo[date] = dailyztinfo
         self.dailyKccy.dailyztinfo[date] = dailyztinfo
+        self.dailyBj.dailyztinfo[date] = dailyztinfo
         self.dailySt.dailyztinfo[date] = dailyztinfo
 
     def updateZtDaily(self):
         self.dailySt.walkOnHistory()
         date = TradingDate.nextTradingDate(self.dailyKccy._max_date())
         self.dailyKccy.walkOnHistory(date)
+        date = TradingDate.nextTradingDate(self.dailyBj._max_date())
+        self.dailyBj.walkOnHistory(date)
         date = TradingDate.nextTradingDate(self.dailyMain._max_date())
         self.dailyMain.walkOnHistory(date)
 
@@ -881,6 +1054,11 @@ class StockZtDaily():
             if self.leadingSt is None:
                 self.leadingSt = StockZtLeadingSelectorST()
             ztLeading = self.leadingSt
+        elif mkt == 'B':
+            ztDaily = self.dailyBj
+            if self.leadingBj is None:
+                self.leadingBj = StockZtLeadingSelectorBJ()
+            ztLeading = self.leadingBj
         else:
             ztDaily = self.dailyMain
             if self.leadingMain is None:
@@ -936,7 +1114,8 @@ class StockZtDaily():
             date = max(
                 self.dailyMain.sqldb.selectOneValue(self.dailyMain.tablename, 'max(date)', f'date<"{date}"'),
                 self.dailyKccy.sqldb.selectOneValue(self.dailyKccy.tablename, 'max(date)', f'date<"{date}"'),
-                self.dailySt.sqldb.selectOneValue(self.dailySt.tablename, 'max(date)', f'date<"{date}"')
+                self.dailySt.sqldb.selectOneValue(self.dailySt.tablename, 'max(date)', f'date<"{date}"'),
+                self.dailyBj.sqldb.selectOneValue(self.dailyBj.tablename, 'max(date)', f'date<"{date}"')
                 )
             if date is None:
                 break
@@ -960,7 +1139,8 @@ class StockZtDaily():
     def dumpZtStocksInDays(self, n=3, fullcode=True):
         date = max(
             self.dailyMain.sqldb.selectOneValue(self.dailyMain.tablename, 'max(date)'),
-            self.dailyKccy.sqldb.selectOneValue(self.dailyKccy.tablename, 'max(date)')
+            self.dailyKccy.sqldb.selectOneValue(self.dailyKccy.tablename, 'max(date)'),
+            self.dailyBj.sqldb.selectOneValue(self.dailyBj.tablename, 'max(date)')
         )
         i = 1
         while i < n:
@@ -969,22 +1149,22 @@ class StockZtDaily():
         zts = self.dailyMain.sqldb.select(self.dailyMain.tablename, column_code, f'{column_date} >= "{date}"')
         zts += self.dailyKccy.sqldb.select(self.dailyKccy.tablename, column_code, f'{column_date} >= "{date}"')
         zts += self.dailySt.sqldb.select(self.dailySt.tablename, column_code, f'{column_date} >= "{date}"')
+        zts += self.dailyBj.sqldb.select(self.dailyBj.tablename, column_code, f'{column_date} >= "{date}"')
         ret = [c for c, in zts] if fullcode else [c[2:] for c, in zts]
         return list(set(ret))
 
     def dumpZtStockDictInDays(self, n=3):
         date = max(
             self.dailyMain.sqldb.selectOneValue(self.dailyMain.tablename, 'max(date)'),
-            self.dailyKccy.sqldb.selectOneValue(self.dailyKccy.tablename, 'max(date)')
+            self.dailyKccy.sqldb.selectOneValue(self.dailyKccy.tablename, 'max(date)'),
+            self.dailyBj.sqldb.selectOneValue(self.dailyBj.tablename, 'max(date)')
         )
-        i = 1
-        while i < n:
-            i += 1
-            date = TradingDate.prevTradingDate(date)
+        date = TradingDate.prevTradingDate(date, n)
         ztdic = {}
         zts = self.dailyMain.sqldb.select(self.dailyMain.tablename, [column_code, column_date], f'{column_date} >= "{date}"')
         zts += self.dailyKccy.sqldb.select(self.dailyKccy.tablename, [column_code, column_date], f'{column_date} >= "{date}"')
         zts += self.dailySt.sqldb.select(self.dailySt.tablename, [column_code, column_date], f'{column_date} >= "{date}"')
+        zts += self.dailyBj.sqldb.select(self.dailyBj.tablename, [column_code, column_date], f'{column_date} >= "{date}"')
         mdate = TradingDate.maxTradingDate()
         for c, d in zts:
             zdays = TradingDate.calcTradingDays(d, mdate)
@@ -999,8 +1179,9 @@ class StockZtDaily():
             return []
         zmain = self.dailyMain.dumpZtDataByConcept(date, concept)
         zkccy = self.dailyKccy.dumpZtDataByConcept(date, concept)
+        zbj = self.dailyBj.dumpZtDataByConcept(date, concept)
         zst = self.dailySt.dumpZtDataByConcept(date, concept)
-        return zmain + zkccy + zst
+        return zmain + zkccy + zbj + zst
 
     def predictNextZtMap(self, date=None):
         predicts = []
@@ -1013,6 +1194,8 @@ class StockZtDaily():
 
         while True:
             dayzt = self.dailyMain.sqldb.select(self.dailyMain.tablename, 'code, 总天数, 连板数, 板块, 概念', f'date="{date}"')
+            dayzt += self.dailyKccy.sqldb.select(self.dailyKccy.tablename, 'code, 总天数, 连板数, 板块, 概念', f'date="{date}"')
+            dayzt += self.dailyBj.sqldb.select(self.dailyBj.tablename, 'code, 总天数, 连板数, 板块, 概念', f'date="{date}"')
             for c, day, lbc, bk, cpt in dayzt:
                 if c in sel:
                     continue
@@ -1035,6 +1218,7 @@ class StockZtDaily():
     def updateZtAuctions(self, wchexin):
         mainZts = self.dailyMain.sqldb.select(self.dailyMain.tablename, conds='date>"2023"')
         mainZts += self.dailyKccy.sqldb.select(self.dailyKccy.tablename, conds='date>"2023"')
+        mainZts += self.dailyBj.sqldb.select(self.dailyBj.tablename, conds='date>"2023"')
         mainZts += self.dailySt.sqldb.select(self.dailySt.tablename, conds='date>"2023"')
         ztdict = {}
         for _,c,d,f,h,lbc,days,*x in mainZts:
@@ -1074,10 +1258,10 @@ class StockZtDaily():
                     continue
 
     def getAuctions(self, code, d0, d1, wchx):
-        if self.stkAcution is None:
-            self.stkAcution = StockAuction()
-            self.stkAcution.hexin = wchx
-            exauction = self.stkAcution.dumpDataByDate()
+        if self.stkAuction is None:
+            self.stkAuction = StockAuction()
+            self.stkAuction.hexin = wchx
+            exauction = self.stkAuction.dumpDataByDate()
             self.exacutions = {}
             for c,d,*_ in exauction:
                 if c not in self.exacutions:
@@ -1087,9 +1271,9 @@ class StockZtDaily():
         if code in self.exacutions and d0 in self.exacutions[code] and d1 in self.exacutions[code]:
             return
 
-        reqauctions = self.stkAcution.request_for_auction(code, d0, d1)
+        reqauctions = self.stkAuction.request_for_auction(code, d0, d1)
         values = [[c,d,v,uv] for c,d,v,uv in reqauctions if c not in self.exacutions or d not in self.exacutions[c]]
-        self.stkAcution.sqldb.insertMany(self.stkAcution.tablename, [col['col'] for col in self.stkAcution.colheaders], values)
+        self.stkAuction.sqldb.insertMany(self.stkAuction.tablename, [col['col'] for col in self.stkAuction.colheaders], values)
         time.sleep(5)
 
     def getZt2Today(self, ztdaily, date):
@@ -1119,7 +1303,131 @@ class StockZtDaily():
         stdict = self.getZt2Today(self.dailySt, date)
         for k,v in stdict.items():
             ztdict[k] = v
+        bjdict = self.getZt2Today(self.dailyBj, date)
+        for k,v in bjdict.items():
+            ztdict[k] = v
         
         for c, zds in ztdict.items():
             for zd in zds:
                 self.getAuctions(c, zd[0], zd[1], wchexin)
+
+    def getHotStocks(self, date=None):
+        if date is None:
+            date = max(
+                self.dailyMain.sqldb.selectOneValue(self.dailyMain.tablename, 'max(date)'),
+                self.dailyKccy.sqldb.selectOneValue(self.dailyKccy.tablename, 'max(date)'),
+                self.dailyBj.sqldb.selectOneValue(self.dailyBj.tablename, 'max(date)')
+            )
+
+        zts = self.dailyMain.sqldb.select(self.dailyMain.tablename, 'code, date, 总天数, 连板数', conds=f'{column_date}>="{date}"')
+        zts += self.dailyKccy.sqldb.select(self.dailyKccy.tablename, 'code, date, 总天数, 连板数', conds=f'{column_date}>="{date}"')
+        zts += self.dailyBj.sqldb.select(self.dailyBj.tablename, 'code, date, 总天数, 连板数', conds=f'{column_date}>="{date}"')
+        ztdate = {}
+        for c, d, days, lbc in zts:
+            if c not in ztdate:
+                ztdate[c] = d
+            elif d > ztdate[c]:
+                ztdate[c] = d
+
+        return [[c, d, days, lbc] for c, d, days, lbc in zts if d == ztdate[c]]
+
+
+class StockZdtEmotion(StockBaseSelector):
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_day_zdtemotion'
+        self.colheaders = [
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+            {'col':'涨停数','type':'int default 0'},
+            {'col':'首板数','type':'int default 0'},
+            {'col':'跌停数','type':'int default 0'},
+            {'col':'成交额','type':'float default 0'},
+        ]
+
+    def walkOnHistory(self, date=None):
+        if date is None:
+            date = self._max_date()
+            if date is None:
+                date = ''
+            else:
+                date = TradingDate.nextTradingDate(date)
+
+        zttable = StockZtDaily()
+        ztcnt = zttable.dailyMain.sqldb.select(zttable.dailyMain.tablename, [column_date, 'count(*)'], f'{column_date}>="{date}"', f'group by {column_date}')
+        zt1cnt = zttable.dailyMain.sqldb.select(zttable.dailyMain.tablename, [column_date, 'count(*)'], [f'{column_date}>="{date}"', '连板数=1'], f'group by {column_date}')
+        ztcntkc = zttable.dailyKccy.sqldb.select(zttable.dailyKccy.tablename, [column_date, 'count(*)'], f'{column_date}>="{date}"', f'group by {column_date}')
+        zt1cntkc = zttable.dailyKccy.sqldb.select(zttable.dailyKccy.tablename, [column_date, 'count(*)'], [f'{column_date}>="{date}"', '连板数=1'], f'group by {column_date}')
+        self.dayztcnt = {d:c for d,c in ztcnt}
+        for d, c in ztcntkc:
+            if d in self.dayztcnt:
+                self.dayztcnt[d] += c
+            else:
+                self.dayztcnt[d] = c
+        self.dayzt1cnt = {d:c for d,c in zt1cnt}
+        for d, c in zt1cntkc:
+            if d in self.dayzt1cnt:
+                self.dayzt1cnt[d] += c
+            else:
+                self.dayzt1cnt[d] = c
+        ztinfo = zttable.dailyMain.sqldb.select(zttable.dailyMain.tablename, [column_date, column_code], f'{column_date}>="{date}"')
+        ztinfokc = zttable.dailyKccy.sqldb.select(zttable.dailyKccy.tablename, [column_date, column_code], f'{column_date}>="{date}"')
+        self.dayztinfo = {}
+        for d, c in ztinfo:
+            if d in self.dayztinfo:
+                self.dayztinfo[d].append(c)
+            else:
+                self.dayztinfo[d] = [c]
+        for d, c in ztinfokc:
+            if d in self.dayztinfo:
+                self.dayztinfo[d].append(c)
+            else:
+                self.dayztinfo[d] = [c]
+        dttable = StockDtInfo()
+        dtcnt = dttable.sqldb.select(dttable.tablename, [column_date, 'count(*)'], f'{column_date}>="{date}"', f'group by {column_date}')
+        self.daydtcnt = {d:c for d,c in dtcnt}
+
+        sdate = min(self.dayztcnt.keys()) if len(self.dayztcnt.keys()) > 0 else date
+        if len(self.daydtcnt.keys()) > 0:
+            sdate = min(sdate, min(self.daydtcnt.keys()))
+        values = []
+        while True:
+            row = [sdate]
+            row.append(self.dayztcnt[sdate] if sdate in self.dayztcnt else 0)
+            row.append(self.dayzt1cnt[sdate] if sdate in self.dayzt1cnt else 0)
+            row.append(self.daydtcnt[sdate] if sdate in self.daydtcnt else 0)
+            amt = 0
+            if sdate in self.dayztinfo:
+                for c in self.dayztinfo[sdate]:
+                    allkl = self.get_kd_data(c, sdate)
+                    if allkl[0].date != sdate:
+                        Utils.log(f'invalid kl data for {c}, {sdate}')
+                        break
+                    amt += allkl[0].amount
+            row.append(amt)
+            values.append(row)
+            ndate = TradingDate.nextTradingDate(sdate)
+            if ndate == sdate:
+                break
+            sdate = ndate
+
+        if len(values) > 0:
+            if self.sqldb is None:
+                self._check_or_create_table()
+            self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_date], values)
+
+    def updatePickUps(self):
+        if self._max_date() == TradingDate.maxTradedDate():
+            Utils.log(f'{self.__class__.__name__} already updated to latest!')
+            return
+        self.walkOnHistory()
+
+    def getDumpKeys(self):
+        return [c['col'] for c in self.colheaders]
+
+    def getDumpCondition(self, date=None):
+        if date is None:
+            date = ''
+        return f'{column_date}>="{date}"'
+
+    def dumpDataInDays(self, days):
+        return self.dumpDataByDate(TradingDate.prevTradingDate(TradingDate.maxTradedDate(), days-1))
