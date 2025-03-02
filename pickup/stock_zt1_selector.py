@@ -517,6 +517,102 @@ class StockZtYzb1Selector(StockZtYzbSelector):
                 self.sim_stks.append([c, d, ''])
 
 
+class StockZt1BkSeletor(StockBaseSelector):
+    ''' 板块首日大涨且资金净流入时，对该板块当日首板股打板买入'''
+    def __init__(self):
+        super().__init__(False)
+
+    def initConstrants(self):
+        super().initConstrants()
+
+    def get_d1bks(self, chgHist):
+        d1bks = []
+        hisdates = chgHist.sqldb.select(chgHist.tablename, column_date)
+        dates = set()
+        for d, in hisdates:
+            dates.add(d.split(' ')[0])
+
+        dbks = {}
+        for d in dates:
+            bks = chgHist.dumpTopBks(d)
+            for bk in bks:
+                if bk not in dbks:
+                    dbks[bk] = []
+                dbks[bk].append(d)
+
+        for bk, ds in dbks.items():
+            d1bks.append([ds[0], bk])
+            for i in range(1, len(ds)):
+                if TradingDate.calcTradingDays(ds[i-1], ds[i]) > 5:
+                    continue
+                d1bks.append([ds[i], bk])
+        return d1bks
+
+    def simulate(self):
+        self.sim_prepare()
+        self.wkselected = []
+        bkchgHist = StockBkChangesHistory()
+        bkclschgHist = StockClsBkChangesHistory()
+        d1bks = self.get_d1bks(bkchgHist)
+        d1bks += self.get_d1bks(bkclschgHist)
+        dbkdict = {}
+        for d, bk in d1bks:
+            if d not in dbkdict:
+                dbkdict[d] = []
+            dbkdict[d].append(bk)
+
+        dstockcandi = {d: StockBkMap.bk_stocks(bks) for d, bks in dbkdict.items()}
+        for d, candi in dstockcandi.items():
+            self.get_tracking_deals('track_zt1bk', d, candi)
+
+        self.sim_post_process('track_sim_zt1bk')
+
+    def get_tracking_bds(self, track_table, date, candidates):
+        cbds = []
+        for c in candidates:
+            deals = self.sqldb.select(track_table, conds=[f'{column_code}="{c}"', f'{column_date}>={date}'])
+            if deals is None or len(deals) == 0:
+                deals = self.sqldb.select(track_table, conds=[f'{column_code}="{c[2:]}"', f'{column_date}>={date}'])
+            if deals is None or len(deals) == 0:
+                continue
+            bcount = 0
+            bds = []
+            sds = []
+            for dl in deals:
+                if dl[3] == 'B':
+                    bds.append([dl[5], dl[1]])
+                    bcount += dl[6]
+                else:
+                    bcount -= dl[6]
+                    sds = [dl[5], dl[1]]
+                    if bcount == 0:
+                        break
+            if len(bds) > 0 and bds[0][1] == date:
+                cbds.append([c, bds[0][1]])
+        return cbds
+
+    def get_tracking_deals(self, track_table, date, candidates):
+        for c in candidates:
+            deals = self.sqldb.select(track_table, conds=[f'{column_code}="{c}"', f'{column_date}>={date}'])
+            if deals is None or len(deals) == 0:
+                deals = self.sqldb.select(track_table, conds=[f'{column_code}="{c[2:]}"', f'{column_date}>={date}'])
+            if deals is None or len(deals) == 0:
+                continue
+            bcount = 0
+            bds = []
+            sds = []
+            for dl in deals:
+                if dl[3] == 'B':
+                    bds.append([dl[5], dl[1]])
+                    bcount += dl[6]
+                else:
+                    bcount -= dl[6]
+                    sds = [dl[5], dl[1]]
+                    if bcount == 0:
+                        break
+            if len(bds) > 0 and bds[0][1] == date:
+                self.sim_add_deals(c, bds, sds, 100000)
+
 
 class StockHbullSelector(StockBaseSelector):
     '''光头大阳尾盘买入, 次日开盘卖出'''
@@ -1190,7 +1286,7 @@ class StockZt1j2Selector(StockBaseSelector):
                     bcount += dl[6]
                 else:
                     bcount -= dl[6]
-                    sds = [dl[5], dl[1]]
+                    sds.append([dl[5], dl[1]])
                     if bcount == 0:
                         break
             if len(bds) > 0:
@@ -1210,6 +1306,28 @@ class StockZt1j2Selector(StockBaseSelector):
             kd = kd[ki:]
             zdf = 10 if code.startswith('SH60') or code.startswith('SZ00') else 20
             self.sim_quick_sell(kd, code, kd[0].date, kd[0].open, 0.05, 0.08, zdf)
+
+
+class StockZt1WbSelector(StockBaseSelector):
+    '''首板烂板'''
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_zt1wb_pickup'
+        self.colheaders = [
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+        ]
+
+    def addZt1WbStocks(self, date, stocks):
+        self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_code, column_date], [[c, date] for c in stocks])
+
+    def getDumpKeys(self):
+        return [column_code, column_date]
+
+    def getDumpCondition(self, date=None):
+        if date is None:
+            date = self._max_date()
+        return f'{column_date}="{date}"'
 
 
 class StockZt1BkSelector(StockBaseSelector):
