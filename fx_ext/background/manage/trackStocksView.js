@@ -51,7 +51,7 @@ class TrackStockListPanelPage extends StockListPanelPage {
             this.container.appendChild(this.trackingDealsTable.container);
             this.archiveNameSelector = document.createElement('select');
             this.container.appendChild(this.archiveNameSelector);
-            emjyBack.getFromLocal('track_strategy_name', x => {
+            emjyBack.getFromLocal('track_strategy_name').then(x => {
                 if (x) {
                     this.archivedTrackingName = x;
                     this.archivedTrackingName.forEach(t => {

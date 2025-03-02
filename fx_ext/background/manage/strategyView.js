@@ -301,10 +301,20 @@ class StrategyBaseView {
     createSellCountTypeOptions() {
         var sellSelector = document.createElement('select');
         sellSelector.options.add(new Option('全部卖出', 'all'));
-        sellSelector.options.add(new Option('盈利部分卖出', 'earned'));
         sellSelector.options.add(new Option('卖出半仓', 'half_all'));
         sellSelector.options.add(new Option('卖出单次', 'single'));
         sellSelector.options.add(new Option('卖出半次', 'half'));
+        sellSelector.options.add(new Option('盈利部分卖出', 'earned'));
+        sellSelector.options.add(new Option('盈利阈值止盈', 'egate'));
+        sellSelector.onchange = e => {
+            const desc = {
+                4: '如果设置最低止盈比例则卖出盈利>=最低比例的部分',
+                5: '设置止盈比例，当最低买入价达到盈利阈值时卖出所有盈利>0的部分。'
+            }
+            if (e.target.descriptor) {
+                e.target.descriptor.textContent = e.target.selectedIndex>3 ? desc[e.target.selectedIndex] : '';
+            }
+        }
         return sellSelector;
     }
 
@@ -318,8 +328,13 @@ class StrategyBaseView {
         } else {
             this.sellCntSelector.value = this.strategy.selltype;
         }
+        var desclabel = document.createElement('label');
+        desclabel.textContent = '';
+        this.sellCntSelector.descriptor = desclabel;
+        this.sellCntSelector.dispatchEvent(new Event('change'));
         checkLbl.appendChild(this.sellCntSelector);
         sellCntDiv.appendChild(checkLbl);
+        sellCntDiv.appendChild(desclabel);
         return sellCntDiv;
     }
 

@@ -41,7 +41,7 @@ class StrategyIntradingView {
             this.accSelector.options.add(new Option(emjyBack.trackAccountNames[acc], acc));
         }
         addInput(this.container, this.accSelector, '买入账户');
-        emjyBack.getFromLocal((isext ? 'exstrategy_' : 'itstrategy_') + this.data.key, svstr => {
+        emjyBack.getFromLocal((isext ? 'exstrategy_' : 'itstrategy_') + this.data.key).then(svstr => {
             if (!svstr) {
                 return;
             }
@@ -91,7 +91,7 @@ class StrategyIntradingPanelPage extends RadioAnchorPage {
     show() {
         super.show();
         if (!this.initialized) {
-            emjyBack.getFromLocal('all_available_istr', all_str => {
+            emjyBack.getFromLocal('all_available_istr').then(all_str => {
                 this.init(all_str);
                 for (const estr of ExtIstrStrategies) {
                     var item = new StrategyIntradingView(estr, true);

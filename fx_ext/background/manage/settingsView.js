@@ -57,14 +57,14 @@ class SettingsPanelPage extends RadioAnchorPage {
         this.creditEnabled = document.createElement('input');
         this.creditEnabled.type = 'checkbox';
         this.addInput(svrDiv, this.creditEnabled, '启用两融账户');
-        emjyBack.getFromLocal('fha_server', fhainfo => {
+        emjyBack.getFromLocal('fha_server').then(fhainfo => {
             if (fhainfo) {
                 this.svrHost.value = fhainfo.server;
                 this.userEmail.value = fhainfo.uemail;
                 this.pwd.value = fhainfo.pwd;
             }
         });
-        emjyBack.getFromLocal('acc_np', anp => {
+        emjyBack.getFromLocal('acc_np').then(anp => {
             if (anp) {
                 this.account.value = anp.account;
                 this.accpwd.value = atob(anp.pwd);
@@ -72,7 +72,7 @@ class SettingsPanelPage extends RadioAnchorPage {
             }
         });
         this.container.appendChild(svrDiv);
-        emjyBack.getFromLocal('purchase_new_stocks', pns => {
+        emjyBack.getFromLocal('purchase_new_stocks').then(pns => {
             var purchaseNewStocks = document.createElement('input');
             purchaseNewStocks.type = 'checkbox';
             purchaseNewStocks.checked = pns;
@@ -108,7 +108,7 @@ class SettingsPanelPage extends RadioAnchorPage {
             this.smiValue.value = '';
         }
         smiDiv.appendChild(btnAdd);
-        emjyBack.getFromLocal('smilist', smi => {
+        emjyBack.getFromLocal('smilist').then(smi => {
             if (smi) {
                 this.smiList = smi
                 this.showSmiList();

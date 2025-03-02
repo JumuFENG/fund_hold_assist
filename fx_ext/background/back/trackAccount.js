@@ -78,13 +78,13 @@ class TrackingAccount extends NormalAccount {
                 }
             }
         }
-        emjyBack.getFromLocal(watchingStorageKey, watchings => {
+        emjyBack.getFromLocal(watchingStorageKey).then(watchings => {
             emjyBack.log('get watching_stocks', JSON.stringify(watchings));
             if (watchings) {
                 watchings.forEach(s => {
                     this.addWatchStock(s);
                     var strStorageKey = this.keyword + '_' + s + '_strategies';
-                    emjyBack.getFromLocal(strStorageKey, str => {
+                    emjyBack.getFromLocal(strStorageKey).then(str => {
                         if (str) {
                             this.applyStrategy(s, JSON.parse(str));
                             var stockInfo = this.stocks.find(function(stocki) {return s == stocki.code});
@@ -100,7 +100,7 @@ class TrackingAccount extends NormalAccount {
                 });
             };
         });
-        emjyBack.getFromLocal(this.key_deals, tdeals => {
+        emjyBack.getFromLocal(this.key_deals).then(tdeals => {
             if (tdeals) {
                 this.deals = tdeals;
             }

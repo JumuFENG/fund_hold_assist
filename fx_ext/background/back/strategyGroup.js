@@ -220,6 +220,10 @@ class BuyDetail {
             return this.getCountLessThan(price, fac, smi);
         }
 
+        if (selltype == 'egate' && fac > 0 && this.minBuyPrice() * (1 + fac) - price < 0) {
+            return this.getCountLessThan(price, 0, smi);
+        }
+
         var aCount = this.availableCount();
         if (selltype == 'half_all') {
             var halfall = 100 * Math.ceil(this.totalCount() / 200);

@@ -2,7 +2,6 @@
     'use strict';
 
     let emjyBack = null;
-
     function logInfo(...args) {
         console.log(`[${new Date().toLocaleTimeString('zh',{hour12:false})}] ${args.join(' ')}`);
     }

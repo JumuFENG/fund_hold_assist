@@ -1,5 +1,9 @@
 'use strict';
 let emjyBack = null;
+if (navigator.userAgent.includes('Firefox')) {
+    chrome = browser;
+}
+
 let mktDict = {'SH': 1, 'SZ': 0, 'BJ': 4}
 let holdAccountKey = {'credit': 'collat', 'collat': 'collat', 'normal': 'normal'};
 
@@ -156,39 +160,40 @@ class EmjyBack {
         this.all_accounts[this.normalAccount.keyword] = this.normalAccount;
         this.all_accounts[this.collateralAccount.keyword] = this.collateralAccount;
         this.all_accounts[this.creditAccount.keyword] = this.creditAccount;
-        this.getFromLocal('hsj_stocks', hsj => {
-            if (hsj) {
-                feng.loadSaved(hsj);
-            }
-            this.normalAccount.loadWatchings();
-            this.collateralAccount.loadWatchings();
-            this.initTrackAccounts();
-        });
-        this.getFromLocal('fha_server', fhaInfo => {
+        this.getFromLocal('fha_server').then(fhaInfo => {
             if (fhaInfo) {
                 this.fha = fhaInfo;
                 this.setupWebsocketConnection();
             }
+        }).then(() => {
+            this.getFromLocal('hsj_stocks').then(hsj => {
+                if (hsj) {
+                    feng.loadSaved(hsj);
+                }
+                this.normalAccount.loadWatchings();
+                this.collateralAccount.loadWatchings();
+                this.initTrackAccounts();
+            });
+            this.getFromLocal('smilist').then(smi => {
+                if (smi) {
+                    this.smiList = smi;
+                }
+            });
+            this.getFromLocal('purchase_new_stocks').then(pns => {
+                this.purchaseNewStocks = pns;
+            });
+            this.getFromLocal('cost_dog').then(cd => {
+                this.costDog = new CostDog(cd);
+            });
+            alarmHub.setupAlarms();
+            istrManager.initExtStrs();
+            this.log('EmjyBack initialized!');
         });
-        this.getFromLocal('smilist', smi => {
-            if (smi) {
-                this.smiList = smi;
-            }
-        });
-        this.getFromLocal('purchase_new_stocks', pns => {
-            this.purchaseNewStocks = pns;
-        });
-        this.getFromLocal('cost_dog', cd => {
-            this.costDog = new CostDog(cd);
-        });
-        alarmHub.setupAlarms();
-        istrManager.initExtStrs();
-        this.log('EmjyBack initialized!');
     }
 
     initTrackAccounts() {
         this.track_accounts = [];
-        this.getFromLocal('track_accounts', accs => {
+        this.getFromLocal('track_accounts').then(accs => {
             if (!accs || Object.keys(accs).length === 0) {
                 this.track_accounts.push(new TrackingAccount('track'));
             } else {
@@ -251,7 +256,7 @@ class EmjyBack {
 
     InitMainTab(tab) {
         if (!tab) {
-            this.getFromLocal('acc_np', anp => {
+            this.getFromLocal('acc_np').then(anp => {
                 this.unp = anp;
                 var url = this.unp.credit ? this.jywgroot + 'MarginTrade/Buy': this.jywgroot + 'Trade/Buy';
                 chrome.tabs.create(
@@ -307,7 +312,7 @@ class EmjyBack {
 
     sendLoginInfo() {
         if (!this.unp) {
-            this.getFromLocal('acc_np', anp => {
+            this.getFromLocal('acc_np').then(anp => {
                 this.unp = anp;
                 this.sendLoginInfo();
             });
@@ -491,7 +496,7 @@ class EmjyBack {
             for (const strategy of str_available) {
                 keys_received.push(strategy.key);
             }
-            emjyBack.getFromLocal('all_available_istr', all_str => {
+            emjyBack.getFromLocal('all_available_istr').then(all_str => {
                 var keys_saved = [];
                 for (const strategy of all_str) {
                     keys_saved.push(strategy.key);
@@ -512,7 +517,7 @@ class EmjyBack {
                     }
                 }
                 for (const rkey of keys_received) {
-                    emjyBack.getFromLocal('itstrategy_' + rkey, istr => {
+                    emjyBack.getFromLocal('itstrategy_' + rkey).then(istr => {
                         if (istr && istr.enabled) {
                             var subjson = {action: 'subscribe', strategy: istr.key, account: istr.account, amount: istr.amount};
                             if (istr.amtkey) {
@@ -575,7 +580,7 @@ class EmjyBack {
     }
 
     updateHistDeals() {
-        this.getFromLocal('hist_deals', hdl => {
+        this.getFromLocal('hist_deals').then(hdl => {
             var startDate = null;
             if (hdl) {
                 this.savedDeals = hdl;
@@ -850,7 +855,7 @@ class EmjyBack {
 
     recoginzeCaptcha(img) {
         if (!this.fha) {
-            this.getFromLocal('fha_server', fhaInfo => {
+            this.getFromLocal('fha_server').then(fhaInfo => {
                 if (fhaInfo) {
                     this.fha = fhaInfo;
                     this.recoginzeCaptcha(img);
@@ -869,7 +874,7 @@ class EmjyBack {
 
     clearCompletedDeals() {
         if (!this.savedDeals) {
-            this.getFromLocal('hist_deals', sdeals => {
+            this.getFromLocal('hist_deals').then(sdeals => {
                 if (sdeals) {
                     this.savedDeals = sdeals;
                     this.clearCompletedDeals();
@@ -1129,17 +1134,12 @@ class EmjyBack {
         chrome.downloads.download({url, filename, saveAs:false, conflictAction});
     }
 
-    getFromLocal(key, cb) {
-        chrome.storage.local.get(key, item => {
-            if (typeof(cb) === 'function') {
-                if (!key) {
-                    cb();
-                } else if (item && item[key]) {
-                    cb(item[key]);
-                } else {
-                    cb();
-                }
+    getFromLocal(key) {
+        return chrome.storage.local.get(key).then(item => {
+            if (item && item[key]) {
+                return item[key];
             }
+            return null;
         });
     }
 

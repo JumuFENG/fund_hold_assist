@@ -3,6 +3,9 @@
 let emStockUrl = 'http://quote.eastmoney.com/concept/';
 let emStockUrlTail = '.html#fullScreenChart';
 let BkRZRQ = 'BK0596';
+if (navigator.userAgent.includes('Firefox')) {
+    chrome = browser;
+}
 
 function logInfo(...args) {
     console.log(args.join(' '));
@@ -20,17 +23,12 @@ class Manager {
         this.loadAllSavedData();
     }
 
-    getFromLocal(key, cb) {
-        chrome.storage.local.get(key, item => {
-            if (typeof(cb) === 'function') {
-                if (!key) {
-                    cb(item);
-                } else if (item && item[key]) {
-                    cb(item[key]);
-                } else {
-                    cb(item);
-                }
+    getFromLocal(key) {
+        return chrome.storage.local.get(key).then(item => {
+            if (item && item[key]) {
+                return item[key];
             }
+            return null;
         });
     }
 
@@ -43,30 +41,32 @@ class Manager {
     }
 
     loadAllSavedData() {
-        this.getFromLocal('hsj_stocks', smkt => {
-            this.stockMarket = smkt;
+        this.getFromLocal('fha_server').then(fs => {
+            this.fha = fs;
+        }).then(() => {
+            this.getPlannedDividen();
+            this.getFromLocal('hsj_stocks').then(smkt => {
+                this.stockMarket = smkt;
+            })
+        }).then(() => {
             this.sendExtensionMessage({command: 'mngr.init'});
             this.sendExtensionMessage({command: 'mngr.costdog'});
-        });
-        this.getFromLocal('fha_server', fs => {
-            this.fha = fs;
-            this.getPlannedDividen();
-        });
-        this.getFromLocal('acc_np', anp => {
-            if (anp) {
-                this.creditEnabled = anp.credit;
-                if (!this.accountList['collat']) {
-                    this.initCreditAccount();
+            this.getFromLocal('acc_np').then(anp => {
+                if (anp) {
+                    this.creditEnabled = anp.credit;
+                    if (!this.accountList['collat']) {
+                        this.initCreditAccount();
+                    }
                 }
-            }
-        });
-        this.getFromLocal('track_accounts', accs => {
-            if (!accs || Object.keys(accs).length === 0) {
-                accs = {'track': '模拟账户'};
-            }
-            this.trackAccountNames = accs;
-            this.initTrackAccounts();
-        });
+            });
+            this.getFromLocal('track_accounts').then(accs => {
+                if (!accs || Object.keys(accs).length === 0) {
+                    accs = {'track': '模拟账户'};
+                }
+                this.trackAccountNames = accs;
+                this.initTrackAccounts();
+            });
+        })
     }
 
     sendExtensionMessage(message) {

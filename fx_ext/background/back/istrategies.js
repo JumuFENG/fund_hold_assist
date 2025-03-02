@@ -866,7 +866,7 @@ class istrManager {
         }
 
         for (const extstr of ExtIstrStrategies) {
-            emjyBack.getFromLocal('exstrategy_' + extstr.key, istr => {
+            emjyBack.getFromLocal('exstrategy_' + extstr.key).then(istr => {
                 if (!istr) {
                     emjyBack.log('ext strategy', extstr.key, 'not configured');
                     return;
