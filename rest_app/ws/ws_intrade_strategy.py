@@ -6,8 +6,8 @@ import asyncio
 from datetime import datetime
 from utils import *
 from history import StockAuctionDetails, StockGlobal, StockDumps, StockBkMap
-from pickup import StockZt1BreakupSelector, StockZt1HotrankSelector, StockBlackHotrank, StockZt1j2Selector, StockZt1BkSelector
-from pickup import StockAuctionUpSelector, StockTrippleBullSelector, StockEndVolumeSelector
+from pickup import StockZt1BreakupSelector, StockZt1HotrankSelector, StockHotrank0Selector, StockZt1j2Selector, StockZt1BkSelector
+from pickup import StockAuctionUpSelector, StockEndVolumeSelector, StockHotrankDaySelector
 from training.models import ModelAnn1j2, ModelAnnEndVolume
 
 from ws_is_base import *
@@ -74,36 +74,12 @@ class StrategyI_AuctionUp:
 
     def get_snapshot(self, code):
         snapshot = Utils.get_em_snapshot(code)
-
-        # 解析买一买二和卖一卖二的价格和数量
-        buy1_price = snapshot['fivequote']['buy1']
-        sell1_price = snapshot['fivequote']['sale1']
-        buy1_count = snapshot['fivequote']['buy1_count']
-        sell1_count = snapshot['fivequote']['sale1_count']
-        current_price = snapshot['realtimequote']['currentPrice']
-        quote_time = snapshot['realtimequote']['time']
-
         if 'topprice' not in self.auction_quote[code]:
             self.auction_quote[code]['topprice'] = snapshot['topprice']
             self.auction_quote[code]['bottomprice'] = snapshot['bottomprice']
             self.auction_quote[code]['lclose'] = snapshot['fivequote']['yesClosePrice']
 
-        quote_mins = quote_time.split(':')
-        quote_mins = int(quote_mins[0]) * 60 + int(quote_mins[1])
-        if quote_mins < 565:
-            matched_vol = buy1_count
-            buy2_count = snapshot['fivequote']['buy2_count']
-            sell2_count = snapshot['fivequote']['sale2_count']
-            unmatched_vol = buy2_count if buy2_count > 0 else -sell2_count
-        else:
-            matched_vol = snapshot['realtimequote']['volume']
-            unmatched_vol = 0
-            if current_price == buy1_price:
-                unmatched_vol = buy1_count
-            elif current_price == sell1_price:
-                unmatched_vol = -sell1_count
-
-        self.auction_quote[code]['quotes'].append([quote_time, current_price, matched_vol, unmatched_vol])
+        self.auction_quote[code]['quotes'].append(WsIsUtils.parse_match_unmatch(snapshot))
 
     async def start_snapshot_task(self):
         if self.snapshot_task_running:
@@ -135,31 +111,35 @@ class StrategyI_AuctionUp:
                 self.auction_selector.save_daily_auction_matched(values)
 
     async def check_auction_trends(self, uppercent=2):
-        for code, auctions in self.auction_quote.items():
-            if code in self.matched:
-                continue
-            if not (code.startswith('00') or code.startswith('60')):
-                continue
-            zdays, zdist, ddays, ddist = auctions['zddays']
-            if zdays > 0 or zdist > 0 or ddays == 0 or ddist >= ddays:
-                continue
-            if StockAuctionDetails.check_buy_match(auctions) or StockAuctionDetails.check_buy_vol_more_match(auctions):
-                Utils.log(f'{code} buy match! {auctions["lclose"] if "lclose" in auctions else "0"}')
-                self.matched.append(code)
-                if callable(self.on_intrade_matched):
-                    price = float(auctions['quotes'][-1][1]) * (100 + uppercent) / 100
-                    if auctions['quotes'][-1][1] == auctions['bottomprice']:
-                        price = float(auctions["lclose"]) * 0.97
-                    aucup_match_data = {'code': code, 'price': price}
-                    aucup_match_data['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2)}, 'StrategySellBE': {}}
-                    await self.on_intrade_matched(self.key, aucup_match_data, self.create_intrade_matched_message)
+        while True:
+            for code, auctions in self.auction_quote.items():
+                if code in self.matched:
+                    continue
+                if not (code.startswith('00') or code.startswith('60')):
+                    continue
+                zdays, zdist, ddays, ddist = auctions['zddays']
+                if zdays > 0 or zdist > 0 or ddays == 0 or ddist >= ddays:
+                    continue
+                if StockAuctionDetails.check_buy_match(auctions) or StockAuctionDetails.check_buy_vol_more_match(auctions):
+                    Utils.log(f'{code} buy match! {auctions["lclose"] if "lclose" in auctions else "0"}')
+                    self.matched.append(code)
+                    if callable(self.on_intrade_matched) and len(self.matched) < 5:
+                        price = float(auctions['quotes'][-1][1]) * (100 + uppercent) / 100
+                        if auctions['quotes'][-1][1] == auctions['bottomprice']:
+                            price = float(auctions["lclose"]) * 0.97
+                        aucup_match_data = {'code': code, 'price': price}
+                        aucup_match_data['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2), 'guardPrice': round(price * 0.92, 2)}, 'StrategySellBE': {}}
+                        await self.on_intrade_matched(self.key, aucup_match_data, self.create_intrade_matched_message)
+            if Utils.delay_seconds('9:25:01') < 0:
+                break
+            time.sleep(1)
 
     async def start_strategy_tasks(self):
         loop = asyncio.get_event_loop()
         if Utils.delay_seconds('9:20') > 0:
             loop.call_later(Utils.delay_seconds('9:20:1'), self.check_dt_ranks)
             loop.call_later(Utils.delay_seconds('9:20:2'), lambda: asyncio.ensure_future(self.start_snapshot_task()))
-            loop.call_later(Utils.delay_seconds('9:24:55'), lambda: asyncio.ensure_future(self.check_auction_trends(5)))
+            loop.call_later(Utils.delay_seconds('9:24:53'), lambda: asyncio.ensure_future(self.check_auction_trends(5)))
             loop.call_later(Utils.delay_seconds('9:25:8'), self.stop_snapshot_task)
             loop.call_later(Utils.delay_seconds('9:25:16'), lambda: asyncio.ensure_future(self.check_auction_trends(2)))
         else:
@@ -206,26 +186,14 @@ class StrategyI_Zt1Breakup(StrategyI_Listener):
                     zdf = 0.1
                 price = prc * (1 + zdf) / (1+p)
                 chg_match_data = {'code': c, 'price': price}
+                chg_match_data['strategies'] = {'StrategyBuyZTBoard':{}, 'StrategySellELS': {}, 'StrategyGrid': {"buycnt": 3}}
                 await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
                 self.stock_notified.append(c)
 
     def create_intrade_matched_message(self, match_data, subscribe_detail):
         account = subscribe_detail['account']
-        amount = subscribe_detail['amount']
-        price = round(float(match_data['price']), 2)
-        strategies = {
-            "grptype": "GroupStandard",
-            "strategies": {
-                "0": { "key": "StrategyBuyZTBoard", "enabled": True },
-                "1": { "key": "StrategySellELS", "enabled": False, "cutselltype": "all", "selltype":"all", "topprice": round(price * 1.05, 2) },
-                "2": { "key": "StrategyGrid", "enabled": False, "buycnt": 3, "stepRate": 0.05 }
-            },
-            "transfers": { "0": { "transfer": "-1" }, "1": { "transfer": "-1" }, "2": { "transfer": "-1" } },
-            "amount": amount
-        }
-        if 'amtkey' in subscribe_detail:
-            strategies['uramount'] = {"key": subscribe_detail['amtkey']}
         code = match_data['code']
+        strategies = generate_strategy_json(match_data, subscribe_detail)
         return {'type':'intrade_addwatch', 'code': code, 'strategies': strategies, 'account': account}
 
 
@@ -277,6 +245,7 @@ class StrategyI_Zt1Hotrank(StrategyI_Listener):
             if price < 1:
                 continue
             chg_match_data = {'code': c, 'price': price}
+            chg_match_data['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2), 'guardPrice': round(price * 0.92, 2)}, 'StrategySellBE': {}}
             if c in self.latest_ranks and t == 4 and callable(self.on_intrade_matched):
                 await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
                 self.stock_notified.append((c, t))
@@ -294,8 +263,92 @@ class StrategyI_Zt1Hotrank(StrategyI_Listener):
             print('zt1hr setChanges', self.changes_matched)
         self.changes_matched = []
 
-    def create_intrade_matched_message(self, match_data, subscribe_detail):
-        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
+
+class StrategyI_DayHotrank(StrategyI_Listener):
+    ''' 人气排行
+    '''
+    key = 'istrategy_dayhr'
+    name = '人气排行前10'
+    desc = '股价涨跌幅介于[-3, 9] 选新增粉丝>60%且5日内排名首次进入人气排行前10的'
+    on_intrade_matched = None
+    hotranktbl = None
+    rked5d = []
+    latest_ranks = None
+
+    def __init__(self):
+        self.stockranks = []
+        self.watcher = WsIsUtils.get_watcher('hotrank')
+
+    async def on_watcher(self, hotranks):
+        rk, rkjqka, rktgb = hotranks
+        if rk is None:
+            return
+
+        if self.hotranktbl is None:
+            self.hotranktbl = StockHotrankDaySelector()
+
+        if len(self.rked5d) == 0:
+            self.rked5d = [c[2:] for c in self.hotranktbl.getRanked(TradingDate.maxTradedDate())]
+
+        thm = datetime.now().strftime('%H:%M')
+        if thm < '09:30':
+            return
+
+        self.latest_ranks = rk
+        rkdict = {}
+        for code, rf in self.latest_ranks.items():
+            rankNumber=rf['rank']
+            newFans = rf['newfans']
+            if newFans < 60 or rankNumber > 10:
+                continue
+
+            rkobj = {'code': code, 'rank': rankNumber, 'newfans': newFans}
+            rkdict[StockGlobal.full_stockcode(code)] = {'code': code, 'rank': rankNumber, 'newfans': newFans}
+            self.stockranks.append(rkobj)
+
+        if len(rkdict.keys()) == 0:
+            return
+
+        rkbasics = Utils.get_cls_basics(rkdict.keys())
+        topranks = []
+        for c, b in rkbasics.items():
+            code = rkdict[c]['code']
+            current_price = b['last_px']
+            zdf = round(b['change'] * 100, 2)
+            name = b['secu_name']
+            if name.startswith('退市') or name.endswith('退'):
+                continue
+
+            if thm == '09:30' and zdf > 9:
+                Utils.log(f'current zdf > 9: {c} price={current_price} zdf={zdf} open={b["open_px"]}')
+                current_price = b['open_px']
+                zdf = round((b['open_px'] - b['preclose_px']) * 100 / b['preclose_px'], 2)
+            if code not in self.rked5d:
+                topranks.append([StockGlobal.full_stockcode(code), TradingDate.maxTradingDate(), thm, rkdict[c]['rank'], rkdict[c]['newfans'], current_price, zdf])
+            if zdf < -3 or zdf > 9 or current_price < 1 or current_price > 100:
+                self.rked5d.append(code)
+                continue
+
+            if WsIsUtils.is_stock_blacked(code) or WsIsUtils.to_be_divided(code):
+                self.rked5d.append(code)
+                continue
+            if code not in self.rked5d:
+                if callable(self.on_intrade_matched):
+                    price = min(current_price * 1.015, b['up_price'])
+                    mdata = {'code': code, 'price': price}
+                    mdata['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2), 'guardPrice': round(price * 0.92, 2)}}
+                    await self.on_intrade_matched(self.key, mdata, self.create_intrade_matched_message)
+                    Utils.log(f'StrategyI_DayHotrank matched {code}')
+                self.rked5d.append(code)
+
+        if len(topranks) == 0:
+            return
+
+        if WsIsUtils.save_db_enabled():
+            self.hotranktbl.saveHotRanks(topranks)
+        else:
+            for trk in topranks:
+                Utils.log(f'{trk}')
 
 
 class StrategyI_Zt1Bk(StrategyI_Listener):
@@ -303,15 +356,17 @@ class StrategyI_Zt1Bk(StrategyI_Listener):
     '''
     key = 'istrategy_zt1bk'
     name = '首板板块'
-    desc = '板块5日内首次满足涨幅>2%, 涨停家数>=5且主力净流入时, 排队/打板'
+    desc = '板块5日内首次满足涨幅>2%, 涨幅8%以上家数>=5且主力净流入时, 排队/打板'
     on_intrade_matched = None
 
     def __init__(self):
-        self.watcher = WsIsUtils.get_watcher('stkchanges')
+        self.watcher = WsIsUtils.get_watcher('stkzdf')
         self.bkwatcher = WsIsUtils.get_watcher('bkchanges')
         self.bklistener = StrategyI_Listener()
         self.bklistener.watcher = self.bkwatcher
         self.bklistener.on_watcher = self.on_bk_changes
+        self.matched_bks = []
+        self.up_matched_bks = []
         self.candidates_bkstks = []
         self.changes_matched = []
         self.stock_notified = []
@@ -329,24 +384,37 @@ class StrategyI_Zt1Bk(StrategyI_Listener):
         s_changes = [chg for chg in bk_changes if attr in chg]
         if len(s_changes) == 0:
             return set()
-        mtbk = set()
-        i = 1
-        while i < len(s_changes):
-            if selector(s_changes[i][attr]):
-                mtbk.add(s_changes[i][column_code])
-            i += 1
-        return mtbk
+        return set([chg[column_code] for chg in s_changes if selector(chg[attr])])
 
     async def on_bk_changes(self, bk_changes):
         mtbk = self.select_bk_of(bk_changes, column_amount, lambda a: a > 0)
         mtbk = mtbk.intersection(self.select_bk_of(bk_changes, column_p_change, lambda a: a >= 2))
-        mtbk = mtbk.intersection(self.select_bk_of(bk_changes, 'ztcnt', lambda a: a >= 5))
+        # mtbk = mtbk.intersection(self.select_bk_of(bk_changes, 'ztcnt', lambda a: a >= 5))
         mtbk = [bk for bk in mtbk if not self.bkwatcher.is_topbk5(bk)]
-        Utils.log(f'bk changes selected: {mtbk}')
+        [self.matched_bks.append(bk) for bk in mtbk if bk not in self.matched_bks]
 
+        if len(self.watcher.full_zdf) == 0:
+            return
+        await self.on_watcher(self.watcher.full_zdf)
+
+    def check_bks_candidates(self, zdfrank):
+        bkupdict = {}
+        for c, *x in zdfrank:
+            bks = WsIsUtils.get_stock_bks(c)
+            for bk in bks:
+                if WsIsUtils.is_bk_ignored(bk): continue
+                if bk not in bkupdict:
+                    bkupdict[bk] = []
+                bkupdict[bk].append(c)
+
+        for bk, zds in bkupdict.items():
+            if len(zds) >= 5 and bk in self.matched_bks and bk not in self.up_matched_bks:
+                self.up_matched_bks.append(bk)
+
+        Utils.log(f'bk changes selected: {self.up_matched_bks}')
         candidates = []
-        for bk in mtbk:
-            candidates += [s[2:] for s in WsIsUtils.get_bk_stocks(bk)]
+        for bk in self.up_matched_bks:
+            candidates += [s[2:] for s in WsIsUtils.get_bk_stocks(bk) if not s.startswith('BJ')]
         self.candidates_bkstks = []
         for s in set(candidates):
             if WsIsUtils.is_stock_blacked(s) or WsIsUtils.recent_zt(s) or WsIsUtils.to_be_divided(s):
@@ -354,245 +422,46 @@ class StrategyI_Zt1Bk(StrategyI_Listener):
             self.candidates_bkstks.append(s)
         Utils.log(f'candidates_bkstks: {len(self.candidates_bkstks)}')
 
-        watch_zts = {}
-        date = bk_changes[-1][column_date].split(' ')[0]
-        for c,f,t,i in self.watcher.full_changes:
-            if c in self.stock_notified:
-                continue
-            if c not in self.candidates_bkstks:
-                continue
-            if f.split(' ')[0] != date:
-                continue
-            if t == 4:
-                watch_zts[c] = [c, f, t, i]
-            elif t == 16:
-                watch_zts.pop(c)
-        await self.on_watcher(watch_zts.values())
-
     async def on_watcher(self, fecthed):
-        for c, f, t, i in fecthed:
-            if t != 4: continue
-            if c in self.stock_notified: continue
-            if c not in self.candidates_bkstks: continue
+        self.check_bks_candidates(fecthed)
+        if len(self.candidates_bkstks) == 0:
+            return
+
+        for c, zd, p, lc in fecthed:
+            if zd < 8: continue
+            s = c[2:]
+            if s in self.stock_notified: continue
+            if s not in self.candidates_bkstks: continue
             if not callable(self.on_intrade_matched):
                 continue
-            price = float(i.split(',')[0])
-            chg_match_data = {'code': c, 'price': price}
-            chg_match_data['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2), 'guardPrice': round(price * 0.92, 2)}, 'StrategySellBE': {'sell_conds': 1}}
-            await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
-            self.changes_matched.append([c, f, t, i])
-            self.stock_notified.append(c)
+            price = Utils.zt_priceby(lc, zdf=Utils.zdf_from_code(c))
+            mdata = {'code': s, 'price': price, 'buy': p >= price}
+            mdata['strategies'] = {}
+            if p < price:
+                mdata['strategies']['StrategyBuyZTBoard'] = {}
+            mdata['strategies']['StrategySellELS'] = {'guardPrice': round(price * 0.92, 2)}
+            mdata['strategies']['StrategySellBE'] = {}
+            await self.on_intrade_matched(self.key, mdata, self.create_intrade_matched_message)
+            self.stock_notified.append(s)
 
     def on_taskstop(self):
-        if WsIsUtils.save_db_enabled():
-            szh = StockZt1BkSelector()
-            szh.setChanges(self.changes_matched)
-        else:
-            print('zt1bk setChanges', self.changes_matched)
-        self.changes_matched = []
+        Utils.log(f'zt1bk stopped! {self.stock_notified}')
 
-    # def create_intrade_matched_message(self, match_data, subscribe_detail):
-    #     return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
+    def create_intrade_matched_message(self, match_data, subscribe_detail):
+        account = subscribe_detail['account']
+        code = match_data['code']
+        buy = match_data['buy']
+        strategies = generate_strategy_json(match_data, subscribe_detail)
+        if buy:
+            price = round(float(match_data['price']), 2)
+            dbmsg = {'type':'intrade_buy', 'code': code, 'account': account, 'price': price, 'count': 0}
+            if 'amtkey' not in subscribe_detail:
+                amount = subscribe_detail['amount']
+                dbmsg['count'] = Utils.calc_buy_count(amount, price)
+            dbmsg['strategies'] = strategies
+            return dbmsg
 
-
-class StrategyI_EndAuc_Nzt(StrategyI_Listener):
-    ''' 盘中触及涨停价，尾盘竞价买入
-    '''
-    key = 'istrategy_eaucnzt'
-    name = '炸板尾盘买入'
-    desc = '盘中触及涨停, 尾盘竞价买入, 次日开盘卖出, 选上影线最小者.'
-    watcher = WsIsUtils.get_watcher('endauction')
-    on_intrade_matched = None
-    sd = StockDumps()
-
-    async def on_watcher(self, quotes):
-        ushadows = []
-        for code, knode in quotes:
-            if knode.open > knode.close:
-                continue
-            if not code.startswith('SH60') and not code.startswith('SZ00'):
-                continue
-            if knode.close < 1:
-                # 股价低于1元
-                continue
-            if knode.high > knode.close and knode.high >= Utils.zt_priceby(knode.lclose):
-                allkl = self.sd.read_kd_data(code, fqt=1, length=10)
-                if allkl is None:
-                    continue
-                allkl = [KNode(kl) for kl in allkl]
-                if len([kl for kl in allkl if kl.pchange > 9 and kl.high == kl.close]) > 2:
-                    # 10日内涨停数>2, 忽略
-                    continue
-                if len(allkl) < 3:
-                    Utils.log(f'kldata not valid, {code}, {allkl}', Utils.Warn)
-                    continue
-                if ((allkl[-1].high == allkl[-1].close and Utils.zt_priceby(allkl[-2].close))
-                    ) or (
-                    (allkl[-2].high == allkl[-2].close and Utils.zt_priceby(allkl[-3].close))):
-                    # 前两个交易日有涨停, 忽略
-                    continue
-                ushadows.append([code, round((knode.high - knode.close) * 100 / knode.lclose, 2), knode])
-        if len(ushadows) == 0:
-            return
-
-        mncode, mnshadow, knode = sorted(ushadows, key=lambda x: x[1])[0]
-        mncode = mncode.lstrip('SH').lstrip('SZ')
-        if callable(self.on_intrade_matched):
-            mnshadow_match_data = {'code': mncode, 'price': knode.high}
-            await self.on_intrade_matched(self.key, mnshadow_match_data, self.create_intrade_matched_message)
-
-
-class StrategyI_HighClose(StrategyI_Listener):
-    ''' 收盘价为当日最高价，尾盘竞价买入
-    '''
-    key = 'istrategy_highclose'
-    name = '光头阳线尾盘买入'
-    desc = '收盘价为当日最高价尾盘竞价买入, 次日开盘卖出, 选涨跌幅最大者.'
-    watcher = WsIsUtils.get_watcher('endauction')
-    on_intrade_matched = None
-
-    async def on_watcher(self, quotes):
-        hcloses = []
-        for code, knode in quotes:
-            if not code.startswith('SH60') and not code.startswith('SZ00'):
-                continue
-            if WsIsUtils.is_stock_blacked(code) or WsIsUtils.to_be_divided(code) or knode.close < 1:
-                continue
-            if knode.high == knode.close and knode.high > knode.low and knode.close < Utils.zt_priceby(knode.lclose):
-                hcloses.append([code, knode.pchange, knode])
-
-        if len(hcloses) == 0:
-            return
-        mxcode, mxhclose, knode = sorted(hcloses, key=lambda x: x[1], reverse=True)[0]
-        mxcode = mxcode.lstrip('SH').lstrip('SZ')
-        if callable(self.on_intrade_matched):
-            mnshadow_match_data = {'code': mxcode, 'price': round(Utils.zt_priceby(knode.lclose), 2)}
-            await self.on_intrade_matched(self.key, mnshadow_match_data, self.create_intrade_matched_message)
-
-
-class StrategyI_HotrankOpen(StrategyI_Listener):
-    ''' 开盘人气排行
-    '''
-    key = 'istrategy_hotrank0'
-    name = '开盘人气排行'
-    desc = '不涨停且股价大于水下一半 选人气排行最靠前且新增粉丝>70%'
-    on_intrade_matched = None
-    hotblack = None
-    latest_ranks = None
-    rankjqka = None
-    ranktgb = None
-
-    def __init__(self):
-        self.stockranks = []
-        self.watcher = WsIsUtils.get_watcher('hotrank_open')
-        self.taskwatcher = StrategyI_Simple_Watcher('9:24:54')
-        self.taskwatcher.execute_simple_task = self.start_check_task
-
-    async def start_strategy_tasks(self):
-        await super().start_strategy_tasks()
-        await self.taskwatcher.start_strategy_tasks()
-
-    async def on_watcher(self, hotranks):
-        self.latest_ranks, self.rankjqka, self.ranktgb = hotranks
-        if self.latest_ranks is None or self.rankjqka is None or self.ranktgb is None:
-            return
-
-        rank20 = []
-        for code, rf in self.latest_ranks.items():
-            rankNumber=rf['rank']
-            newFans = rf['newfans']
-            if rankNumber <= 20:
-                rank20.append([code, rankNumber])
-            if newFans < 70 or rankNumber > 40:
-                continue
-
-            # if code not in self.rankjqka and code not in self.ranktgb:
-            #     continue
-
-            rkobj = {'code': code, 'rank': rankNumber, 'newfans': newFans}
-            rkobj['rkjqka'] = self.rankjqka[code] if code in self.rankjqka else 0
-            rkobj['rktgb'] = self.ranktgb[code] if code in self.ranktgb else 0
-            self.stockranks.append(rkobj)
-
-        if self.hotblack is None:
-            self.hotblack = StockBlackHotrank()
-        if len(rank20) > 0:
-            self.hotblack.check_quit(rank20)
-
-    def get_first_available(self, candidates, blacklist):
-        for candidate in candidates:
-            if candidate['code'] not in blacklist:
-                return candidate
-
-    def check_snapshot(self, snapshot):
-        try:
-            name = snapshot['name']
-            if name.startswith('退市') or name.endswith('退'):
-                return False
-            topprice = float(snapshot['topprice'])
-            bottomprice = float(snapshot['bottomprice'])
-            lclose = float(snapshot['fivequote']['yesClosePrice'])
-            current_price = float(snapshot['realtimequote']['currentPrice'])
-            return current_price < topprice and current_price > 1 and current_price > (bottomprice + lclose) / 2
-        except ValueError as e:
-            Utils.log(f'ValueError in StrategyI_HotrankOpen.check_snapshot {e}', Utils.Err)
-            return False
-
-    async def start_check_task(self):
-        checked_ranks = []
-        for rk in self.stockranks:
-            code = rk['code']
-            if WsIsUtils.is_stock_blacked(code) or WsIsUtils.to_be_divided(code):
-                continue
-            snapshot = Utils.get_em_snapshot(code)
-            if snapshot['status'] != 0:
-                continue
-
-            lclose = float(snapshot['fivequote']['yesClosePrice'])
-            current_price = float(snapshot['realtimequote']['currentPrice'])
-            zdf = round((current_price - lclose)*100/lclose, 2)
-            Utils.log(f'{rk} {snapshot["topprice"]} {snapshot["bottomprice"]} {snapshot["realtimequote"]["currentPrice"]}, {zdf}')
-            if self.check_snapshot(snapshot):
-                topprice = 0 if snapshot['topprice'] == '-' else float(snapshot['topprice'])
-                checked_ranks.append({'code': code, 'rank': rk['rank'], 'price': current_price, 'topprice': topprice, 'zdf': zdf})
-
-        if self.hotblack is None:
-            self.hotblack = StockBlackHotrank()
-        candidate = self.get_first_available(checked_ranks, self.hotblack.dumpDataByDate())
-        if candidate is not None and callable(self.on_intrade_matched):
-            hro_match_data = {'code': candidate['code'], 'price': min(candidate['price'] * 1.05, candidate['topprice'])}
-            await self.on_intrade_matched(self.key, hro_match_data, self.create_intrade_matched_message)
-            if WsIsUtils.save_db_enabled():
-                self.hotblack.add(candidate['code'], Utils.today_date())
-
-
-class StrategyI_HotrankClose(StrategyI_HotrankOpen):
-    ''' 收盘人气排行
-    '''
-    key = 'istrategy_hotrank1'
-    name = '收盘人气排行'
-    desc = '盘中不触及涨停且股价大于水下一半 选人气排行最靠前且新增粉丝>70%'
-
-    def __init__(self):
-        self.stockranks = []
-        self.watcher =  WsIsUtils.get_watcher('hotrank_close')
-        self.taskwatcher = StrategyI_Simple_Watcher('14:55:50')
-        self.taskwatcher.execute_simple_task = self.start_check_task
-        self.tasklistner = StrategyI_Listener()
-        self.tasklistner.watcher = self.taskwatcher
-
-    def check_snapshot(self, snapshot):
-        try:
-            topprice = float(snapshot['topprice'])
-            bottomprice = float(snapshot['bottomprice'])
-            lclose = float(snapshot['fivequote']['yesClosePrice'])
-            current_price = float(snapshot['realtimequote']['currentPrice'])
-            high_price = float(snapshot['realtimequote']['high'])
-            # 尾盘买入时排除炸板票
-            return high_price < topprice and current_price > 1 and current_price < topprice and current_price > (bottomprice + lclose) / 2
-        except ValueError as e:
-            Utils.log(f'ValueError in StrategyI_HotrankClose.check_snapshot {e}', Utils.Err)
-            return False
+        return {'type':'intrade_addwatch', 'code': code, 'strategies': strategies, 'account': account}
 
 
 class StrategyI_Zt1j2Open(StrategyI_Listener):
@@ -698,6 +567,7 @@ class StrategyI_Zt1j2Open(StrategyI_Listener):
                 topprice = 0 if snapshot['topprice'] == '-' else float(snapshot['topprice'])
                 if callable(self.on_intrade_matched) and len(bivalues) < 5:
                     mnshadow_match_data = {'code': code, 'price': topprice}
+                    mnshadow_match_data['strategies'] = {'StrategySellELS': {'topprice': round(topprice * 1.02, 2)}, 'StrategySellBE': {}}
                     await self.on_intrade_matched(self.key, mnshadow_match_data, self.create_intrade_matched_message)
 
                     bival = self.zt1j2_candidates[code][0:2]
@@ -709,70 +579,6 @@ class StrategyI_Zt1j2Open(StrategyI_Listener):
                 self.szt1j2.updateBuyInfo(bivalues)
             else:
                 print('zt1j2 updateBuyInfo', bivalues)
-
-    def create_intrade_matched_message(self, match_data, subscribe_detail):
-        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
-
-
-class StrategyI_3Bull_Breakup(StrategyI_Listener):
-    ''' 三阳开泰
-    '''
-    key = 'istrategy_3brk'
-    name = '三阳开泰'
-    desc = '连续3根阳线价升量涨 以突破此3根阳线的最高价为买入点 以第一根阳线到买入日期之间的最低价为止损价 止盈设置5%'
-    on_intrade_matched = None
-    s3btbl = None
-
-    def __init__(self):
-        self.watcher = WsIsUtils.get_watcher('snapshot_5m')
-        self.prewatcher = StrategyI_Simple_Watcher('9:28')
-        self.prewatcher.execute_simple_task = self.prepare_candidates
-        self.candidates = {}
-        self.stock_notified = []
-
-    async def start_strategy_tasks(self):
-        await super().start_strategy_tasks()
-        await self.prewatcher.start_strategy_tasks()
-
-    async def prepare_candidates(self):
-        if self.s3btbl is None:
-            self.s3btbl = StockTrippleBullSelector()
-        chl = self.s3btbl.getLatestCandidatesHighLow()
-        for c, h, l in chl:
-            if WsIsUtils.is_stock_blacked(c) or WsIsUtils.to_be_divided(c):
-                continue
-            snap = Utils.get_em_snapshot(c)
-            if snap['topprice'] == '-' or float(snap['topprice']) <= h:
-                continue
-            self.candidates[c] = {'high': h, 'low': l}
-        self.watcher.add_stock(self.candidates.keys())
-
-    async def on_watcher(self, csnapshot):
-        code = csnapshot['code']
-        if code not in self.candidates:
-            return
-
-        if csnapshot['price'] <= self.candidates[code]['high']:
-            return
-
-        if callable(self.on_intrade_matched) and csnapshot['price'] < 1.05 * self.candidates[code]['high'] and csnapshot['sell2'] > 0:
-            mdata = {'code': code, 'price': csnapshot['sell2'], 'cutline': self.candidates[code]['low']}
-            await self.on_intrade_matched(self.key, mdata, self.create_intrade_matched_message)
-
-        self.candidates.pop(code)
-        self.watcher.remove_stock(code)
-        self.stock_notified.append(code)
-
-    def on_taskstop(self):
-        if WsIsUtils.save_db_enabled():
-            for code in self.stock_notified:
-                self.s3btbl.setFdate(code)
-        else:
-            print ('save notified', self.stock_notified)
-        self.stock_notified = []
-
-    def create_intrade_matched_message(self, match_data, subscribe_detail):
-        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
 
 
 class StrategyI_EVolume(StrategyI_Listener):
@@ -799,6 +605,9 @@ class StrategyI_EVolume(StrategyI_Listener):
             tx, ty, tests = evoltbl.dumpTrainingData(candi_date)
             if len(tx) > 0:
                 tests += tx
+            if len(tests) == 0:
+                return
+
             if self.modelevol is None:
                 self.modelevol = ModelAnnEndVolume()
             pre = self.modelevol.predict([t[2:] for t in tests])
@@ -822,39 +631,7 @@ class StrategyI_EVolume(StrategyI_Listener):
                 price = min(price * 1.02, top_price)
                 if callable(self.on_intrade_matched):
                     mdata = {'code': c, 'price': price}
-                    await self.on_intrade_matched(self.key, mdata, self.create_intrade_matched_message)
-                    self.stock_notified.append(c)
-
-    def create_intrade_matched_message(self, match_data, subscribe_detail):
-        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
-
-
-class StrategyI_EVolumeD4(StrategyI_EVolume):
-    ''' 尾盘竞价爆量
-    '''
-    key = 'istrategy_evold4'
-    name = '尾盘竞价爆量4日'
-    desc = '收盘集合竞价爆量 竞价成交量>0.04*全天成交量 换手>1% 成交额>1000万 4日前有涨停(涨停后调整3天)'
-
-    async def execute_open_task(self):
-        evoltbl = StockEndVolumeSelector()
-        mx_tdate = TradingDate.maxTradingDate()
-        if mx_tdate == Utils.today_date():
-            candi_date = TradingDate.prevTradingDate(mx_tdate)
-            candidates = evoltbl.dumpLatesetD4Candidates(candi_date, False)
-            for c in candidates:
-                if WsIsUtils.is_stock_blacked(c): continue
-                if WsIsUtils.to_be_divided(c): continue
-                snapshot = Utils.get_em_snapshot(c)
-                price = 0 if snapshot['realtimequote']['currentPrice'] == '-' else float(snapshot['realtimequote']['currentPrice'])
-                top_price = 0 if snapshot['topprice'] == '-' else float(snapshot['topprice'])
-                if top_price == 0:
-                    continue
-                if price == 0:
-                    price = top_price
-                price = min(price * 1.02, top_price)
-                if callable(self.on_intrade_matched):
-                    mdata = {'code': c, 'price': price}
+                    mdata['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2), 'guardPrice': round(price * 0.95, 2) }}
                     await self.on_intrade_matched(self.key, mdata, self.create_intrade_matched_message)
                     self.stock_notified.append(c)
 
@@ -889,9 +666,10 @@ class StrategyI_Zt1H_Bk(StrategyI_Listener):
             self.zt1h_stocks.append(StockGlobal.full_stockcode(c))
             if WsIsUtils.recent_zt_reached(c): continue
             if WsIsUtils.to_be_divided(c): continue
-            price = float(i.split(',')[0])
-            chg_match_data = {'code': c, 'price': price}
             if callable(self.on_intrade_matched):
+                price = float(i.split(',')[0])
+                chg_match_data = {'code': c, 'price': price}
+                chg_match_data['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2), 'guardPrice': round(price * 0.92, 2) }, 'StrategySellBE': {}}
                 await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
                 self.stock_notified.append(c)
 
@@ -920,49 +698,78 @@ class StrategyI_Zt1H_Bk(StrategyI_Listener):
 
             price = float(i.split(',')[0])
             chg_match_data = {'code': c, 'price': price}
+            chg_match_data['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2), 'guardPrice': round(price * 0.92, 2) }, 'StrategySellBE': {}}
             if callable(self.on_intrade_matched):
                 await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
                 self.stock_notified.append(c)
 
-    def create_intrade_matched_message(self, match_data, subscribe_detail):
-        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
 
-
-class StrategyI_Zt1H_Yzb(StrategyI_Listener):
-    ''' 首板一字涨停排单
+class StrategyI_EndFundFlow(StrategyI_Listener):
+    ''' 尾盘主力净流入
     '''
-    key = 'istrategy_yzb'
-    name = '首板一字板'
-    desc = '首板一字板排单买入'
+    key = 'istrategy_endfflow'
+    name = '尾盘净流入'
+    desc = '尾盘主力资金净流入, 流入额>1000w, 流入占比>10%, 三日连续净流入, 三日累计涨幅<10%, 流通市值<1000亿'
     on_intrade_matched = None
-
     def __init__(self):
-        self.watcher = WsIsUtils.get_watcher('stkzt_open')
-        self.stock_notified = []
+        self.watcher = WsIsUtils.get_watcher('end_fundflow')
 
-    async def on_watcher(self, fecthed):
-        for c, f, t, i in fecthed:
-            if t != 4: continue
-            if c in self.stock_notified: continue
-            if WsIsUtils.recent_zt_reached(c): continue
+    async def on_watcher(self, main_flows):
+        fstocks = []
+        chkdate = main_flows[0][1]
+        for c, d, f, fp in main_flows:
+            if fp < 10 or f < 1e7: continue
             if WsIsUtils.is_stock_blacked(c): continue
             if WsIsUtils.to_be_divided(c): continue
+            fstocks.append(c)
+        sbasics = Utils.get_cls_basics(fstocks)
+        fstocks = []
+        sprices = {}
+        for c, b in sbasics.items():
+            if b['cmc'] is None or b['cmc'] >= 1e11:
+                continue
+            if b['change'] > 0.05 or b['change'] < -0.05 or b['last_px'] < b['high_px'] * 0.95:
+                continue
+            fstocks.append(c)
+            sprices[c] = b['last_px']
 
-            price = float(i.split(',')[0])
-            chg_match_data = {'code': c, 'price': price}
+        sd = StockDumps()
+        sfh = Stock_Fflow_History()
+        sstocks = []
+        for c in fstocks:
+            allkl = sd.read_kd_data(c, fqt=1, length=3)
+            if allkl is None:
+                continue
+            allkl = [KNode(kl) for kl in allkl]
+            if allkl[-1].date == chkdate:
+                allkl = sd.read_kd_data(c, fqt=1, length=4)
+                allkl = [KNode(kl) for kl in allkl]
+                allkl.pop()
+            if len(allkl) < 3:
+                continue
+            if sprices[c] > 1.1 * allkl[0].close or sprices[c] < 0.95 * allkl[0].close:
+                continue
+            if allkl[1].pchange < -5 or allkl[2].pchange < -5:
+                continue
+            mfs = sfh.dumpMainFlow(c, allkl[0].date, allkl[-1].date)
+            if mfs is None or len(mfs) == 0 or mfs[0][2] > 0:
+                continue
+            min_in = min([m[2] for m in mfs[1:]])
+            if min_in < 1e6:
+                continue
+            sstocks.append(c)
             if callable(self.on_intrade_matched):
-                await self.on_intrade_matched(self.key, chg_match_data, self.create_intrade_matched_message)
-                self.stock_notified.append(c)
-
-    def create_intrade_matched_message(self, match_data, subscribe_detail):
-        return create_strategy_matched_message_zt_buy(match_data, subscribe_detail)
+                mdata = {'code': c, 'price': sprices[c]*1.02}
+                mdata['strategies'] = {'StrategySellELS': {'topprice': round(sprices[c] * 1.07, 2), 'guardPrice': round(sprices[c] * 0.95, 2) }}
+                await self.on_intrade_matched(self.key, mdata, self.create_intrade_matched_message)
+        Utils.log(f'EndFundFlow select {len(sstocks)} stocks: {sstocks}')
 
 
 class WsIntradeStrategyFactory:
     istrategies = [
-        StrategyI_AuctionUp(), StrategyI_Zt1Breakup(), StrategyI_EndAuc_Nzt(), StrategyI_HighClose(),
-        StrategyI_HotrankOpen(), StrategyI_Zt1Hotrank(), StrategyI_Zt1j2Open(), StrategyI_Zt1Bk(),
-        StrategyI_3Bull_Breakup(), StrategyI_EVolume(), StrategyI_EVolumeD4(), StrategyI_Zt1H_Bk(), StrategyI_Zt1H_Yzb()]
+        StrategyI_AuctionUp(), StrategyI_Zt1Breakup(), StrategyI_EndFundFlow(),
+        StrategyI_Zt1Hotrank(), StrategyI_DayHotrank(), StrategyI_Zt1j2Open(), StrategyI_Zt1Bk(),
+        StrategyI_EVolume(), StrategyI_Zt1H_Bk()]
 
     @classmethod
     def all_available_istrategies(self):
@@ -982,6 +789,6 @@ class WsIntradeStrategyFactory:
         for strategy in self.istrategies:
             await strategy.start_strategy_tasks()
 
-        watchers = ['sm_stats']
+        watchers = ['sm_stats', 'open_auctions']
         for watcher in watchers:
             await WsIsUtils.get_watcher(watcher).start_strategy_tasks()

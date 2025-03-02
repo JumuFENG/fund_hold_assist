@@ -312,6 +312,13 @@ def stock():
             szs = StockZt1j2Selector()
             szs.setCandidates(date, stks)
             return 'OK', 200
+        if actype == 'add_zt1wb':
+            date = request.form.get('date')
+            stks = request.form.get('stocks')
+            stks = stks.split(',')
+            szs = StockZt1WbSelector()
+            szs.addZt1WbStocks(date, stks)
+            return 'OK', 200
         if actype == 'unselect_3brk':
             stks = request.form.get('stocks')
             stks = stks.split(',')
@@ -325,6 +332,16 @@ def stock():
             sev = StockEndVolumeSelector()
             sev.setCandidates(date, stks)
             return 'OK', 200
+        if actype == 'setistr':
+            key = request.form.get('key')
+            if key == 'istrategy_hotrank0':
+                rks = request.form.get('data')
+                rks = json.loads(rks)
+                mdt = TradingDate.maxTradingDate()
+                tprks = [[StockGlobal.full_stockcode(x[0]), mdt] + x[1:] for x in rks]
+                hotranktbl = StockHotrank0Selector()
+                hotranktbl.saveDailyHotrank0(tprks)
+                return 'OK', 200
     else:
         actype = request.args.get("act", type=str, default=None)
         if actype == 'test':
@@ -355,6 +372,21 @@ def stock():
             szc = StockZtConcepts()
             cdata = szc.dumpDataByDate((datetime.now() - timedelta(days=days)).strftime(r"%Y-%m-%d"))
             return json.dumps(cdata)
+        if actype == 'stockbks':
+            stocks = request.args.get('stocks', type=str, default='')
+            stocks = stocks.split(',')
+            bks = {c: [[k, StockBkAll.queryBkName(k)] for k in StockBkMap.stock_bks(c) if not StockBkAll.bkIgnored(k)] for c in stocks }
+            return json.dumps(bks)
+        if actype == 'bkstocks':
+            bks = request.args.get('bks', type=str, default='')
+            bks = bks.split(',')
+            stks = {c: [s for s in StockBkMap.bk_stocks(c)] for c in bks}
+            return json.dumps(stks)
+        if actype == 'hotstocks':
+            days = request.args.get('days', type=int, default=2)
+            szd = StockZtDaily()
+            stks = szd.getHotStocks(TradingDate.prevTradingDate(TradingDate.maxTradedDate(), days))
+            return json.dumps(stks)
         if actype == 'pickup':
             date = request.args.get('date', type=str, default=None)
             key = request.args.get('key', type=str, default=None)
@@ -364,6 +396,9 @@ def stock():
                 szi = StockZtDailyKcCy()
                 ztkc = szi.dumpDataByDate(zt['date'])
                 zt['pool'] += ztkc['pool']
+                szj = StockZtDailyBJ()
+                ztbj = szj.dumpDataByDate(zt['date'])
+                zt['pool'] += ztbj['pool']
                 return json.dumps(zt)
             if key == 'zt1_1':
                 szi = StockZtDailyMain()
@@ -431,6 +466,32 @@ def stock():
                 stdr = StockTrackDealReview()
                 return json.dumps(stdr.dumpTrackReviews())
             return f'Unknown key {key}', 404
+        if actype == 'getistr':
+            key = request.args.get('key', type=str, default=None)
+            if key == 'istrategy_zt1wb':
+                wbtbl = StockZt1WbSelector()
+                stocks = wbtbl.dumpDataByDate()
+                td = TradingDate.maxTradedDate()
+                if len(stocks) == 0:
+                    szi = StockZtDailyMain()
+                    zstocks = szi.dumpDataByDate(td)
+                    if zstocks['date'] != td:
+                        stocks = []
+                    else:
+                        stocks = [x[0] for x in zstocks['pool']]
+                else:
+                    stocks = [x[0] for x in stocks if x[1] == td]
+                return json.dumps(stocks)
+            elif key == 'istrategy_3brk':
+                s3btbl = StockTrippleBullSelector()
+                days = request.args.get('days', type=int, default=0)
+                chl = s3btbl.getDaysCandidatesHighLow(days, True)
+                return json.dumps(chl)
+            elif key == 'istrategy_hotrank0':
+                hotranktbl = StockHotrank0Selector()
+                rked5d = hotranktbl.getRanked(TradingDate.maxTradedDate())
+                return json.dumps(rked5d)
+            return f'Unknown key {key}', 404
         if actype == 'dealcategory':
             dc = StockTrackDeals()
             return json.dumps(dc.get_available_dealtable())
@@ -453,6 +514,28 @@ def stock():
             shr = StockHotRank()
             rk = shr.dumpDataByDate(date)
             return json.dumps(rk)
+        if actype == 'hotrankrt':
+            rk = request.args.get('rank', type=int, default=40)
+            if rk > 100:
+                rk = 100
+            shr = StockHotRank()
+            rks = shr.getGbRanks()
+            i = 1
+            while i * 20 < rk:
+                i += 1
+                rks += shr.getGbRanks(i)
+            return json.dumps(rks)
+        if actype == 'ztlbc':
+            szs = StockZtLeadingStepsSelector()
+            date = request.args.get('date', type=str, default=None)
+            return json.dumps(szs.dumpDaysLbc(date))
+        if actype == 'zdtemot':
+            sze = StockZdtEmotion()
+            date = request.args.get('date', type=str, default=None)
+            if date is not None:
+                return json.dumps(sze.dumpDataByDate(date))
+            days = request.args.get('days', type=int, default=10)
+            return json.dumps(sze.dumpDataInDays(days))
 
     usermodel = UserModel()
     if not session.get('logged_in'):
@@ -737,12 +820,22 @@ def stock_allinfo():
         return json.dumps(stkmkts)
     return 'get stock info, no valid args'
 
-@app.route('/api/get')
+@app.route('/api/get', methods=['GET', 'POST'])
 def get_http_request():
-    url = request.args.get('url','')
+    if request.method == 'POST':
+        url = request.form.get('url', None, str)
+        host = request.form.get('host', None, str)
+        referer = request.form.get('referer', None, str)
+    else:
+        url = request.args.get('url','')
+        host = request.args.get('host', None, str)
+        referer = request.args.get('referer', None, str)
+
     if not url:
         return "No url specified."
     if ':' not in url:
+        while len(url) % 4 != 0:
+            url += '='
         url = base64.b64decode(url).decode()
 
     header = {
@@ -752,8 +845,6 @@ def get_http_request():
         'Accept-Encoding': 'gzip, deflate, br',
         'Connection': 'keep-alive'
     }
-    host = request.args.get('host', None, str)
-    referer = request.args.get('referer', None, str)
     if host is not None:
         header['Host'] = host
     if referer is not None:
