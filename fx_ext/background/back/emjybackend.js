@@ -962,6 +962,21 @@ class EmjyBack {
         return this.tryBuyStock(code, price, count, account);
     }
 
+    testTradeApi(code) {
+        if (!code) {
+            code = '601398';
+        }
+        feng.getStockSnapshot(code).then(snap => {
+            this.tryBuyStock(code, snap.bottomprice, guang.calcBuyCount(1000, snap.bottomprice), 'normal').then(bd => {
+                if (bd) {
+                    console.log('tade test with deal', bd);
+                }
+            }).catch(err => {
+                console.log('test trade failed', err)
+            });
+        });
+    }
+
     applyKlVars(code, klvars) {
         if (this.klines[code]) {
             this.klines[code].addKlvars(klvars);

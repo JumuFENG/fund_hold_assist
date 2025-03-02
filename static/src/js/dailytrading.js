@@ -4084,7 +4084,7 @@ class EmPopularity extends LeftColumnBarItem {
     }
 
     getPopularity(cb) {
-        var fUrl = emjyBack.fha.server + 'fwd/emwebselectiondata/get?type=RPTA_PCNEW_STOCKSELECT&sty=POPULARITY_RANK,NEWFANS_RATIO&filter=(POPULARITY_RANK>0)(POPULARITY_RANK<=1000)(NEWFANS_RATIO>=0.00)(NEWFANS_RATIO<=100.0)&p=1&ps=1000&st=POPULARITY_RANK&sr=1&source=SELECT_SECURITIES&client=WEB';
+        var fUrl = emjyBack.fha.server + 'fwd/emwebselectiondata/get?type=RPTA_PCNEW_STOCKSELECT&sty=SECURITY_CODE,SECURITY_NAME_ABBR,POPULARITY_RANK,NEWFANS_RATIO&filter=(POPULARITY_RANK>0)(POPULARITY_RANK<=1000)(NEWFANS_RATIO>=0.00)(NEWFANS_RATIO<=100.0)&p=1&ps=1000&st=POPULARITY_RANK&sr=1&source=SELECT_SECURITIES&client=WEB';
         fetch(fUrl).then(r=>{
             if (r.headers.get('Content-Type').includes('application/json')) {
                 return r.json();
