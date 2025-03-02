@@ -100,6 +100,10 @@ class StockTrackDeals(TableBase):
         track['deals'] = ds
         return track
 
+    def get_stocks_in_deals(self, dtable):
+        d = self.sqldb.select(dtable, f'{column_code}', order=f'group by {column_code}')
+        return [x for x, in d]
+
     def fork_deals(self, ftrackname, ttrackname, startdate='2024-02-19', maxbuy=0):
         '''从现存的记录中选出符合条件的记录保存到新的表中
         @param ftrackname: 原始交易记录表名
@@ -283,6 +287,27 @@ class StockTrackDeals(TableBase):
 
         self.addDeals(ttrackname, to_ds)
 
+    def copy_deals(self, ftrackname, ttrackname, conds=''):
+        '''简单复制，将符合条件的交易记录从一个表中复制到另一个表中，不做任何检查'''
+        deals = self.sqldb.select(ftrackname, '*', conds)
+        ds = []
+        for _,d,c,tp,sid,pr,ptn in deals:
+            fee = 0
+            ds.append({'code': c, 'time': d, 'tradeType': tp, 'sid': sid, 'price': pr, 'count': ptn, 'fee': fee})
+        self.addDeals(ttrackname, ds)
+
+    def copy_deals1(self, ftrackname, ttrackname, selecor=None):
+        '''简单复制，将符合条件的交易记录从一个表中复制到另一个表中，selector为检查回调'''
+        deals = self.sqldb.select(ftrackname, '*')
+        ds = []
+        for _,d,c,tp,sid,pr,ptn in deals:
+            if callable(selecor):
+                if not selecor((d,c,tp,sid,pr,ptn)):
+                    continue
+            fee = 0
+            ds.append({'code': c, 'time': d, 'tradeType': tp, 'sid': sid, 'price': pr, 'count': ptn, 'fee': fee})
+        self.addDeals(ttrackname, ds)
+
 
 class StockTrackDealReview(TableBase):
     def __init__(self) -> None:
@@ -336,7 +361,7 @@ class StockTrackDealReview(TableBase):
         while len(self.wkstocks) > 0:
             code, d1, d2 = self.wkstocks.pop(0)
             sdate = datetime.strptime(d1, '%Y-%m-%d')
-            allkl = sd.read_kd_data(code, length=50, start=(sdate - timedelta(days=10)).strftime('%Y-%m-%d'))
+            allkl = sd.read_kd_data(code, length=50, start=(sdate - timedelta(days=12)).strftime('%Y-%m-%d'))
             allkl = [KNode(kl) for kl in allkl]
             for i in range(1, len(allkl)):
                 if allkl[i].date == d1:
