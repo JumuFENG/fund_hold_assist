@@ -6,11 +6,10 @@ class StockRankClient {
     }
 
     getRanks() {
-        //this.GetFromWencai();
         var rkurl = emjyBack.fha.server + 'stock?act=hotrank';
-        utils.get(rkurl, null, rk => {
+        fetch(rkurl).then(r=>r.json()).then(rk => {
             var ranks = [];
-            for (var r of JSON.parse(rk)) {
+            for (var r of rk) {
                 var ri = {};
                 for (var k in r) {
                     if (k == 'code') {
@@ -42,29 +41,5 @@ class StockRankClient {
                 i--;
             }
         }
-    }
-
-    GetFromWencai() {
-        wencaiCommon.getWencaiRank100(datas => {
-            this.onWencaiRankBack(datas);
-        });
-    }
-
-    onWencaiRankBack(datas) {
-        if (!datas || datas.length == 0) {
-            return;
-        }
-
-        var rank = [];
-        for (let i = 0; i < datas.length; i++) {
-            const d = datas[i];
-            for (const key in d) {
-                if (key.includes('个股热度排名')) {
-                    rank.push({code: d.code, rank: d[key].split('/')[0]});
-                    break;
-                }
-            }
-        }
-        this.mergeRanks(rank);
     }
 }

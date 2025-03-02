@@ -103,8 +103,8 @@ class StockZdfRankPanelPage extends RadioAnchorPage {
 
     fetchDefaultRanks(date) {
         var url = emjyBack.fha.server + 'stock?act=rank&start=' + date;
-        utils.get(url, null, rdata => {
-            this.dayRanks = JSON.parse(rdata);
+        fetch(url).then(r=>r.json()).then(rdata => {
+            this.dayRanks = rdata;
             this.setCandidateStocks(this.container.querySelector('input[name="rankradio"]:checked').value);
             if (this.checkStockRanks()) {
                 this.showStockRanks();
@@ -136,7 +136,7 @@ class StockZdfRankPanelPage extends RadioAnchorPage {
     showStockRanks() {
         if (!this.stockRanks || !this.dayRanks) {
             this.stockRanks = {};
-            this.fetchDefaultRanks(utils.getTodayDate());
+            this.fetchDefaultRanks(guang.getTodayDate('-'));
             return;
         }
 
@@ -188,10 +188,9 @@ class StockZdfRankPanelPage extends RadioAnchorPage {
         if (start) {
             url += '&start=' + start;
         }
-        utils.get(url, null, rdata => {
-            var rankdata = JSON.parse(rdata);
+        fetch(url).then(r=>r.json()).then(rdata => {
             if (typeof(cb) === 'function') {
-                cb(code, rankdata);
+                cb(code, rdata);
             }
         });
     }
@@ -240,7 +239,7 @@ class StockZdfRankPanelPage extends RadioAnchorPage {
     }
 
     getStartDate(c) {
-        var startdate = utils.getTodayDate();
+        var startdate = guang.getTodayDate('-');
         for (var i = this.stockRanks[c].length - 1; i > 0; i--) {
             if (new Date(this.stockRanks[c][i].time) - new Date(this.stockRanks[c][i-1].time) > 10 * 24 * 60 * 60 * 1000) {
                 if (this.stockRanks[c][i].time < startdate) {
@@ -253,7 +252,7 @@ class StockZdfRankPanelPage extends RadioAnchorPage {
     }
 
     getContinouseDates(rkedCode) {
-        var startdate = utils.getTodayDate();
+        var startdate = guang.getTodayDate('-');
         for (const c of rkedCode) {
             if (!this.stockRanks[c]) {
                 continue;

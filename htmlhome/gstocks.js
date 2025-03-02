@@ -268,10 +268,9 @@ class GlobalManager {
     }
 
     fetchStocksMarket() {
-        utils.get(this.fha.server + 'api/allstockinfo', null, mkt => {
-            var mktInfo = JSON.parse(mkt);
-            for (var i = 0; i < mktInfo.length; ++i) {
-                this.stockMarket[mktInfo[i].c.substring(2)] = mktInfo[i];
+        fetch(this.fha.server + 'api/allstockinfo').then(r=>r.json()).then(mkt => {
+            for (var i = 0; i < mkt.length; ++i) {
+                this.stockMarket[mkt[i].c.substring(2)] = mkt[i];
             }
             this.saveToLocal({'hsj_stocks': this.stockMarket});
         });
@@ -308,8 +307,7 @@ class GlobalManager {
             url += '&start=' + ltime.split(' ')[0];
         }
 
-        utils.get(url, null, ksdata => {
-            var kdata = JSON.parse(ksdata);
+        fetch(url).then(r=>r.json()).then(kdata => {
             if (!kdata || kdata.length == 0) {
                 console.error('no kline data for', code, 'kltype:', kltype);
                 return;
@@ -339,11 +337,10 @@ class GlobalManager {
             return;
         }
         var url = this.fha.server + 'stock?act=stockbks&stocks=' + stocks.join(',');
-        utils.get(url, null, sbks => {
+        fetch(url).then(r=>r.json()).then(sbks => {
             if (!this.stock_bks) {
                 this.stock_bks = {};
             }
-            sbks = JSON.parse(sbks);
             for (let c in sbks) {
                 this.stock_bks[c] = sbks[c];
             }
@@ -369,7 +366,7 @@ class GlobalManager {
 
     checkExistingKlineLatest(code, kltype, edate) {
         if (!edate) {
-            edate = utils.getTodayDate();
+            edate = guang.getTodayDate('-');
         }
 
         var kl = this.klines[code].getLatestKline(kltype);

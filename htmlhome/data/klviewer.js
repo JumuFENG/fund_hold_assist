@@ -10,8 +10,8 @@ class KlViewerPanelPage extends RadioAnchorPage {
 
     fetchStockData(skey) {
         var url = emjyBack.fha.server + 'stock?act=pickupdone&key=' + skey;
-        utils.get(url, null, stks => {
-            this.stkAll[skey] = JSON.parse(stks);
+        fetch(url).then(r=>r.json()).then(stks => {
+            this.stkAll[skey] = stks;
             this.totalLabel.textContent = this.stkAll[skey].length;
             this.showNextStockKline();
         });
@@ -24,8 +24,7 @@ class KlViewerPanelPage extends RadioAnchorPage {
         var zdate = new Date(this.showingInfo[1]);
         zdate.setMonth(zdate.getMonth() - 1);
         url += '&start=' + utils.dateToString(zdate);
-        utils.get(url, null, ksdata => {
-            var kdata = JSON.parse(ksdata);
+        fetch(url).then(r=>r.json()).then(kdata => {
             if (!kdata || kdata.length == 0) {
                 console.error('no kline data for', this.showingCode);
                 return;

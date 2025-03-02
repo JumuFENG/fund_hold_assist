@@ -143,8 +143,8 @@ class DealsPanelPage extends RadioAnchorPage {
         this.dealCategorySel = document.createElement('select');
         if (!this.dealCategories) {
             var dcUrl = emjyBack.fha.server + 'stock?act=dealcategory';
-            utils.get(dcUrl, null, dt => {
-                this.dealCategories = JSON.parse(dt);
+            fetch(dcUrl).then(r=>r.json()).then(dt => {
+                this.dealCategories = dt;
                 for (const dc of this.dealCategories) {
                     this.dealCategorySel.appendChild(new Option(
                         dc[1]?dc[1]:dc[0], dc[0]));
@@ -216,8 +216,8 @@ class DealsPanelPage extends RadioAnchorPage {
                 var fd = new FormData();
                 fd.append('act', 'rmtrackdeals');
                 fd.append('name', Array.from(this.checkedCategories).join(','));
-                utils.post(rmUrl, fd, null, r => {
-                    console.log(r);
+                fetch(rmUrl, {method: 'POST', body: fd}).then(r => r.text()).then(tx => {
+                    console.log(tx);
                 });
                 for (var i = this.dealCategories.length - 1; i >= 0; i--) {
                     if (this.checkedCategories.has(this.dealCategories[i][0])) {
@@ -279,16 +279,15 @@ class DealsPanelPage extends RadioAnchorPage {
 
     getDealsByCategory(category, cb) {
         var dcUrl = emjyBack.fha.server + 'stock?act=trackdeals&name=' + category;
-        var header = null;
+        var headers = {};
         if (category == 'archived') {
             if (!emjyBack.fha.uemail || !emjyBack.fha.pwd) {
                 console.error('user not set!');
                 return;
             }
-            header = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+            headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
         }
-        utils.get(dcUrl, header, ds => {
-            var sDeals = JSON.parse(ds);
+        fetch(dcUrl, {headers}).then(r=>r.json()).then( sDeals => {
             var deals = sDeals.deals;
             if (deals[0].count == 0) {
                 var fcounts = {};

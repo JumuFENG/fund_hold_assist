@@ -90,7 +90,7 @@ class StkSelector {
             }
             var url = emjyBack.fha.server + 'stock';
             var fd = this.candidatesForm();
-            utils.post(url, fd, null, c => {
+            fetch(url, {method: 'POST', body: fd}).then(r=>r.text()).then(c => {
                 if (c != 'OK') {
                     console.error('set candidates error!');
                 } else {
@@ -168,8 +168,8 @@ class Zt1Selector extends StkSelector {
 
     getSelectorData() {
         var ztUrl = emjyBack.fha.server + 'stock?act=pickup&key=zt1';
-        utils.get(ztUrl, null, zt => {
-            this.selStocks = JSON.parse(zt);
+        fetch(ztUrl).then(r=>r.json()).then(zt => {
+            this.selStocks = zt;
             this.ztdate = this.selStocks.date;
             this.selStocks.pool.sort((x, y) => {
                 return x[0].substring(2) < y[0].substring(2);
@@ -193,7 +193,7 @@ class Zt1Selector extends StkSelector {
             var url = emjyBack.fha.server + 'stock';
             var fd = this.candidatesForm();
             fd.set('act', 'add_zt1wb');
-            utils.post(url, fd, null, c => {
+            fetch(url, {method: 'POST', body: fd}).then(r=>r.text()).then(c => {
                 if (c != 'OK') {
                     console.error('add zt1wb error!');
                 } else {
@@ -243,8 +243,8 @@ class ZtLeadSelector extends StkSelector {
 
     getSelectorData() {
         var ldUrl = emjyBack.fha.server + 'stock?act=pickup&key=zt_lead&date=' + this.ztdate;
-        utils.get(ldUrl, null, zt => {
-            this.selStocks = JSON.parse(zt);
+        fetch(ldUrl).then(r=>r.json()).then(zt => {
+            this.selStocks = zt;
             this.showSelected();
         });
     }
@@ -295,8 +295,8 @@ class ZtPredictLeadSelector extends StkSelector {
         if (this.ztdate) {
             zpUrl += '&date=' + this.ztdate;
         }
-        utils.get(zpUrl, null, zp => {
-            this.selStocks = JSON.parse(zp);
+        fetch(zpUrl).then(r=>r.json()).then(zp => {
+            this.selStocks = zp;
             this.selStocks.sort((x,y) => {
                 if (x[3] == y[3]) {
                     return x[2] > y[2];
@@ -535,8 +535,8 @@ class Zt1d1Selector extends StkSelector {
 
     getSelectorData() {
         var ztUrl = emjyBack.fha.server + 'stock?act=pickup&key=zt1_1&date=' + this.ztdate;
-        utils.get(ztUrl, null, zt => {
-            this.selStocks = JSON.parse(zt);
+        fetch(ztUrl).then(r=>r.json()).then(zt => {
+            this.selStocks = zt;
             this.showSelected();
         });
     }
@@ -579,8 +579,8 @@ class Zt1BrkSelector extends StkSelector {
 
     getSelectorData() {
         var ztUrl = emjyBack.fha.server + 'stock?act=pickup&key=zt1_brk&date=' + this.ztdate;
-        utils.get(ztUrl, null, zt => {
-            this.selStocks = JSON.parse(zt);
+        fetch(ztUrl).then(r=>r.json()).then(zt => {
+            this.selStocks = zt;
             this.selStocks.sort((x, y) => {
                 return x[0].substring(2) < y[0].substring(2);
             });
@@ -634,8 +634,8 @@ class TripleBullSelector extends StkSelector {
 
     getSelectorData() {
         var tbrkUrl = emjyBack.fha.server + 'stock?act=pickup&key=3brk';
-        utils.get(tbrkUrl, null, tbrk => {
-            this.selStocks = JSON.parse(tbrk);
+        fetch(tbrkUrl).then(r=>r.json()).then(tbrk => {
+            this.selStocks = tbrk;
             if (this.selStocks.length > 0) {
                 this.showSelected();
             }
@@ -705,8 +705,8 @@ class EndVolumeSelector extends StkSelector {
 
     getSelectorData() {
         var evUrl = emjyBack.fha.server + 'stock?act=pickup&key=evol&date=' + this.ztdate;
-        utils.get(evUrl, null, dzt => {
-            this.selStocks = JSON.parse(dzt);
+        fetch(evUrl).then(r=>r.json()).then(dzt => {
+            this.selStocks = dzt;
             if (this.selStocks.length > 0) {
                 this.showSelected();
             }
@@ -760,8 +760,8 @@ class DztSelector extends StkSelector {
 
     getSelectorData() {
         var dztUrl = emjyBack.fha.server + 'stock?act=pickup&key=dzt&date=' + this.ztdate;
-        utils.get(dztUrl, null, dzt => {
-            this.selStocks = JSON.parse(dzt);
+        fetch(dztUrl).then(r=>r.json()).then(dzt => {
+            this.selStocks = dzt;
             if (this.selStocks.length > 0) {
                 this.showSelected();
             }
@@ -810,8 +810,8 @@ class DtBoardSelector extends StkSelector {
 
     getSelectorData() {
         var dztUrl = emjyBack.fha.server + 'stock?act=pickup&key=dztbd&date=' + this.ztdate;
-        utils.get(dztUrl, null, dzt => {
-            this.selStocks = JSON.parse(dzt);
+        fetch(dztUrl).then(r=>r.json()).then(dzt => {
+            this.selStocks = dzt;
             if (this.selStocks.length > 0) {
                 this.showSelected();
             }
@@ -857,8 +857,8 @@ class MaConvSelector extends StkSelector {
 
     getSelectorData() {
         var mcUrl = emjyBack.fha.server + 'stock?act=pickup&key=maconv';
-        utils.get(mcUrl, null, mc => {
-            this.selStocks = JSON.parse(mc);
+        fetch(mcUrl).then(r=>r.json()).then(mc => {
+            this.selStocks = mc;
             if (this.selStocks.length > 0) {
                 this.showSelected();
             }
@@ -904,12 +904,12 @@ class UstSelector extends StkSelector {
 
     getSelectorData() {
         var ustUrl = emjyBack.fha.server + 'stock?act=pickup&key=ust';
-        utils.get(ustUrl, null, mc => {
-            this.selStocks = JSON.parse(mc);
+        fetch(ustUrl).then(r=>r.json()).then(mc => {
+            this.selStocks = mc;
             if (this.selStocks.length > 0) {
                 this.showSelected();
             }
-        })
+        });
     }
 
     doShowSelected() {

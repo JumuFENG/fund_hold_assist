@@ -77,8 +77,8 @@ class DtPanelPage extends RadioAnchorPage {
 
     getDtMap() {
         var mapUrl = emjyBack.fha.server + 'stock?act=dtmap';
-        utils.get(mapUrl, null, dt => {
-            this.dtmap = JSON.parse(dt);
+        fetch(mapUrl).then(r=>r.json()).then(dt => {
+            this.dtmap = dt;
             if (this.dtmap) {
                 this.showDtMaps();
             }
@@ -90,16 +90,16 @@ class DtPanelPage extends RadioAnchorPage {
         if (date !== undefined) {
             dtUrl += 'date=' + date;
         }
-        utils.get(dtUrl, null, dt => {
-            this.dtdata = JSON.parse(dt);
+        fetch(dtUrl).then(r=>r.json()).then(dt => {
+            this.dtdata = dt;
             this.showDtTable();
         });
     }
 
     getDt3Stocks() {
         var dt3Url = emjyBack.fha.server + 'stock?act=pickup&key=dt3';
-        utils.get(dt3Url, null, dt3 => {
-            this.dt3stocks = JSON.parse(dt3);
+        fetch(dt3Url).then(r=>r.json()).then(dt3 => {
+            this.dt3stocks = dt3;
             this.showDt3Table();
         });
     }

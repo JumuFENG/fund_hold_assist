@@ -74,8 +74,8 @@ class UserDealsPanel extends RadioAnchorPage {
             filterDiv.appendChild(this.dealCategorySel);
             if (!this.dealCategories) {
                 var dcUrl = emjyBack.fha.server + 'stock?act=dealcategory';
-                utils.get(dcUrl, null, dt => {
-                    this.dealCategories = JSON.parse(dt);
+                fetch(dcUrl).then(r=>r.json()).then(dt => {
+                    this.dealCategories = dt;
                     for (const dc of this.dealCategories) {
                         this.dealCategorySel.appendChild(new Option(
                             dc[1]?dc[1]:dc[0], dc[0]));
@@ -124,7 +124,7 @@ class UserDealsPanel extends RadioAnchorPage {
                     }
                 }
                 fd.append('data', JSON.stringify(this.checkedDeals));
-                utils.post(dlUrl, fd, null, dl => {
+                fetch(dlUrl, {method: 'POST', body: fd}).then(r=>r.text()).then(dl => {
                     if (dl != 'OK') {
                         console.error('add deals to', track_name, 'failed!');
                     } else {
@@ -166,10 +166,9 @@ class UserDealsPanel extends RadioAnchorPage {
             return;
         }
         var url = emjyBack.fha.server + 'stock?act=trackdeals&name=archived';
-        var header = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
-        utils.get(url, header, rsp => {
-            var jrsp = JSON.parse(rsp);
-            this.userDeals = jrsp.deals;
+        var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+        fetch(url, {headers}).then(r=>r.json()).then(rsp => {
+            this.userDeals = rsp.deals;
             this.showDeals();
         });
     }
@@ -180,9 +179,9 @@ class UserDealsPanel extends RadioAnchorPage {
             return;
         }
         var url = emjyBack.fha.server + 'stock?act=archivedcodes&since=' + utils.dateToString(new Date(new Date() - 7 * 24 * 60 * 60 * 1000), '-');
-        var header = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
-        utils.get(url, header, rsp => {
-            this.curWkSold = JSON.parse(rsp);
+        var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+        fetch(url, {headers}).then(r=>r.json()).then(rsp => {
+            this.curWkSold = rsp;
             this.showWkSold();
         });
     }

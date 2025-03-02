@@ -245,19 +245,19 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
 
     getZtConcepts() {
         var ztUrl = emjyBack.fha.server + 'stock?act=ztconcept&days=50';
-        utils.get(ztUrl, null, cdata => {
-            this.ztconcepts = JSON.parse(cdata);
+        fetch(ztUrl).then(r=>r.json()).then(cdata => {
+            this.ztconcepts = cdata;
             this.showZtConcepts();
         });
     }
 
     getDailyZt(date, concept, cb) {
         var ztUrl = emjyBack.fha.server + 'api/stockzthist?date=' + date + '&concept=' + concept;
-        utils.get(ztUrl, null, zdata => {
+        fetch(ztUrl).then(r=>r.json()).then(zdata => {
             if (!this.dailyZtStocks[date]) {
                 this.dailyZtStocks[date] = {};
             }
-            this.dailyZtStocks[date][concept] = JSON.parse(zdata);
+            this.dailyZtStocks[date][concept] = zdata;
             if (typeof(cb) === 'function') {
                 cb();
             }
@@ -281,8 +281,8 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
 
     getDailyZtStats() {
         var ztUrl = emjyBack.fha.server + '/api/stockzthist?daily=1';
-        utils.get(ztUrl, null, zst => {
-            this.showDailyZtStats(JSON.parse(zst));
+        fetch(ztUrl).then(r.r.json()).then(zst => {
+            this.showDailyZtStats(zst);
         });
     }
 
@@ -290,13 +290,13 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
         let ldate = this.hdate ? new Date(this.hdate) : new Date();
         this.hdate = new Date(ldate - 90*24*60*60000).toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, '-');
         var lbcUrl = emjyBack.fha.server + 'stock?act=ztlbc&date=' + this.hdate;
-        utils.get(lbcUrl, null, lrsp => {
-            emjyBack.lbc_series = JSON.parse(lrsp);
+        fetch(lbcUrl).then(r=>r.json()).then(lrsp => {
+            emjyBack.lbc_series = lrsp;
             this.ztlbcChart.showAll();
         });
         var sUrl = emjyBack.fha.server + 'stock?act=zdtemot&date=' + this.hdate;
-        utils.get(sUrl, null, lrsp => {
-            emjyBack.zdtDailyStats = JSON.parse(lrsp);
+        fetch(sUrl).then(r=>r.json()).then(lrsp => {
+            emjyBack.zdtDailyStats = lrsp;
             this.ztlbcChart.showAll();
         });
     }

@@ -18,8 +18,8 @@ class StockData {
 
     fetchOriginStockData(cb) {
         var url = emjyBack.fha.server + 'stock?act=pickupdone&key='+this.key;
-        utils.get(url, null, zt1 => {
-            this.stocks = JSON.parse(zt1);
+        fetch(url).then(r=>r.json()).then(zt1 => {
+            this.stocks = zt1;
             this.stocks.sort((a,b) => {
                 return a[2] - b[2] < 0;
             });

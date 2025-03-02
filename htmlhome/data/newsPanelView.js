@@ -23,7 +23,7 @@ class NewsPages extends RadioAnchorPage {
             return;
         }
         var newsUrl = emjyBack.fha.server + 'api/get?url=' + btoa('https://www.eastmoney.com/')+ '&host=www.eastmoney.com';
-        utils.get(newsUrl, null, ns => {
+        fetch(newsUrl).then(r=>r.text()).then(ns => {
             utils.removeAllChild(this.newsRoot);
             this.showAllNews(ns);
         });
@@ -201,7 +201,7 @@ class NewsPages extends RadioAnchorPage {
             return;
         }
         var url = emjyBack.fha.server + 'api/get?url=' + btoa(emhref) + '&host=finance.eastmoney.com&referer=https://www.eastmoney.com/';
-        utils.get(url, null, arhtml => {
+        fetch(url).then(r=>r.text()).then(arhtml => {
             if (!this.fetchedArticals) {
                 this.fetchedArticals = {};
             }
@@ -258,11 +258,10 @@ class NewsPages extends RadioAnchorPage {
         artId = artId.split('.')[0];
         var brfInfoUrl = 'https://gbapi.eastmoney.com/abstract/api/PostShort/NewsArticleBriefInfo?postid=' + artId + '&type=1&version=80008000&product=guba&plat=web&deviceid=0d2798cab1716439a343c9965c20c59d&ctoken=null&utoken=null';
         var url = emjyBack.fha.server + 'api/get?url=' + btoa(brfInfoUrl) + '&host=gbapi.eastmoney.com&referer=' + href;
-        utils.get(url, null, scmt => {
+        fetch(url).then(r=>r.json()).then(jcmt => {
             if (!this.fetchedBriefInfo) {
                 this.fetchedBriefInfo = {};
             }
-            var jcmt = JSON.parse(scmt);
             if (jcmt.rc != 1) {
                 return;
             }

@@ -85,14 +85,14 @@ class ZtPanelPage extends RadioAnchorPage {
         if (this.ztmap && this.ztmap[mkt]) {
             ztUrl += '&date=' + this.ztmap[mkt][this.ztmap[mkt].length - 1].date;
         }
-        utils.get(ztUrl, null, zt => {
+        fetch(ztUrl).then(r=>r.json()).then(zt => {
             if (!this.ztmap) {
                 this.ztmap = {};
             }
             if (!this.ztmap[mkt]) {
-                this.ztmap[mkt] = this.checkZtLeads(JSON.parse(zt));
+                this.ztmap[mkt] = this.checkZtLeads(zt);
             } else {
-                var ztmap = this.checkZtLeads(JSON.parse(zt));
+                var ztmap = this.checkZtLeads(zt);
                 for(const ztm of ztmap) {
                     if (ztm.date >= this.ztmap[mkt][this.ztmap[mkt].length - 1].date) {
                         continue;
