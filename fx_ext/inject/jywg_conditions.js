@@ -364,8 +364,8 @@ class EmjyFrontend {
         console.log(args.join(' '));
     }
     
-    sendMessageToBackground(message) {
-        chrome.runtime.sendMessage(message);
+    sendMessageToBackground(message, cb) {
+        chrome.runtime.sendMessage(message, cb);
     }
 
     onBackMessageReceived(message, sender, sendResponse) {
@@ -494,10 +494,11 @@ class EmjyFrontend {
             this.onLoginPageLoaded();
         }
 
-        this.sendMessageToBackground({command:'emjy.contentLoaded', url: location.href});
-        if (path != this.loginPath) {
-            this.sendEmValidateKey();
-        }
+        this.sendMessageToBackground({command:'emjy.contentLoaded', url: location.href}, bgready => {
+            if (bgready) {
+                this.sendEmValidateKey();
+            }
+        });
         this.log('onPageLoaded', path);
     }
 }

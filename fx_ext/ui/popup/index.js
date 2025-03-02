@@ -120,7 +120,10 @@
             strategies.key = buystr;
             chrome.runtime.sendMessage({command: 'popup.addwatch', code, amount, account, strategies});
         } else {
-            chrome.runtime.sendMessage({command: 'popup.buystock', code, price, amount, account, strategies});
+            chrome.runtime.sendMessage({command: 'popup.buystock', code, price, amount, account, strategies}, brsp => {
+                let result = brsp?.sid? '委托成功, 委托编号：' + brsp.sid : '委托失败!';
+                document.querySelector('#stock_err_info').textContent = result;
+            });
         }
     }
 })();

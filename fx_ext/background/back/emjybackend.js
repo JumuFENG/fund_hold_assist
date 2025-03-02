@@ -151,7 +151,6 @@ class EmjyBack {
 
     Init() {
         this.logs = [];
-        emjyBack = this;
         this.strategyManager = new StrategyManager();
         this.normalAccount = new NormalAccount();
         this.collateralAccount = new CollateralAccount();
@@ -242,11 +241,12 @@ class EmjyBack {
 
     startup() {
         chrome.tabs.query({}, tabs => {
-            var emtab = null;
+            let emtab = null;
             for (var tab of tabs) {
                 var url = new URL(tab.url);
                 if (url.host == this.jywghost) {
-                    chrome.tabs.remove(tab.id);
+                    emtab = tab;
+                    break;
                 }
             }
             emjyBack.InitMainTab(emtab);
@@ -255,71 +255,40 @@ class EmjyBack {
     }
 
     InitMainTab(tab) {
-        if (!tab) {
-            this.getFromLocal('acc_np').then(anp => {
-                this.unp = anp;
+        this.getFromLocal('acc_np').then(anp => {
+            this.unp = anp;
+            if (!tab) {
                 var url = this.unp.credit ? this.jywgroot + 'MarginTrade/Buy': this.jywgroot + 'Trade/Buy';
-                chrome.tabs.create(
-                    {url},
-                    ctab => {
-                        this.mainTab = ctab;
-                        this.checkMainTabCreated();
-                    }
-                );
-            });
-        }
+                chrome.tabs.create({url}).then(ctab => this.mainTab = ctab);
+            } else {
+                chrome.tabs.reload(tab.id, { bypassCache: true }).then(() => this.mainTab = tab);
+            }
+        });
     }
 
-    checkMainTabCreated() {
-        var loadingInterval = setInterval(() => {
-            chrome.tabs.get(this.mainTab.id, t => {
-                if (t.status == 'complete') {
-                    clearInterval(loadingInterval);
-                    this.mainTab.url = t.url;
-                    if (!this.mainTab.created) {
-                        this.mainTab.created = true;
-                        if (!this.isLoginPage(this.mainTab.url)) {
-                            this.InitMainTab(this.mainTab);
-                        }
-                    } else {
-                        this.checkAuthencated();
-                    }
-                }
-            })
-        }, 200);
-    }
-
-    onContentLoaded(message, tabid) {
-        this.log('onContentLoaded', JSON.stringify(message), tabid);
-        if (!this.mainTab || !this.mainTab.created) {
+    onContentLoaded(message, tabid, response) {
+        if (!this.mainTab || this.mainTab.id != tabid) {
+            this.log('onContentLoaded response false', tabid, JSON.stringify(this.mainTab));
+            response(false);
             return;
         };
 
-        if (tabid == this.mainTab.id) {
-            this.mainTab.url = message.url;
-            this.checkAuthencated();
-            chrome.tabs.executeScript(this.mainTab.tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
-            this.log('onContentLoaded', this.mainTab.url);
-        };
-    }
-
-    checkAuthencated() {
-        this.authencated = !this.isLoginPage(this.mainTab.url);
-        if (this.authencated && !this.validateKey) {
-            this.sendMessageToContent({command:'emjy.getValidateKey'});
-        }
+        this.mainTab.url = message.url;
+        chrome.tabs.executeScript(this.mainTab.tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
+        this.log('onContentLoaded', this.mainTab.url);
+        response(true);
     }
 
     sendLoginInfo() {
-        if (!this.unp) {
-            this.getFromLocal('acc_np').then(anp => {
-                this.unp = anp;
-                this.sendLoginInfo();
-            });
+        if (this.unp) {
+            this.sendMessageToContent({command:'emjy.loginnp', np: this.unp});
             return;
         }
 
-        this.sendMessageToContent({command:'emjy.loginnp', np: this.unp});
+        this.getFromLocal('acc_np').then(anp => {
+            this.unp = anp;
+            this.sendLoginInfo();
+        });
     }
 
     sendPendingMessages() {
@@ -446,12 +415,12 @@ class EmjyBack {
             let count = strategies?.uramount?.key ? this.costDog.urBuyCount(strategies.uramount.key, code, amount, price).count : guang.calcBuyCount(amount, price);
             let account = message.account;
             if (!account) {
-                this.checkRzrq(message.code).then(rzrq => {
+                popcb(this.checkRzrq(message.code).then(rzrq => {
                     var racc = rzrq.Status == -1 ? 'normal' : 'credit';
-                    this.buyWithAccount(code, price, count, racc, strategies);
-                });
+                    return this.buyWithAccount(code, price, count, racc, strategies);
+                }));
             } else {
-                this.buyWithAccount(code, price, count, account, strategies);
+                popcb(this.buyWithAccount(code, price, count, account, strategies));
             }
         } else if (message.command === 'popup.addwatch') {
             this.log('popup message popup.addwatch');
