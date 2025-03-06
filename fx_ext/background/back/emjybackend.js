@@ -184,8 +184,6 @@ class EmjyBack {
             this.getFromLocal('cost_dog').then(cd => {
                 this.costDog = new CostDog(cd);
             });
-            alarmHub.setupAlarms();
-            istrManager.initExtStrs();
             this.log('EmjyBack initialized!');
         });
     }
@@ -239,30 +237,16 @@ class EmjyBack {
         return url.pathname == '/Login' || url.pathname == '/Login/ExitIframe';
     }
 
-    startup() {
-        chrome.tabs.query({}, tabs => {
-            let emtab = null;
-            for (var tab of tabs) {
-                var url = new URL(tab.url);
-                if (url.host == this.jywghost) {
-                    emtab = tab;
-                    break;
-                }
-            }
-            emjyBack.InitMainTab(emtab);
-        });
-        this.Init();
-    }
-
-    InitMainTab(tab) {
-        this.getFromLocal('acc_np').then(anp => {
-            this.unp = anp;
-            if (!tab) {
+    createMainTab() {
+        chrome.tabs.query({}).then(tabs => {
+            const tids = tabs.filter(tab => new URL(tab.url).host == this.jywghost).map(t=>t.id);
+            chrome.tabs.remove(tids);
+        }).then(() => {
+            this.getFromLocal('acc_np').then(anp => {
+                this.unp = anp;
                 var url = this.unp.credit ? this.jywgroot + 'MarginTrade/Buy': this.jywgroot + 'Trade/Buy';
                 chrome.tabs.create({url}).then(ctab => this.mainTab = ctab);
-            } else {
-                chrome.tabs.reload(tab.id, { bypassCache: true }).then(() => this.mainTab = tab);
-            }
+            });
         });
     }
 
@@ -1031,19 +1015,7 @@ class EmjyBack {
         let holdcached = feng.dumpCached(allstks);
         this.saveToLocal({'hsj_stocks': holdcached});
 
-        const todaystr = guang.getTodayDate('-');
-        const lastkltime = function(kl, klt) {
-            if (!kl.klines || !kl.klines[klt] || kl.klines[klt].length < 1) {
-                return '';
-            }
-            return kl.klines[klt].slice(-1)[0].time;
-        }
-        let stks = allstks.filter(s=>emjyBack.klines[s]);
-        let prm = stks.filter(s=>lastkltime(emjyBack.klines[s], '101') != todaystr).map(s => feng.getStockKline(s, '101'));
-        for (t of ['15', '1']) {
-            let s15 = stks.filter(s => emjyBack.klines[s] && emjyBack.klines[s].length > 0 && lastkltime(emjyBack.klines[s], t) != todaystr + ' 15:00');
-            prm = prm.concat(s15.map(s=>feng.getStockKline(s, t)));
-        }
+        const prm = Object.values(emjyBack.all_accounts).map(acc=>acc.stocks.filter(s=>s.strategies).map(s=>s.strategies.updateKlines())).flat();
 
         Promise.all(prm).then(()=>{
             this.normalAccount.save();
@@ -1120,6 +1092,7 @@ class EmjyBack {
 
     getFromLocal(key) {
         return chrome.storage.local.get(key).then(item => {
+            if (!key) return item;
             if (item && item[key]) {
                 return item[key];
             }

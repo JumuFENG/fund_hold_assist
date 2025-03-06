@@ -619,7 +619,7 @@ class NormalAccount extends Account {
 
     loadWatchings() {
         var watchingStorageKey = this.keyword + '_watchings';
-        emjyBack.getFromLocal(watchingStorageKey, watchings => {
+        emjyBack.getFromLocal(watchingStorageKey).then(watchings => {
             emjyBack.log('get watching_stocks', JSON.stringify(watchings));
             if (watchings) {
                 watchings.forEach(s => {
@@ -630,7 +630,7 @@ class NormalAccount extends Account {
     }
 
     fixWatchings() {
-        emjyBack.getFromLocal(null, items => {
+        emjyBack.getFromLocal(null).then(items => {
             for (var k in items) {
                 if (k == 'undefined') {
                     emjyBack.removeLocal(k);
@@ -650,7 +650,7 @@ class NormalAccount extends Account {
 
     loadStrategies(code) {
         var strStorageKey = this.keyword + '_' + code + '_strategies';
-        emjyBack.getFromLocal(strStorageKey, str => {
+        emjyBack.getFromLocal(strStorageKey).then(str => {
             if (str) {
                 this.applyStrategy(code, JSON.parse(str));
             };
@@ -744,7 +744,7 @@ class NormalAccount extends Account {
         var stock = this.stocks.find(s => {return s.code == code;});
 
         if (stock) {
-            if (stock.holdCount > 0) {
+            if (stock.holdCount > 0 && stock.strategies && Object.keys(stock.strategies.strategies) > 0) {
                 emjyBack.log(code, this.keyword, 'already exists and holdCount = ', stock.holdCount);
             } else {
                 this.addStockStrategy(stock, strgrp);
@@ -1005,8 +1005,10 @@ class CollateralAccount extends NormalAccount {
 
     buyFundBeforeClose() {
         feng.repayMarginLoan().then(() => {
-            this.buyStock(this.wallet.fundcode, 0, 1);
-        });
+            this.buyStock(this.wallet.fundcode, 0, 1).catch(err => {
+                emjyBack.log('buy fund', this.wallet.fundcode, 'failed', err.message);
+            });;
+        })
     }
 
     loadDeals() {

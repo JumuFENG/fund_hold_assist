@@ -356,7 +356,7 @@ class Manager {
     }
 
     initCreditAccount() {
-        var collatAcc = new StockListPanelPage('collat', '担保品账户', 0);
+        var collatAcc = new StockListPanelPage('collat', '担保品账户');
         this.accountList['collat'] = collatAcc;
         this.positionMgrView.addAccountPanel(collatAcc);
     }
@@ -582,7 +582,7 @@ class Manager {
         var url = this.fha.server + 'stock?act=allstkscount';
         var header = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)};
         fetch(url, header).then(r => r.json()).then(s => emjyBack.svrHoldingStocks = s);
-        self.checkHoldingStocks();
+        this.checkHoldingStocks();
     }
 
     checkHoldingStocks() {

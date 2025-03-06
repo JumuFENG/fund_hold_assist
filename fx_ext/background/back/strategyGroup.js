@@ -220,8 +220,11 @@ class BuyDetail {
             return this.getCountLessThan(price, fac, smi);
         }
 
-        if (selltype == 'egate' && fac > 0 && this.minBuyPrice() * (1 + fac) - price < 0) {
-            return this.getCountLessThan(price, 0, smi);
+        if (selltype == 'egate') {
+            if (fac > 0 && this.minBuyPrice() * (1 + fac) - price < 0) {
+                return this.getCountLessThan(price, 0, smi);
+            }
+            return 0;
         }
 
         var aCount = this.availableCount();
@@ -934,6 +937,54 @@ class StrategyGroup {
             };
         };
         this.save();
+    }
+
+    async updateKlines() {
+        const date = await guang.getLastTradeDate();
+        const kmaps = {
+            '1': { t: ['1', '2', '4', '8'], etime: date + ' 15:00' },
+            '15': { t: ['15', '30', '60', '120'], etime: date + ' 15:00' },
+            '101': { t: ['101', '202', '404', '808'], etime: date },
+        };
+        const code = this.code;
+        const klsNeedUpdate = (kls_1, bk, ck) => {
+            if (!kls_1 || !kls_1.klines) return true;
+
+            const bkKline = kls_1.klines[bk]?.slice(-1)[0]?.time;
+            const ckKline = kls_1.klines[ck]?.slice(-1)[0]?.time;
+            const targetTime = kmaps[bk].etime;
+
+            if (bkKline === targetTime && ckKline === targetTime) return false;
+            if (bkKline === targetTime && ckKline !== targetTime) kls_1.removeAll();
+
+            return true;
+        };
+        const getBaseKlt = function (k_1) {
+            for (const a in kmaps) {
+                if (kmaps[a].t.includes(k_1)) {
+                    return a;
+                }
+            }
+        };
+        const uppromise = [];
+        for (const strategy of Object.values(this.strategies)) {
+            let klt = strategy.kltype();
+            if (!klt) {
+                continue;
+            }
+            if (typeof klt === 'string') {
+                klt = [klt];
+            }
+
+            for (const k_2 of klt) {
+                const bkl = getBaseKlt(k_2);
+                if (klsNeedUpdate(emjyBack.klines[code], bkl, k_2)) {
+                    uppromise.push(feng.getStockKline(code, bkl));
+                }
+            }
+        }
+        await Promise.all(uppromise);
+        emjyBack.klines[code].save();
     }
 }
 

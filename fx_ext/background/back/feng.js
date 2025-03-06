@@ -160,7 +160,7 @@ class feng {
     * @param {string} k 属性名称, 如: 'zt'
     * @returns {string} 属性值
     */
-    static async cachedStockPrcs(code, k) {
+    static cachedStockPrcs(code, k) {
         const cached = this.stkcache.get(code);
         if (cached && cached[k]) {
             return cached[k];
@@ -264,8 +264,8 @@ class feng {
             const expireTime = snapExpireTime(date);
 
             const cached = this.stkcache.get(code);
-            if (!cached || !cached.lcose || !cached.lcose != lastClose) {
-                this.stkcache.set(code, Object.assign(cached || {}, {name, zt:topprice, dt:bottomprice, lcose: lastClose}));
+            if (!cached || !cached.lclose || !cached.lclose != lastClose) {
+                this.stkcache.set(code, Object.assign(cached || {}, {name, zt:topprice, dt:bottomprice, lclose: lastClose}));
             }
 
             return expireTime > 0 ? { data, expireTime } : data;

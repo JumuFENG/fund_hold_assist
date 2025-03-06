@@ -30,10 +30,7 @@ class StockView {
         this.container.appendChild(this.divTitle);
         var divDetails = document.createElement('div');
         if (!this.stock.latestPrice && emjyBack.klines[stock.code]) {
-            var lkl = emjyBack.klines[stock.code].getLatestKline('101');
-            if (lkl) {
-                this.stock.latestPrice = lkl.c;
-            }
+            this.stock.latestPrice = emjyBack.klines[stock.code].getLatestPrice();
         }
         this.detailView = document.createElement('div');
         divDetails.appendChild(this.detailView);
@@ -233,7 +230,7 @@ class StockListPanelPage extends RadioAnchorPage {
                     var sellstrCount = 0;
                     for (const k in stocki.strategies.strategies) {
                         const str = stocki.strategies.strategies[k];
-                        if (this.isSellstrJson(str)) {
+                        if (this.isSellstrJson(str) && str.enabled) {
                             sellstrCount ++;
                         }
                     }
@@ -364,10 +361,7 @@ class StockListPanelPage extends RadioAnchorPage {
     updateStockPrice(code) {
         for (var i = 0; i < this.stocks.length; i++) {
             if (this.stocks[i].stock.code == code && emjyBack.klines[code]) {
-                var lkl = emjyBack.klines[code].getLatestKline('101');
-                if (lkl) {
-                    this.stocks[i].stock.latestPrice = lkl.c;
-                }
+                this.stocks[i].stock.latestPrice = emjyBack.klines[code].getLatestPrice();
                 this.stocks[i].refresh();
             }
         }

@@ -994,13 +994,7 @@ class StrategySellELShort extends StrategySellEL {
         }
 
         var troughprice = klines.getLastTrough('1');
-        var prekl = klines.getPrevKline('101');
-        if (prekl.time >= kl.time) {
-            emjyBack.log('invalid prev kline data!');
-            return Promise.resolve();
-        }
-
-        let ztprice = feng.getStockZt(chkInfo.code, prekl.c);
+        const ztprice = feng.getStockZt(chkInfo.code);
         if (kl.c - kl.l == 0 && kl.c - ztprice >= 0 && kl.c * 0.98 - troughprice > 0) {
             troughprice = kl.c * 0.96;
         }
@@ -1071,13 +1065,7 @@ class StrategySellELTop extends StrategySell {
 
         if (updatedKlt.includes(this.dkltype)) {
             var kl = klines.getLatestKline(this.dkltype);
-            var prekl = klines.getPrevKline('101');
-            if (prekl.time >= kl.time) {
-                emjyBack.log('invalid prev kline data!');
-                return Promise.resolve();
-            }
-
-            let ztprice = feng.getStockZt(chkInfo.code, prekl.c);
+            const ztprice = feng.getStockZt(chkInfo.code);
             if (kl.c - ztprice >= 0) {
                 // 涨停不卖出
                 return Promise.resolve();
@@ -1142,6 +1130,7 @@ class StrategySellMA extends StrategySell {
 
     checkKlines(chkInfo) {
         if (this.bss18SellMatch(chkInfo, this.kltype())) {
+            var klines = emjyBack.klines[chkInfo.code];
             var kl = klines.getLatestKline(this.kltype());
             const count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c, this.data.upRate);
             if (count > 0) {
@@ -1360,16 +1349,10 @@ class StrategySellBeforeEnd extends Strategy {
 
         const conditions = {'not_zt': 1,  'h_and_l_dec': 1<<1, 'h_or_l_dec':1<<2, 'p_ge': 1<<3};
         var kl = klines.getLatestKline(kltype);
-        var prekl = klines.getPrevKline(kltype);
-        if (prekl.time == kl.time) {
-            emjyBack.log('invalid prev kline data!');
-            return Promise.resolve();
-        }
-
         if (!this.data.selltype) {
             this.data.selltype = 'single';
         }
-        let ztprice = feng.getStockZt(chkInfo.code, prekl.c);
+        const ztprice = feng.getStockZt(chkInfo.code);
         count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
         if (this.data.sell_conds & conditions['not_zt']) {
             if (kl.c - ztprice < 0) {
@@ -1378,6 +1361,7 @@ class StrategySellBeforeEnd extends Strategy {
         }
 
         var zt = kl.c - ztprice >= 0
+        var prekl = klines.getPrevKline(kltype);
         var hinc = kl.h - prekl.h > 0 || zt;
         var linc = kl.l - prekl.l > 0;
         if (this.data.sell_conds & conditions['h_and_l_dec']) {
@@ -2098,13 +2082,7 @@ class StrategyGrid extends StrategyComplexBase {
         }
 
         var kl = klines.getLatestKline(kltype);
-        var prekl = klines.getPrevKline(kltype);
-        if (prekl.time == kl.time) {
-            emjyBack.log('invalid prev kline data!');
-            return Promise.resolve();
-        }
-
-        let ztprice = feng.getStockZt(chkInfo.code, prekl.c);
+        const ztprice = feng.getStockZt(chkInfo.code);
         if (kl.c - ztprice >= 0) {
             // 涨停不卖出，不加仓
             return;

@@ -71,8 +71,9 @@ class StrategyI_Base {
             "StrategyBuyZTBoard": { "key": "StrategyBuyZTBoard", "enabled": true },
             "StrategySellELS": {"key": "StrategySellELS", "enabled": false, "cutselltype": "all", "selltype":"all", "topprice": (price * 1.05).toFixed(2) },
             "StrategyGrid": { "key": "StrategyGrid", "enabled": false, "buycnt": 1, "stepRate": 0.05 },
-            "StrategySellBE": { "key":"StrategySellBE", "enabled": false, "upRate": -0.03, "selltype":"all", 'sell_conds': 1},
-            "StrategyBuyDTBoard": { "key":"StrategyBuyDTBoard", "enabled": true}
+            "StrategySellBE": { "key":"StrategySellBE", "enabled": false, "upRate": -0.03, "selltype":"all", "sell_conds": 1},
+            "StrategyBuyDTBoard": { "key":"StrategyBuyDTBoard", "enabled": true},
+            "StrategySellMA": { "key":"StrategySellMA", "enabled":true, 'selltype': 'egate', 'upRate':0.03, "kltype": "4"},
         }
         let ekeys = Object.keys(this.estr);
         for (var i = 0; i < ekeys.length; i++) {
@@ -227,7 +228,7 @@ class StrategyI_Interval extends StrategyI_Base {
     }
 
     prepare() {
-        const time_tasks = [{'start': '9:29:01', 'stop': '11:30'}, {'start': '12:59:02', 'stop': '15:01'}];
+        const time_tasks = [{'start': '9:29:59', 'stop': '11:30'}, {'start': '12:59:59', 'stop': '15:01'}];
         var now = new Date();
         for (const actions of time_tasks) {
             var stopTicks = new Date(now.toDateString() + ' ' + actions['stop']) - now;
@@ -305,6 +306,10 @@ class StrategyI_Zt1WbOpen extends StrategyI_Base {
 
     trigger() {
         let stocks = Object.values(this.candidates).filter(x=>!x.matched).map(x=>x.secu_code);
+        if (Object.values(this.candidates).filter(x=>!x.account).length > 0) {
+            this.checkCandidatesAccount();
+        }
+
         this.get_cls_stockbasics(stocks).then(basics => {
             for (let code in basics) {
                 let b = basics[code];
@@ -579,7 +584,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                 for (let code in basics) {
                     let b = basics[code];
                     let zdf = b.change * 100;
-                    if (zdf < -8) {
+                    if (zdf < -8.8) {
                         continue;
                     }
 
@@ -606,7 +611,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
 
 class StrategyI_DtStocksUp extends StrategyI_Base {
     constructor(istr) {
-        super(istr, '9:24');
+        super(istr, '9:24:50');
         this.kicktime1 = '9:33';
         this.kicktime2 = '14:30';
     }
@@ -652,10 +657,11 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
             this.common_get_zdfranks_em(-50).then(jd => {
                 let drks = jd.data.diff.filter(r => r.f3 <= -8);
                 let dtstocks = drks.filter(r => r.f2 - feng.getStockDt(r.f12, r.f18) <= 0);
-                if (dtstocks.length > 0) {
-                    return;
+                return dtstocks.length;
+            }).then(dt_today => {
+                if (dt_today > 0) {
+                    return [];
                 }
-            }).then(() => {
                 const date = Object.keys(this.zdtdaily).slice(-1)[0];
                 const durl = emjyBack.fha.server + 'api/stockdthist?date=' + date;
                 return guang.fetchData(durl, {}, 6*60*60000, d => {
@@ -684,6 +690,10 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                     let price = b.last_px;
                     price *= this.pupfix;
                     price = Math.min(price, b.preclose_px * 0.95);
+                    if (!price) {
+                        emjyBack.log('no valide price', JSON.stringify(b));
+                        continue;
+                    }
                     this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2)}};
                     let strategy = this.generate_strategy_json(price);
                     this.expected_account(this.istr.account, code).then(account => {
@@ -760,8 +770,10 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
     trigger2() {
         // 尾盘取消
         for (const c in this.candidates) {
-            const account = this.candidates[c].account;
-            emjyBack.all_accounts[account].disableStrategy(c, 'StrategyBuyDTBoard');
+            if (this.candidates[c].watched) {
+                const account = this.candidates[c].account;
+                emjyBack.all_accounts[account].disableStrategy(c, 'StrategyBuyDTBoard');
+            }
         }
     }
 }
@@ -795,6 +807,11 @@ class StrategyI_IndexTracking extends StrategyI_Interval {
                 }
                 return acc;
             }, []);
+        }).then(idata => {
+            if (new Date(idata.slice(-1)[0][0]) - Date.now() > 30000) {
+                idata.pop();
+            }
+            return idata;
         });
     }
 
@@ -815,20 +832,20 @@ class StrategyI_IndexTracking extends StrategyI_Interval {
 
                 return Promise.all(s.map(sc => this.expected_account(this.istr.account, sc).then(acc => {
                     const buydetails = this.get_buydetail(acc, sc);
-                    return feng.getStockSnapshot(sc).then(snap=> {
+                    return feng.getStockSnapshot(sc).then(snap => {
                         if (buydetails.totalCount() == 0 || snap.latestPrice - buydetails.minBuyPrice() * (1 - this.stepRate) < 0) {
                             return {code: sc, price: snap.latestPrice, account: acc};
                         }
                     });
-                })));
+                }))).then(results => results.filter(Boolean));
             }).then(mpas => {
                 if (!mpas || mpas.length == 0) {
-                    return [];
+                    return;
                 }
                 this.estr = {'StrategySellMA': {}};
-                mpas.forEach(mpa=> {
+                mpas.forEach(mpa => {
                     const strategy = this.generate_strategy_json(mpa.price);
-                    emjyBack.log(this.istr.key, 'buy with account ', mpa.account, mpa.price);
+                    emjyBack.log(this.istr.key, 'buy', mpa.code, mpa.price, mpa.account);
                     emjyBack.buyWithAccount(mpa.code, mpa.price, 0, mpa.account, strategy);
                 })
             });

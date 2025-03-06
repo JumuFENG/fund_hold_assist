@@ -21,5 +21,8 @@
 
     chrome.runtime.onMessage.addListener(notify);
     emjyBack = new EmjyBack();
-    emjyBack.startup();
+    emjyBack.createMainTab();
+    emjyBack.Init();
+    alarmHub.setupAlarms();
+    istrManager.initExtStrs();
 }());

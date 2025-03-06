@@ -56,7 +56,7 @@ class KLine {
             }
             return;
         }
-        emjyBack.getFromLocal(this.storeKey, klines => {
+        emjyBack.getFromLocal(this.storeKey).then(klines => {
             if (klines) {
                 this.klines = klines;
                 for (var i in this.klines) {
@@ -118,6 +118,18 @@ class KLine {
             lidx--;
         }
         return kline.slice(lidx - n >= 0 ? lidx - n : 0, lidx);
+    }
+
+    getLatestPrice() {
+        let latestKls = Array.from(this.baseKlt).map(k=>this.getLatestKline(k)).filter(Boolean).slice(0).map(kl => {
+            let kl1 = {...kl};
+            if (!kl.time.includes(' ')) {
+                kl1.time += ' 15:00';
+            }
+            return kl1;
+        });
+        latestKls.sort((x, y) => x.time < y.time ? -1 : 1);
+        return latestKls.slice(-1)[0].c;
     }
 
     getLatestKline(kltype='101') {
