@@ -599,39 +599,54 @@ class EmjyBack {
 //     "Dwc": "",
 //     "Xyjylx": "卖出担保品" 信用交易类型
 // }
+    codeFromMktZqdm(market, zqdm) {
+        const mdic = {'HA':'SH', 'SA': 'SZ', 'B': 'BJ'};
+        if (market === 'TA') {
+            emjyBack.log('退市股买卖不记录!');
+            return;
+        }
+        if (!mdic[market]) {
+            throw new Error(`unknown market ${market}`);
+        }
+        return mdic[market] + zqdm;
+    }
+
+    tradeTypeFromMmsm(Mmsm) {
+        const ignored = ['担保品划入', '担保品划出', '融券', ]
+        if (ignored.includes(Mmsm)) {
+            return '';
+        }
+        const sells = ['证券卖出'];
+        if (sells.includes(Mmsm)) {
+            return 'S';
+        }
+        const buys = ['证券买入', '配售申购', '配股缴款', '网上认购'];
+        if (buys.includes(Mmsm)) {
+             return 'B';
+        }
+        return;
+    }
+
     addHistDeals(deals) {
         var fetchedDeals = [];
         for (let i = 0; i < deals.length; i++) {
             const deali = deals[i];
-            if (deali.Mmsm == '担保品划入' || deali.Mmsm == '担保品划出' || deali.Mmsm == '融券') {
-                continue;
-            }
-
-            var tradeType = '';
-            if (deali.Mmsm == '证券卖出') {
-                tradeType = 'S';
-            } else if (deali.Mmsm == '证券买入' || deali.Mmsm == '配售申购' || deali.Mmsm == '配股缴款' || deali.Mmsm == '网上认购') {
-                tradeType = 'B';
-            } else {
+            var tradeType = this.tradeTypeFromMmsm(deali.Mmsm)
+            if (tradeType === undefined) {
                 this.log('unknown trade type', deali.Mmsm, JSON.stringify(deali));
                 continue;
             }
-            const mdic = {'HA':'SH', 'SA': 'SZ', 'B': 'BJ'};
-            if (deali.Market === 'TA') {
-                emjyBack.log('退市股买卖不记录!');
+            if (!tradeType) {
                 continue;
             }
-            if (!mdic[deali.Market]) {
-                throw new Error(`unknown market ${deali.Market} ${JSON.stringify(deali)}`);
+
+            var code = this.codeFromMktZqdm(deali.Market, deali.Zqdm);
+            if (!code) {
+                continue;
             }
-            var code = mdic[deali.Market] + deali.Zqdm;
+
             var time = this.getDealTime(deali.Cjrq, deali.Cjsj);
-            var count = deali.Cjsl;
-            var price = deali.Cjjg;
-            var fee = deali.Sxf;
-            var feeYh = deali.Yhs;
-            var feeGh = deali.Ghf;
-            var sid = deali.Wtbh;
+            const {Cjsl: count, Cjjg: price, Sxf: fee, Yhs: feeYh, Ghf: feeGh, Wtbh: sid} = deali;
             if (count - 0 <= 0) {
                 this.log('invalid count', deali);
                 continue;
@@ -645,13 +660,8 @@ class EmjyBack {
             this.savedDeals = fetchedDeals;
             uptosvrDeals = fetchedDeals;
         } else {
-            for (let i = 0; i < fetchedDeals.length; i++) {
-                const deali = fetchedDeals[i];
-                if (!this.savedDeals.find(d => d.time == deali.time && d.code == deali.code && d.sid == deali.sid)) {
-                    this.savedDeals.push(deali);
-                    uptosvrDeals.push(deali);
-                }
-            }
+            uptosvrDeals = fetchedDeals.filter(deali => !this.savedDeals.find(d => d.time == deali.time && d.code == deali.code && d.sid == deali.sid));
+            this.savedDeals.concat(uptosvrDeals);
             this.savedDeals.sort((a, b) => a.time > b.time);
         }
         chrome.storage.local.set({'hist_deals': this.savedDeals});
@@ -705,31 +715,22 @@ class EmjyBack {
                 this.log('unknow deals', sm, JSON.stringify(deali));
                 continue;
             }
-            const mdic = {'HA':'SH', 'SA': 'SZ', 'B': 'BJ'};
-            if (deali.Market === 'TA') {
-                emjyBack.log('退市股买卖不记录!');
+
+            var code = this.codeFromMktZqdm(deali.Market, deali.Zqdm);
+            if (!code) {
                 continue;
             }
-            if (!mdic[deali.Market]) {
-                throw new Error(`unknown market ${deali.Market} ${JSON.stringify(deali)}`);
-            }
-            var code = mdic[deali.Market] + deali.Zqdm;
             var time = this.getDealTime(
                 deali.Fsrq === undefined || deali.Fsrq == '0' ? deali.Ywrq : deali.Fsrq,
                 deali.Fssj === undefined || deali.Fssj == '0' ? deali.Cjsj : deali.Fssj);
             if (sm == '红利入账' && time.endsWith('0:0')) {
                 time = this.getDealTime(deali.Fsrq === undefined || deali.Fsrq == '0' ? deali.Ywrq : deali.Fsrq,'150000');
             }
-            var count = deali.Cjsl;
-            var price = deali.Cjjg;
+            const {Cjsl: count, Cjjg: price, Sxf: fee, Yhs: feeYh, Ghf: feeGh, Htbh: sid} = deali;
             if (fsjeSm.includes(sm)) {
                 count = 1;
                 price = deali.Fsje;
             }
-            var fee = deali.Sxf;
-            var feeYh = deali.Yhs;
-            var feeGh = deali.Ghf;
-            var sid = deali.Htbh;
             if (sm == '配股入帐' && sid == '') {
                 continue;
             }
@@ -758,33 +759,22 @@ class EmjyBack {
                 emjyBack.log('uploadTodayDeals unknown deal:', JSON.stringify(deali));
                 continue;
             }
-            if (deali.Mmsm == '担保品划入' || deali.Mmsm == '担保品划出' || deali.Mmsm == '融券') {
-                emjyBack.log('uploadTodayDeals ignore deal:', JSON.stringify(deali));
+            var tradeType = this.tradeTypeFromMmsm(deali.Mmsm)
+            if (tradeType === undefined) {
+                this.log('unknown trade type', deali.Mmsm, JSON.stringify(deali));
+                continue;
+            }
+            if (!tradeType) {
                 continue;
             }
 
-            var tradeType = '';
-            if (deali.Mmsm == '证券卖出') {
-                tradeType = 'S';
-            } else if (deali.Mmsm == '证券买入' || deali.Mmsm == '配售申购' || deali.Mmsm == '配股缴款' || deali.Mmsm == '网上认购') {
-                tradeType = 'B';
-            } else {
-                emjyBack.log('unknown trade type', deali.Mmsm, JSON.stringify(deali));
+            var code = this.codeFromMktZqdm(deali.Market, deali.Zqdm);
+            if (!code) {
                 continue;
             }
-            const mdic = {'HA':'SH', 'SA': 'SZ', 'B': 'BJ'};
-            if (deali.Market === 'TA') {
-                emjyBack.log('退市股买卖不记录!');
-                continue;
-            }
-            if (!mdic[deali.Market]) {
-                throw new Error(`unknown market ${deali.Market} ${JSON.stringify(deali)}`);
-            }
-            var code = mdic[deali.Market] + deali.Zqdm;
+
             var time = this.getDealTime(deali.Wtrq, deali.Wtsj);
-            var count = deali.Cjsl;
-            var price = deali.Cjjg;
-            var sid = deali.Wtbh;
+            const {Cjsl: count, Cjjg: price, Wtbh: sid} = deali;
             fetchedDeals.push({time, sid, code, tradeType, price, count});
         }
         fetchedDeals.reverse();
@@ -797,24 +787,20 @@ class EmjyBack {
         if (this.fha) {
             headers['Authorization'] = 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd);
         }
-        fetch(url, {headers}).then(r=>r.text()).then(txt => {
-            if (txt == 'OK') {
-                emjyBack.log('testFhaServer,Good!');
-            }
-        });
+        return fetch(url, {headers}).then(r=>r.text());
     }
 
     uploadDeals(deals) {
-        if (deals.length == 0) {
+        if (deals.length == 0 || !this.fha) {
             return;
         }
 
-        if (!this.fha) {
-            return;
-        }
+        this.testFhaServer().then(txt => {
+            if (txt != 'OK') {
+                emjyBack.log('testFhaServer, failed.!');
+                return;
+            }
 
-        this.testFhaServer();
-        if (this.fha) {
             var url = this.fha.server + 'stock';
             var dfd = new FormData();
             dfd.append('act', 'deals');
@@ -824,7 +810,7 @@ class EmjyBack {
             fetch(url, {method: 'POST', headers, body: dfd}).then(r=>r.text()).then(p => {
                 this.log('upload deals to server,', p);
             });
-        }
+        });
     }
 
     recoginzeCaptcha(img) {
@@ -857,20 +843,7 @@ class EmjyBack {
             return;
         }
 
-        var codes = new Set();
-        for (let i = 0; i < this.savedDeals.length; i++) {
-            codes.add((this.savedDeals[i].code));
-        }
-        var curDeals = [];
-        codes.forEach(c => {
-            var stk = this.normalAccount.getStock(c);
-            if (!stk) {
-                stk = this.collateralAccount.getStock(c);
-            }
-            if (stk && stk.holdCount > 0) {
-                curDeals.push.apply(curDeals, this.savedDeals.filter(d => d.code == c));
-            }
-        });
+        let curDeals = this.savedDeals.filter(d => this.normalAccount.getStock(d.code.substring(2)) || this.collateralAccount.getStock(d.code.substring(2)));
         curDeals.sort((a, b) => a.time > b.time);
         this.savedDeals = curDeals;
         this.saveToLocal({'hist_deals': this.savedDeals});
