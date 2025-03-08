@@ -114,13 +114,11 @@ class HistDealsClient extends DealsClient {
         let currentStartTime = new Date(currentEndTime);
         currentStartTime.setDate(currentEndTime.getDate() - 90); // 每次查询最多 90 天
 
-        while (currentStartTime >= this.startDate) {
-            // 如果当前查询的起始时间早于设置的起始日期，调整起始时间
-            if (currentStartTime < this.startDate) {
-                currentStartTime = new Date(this.startDate);
-            }
+        if (currentStartTime < this.startDate) {
+            currentStartTime = new Date(this.startDate);
+        }
 
-            // 设置查询时间范围
+        while (currentStartTime >= this.startDate) {
             this.startTime = currentStartTime;
             this.endTime = currentEndTime;
 

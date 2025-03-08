@@ -616,7 +616,15 @@ class EmjyBack {
                 this.log('unknown trade type', deali.Mmsm, JSON.stringify(deali));
                 continue;
             }
-            var code = deali.Zqdm;
+            const mdic = {'HA':'SH', 'SA': 'SZ', 'B': 'BJ'};
+            if (deali.Market === 'TA') {
+                emjyBack.log('退市股买卖不记录!');
+                continue;
+            }
+            if (!mdic[deali.Market]) {
+                throw new Error(`unknown market ${deali.Market} ${JSON.stringify(deali)}`);
+            }
+            var code = mdic[deali.Market] + deali.Zqdm;
             var time = this.getDealTime(deali.Cjrq, deali.Cjsj);
             var count = deali.Cjsl;
             var price = deali.Cjjg;
@@ -697,7 +705,15 @@ class EmjyBack {
                 this.log('unknow deals', sm, JSON.stringify(deali));
                 continue;
             }
-            var code = deali.Zqdm;
+            const mdic = {'HA':'SH', 'SA': 'SZ', 'B': 'BJ'};
+            if (deali.Market === 'TA') {
+                emjyBack.log('退市股买卖不记录!');
+                continue;
+            }
+            if (!mdic[deali.Market]) {
+                throw new Error(`unknown market ${deali.Market} ${JSON.stringify(deali)}`);
+            }
+            var code = mdic[deali.Market] + deali.Zqdm;
             var time = this.getDealTime(
                 deali.Fsrq === undefined || deali.Fsrq == '0' ? deali.Ywrq : deali.Fsrq,
                 deali.Fssj === undefined || deali.Fssj == '0' ? deali.Cjsj : deali.Fssj);
@@ -756,7 +772,15 @@ class EmjyBack {
                 emjyBack.log('unknown trade type', deali.Mmsm, JSON.stringify(deali));
                 continue;
             }
-            var code = deali.Zqdm;
+            const mdic = {'HA':'SH', 'SA': 'SZ', 'B': 'BJ'};
+            if (deali.Market === 'TA') {
+                emjyBack.log('退市股买卖不记录!');
+                continue;
+            }
+            if (!mdic[deali.Market]) {
+                throw new Error(`unknown market ${deali.Market} ${JSON.stringify(deali)}`);
+            }
+            var code = mdic[deali.Market] + deali.Zqdm;
             var time = this.getDealTime(deali.Wtrq, deali.Wtsj);
             var count = deali.Cjsl;
             var price = deali.Cjjg;
@@ -792,16 +816,13 @@ class EmjyBack {
         this.testFhaServer();
         if (this.fha) {
             var url = this.fha.server + 'stock';
-            const pd = deals.map(d => feng.getLongStockCode(d.code).then(fcode => d.code = fcode));
-            Promise.all(pd).then(() => {
-                var dfd = new FormData();
-                dfd.append('act', 'deals');
-                dfd.append('data', JSON.stringify(deals));
-                var headers = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)};
-                this.log('uploadDeals', JSON.stringify(deals));
-                fetch(url, {method: 'POST', headers, body: dfd}).then(r=>r.text()).then(p => {
-                    this.log('upload deals to server,', p);
-                });
+            var dfd = new FormData();
+            dfd.append('act', 'deals');
+            dfd.append('data', JSON.stringify(deals));
+            var headers = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)};
+            this.log('uploadDeals', JSON.stringify(deals));
+            fetch(url, {method: 'POST', headers, body: dfd}).then(r=>r.text()).then(p => {
+                this.log('upload deals to server,', p);
             });
         }
     }
