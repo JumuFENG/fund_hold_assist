@@ -22,16 +22,22 @@ class SqlHelper():
         retry = 0
         while True:
             try:
-                self.con = mysql.connector.connect(user=self.username, database=self.database, host=self.host, password=self.password)
-                # 所有的查询，都在连接 con 的一个模块 cursor 上面运行的
+                # 不存在时连接到database会抛异常, 先检查是否存在
+                self.con = mysql.connector.connect(user=self.username, host=self.host, password=self.password)
                 self.cur = self.con.cursor()
                 if not self.isExistSchema(self.database):
                     sql = "CREATE DATABASE IF NOT EXISTS " + self.database
                     self.cur.execute(sql)
+                    self.con.commit()
+                self.cur.close()
+                self.con.close()
+                # 所有的查询，都在连接 con 的一个模块 cursor 上面运行的
+                self.con = mysql.connector.connect(user=self.username, database=self.database, host=self.host, password=self.password)
+                self.cur = self.con.cursor()
                 return
             except Exception as e:
                 retry += 1
-                while retry < 5:
+                if retry < 5:
                     time.sleep(3)
                     continue
 

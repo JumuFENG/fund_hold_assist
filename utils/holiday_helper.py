@@ -152,27 +152,6 @@ class TradingDate():
             return dkl.low > getattr(dkl, f'ma{ma}')
         return False
 
-class Holiday():
-    """check if is Holiday"""
-    def __init__(self):
-        self.sqldb = SqlHelper(password = db_pwd, database = general_db_name)
-        self.tablename = "Holidays"
-
-    def isholiday(self, date):
-        if not self.sqldb.isExistTable(self.tablename):
-            return False
-        
-        result = self.sqldb.selectOneValue(self.tablename, "count(*)", "%s = '%s'" % (column_date, date))
-        return result and result != 0
-
-    def addholiday(self, date):
-        if not self.sqldb.isExistTable(self.tablename):
-            attrs = {column_date:'varchar(20) DEFAULT NULL'}
-            constraint = 'PRIMARY KEY(`id`)'
-            self.sqldb.createTable(self.tablename, attrs, constraint)
-
-        if not self.isholiday(date):
-            self.sqldb.insert(self.tablename, {column_date: date})
 
 class DateConverter():
     @classmethod

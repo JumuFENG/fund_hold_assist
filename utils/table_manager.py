@@ -7,6 +7,13 @@ class TableCopy():
     """
     A class to copy and sync table data between databases.
     """
+    def get_primary_key(self, fromDb, fromtable):
+        """获取原表的主键列"""
+        result = fromDb.select('information_schema.key_column_usage', 'column_name', f"table_schema = '{fromDb.database}' AND table_name = '{fromtable}' AND constraint_name = 'PRIMARY'")
+        if result:
+            return [row[0] for row in result]  # 返回主键列名列表
+        return None  # 没有主键
+
     def CopyTo(self, fromDb, toDb, fromtable, totable):
         """
         Copy a table from one database to another.
@@ -17,25 +24,58 @@ class TableCopy():
             fromtable: Source table name.
             totable: Destination table name.
         """
+        # 检查原表是否存在
         if not fromDb.isExistTable(fromtable):
             print("no table named", fromtable)
             return
+
+        # 检查目标表是否已存在
         if toDb.isExistTable(totable):
             print(totable, "already exists.")
             return
 
-        result = fromDb.select("information_schema.columns", ["column_name", "column_type", "column_default"], ["table_name = '%s'" % fromtable, "table_schema = '%s'" % fromDb.database], order=" ORDER BY ordinal_position ASC")
+        # 获取原表的列信息
+        result = fromDb.select(
+            "information_schema.columns",
+            ["column_name", "column_type", "column_default", "is_nullable"],
+            [f"table_name = '{fromtable}'", f"table_schema = '{fromDb.database}'"],
+            order=" ORDER BY ordinal_position ASC"
+        )
+        if not result:
+            print(f"Failed to get column info for table {fromtable}")
+            return
+
+        # 解析列信息
         headers = []
         attrs = {}
-        for (cnm, ctp, cdef) in result:
-            if not cnm == 'id':
-                headers.append(cnm)
-                attrs[cnm] = ctp + ' DEFAULT ' + ('NULL' if cdef is None else cdef)
+        for (cnm, ctp, cdef, is_nullable) in result:
+            if cnm == 'id':
+                continue
+            headers.append(cnm)
+            stp = ctp.decode('utf-8') if isinstance(ctp, bytes) else ctp
+            default = ('NULL' if is_nullable == 'YES' else 'NOT NULL') if cdef is None else f"'{cdef}'"
+            attrs[cnm] = f"{stp} DEFAULT {default}"
 
-        constraint = 'PRIMARY KEY(`id`)'
+        # 获取原表的主键信息
+        primary_keys = self.get_primary_key(fromDb, fromtable)
+        if primary_keys != ['id']:
+            print('Primary key is not id copy manually if necessary!', fromtable)
+            return
+        if primary_keys:
+            constraint = f"PRIMARY KEY(`{'`,`'.join(primary_keys)}`)"
+        else:
+            constraint = None  # 没有主键
+
+        # 创建新表
         toDb.createTable(totable, attrs, constraint)
-        values = fromDb.select(fromtable, headers, order=" ORDER BY id ASC")
+
+        # 复制数据
+        values = fromDb.select(fromtable, headers, order=f" ORDER BY {','.join(primary_keys)} ASC" if primary_keys else '')
+        if values is None:
+            print(f'CopyTo failed {fromtable} -> {totable}')
+            return
         toDb.insertMany(totable, headers, values)
+        print(f"Table {fromtable} copied to {totable} successfully!")
 
     def Update(self, fromDb, toDb, fromtable, totable):
         """
@@ -66,7 +106,12 @@ class TableCopy():
             else:
                 condkeys.append(cnm)
 
-        valuesMore = fromDb.select(fromtable, headers, order=" ORDER BY id ASC")
+        primary_keys = self.get_primary_key(fromDb, fromtable)
+
+        valuesMore = fromDb.select(fromtable, headers, order=f" ORDER BY {','.join(primary_keys)} ASC" if primary_keys else '')
+        if valuesMore is None:
+            print(f'Update failed {fromtable} -> {totable}')
+            return
         toDb.insertUpdateMany(totable, headers, condkeys, valuesMore)
 
     def getTableHeaders(self, sqldb, tablename, include_all=False):

@@ -797,7 +797,7 @@ class StockEmBkMap(TableBase):
             {'col':'bk','type':'varchar(20)'},
             {'col':'stock','type':'varchar(20)'}
         ]
-        self.constraint = 'PRIMARY KEY (bk, stock), FOREIGN KEY (bk) REFERENCES stock_embks(code), FOREIGN KEY (stock) REFERENCES all_stocks(code)'
+        self.constraint = 'PRIMARY KEY (bk, stock)'
 
     def __query_stocks_bks(self, codes, col1, col2, union=True):
         if not isinstance(codes, list) and not isinstance(codes, tuple):
