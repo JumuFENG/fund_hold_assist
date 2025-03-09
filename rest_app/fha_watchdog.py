@@ -16,7 +16,7 @@ def check_local_server():
     while True:
         try:
             sleep(5)
-            tr = requests.get('http://localhost/stock?act=test', timeout=3)
+            tr = requests.get('http://localhost/5000/stock?act=test', timeout=3)
             if tr.status_code == 200:
                 print('local server works fine!')
                 return

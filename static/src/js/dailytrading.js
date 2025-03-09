@@ -249,6 +249,7 @@ GlobalManager.prototype.tlineFocused = function(stock, focus=true) {
 
 GlobalManager.prototype.setupWebsocketConnection = function() {
     var wsurl = new URL(this.fha.server);
+    wsurl.pathname = '';
     wsurl.protocol = 'ws';
     wsurl.port = '1792'
     this.websocket = new WebSocket(wsurl.href);
@@ -276,7 +277,7 @@ GlobalManager.prototype.getBkStocks = function(bks, cb) {
     if (Array.isArray(bks)) {
         bks = bks.join(',');
     }
-    let url = emjyBack.fha.server + 'stock?act=bkstocks&bks=' + bks;
+    let url = emjyBack.fha.svr5000 + 'stock?act=bkstocks&bks=' + bks;
     fetch(url).then(r=>r.json()).then(bstks => {
         for (const s in bstks) {
             emjyBack.plate_stocks[s] = bstks[s].map(c=>emjyBack.convertToSecu(c));
@@ -288,7 +289,7 @@ GlobalManager.prototype.getBkStocks = function(bks, cb) {
 }
 
 GlobalManager.prototype.getHotStocks = function(days=2) {
-    let url = emjyBack.fha.server + 'stock?act=hotstocks&days=' + days;
+    let url = emjyBack.fha.svr5000 + 'stock?act=hotstocks&days=' + days;
     fetch(url).then(r=>r.json()).then(recent_zt_stocks => {
         this.recent_zt_map = {};
         let nsecus = [];
@@ -1823,7 +1824,7 @@ class StocksBkRanks {
         let nbks = stocks.filter(s => !emjyBack.stock_bks || !emjyBack.stock_bks[s]);
         if (nbks.length > 0) {
             let strstocks = nbks.map(s=> emjyBack.secuConvert(s)).join(',');
-            let bUrl = emjyBack.fha.server + 'stock?act=stockbks&stocks=' + strstocks;
+            let bUrl = emjyBack.fha.svr5000 + 'stock?act=stockbks&stocks=' + strstocks;
             fetch(bUrl).then(r=>r.json()).then(sbks => {
                 for (const s in sbks) {
                     emjyBack.stock_bks[emjyBack.convertToSecu(s)] = sbks[s].map(sn=>sn[0]);

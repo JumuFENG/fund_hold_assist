@@ -5,7 +5,7 @@ let emStockUrlTail = '.html#fullScreenChart';
 class GlobalManager {
     constructor() {
         this.klines = {};
-        this.fha = {'server':'http://localhost/'};
+        this.fha = {'server':'http://localhost/5000/'};
         this.getFromLocal('fha_server', fha => {
             if (fha) {
                 this.fha = fha;
@@ -418,5 +418,5 @@ class GlobalManager {
 
 var emjyBack = new GlobalManager();
 window.addEventListener('load', _ => {
-    emjyBack.fha.server = location.origin + '/';
+    emjyBack.fha.server = location.origin + '/5000/';
 });

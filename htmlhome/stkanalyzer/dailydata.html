@@ -9,7 +9,7 @@
     <script>
         class GlobalManager {
             constructor() {
-                this.fha = {'server':'http://localhost/'};
+                this.fha = {'server':'http://localhost/', 'svr5000': 'http://localhost/5000/'};
                 this.plate_stocks = {};
                 this.stock_basics = {};
                 this.stock_extra = {};
@@ -36,6 +36,7 @@
         window.addEventListener('load', _ => {
             if (location.host) {
                 emjyBack.fha.server = location.origin + '/';
+                emjyBack.fha.svr5000 = emjyBack.fha.server + '5000/';
             }
         });
     </script>
