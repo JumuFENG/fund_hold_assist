@@ -66,6 +66,7 @@ class ManagerBack {
             emjyBack.importConfig(message.config);
         } else if (message.command == 'mngr.strategy') {
             emjyBack.all_accounts[message.account].applyStrategy(message.code, message.strategies);
+            emjyBack.all_accounts[message.account].getStock(message.code)?.strategies?.updateKlines();
             this.startChangedTimeout();
         } else if (message.command =='mngr.strategy.rmv') {
             emjyBack.all_accounts[message.account].removeStrategy(message.code, message.stype);
@@ -209,6 +210,7 @@ class EmjyBack {
 
     setupWebsocketConnection() {
         var wsurl = new URL(this.fha.server);
+        wsurl.pathname = '';
         wsurl.protocol = 'ws';
         wsurl.port = '1792'
         this.websocket = new WebSocket(wsurl.href);
@@ -824,6 +826,9 @@ class EmjyBack {
             return;
         }
 
+        if (!img) {
+            return;
+        }
         var url = this.fha.server + 'api/captcha';
         var dfd = new FormData();
         dfd.append('img', img);

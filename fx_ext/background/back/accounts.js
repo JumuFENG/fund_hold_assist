@@ -1,15 +1,6 @@
 'use strict';
 let BondRepurchasePath = '/BondRepurchase/SecuritiesLendingRepurchase';
 
-class Wallet {
-    constructor() {
-        this.fundcode = '511880';
-        this.name = '';
-        this.state = 'none';
-        this.holdCount = 0;
-    }
-}
-
 
 class DealsClient {
     // 普通账户 当日成交
@@ -593,7 +584,7 @@ class Account {
     constructor() {
         this.keyword = null;
         this.stocks = [];
-        this.wallet = null;
+        this.fundcode = '511880'; // 货币基金代码，余钱收盘前买入.
         this.buyPath = null;
         this.sellPath = null;
         this.tradeClient = null;
@@ -611,14 +602,13 @@ class NormalAccount extends Account {
         this.keyword = 'normal';
         this.buyPath = '/Trade/Buy';
         this.sellPath = '/Trade/Sale';
-        this.wallet = new Wallet();
         this.availableMoney = 0;
     }
 
     loadWatchings() {
         var watchingStorageKey = this.keyword + '_watchings';
         emjyBack.getFromLocal(watchingStorageKey).then(watchings => {
-            emjyBack.log('get watching_stocks', JSON.stringify(watchings));
+            emjyBack.log(this.keyword, 'get watching_stocks', JSON.stringify(watchings));
             if (watchings) {
                 watchings.forEach(s => {
                     this.addWatchStock(s);
@@ -813,7 +803,7 @@ class NormalAccount extends Account {
     }
 
     sellWalletFund() {
-        return this.sellStock(this.wallet.fundcode, 0, 1);
+        return this.sellStock(this.fundcode, 0, 1);
     }
 
     fillupGuardPrices() {
@@ -971,9 +961,7 @@ class NormalAccount extends Account {
         }
 
         for (var i = 0; i < positions.length; i++) {
-            if (this.wallet && positions[i].Zqdm == this.wallet.fundcode) {
-                this.wallet.name = positions[i].Zqmc;
-                this.wallet.holdCount = positions[i].Zqsl;
+            if (this.fundcode && positions[i].Zqdm == this.fundcode) {
                 continue;
             };
             let stocki = this.parsePosition(positions[i]);
@@ -1003,8 +991,8 @@ class CollateralAccount extends NormalAccount {
 
     buyFundBeforeClose() {
         feng.repayMarginLoan().then(() => {
-            this.buyStock(this.wallet.fundcode, 0, 1).catch(err => {
-                emjyBack.log('buy fund', this.wallet.fundcode, 'failed', err.message);
+            this.buyStock(this.fundcode, 0, 1).catch(err => {
+                emjyBack.log('buy fund', this.fundcode, 'failed', err.message);
             });;
         })
     }
