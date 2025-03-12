@@ -1150,6 +1150,26 @@ class KLine {
         return n;
     }
 
+    continuouslyDtDays(yz=false) {
+        const kltype = '101';
+        if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
+            return 0;
+        }
+
+        var n = 0;
+        for (let i = this.klines[kltype].length - 1; i > 0; i--) {
+            let kl = this.klines[kltype][i];
+            let klpre = this.klines[kltype][i-1];
+            if (yz && kl.h - kl.l > 0) {
+                break;
+            }
+            if (kl.c - feng.getStockDt(this.code, klpre.c) <= 0) {
+                n += 1;
+            }
+        }
+        return n;
+    }
+
     continuouslyBellowMaDays(kltype='101') {
         if (!this.klines || !this.klines[kltype] || this.klines[kltype].length == 0) {
             return 0;

@@ -14,10 +14,10 @@
             }
         });
         var stsel = document.querySelector('#stock_buy_strategy');
-        stsel.options.add(new Option('买入策略', ''));
-        const buystratiegies = {'StrategyBuyDTBoard': '跌停开板买入'};
-        for (var k in buystratiegies) {
-            stsel.options.add(new Option(buystratiegies[k], k));
+        stsel.options.add(new Option('买卖策略', ''));
+        const strategyoptions = {'StrategyBuyDTBoard': '跌停开板买入', 'StrategyBuyZTBoard': '打板买入', 'StrategySellELS': '涨停开板卖出'};
+        for (var k in strategyoptions) {
+            stsel.options.add(new Option(strategyoptions[k], k));
         }
     }
 
@@ -84,6 +84,15 @@
         });
     }
 
+    function generate_strategy_json(key, sinfo) {
+        const strobjs = {
+            "StrategySellELS": {"key": "StrategySellELS", "enabled": true, "cutselltype": "all", "selltype":"all"},
+            "StrategyBuyZTBoard": { "key": "StrategyBuyZTBoard", "enabled": true },
+            "StrategyBuyDTBoard": { "key":"StrategyBuyDTBoard", "enabled": true},
+        }
+        return Object.assign(strobjs[key], sinfo);
+    }
+
     document.querySelector('#stock_code_value').onkeydown = function(e) {
         if (e.keyCode == 13) {
             getStockInfo(e.target.value);
@@ -110,14 +119,20 @@
             return;
         }
         let price = document.querySelector('#stock_buy_price_value').value;
-        let buystr = document.querySelector('#stock_buy_strategy').value;
+        const sinfo = {};
+        const skey = document.querySelector('#stock_buy_strategy').value;
+        if (skey == 'StrategySellELS') {
+            sinfo.guardPrice = (price * 0.95).toFixed(2)
+        }
+        let tradestr = generate_strategy_json(skey, sinfo);
+
         var account = document.querySelector('#stock_buy_acc_select').value;
         var strategies = {};
         if (urkey) {
             strategies.uramount = {key: urkey};
         }
-        if (buystr) {
-            strategies.key = buystr;
+        if (tradestr) {
+            strategies.strinfo = tradestr;
             chrome.runtime.sendMessage({command: 'popup.addwatch', code, amount, account, strategies});
         } else {
             chrome.runtime.sendMessage({command: 'popup.buystock', code, price, amount, account, strategies}, brsp => {

@@ -414,15 +414,16 @@ class EmjyBack {
             let amount = message.amount;
             let strategies = message.strategies;
             let account = message.account;
-            let str0 = {"key":strategies.key,"enabled":true, account};
+
+            let str0 = strategies.strinfo;
             if (!account) {
                 this.checkRzrq(code).then(rzrq => {
                     var racc = rzrq.Status == -1 ? 'normal' : 'credit';
                     var hacc = holdAccountKey[racc];
                     str0.account = racc;
                     let bstrs = {
-                        "grptype":"GroupStandard","transfers":{"0":{"transfer":"-1"}},
-                        "strategies":{"0":str0},amount,"uramount":{"key":strategies?.uramount?.key}
+                        "grptype":"GroupStandard", "transfers":{"0":{"transfer":"-1"}},
+                        "strategies":{"0":str0}, amount, "uramount":{"key":strategies?.uramount?.key}
                     };
                     this.all_accounts[hacc].addWatchStock(code, bstrs);
                 });

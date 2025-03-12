@@ -732,10 +732,12 @@ class NormalAccount extends Account {
         var stock = this.stocks.find(s => {return s.code == code;});
 
         if (stock) {
-            if (stock.holdCount > 0 && stock.strategies && Object.keys(stock.strategies.strategies) > 0) {
-                emjyBack.log(code, this.keyword, 'already exists and holdCount = ', stock.holdCount);
-            } else {
+            if (stock.holdCount == 0 || !stock.strategies) {
                 this.addStockStrategy(stock, strgrp);
+                return;
+            }
+            for (const s of Object.values(strgrp.strategies)) {
+                stock.strategies.addStrategy(s);
             }
             return;
         };

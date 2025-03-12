@@ -601,12 +601,22 @@ class StrategyGroup {
     }
 
     getNextValidId() {
-        return Math.max(...Object.keys(this.strategies)) + 1;
+        return Math.max(...Object.keys(this.strategies), -1) + 1;
     }
 
     addStrategy(str) {
-        var id = this.getNextValidId();
-        this.strategies[id] = emjyBack.strategyManager.create(str);
+        let merged = false;
+        for (var sdat of Object.values(this.strategies)) {
+            if (sdat.data.key === str.key) {
+                Object.assign(sdat.data, str);
+                merged = true;
+                break;
+            }
+        }
+        if (!merged) {
+            var id = this.getNextValidId();
+            this.strategies[id] = emjyBack.strategyManager.create(str);
+        }
         this.save();
     }
 

@@ -75,14 +75,13 @@ class StrategyI_Base {
             "StrategyBuyDTBoard": { "key":"StrategyBuyDTBoard", "enabled": true},
             "StrategySellMA": { "key":"StrategySellMA", "enabled":true, 'selltype': 'egate', 'upRate':0.03, "kltype": "4"},
         }
+
         let ekeys = Object.keys(this.estr);
         for (var i = 0; i < ekeys.length; i++) {
-            strategies.strategies[i] = strobjs[ekeys[i]];
-            for (var k in this.estr[ekeys[i]]) {
-                strategies.strategies[i][k] = this.estr[ekeys[i]][k];
-            }
+            strategies.strategies[i] = Object.assign(strobjs[ekeys[i]], this.estr[ekeys[i]]);
             strategies.transfers[i] = {transfer: "-1" };
         }
+
         if (this.istr.amtkey) {
             strategies['uramount'] = {"key": this.istr.amtkey};
         }
@@ -289,6 +288,9 @@ class StrategyI_Zt1WbOpen extends StrategyI_Base {
     fetchCandidates() {
         var url = emjyBack.fha.server + 'stock?act=getistr&key=' + this.istr.key;
         fetch(url).then(r => r.json()).then(rc => {
+            if (rc.length === 0) {
+                throw new Error('No candidates found!');
+            }
             rc.forEach(c => {
                 this.candidates[c.substring(2)] = {account: this.istr.account, secu_code: emjyBack.convertToSecu(c)};
             });
@@ -719,6 +721,8 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                 emjyBack.log(this.istr.key, 'more stocks dt than 10');
                 return;
             }
+            // 去除连续3天一字跌停的.
+            dtstocks = dtstocks.filter(r => !emjyBack.klines[r.f12] || emjyBack.klines[r.f12].continuouslyDtDays(true) < 3);
             // 封单金额最大前三
             let snapRequests = dtstocks.map(r => feng.getStockSnapshot(r.f12));
             Promise.all(snapRequests).then((snaps) => {
@@ -815,6 +819,15 @@ class StrategyI_IndexTracking extends StrategyI_Interval {
         });
     }
 
+    getReferPrice(buydetails) {
+        const minBuy = buydetails.minBuyPrice()
+        const lastRec = buydetails.full_records.slice(-1);
+        if (lastRec.type == 'S' && lastRec.sid) {
+            return Math.max(minBuy, lastRec.price);
+        }
+        return minBuy;
+    }
+
     trigger() {
         for (const [i, s] of Object.entries(this.candidates)) {
             this.getIndexFflow(i).then(idata => {
@@ -833,7 +846,7 @@ class StrategyI_IndexTracking extends StrategyI_Interval {
                 return Promise.all(s.map(sc => this.expected_account(this.istr.account, sc).then(acc => {
                     const buydetails = this.get_buydetail(acc, sc);
                     return feng.getStockSnapshot(sc).then(snap => {
-                        if (buydetails.totalCount() == 0 || snap.latestPrice - buydetails.minBuyPrice() * (1 - this.stepRate) < 0) {
+                        if (buydetails.totalCount() == 0 || snap.latestPrice - this.getReferPrice(buydetails) * (1 - this.stepRate) < 0) {
                             return {code: sc, price: snap.latestPrice, account: acc};
                         }
                     });
