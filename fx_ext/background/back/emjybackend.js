@@ -135,7 +135,6 @@ class EmjyBack {
         this.jywghost = 'jywg.eastmoneysec.com';
         this.jywgroot = 'https://' + this.jywghost + '/';
         this.mainTab = null;
-        this.authencated = false;
         this.normalAccount = null;
         this.collateralAccount = null;
         this.creditAccount = null;
@@ -152,6 +151,7 @@ class EmjyBack {
 
     Init() {
         this.logs = [];
+        this.running = true;
         this.strategyManager = new StrategyManager();
         this.normalAccount = new NormalAccount();
         this.collateralAccount = new CollateralAccount();
@@ -1025,14 +1025,17 @@ class EmjyBack {
                 this.costDog.save();
             }
             Object.values(this.klines).forEach(kl => kl.save());
-            this.flushLogs();
+            if (this.logs.length > 0) {
+                this.flushLogs();
+            }
+            this.running = false;
         });
     }
 
     flushLogs() {
         emjyBack.log('flush log!');
         var blob = new Blob(this.logs, {type: 'application/text'});
-        this.saveToFile(blob, 'logs/stock.assist' + guang.getTodayDate() + '.log');
+        ext.saveToFile(blob, 'logs/stock.assist' + guang.getTodayDate() + '.log');
         this.logs = [];
     }
 
@@ -1078,16 +1081,6 @@ class EmjyBack {
         for (const account of this.track_accounts) {
             account.importConfig(configs);
         }
-    }
-
-    clearStorage() {
-        chrome.storage.local.clear();
-    }
-
-    saveToFile(blob, filename, conflictAction = 'overwrite') {
-        // conflictAction (uniquify, overwrite, prompt)
-        var url = URL.createObjectURL(blob);
-        chrome.downloads.download({url, filename, saveAs:false, conflictAction});
     }
 
     getFromLocal(key) {

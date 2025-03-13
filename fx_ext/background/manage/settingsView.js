@@ -49,6 +49,10 @@ class SettingsPanelPage extends RadioAnchorPage {
         this.addInput(svrDiv, this.userEmail, 'Account(e-mail)');
         this.pwd = document.createElement('input');
         this.addInput(svrDiv, this.pwd, 'Password');
+        this.strategySave = document.createElement('input');
+        this.strategySave.type = 'checkbox';
+        this.strategySave.title = '服务器保存功能, 不启用则保存在localstorage';
+        this.addInput(svrDiv, this.strategySave, '启用保存');
         this.account = document.createElement('input');
         this.addInput(svrDiv, this.account, '资金账户');
         this.accpwd = document.createElement('input');
@@ -62,6 +66,7 @@ class SettingsPanelPage extends RadioAnchorPage {
                 this.svrHost.value = fhainfo.server;
                 this.userEmail.value = fhainfo.uemail;
                 this.pwd.value = fhainfo.pwd;
+                this.strategySave.checked = fhainfo.save_on_server;
             }
         });
         emjyBack.getFromLocal('acc_np').then(anp => {
@@ -81,48 +86,6 @@ class SettingsPanelPage extends RadioAnchorPage {
             }
             this.addInput(svrDiv, purchaseNewStocks, '申购新股');
         });
-    }
-
-    addSMICenterPanel() {
-        var smiDiv = document.createElement('div');
-        smiDiv.appendChild(document.createTextNode('大盘中枢'));
-        this.smiTable = new SortableTable(1, 0, false);
-        smiDiv.appendChild(this.smiTable.container);
-        smiDiv.appendChild(document.createTextNode('日期'));
-        this.dateIpt = document.createElement('input');
-        smiDiv.appendChild(this.dateIpt);
-        smiDiv.appendChild(document.createTextNode('点位'));
-        this.smiValue = document.createElement('input');
-        smiDiv.appendChild(this.smiValue);
-        var btnAdd = document.createElement('button');
-        btnAdd.textContent = '添加';
-        btnAdd.onclick = () => {
-            var date = this.dateIpt.value;
-            var value = this.smiValue.value;
-            if (!this.smiList) {
-                this.smiList = [];
-            }
-            this.smiList.push({date, value});
-            this.showSmiList();
-            this.dateIpt.value = '';
-            this.smiValue.value = '';
-        }
-        smiDiv.appendChild(btnAdd);
-        emjyBack.getFromLocal('smilist').then(smi => {
-            if (smi) {
-                this.smiList = smi
-                this.showSmiList();
-            }
-        });
-        this.container.appendChild(smiDiv);
-    }
-
-    showSmiList() {
-        this.smiTable.reset();
-        this.smiTable.setClickableHeader('', '日期', '点位');
-        for (var i = 0; i < this.smiList.length; ++i) {
-            this.smiTable.addRow(i + 1, this.smiList[i].date, this.smiList[i].value);
-        }
     }
 
     addTrackAccountPanel() {
@@ -172,20 +135,23 @@ class SettingsPanelPage extends RadioAnchorPage {
         this.addImportPanel();
         this.addServerPanel();
         this.addTrackAccountPanel();
-        this.addSMICenterPanel();
         var saveBtn = document.createElement('button');
         saveBtn.textContent = 'Save';
         saveBtn.onclick = () => {
             this.saveServerInfo();
             this.saveAccountInfo();
-            this.saveSmiInfo();
         }
         this.container.appendChild(saveBtn);
     }
 
     saveServerInfo() {
         if (this.svrHost) {
-            var fhaInfo = {server: this.svrHost.value, uemail: this.userEmail.value, pwd: this.pwd.value};
+            var fhaInfo = {
+                server: this.svrHost.value,
+                uemail: this.userEmail.value,
+                pwd: this.pwd.value,
+                save_on_server: this.strategySave.checked
+            }
             emjyBack.saveToLocal({'fha_server': fhaInfo});
         }
     }
@@ -194,12 +160,6 @@ class SettingsPanelPage extends RadioAnchorPage {
         if (this.account && this.accpwd) {
             var anp = {account: this.account.value, pwd: btoa(this.accpwd.value), credit: this.creditEnabled.checked};
             emjyBack.saveToLocal({'acc_np': anp})
-        }
-    }
-
-    saveSmiInfo() {
-        if (this.smiList) {
-            emjyBack.saveToLocal({'smilist': this.smiList});
         }
     }
 }

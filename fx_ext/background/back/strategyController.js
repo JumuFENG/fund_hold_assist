@@ -1721,19 +1721,17 @@ class StrategyTD extends StrategyComplexBase {
                 }
             }
             var buyref = this.data.meta.s0price;
-            var smioff = 0;
             if (this.data.meta.state == 's1') {
                 var minbuy = buydetails.minBuyPrice();
                 if (buyref - minbuy > 0 && minbuy > 0) {
                     buyref = minbuy;
                 }
-                smioff = emjyBack.getSmiOffset(buydetails.latestBuyDate());
             }
             if (this.data.meta.state == 's2') {
                 buyref = this.data.meta.s2price;
             }
             if (this.data.meta.downtd && this.data.meta.downtd[kltype] < -8 && kl.td > -1 && kl.td < 3 && klines.continuouslyIncreaseDays(kltype) > 2) {
-                if (kl.c - (buyref - this.data.meta.s0price * (this.data.backRate - smioff)) < 0) {
+                if (kl.c - (buyref - this.data.meta.s0price * this.data.backRate) < 0) {
                     // 加仓
                     this.tobeconfirm = 'checkTdBuy';
                     return Promise.resolve({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c});
@@ -1855,8 +1853,7 @@ class StrategyMA extends StrategyTD {
             }
         }
         var count = buydetails ? buydetails.availableCount() : 0;
-        var smioff = emjyBack.getSmiOffset(buydetails.highestBuyDate());
-        if (count > 0 && this.bss18CutMatch(chkInfo, kltype, this.data.guardPrice * (1 + smioff))) {
+        if (count > 0 && this.bss18CutMatch(chkInfo, kltype, this.data.guardPrice)) {
             // 止损
             this.tobeconfirm = 'checkCutOrSell';
             return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: kl.c});
@@ -1927,7 +1924,6 @@ class StrategyGE extends Strategy {
     checkMa1Buy(chkInfo) {
         var kl1 = emjyBack.klines[chkInfo.code];
         var buydetails = chkInfo.buydetail;
-        var smioff = 0; // emjyBack.getSmiOffset(buydetails.latestBuyDate());
         if (kl1) {
             var kl = kl1.getLatestKline(this.skltype);
             var maxP = buydetails.maxBuyPrice();
@@ -1935,7 +1931,7 @@ class StrategyGE extends Strategy {
                 maxP = this.data.guardPrice;
             }
             if (this.inCritical()) {
-                if (kl.c - (this.data.guardPrice - maxP * (this.data.stepRate - smioff) * 0.8) > 0) {
+                if (kl.c - (this.data.guardPrice - maxP * this.data.stepRate * 0.8) > 0) {
                     this.data.inCritical = false;
                     return Promise.resolve({id: chkInfo.id});
                 }
@@ -1945,7 +1941,7 @@ class StrategyGE extends Strategy {
                 }
                 return Promise.resolve();
             }
-            if (kl.l - (this.data.guardPrice - maxP * (this.data.stepRate - smioff)) <= 0) {
+            if (kl.l - (this.data.guardPrice - maxP * this.data.stepRate) <= 0) {
                 this.data.inCritical = true;
                 return Promise.resolve({id: chkInfo.id});
             }
@@ -1982,7 +1978,7 @@ class StrategyGE extends Strategy {
             if (fac - 0.05 > 0) {
                 fac = 0.05 + (this.data.stepRate - 0.05) / 2;
             }
-            var count = buydetails.getCountLessThan(kl.c, fac, false);
+            var count = buydetails.getCountLessThan(kl.c, fac);
             if (count > 0) {
                 this.tmpGuardPrice = kl.c;
                 return {id: chkInfo.id, tradeType: 'S', count, price: kl.c};

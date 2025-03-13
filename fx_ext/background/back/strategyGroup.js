@@ -168,7 +168,7 @@ class BuyDetail {
         return -count - this.pendingSoldCount();
     }
 
-    getCountLessThan(price, fac = 0, smi=true) {
+    getCountLessThan(price, fac = 0) {
         var buyrec = this.buyRecords();
         if (!buyrec || buyrec.length == 0) {
             return 0;
@@ -177,8 +177,7 @@ class BuyDetail {
         var lessDetail = []; // buyrec.filter(bd => bd.price - price <= 0);
         var moreDetail = []; //buyrec.filter(bd => bd.price - price > 0);
         buyrec.forEach(c => {
-            var smioff = smi ? emjyBack.getSmiOffset(c.date) : 0;
-            if (c.price - price * (1 - fac - smioff) <= 0) {
+            if (c.price - price * (1 - fac) <= 0) {
                 lessDetail.push(c);
             } else {
                 moreDetail.push(c);
@@ -211,18 +210,18 @@ class BuyDetail {
         return -count - this.pendingSoldCount();
     }
 
-    getCountMatched(selltype, price, fac=0, smi=false) {
+    getCountMatched(selltype, price, fac=0) {
         if (selltype == 'all') {
             return this.availableCount();
         }
 
         if (selltype == 'earned') {
-            return this.getCountLessThan(price, fac, smi);
+            return this.getCountLessThan(price, fac);
         }
 
         if (selltype == 'egate') {
             if (fac > 0 && this.minBuyPrice() * (1 + fac) - price < 0) {
-                return this.getCountLessThan(price, 0, smi);
+                return this.getCountLessThan(price, 0);
             }
             return 0;
         }

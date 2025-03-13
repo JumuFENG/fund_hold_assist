@@ -600,6 +600,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                         if (this.check_holdcount(account, code) > 0) {
                             // 已经有持仓，买入价低于+5%。不追高.
                             price = Math.min(price, b.preclose_px * 1.05);
+                            strategy = null;
                         }
                         emjyBack.log(this.istr.key, 'buy with account', code, price, account);
                         emjyBack.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
