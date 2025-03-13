@@ -9,4 +9,10 @@ summary/json/*.json
 *.pyc
 *_local.py
 **/.DS_Store
+config.json
+.vscode/
+*.egg-info/
+node_modules/
+package-lock.json
+pnpm-lock.yaml
 static/src/js/echarts.js

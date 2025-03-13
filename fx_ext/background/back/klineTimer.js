@@ -236,3 +236,11 @@ class alarmHub {
         this.klineAlarms?.stopTimer();
     }
 }
+
+if (typeof window !== 'undefined') {
+    window.alarmHub = alarmHub;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = alarmHub;
+}
