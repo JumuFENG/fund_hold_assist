@@ -175,12 +175,12 @@ class ext {
     }
 
     static onContentMessageReceived(message, tabid) {
-        if (!emjyBack.normalAccount && !emjyBack.creditAccount) {
-            emjyBack.log('background not initialized');
+        if (!emjyBack) {
+            console.log('background not initialized');
             return;
         }
 
-        emjyBack.log('onContentMessageReceived', tabid);
+        emjyBack.log('onContentMessageReceived', tabid, message.command === 'emjy.captcha' ? message.command: JSON.stringify(message));
         if (message.command == 'emjy.getValidateKey') {
             chrome.tabs.executeScript(tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
             if (emjyBack.validateKey == message.key) {
@@ -212,7 +212,7 @@ class ext {
 
     static sendPendingMessages() {
         var url = new URL(this.mainTab.url);
-        if (!this.mainTab.id || url.host != this.jywghost) {
+        if (!this.mainTab.id || url.host != emjyBack.jywghost) {
             this.pendingTimeout = setTimeout(() => {
                 this.sendPendingMessages();
             }, 300);
@@ -414,7 +414,7 @@ class ext {
 
             let str0 = strategies.strinfo;
             if (!account) {
-                this.checkRzrq(code).then(rzrq => {
+                emjyBack.checkRzrq(code).then(rzrq => {
                     var racc = rzrq.Status == -1 ? 'normal' : 'credit';
                     var hacc = holdAccountKey[racc];
                     str0.account = racc;
@@ -422,13 +422,13 @@ class ext {
                         "grptype":"GroupStandard", "transfers":{"0":{"transfer":"-1"}},
                         "strategies":{"0":str0}, amount, "uramount":{"key":strategies?.uramount?.key}
                     };
-                    this.all_accounts[hacc].addWatchStock(code, bstrs);
+                    emjyBack.all_accounts[hacc].addWatchStock(code, bstrs);
                 });
             } else {
                 let bstrs = {
                     "grptype":"GroupStandard","transfers":{"0":{"transfer":"-1"}},
                     "strategies":{"0":str0},amount,"uramount":{"key":strategies?.uramount?.key}};
-                this.all_accounts[account].addWatchStock(code, bstrs);
+                emjyBack.all_accounts[account].addWatchStock(code, bstrs);
             }
         }
     }
@@ -493,7 +493,7 @@ class ext {
 
             var kline = emjyBack.klines[code].getKline('101');
             if (kline.length < 10) {
-                this.log('new stock!', code, kline);
+                emjyBack.log('new stock!', code, kline);
                 return false;
             }
             for (let i = 1; i <= cnt; i++) {
@@ -502,7 +502,7 @@ class ext {
                     var low = emjyBack.klines[code].getLowestInWaiting('101');
                     var cutp = (kl.c - low) * 100 / kl.c;
                     if (cutp >= 14 && cutp <= 27) {
-                        this.log(code, kl.c, low, cutp);
+                        emjyBack.log(code, kl.c, low, cutp);
                         if (code.startsWith('60') || code.startsWith('00')) {
                             setMaGuardPrice(strategies, low);
                             return true;
@@ -521,7 +521,7 @@ class ext {
                     if (account.keyword == 'collat') {
                         str.account = 'credit';
                     }
-                    this.log('addStrategy', account.keyword, stocki.code, str);
+                    emjyBack.log('addStrategy', account.keyword, stocki.code, str);
                     stocki.strategies.addStrategy(str);
                 }
             }

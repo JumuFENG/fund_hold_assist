@@ -439,7 +439,7 @@ class TradeClient {
             body,
         }).then(response => response.json()).then(robj => {
             if (robj.Status !== 0 || !robj.Data?.length) {
-                const err = new Error('Trade failed!');
+                const err = new Error(`Trade failed! ${code} ${price} ${count} ${tradeType}`);
                 err.details = robj;
                 throw err;
             }

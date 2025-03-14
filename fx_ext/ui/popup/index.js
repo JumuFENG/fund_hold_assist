@@ -85,6 +85,7 @@
     }
 
     function generate_strategy_json(key, sinfo) {
+        if (!key) return;
         const strobjs = {
             "StrategySellELS": {"key": "StrategySellELS", "enabled": true, "cutselltype": "all", "selltype":"all"},
             "StrategyBuyZTBoard": { "key": "StrategyBuyZTBoard", "enabled": true },
