@@ -1,31 +1,28 @@
 'use strict';
-let mktDict = {'SH': 1, 'SZ': 0, 'BJ': 4}
-let holdAccountKey = {'credit': 'collat', 'collat': 'collat', 'normal': 'normal'};
-
 
 class EmjyBack {
     constructor() {
-        this.jywghost = 'jywg.eastmoneysec.com';
-        this.jywgroot = 'https://' + this.jywghost + '/';
-        this.mainTab = null;
         this.normalAccount = null;
         this.collateralAccount = null;
         this.creditAccount = null;
-        this.manager = null;
-        this.klines = {};
+        this.klines = klPad.klines;
         this.fha = null;
     }
 
     log(...args) {
         var l = `[${new Date().toLocaleTimeString('zh',{hour12:false})}] ${args.join(' ')}`;
-        this.logs.push(l + '\n');
-        console.log(l);
+        if (this.logger) {
+            this.logger.info(l);
+        } else {
+            this.logs.push(l + '\n');
+            console.log(l);
+        }
     }
 
-    Init() {
+    Init(logger) {
+        this.logger = logger;
         this.logs = [];
         this.running = true;
-        this.strategyManager = new StrategyManager();
         this.normalAccount = new NormalAccount();
         this.collateralAccount = new CollateralAccount();
         this.creditAccount = new CreditAccount();
@@ -70,7 +67,6 @@ class EmjyBack {
             this.trackAccount = this.track_accounts[0];
             for (const account of this.track_accounts) {
                 this.all_accounts[account.keyword] = account;
-                holdAccountKey[account.keyword] = account.keyword;
                 account.loadAssets();
             }
         });
@@ -233,7 +229,7 @@ class EmjyBack {
             this.savedDeals.concat(uptosvrDeals);
             this.savedDeals.sort((a, b) => a.time > b.time);
         }
-        chrome.storage.local.set({'hist_deals': this.savedDeals});
+        this.saveToLocal({'hist_deals': this.savedDeals});
         this.uploadDeals(uptosvrDeals);
         this.clearCompletedDeals();
     }
@@ -416,7 +412,7 @@ class EmjyBack {
         }
 
         return this.all_accounts[account].sellStock(code, price, count).then(sd => {
-            var holdacc = holdAccountKey[account];
+            var holdacc = this.all_accounts[account].holdAccount();
             var stk = this.all_accounts[holdacc].getStock(code);
             if (stk) {
                 if (!stk.strategies) {
@@ -437,7 +433,7 @@ class EmjyBack {
         }
 
         return this.all_accounts[account].buyStock(code, price, count).then(bd => {
-            var holdacc = holdAccountKey[account];
+            var holdacc = this.all_accounts[account].holdAccount();
             var stk = this.all_accounts[holdacc].getStock(code);
             var strgrp = {};
             if (!stk) {
@@ -455,7 +451,7 @@ class EmjyBack {
     }
 
     buyWithAccount(code, price, count, account, strategies) {
-        var holdacc = holdAccountKey[account];
+        var holdacc = this.all_accounts[account].holdAccount();
         if (strategies) {
             this.all_accounts[holdacc].addWatchStock(code, strategies);
         }
@@ -486,29 +482,12 @@ class EmjyBack {
         });
     }
 
-    applyKlVars(code, klvars) {
-        if (this.klines[code]) {
-            this.klines[code].addKlvars(klvars);
-        }
-    }
-
     isTradeTime() {
         var now = new Date();
         if (now > new Date(now.toDateString() + ' 9:30') && now < new Date(now.toDateString() + ' 15:00')) {
             return true;
         }
         return false;
-    }
-
-    loadKlines(code, cb) {
-        if (!this.klines[code]) {
-            this.klines[code] = new KLine(code);
-            this.klines[code].loadSaved(cb);
-        } else {
-            if (typeof(cb) === 'function') {
-                cb();
-            }
-        }
     }
 
     removeStock(account, code) {
@@ -559,53 +538,12 @@ class EmjyBack {
 
     flushLogs() {
         emjyBack.log('flush log!');
+        if (this.logger) {
+            return;
+        }
         var blob = new Blob(this.logs, {type: 'application/text'});
         ext.saveToFile(blob, 'logs/stock.assist' + guang.getTodayDate() + '.log');
         this.logs = [];
-    }
-
-    exportHoldStocksCode() {
-        var codes = [];
-        this.normalAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
-        this.collateralAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
-        var blob = new Blob(codes, {type: 'application/text'});
-        ext.saveToFile(blob, 'holdingstocks.txt');
-    }
-
-    exportConfig() {
-        var configs = this.normalAccount.exportConfig();
-        var colConfig = this.collateralAccount.exportConfig();
-        for (var i in colConfig) {
-            configs[i] = colConfig[i];
-        };
-        for (const account of this.track_accounts) {
-            var trackConfig = account.exportConfig();
-            for (var i in trackConfig) {
-                configs[i] = trackConfig[i];
-            }
-        }
-        chrome.storage.local.get(['ztstocks','ztdels', 'hist_deals'], item => {
-            if (item) {
-                configs['ztstocks'] = item['ztstocks'];
-                configs['ztdels'] = item['ztdels'];
-                configs['hist_deals'] = item['hist_deals'];
-            }
-            var blob = new Blob([JSON.stringify(configs)], {type: 'application/json'});
-            ext.saveToFile(blob, 'stocks.config.json');
-        });
-    }
-
-    importConfig(configs) {
-        for (var i in configs) {
-            var cfg = {};
-            cfg[i] = configs[i];
-            chrome.storage.local.set(cfg);
-        };
-        this.normalAccount.importConfig(configs);
-        this.collateralAccount.importConfig(configs);
-        for (const account of this.track_accounts) {
-            account.importConfig(configs);
-        }
     }
 
     getFromLocal(key) {

@@ -1,5 +1,4 @@
 'use strict';
-let BondRepurchasePath = '/BondRepurchase/SecuritiesLendingRepurchase';
 
 
 class DealsClient {
@@ -585,8 +584,6 @@ class Account {
         this.keyword = null;
         this.stocks = [];
         this.fundcode = '511880'; // 货币基金代码，余钱收盘前买入.
-        this.buyPath = null;
-        this.sellPath = null;
         this.tradeClient = null;
         this.assetsClient = null;
     }
@@ -594,14 +591,16 @@ class Account {
     getStock(code) {
         return this.stocks.find(s => s.code == code);
     }
+
+    holdAccount() {
+        return this.keyword;
+    }
 }
 
 class NormalAccount extends Account {
     constructor() {
         super();
         this.keyword = 'normal';
-        this.buyPath = '/Trade/Buy';
-        this.sellPath = '/Trade/Sale';
         this.availableMoney = 0;
     }
 
@@ -728,7 +727,7 @@ class NormalAccount extends Account {
     }
 
     addWatchStock(code, strgrp) {
-        emjyBack.loadKlines(code);
+        klPad.loadKlines(code);
         var stock = this.stocks.find(s => {return s.code == code;});
 
         if (stock) {
@@ -983,8 +982,6 @@ class CollateralAccount extends NormalAccount {
     constructor() {
         super();
         this.keyword = 'collat';
-        this.buyPath = '/MarginTrade/Buy';
-        this.sellPath = '/MarginTrade/Sale';
     }
 
     createTradeClient() {
@@ -1060,8 +1057,10 @@ class CreditAccount extends CollateralAccount {
     constructor() {
         super();
         this.keyword = 'credit';
-        this.buyPath = '/MarginTrade/MarginBuy';
-        this.sellPath = '/MarginTrade/FinanceSale';
+    }
+
+    holdAccount() {
+        return 'collat';
     }
 
     createTradeClient() {

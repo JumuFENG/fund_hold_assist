@@ -595,7 +595,7 @@ class StrategyGroup {
 
     initStrategies(strs) {
         for (var id in strs) {
-            this.strategies[id] = emjyBack.strategyManager.create(strs[id]);
+            this.strategies[id] = strategyFac.create(strs[id]);
         };
     }
 
@@ -614,7 +614,7 @@ class StrategyGroup {
         }
         if (!merged) {
             var id = this.getNextValidId();
-            this.strategies[id] = emjyBack.strategyManager.create(str);
+            this.strategies[id] = strategyFac.create(str);
         }
         this.save();
     }
@@ -623,7 +623,7 @@ class StrategyGroup {
         var id = this.getNextValidId();
         var idmap = {'-1':'-1'};
         for (var oid in strgrp.strategies) {
-            this.strategies[id] = emjyBack.strategyManager.create(strgrp.strategies[oid]);
+            this.strategies[id] = strategyFac.create(strgrp.strategies[oid]);
             idmap[oid] = id;
             ++id;
         }

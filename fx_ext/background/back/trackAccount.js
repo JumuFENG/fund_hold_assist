@@ -28,8 +28,6 @@ class TrackingAccount extends NormalAccount {
         super();
         this.keyword = key;
         this.key_deals = this.keyword + '_deals';
-        this.buyPath = null;
-        this.sellPath = null;
         this.availableMoney = Infinity;
         this.sid = 1;
         this.deals = [];

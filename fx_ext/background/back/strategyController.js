@@ -1,7 +1,7 @@
 'use strict';
 
-class StrategyManager {
-    create(strategy) {
+class strategyFac {
+    static create(strategy) {
         if (strategy.key == 'StrategyBuy') {
             return new StrategyBuy(strategy);
         };

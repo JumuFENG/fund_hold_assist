@@ -96,7 +96,7 @@ class StrategyI_Base {
     }
 
     check_holdcount(account, code) {
-        const holdacc = holdAccountKey[account];
+        const holdacc = emjyBack.all_accounts[account].holdAccount();
         const holdstock = emjyBack.all_accounts[holdacc].getStock(code);
         if (holdstock && holdstock.holdCount > 0) {
             return holdstock.holdCount;
@@ -105,7 +105,7 @@ class StrategyI_Base {
     }
 
     get_buydetail(account, code) {
-        const holdacc = holdAccountKey[account];
+        const holdacc = emjyBack.all_accounts[account].holdAccount();
         const holdstock = emjyBack.all_accounts[holdacc].getStock(code);
         return holdstock?.strategies?.buydetail;
     }
@@ -640,7 +640,7 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                 this.candidates[s] = {watched: true};
             }
             this.expected_account(this.istr.account, s).then(account => {
-                let hacc = holdAccountKey[account];
+                let hacc = emjyBack.all_accounts[account].holdAccount();
                 this.estr = {'StrategyBuyDTBoard': {account}};
                 emjyBack.all_accounts[hacc].addWatchStock(s, this.generate_strategy_json());
                 this.candidates[s].account = hacc;

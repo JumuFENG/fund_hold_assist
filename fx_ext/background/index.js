@@ -10,6 +10,8 @@ class ManagerBack {
     constructor() {
         this.tabid = null;
         this.mgrChangedTimeout = null;
+        this.jywghost = 'jywg.eastmoneysec.com';
+        this.jywgroot = 'https://' + this.jywghost + '/';
     }
 
     isValid() {
@@ -150,12 +152,12 @@ class ext {
 
     static createMainTab() {
         chrome.tabs.query({}).then(tabs => {
-            const tids = tabs.filter(tab => new URL(tab.url).host == emjyBack.jywghost).map(t=>t.id);
+            const tids = tabs.filter(tab => new URL(tab.url).host == this.jywghost).map(t=>t.id);
             chrome.tabs.remove(tids);
         }).then(() => {
             emjyBack.getFromLocal('acc_np').then(anp => {
                 emjyBack.unp = anp;
-                var url = emjyBack.unp.credit ? emjyBack.jywgroot + 'MarginTrade/Buy': emjyBack.jywgroot + 'Trade/Buy';
+                var url = emjyBack.unp.credit ? this.jywgroot + 'MarginTrade/Buy': this.jywgroot + 'Trade/Buy';
                 chrome.tabs.create({url}).then(ctab => this.mainTab = ctab);
             });
         });
@@ -212,7 +214,7 @@ class ext {
 
     static sendPendingMessages() {
         var url = new URL(this.mainTab.url);
-        if (!this.mainTab.id || url.host != emjyBack.jywghost) {
+        if (!this.mainTab.id || url.host != this.jywghost) {
             this.pendingTimeout = setTimeout(() => {
                 this.sendPendingMessages();
             }, 300);
@@ -247,7 +249,7 @@ class ext {
     }
 
     static sendMessageToContent(data) {
-        if (!this.mainTab || !this.mainTab.id || (new URL(this.mainTab.url)).host != emjyBack.jywghost) {
+        if (!this.mainTab || !this.mainTab.id || (new URL(this.mainTab.url)).host != this.jywghost) {
             this.insertPendingMessage(data);
             if (this.pendingTimeout) {
                 clearTimeout(this.pendingTimeout);
@@ -416,7 +418,7 @@ class ext {
             if (!account) {
                 emjyBack.checkRzrq(code).then(rzrq => {
                     var racc = rzrq.Status == -1 ? 'normal' : 'credit';
-                    var hacc = holdAccountKey[racc];
+                    var hacc = emjyBack.all_accounts[racc].holdAccount();
                     str0.account = racc;
                     let bstrs = {
                         "grptype":"GroupStandard", "transfers":{"0":{"transfer":"-1"}},
@@ -477,7 +479,51 @@ class ext {
         chrome.storage.local.clear();
     }
 
-    addMissedStocks(days = 1) {
+    static exportHoldStocksCode() {
+        var codes = [];
+        emjyBack.normalAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
+        emjyBack.collateralAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
+        var blob = new Blob(codes, {type: 'application/text'});
+        this.saveToFile(blob, 'holdingstocks.txt');
+    }
+
+    static exportConfig() {
+        var configs = emjyBack.normalAccount.exportConfig();
+        var colConfig = emjyBack.collateralAccount.exportConfig();
+        for (var i in colConfig) {
+            configs[i] = colConfig[i];
+        };
+        for (const account of emjyBack.track_accounts) {
+            var trackConfig = account.exportConfig();
+            for (var i in trackConfig) {
+                configs[i] = trackConfig[i];
+            }
+        }
+        chrome.storage.local.get(['ztstocks','ztdels', 'hist_deals'], item => {
+            if (item) {
+                configs['ztstocks'] = item['ztstocks'];
+                configs['ztdels'] = item['ztdels'];
+                configs['hist_deals'] = item['hist_deals'];
+            }
+            var blob = new Blob([JSON.stringify(configs)], {type: 'application/json'});
+            ext.saveToFile(blob, 'stocks.config.json');
+        });
+    }
+
+    static importConfig(configs) {
+        for (var i in configs) {
+            var cfg = {};
+            cfg[i] = configs[i];
+            chrome.storage.local.set(cfg);
+        };
+        emjyBack.normalAccount.importConfig(configs);
+        emjyBack.collateralAccount.importConfig(configs);
+        for (const account of emjyBack.track_accounts) {
+            account.importConfig(configs);
+        }
+    }
+
+    static addMissedStocks(days = 1) {
         var setMaGuardPrice = function(strategygrp, prc) {
             for (var id in strategygrp.strategies) {
                 if (strategygrp.strategies[id].data.key == 'StrategyMA') {
@@ -531,7 +577,7 @@ class ext {
         addMissed(emjyBack.collateralAccount);
     }
 
-    cheatExistingStocks() {
+    static cheatExistingStocks() {
         var cheatOperation = function(account) {
             for (let i = 0; i < account.stocks.length; i++) {
                 const stocki = account.stocks[i];
@@ -544,7 +590,7 @@ class ext {
         cheatOperation(emjyBack.collateralAccount);
     }
 
-    dumpTestKl(code, kltype = '101') {
+    static dumpTestKl(code, kltype = '101') {
         var r = [];
         emjyBack.klines[code].klines[kltype].forEach(kl => {r.push({kl:kl, expect:{dcount:0}})});
         console.log(JSON.stringify(r));

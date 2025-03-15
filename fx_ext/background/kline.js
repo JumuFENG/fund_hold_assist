@@ -1,5 +1,18 @@
 'use strict';
 
+
+class klPad {
+    static klines = {};
+
+    static loadKlines(code) {
+        if (!this.klines[code]) {
+            this.klines[code] = new KLine(code);
+            this.klines[code].loadSaved(cb);
+        }
+    }
+}
+
+
 class KLine {
     constructor(code) {
         this.code = code;
