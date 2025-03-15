@@ -1,0 +1,132 @@
+# Python 3
+# -*- coding:utf-8 -*-
+
+from peewee import Model, CharField, IntegerField, AutoField, CompositeKey, DoubleField, SmallIntegerField
+
+class User(Model):
+    id = AutoField(primary_key=True)
+    name = CharField(max_length=255)
+    password = CharField(max_length=255)
+    email = CharField(max_length=255)
+    parent_account = IntegerField()
+
+    class Meta:
+        db_name = 'general'
+        table_name = 'users'
+
+
+class UserFunds(Model):
+    id = AutoField(primary_key=True)
+    code = CharField(max_length=10)
+    cost_hold = DoubleField()
+    portion_hold = DoubleField()
+    aver_price = DoubleField()
+    keep_eye = SmallIntegerField(default=1)
+
+    class Meta:
+        db_name = 'fund_center'
+
+
+class UserStocks(Model):
+    id = AutoField(primary_key=True)
+    code = CharField(max_length=10)
+    cost_hold = DoubleField()
+    portion_hold = DoubleField()
+    aver_price = DoubleField()
+    keep_eye = SmallIntegerField(default=1)
+    手续费 = DoubleField()
+
+    class Meta:
+        db_name = 'stock_center'
+
+
+class UserEarned(Model):
+    id = AutoField(primary_key=True)
+    date = CharField(max_length=20)
+    earned = DoubleField()
+    total_earned = DoubleField()
+
+    class Meta:
+        db_name = 'stock_center'
+
+
+class UserEarning(Model):
+    id = AutoField(primary_key=True)
+    date = CharField(max_length=20)
+    cost = DoubleField()
+    市值 = DoubleField()
+
+    class Meta:
+        db_name = 'stock_center'
+
+
+class UserDeals(Model):
+    id = AutoField(primary_key=True)
+    date = CharField(max_length=20)
+    code = CharField(max_length=10)
+    type = CharField(max_length=10)
+    委托编号 = CharField(max_length=10)
+    price = DoubleField()
+    portion = IntegerField()
+    手续费 = DoubleField()
+    印花税 = DoubleField()
+    过户费 = DoubleField()
+
+    class Meta:
+        db_name = 'stock_center'
+
+
+class UserStockBuy(Model):
+    id = AutoField(primary_key=True)
+    date = CharField(max_length=20)
+    code = CharField(max_length=10)
+    portion = IntegerField()
+    price = DoubleField()
+    cost = DoubleField()
+    soldout = SmallIntegerField(default=0)
+    soldptn = IntegerField()
+    委托编号 = CharField(max_length=10)
+    手续费 = DoubleField()
+    印花税 = DoubleField()
+    过户费 = DoubleField()
+
+    class Meta:
+        db_name = 'stock_center'
+
+
+class UserStockSell(Model):
+    id = AutoField(primary_key=True)
+    date = CharField(max_length=20)
+    code = CharField(max_length=10)
+    portion = IntegerField()
+    price = DoubleField()
+    money_sold = DoubleField()
+    cost_sold = DoubleField()
+    earned = DoubleField()
+    return_percent = DoubleField()
+    rolled_in = IntegerField()
+    rollin_netvalue = DoubleField()
+    委托编号 = CharField(max_length=10)
+    手续费 = DoubleField()
+    印花税 = DoubleField()
+    过户费 = DoubleField()
+
+    class Meta:
+        db_name = 'stock_center'
+
+
+class AllStocks(Model):
+    id = AutoField(primary_key=True)
+    code = CharField(max_length=20)
+    name = CharField(max_length=255)
+    type = CharField(max_length=20)
+    简称 = CharField(max_length=255)
+    资产规模 = CharField(max_length=20)
+    setup_date = CharField(max_length=20)
+    quit_date = CharField(max_length=20)
+
+    class Meta:
+        db_name = 'stock_center'
+        table_name = 'all_stocks'
+
+
