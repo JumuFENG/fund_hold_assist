@@ -1,6 +1,7 @@
 # Python 3
 # -*- coding:utf-8 -*-
 
+from phon.hu.hu import DateConverter
 from datetime import datetime, timedelta
 from decimal import Decimal
 from utils import *

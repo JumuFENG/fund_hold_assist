@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 from datetime import datetime, timedelta
+from phon.hu.hu import DateConverter
 from decimal import Decimal
 from utils import *
 from history import *
