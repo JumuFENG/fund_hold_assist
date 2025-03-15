@@ -860,7 +860,9 @@ def captcha_ocr():
     if request.method == 'POST':
         img = request.form.get('img', None, str)
     if img is None:
-        return
+        return 'None img!', 200
+    if img.startswith('http'):
+        return OcrCaptcha.img_to_text(requests.get(img).content), 200
     if ',' in img:
         img = img.split(',')[1]
     return OcrCaptcha.img_to_text(img), 200

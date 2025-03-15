@@ -6,7 +6,7 @@ import asyncio
 from datetime import datetime
 from utils import *
 from history import StockAuctionDetails, StockGlobal, StockDumps, StockBkMap
-from pickup import StockZt1BreakupSelector, StockZt1HotrankSelector, StockHotrank0Selector, StockZt1j2Selector, StockZt1BkSelector
+from pickup import StockZt1BreakupSelector, StockZt1HotrankSelector, StockZt1j2Selector
 from pickup import StockAuctionUpSelector, StockEndVolumeSelector, StockHotrankDaySelector
 from training.models import ModelAnn1j2, ModelAnnEndVolume
 
@@ -208,7 +208,6 @@ class StrategyI_Zt1Hotrank(StrategyI_Listener):
     stock_notified = []
     latest_ranks = {}
     rankjqka = {}
-    ranktgb = {}
     changes_matched = []
 
     def __init__(self):
@@ -223,13 +222,11 @@ class StrategyI_Zt1Hotrank(StrategyI_Listener):
         await self.hrlistener.start_strategy_tasks()
 
     async def on_hotrank_fetched(self, hotranks):
-        rk, rkjqka, rktgb = hotranks
+        rk, rkjqka = hotranks
         if rk is not None:
             self.latest_ranks = rk
         if rkjqka is not None:
             self.rankjqka = rkjqka
-        if rktgb is not None:
-            self.ranktgb = rktgb
 
     async def on_watcher(self, fecthed):
         for c, f, t, i in fecthed:
@@ -251,7 +248,7 @@ class StrategyI_Zt1Hotrank(StrategyI_Listener):
                 self.stock_notified.append((c, t))
             self.changes_matched.append([
                 c, f, t, self.latest_ranks[c]['rank'] if c in self.latest_ranks else 0,
-                self.rankjqka[c] if c in self.rankjqka else 0, self.ranktgb[c] if c in self.ranktgb else 0,
+                self.rankjqka[c] if c in self.rankjqka else 0, 0,
                 self.latest_ranks[c]['newfans'] if c in self.latest_ranks else 0, i])
 
     def on_taskstop(self):
@@ -280,7 +277,7 @@ class StrategyI_DayHotrank(StrategyI_Listener):
         self.watcher = WsIsUtils.get_watcher('hotrank')
 
     async def on_watcher(self, hotranks):
-        rk, rkjqka, rktgb = hotranks
+        rk, rkjqka = hotranks
         if rk is None:
             return
 
@@ -475,7 +472,6 @@ class StrategyI_Zt1j2Open(StrategyI_Listener):
     zt1j2_candidates = None
     latest_ranks = None
     rankjqka = None
-    ranktgb = None
     model1j2 = None
 
     def __init__(self):
@@ -489,7 +485,7 @@ class StrategyI_Zt1j2Open(StrategyI_Listener):
         await self.taskwatcher.start_strategy_tasks()
 
     async def on_watcher(self, hotranks):
-        self.latest_ranks, self.rankjqka, self.ranktgb = hotranks
+        self.latest_ranks, self.rankjqka = hotranks
         if self.latest_ranks is None:
             return
         if self.szt1j2 is None:
@@ -504,7 +500,6 @@ class StrategyI_Zt1j2Open(StrategyI_Listener):
             rkval = self.zt1j2_candidates[code][0:2]
             rkval.append(rankNumber)
             rkval.append(self.rankjqka[code] if code in self.rankjqka else 0)
-            rkval.append(self.ranktgb[code] if code in self.ranktgb else 0)
             rkval.append(newFans)
             rkvalues.append(rkval)
             # if newFans < 70:
@@ -513,7 +508,6 @@ class StrategyI_Zt1j2Open(StrategyI_Listener):
             #     continue
             rkobj = {'code': code, 'rank': rankNumber,'newfans': newFans}
             rkobj['rkjqka'] = self.rankjqka[code] if code in self.rankjqka else 0
-            rkobj['rktgb'] = self.ranktgb[code] if code in self.ranktgb else 0
             rkobj['pscore'] = 0
             self.stockranks.append(rkobj)
         pvdata = []
@@ -523,10 +517,8 @@ class StrategyI_Zt1j2Open(StrategyI_Listener):
             if p == 0: p = 100
             pt = rk['rkjqka']
             if pt == 0: pt = 100
-            pg = rk['rktgb']
-            if pg == 0: pg = 100
             f = rk['newfans']
-            pv = [p/100, pt/100, pg/100, f/100]
+            pv = [p/100, pt/100, f/100]
             pv += self.zt1j2_candidates[code][3:]
             pvdata.append(pv)
         if self.model1j2 is None:

@@ -94,7 +94,7 @@ async def handle_client(websocket, path):
         WsClientManager.remove_agent(websocket)
 
 async def main():
-    server = await websockets.serve(handle_client, "0.0.0.0", ws_port)
+    server = await websockets.serve(handle_client, "0.0.0.0", ws_port, close_timeout=60)
     for period in ws_periods:
         asyncio.create_task(periodic_task(period))
     WsIntradeStrategyFactory.setup_intrade_strategies(WsClientManager.intrade_matched)

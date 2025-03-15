@@ -697,21 +697,14 @@ class StrategyI_BKChanges_Watcher(StrategyI_StkChanges_Watcher):
 
 class StrategyI_Hotrank_Watcher(StrategyI_Watcher_Base):
     hr_task_running = False
-    hr_tgb_running = False
     shr = None
 
     async def start_strategy_tasks(self):
         loop = asyncio.get_event_loop()
         if Utils.delay_seconds('9:30') > 0:
-            # if Utils.delay_seconds('9:00') > 0:
-            #     loop.call_later(Utils.delay_seconds('9:5:0'), lambda: asyncio.ensure_future(self.start_hotrank_tgb_task()))
-            # else:
-            #     await self.update_hotrank_tgb()
-            #     loop.call_later(Utils.delay_seconds('10:5:0'), lambda: asyncio.ensure_future(self.start_hotrank_tgb_task()))
             loop.call_later(Utils.delay_seconds('9:20:5'), lambda: asyncio.ensure_future(self.start_hotrank_task()))
             loop.call_later(Utils.delay_seconds('11:30:5'), self.stop_hotrank_task)
             loop.call_later(Utils.delay_seconds('13:00:0'), lambda: asyncio.ensure_future(self.start_hotrank_task()))
-            # loop.call_later(Utils.delay_seconds('13:00:0'), lambda: asyncio.ensure_future(self.start_hotrank_tgb_task()))
             loop.call_later(Utils.delay_seconds('14:57:1'), self.stop_hotrank_task)
         else:
             Utils.log(f'{__class__.__name__} start time expired.', Utils.Warn)
@@ -729,35 +722,16 @@ class StrategyI_Hotrank_Watcher(StrategyI_Watcher_Base):
                 Utils.log(traceback.format_exc(), Utils.Err)
             await asyncio.sleep(600)
 
-    async def start_hotrank_tgb_task(self):
-        if self.hr_tgb_running:
-            return
-        self.hr_tgb_running = True
-        while self.hr_tgb_running:
-            try:
-                await self.update_hotrank_tgb()
-            except Exception as e:
-                Utils.log(f'{e}', Utils.Err)
-                Utils.log(traceback.format_exc(), Utils.Err)
-            await asyncio.sleep(3600)
-
     async def update_hotranks(self):
         if self.shr is None:
             self.shr = StockHotRank()
         ranks = self.shr.getEmRanks(500)
         latest_ranks = {c: {'rank': r, 'newfans': f} for c,r,f in ranks}
         rankjqka = {x[0]: x[1] for x in self.shr.get10jqkaRanks()}
-        await self.notify_change((latest_ranks, rankjqka, None))
-
-    async def update_hotrank_tgb(self):
-        if self.shr is None:
-            self.shr = StockHotRank()
-        ranktgb = {x[0]: x[1] for x in self.shr.getTgbRanks()}
-        await self.notify_change((None, None, ranktgb))
+        await self.notify_change((latest_ranks, rankjqka))
 
     def stop_hotrank_task(self):
         self.hr_task_running = False
-        self.hr_tgb_running = False
         Utils.log('stop task for hotrank!')
 
 
@@ -773,8 +747,7 @@ class StrategyI_Hotrank_Once_Watcher(StrategyI_Simple_Watcher):
             ranks = self.shr.getEmRanks(100)
             latest_ranks = {c: {'rank': r, 'newfans': f} for c,r,f in ranks}
             rankjqka = {x[0]: x[1] for x in self.shr.get10jqkaRanks()}
-            ranktgb = {x[0]: x[1] for x in self.shr.getTgbRanks()}
-            await self.notify_change((latest_ranks, rankjqka, ranktgb))
+            await self.notify_change((latest_ranks, rankjqka))
         except Exception as e:
             Utils.log(f'{e}', Utils.Err)
             Utils.log(traceback.format_exc(), Utils.Err)

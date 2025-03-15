@@ -925,7 +925,6 @@ class StockZt1HotrankSelector(StockBaseSelector):
             {'col':'changetype','type':'int DEFAULT NULL'},
             {'col':'排名','type':'int DEFAULT 0'},
             {'col':'排名TH','type':'int DEFAULT 0'},
-            {'col':'排名TG','type':'int DEFAULT 0'},
             {'col':'newfans','type':'float DEFAULT 0'},
             {'col':'changeinfo','type':'varchar(255) DEFAULT NULL'},
         ]
@@ -1071,7 +1070,6 @@ class StockZt1j2Selector(StockBaseSelector):
             {'col':'买成','type':'tinyint DEFAULT 0'},
             {'col':'排名','type':'int DEFAULT 0'},
             {'col':'排名TH','type':'int DEFAULT 0'},
-            {'col':'排名TG','type':'int DEFAULT 0'},
             {'col':'newfans','type':'float DEFAULT 0'},
         ]
         self._sim_ops = [
@@ -1117,7 +1115,7 @@ class StockZt1j2Selector(StockBaseSelector):
         return pool
     
     def updateRanks(self, ranks):
-        self.sqldb.updateMany(self.tablename, [column_code, column_date, '排名', '排名TH', '排名TG', 'newfans'], [column_code, column_date], ranks)
+        self.sqldb.updateMany(self.tablename, [column_code, column_date, '排名', '排名TH', 'newfans'], [column_code, column_date], ranks)
 
     def updateBuyInfo(self, bi):
         self.sqldb.updateMany(self.tablename, [column_code, column_date, 'bdate', '买成'], [column_code, column_date], bi)
@@ -1134,9 +1132,9 @@ class StockZt1j2Selector(StockBaseSelector):
 
     def dumpTrainingData(self, date=None):
         conds = f'{column_date}>="{date}"' if date is not None else ''
-        z1j2data = self.sqldb.select(self.tablename, [column_code, column_date, '排名', '排名TH', '排名TG', 'newfans'], conds)
+        z1j2data = self.sqldb.select(self.tablename, [column_code, column_date, '排名', '排名TH', 'newfans'], conds)
         rdata, ry, tdata = [], [], []
-        for c, d, p, pt, pg, f in z1j2data:
+        for c, d, p, pt, f in z1j2data:
             kdate = d
             for i in range(0, 20):
                 kdate = TradingDate.prevTradingDate(kdate)
@@ -1148,8 +1146,6 @@ class StockZt1j2Selector(StockBaseSelector):
                 p = 100
             if pt == 0:
                 pt = 100
-            if pg == 0:
-                pg = 100
             f = f / 100
             kl = allkl[0]
             i = 1
@@ -1174,9 +1170,9 @@ class StockZt1j2Selector(StockBaseSelector):
                     ry.append(1)
                 else:
                     ry.append(0)
-                rdata.append([c, d, p/100, pt/100, pg/100, f, zdf, v5, a5, o, l, h])
+                rdata.append([c, d, p/100, pt/100, f, zdf, v5, a5, o, l, h])
             elif i + 1 < len(rdata):
-                tdata.append([c, d, p/100, pt/100, pg/100, f, zdf, v5, a5, o, l, h])
+                tdata.append([c, d, p/100, pt/100, f, zdf, v5, a5, o, l, h])
         return rdata, ry, tdata
 
     def sim_prepare(self):

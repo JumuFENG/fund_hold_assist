@@ -6,6 +6,8 @@
 ################################
 
 from ws_intrade_strategy import *
+from pickup import  StockHotrank0Selector, StockZt1BkSelector, StockZt1WbSelector, StockTrippleBullSelector
+from pickup import StockZtDailyMain
 
 
 # 胜率约45%, 收益平庸
@@ -86,35 +88,6 @@ class StrategyI_HighClose(StrategyI_Listener):
             mnshadow_match_data['strategies'] = {'StrategySellELS': {}}
             await self.on_intrade_matched(self.key, mnshadow_match_data, self.create_intrade_matched_message)
 
-
-#胜率约43%, 收益一般
-class StrategyI_HotrankClose(StrategyI_HotrankOpen):
-    ''' 收盘人气排行
-    '''
-    key = 'istrategy_hotrank1'
-    name = '收盘人气排行'
-    desc = '盘中不触及涨停且股价大于水下一半 选人气排行最靠前且新增粉丝>70%'
-
-    def __init__(self):
-        self.stockranks = []
-        self.watcher =  WsIsUtils.get_watcher('hotrank_close')
-        self.taskwatcher = StrategyI_Simple_Watcher('14:55:50')
-        self.taskwatcher.execute_simple_task = self.start_check_task
-        self.tasklistner = StrategyI_Listener()
-        self.tasklistner.watcher = self.taskwatcher
-
-    def check_cls_basicinfo(self, snapshot):
-        try:
-            topprice = float(snapshot['topprice'])
-            bottomprice = float(snapshot['bottomprice'])
-            lclose = float(snapshot['fivequote']['yesClosePrice'])
-            current_price = float(snapshot['realtimequote']['currentPrice'])
-            high_price = float(snapshot['realtimequote']['high'])
-            # 尾盘买入时排除炸板票
-            return high_price < topprice and current_price > 1 and current_price < topprice and current_price > (bottomprice + lclose) / 2
-        except ValueError as e:
-            Utils.log(f'ValueError in StrategyI_HotrankClose.check_snapshot {e}', Utils.Err)
-            return False
 
 # 不及预期
 class StrategyI_EVolumeD4(StrategyI_EVolume):
@@ -312,7 +285,6 @@ class StrategyI_HotrankOpen(StrategyI_Listener):
     rked5d = []
     latest_ranks = None
     rankjqka = None
-    ranktgb = None
 
     def __init__(self):
         self.stockranks = []
@@ -331,8 +303,8 @@ class StrategyI_HotrankOpen(StrategyI_Listener):
         await self.taskwatcher1.start_strategy_tasks()
 
     async def on_watcher(self, hotranks):
-        self.latest_ranks, self.rankjqka, self.ranktgb = hotranks
-        if self.latest_ranks is None or self.rankjqka is None or self.ranktgb is None:
+        self.latest_ranks, self.rankjqka = hotranks
+        if self.latest_ranks is None or self.rankjqka is None:
             return
 
         rank20 = []
@@ -344,12 +316,11 @@ class StrategyI_HotrankOpen(StrategyI_Listener):
             if newFans < 70 or rankNumber > 40:
                 continue
 
-            # if code not in self.rankjqka and code not in self.ranktgb:
+            # if code not in self.rankjqka:
             #     continue
 
             rkobj = {'code': code, 'rank': rankNumber, 'newfans': newFans}
             rkobj['rkjqka'] = self.rankjqka[code] if code in self.rankjqka else 0
-            rkobj['rktgb'] = self.ranktgb[code] if code in self.ranktgb else 0
             self.stockranks.append(rkobj)
 
         if self.hotranktbl is None:
@@ -391,7 +362,7 @@ class StrategyI_HotrankOpen(StrategyI_Listener):
             name = b['secu_name']
             if name.startswith('退市') or name.endswith('退'):
                 continue
-            self.topranks[code] = [StockGlobal.full_stockcode(code), TradingDate.maxTradingDate(), rkdict[c]['rank'], rkdict[c]['newfans'], rkdict[c]['rkjqka'], rkdict[c]['rktgb'], zdf]
+            self.topranks[code] = [StockGlobal.full_stockcode(code), TradingDate.maxTradingDate(), rkdict[c]['rank'], rkdict[c]['newfans'], rkdict[c]['rkjqka'], zdf]
             if rkdict[c]['rank'] <= 10 and code not in self.rked5d and self.check_cls_basicinfo(b):
                 checked_ranks.append({'code': code, 'rank': rkdict[c]['rank'], 'price': current_price, 'topprice': b['up_price'], 'zdf': zdf})
 
@@ -419,4 +390,39 @@ class StrategyI_HotrankOpen(StrategyI_Listener):
         else:
             for rk in self.topranks.values():
                 Utils.log(f'{rk}')
+
+
+#胜率约43%, 收益一般
+class StrategyI_HotrankClose(StrategyI_HotrankOpen):
+    ''' 收盘人气排行
+    '''
+    key = 'istrategy_hotrank1'
+    name = '收盘人气排行'
+    desc = '盘中不触及涨停且股价大于水下一半 选人气排行最靠前且新增粉丝>70%'
+
+    def __init__(self):
+        self.stockranks = []
+        self.topranks = {}
+        self.watcher =  WsIsUtils.get_watcher('hotrank_close')
+        self.taskwatcher = StrategyI_Simple_Watcher('14:55:50')
+        self.taskwatcher.execute_simple_task = self.start_check_task
+        self.tasklistner = StrategyI_Listener()
+        self.tasklistner.watcher = self.taskwatcher
+
+    async def start_strategy_tasks(self):
+        await super(StrategyI_HotrankOpen, self).start_strategy_tasks()
+        await self.taskwatcher.start_strategy_tasks()
+
+    def check_cls_basicinfo(self, snapshot):
+        try:
+            topprice = float(snapshot['up_price'])
+            bottomprice = float(snapshot['down_price'])
+            lclose = float(snapshot['preclose_px'])
+            current_price = float(snapshot['last_px'])
+            high_price = float(snapshot['high_px'])
+            # 尾盘买入时排除炸板票
+            return high_price < topprice and current_price > 1 and current_price < topprice and current_price > (bottomprice + lclose) / 2
+        except ValueError as e:
+            Utils.log(f'ValueError in StrategyI_HotrankClose.check_snapshot {e}', Utils.Err)
+            return False
 

@@ -210,7 +210,6 @@ class StockHotrank0Selector(StockBaseSelector):
             {'col': 'rankem', 'type': 'int DEFAULT 0'}, # 东财人气排名
             {'col': 'newfans', 'type': 'float DEFAULT 0'},
             {'col': 'rankjq', 'type': 'int DEFAULT 0'}, # 同花顺人气排名
-            {'col': 'ranktg', 'type': 'int DEFAULT 0'}, # 淘股吧人气排名
             {'col': 'zdf', 'type': 'float DEFAULT 0'}, # 涨跌幅
         ]
 
