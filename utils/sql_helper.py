@@ -1,7 +1,9 @@
 # Python 3
 # -*- coding:utf-8 -*-
-
-import mysql.connector
+try:
+    import mysql.connector as sqlmysql
+except ImportError:
+    import pymysql as sqlmysql
 import time
 
 
@@ -23,7 +25,7 @@ class SqlHelper():
         while True:
             try:
                 # 不存在时连接到database会抛异常, 先检查是否存在
-                self.con = mysql.connector.connect(user=self.username, host=self.host, password=self.password)
+                self.con = sqlmysql.connect(user=self.username, host=self.host, password=self.password)
                 self.cur = self.con.cursor()
                 if not self.isExistSchema(self.database):
                     sql = "CREATE DATABASE IF NOT EXISTS " + self.database
@@ -32,7 +34,7 @@ class SqlHelper():
                 self.cur.close()
                 self.con.close()
                 # 所有的查询，都在连接 con 的一个模块 cursor 上面运行的
-                self.con = mysql.connector.connect(user=self.username, database=self.database, host=self.host, password=self.password)
+                self.con = sqlmysql.connect(user=self.username, database=self.database, host=self.host, password=self.password)
                 self.cur = self.con.cursor()
                 return
             except Exception as e:
@@ -94,7 +96,7 @@ class SqlHelper():
             self.cur.execute(sql)
             records = self.cur.fetchall()
             return records
-        except mysql.connector.Error as e:
+        except sqlmysql.Error as e:
             error = 'MySQL execute failed! ERROR (%s): %s' %(e.args[0],e.args[1])
             print(error)
 
@@ -105,7 +107,7 @@ class SqlHelper():
         try:
             self.cur.execute(sql)
             self.con.commit()
-        except mysql.connector.Error as e:
+        except sqlmysql.Error as e:
             self.con.rollback()
             error = 'MySQL execute failed! ERROR (%s): %s' %(e.args[0],e.args[1])
             print("error:", error)
@@ -175,7 +177,7 @@ class SqlHelper():
             if len(rs) > 0:
                 print('more than 1 row, others', rs)
             return r1
-        except mysql.connector.Error as e:
+        except sqlmysql.Error as e:
             self.con.rollback()
             error = f'MySQL execute failed! ERROR ({e.args[0]}): {e.args[1]}'
             print("error:", error)
@@ -217,7 +219,7 @@ class SqlHelper():
         try:
             self.cur.execute(sql)
             return self.cur.fetchall()
-        except mysql.connector.Error as e:
+        except sqlmysql.Error as e:
             error = f'MySQL execute failed! ERROR ({e.args[0]}): {e.args[1]}'
             print('select:' + sql)
             print(error)
@@ -253,7 +255,7 @@ class SqlHelper():
             for i in range(0, len(values), 20000):
                 self.cur.executemany(sql, values[i:i+20000])
                 self.con.commit()
-        except mysql.connector.Error as e:
+        except sqlmysql.Error as e:
             self.con.rollback()
             error = 'insertMany executemany failed! ERROR (%s): %s' %(e.args[0],e.args[1])
             print(error)
@@ -350,7 +352,7 @@ class SqlHelper():
             for i in range(0,len(values),20000):
                 self.cur.executemany(sql, values[i:i+20000])
                 self.con.commit()
-        except mysql.connector.Error as e:
+        except sqlmysql.Error as e:
             self.con.rollback()
             error = 'insertUpdateMany executemany failed! ERROR (%s): %s' %(e.args[0],e.args[1])
             print(error)

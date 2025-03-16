@@ -35,6 +35,32 @@ class UserStocks(Model):
     aver_price = DoubleField()
     keep_eye = SmallIntegerField(default=1)
     手续费 = DoubleField()
+    amount = IntegerField()
+    uramount = CharField(max_length=255)
+
+    class Meta:
+        db_name = 'stock_center'
+
+
+class UserStrategy(Model):
+    code = CharField(max_length=10)
+    id = IntegerField()
+    skey = CharField(max_length=64)
+    trans = SmallIntegerField()
+    data = CharField(max_length=255)
+
+    class Meta:
+        db_name = 'stock_center'
+        primary_key = CompositeKey('code', 'id')
+
+
+class UserOrders(Model):
+    code = CharField(max_length=10)
+    date = CharField(max_length=20)
+    count = IntegerField()
+    price = DoubleField()
+    sid = CharField(max_length=10)
+    type = CharField(max_length=10)
 
     class Meta:
         db_name = 'stock_center'

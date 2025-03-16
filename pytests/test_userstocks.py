@@ -2,9 +2,8 @@ import pytest
 from colorama import Fore
 from peewee import fn
 from phon.data.user import User, lazy_property, UserDb, UserStockBuy, UserStockSell, UserStocks
-from phon.data.user import UserDeals, UserEarned, UserEarning
-from phon.data.db import create_model, get_database, write_context, read_context
-
+from phon.data.user import UserDeals, UserEarned, UserEarning, UserStrategy, UserOrders
+from phon.data.db import create_model, get_database, write_context, read_context, check_table_columns
 
 
 class MockUser(User):
@@ -44,6 +43,18 @@ class MockUser(User):
     @lazy_property
     def unknown_deals_table(self):
         return create_model(UserDeals, f'u{self.id}_unknown_deals', get_database('testdb'))
+    
+    @lazy_property
+    def stock_strategy_table(self):
+        return create_model(UserStrategy, f'u{self.id}_strategy', get_database('testdb'))
+    
+    @lazy_property
+    def stock_order_table(self):
+        return create_model(UserOrders, f'u{self.id}_orders', get_database('testdb'))
+
+    @lazy_property
+    def stock_fullorder_table(self):
+        return create_model(UserOrders, f'u{self.id}_fullorders', get_database('testdb'))
 
 # @pytest.mark.skip(reason=None)
 class TestUserStock(object):
@@ -408,9 +419,7 @@ class TestUserStock(object):
         print(Fore.GREEN + 'PASS: test_add_dividen_shares' + Fore.RESET)
 
     def test_add_buy_sell_margin_deals(self):
-        
         userstockstable = self.testuser.stocks_info_table
-
         self.__cleanup_tables([userstockstable, self.testuser.buy_table, self.testuser.sell_table])
 
         self.testuser.add_deals([{"time":"2023-05-26","sid":"s_001","code":"SH510050","tradeType":"B","price":"2.567","count":"3800"}])
@@ -420,3 +429,88 @@ class TestUserStock(object):
         self.__check_table_row(userstockstable, {'code': "SH510050"}, {'cost_hold':9648.2, 'portion_hold':3800, 'aver_price':2.539})
 
         print(Fore.GREEN + 'PASS: test_add_buy_buy_deals' + Fore.RESET)
+
+    def test_save_strategy(self):
+        code = 'SZ000096'
+        strobj = {
+            "grptype":"GroupStandard","strategies":
+            {"0":{"key":"StrategyGE","enabled":True,"stepRate":0.075,"kltype":"30","guardPrice":"1.342","inCritical":False}},
+            "transfers":{"0":{"transfer":"-1"}},
+            "buydetail":[{"date":"0","count":7800,"price":"1.444","type":"B"},{"date":"2024-11-29","count":"7400","price":"1.336000","sid":"390813","type":"B"}],
+            "buydetail_full":[{"date":"0","count":7800,"price":"1.444","type":"B"},{"date":"2024-11-29","count":"7400","price":"1.336000","sid":"390813","type":"B"}],
+            "count0":7400,"amount":10000
+        }
+        strategy_table = self.testuser.stock_strategy_table
+        ord_table = self.testuser.stock_order_table
+        ordful_table = self.testuser.stock_fullorder_table
+        self.__cleanup_tables([strategy_table, ord_table, ordful_table])
+
+        self.testuser.save_strategy(code, strobj)
+        self.__check_table_row(strategy_table, {'code': code}, {'id': 0, 'skey': 'StrategyGE', 'trans': -1})
+        self.__check_table_row(ord_table, {'code': code, "sid":"390813"}, {"date":"2024-11-29","count":7400})
+        self.__check_table_row(ordful_table, {'code': code, "sid":"390813"}, {"date":"2024-11-29","count":7400})
+
+    def test_load_strategy(self):
+        code = 'SZ000096'
+        strobj = {
+            "grptype":"GroupStandard","strategies":
+            {"0":{"key":"StrategyGE","enabled":True,"stepRate":0.075,"kltype":"30","guardPrice":"1.342","inCritical":False}},
+            "transfers":{"0":{"transfer":"-1"}},
+            "buydetail":[{"date":"0","count":7800,"price":"1.444","type":"B"},{"date":"2024-11-29","count":"7400","price":"1.336000","sid":"390813","type":"B"}],
+            "buydetail_full":[{"date":"0","count":7800,"price":"1.444","type":"B"},{"date":"2024-11-29","count":"7400","price":"1.336000","sid":"390813","type":"B"}],
+            "count0":7400,"amount":10000
+        }
+
+        strategy_table = self.testuser.stock_strategy_table
+        ord_table = self.testuser.stock_order_table
+        ordful_table = self.testuser.stock_fullorder_table
+        self.__cleanup_tables([strategy_table, ord_table, ordful_table])
+
+        self.testuser.save_strategy(code, strobj)
+        strdata = self.testuser.load_strategy(code)
+        assert strdata['grptype'] == 'GroupStandard', 'grptype wrong!'
+        assert 0 in strdata['strategies'], 'strategy id error'
+        assert 'StrategyGE' == strdata['strategies'][0]['key'], 'strategy key error'
+        assert 'buydetail' in strdata, 'no buydetail'
+        assert 'buydetail_full' in strdata, 'no buydetail_full'
+        assert 10000 == strdata['amount'], f'amount is not expected: 10000, actual: {strdata['amount']}'
+
+    def test_update_strategy(self):
+        code = 'SZ000096'
+        strobj = {
+            "grptype": "GroupStandard", 
+            "strategies": {"0": {"key": "StrategySellELS", "enabled": False, "cutselltype": "all", "selltype": "all", "topprice": 19.76, "guardPrice": 17.88}},
+            "transfers": {"0": {"transfer": "-1"}}, "amount": "5000"
+        }
+
+        strategy_table = self.testuser.stock_strategy_table
+        ord_table = self.testuser.stock_order_table
+        ordful_table = self.testuser.stock_fullorder_table
+        self.__cleanup_tables([strategy_table, ord_table, ordful_table])
+
+        self.testuser.save_strategy(code, strobj)
+        strobj2 = {
+            "grptype":"GroupStandard",
+            "strategies":{
+                "0":{"key":"StrategySellELS","enabled":True,"cutselltype":"all","selltype":"all","topprice":"5.25","guardPrice":4.9},
+                "1":{"key":"StrategySellBE","enabled":True,"upRate":-0.03,"selltype":"single","sell_conds":"4"}},
+            "transfers":{"0":{"transfer":"-1"},"1":{"transfer":"-1"}},
+            "buydetail":[{"date":"2025-03-14","count":"1300","price":"4.990000","sid":"35329","type":"B"}],
+            "buydetail_full":[{"date":"2025-03-14","count":"1300","price":"4.990000","sid":"35329","type":"B"}],"count0":1300,
+            "amount":"5000",
+            "uramount":{"key":"hotrank0","id":69}
+        }
+
+        self.testuser.save_strategy(code, strobj2)
+        strdata = self.testuser.load_strategy(code)
+        assert strdata['grptype'] == 'GroupStandard', 'grptype wrong!'
+        assert 1 in strdata['strategies'], 'strategy id error'
+        assert 'StrategySellBE' == strdata['strategies'][1]['key'], 'strategy key error'
+        assert strdata['strategies'][0]['enabled'], 'strategy key error'
+        assert 'uramount' in strdata, 'uramount not exists'
+        assert 'hotrank0' == strdata['uramount']['key'], 'uramount key wrong!'
+        assert 1 == len(strdata['buydetail']), 'buydetail length wrong'
+
+    def test_column_check(self):
+        with write_context(self.testuser.stocks_info_table):
+            check_table_columns(self.testuser.stocks_info_table)

@@ -1,14 +1,14 @@
 # Python 3
 # -*- coding:utf-8 -*-
 
-
+import json
 from decimal import Decimal
 from peewee import fn
 from phon.hu.hu import DateConverter, datetime, timedelta
 from phon.data.tables import User as UserDb
 from phon.data.tables import UserFunds, UserStocks, UserEarned, UserEarning, UserDeals, UserStockBuy, UserStockSell
-from phon.data.tables import AllStocks
-from phon.data.db import create_model, read_context, write_context
+from phon.data.tables import AllStocks, UserStrategy, UserOrders
+from phon.data.db import create_model, read_context, write_context, insert_or_update
 
 
 class lazy_property:
@@ -98,6 +98,18 @@ class User:
     @lazy_property
     def stocks_info_table(self):
         return create_model(UserStocks, f'u{self.id}_stocks')
+
+    @lazy_property
+    def stock_strategy_table(self):
+        return create_model(UserStrategy, f'u{self.id}_strategy')
+
+    @lazy_property
+    def stock_order_table(self):
+        return create_model(UserOrders, f'u{self.id}_orders')
+
+    @lazy_property
+    def stock_fullorder_table(self):
+        return create_model(UserOrders, f'u{self.id}_fullorders')
 
     @lazy_property
     def stocks_earned_table(self):
@@ -204,7 +216,7 @@ class User:
 
         if ad.portion > int(deal['count']):
             raise Exception(f'Archived count > deal count, please check the database, table:{self.archived_deals}, {deal["code"]}, 委托编号={deal["sid"]}')
-        us = StockBuySell(self, ad.code)
+        us = UStock(self, ad.code)
         us.fix_buy_deal(deal, ad.portion)
         if ad.手续费 != float(deal['fee']) or ad.印花税 != float(deal['feeYh']) or ad.过户费 != float(deal['feeGh']) or ad.price != float(deal['price']):
             upfee = {'price': deal['price'], '手续费': deal['fee'], '印花税': deal['feeYh'], '过户费': deal['feeGh']}
@@ -239,7 +251,7 @@ class User:
                         udeals.append(deal)
                 if len(udeals) > 0:
                     self.add_unknown_code_deal(udeals)
-                us = StockBuySell(self, k)
+                us = UStock(self, k)
                 us.add_deals(deals)
                 if not updatefee:
                     updatefee = len(deals) > 0 and 'fee' in deals[0]
@@ -389,7 +401,7 @@ class User:
 
         if len(values) > 0:
             with write_context(self.unknown_deals_table):
-                self.unknown_deals_table.insert_many(values)
+                self.unknown_deals_table.insert_many(values).execute()
 
     def update_earned(self):
         self.calc_earned()
@@ -401,7 +413,7 @@ class User:
         codes = self._all_user_stocks()
         earndic = {}
         for c in codes:
-            us = StockBuySell(self, c)
+            us = UStock(self, c)
             cearn = us.get_each_sell_earned() if date is None else us.get_sell_earned_after(date)
             if cearn is None:
                 continue
@@ -446,7 +458,7 @@ class User:
         codes = self._all_user_stocks()
         consumed = ()
         for c in codes:
-            us = StockBuySell(self, c)
+            us = UStock(self, c)
             ucsmd = us.deals_before(edate)
             if len(ucsmd) > 0:
                 consumed += ucsmd
@@ -455,59 +467,35 @@ class User:
             self.add_to_archive_deals_table(consumed)
 
     def add_to_archive_deals_table(self, values):
-        deals = [{
-            'code': v[0],
-            'date': v[1],
-            'type': v[2],
-            'portion': v[3],
-            'price': v[4],
-            '手续费': v[5],
-            '印花税': v[6],
-            '过户费': v[7],
-            '委托编号': v[8]
-        } for v in values]
-
-        # 提取唯一标识（code, date, type, 委托编号）用于查询
-        identifiers = [(deal['code'], deal['date'], deal['type'], deal['委托编号']) for deal in deals]
-
+        valdics = []  # 需要插入的记录
         with read_context(self.archived_deals):
-            existing_records = self.archived_deals.select().where(
-                (self.archived_deals.code << [id[0] for id in identifiers]) &
-                (self.archived_deals.date << [id[1] for id in identifiers]) &
-                (self.archived_deals.type << [id[2] for id in identifiers]) &
-                (self.archived_deals.委托编号 << [id[3] for id in identifiers])
-            )
-
-            existing_keys = set((record.code, record.date, record.type, record.委托编号) for record in existing_records)
-
-        # 分离需要插入和更新的记录
-        to_insert = [deal for deal in deals if (deal['code'], deal['date'], deal['type'], deal['委托编号']) not in existing_keys]
-        to_update = [deal for deal in deals if (deal['code'], deal['date'], deal['type'], deal['委托编号']) in existing_keys]
-
-        # 批量插入新记录
-        if to_insert:
-            with write_context(self.archived_deals):
-                self.archived_deals.insert_many(to_insert).execute()
-
-        # 批量更新已存在的记录
-        if to_update:
-            with write_context(self.archived_deals):
-                for deal in to_update:
-                    self.archived_deals.update(
-                        portion=self.archived_deals.portion + deal['portion'],
-                        price=deal['price'],
-                        手续费=deal['手续费'],
-                        印花税=deal['印花税'],
-                        过户费=deal['过户费']
-                    ).where(
-                        (self.archived_deals.code == deal['code']) &
-                        (self.archived_deals.date == deal['date']) &
-                        (self.archived_deals.type == deal['type']) &
-                        (self.archived_deals.委托编号 == deal['委托编号'])
-                    ).execute()
+            for code, date, type, portion, price, 手续费, 印花税, 过户费, 委托编号 in values:
+                nval = {
+                    'code': code, 'date': date, 'type': type, 'portion': portion, 'price': price,
+                    '手续费': 手续费, '印花税': 印花税, '过户费': 过户费, '委托编号': 委托编号
+                }
+                existing_record = self.archived_deals.select().where(
+                    (self.archived_deals.code == code) &
+                    (self.archived_deals.date == date) &
+                    (self.archived_deals.type == type) &
+                    (self.archived_deals.委托编号 == 委托编号)
+                ).first()
+                if existing_record:
+                    nval['portion'] = portion + existing_record.portion
+                valdics.append(nval)
+        insert_or_update(self.archived_deals, valdics, ['code', 'date', 'type', '委托编号'])
 
 
-class StockBuySell():
+    def save_strategy(self, code, strdata):
+        us = UStock(self, code)
+        us.save_strategy(strdata)
+
+    def load_strategy(self, code):
+        us = UStock(self, code)
+        return us.load_strategy()
+
+
+class UStock():
     def __init__(self, user, code):
         self.code = code
         self.user = user
@@ -521,27 +509,47 @@ class StockBuySell():
         return self.user.sell_table
 
     @lazy_property
+    def stocks_table(self):
+        return self.user.stocks_info_table
+
+    @lazy_property
+    def udeals_table(self):
+        return self.user.unknown_deals_table
+
+    @lazy_property
+    def strategy_table(self):
+        return self.user.stock_strategy_table
+
+    @lazy_property
+    def order_table(self):
+        return self.user.stock_order_table
+
+    @lazy_property
+    def fullorder_table(self):
+        return self.user.stock_fullorder_table
+
+    @lazy_property
     def fee(self):
-        with read_context(self.user.stocks_info_table):
-            f = self.user.stocks_info_table.get(UserStocks.code == self.code)
+        with read_context(self.stocks_table):
+            f = self.stocks_table.get(UserStocks.code == self.code)
         return f.手续费
 
     @lazy_property
     def cost_hold(self):
-        with read_context(self.user.stocks_info_table):
-            f = self.user.stocks_info_table.get(UserStocks.code == self.code)
+        with read_context(self.stocks_table):
+            f = self.stocks_table.get(UserStocks.code == self.code)
         return f.cost_hold
 
     @lazy_property
     def average(self):
-        with read_context(self.user.stocks_info_table):
-            f = self.user.stocks_info_table.get(UserStocks.code == self.code)
+        with read_context(self.stocks_table):
+            f = self.stocks_table.get(UserStocks.code == self.code)
         return f.aver_price
 
     @lazy_property
     def ever_hold(self):
-        with read_context(self.user.stocks_info_table):
-            f = self.user.stocks_info_table.get(UserStocks.code == self.code)
+        with read_context(self.stocks_table):
+            f = self.stocks_table.get(UserStocks.code == self.code)
         return len(f) > 0
 
     def _get_sell_info(self, sm):
@@ -562,8 +570,8 @@ class StockBuySell():
             for sid, sdate, sprice, sportion, smoney in sells:
                 sellcount += sportion
         if sellcount > buycount:
-            with write_context(self.user.stocks_info_table):
-                self.user.stocks_info_table.update(portion_hold=buycount - sellcount, keep_eye=1).where(self.user.stocks_info_table.code == self.code).execute()
+            with write_context(self.stocks_table):
+                self.stocks_table.update(portion_hold=buycount - sellcount, keep_eye=1).where(self.stocks_table.code == self.code).execute()
             return
 
         portion = Decimal(0)
@@ -628,19 +636,19 @@ class StockBuySell():
 
         average = (cost/portion).quantize(Decimal("0.0000")) if not portion == 0 else 0
         upinfo = {
-            self.user.stocks_info_table.cost_hold.column_name: cost,
-            self.user.stocks_info_table.portion_hold.column_name: portion,
-            self.user.stocks_info_table.aver_price.column_name: average
+            self.stocks_table.cost_hold.column_name: cost,
+            self.stocks_table.portion_hold.column_name: portion,
+            self.stocks_table.aver_price.column_name: average
         }
         if portion != 0:
-            upinfo[self.user.stocks_info_table.keep_eye.column_name] = 1
-        with write_context(self.user.stocks_info_table):
-            if self.user.stocks_info_table.select().where(self.user.stocks_info_table.code == self.code).exists():
-                self.user.stocks_info_table.update(**upinfo).where(self.user.stocks_info_table.code == self.code).execute()
+            upinfo[self.stocks_table.keep_eye.column_name] = 1
+        with write_context(self.stocks_table):
+            if self.stocks_table.select().where(self.stocks_table.code == self.code).exists():
+                self.stocks_table.update(**upinfo).where(self.stocks_table.code == self.code).execute()
             else:
-                upinfo[self.user.stocks_info_table.code.column_name] = self.code
-                upinfo[self.user.stocks_info_table.keep_eye.column_name] = 1
-                self.user.stocks_info_table.create(**upinfo)
+                upinfo[self.stocks_table.code.column_name] = self.code
+                upinfo[self.stocks_table.keep_eye.column_name] = 1
+                self.stocks_table.create(**upinfo)
 
     def fix_cost_portion_hold(self):
         with read_context(self.buy_table):
@@ -823,8 +831,8 @@ class StockBuySell():
         if not fee:
             return
         self.fee = fee
-        with write_context(self.user.stocks_info_table):
-            self.user.stocks_info_table.update(手续费=fee).where(UserStocks.code == self.code).execute()
+        with write_context(self.stocks_table):
+            self.stocks_table.update(手续费=fee).where(UserStocks.code == self.code).execute()
 
     def fix_buy_deal(self, deal, count):
         # deal: to be fixed deal
@@ -973,13 +981,15 @@ class StockBuySell():
         for val in values:
             odls = None
             if val[1] == '0':
+                # 委托编号为0可能是未确认的记录，可能有多条
                 dealtime = val[0].partition(' ')[0]
                 val[0] = dealtime
                 with read_context(buy_table):
-                    odls = list(buy_table.select().where(buy_table.date == dealtime))
+                    odls = list(buy_table.select().where(buy_table.date == dealtime, buy_table.code == self.code))
             else:
+                # 委托编号如果重复需要删除重复只保留一条.
                 with read_context(buy_table):
-                    odls = list(buy_table.select().where(buy_table.委托编号 == val[1]))
+                    odls = list(buy_table.select().where(buy_table.委托编号 == val[1], buy_table.code == self.code))
             vdic = {
                 buy_table.date.column_name: val[0].partition(' ')[0] if val[1] == '0' else val[0],
                 buy_table.price.column_name: val[2],
@@ -1017,16 +1027,16 @@ class StockBuySell():
         with read_context(self.buy_table):
             bexists = self.buy_table.select().where(self.buy_table.code == self.code, self.buy_table.date < date).exists()
         if not bexists:
-            with read_context(self.user.unknown_deals_table):
-                buy_rec = list(self.user.unknown_deals_table.select().where(self.user.unknown_deals_table.code == self.code, self.unknown_deals_table.date < date))
+            with read_context(self.udeals_table):
+                buy_rec = list(self.udeals_table.select().where(self.udeals_table.code == self.code, self.unknown_deals_table.date < date))
             bvalues = []
             for br in buy_rec:
                 bvalues.append({'date': br.date, '委托编号': br.委托编号, 'price': br.price, 'portion': br.portion, '手续费': br.手续费, '印花税': br.印花税, '过户费': br.过户费})
             if len(bvalues) > 0:
                 self._add_or_update_deals(self.buy_table, bvalues)
                 uids = [br.id for br in buy_rec]
-                with write_context(self.user.unknown_deals_table):
-                    self.user.unknown_deals_table.delete().where(self.user.unknown_deals_table.id.in_(uids)).execute()
+                with write_context(self.udeals_table):
+                    self.udeals_table.delete().where(self.udeals_table.id.in_(uids)).execute()
         with read_context(self.buy_table):
             buy_rec = list(self.buy_table.select().where(self.buy_table.code == self.code, self.buy_table.date < date))
         consumed = ()
@@ -1066,4 +1076,92 @@ class StockBuySell():
             self.buy_table.delete().where(self.buy_table.id.in_(delbuy)).execute()
 
         return consumed
+
+    def replace_orders(self, ordtable, orders):
+        with read_context(ordtable):
+            # 查询现有订单
+            existing_orders = list(ordtable.select().where(ordtable.code == self.code))
+
+        with write_context(ordtable):
+            # 按顺序更新或插入订单
+            for i, order in enumerate(orders):
+                if i < len(existing_orders):
+                    # 如果 existing_orders 中有对应的订单，则更新
+                    existing_order = existing_orders[i]
+                    for key, value in order.items():
+                        setattr(existing_order, key, value)
+                    existing_order.save()
+                else:
+                    break
+
+        if len(existing_orders) < len(orders):
+            new_orders = orders[len(existing_orders):]
+            for order in new_orders:
+                if 'sid' not in order:
+                    order['sid'] = '0'
+                order['code'] = self.code
+            with write_context(ordtable):
+                ordtable.insert_many(new_orders).execute()
+
+        if len(existing_orders) > len(orders):
+            with write_context(ordtable):
+                for i in range(len(orders), len(existing_orders)):
+                    existing_orders[i].delete()
+
+    def save_strategy(self, strdata):
+        with write_context(self.stocks_table):
+            ustk = self.stocks_table.get_or_none(self.stocks_table.code == self.code)
+            if ustk:
+                if 'amount' in strdata:
+                    ustk.amount = strdata['amount']
+                if 'uramount' in strdata:
+                    ustk.uramount = json.dumps(strdata['uramount'])
+                ustk.save()
+            else:
+                udic = {'code': self.code}
+                if 'amount' in strdata:
+                    udic['amount'] = strdata['amount']
+                if 'uramount' in strdata:
+                    udic['uramount'] = json.dumps(strdata['uramount'])
+                self.stocks_table.create(**udic)
+        svalues = []
+        for i, s in strdata['strategies'].items():
+            vdic = {
+                'code': self.code,
+                'id': i,
+                'skey': s['key'],
+                'data': json.dumps(s)
+            }
+            if 'transfers' in strdata and i in strdata['transfers']:
+                vdic['trans'] = strdata['transfers'][i]['transfer']
+            svalues.append(vdic)
+        insert_or_update(self.strategy_table, svalues, ['code', 'id'])
+        if 'buydetail' in strdata:
+            self.replace_orders(self.order_table, strdata['buydetail'])
+        if 'buydetail_full' in strdata:
+            self.replace_orders(self.fullorder_table, strdata['buydetail_full'])
+
+    def load_strategy(self):
+        strdata = {'grptype': 'GroupStandard', 'strategies': {}, 'transfers': {}, 'amount': 0}
+        with read_context(self.stocks_table):
+            ustk = self.stocks_table.get_or_none(self.stocks_table.code == self.code)
+        if ustk:
+            strdata['amount'] = ustk.amount
+            if ustk.uramount:
+                strdata['uramount'] = json.loads(ustk.uramount)
+
+        with read_context(self.strategy_table):
+            strlst = list(self.strategy_table.select().where(self.strategy_table.code == self.code))
+        for sl in strlst:
+            strdata['strategies'][sl.id] = json.loads(sl.data)
+            strdata['transfers'][sl.id] =  {"transfer": sl.trans}
+        with read_context(self.order_table):
+            oex = list(self.order_table.select().where(self.order_table.code == self.code))
+        if oex:
+            strdata['buydetail'] = [x.__data__ for x in oex]
+        with read_context(self.fullorder_table):
+            foex = list(self.fullorder_table.select().where(self.fullorder_table.code == self.code))
+        if foex:
+            strdata['buydetail_full'] = [x.__data__ for x in foex]
+        return strdata
 
