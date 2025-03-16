@@ -460,7 +460,7 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
                     }
                     this.candidatesArea.filteredStks.add(e.target.code);
                     if (!emjyBack.klines[e.target.code]) {
-                        emjyBack.prepareKlines(e.target.code, utils.dateToString(new Date()), '101');
+                        emjyBack.prepareKlines(e.target.code, guang.dateToString(new Date(), '-'), '101');
                     }
                 } else {
                     if (this.candidatesArea.filteredStks) {

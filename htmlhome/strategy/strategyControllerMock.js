@@ -1,6 +1,6 @@
 'use strict';
 
-class MockStrategyManager extends StrategyManager {
+class MockStrategyManager extends strategyFac {
     create(strategy) {
         if (strategy.key == 'StrategyBH') {
             return new MockStrategyBarginHunting(strategy);

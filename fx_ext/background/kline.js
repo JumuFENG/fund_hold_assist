@@ -7,7 +7,7 @@ class klPad {
     static loadKlines(code) {
         if (!this.klines[code]) {
             this.klines[code] = new KLine(code);
-            this.klines[code].loadSaved(cb);
+            this.klines[code].loadSaved();
         }
     }
 }

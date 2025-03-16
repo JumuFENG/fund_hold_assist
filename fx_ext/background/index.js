@@ -10,8 +10,6 @@ class ManagerBack {
     constructor() {
         this.tabid = null;
         this.mgrChangedTimeout = null;
-        this.jywghost = 'jywg.eastmoneysec.com';
-        this.jywgroot = 'https://' + this.jywghost + '/';
     }
 
     isValid() {
@@ -132,6 +130,9 @@ class ManagerBack {
 
 
 class ext {
+    static jywghost = 'jywg.eastmoneysec.com';
+    static jywgroot = 'https://' + this.jywghost + '/';
+
     static notify(message, sender, response) {
         if (message.command == 'emjy.contentLoaded') {
             ext.onContentLoaded(message, sender.tab.id, response);

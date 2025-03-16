@@ -350,7 +350,7 @@ class GlobalManager {
     getDailyKlineSinceMonthAgo(code, kltype, sdate) {
         var zdate = new Date(sdate);
         zdate.setMonth(zdate.getMonth() - 1);
-        this.fetchStockKline(code, kltype, utils.dateToString(zdate));
+        this.fetchStockKline(code, kltype, guang.dateToString(zdate, '-'));
     }
 
     checkExistingKlines(code, sdate, kltype, klnocheckold) {

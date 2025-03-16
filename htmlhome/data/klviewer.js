@@ -23,7 +23,7 @@ class KlViewerPanelPage extends RadioAnchorPage {
         var url = emjyBack.fha.server + 'api/stockhist?fqt=' + fqt + '&code=' + mktCode + '&kltype=101';
         var zdate = new Date(this.showingInfo[1]);
         zdate.setMonth(zdate.getMonth() - 1);
-        url += '&start=' + utils.dateToString(zdate);
+        url += '&start=' + guang.dateToString(zdate, '-');
         fetch(url).then(r=>r.json()).then(kdata => {
             if (!kdata || kdata.length == 0) {
                 console.error('no kline data for', this.showingCode);
@@ -231,7 +231,7 @@ class KlViewerPanelPage extends RadioAnchorPage {
             klines = [];
             var edate = new Date(this.showingInfo[2]);
             edate.setMonth(edate.getMonth() + 1);
-            edate = utils.dateToString(edate, '-');
+            edate = guang.dateToString(edate, '-');
             for (var i = 0; i < this.stockKlines.klines['101'].length; ++i) {
                 if (this.stockKlines.klines['101'][i].time > edate) {
                     break;
