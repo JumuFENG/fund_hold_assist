@@ -51,13 +51,13 @@ class User:
     @classmethod
     def user_by_id(cls, id):
         with read_context(cls.db):
-            u = cls.db.get(cls.db.id == id)
+            u = cls.db.get_or_none(cls.db.id == id)
         return cls.from_dict(u.__data__) if u is not None else None
 
     @classmethod
     def user_by_email(cls, email):
         with read_context(cls.db):
-            u = cls.db.get(cls.db.email == email)
+            u = cls.db.get_or_none(cls.db.email == email)
         return cls.from_dict(u.__data__) if u is not None else None
 
     @classmethod
@@ -187,6 +187,18 @@ class User:
             self.db.update(parent_account = self.id).where(self.db.id == sid).execute()
         with write_context(self.subdb):
             self.subdb.insert(id=self.id, subid=sid).on_conflict_ignore().execute()
+
+    def sub_account(self, acc, autocreate=False):
+        if acc == 'normal' or acc == 'collat':
+            return self
+        fake_email = acc + '@' + self.name + self.id
+        subuser = self.user_by_email(fake_email)
+        if subuser:
+            return subuser
+
+        if autocreate:
+            self.add_user(acc, 'sub123', fake_email)
+        return self.user_by_email(fake_email)
 
     def forget_stock(self, code):
         with write_context(self.stocks_info_table):

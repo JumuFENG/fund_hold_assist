@@ -473,7 +473,7 @@ class TestUserStock(object):
         assert 'StrategyGE' == strdata['strategies'][0]['key'], 'strategy key error'
         assert 'buydetail' in strdata, 'no buydetail'
         assert 'buydetail_full' in strdata, 'no buydetail_full'
-        assert 10000 == strdata['amount'], f'amount is not expected: 10000, actual: {strdata['amount']}'
+        assert 10000 == strdata['amount'], f'''amount is not expected: 10000, actual: {strdata['amount']}'''
 
     def test_update_strategy(self):
         code = 'SZ000096'
