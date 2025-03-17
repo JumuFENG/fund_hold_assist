@@ -9,6 +9,7 @@ class User(Model):
     password = CharField(max_length=255)
     email = CharField(max_length=255)
     parent_account = IntegerField()
+    realcash = SmallIntegerField(default=1)
 
     class Meta:
         db_name = 'general'

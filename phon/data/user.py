@@ -46,7 +46,8 @@ class User:
     @classmethod
     def add_user(cls, name, password, email):
         with write_context(cls.db):
-            cls.db.create(name=name, password=password, email=email)
+            u = cls.db.create(name=name, password=password, email=email)
+        return cls.from_dict(**u)
 
     @classmethod
     def user_by_id(cls, id):
@@ -84,12 +85,13 @@ class User:
             e = self.all_stocks.select().where(self.all_stocks.code == code).exists()
         return e
 
-    def __init__(self, id, name, email, password=None, parent_account = None):
+    def __init__(self, id, name, email, password=None, parent_account = None, realcash=None):
         self.id = id
         self.name = name
         self.email = email
         self.password = password
         self.parent = parent_account
+        self.realcash = realcash
 
     @lazy_property
     def funds_info_table(self):
@@ -185,20 +187,28 @@ class User:
     def bind_account(self, sid):
         with write_context(self.db):
             self.db.update(parent_account = self.id).where(self.db.id == sid).execute()
-        with write_context(self.subdb):
-            self.subdb.insert(id=self.id, subid=sid).on_conflict_ignore().execute()
 
     def sub_account(self, acc, autocreate=False):
-        if acc == 'normal' or acc == 'collat':
+        if acc == 'normal':
             return self
-        fake_email = acc + '@' + self.name + self.id
+
+        realcashs = ['collat', 'credit']
+        fake_email = f'{acc}@{self.name}_{self.id}'
         subuser = self.user_by_email(fake_email)
         if subuser:
             return subuser
 
         if autocreate:
-            self.add_user(acc, 'sub123', fake_email)
-        return self.user_by_email(fake_email)
+            with write_context(self.db):
+                subuser = self.db.create(**{
+                    self.db.name.name: acc,
+                    self.db.password.name:'sub123',
+                    self.db.email.name:fake_email,
+                    self.db.parent_account.name: self.id,
+                    self.db.realcash.name: 1 if acc in realcashs else 0
+                })
+
+            return self.from_dict(**subuser.__data__)
 
     def forget_stock(self, code):
         with write_context(self.stocks_info_table):
@@ -207,6 +217,55 @@ class User:
     def forget_stocks(self):
         with write_context(self.stocks_info_table):
             self.stocks_info_table.update(keep_eye = 0).where(self.stocks_info_table.portion_hold == 0, self.stocks_info_table.keep_eye == 1).execute()
+
+    def get_stock_summary(self, code):
+        stock_json_obj = {}
+        with read_context(self.all_stocks):
+            sg = self.all_stocks.get_or_none(self.all_stocks.code == code)
+
+        with read_context(self.stocks_info_table):
+            si = self.stocks_info_table.get_or_none(self.stocks_info_table, self.stocks_info_table.code == code)
+
+        if not si or not sg:
+            return stock_json_obj
+
+        short_term_rate = 0.02
+        stock_json_obj["name"] = sg.name
+        stock_json_obj["str"] = short_term_rate
+        stock_json_obj["bgr"] = short_term_rate
+        stock_json_obj["sgr"] = short_term_rate
+        stock_json_obj["cost"] = si.cost_hold
+        stock_json_obj["ptn"] = si.portion_hold # portion
+        stock_json_obj["avp"] = si.aver_price # average price
+        stock_json_obj["fee"] = si.手续费
+
+        return stock_json_obj
+
+    def get_buy_arr(self, code):
+        with read_context(self.buy_table):
+            buy_rec = list(self.buy_table.select().where(self.buy_table.code == code))
+        values = []
+        dtoday = datetime.now().strftime("%Y-%m-%d")
+        for br in buy_rec:
+            if br.date == dtoday or br.soldout == 0:
+                values.append({'id':br.id, 'date': DateConverter.days_since_2000(br.date), 'price':br.price, 'cost':br.cost, 'ptn': br.portion - br.soldptn, 'sold': br.soldout})
+        return values
+
+    def get_sell_arr(self, code):
+        values = []
+        short_term_rate = 0.02
+        with read_context(self.sell_table):
+            sell_rec = list(self.sell_table.select().where(self.sell_table.code == code))
+        for sr in sell_rec:
+            to_rollin = sr.portion - sr.rolled_in
+            max_price_to_buy = sr.rollin_netvalue
+            if to_rollin > 0 and not max_price_to_buy:
+                max_price_to_buy = round(sr.price * (1 - short_term_rate), 4)
+            fee = sr.手续费
+            fee += sr.印花税
+            fee += sr.过户费
+            values.append({'id':sr.id, 'date': DateConverter.days_since_2000(sr.date), 'price':sr.price, 'ptn': sr.portion, 'cost': sr.cost})
+        return values
 
     def _all_user_stocks(self):
         with read_context(self.stocks_info_table):
@@ -297,15 +356,15 @@ class User:
             dtype = 'B'
             with write_context(self.unknown_deals_table):
                 self.unknown_deals_table.create(**{
-                    self.unknown_deals_table.date: deal['time'],
-                    self.unknown_deals_table.code: code,
-                    self.unknown_deals_table.type: dtype,
-                    self.unknown_deals_table.委托编号: deal['sid'],
-                    self.unknown_deals_table.price: deal['price'],
-                    self.unknown_deals_table.portion: deal['count'],
-                    self.unknown_deals_table.手续费: deal['fee'],
-                    self.unknown_deals_table.印花税: deal['feeYh'],
-                    self.unknown_deals_table.过户费: deal['feeGh']
+                    self.unknown_deals_table.date.name: deal['time'],
+                    self.unknown_deals_table.code.name: code,
+                    self.unknown_deals_table.type.name: dtype,
+                    self.unknown_deals_table.委托编号.name: deal['sid'],
+                    self.unknown_deals_table.price.name: deal['price'],
+                    self.unknown_deals_table.portion.name: deal['count'],
+                    self.unknown_deals_table.手续费.name: deal['fee'],
+                    self.unknown_deals_table.印花税.name: deal['feeYh'],
+                    self.unknown_deals_table.过户费.name: deal['feeGh']
                 })
         else:
             with write_context(self.unknown_deals_table):
@@ -331,15 +390,15 @@ class User:
             if id == 0:
                 dtype = 'B'
                 self.unknown_deals_table.create(**{
-                    self.unknown_deals_table.date: deal['time'],
-                    self.unknown_deals_table.code: code,
-                    self.unknown_deals_table.type: dtype,
-                    self.unknown_deals_table.委托编号: deal['sid'],
-                    self.unknown_deals_table.price: deal['price'],
-                    self.unknown_deals_table.portion: deal['count'],
-                    self.unknown_deals_table.手续费: deal['fee'],
-                    self.unknown_deals_table.印花税: deal['feeYh'],
-                    self.unknown_deals_table.过户费: deal['feeGh']
+                    self.unknown_deals_table.date.name: deal['time'],
+                    self.unknown_deals_table.code.name: code,
+                    self.unknown_deals_table.type.name: dtype,
+                    self.unknown_deals_table.委托编号.name: deal['sid'],
+                    self.unknown_deals_table.price.name: deal['price'],
+                    self.unknown_deals_table.portion.name: deal['count'],
+                    self.unknown_deals_table.手续费.name: deal['fee'],
+                    self.unknown_deals_table.印花税.name: deal['feeYh'],
+                    self.unknown_deals_table.过户费.name: deal['feeGh']
                 })
             else:
                 self.unknown_deals_table.update(code=code, 委托编号=deal['sid']).where(self.unknown_deals_table.id == id).execute()
@@ -360,15 +419,15 @@ class User:
         with write_context(self.unknown_deals_table):
             if eid == 0:
                 self.unknown_deals_table.create(**{
-                    self.unknown_deals_table.date: deal['time'],
-                    self.unknown_deals_table.code: deal['code'],
-                    self.unknown_deals_table.type: deal['tradeType'],
-                    self.unknown_deals_table.委托编号: deal['sid'],
-                    self.unknown_deals_table.price: deal['price'],
-                    self.unknown_deals_table.portion: deal['count'],
-                    self.unknown_deals_table.手续费: deal['fee'],
-                    self.unknown_deals_table.印花税: deal['feeYh'],
-                    self.unknown_deals_table.过户费: deal['feeGh']
+                    self.unknown_deals_table.date.name: deal['time'],
+                    self.unknown_deals_table.code.name: deal['code'],
+                    self.unknown_deals_table.type.name: deal['tradeType'],
+                    self.unknown_deals_table.委托编号.name: deal['sid'],
+                    self.unknown_deals_table.price.name: deal['price'],
+                    self.unknown_deals_table.portion.name: deal['count'],
+                    self.unknown_deals_table.手续费.name: deal['fee'],
+                    self.unknown_deals_table.印花税.name: deal['feeYh'],
+                    self.unknown_deals_table.过户费.name: deal['feeGh']
                 })
             else:
                 self.unknown_deals_table.update(code=deal['code'], 委托编号=deal['sid']).where(self.unknown_deals_table.id == id).execute()
@@ -461,9 +520,9 @@ class User:
         totalEarned += earned
         with write_context(self.stocks_earned_table):
             self.stocks_earned_table.create(**{
-                self.stocks_earned_table.date: date,
-                self.stocks_earned_table.earned: earned,
-                self.stocks_earned_table.total_earned: totalEarned
+                self.stocks_earned_table.date.name: date,
+                self.stocks_earned_table.earned.name: earned,
+                self.stocks_earned_table.total_earned.name: totalEarned
             })
 
     def archive_deals(self, edate):
@@ -506,6 +565,9 @@ class User:
         us = UStock(self, code)
         return us.load_strategy()
 
+    def remove_strategy(self, code):
+        us = UStock(self, code)
+        return us.remove_strategy()
 
 class UStock():
     def __init__(self, user, code):
@@ -565,8 +627,8 @@ class UStock():
         return len(f) > 0
 
     def _get_sell_info(self, sm):
-        sm[self.sell_table.earned.column_name] = float(sm[self.sell_table.money_sold.column_name]) - float(sm[self.sell_table.cost_sold.column_name])
-        sm[self.sell_table.return_percent.column_name] = sm[self.sell_table.earned.column_name] / float(sm[self.sell_table.cost_sold.column_name])
+        sm[self.sell_table.earned.name] = float(sm[self.sell_table.money_sold.name]) - float(sm[self.sell_table.cost_sold.name])
+        sm[self.sell_table.return_percent.name] = sm[self.sell_table.earned.name] / float(sm[self.sell_table.cost_sold.name])
         return sm
 
     def _fix_buy_sell_portion(self, buys, sells):
@@ -599,7 +661,7 @@ class UStock():
             while rembportion > 0:
                 if remsell is None or remsell[3] == 0:
                     if remsell is not None and soldcost > 0:
-                        sinfo = self._get_sell_info({self.sell_table.cost_sold.column_name: soldcost, self.sell_table.money_sold.column_name: remsell[4]})
+                        sinfo = self._get_sell_info({self.sell_table.cost_sold.name: soldcost, self.sell_table.money_sold.name: remsell[4]})
                         with write_context(self.sell_table):
                             self.sell_table.update(**sinfo).where(self.sell_table.id == remsell[0], self.sell_table.code == self.code).execute()
                     soldcost = 0
@@ -635,7 +697,7 @@ class UStock():
                 cost += Decimal(rembportion * bprice)
 
         if remsell is not None and remsell[3] == 0 and soldcost > 0:
-            sinfo = self._get_sell_info({self.sell_table.cost_sold.column_name: soldcost, self.sell_table.money_sold.column_name: remsell[4]})
+            sinfo = self._get_sell_info({self.sell_table.cost_sold.name: soldcost, self.sell_table.money_sold.name: remsell[4]})
             with write_context(self.sell_table):
                 self.sell_table.update(**sinfo).where(self.sell_table.id == remsell[0], self.sell_table.code == self.code).execute()
             soldcost = 0
@@ -648,18 +710,18 @@ class UStock():
 
         average = (cost/portion).quantize(Decimal("0.0000")) if not portion == 0 else 0
         upinfo = {
-            self.stocks_table.cost_hold.column_name: cost,
-            self.stocks_table.portion_hold.column_name: portion,
-            self.stocks_table.aver_price.column_name: average
+            self.stocks_table.cost_hold.name: cost,
+            self.stocks_table.portion_hold.name: portion,
+            self.stocks_table.aver_price.name: average
         }
         if portion != 0:
-            upinfo[self.stocks_table.keep_eye.column_name] = 1
+            upinfo[self.stocks_table.keep_eye.name] = 1
         with write_context(self.stocks_table):
             if self.stocks_table.select().where(self.stocks_table.code == self.code).exists():
                 self.stocks_table.update(**upinfo).where(self.stocks_table.code == self.code).execute()
             else:
-                upinfo[self.stocks_table.code.column_name] = self.code
-                upinfo[self.stocks_table.keep_eye.column_name] = 1
+                upinfo[self.stocks_table.code.name] = self.code
+                upinfo[self.stocks_table.keep_eye.name] = 1
                 self.stocks_table.create(**upinfo)
 
     def fix_cost_portion_hold(self):
@@ -712,13 +774,13 @@ class UStock():
         fixedPrice = price * (1 + float(self.fee)) if float(self.fee) > 0 else price
         with write_context(self.buy_table):
             self.buy_table.create(**{
-                self.buy_table.date: date,
-                self.buy_table.code: self.code,
-                self.buy_table.price: fixedPrice,
-                self.buy_table.portion: portion,
-                self.buy_table.cost: fixedPrice * portion,
-                self.buy_table.soldout:'0',
-                self.buy_table.soldptn:'0'})
+                self.buy_table.date.name: date,
+                self.buy_table.code.name: self.code,
+                self.buy_table.price.name: fixedPrice,
+                self.buy_table.portion.name: portion,
+                self.buy_table.cost.name: fixedPrice * portion,
+                self.buy_table.soldout.name:'0',
+                self.buy_table.soldptn.name:'0'})
 
         self.rollin_sold(portion, rollins)
         self.fix_cost_portion_hold()
@@ -793,16 +855,16 @@ class UStock():
 
         with write_context(self.sell_table):
             self.sell_table.create(**{
-                self.sell_table.date: date,
-                self.sell_table.code: self.code,
-                self.sell_table.portion: portion_tosell,
-                self.sell_table.price: price,
-                self.sell_table.money_sold: money,
-                self.sell_table.cost_sold: cost_tosell,
-                self.sell_table.earned: earned,
-                self.sell_table.return_percent: return_percent,
-                self.sell_table.rolled_in: 0,
-                self.sell_table.rollin_netvalue: max_value_to_sell
+                self.sell_table.date.name: date,
+                self.sell_table.code.name: self.code,
+                self.sell_table.portion.name: portion_tosell,
+                self.sell_table.price.name: price,
+                self.sell_table.money_sold.name: money,
+                self.sell_table.cost_sold.name: cost_tosell,
+                self.sell_table.earned.name: earned,
+                self.sell_table.return_percent.name: return_percent,
+                self.sell_table.rolled_in.name: 0,
+                self.sell_table.rollin_netvalue.name: max_value_to_sell
             })
 
         self.fix_cost_portion_hold()
@@ -816,14 +878,14 @@ class UStock():
 
         ns = {}
         if price:
-            ns[self.sell_table.price.column_name] = price
+            ns[self.sell_table.price.name] = price
         if portion:
-            ns[self.sell_table.portion.column_name] = portion
+            ns[self.sell_table.portion.name] = portion
         if cost:
-            ns[self.sell_table.cost.column_name] = cost
+            ns[self.sell_table.cost.name] = cost
         if date:
-            ns[self.sell_table.date.column_name] = date
-        ns[self.sell_table.money_sold.column_name] = int(portion) * float(price) * (1 - float(self.fee))
+            ns[self.sell_table.date.name] = date
+        ns[self.sell_table.money_sold.name] = int(portion) * float(price) * (1 - float(self.fee))
         ns = self._get_sell_info(ns)
         with write_context(self.sell_table):
             self.sell_table.update(**ns).where(self.sell_table.id == sell_rec.id).execute()
@@ -1003,12 +1065,12 @@ class UStock():
                 with read_context(buy_table):
                     odls = list(buy_table.select().where(buy_table.委托编号 == val[1], buy_table.code == self.code))
             vdic = {
-                buy_table.date.column_name: val[0].partition(' ')[0] if val[1] == '0' else val[0],
-                buy_table.price.column_name: val[2],
-                buy_table.portion.column_name: val[3],
-                buy_table.手续费.column_name: val[4],
-                buy_table.印花税.column_name: val[5],
-                buy_table.过户费.column_name: val[6]
+                buy_table.date.name: val[0].partition(' ')[0] if val[1] == '0' else val[0],
+                buy_table.price.name: val[2],
+                buy_table.portion.name: val[3],
+                buy_table.手续费.name: val[4],
+                buy_table.印花税.name: val[5],
+                buy_table.过户费.name: val[6]
             }
             updated = False
             for odl in odls:
@@ -1019,8 +1081,8 @@ class UStock():
                     updated = True
                     break
             if not updated:
-                vdic[buy_table.code.column_name] = self.code
-                vdic[buy_table.委托编号.column_name] = val[1]
+                vdic[buy_table.code.name] = self.code
+                vdic[buy_table.委托编号.name] = val[1]
                 nvalues.append(vdic)
 
         if len(nvalues) > 0:
@@ -1177,3 +1239,17 @@ class UStock():
             strdata['buydetail_full'] = [x.__data__ for x in foex]
         return strdata
 
+    def remove_strategy(self):
+        with write_context(self.stocks_table):
+            ustk = self.stocks_table.get_or_none(self.stocks_table.code == self.code)
+            if ustk:
+                ustk.amount = 0
+                ustk.uramount = ''
+                ustk.save()
+
+        with write_context(self.strategy_table):
+            self.strategy_table.delete().where(self.strategy_table.code == self.code).execute()
+        with write_context(self.order_table):
+            self.order_table.delete().where(self.order_table.code == self.code).execute()
+        with write_context(self.fullorder_table):
+            self.fullorder_table.delete().where(self.fullorder_table.code == self.code).execute()

@@ -398,3 +398,4 @@ class TestUserStock(object):
         self.__check_table_row(sqldb, userstockstable, f'{column_code}="SH510050"', {f'{column_cost_hold}':9648.2, f'{column_portion_hold}':3800, f'{column_averagae_price}':2.539})
 
         print(Fore.GREEN + 'PASS: test_add_buy_buy_deals' + Fore.RESET)
+        

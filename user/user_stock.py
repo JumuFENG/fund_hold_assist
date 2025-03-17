@@ -33,7 +33,7 @@ class UserStock():
             return False
         elif not len(details[0]) == 10:
             return False
-        (i, self.code, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on, self.short_term_rate, self.buy_rate, self.sell_rate, self.fee), = details
+        (i, self.code, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on, self.short_term_rate, self.buy_rate, self.sell_rate, self.fee, *_), = details
         return self.short_term_rate is not None and self.buy_rate is not None and self.sell_rate is not None and self.fee is not None
 
     def check_table_column(self, tablename, col, tp):
@@ -51,7 +51,7 @@ class UserStock():
         self.check_table_column(self.stocks_table, column_fee, "double(16,6) DEFAULT NULL")
 
         details = self.sqldb.select(self.stocks_table, "*", "%s = '%s'" % (column_code, self.code))
-        (i, self.code, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on, self.short_term_rate, self.buy_rate, self.sell_rate, self.fee), = details
+        (i, self.code, self.cost_hold, self.portion_hold, self.average, self.keep_eye_on, self.short_term_rate, self.buy_rate, self.sell_rate, self.fee, *_), = details
         if self.cost_hold is None:
             self.cost_hold = 0
         if self.portion_hold is None:

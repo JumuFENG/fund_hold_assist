@@ -511,6 +511,40 @@ class TestUserStock(object):
         assert 'hotrank0' == strdata['uramount']['key'], 'uramount key wrong!'
         assert 1 == len(strdata['buydetail']), 'buydetail length wrong'
 
+    def test_delete_strategies(self):
+        code = 'SZ000096'
+        strobj = {
+            "grptype": "GroupStandard", 
+            "strategies": {"0": {"key": "StrategySellELS", "enabled": False, "cutselltype": "all", "selltype": "all", "topprice": 19.76, "guardPrice": 17.88}},
+            "transfers": {"0": {"transfer": "-1"}}, "amount": "5000"
+        }
+
+        strategy_table = self.testuser.stock_strategy_table
+        ord_table = self.testuser.stock_order_table
+        ordful_table = self.testuser.stock_fullorder_table
+        self.__cleanup_tables([strategy_table, ord_table, ordful_table])
+        self.testuser.save_strategy(code, strobj)
+        self.testuser.remove_strategy(code)
+
+        with read_context(strategy_table):
+            sex = strategy_table.select().where(strategy_table.code == code).exists()
+        assert not sex, 'strategy remove failed'
+        with read_context(ord_table):
+            oex = ord_table.select().where(ord_table.code == code).exists()
+        assert not oex, 'orders remove failed'
+        with read_context(ordful_table):
+            foex = ord_table.select().where(ord_table.code == code).exists()
+        assert not foex, 'full orders remove failed'
+
     def test_column_check(self):
-        with write_context(self.testuser.stocks_info_table):
-            check_table_columns(self.testuser.stocks_info_table)
+        with write_context(User.db):
+            check_table_columns(User.db)
+
+
+    def test_add_user(self):
+        ueml = 'test2@test.com'
+        with write_context(self.testuser.db):
+            if self.testuser.db.select().where(self.testuser.db.email == ueml).exists():
+                self.testuser.db.delete().where(self.testuser.db.email == ueml).execute()
+        u2 = self.testuser.sub_account('test2', True)
+        assert u2.parent == self.testuser.id, 'parent_account not updated'
