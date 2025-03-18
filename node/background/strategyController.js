@@ -1,0 +1,1 @@
+../../fx_ext/background/back/strategyController.js

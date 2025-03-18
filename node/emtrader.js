@@ -1,4 +1,4 @@
-const winston = require('winston');
+const logger = require('./background/logger');
 const puppeteer = require('puppeteer');
 
 const config = require('./config.json');
@@ -24,16 +24,6 @@ const host = 'https://jywg.eastmoneysec.com';
 const targetPage = host + '/MarginTrade/Buy';
 const loginPage = host + '/Login';
 // '/Login?el=1&clear=&returl=%2fMarginTrade%2fBuy'
-
-const logger = winston.createLogger({
-    level: 'info', // 日志级别
-    format: winston.format.json(), // 日志格式
-    transports: [
-        new winston.transports.Console(), // 输出到控制台
-        new winston.transports.File({ filename: 'emtrade.err.log', level: 'error' }), // 输出到文件
-        new winston.transports.File({ filename: 'emtrade.log' }) // 输出到文件
-    ]
-});
 
 
 if (!config.unp.account || !config.unp.pwd) {
@@ -139,7 +129,7 @@ class ext {
 
     static async login() {
         if (!this.retry) {
-            this.retry = 0;
+            this.retry = 1;
             this.success = false;
             await this.setUnp();
         }
