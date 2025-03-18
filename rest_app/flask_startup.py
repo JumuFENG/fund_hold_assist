@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.realpath(os.path.dirname(os.path.realpath(__file__)) 
 from utils import *
 from user import *
 from pickup import *
-from flask_new import save_user_strategy, dump_user_strategy
+from rest_app.flask_phon import user_request_post, user_request_get
 
 app = Flask(__name__)
 app.secret_key = "any_string_make_secret_key"
@@ -583,16 +583,7 @@ def stock():
             earned = float(request.form.get('earned', type=str, default=None))
             user.set_earned(date, earned)
             return 'OK', 200
-        if actype == 'deals':
-            deals = request.form.get('data', type=str, default=None)
-            print('add deals', deals)
-            user.add_deals(json.loads(deals))
-            return 'OK', 200
-        if actype == 'strategy':
-            strdata = request.form.get('data', type=str, default=None)
-            code = request.form.get('code', type=str, default=None)
-            acc = request.form.get('acc', type=str, default=None)
-            return save_user_strategy(user.id, acc, code, strdata)
+        return user_request_post(session, request)
     else:
         if actype == 'stats':
             return json.dumps(user.get_stocks_stats())
@@ -603,17 +594,8 @@ def stock():
             return 'OK', 200
         code = request.args.get("code", type=str, default=None)
         if actype == 'summary':
-            if code:
-                us = UserStock(user, code)
-                return json.dumps({code: us.get_stock_summary()})
-            else:
+            if not code:
                 return json.dumps(user.get_holding_stocks_summary())
-        if actype == 'getearned':
-            if code is None:
-                dates = int(request.args.get('days',type=str, default=None))
-                return json.dumps(user.get_earned(dates))
-            else:
-                return str(round(user.get_earned_of(code), 2))
         if actype == 'allstks':
             interested = request.args.get('interested', type=str, default=None)
             if interested is not None and interested == '1':
@@ -636,15 +618,7 @@ def stock():
             date = request.args.get('since', type=str, default=None)
             stks = user.get_archived_since(date, True)
             return json.dumps(stks)
-        us = UserStock(user, code)
-        if actype == 'buy':
-            return json.dumps(us.get_buy_arr())
-        if actype == 'sell':
-            return json.dumps(us.get_sell_arr())
-        if actype == 'strategy':
-            acc = request.args.get('acc')
-            return dump_user_strategy(user.id, acc, code)
-        return "Not implement yet", 403
+        return user_request_get(session, request)
 
 def stock_buy(user, form):
     code = form.get("code", type=str, default=None)

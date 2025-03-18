@@ -1,13 +1,5 @@
 * install nginx;
-Build
-ref to: https://www.dynamsoft.com/codepool/how-to-configure-and-install-nginx-on-mac-os-x.html
-download from: http://nginx.org/en/download.html
-tar xvzf nginx-1.20.2.tar.gz
-cd nginx-1.20.2
-download pcre-8.45.tar.bz2 from: http://sourceforge.net/projects/pcre/files/pcre/
-tar xvzf pcre-8.45.tar.bz2
-sudo ./configure --with-pcre=~/dev/pcre-8.45
-sudo make install
+run in docker
 
 Set auto startup
 https://blog.csdn.net/u013091013/article/details/53393406

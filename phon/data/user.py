@@ -11,35 +11,42 @@ from phon.data.tables import AllStocks, UserStrategy, UserOrders
 from phon.data.db import create_model, read_context, write_context, insert_or_update
 
 
-class lazy_property:
-    def __init__(self, func):
-        self.func = func
-        self.name = None
-
-    def __set_name__(self, owner, name):
-        self.name = name
+class classproperty:
+    def __init__(self, initializer):
+        self._func = initializer
 
     def __get__(self, instance, owner):
-        target = owner if instance is None else instance
-        name = self.func.__name__ if self.name is None else self.name
-        cache_name = f"_{name}_cached" if instance is None else f"_{name}_cached_{id(instance)}"
-        if hasattr(target, cache_name):
-            return getattr(target, cache_name)
+        if not hasattr(owner, '_classproperty_cache'):
+            setattr(owner, '_classproperty_cache', {})
 
-        # 缓存值
-        value = self.func(target)
-        setattr(target, cache_name, value)
-        return value
+        cache = owner._classproperty_cache
+        if self._func.__name__ not in cache:
+            cache[self._func.__name__] = self._func(owner)
+        return cache[self._func.__name__]
+
+
+class lazy_property:
+    def __init__(self, initializer):
+        self._func = initializer
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        if not hasattr(instance, '_lazy_property_cache'):
+            setattr(instance, '_lazy_property_cache', {})
+
+        cache = instance._lazy_property_cache
+        if self._func.__name__ not in cache:
+            cache[self._func.__name__] = self._func(instance)
+        return cache[self._func.__name__]
 
 
 class User:
-    @classmethod
-    @lazy_property
+    @classproperty
     def db(cls):
         return create_model(UserDb)
 
-    @classmethod
-    @lazy_property
+    @classproperty
     def all_stocks(cls):
         return create_model(AllStocks)
 
@@ -53,30 +60,30 @@ class User:
     def user_by_id(cls, id):
         with read_context(cls.db):
             u = cls.db.get_or_none(cls.db.id == id)
-        return cls.from_dict(u.__data__) if u is not None else None
+        return cls.from_dict(**u.__data__) if u is not None else None
 
     @classmethod
     def user_by_email(cls, email):
         with read_context(cls.db):
             u = cls.db.get_or_none(cls.db.email == email)
-        return cls.from_dict(u.__data__) if u is not None else None
+        return cls.from_dict(**u.__data__) if u is not None else None
 
     @classmethod
     def all_users(cls):
         with read_context(cls.db):
             ul = list(cls.db.select())
-        return [cls.from_dict(u.__data__) for u in ul]
+        return [cls.from_dict(**u.__data__) for u in ul]
 
     @classmethod
     def get_parent(self, email):
         user = self.user_by_email(email)
         if user.parent:
             u = self.user_by_id(user.parent)
-            return self.from_dict(u.__data__) if u is not None else None
+            return self.from_dict(**u.__data__) if u is not None else None
         return None
 
     @classmethod
-    def from_dict(self, data):
+    def from_dict(self, **data):
         return User(**data)
 
     @classmethod
@@ -154,14 +161,14 @@ class User:
     def get_bind_accounts(self):
         with read_context(self.db):
             slvs = list(self.db.select().where(self.db.parent_account == self.id))
-        return [self.from_dict(s.__data__) for s in slvs]
+        return [self.from_dict(**s.__data__) for s in slvs]
 
     def get_all_combined_users(self):
         users = []
         if self.parent:
             with read_context(self.db):
                 u = self.db.get(self.db.id == self.parent)
-            parent = self.from_dict(u.__data__)
+            parent = self.from_dict(**u.__data__)
             subs = parent.get_bind_accounts()
             return [parent] + subs
 
@@ -569,6 +576,60 @@ class User:
         us = UStock(self, code)
         return us.remove_strategy()
 
+    def get_earned_of(self, code):
+        us = UStock(self, code)
+        return us.get_earned()
+
+    def get_earned_arr(self, all_earned, days = 0):
+        startIdx = 0
+        if days > 0:
+            startIdx = len(all_earned) - days
+
+        earr = []
+        for x in range(startIdx, len(all_earned)):
+            earr.append({'dt':DateConverter.days_since_2000(all_earned[x].date), 'ed':all_earned[x].earned})
+        return earr
+
+    def get_earned(self, days):
+        with read_context(self.stocks_earned_table):
+            all_earned = list(self.stocks_earned_table.select())
+        accs = self.get_all_combined_users()
+        for acc in accs:
+            if acc.realcash != 1 or acc.id == self.id:
+                continue
+            user = User.user_by_id(acc.id)
+            with read_context(user.stocks_earned_table):
+                all_earned += list(user.stocks_earned_table.select())
+
+        earned_obj = {}
+        if days < 0 or days >= len(all_earned):
+            earned_obj['tot'] = all_earned[0].total_earned
+            earned_obj['e_a'] = self.get_earned_arr(all_earned)
+        elif days > 0:
+            earned_obj['tot'] = all_earned[-days].total_earned
+            earned_obj['e_a'] = self.get_earned_arr(all_earned, days)
+        else:
+            earned_obj = self.get_this_yr_earned(all_earned)
+
+        return earned_obj
+
+    def get_this_yr_earned(self, all_earned):
+        lastRow = all_earned[-1]
+        year = datetime.strptime(lastRow[0], "%Y-%m-%d").year
+        total = None
+        earned_obj = {}
+        earr = []
+        for erow in all_earned:
+            if total is None and not datetime.strptime(erow.date, "%Y-%m-%d").year == year:
+                continue
+            if total is None:
+                total = erow.total_earned
+                earned_obj['tot'] = total
+            earr.append({'dt':DateConverter.days_since_2000(erow.date), 'ed':erow.earned})
+        earned_obj['e_a'] = earr
+        return earned_obj
+
+
 class UStock():
     def __init__(self, user, code):
         self.code = code
@@ -601,6 +662,10 @@ class UStock():
     @lazy_property
     def fullorder_table(self):
         return self.user.stock_fullorder_table
+
+    @lazy_property
+    def archived_table(self):
+        return self.user.archived_deals
 
     @lazy_property
     def fee(self):
@@ -1198,6 +1263,13 @@ class UStock():
                 if 'uramount' in strdata:
                     udic['uramount'] = json.dumps(strdata['uramount'])
                 self.stocks_table.create(**udic)
+        if 'buydetail' in strdata:
+            self.replace_orders(self.order_table, strdata['buydetail'])
+        if 'buydetail_full' in strdata:
+            self.replace_orders(self.fullorder_table, strdata['buydetail_full'])
+        if 'strategies' not in strdata:
+            return
+
         svalues = []
         for i, s in strdata['strategies'].items():
             vdic = {
@@ -1210,10 +1282,6 @@ class UStock():
                 vdic['trans'] = strdata['transfers'][i]['transfer']
             svalues.append(vdic)
         insert_or_update(self.strategy_table, svalues, ['code', 'id'])
-        if 'buydetail' in strdata:
-            self.replace_orders(self.order_table, strdata['buydetail'])
-        if 'buydetail_full' in strdata:
-            self.replace_orders(self.fullorder_table, strdata['buydetail_full'])
 
     def load_strategy(self):
         strdata = {'grptype': 'GroupStandard', 'strategies': {}, 'transfers': {}, 'amount': 0}
@@ -1253,3 +1321,45 @@ class UStock():
             self.order_table.delete().where(self.order_table.code == self.code).execute()
         with write_context(self.fullorder_table):
             self.fullorder_table.delete().where(self.fullorder_table.code == self.code).execute()
+
+    def get_hold_earned(self):
+        with read_context(self.stocks_table):
+            hstk = self.stocks_table.get_or_none(self.stocks_table.code == self.code)
+        if hstk is None:
+            return 0
+
+        if hstk.portion_hold > 0:
+            from history import StockDumps
+            sd = StockDumps()
+            kl = sd.read_kd_data(self.code, length=1)[0]
+            return hstk.portion_hold * float(kl[2]) - hstk.cost_hold
+        return 0
+
+    def get_sold_earned(self):
+        se = self.get_each_sell_earned()
+        sum_earn = 0
+        if not se:
+            return 0
+        for v in se.values():
+            sum_earn += v
+        return sum_earn
+
+    def get_earned(self):
+        earned = 0
+        earned += self.get_sold_earned()
+        earned += self.get_hold_earned()
+
+        with read_context(self.archived_table):
+            bsdelas = list(self.archived_table.select().where(self.archived_table.code == self.code))
+
+        bmon = 0
+        smon = 0
+        fee = 0
+        for bsd in bsdelas:
+            if bsd.type == 'B':
+                bmon += bsd.portion * bsd.price
+            else:
+                smon += bsd.portion * bsd.price
+            fee += bsd.手续费 + bsd.印花税 + bsd.过户费
+
+        return earned + (smon - bmon - fee)

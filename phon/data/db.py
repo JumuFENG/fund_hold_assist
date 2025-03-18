@@ -211,7 +211,7 @@ def create_model(basemodel, table=None, db=None):
     :return: 新的模型类
     """
     if db is None:
-        if not basemodel._meta.database:
+        if not basemodel._meta.database or basemodel._meta.database.database != basemodel._meta.db_name:
             basemodel._meta.database = DBManage.get_database(basemodel._meta.db_name)
     if table is None and db is None:
         with write_context(basemodel):

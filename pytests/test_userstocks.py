@@ -1,19 +1,18 @@
 import pytest
 from colorama import Fore
 from peewee import fn
-from phon.data.user import User, lazy_property, UserDb, UserStockBuy, UserStockSell, UserStocks
+from phon.data.user import User, lazy_property, UserDb, UserStockBuy, UserStockSell, UserStocks, classproperty
 from phon.data.user import UserDeals, UserEarned, UserEarning, UserStrategy, UserOrders
 from phon.data.db import create_model, get_database, write_context, read_context, check_table_columns
 
 
 class MockUser(User):
-    @classmethod
-    @lazy_property
+    @classproperty
     def db(cls):
         return create_model(UserDb, None, get_database('testdb'))
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, **data):
         return MockUser(**data)
 
     @lazy_property
@@ -539,7 +538,6 @@ class TestUserStock(object):
     def test_column_check(self):
         with write_context(User.db):
             check_table_columns(User.db)
-
 
     def test_add_user(self):
         ueml = 'test2@test.com'
