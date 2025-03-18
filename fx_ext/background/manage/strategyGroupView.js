@@ -1,5 +1,12 @@
 'use strict';
 
+try {
+    const ses = require('./strategies.json');
+    const emjyBack  = require('./emjybackend.js');
+} catch (err) {
+
+}
+
 class TransferSelector {
     constructor(transfer) {
         this.transfer = transfer;
@@ -72,21 +79,21 @@ class StrategySelectorView {
         opt0.selected = true;
         opt0.disabled = true;
         strategySelector.appendChild(opt0);
-        for (var i = 0; i < ComplexStrategyKeyNames.length; i++) {
-            strategySelector.appendChild(new Option(ComplexStrategyKeyNames[i].name, ComplexStrategyKeyNames[i].key));
+        for (const k in ses.ComplexStrategyKeyNames) {
+            strategySelector.appendChild(new Option(ses.ComplexStrategyKeyNames[k], k));
         }
         var opt1 = new Option('==========');
         opt1.disabled = true;
         strategySelector.appendChild(opt1);
-        for (var i = 0; i < BuyStrategyKeyNames.length; i++) {
-            strategySelector.appendChild(new Option(BuyStrategyKeyNames[i].name, BuyStrategyKeyNames[i].key));
-        };
+        for (const k in ses.BuyStrategyKeyNames) {
+            strategySelector.appendChild(new Option(ses.BuyStrategyKeyNames[k], k));
+        }
         var opt2 = new Option('==========');
         opt2.disabled = true;
         strategySelector.appendChild(opt2);
-        for (var i = 0; i < SellStrategyKeyNames.length; i++) {
-            strategySelector.appendChild(new Option(SellStrategyKeyNames[i].name, SellStrategyKeyNames[i].key));
-        };
+        for (const k in ses.SellStrategyKeyNames) {
+            strategySelector.appendChild(new Option(ses.SellStrategyKeyNames[k], k));
+        }
         var strategyName = '添加新策略';
         if (this.strategy) {
             strategySelector.value = this.strategy.key;

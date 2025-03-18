@@ -1,6 +1,13 @@
 'use strict';
 
+try {
+    const {guang}  = require('../guang.js');
+    const emjyBack  = require('./emjybackend.js');
+} catch (err) {
 
+}
+
+// export class feng {
 class feng {
     constructor() {
         throw new Error('Cannot instantiate StaticClass');
@@ -127,6 +134,19 @@ class feng {
     * @returns {string} 市场代码 SH|SZ|BJ
     */
     static async getStockMktcode(code) {
+        let mkt = this.cachedStockGenSimple(code, 'mktcode');
+        if (mkt) {
+            return mkt;
+        }
+        if (code.startsWith('60') || code.startsWith('68')) {
+            return 'SH';
+        }
+        if (code.startsWith('00') || code.startsWith('30')) {
+            return 'SZ';
+        }
+        if (code.startsWith('92')) {
+            return 'BJ';
+        }
         return this.cachedStockGen(code, 'mktcode');
     }
 
@@ -136,7 +156,7 @@ class feng {
     * @returns {string}
     */
     static async getLongStockCode(code) {
-        if (code.startsWith('S') || code == '') {
+        if (code.startsWith('S') || code.startsWith('BJ') || code == '') {
             return code;
         }
 
@@ -570,4 +590,9 @@ class feng {
             emjyBack.log('Repayment process failed:', error);
         }
     }
+}
+
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = feng;
 }

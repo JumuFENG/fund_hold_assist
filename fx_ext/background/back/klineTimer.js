@@ -1,5 +1,14 @@
 'use strict';
 
+try {
+    const emjyBack  = require('./emjybackend.js');
+    const {guang}  = require('../guang.js');
+} catch (err) {
+    if (typeof window !== 'undefined' && window.emjyBack) {
+        emjyBack = window.emjyBack;
+    }
+};
+
 
 class AlarmBase {
     constructor(periods) {
@@ -164,7 +173,21 @@ class RtpTimer extends AlarmBase {
     }
 }
 
+class AccOrderTimer extends RtpTimer {
+    constructor() {
+        super();
+        this.ticks = 10*60000;
+    }
 
+    onTimer() {
+        for (const acc of ['normal', 'collat']) {
+            emjyBack.all_accounts[acc].checkOrders();
+        }
+    }
+}
+
+
+// export class alarmHub {
 class alarmHub {
     static setupAlarms() {
         if (!this.klineAlarms) {
@@ -182,6 +205,9 @@ class alarmHub {
         };
         if (!this.otpAlarm) {
             this.otpAlarm = new OtpAlarm('9:30:2');
+        }
+        if (!this.orderTimer) {
+            this.orderTimer = new AccOrderTimer();
         }
 
         const randomTime = function() {
@@ -212,7 +238,7 @@ class alarmHub {
 
         guang.isTodayTradingDay().then(trade => {
             if (trade) {
-                [talarm, talarm, bclose, closed,
+                [talarm, talarm, bclose, closed, this.orderTimer,
                     this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
                 ].forEach(a => {
                     a.setupTimer();
@@ -237,10 +263,8 @@ class alarmHub {
     }
 }
 
-if (typeof window !== 'undefined') {
-    window.alarmHub = alarmHub;
-}
-
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = alarmHub;
+} else {
+    window.alarmHub = alarmHub;
 }

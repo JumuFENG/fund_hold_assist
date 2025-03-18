@@ -1,13 +1,24 @@
 'use strict';
+if (window &&!window.ses) {
+    fetch('./strategies.json')
+        .then(response => response.json())
+        .then(m => {
+            window.ses = m
+        })
+        .catch(error => {
+            console.error('Error loading strategies.json:', error);
+        });
+}
+
 
 class StrategyIntradingView {
-    constructor(istr, isext=false) {
-        this.data = {key: istr.key};
+    constructor(iskey, isext=false) {
+        this.data = {key: iskey};
         this.container = document.createElement('div');
-        var strTitle = document.createTextNode(istr.name);
+        var strTitle = document.createTextNode(ses.ExtIstrStrategies[iskey].name);
         this.container.appendChild(strTitle);
         this.container.appendChild(document.createElement('br'));
-        var descLbl = document.createTextNode(istr.desc);
+        var descLbl = document.createTextNode(ses.ExtIstrStrategies[iskey].desc);
         this.chkEnable = document.createElement('input');
         this.chkEnable.type = 'checkbox';
         var checkLbl = document.createElement('label');
@@ -93,7 +104,7 @@ class StrategyIntradingPanelPage extends RadioAnchorPage {
         if (!this.initialized) {
             emjyBack.getFromLocal('all_available_istr').then(all_str => {
                 this.init(all_str);
-                for (const estr of ExtIstrStrategies) {
+                for (const estr of ses.ExtIstrStrategies) {
                     var item = new StrategyIntradingView(estr, true);
                     this.exStrsStrategies.push(item);
                     this.exStrsContainer.appendChild(item.container);

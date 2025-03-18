@@ -1,10 +1,8 @@
 'use strict';
 
-let emjyBack = null;
 if (navigator.userAgent.includes('Firefox')) {
     chrome = browser;
 }
-
 
 class ManagerBack {
     constructor() {
@@ -470,12 +468,6 @@ class ext {
         });
     }
 
-    static saveToFile(blob, filename, conflictAction = 'overwrite') {
-        // conflictAction (uniquify, overwrite, prompt)
-        var url = URL.createObjectURL(blob);
-        chrome.downloads.download({url, filename, saveAs:false, conflictAction});
-    }
-
     static clearStorage() {
         chrome.storage.local.clear();
     }
@@ -485,7 +477,7 @@ class ext {
         emjyBack.normalAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
         emjyBack.collateralAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
         var blob = new Blob(codes, {type: 'application/text'});
-        this.saveToFile(blob, 'holdingstocks.txt');
+        emjyBack.saveToFile(blob, 'holdingstocks.txt');
     }
 
     static exportConfig() {
@@ -507,7 +499,7 @@ class ext {
                 configs['hist_deals'] = item['hist_deals'];
             }
             var blob = new Blob([JSON.stringify(configs)], {type: 'application/json'});
-            ext.saveToFile(blob, 'stocks.config.json');
+            emjyBack.saveToFile(blob, 'stocks.config.json');
         });
     }
 
@@ -599,8 +591,18 @@ class ext {
 }
 
 chrome.runtime.onMessage.addListener(ext.notify);
-emjyBack = new EmjyBack();
-ext.createMainTab();
-emjyBack.Init();
-alarmHub.setupAlarms();
-istrManager.initExtStrs();
+fetch('./strategies.json')
+.then(response => response.json())
+.then(m => {
+    window.ses = m
+}).then(() => {
+    ext.createMainTab();
+    emjyBack.Init().then(() => {
+        ext.setupWebsocketConnection();
+    });
+    alarmHub.setupAlarms();
+    istrManager.initExtStrs();
+})
+.catch(error => {
+    console.error('Error loading strategies.json:', error);
+});

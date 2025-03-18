@@ -2550,3 +2550,7 @@ class StrategyZt1 extends StrategyBarginHunting {
         this.data.guardVol = mvkl.v - this.data.guardVol < 0 ? mvkl.v : this.data.guardVol;
     }
 }
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = strategyFac;
+}

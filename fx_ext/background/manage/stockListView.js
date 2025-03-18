@@ -1,5 +1,13 @@
 'use strict';
 
+try {
+    const ses = require('./strategies.json');
+    const emjyBack  = require('./emjybackend.js');
+} catch (err) {
+
+}
+
+
 class StockView {
     constructor(stock, click) {
         this.container = document.createElement('div');
@@ -192,13 +200,11 @@ class StockListPanelPage extends RadioAnchorPage {
     }
 
     isBuystrJson(str) {
-        var cskid = ComplexStrategyKeyNames.findIndex(x => x.key == str.key);
-        return str.key.includes('Buy') || cskid != -1;
+        return str.key.includes('Buy') || ses.ComplexStrategyKeyNames[str.key];
     }
 
     isSellstrJson(str) {
-        var cskid = ComplexStrategyKeyNames.findIndex(x => x.key == str.key);
-        return str.key.includes('Sell') || cskid != -1;
+        return str.key.includes('Sell') || ses.ComplexStrategyKeyNames[str.key];
     }
 
     onFiltered(fid) {
@@ -427,21 +433,21 @@ class StockListPanelPage extends RadioAnchorPage {
         this.container.appendChild(this.selectionFilter);
 
         this.strategyFilter = document.createElement('select');
-        ComplexStrategyKeyNames.forEach(s=>{
-            this.strategyFilter.options.add(new Option(s.name, s.key));
-        });
+        for (const k in ses.ComplexStrategyKeyNames) {
+            this.strategyFilter.options.add(new Option(ses.ComplexStrategyKeyNames[k], k));
+        }
         var sepOpt = new Option('------------');
         sepOpt.disabled = true;
         this.strategyFilter.options.add(sepOpt);
-        BuyStrategyKeyNames.forEach(s=>{
-            this.strategyFilter.options.add(new Option(s.name, s.key));
-        });
+        for (const k in ses.BuyStrategyKeyNames) {
+            this.strategyFilter.options.add(new Option(ses.BuyStrategyKeyNames[k], k));
+        }
         var sepOpt1 = new Option('------------');
         sepOpt1.disabled = true;
         this.strategyFilter.options.add(sepOpt1);
-        SellStrategyKeyNames.forEach(s=>{
-            this.strategyFilter.options.add(new Option(s.name, s.key));
-        });
+        for (const k in ses.SellStrategyKeyNames) {
+            this.strategyFilter.options.add(new Option(ses.SellStrategyKeyNames[k], k));
+        }
         this.strategyFilter.onchange = e => {
             this.onFiltered(e.target.value);
         }

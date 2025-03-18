@@ -1,24 +1,19 @@
 'use strict'
 
-
-EmjyBack.prototype.convertToSecu = function(code) {
-    if (code.length === 6 && !isNaN(code)) {
-        const prefixes = {'60': 'sh', '68': 'sh', '30': 'sz', '00': 'sz', '90': 'sh', '20': 'sz'};
-        const postfixes = {'83': '.BJ', '43': '.BJ', '87': '.BJ', '92': '.BJ'}
-        let beg = code.substring(0, 2);
-        if (prefixes[beg]) {
-            return prefixes[beg] + code;
-        } else if (postfixes[beg]) {
-            return code + postfixes[beg];
-        }
-        console.log('cant convert code', code);
-        return code;
+try {
+    const ses = require('./strategies.json');
+    const emjyBack  = require('./emjybackend.js');
+    const {guang}  = require('../guang.js');
+    const {feng}  = require('../feng.js');
+} catch (err) {
+    if (typeof window !== 'undefined' && window.emjyBack) {
+        emjyBack = window.emjyBack;
     }
-    return code.startsWith('BJ') ? code.substring(2) + '.BJ' : code.toLowerCase();
-}
+};
 
-EmjyBack.prototype.validTradeStatus = ['OCALL', 'TRADE', 'ECALL'];
-EmjyBack.prototype.noTradeStatus = ['STOP', 'ENDTR', 'HALT', 'BREAK'];
+
+const validTradeStatus = ['OCALL', 'TRADE', 'ECALL'];
+const noTradeStatus = ['STOP', 'ENDTR', 'HALT', 'BREAK'];
 
 class StrategyI_Base {
     constructor(istr, ktime) {
@@ -121,7 +116,7 @@ class StrategyI_Base {
             let basics = robj.data;
             let validStocks = Object.fromEntries(
                 Object.entries(basics).filter(([c, s]) =>
-                    emjyBack.validTradeStatus.includes(s.trade_status)
+                    validTradeStatus.includes(s.trade_status)
                 && !s.secu_name.startsWith('退市') && !s.secu_name.endsWith('退') && !s.secu_name.includes('ST'))
                 .map(([c,s]) => [c.startsWith('s') ? c.substring(2) : c.substring(0, 6), s])
             );
@@ -153,7 +148,7 @@ class StrategyI_Base {
             for (const rk of rkdata) {
                 let code = rk.SECURITY_CODE;
                 if (!this.candidates[code]) {
-                    this.candidates[code] = { secu_code: emjyBack.convertToSecu(code) };
+                    this.candidates[code] = { secu_code: guang.convertToSecu(code) };
                 }
                 this.candidates[code].rank = rk.POPULARITY_RANK;
                 this.candidates[code].newfans = rk.NEWFANS_RATIO;
@@ -177,7 +172,7 @@ class StrategyI_Base {
             for (const rk of rkdata) {
                 let code = rk.code;
                 if (!this.candidates[code]) {
-                    this.candidates[code] = {secu_code: emjyBack.convertToSecu(code)};
+                    this.candidates[code] = {secu_code: guang.convertToSecu(code)};
                 }
                 this.candidates[code].rkjqka = rk.hot_rank;
             }
@@ -292,7 +287,7 @@ class StrategyI_Zt1WbOpen extends StrategyI_Base {
                 throw new Error('No candidates found!');
             }
             rc.forEach(c => {
-                this.candidates[c.substring(2)] = {account: this.istr.account, secu_code: emjyBack.convertToSecu(c)};
+                this.candidates[c.substring(2)] = {account: this.istr.account, secu_code: guang.convertToSecu(c)};
             });
             this.checkCandidatesAccount();
         });
@@ -302,7 +297,7 @@ class StrategyI_Zt1WbOpen extends StrategyI_Base {
         if (!Array.isArray(stocks)) {
             stocks = [stocks];
         }
-        stocks.forEach(c => {this.candidates[c] = {account: this.istr.account, secu_code: emjyBack.convertToSecu(c)};});
+        stocks.forEach(c => {this.candidates[c] = {account: this.istr.account, secu_code: guang.convertToSecu(c)};});
         this.checkCandidatesAccount();
     }
 
@@ -454,7 +449,7 @@ class StrategyI_3Bull_Breakup extends StrategyI_Interval {
                     high: chl[1],
                     low: chl[2],
                     account: this.istr.account,
-                    secu_code: emjyBack.convertToSecu(c)
+                    secu_code: guang.convertToSecu(c)
                 };
             });
             this.checkCandidatesAccount();
@@ -528,7 +523,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                 if (!this.candidates[code]) {
                     this.candidates[code] = {};
                 };
-                this.candidates[code].secu_code = emjyBack.convertToSecu(code);
+                this.candidates[code].secu_code = guang.convertToSecu(code);
                 this.candidates[code].ztdate = zr[1];
                 this.candidates[code].days = zr[2];
                 this.candidates[code].step = zr[3];
@@ -677,7 +672,7 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                 for (const yd of ydl) {
                     const code = yd[0].substring('2');
                     if (!this.candidates[code]) {
-                        this.candidates[code] = {secu_code: emjyBack.convertToSecu(code)};
+                        this.candidates[code] = {secu_code: guang.convertToSecu(code)};
                     }
                 }
             }).then(()=>{
@@ -868,6 +863,7 @@ class StrategyI_IndexTracking extends StrategyI_Interval {
 }
 
 
+// export class istrManager {
 class istrManager {
     static initExtStrs() {
         this.istrs = {};
@@ -896,10 +892,10 @@ class istrManager {
             return iks;
         }
 
-        for (const extstr of ExtIstrStrategies) {
-            emjyBack.getFromLocal('exstrategy_' + extstr.key).then(istr => {
+        for (const k in ses.ExtIstrStrategies) {
+            emjyBack.getFromLocal('exstrategy_' + k).then(istr => {
                 if (!istr) {
-                    emjyBack.log('ext strategy', extstr.key, 'not configured');
+                    emjyBack.log('ext strategy', k, 'not configured');
                     return;
                 }
                 let iks = build_istr(istr);
@@ -915,4 +911,9 @@ class istrManager {
             console.log('not trading day, please prepare manually!');
         }
     }
+}
+
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = istrManager;
 }

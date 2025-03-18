@@ -54,7 +54,7 @@ class Manager {
             this.getFromLocal('acc_np').then(anp => {
                 if (anp) {
                     this.creditEnabled = anp.credit;
-                    if (!this.accountList['collat']) {
+                    if (this.accountList&&!this.accountList['collat']) {
                         this.initCreditAccount();
                     }
                 }
@@ -362,6 +362,12 @@ class Manager {
     }
 
     initTrackAccounts() {
+        if (!this.accountList) {
+            setTimeout(() => {
+                this.initTrackAccounts();
+            }, 500);
+            return;
+        }
         for (const acc in this.trackAccountNames) {
             if (acc in this.accountList) {
                 continue;
@@ -650,7 +656,12 @@ window.addEventListener('beforeunload', e => {
 });
 
 window.onload = function() {
-    emjyManager.initUi();
+    const iinterval = setInterval(() => {
+        if (window.ses) {
+            clearInterval(iinterval);
+            emjyManager.initUi();
+        }
+    }, 200);
 }
 
 function onExtensionBackMessage(message) {
@@ -661,5 +672,6 @@ function onExtensionBackMessage(message) {
 
 chrome.runtime.onMessage.addListener(onExtensionBackMessage);
 
-let emjyManager = new Manager(logInfo);
-let emjyBack = emjyManager;
+window.emjyManager = new Manager(logInfo);
+window.emjyBack = window.emjyManager;
+window.guang = guang;

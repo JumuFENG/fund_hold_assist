@@ -1,5 +1,15 @@
 'use strict';
 
+try {
+    const {guang}  = require('../guang.js');
+    const emjyBack  = require('./emjybackend.js');
+    const {TradeClient, NormalAccount}  = require('./accounts.js');
+    const {GroupManager}  = require('./strategyGroup.js');
+} catch (err) {
+
+}
+
+
 class TestTradeClient extends TradeClient {
     constructor(account) {
         super('');
@@ -181,4 +191,9 @@ class TrackingAccount extends NormalAccount {
         dsobj[this.key_deals] = this.deals;
         emjyBack.saveToLocal(dsobj);
     }
+}
+
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = TrackingAccount;
 }

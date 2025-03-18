@@ -1,6 +1,16 @@
 'use strict';
 
 
+try {
+    const emjyBack  = require('./emjybackend.js');
+    const { NormalAccount, CollateralAccount, CreditAccount } = require('./accounts.js');
+    const { klPad } = require('../kline.js');
+    const { feng } = require('./feng.js');
+    const { GroupManager }  = require('./strategyGroup.js');
+} catch (err) {
+
+}
+
 class DealsClient {
     // 普通账户 当日成交
     constructor() {
@@ -42,6 +52,8 @@ class DealsClient {
     // 获取所有分页数据
     async getAllData() {
         let hasMoreData = true;
+        this.dwc = '';
+        this.data = [];
         while (hasMoreData) {
             const deals = await this.fetchData();
             if (deals.Status !== 0 || deals.Message) {
@@ -356,6 +368,7 @@ class MarginAssetsClient extends AssetsClient {
 }
 
 
+// export class TradeClient {
 class TradeClient {
     constructor(amoney = 0) {
         this.availableMoney = amoney;
@@ -584,8 +597,6 @@ class Account {
         this.keyword = null;
         this.stocks = [];
         this.fundcode = '511880'; // 货币基金代码，余钱收盘前买入.
-        this.tradeClient = null;
-        this.assetsClient = null;
     }
 
     getStock(code) {
@@ -594,6 +605,37 @@ class Account {
 
     holdAccount() {
         return this.keyword;
+    }
+
+    createOrderClient() {
+        this.orderClient = new OrdersClient();
+    }
+
+    checkOrderClient() {
+        if (!this.orderClient) {
+            this.createOrderClient();
+        }
+    }
+
+    loadDeals() {
+        this.checkOrderClient();
+        this.orderClient.getAllData().then((deals) => {
+            this.handleDeals(deals);
+        });
+    }
+
+    checkOrders() {
+        this.checkOrderClient();
+        this.orderClient.getAllData().then(data => {
+            for (const d of data) {
+                if (!this.orderfeched) {
+                    this.orderfeched = [];
+                }
+                if (!this.orderfeched.find(x=>x.Zqdm == d.Zqdm && x.Wtbh == d.Wtbh && x.Wtzt == d.Wtzt)) {
+                    this.orderfeched.push(d);
+                }
+            }
+        });
     }
 }
 
@@ -642,6 +684,19 @@ class NormalAccount extends Account {
                 this.applyStrategy(code, JSON.parse(str));
             };
         });
+    }
+
+    getServerSavedStrategies(code) {
+        if (emjyBack.fha.save_on_server && this.keyword === this.holdAccount()) {
+            feng.getLongStockCode(code).then(fcode => {
+                const params = {'act': 'strategy', 'acc': this.keyword, code: fcode};
+                var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+                const url = emjyBack.fha.server + '/stock?' + new URLSearchParams(params);
+                fetch(url, { headers }).then(response => response.json()).then(data => {
+                    this.applyStrategy(code, data);
+                });
+            });
+        }
     }
 
     getAccountStocks() {
@@ -760,12 +815,35 @@ class NormalAccount extends Account {
         var watchingStocks = {};
         watchingStocks[this.keyword + '_watchings'] = this.stocks.filter(s => s.strategies).map(s => s.code);
         emjyBack.saveToLocal(watchingStocks);
+        if (emjyBack.fha.save_on_server && this.keyword === this.holdAccount()) {
+            feng.getLongStockCode(code).then(fcode => {
+                const fd = new FormData();
+                fd.append('act', 'strategy');
+                fd.append('acc', this.keyword);
+                fd.append('code', fcode);
+                var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+                const url = emjyBack.fha.server + '/stock';
+                fetch(url, {method: 'POST', headers, body: fd});
+            });
+        }
     }
 
     save() {
         this.stocks.forEach(s => {
             if (s.strategies) {
                 s.strategies.save();
+                if (emjyBack.fha.save_on_server && this.keyword == this.holdAccount()) {
+                    feng.getLongStockCode(s.code).then(fcode => {
+                        const fd = new FormData();
+                        fd.append('act', 'strategy');
+                        fd.append('acc', this.keyword);
+                        fd.append('code', fcode);
+                        fd.append('data', s.strategies.tostring());
+                        var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+                        const url = emjyBack.fha.server + '/stock';
+                        fetch(url, {method: 'POST', headers, body: fd});
+                    });
+                }
             };
         });
         var watchingStocks = {};
@@ -815,15 +893,12 @@ class NormalAccount extends Account {
         });
     }
 
-    loadDeals() {
-        var dealclt = new OrdersClient();
-        dealclt.getAllData().then((deals) => {
-            this.handleDeals(deals);
-        });
+    createOrderClient() {
+        this.orderClient = new OrdersClient();
     }
 
     handleDeals(deals) {
-        emjyBack.uploadTodayDeals(deals);
+        emjyBack.uploadTodayDeals(deals, this.keyword);
         var tradedCode = new Set();
         var bdeals = deals.filter(d => d.Mmsm.includes('买入'));
         for (let i = 0; i < bdeals.length; i++) {
@@ -996,11 +1071,8 @@ class CollateralAccount extends NormalAccount {
         })
     }
 
-    loadDeals() {
-        var dealclt = new MarginOrdersClient();
-        dealclt.getAllData().then((deals) => {
-            this.handleDeals(deals);
-        });
+    createOrderClient() {
+        this.orderClient = new MarginOrdersClient();
     }
 
     loadHistDeals(startDate) {
@@ -1086,3 +1158,9 @@ class CreditAccount extends CollateralAccount {
     loadAssets() {}
     parsePosition() { }
 }
+
+// if (typeof module !== 'undefined' && module.exports) {
+//     module.exports = {
+//         NormalAccount, CollateralAccount, CreditAccount
+//     };
+// }

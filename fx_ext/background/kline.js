@@ -1,5 +1,12 @@
 'use strict';
 
+try {
+    const emjyBack = require('./back/emjybackend.js');
+} catch {
+    if (window && window.emjyBack) {
+        const emjyBack = window.emjyBack;
+    }
+}
 
 class klPad {
     static klines = {};
@@ -1460,4 +1467,8 @@ class KLine {
 
         return;
     }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {klPad, KLine}
 }

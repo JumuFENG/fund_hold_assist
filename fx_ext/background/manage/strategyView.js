@@ -1,4 +1,14 @@
 'use strict';
+if (window &&!window.ses) {
+    fetch('./strategies.json')
+        .then(response => response.json())
+        .then(m => {
+            window.ses = m
+        })
+        .catch(error => {
+            console.error('Error loading strategies.json:', error);
+        });
+}
 
 class StrategyViewManager {
     viewer(strategy) {
@@ -98,23 +108,15 @@ class StrategyViewManager {
     }
 
     getStrategyName(key) {
-        for (var i = 0; i < ComplexStrategyKeyNames.length; i++) {
-            if (ComplexStrategyKeyNames[i].key == key) {
-                return ComplexStrategyKeyNames[i].name;
-            };
-        };
-
-        for (var i = 0; i < BuyStrategyKeyNames.length; i++) {
-            if (BuyStrategyKeyNames[i].key == key) {
-                return BuyStrategyKeyNames[i].name;
-            };
-        };
-
-        for (var i = 0; i < SellStrategyKeyNames.length; i++) {
-            if (SellStrategyKeyNames[i].key == key) {
-                return SellStrategyKeyNames[i].name;
-            };
-        };
+        if (ses.ComplexStrategyKeyNames[key]) {
+            return ses.ComplexStrategyKeyNames[key];
+        }
+        if (ses.BuyStrategyKeyNames[key]) {
+            return ses.BuyStrategyKeyNames[key];
+        }
+        if (ses.SellStrategyKeyNames[key]) {
+            return ses.SellStrategyKeyNames[key];
+        }
     }
 }
 

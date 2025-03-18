@@ -177,4 +177,24 @@ class guang {
             return d.lastTradeDate;
         });
     }
+
+    static convertToSecu(code) {
+        if (code.length === 6 && !isNaN(code)) {
+            const prefixes = {'60': 'sh', '68': 'sh', '30': 'sz', '00': 'sz', '90': 'sh', '20': 'sz'};
+            const postfixes = {'83': '.BJ', '43': '.BJ', '87': '.BJ', '92': '.BJ'}
+            let beg = code.substring(0, 2);
+            if (prefixes[beg]) {
+                return prefixes[beg] + code;
+            } else if (postfixes[beg]) {
+                return code + postfixes[beg];
+            }
+            console.log('cant convert code', code);
+            return code;
+        }
+        return code.startsWith('BJ') ? code.substring(2) + '.BJ' : code.toLowerCase();
+    }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = guang;
 }

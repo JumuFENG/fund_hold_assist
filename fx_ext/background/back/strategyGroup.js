@@ -1,5 +1,13 @@
 'use strict';
 
+try {
+    const ses = require('./strategies.json');
+    const { strategyFac }  = require("./strategyController.js");
+    const emjyBack  = require('./emjybackend.js');
+} catch (err) {
+
+}
+
 class GroupManager {
     static create(group, account, code, skey) {
         return new StrategyGroup(group, account, code, skey);
@@ -799,7 +807,7 @@ class StrategyGroup {
             if (!s.enabled() || !['otp', 'rtp', 'kzt', 'zt'].includes(s.guardLevel())) {
                 continue;
             }
-            if (SellStrategyKeyNames.map(ss=>ss.key).includes(s.key()) && this.buydetail.availableCount() == 0) {
+            if (ses.SellStrategyKeyNames[s.key()] && this.buydetail.availableCount() == 0) {
                 continue;
             }
 
@@ -837,7 +845,7 @@ class StrategyGroup {
             if (!s.enabled() || typeof(s.checkKlines) !== 'function' || !['kline', 'klines', 'kday', 'kzt'].includes(s.guardLevel())) {
                 continue;
             }
-            if (SellStrategyKeyNames.map(ss=>ss.key).includes(s.key()) && this.buydetail.availableCount() == 0) {
+            if (ses.SellStrategyKeyNames[s.key()] && this.buydetail.availableCount() == 0) {
                 continue;
             }
 
@@ -997,3 +1005,6 @@ class StrategyGroup {
     }
 }
 
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {GroupManager, CostDog};
+}

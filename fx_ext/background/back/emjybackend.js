@@ -1,5 +1,17 @@
 'use strict';
 
+try {
+    const logger = require('../logger.js');
+    const { NormalAccount, CollateralAccount, CreditAccount } = require('./accounts.js');
+    const { TrackingAccount } = require('./trackAccount.js');
+    const { klPad } = require('../kline.js');
+    const { CostDog } = require('./strategyGroup.js');
+    const { feng } = require('./feng.js');
+} catch (err) {
+
+}
+
+
 class EmjyBack {
     constructor() {
         this.normalAccount = null;
@@ -10,18 +22,10 @@ class EmjyBack {
     }
 
     log(...args) {
-        var l = `[${new Date().toLocaleTimeString('zh',{hour12:false})}] ${args.join(' ')}`;
-        if (this.logger) {
-            this.logger.info(l);
-        } else {
-            this.logs.push(l + '\n');
-            console.log(l);
-        }
+        logger.log(...args);
     }
 
-    Init(logger) {
-        this.logger = logger;
-        this.logs = [];
+    Init() {
         this.running = true;
         this.normalAccount = new NormalAccount();
         this.collateralAccount = new CollateralAccount();
@@ -30,10 +34,9 @@ class EmjyBack {
         this.all_accounts[this.normalAccount.keyword] = this.normalAccount;
         this.all_accounts[this.collateralAccount.keyword] = this.collateralAccount;
         this.all_accounts[this.creditAccount.keyword] = this.creditAccount;
-        this.getFromLocal('fha_server').then(fhaInfo => {
+        return this.getFromLocal('fha_server').then(fhaInfo => {
             if (fhaInfo) {
                 this.fha = fhaInfo;
-                ext.setupWebsocketConnection();
             }
         }).then(() => {
             this.getFromLocal('hsj_stocks').then(hsj => {
@@ -316,7 +319,7 @@ class EmjyBack {
         this.uploadDeals(fetchedDeals);
     }
 
-    uploadTodayDeals(deals) {
+    uploadTodayDeals(deals, acc) {
         var fetchedDeals = [];
         for (let i = 0; i < deals.length; i++) {
             const deali = deals[i];
@@ -343,7 +346,7 @@ class EmjyBack {
             fetchedDeals.push({time, sid, code, tradeType, price, count});
         }
         fetchedDeals.reverse();
-        this.uploadDeals(fetchedDeals);
+        this.uploadDeals(fetchedDeals, acc);
     }
 
     testFhaServer() {
@@ -355,7 +358,7 @@ class EmjyBack {
         return fetch(url, {headers}).then(r=>r.text());
     }
 
-    uploadDeals(deals) {
+    uploadDeals(deals, acc) {
         if (deals.length == 0 || !this.fha) {
             return;
         }
@@ -369,6 +372,9 @@ class EmjyBack {
             var url = this.fha.server + 'stock';
             var dfd = new FormData();
             dfd.append('act', 'deals');
+            if (acc) {
+                dfd.append('acc', acc);
+            }
             dfd.append('data', JSON.stringify(deals));
             var headers = {'Authorization': 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd)};
             this.log('uploadDeals', JSON.stringify(deals));
@@ -537,13 +543,16 @@ class EmjyBack {
     }
 
     flushLogs() {
-        emjyBack.log('flush log!');
-        if (this.logger) {
-            return;
-        }
+        this.log('flush log!');
         var blob = new Blob(this.logs, {type: 'application/text'});
-        ext.saveToFile(blob, 'logs/stock.assist' + guang.getTodayDate() + '.log');
+        this.saveToFile(blob, 'logs/stock.assist' + guang.getTodayDate() + '.log');
         this.logs = [];
+    }
+
+    static saveToFile(blob, filename, conflictAction = 'overwrite') {
+        // conflictAction (uniquify, overwrite, prompt)
+        var url = URL.createObjectURL(blob);
+        chrome.downloads.download({url, filename, saveAs:false, conflictAction});
     }
 
     getFromLocal(key) {
@@ -564,3 +573,11 @@ class EmjyBack {
         chrome.storage.local.remove(key);
     }
 }
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = new EmjyBack();
+} else {
+    window.emjyBack = new EmjyBack();
+}
+
+// export default new EmjyBack();
