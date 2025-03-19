@@ -1,11 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const { exit } = require('process');
+require('./background/emjybackend.js');
 const { logger, ctxfetch } = require('./background/nbase.js');
 const puppeteer = require('puppeteer');
 const config = require('./config.json');
-const emjyBack = require('./background/emjybackend.js');
-const alarmHub = require('./background/klineTimer.js');
+const {alarmHub} = require('./background/klineTimer.js');
 
 
 if (!config || Object.keys(config).length === 0) {

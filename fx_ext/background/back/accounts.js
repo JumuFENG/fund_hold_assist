@@ -2,7 +2,6 @@
 
 
 try {
-    const emjyBack  = require('./emjybackend.js');
     const { klPad } = require('../kline.js');
     const { feng } = require('./feng.js');
     const { GroupManager }  = require('./strategyGroup.js');

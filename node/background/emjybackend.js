@@ -1,4 +1,4 @@
-const logger = require('./nbase.js');
+const {logger} = require('./nbase.js');
 const {NormalAccount, CreditAccount, CollateralAccount} = require('./accounts.js');
 
 
@@ -50,5 +50,6 @@ class emjyBack {
 
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = emjyBack;
+    global.emjyBack = emjyBack;
+    module.exports = {emjyBack};
 }

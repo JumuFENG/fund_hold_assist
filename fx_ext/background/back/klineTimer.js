@@ -1,12 +1,10 @@
 'use strict';
 
 try {
-    const emjyBack  = require('./emjybackend.js');
-    const {guang}  = require('../guang.js');
+    const { logger } = require('./nbase.js');
+    const { guang } = require('./guang.js');
 } catch (err) {
-    if (typeof window !== 'undefined' && window.emjyBack) {
-        emjyBack = window.emjyBack;
-    }
+
 };
 
 
@@ -184,6 +182,7 @@ class AccOrderTimer extends RtpTimer {
         Promise.all(['normal', 'collat'].map(acc=>emjyBack.all_accounts[acc].checkOrders())).then(([deals0, deals1]) => {
             const allDeals = deals0.concat(deals1);
             const waitings = allDeals.filter(d => !completedZt.includes(d.Wtzt));
+            emjyBack.log(this.constructor.name, 'onTimer', waitings.length);
             if (waitings.length == 0) {
                 if (this.ticks !== 10*60000) {
                     this.setTick(10*60000);
@@ -283,6 +282,7 @@ class alarmHub {
     }
 
     static setupOrderTimer() {
+        emjyBack.log('setupOrderTimer');
         if (!this.orderTimer) {
             this.orderTimer = new AccOrderTimer();
             this.orderTimer.setupTimer();
@@ -291,5 +291,6 @@ class alarmHub {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = alarmHub;
+    module.exports = {alarmHub};
 }
+
