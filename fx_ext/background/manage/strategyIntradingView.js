@@ -1,15 +1,10 @@
 'use strict';
-if (window &&!window.ses) {
-    fetch('./strategies.json')
-        .then(response => response.json())
-        .then(m => {
-            window.ses = m
-        })
-        .catch(error => {
-            console.error('Error loading strategies.json:', error);
-        });
-}
+try {
+    const ses = require('../strategies.json');
+    const emjyBack = require('../back/emjybackend.js');
+} catch (err) {
 
+}
 
 class StrategyIntradingView {
     constructor(iskey, isext=false) {

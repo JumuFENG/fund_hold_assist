@@ -626,7 +626,7 @@ class Account {
 
     checkOrders() {
         this.checkOrderClient();
-        this.orderClient.getAllData().then(data => {
+        return this.orderClient.getAllData().then(data => {
             for (const d of data) {
                 if (!this.orderfeched) {
                     this.orderfeched = [];
@@ -635,6 +635,7 @@ class Account {
                     this.orderfeched.push(d);
                 }
             }
+            return data;
         });
     }
 }

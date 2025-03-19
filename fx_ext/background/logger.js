@@ -9,7 +9,14 @@ class logger {
             console.log(l);
         }
     }
+    static info(...args) {
+        this.log(...args);
+    }
+    static error(...args) {
+        this.log(...args);
+    }
+    static debug(...args) {
+        this.log(...args);
+    }
 }
-
-// export default new Logger();
 

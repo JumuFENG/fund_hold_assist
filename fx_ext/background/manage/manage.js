@@ -656,12 +656,11 @@ window.addEventListener('beforeunload', e => {
 });
 
 window.onload = function() {
-    const iinterval = setInterval(() => {
-        if (window.ses) {
-            clearInterval(iinterval);
-            emjyManager.initUi();
-        }
-    }, 200);
+    fetch('./strategies.json').then(r=>r.json()).then(d=>window.ses=d)
+    .then(()=>{
+        emjyManager.initUi();
+    })
+    .catch(e=>console.error(e));
 }
 
 function onExtensionBackMessage(message) {

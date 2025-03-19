@@ -594,7 +594,7 @@ chrome.runtime.onMessage.addListener(ext.notify);
 fetch('./strategies.json')
 .then(response => response.json())
 .then(m => {
-    window.ses = m
+    window.ses = m;
 }).then(() => {
     ext.createMainTab();
     emjyBack.Init().then(() => {

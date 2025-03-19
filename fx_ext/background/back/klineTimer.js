@@ -180,9 +180,29 @@ class AccOrderTimer extends RtpTimer {
     }
 
     onTimer() {
-        for (const acc of ['normal', 'collat']) {
-            emjyBack.all_accounts[acc].checkOrders();
-        }
+        const completedZt = ['已成', '已撤', '废单']; // '已报',
+        Promise.all(['normal', 'collat'].map(acc=>emjyBack.all_accounts[acc].checkOrders())).then(([deals0, deals1]) => {
+            const allDeals = deals0.concat(deals1);
+            const waitings = allDeals.filter(d => !completedZt.includes(d.Wtzt));
+            if (waitings.length == 0) {
+                if (this.ticks !== 10*60000) {
+                    this.setTick(10*60000);
+                }
+                return;
+            }
+            const lastsj = Math.max(...waitings.map(d => d.Wtsj));
+            const now = new Date();
+            let diff = now - new Date(now.getFullYear(), now.getMonth(), now.getDate(), (lastsj/10000).toFixed(), (a/100%100).toFixed(), lastsj%100);
+            if (diff < 10000) {
+                diff = 10000;
+            }
+            if (diff > 10*60000) {
+                diff = 10*60000;
+            }
+            if (diff != this.ticks) {
+                this.setTick(diff);
+            }
+        });
     }
 }
 
