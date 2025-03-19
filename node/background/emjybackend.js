@@ -1,10 +1,13 @@
+const logger = require('./logger.js');
+const {NormalAccount, CreditAccount, CollateralAccount} = require('./accounts.js');
+
+
 class emjyBack {
     static log(...args) {
-        this.logger.info(args.join(' '));
+        logger.info(...args);
     }
 
-    static Init(logger) {
-        this.logger = logger;
+    static Init() {
         this.running = true;
         this.normalAccount = new NormalAccount();
         this.collateralAccount = new CollateralAccount();
@@ -46,10 +49,6 @@ class emjyBack {
     }
 };
 
-
-if (typeof window !== 'undefined') {
-    window.emjyBack = emjyBack;
-}
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = emjyBack;

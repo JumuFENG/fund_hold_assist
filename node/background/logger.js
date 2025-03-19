@@ -4,7 +4,7 @@ const { combine, timestamp, label, prettyPrint } = format;
 const logger = createLogger({
     level: 'info', // 日志级别
     format: combine(
-        label({ label: 'right meow!' }),
+        label({ label: 'emtrade' }),
         timestamp(),
         prettyPrint()
     ),
@@ -17,6 +17,7 @@ const logger = createLogger({
         new transports.File({ filename: 'emtrade.excepts.log' })
     ]
 });
+
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = logger;

@@ -1,23 +1,32 @@
-const logger = require('./background/logger');
+const fs = require('fs');
+const path = require('path');
+const { exit } = require('process');
+const logger = require('./background/logger.js');
 const puppeteer = require('puppeteer');
-
 const config = require('./config.json');
-const emjyBack = require('./background/emjybackend');
-const alarmHub = require('./background/klineTimer');
+const emjyBack = require('./background/emjybackend.js');
+const alarmHub = require('./background/klineTimer.js');
 
-if (!config.fha) {
-    config.fha = {
-        server: "http://localhost/",
-    };
-}
 
-if (!config.unp) {
-    config.unp = {
-        account: '',
-        pwd: '',
-        credit: false
+if (!config || Object.keys(config).length === 0) {
+    const dconfig = {
+        fha: {
+            server: 'http://localhost/',
+            uemail: '',
+            pwd: '',
+            save_on_server: true,
+        },
+        unp: {
+            account: '',
+            pwd: '',
+            credit: '',
+        }
     }
+    fs.writeFileSync(path.join(__dirname, 'config.json'), JSON.stringify(dconfig, null, 2));
+    logger.error('config not set, template already create, please set the correct values in config.json!');
+    exit(1);
 }
+
 
 const captchaurl = config.fha.server + 'api/captcha';
 const host = 'https://jywg.eastmoneysec.com';
@@ -27,7 +36,7 @@ const loginPage = host + '/Login';
 
 
 if (!config.unp.account || !config.unp.pwd) {
-    console.log('Account/Password not set!');
+    logger.error('Account/Password not set!');
     return;
 }
 
@@ -168,7 +177,7 @@ class ext {
                 setInterval(() => {
                     ext.page.reload();
                 }, 175 * 60000);
-                emjyBack.Init(logger);
+                emjyBack.Init();
                 alarmHub.setupAlarms();
                 const eminterval = setInterval(async () => {
                     if (!emjyBack.running) {
