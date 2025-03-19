@@ -3,13 +3,14 @@
 
 try {
     const emjyBack  = require('./emjybackend.js');
-    const { NormalAccount, CollateralAccount, CreditAccount } = require('./accounts.js');
     const { klPad } = require('../kline.js');
     const { feng } = require('./feng.js');
     const { GroupManager }  = require('./strategyGroup.js');
+    const {logger, ctxfetch} = require('./nbase.js');
 } catch (err) {
 
 }
+
 
 class DealsClient {
     // 普通账户 当日成交
@@ -34,15 +35,14 @@ class DealsClient {
         const url = this.getUrl();
         const fd = this.getFormData();
         try {
-            const response = await fetch(url, {
+            const response = await ctxfetch.fetch(url, {
                 method: 'POST',
                 body: fd
             });
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            const data = await response.json();
-            return data;
+            return response.data;
         } catch (error) {
             emjyBack.log(this.constructor.name, 'error url', this.getUrl());
             emjyBack.log(error);
@@ -224,16 +224,15 @@ class AssetsClient {
         return `${feng.jywg}${endpoint}?validatekey=${emjyBack.validateKey}`;
     }
 
-    // 通用的 fetch 请求方法
     async fetchData(url, formData = new FormData()) {
-        const response = await fetch(url, {
+        const response = await ctxfetch.fetch(url, {
             method: 'POST',
             body: formData
         });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return response.json();
+        return response.data;
     }
 
     // 处理 API 错误
@@ -433,10 +432,10 @@ class TradeClient {
 
     async getCount(code, price, tradeType, jylx) {
         const fd = await this.countFormData(code, price, tradeType, jylx);
-        return fetch(this.countUrl(), {
+        return ctxfetch.fetch(this.countUrl(), {
             method: 'POST',
             body: fd
-        }).then(response => response.json()).then(robj => {
+        }).then(response => response.data).then(robj => {
             if (robj.Status !== 0 || !robj.Data?.Kmml) {
                 throw new Error('Trade getCount error: ' + JSON.stringify(robj));
             }
@@ -446,10 +445,10 @@ class TradeClient {
 
     async doTrade(code, price, count, tradeType, jylx) {
         const body = await this.getFormData(code, price, count, tradeType, jylx);
-        return fetch(this.getUrl(), {
+        return ctxfetch.fetch(this.getUrl(), {
             method: 'POST',
             body,
-        }).then(response => response.json()).then(robj => {
+        }).then(response => response.data).then(robj => {
             if (robj.Status !== 0 || !robj.Data?.length) {
                 const err = new Error(`Trade failed! ${code} ${price} ${count} ${tradeType}`);
                 err.details = robj;
@@ -542,8 +541,8 @@ class CollatTradeClient extends TradeClient {
         const fd = await this.countFormData(code, pobj.cp, 'B', this.buy_jylx);
         const url = this.countUrl();
 
-        const response = await fetch(url, { method: 'POST', body: fd });
-        const robj = await response.json();
+        const response = await ctxfetch.fetch(url, { method: 'POST', body: fd });
+        const robj = response.data;
         return { Status: robj.Status, Kmml: robj.Data.Kmml, Message: robj.Message, code };
     }
 
@@ -1160,8 +1159,8 @@ class CreditAccount extends CollateralAccount {
     parsePosition() { }
 }
 
-// if (typeof module !== 'undefined' && module.exports) {
-//     module.exports = {
-//         NormalAccount, CollateralAccount, CreditAccount
-//     };
-// }
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        NormalAccount, CollateralAccount, CreditAccount
+    };
+}

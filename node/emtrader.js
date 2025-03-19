@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { exit } = require('process');
-const logger = require('./background/logger.js');
+const { logger, ctxfetch } = require('./background/nbase.js');
 const puppeteer = require('puppeteer');
 const config = require('./config.json');
 const emjyBack = require('./background/emjybackend.js');
@@ -92,6 +92,7 @@ class ext {
                     this.validatekey = await this.page.evaluate(() => {
                         return document.querySelector('#em_validatekey').value;
                     });
+                    ctxfetch.setPage(this.page);
                     logger.info(`validatekey: ${this.validatekey}`);
                     return;
                 }
@@ -118,7 +119,10 @@ class ext {
         let text = await fetch(captchaurl, {
             method: 'POST',
             body: dfd,
-            headers: {Cookie: cookies}
+            headers: {
+                Cookie: cookies,
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:136.0) Gecko/20100101 Firefox/136.0'
+            }
         }).then(response => response.text()); 
         // let text = await this.page.evaluate(async (cdata) => {
         //     var dfd = new FormData();
@@ -150,8 +154,10 @@ class ext {
         try {
             this.retry++;
             const text = await this.recoginzeCaptcha();
-            if (!text || text.length != 4) {
+            if (!text || text.length != 4 || isNaN(text)) {
                 logger.info(`captcha not valid! ${text}`);
+                await this.page.click('#imgValidCode');
+                return;
             }
 
             // 输入验证码
@@ -178,7 +184,7 @@ class ext {
                     ext.page.reload();
                 }, 175 * 60000);
                 emjyBack.Init();
-                alarmHub.setupAlarms();
+                alarmHub.setupOrderTimer();
                 const eminterval = setInterval(async () => {
                     if (!emjyBack.running) {
                         clearInterval(eminterval);

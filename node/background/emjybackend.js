@@ -1,4 +1,4 @@
-const logger = require('./logger.js');
+const logger = require('./nbase.js');
 const {NormalAccount, CreditAccount, CollateralAccount} = require('./accounts.js');
 
 
@@ -16,7 +16,6 @@ class emjyBack {
         this.all_accounts[this.normalAccount.keyword] = this.normalAccount;
         this.all_accounts[this.collateralAccount.keyword] = this.collateralAccount;
         this.all_accounts[this.creditAccount.keyword] = this.creditAccount;
-        this.initTrackAccounts();
     }
 
     static loadAssets() {

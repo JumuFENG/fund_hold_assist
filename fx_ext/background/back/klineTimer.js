@@ -120,13 +120,13 @@ class KlineTimer extends AlarmBase {
 
     onTimer() {
         this.baseKlt.forEach(kltype => {
-            var fetch = false;
+            var due = false;
             if (kltype == '1') {
-                fetch = true;
+                due = true;
             } else {
-                fetch = this.hitCount % kltype == 0;
+                due = this.hitCount % kltype == 0;
             };
-            if (fetch) {
+            if (due) {
                 for (const acc of Object.values(emjyBack.all_accounts)) {
                     acc.stocks.forEach(s => {
                         if (s.strategies) {
@@ -281,10 +281,15 @@ class alarmHub {
         this.rtpTimer?.stopTimer();
         this.klineAlarms?.stopTimer();
     }
+
+    static setupOrderTimer() {
+        if (!this.orderTimer) {
+            this.orderTimer = new AccOrderTimer();
+            this.orderTimer.setupTimer();
+        }
+    }
 }
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = alarmHub;
-} else {
-    window.alarmHub = alarmHub;
 }

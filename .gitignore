@@ -9,6 +9,7 @@ summary/json/*.json
 .vs/
 *.pyc
 *_local.py
+*_local.js
 **/.DS_Store
 config.json
 .vscode/

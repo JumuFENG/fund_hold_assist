@@ -1,7 +1,7 @@
 'use strict';
 
 try {
-    const logger = require('../logger.js');
+    const logger = require('./nbase.js');
     const { NormalAccount, CollateralAccount, CreditAccount } = require('./accounts.js');
     const { TrackingAccount } = require('./trackAccount.js');
     const { klPad } = require('../kline.js');
