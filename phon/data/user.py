@@ -221,6 +221,7 @@ class User:
     def forget_stock(self, code):
         with write_context(self.stocks_info_table):
             self.stocks_info_table.update(keep_eye = 0).where(self.stocks_info_table.code == code).execute()
+        self.remove_strategy(code)
 
     def forget_stocks(self):
         with write_context(self.stocks_info_table):
@@ -570,12 +571,40 @@ class User:
         us.save_strategy(strdata)
 
     def load_strategy(self, code):
-        us = UStock(self, code)
-        return us.load_strategy()
+        with read_context(self.stocks_info_table):
+            ustk = self.stocks_info_table.get_or_none(self.stocks_info_table.code == code)
+        return self._load_strategy(ustk)
+
+    def _load_strategy(self, ustk):
+        strdata = {'grptype': 'GroupStandard', 'strategies': {}, 'transfers': {}, 'amount': 0}
+        if ustk:
+            strdata['amount'] = ustk.amount
+            if ustk.uramount:
+                strdata['uramount'] = json.loads(ustk.uramount)
+
+        with read_context(self.stock_strategy_table):
+            strlst = list(self.stock_strategy_table.select().where(self.stock_strategy_table.code == ustk.code))
+        for sl in strlst:
+            strdata['strategies'][sl.id] = json.loads(sl.data)
+            strdata['transfers'][sl.id] =  {"transfer": sl.trans}
+        with read_context(self.stock_order_table):
+            oex = list(self.stock_order_table.select().where(self.stock_order_table.code == ustk.code))
+        if oex:
+            strdata['buydetail'] = [x.__data__ for x in oex]
+        with read_context(self.stock_fullorder_table):
+            foex = list(self.stock_fullorder_table.select().where(self.stock_fullorder_table.code == ustk.code))
+        if foex:
+            strdata['buydetail_full'] = [x.__data__ for x in foex]
+        return strdata
 
     def remove_strategy(self, code):
         us = UStock(self, code)
         return us.remove_strategy()
+
+    def watchings_with_strategy(self):
+        with read_context(self.stocks_info_table):
+            slst = list(self.stocks_info_table.select().where(self.stocks_info_table.keep_eye == 1))
+        return {s.code: self._load_strategy(s) for s in slst if s.portion_hold > 0}
 
     def get_earned_of(self, code):
         us = UStock(self, code)
@@ -736,7 +765,6 @@ class User:
 
     def get_stocks_earning_static_html(self, year=None):
         # Type: (string) -> string
-        sqldb = self.stock_center_db()
         with read_context(self.stocks_earned_table):
             earnedrecs = list(self.stocks_earned_table.select())
         with read_context(self.stocks_earning_table):
@@ -1474,30 +1502,6 @@ class UStock():
                 vdic['trans'] = strdata['transfers'][i]['transfer']
             svalues.append(vdic)
         insert_or_update(self.strategy_table, svalues, ['code', 'id'])
-
-    def load_strategy(self):
-        strdata = {'grptype': 'GroupStandard', 'strategies': {}, 'transfers': {}, 'amount': 0}
-        with read_context(self.stocks_table):
-            ustk = self.stocks_table.get_or_none(self.stocks_table.code == self.code)
-        if ustk:
-            strdata['amount'] = ustk.amount
-            if ustk.uramount:
-                strdata['uramount'] = json.loads(ustk.uramount)
-
-        with read_context(self.strategy_table):
-            strlst = list(self.strategy_table.select().where(self.strategy_table.code == self.code))
-        for sl in strlst:
-            strdata['strategies'][sl.id] = json.loads(sl.data)
-            strdata['transfers'][sl.id] =  {"transfer": sl.trans}
-        with read_context(self.order_table):
-            oex = list(self.order_table.select().where(self.order_table.code == self.code))
-        if oex:
-            strdata['buydetail'] = [x.__data__ for x in oex]
-        with read_context(self.fullorder_table):
-            foex = list(self.fullorder_table.select().where(self.fullorder_table.code == self.code))
-        if foex:
-            strdata['buydetail_full'] = [x.__data__ for x in foex]
-        return strdata
 
     def remove_strategy(self):
         with write_context(self.stocks_table):

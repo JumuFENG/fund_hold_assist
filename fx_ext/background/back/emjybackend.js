@@ -123,8 +123,8 @@ class EmjyBack {
         if (typeof(date) === 'string') {
             startDate = new Date(date.split('-'));
         }
-        this.normalAccount.loadHistDeals(startDate).then(deals => {this.addHistDeals(deals);});
-        this.collateralAccount.loadHistDeals(startDate).then(deals => {this.addHistDeals(deals);});
+        this.normalAccount.loadHistDeals(startDate).then(deals => {this.addHistDeals(deals, 'normal');});
+        this.collateralAccount.loadHistDeals(startDate).then(deals => {this.addHistDeals(deals, 'collat');});
     }
 
     loadOtherDeals(date) {
@@ -132,8 +132,8 @@ class EmjyBack {
         if (typeof(startDate) === 'string') {
             startDate = new Date(date.split('-'));
         }
-        this.normalAccount.loadOtherDeals(startDate).then(deals => {this.addOtherDeals(deals)});
-        this.collateralAccount.loadOtherDeals(startDate).then(deals => {this.addOtherDeals(deals)});
+        this.normalAccount.loadOtherDeals(startDate).then(deals => {this.addOtherDeals(deals, 'normal')});
+        this.collateralAccount.loadOtherDeals(startDate).then(deals => {this.addOtherDeals(deals, 'collat')});
     }
 
     getDealTime(cjrq, cjsj) {
@@ -195,7 +195,7 @@ class EmjyBack {
         return;
     }
 
-    addHistDeals(deals) {
+    addHistDeals(deals, acc) {
         var fetchedDeals = [];
         for (let i = 0; i < deals.length; i++) {
             const deali = deals[i];
@@ -233,7 +233,7 @@ class EmjyBack {
             this.savedDeals.sort((a, b) => a.time > b.time);
         }
         this.saveToLocal({'hist_deals': this.savedDeals});
-        this.uploadDeals(uptosvrDeals);
+        this.uploadDeals(uptosvrDeals, acc);
         this.clearCompletedDeals();
     }
 
@@ -251,7 +251,7 @@ class EmjyBack {
         return Object.values(tdeals);
     }
 
-    addOtherDeals(deals) {
+    addOtherDeals(deals, acc) {
         var fetchedDeals = [];
         var dealsTobeCum = [];
         var ignoredSm = ['融资买入', '融资借入', '偿还融资负债本金', '担保品卖出', '担保品买入', '担保物转入', '担保物转出', '融券回购', '融券购回', '证券卖出', '证券买入', '股份转出', '股份转入', '配股权证', '配股缴款']
@@ -316,7 +316,7 @@ class EmjyBack {
             });
         }
 
-        this.uploadDeals(fetchedDeals);
+        this.uploadDeals(fetchedDeals, acc);
     }
 
     uploadTodayDeals(deals, acc) {
@@ -535,21 +535,21 @@ class EmjyBack {
                 this.costDog.save();
             }
             Object.values(this.klines).forEach(kl => kl.save());
-            if (this.logs.length > 0) {
-                this.flushLogs();
-            }
+            this.flushLogs();
             this.running = false;
         });
     }
 
     flushLogs() {
         this.log('flush log!');
-        var blob = new Blob(this.logs, {type: 'application/text'});
-        this.saveToFile(blob, 'logs/stock.assist' + guang.getTodayDate() + '.log');
-        this.logs = [];
+        if (logger.logs && logger.logs.length > 0) {
+            var blob = new Blob(logger.logs, {type: 'application/text'});
+            this.saveToFile(blob, 'logs/stock.assist' + guang.getTodayDate() + '.log');
+            logger.logs = [];
+        }
     }
 
-    static saveToFile(blob, filename, conflictAction = 'overwrite') {
+    saveToFile(blob, filename, conflictAction = 'overwrite') {
         // conflictAction (uniquify, overwrite, prompt)
         var url = URL.createObjectURL(blob);
         chrome.downloads.download({url, filename, saveAs:false, conflictAction});

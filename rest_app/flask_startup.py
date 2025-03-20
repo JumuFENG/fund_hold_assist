@@ -568,11 +568,6 @@ def stock():
             return stock_set_rates(user, request.form)
         if actype == 'setfee':
             return stock_set_fee(user, request.form)
-        if actype == 'forget':
-            code = request.form.get("code", type=str, default=None)
-            code = code.upper()
-            user.forget_stock(code)
-            return 'OK', 200
         if actype == 'interest':
             code = request.form.get("code", type=str, default=None)
             code = code.upper()

@@ -645,15 +645,25 @@ class NormalAccount extends Account {
     }
 
     loadWatchings() {
-        var watchingStorageKey = this.keyword + '_watchings';
-        emjyBack.getFromLocal(watchingStorageKey).then(watchings => {
-            emjyBack.log(this.keyword, 'get watching_stocks', JSON.stringify(watchings));
-            if (watchings) {
-                watchings.forEach(s => {
-                    this.addWatchStock(s);
-                });
-            };
-        });
+        if (emjyBack.fha.save_on_server) {
+            const wurl = emjyBack.fha.server + 'stock?act=watchings&acc=' + this.keyword;
+            const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+            fetch(wurl, headers).then(r => r.json()).then(watchings => {
+                for (const s in watchings) {
+                    this.addWatchStock(s.slice(-6), watchings[s]);
+                }
+            });
+        } else {
+            var watchingStorageKey = this.keyword + '_watchings';
+            emjyBack.getFromLocal(watchingStorageKey).then(watchings => {
+                emjyBack.log(this.keyword, 'get watching_stocks', JSON.stringify(watchings));
+                if (watchings) {
+                    watchings.forEach(s => {
+                        this.addWatchStock(s);
+                    });
+                };
+            });
+        }
     }
 
     fixWatchings() {
@@ -816,7 +826,7 @@ class NormalAccount extends Account {
         if (emjyBack.fha.save_on_server && this.keyword === this.holdAccount()) {
             feng.getLongStockCode(code).then(fcode => {
                 const fd = new FormData();
-                fd.append('act', 'strategy');
+                fd.append('act', 'forget');
                 fd.append('acc', this.keyword);
                 fd.append('code', fcode);
                 var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
@@ -830,7 +840,7 @@ class NormalAccount extends Account {
         this.stocks.forEach(s => {
             if (s.strategies) {
                 s.strategies.save();
-                if (emjyBack.fha.save_on_server && this.keyword == this.holdAccount()) {
+                if (emjyBack.fha.save_on_server && Object.keys(s.strategies.strategies).length > 0 && this.keyword == this.holdAccount()) {
                     feng.getLongStockCode(s.code).then(fcode => {
                         const fd = new FormData();
                         fd.append('act', 'strategy');

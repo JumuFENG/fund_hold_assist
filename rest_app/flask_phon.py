@@ -21,13 +21,25 @@ def add_user_deals(own, acc, deals):
     user.add_deals(deals)
     return 'OK', 200
 
-def dump_user_strategy(ownid, acc, code):
-    own = User.user_by_id(ownid)
+def dump_user_strategy(own, acc, code):
     user = own.sub_account(acc)
     if not user:
         return 'Forbidden', 404
 
     return json.dumps(user.load_strategy(code))
+
+def dump_user_watchinglist(own, acc):
+    user = own.sub_account(acc)
+    if not user:
+        return {}, 200
+    return json.dumps(user.watchings_with_strategy())
+
+def forget_user_stock(own, acc, code):
+    user = own.sub_account(acc)
+    if not user:
+        return 'Forbidden', 404
+    user.forget_stock(code)
+    return 'OK', 200
 
 def user_request_get(session, request):
     user = User.user_by_email(session['useremail'])
@@ -45,7 +57,10 @@ def user_request_get(session, request):
         return json.dumps(user.get_sell_arr(code))
     if actype == 'strategy':
         acc = request.args.get('acc')
-        return dump_user_strategy(user.id, acc, code)
+        return dump_user_strategy(user, acc, code)
+    if actype == 'watchings':
+        acc = request.args.get('acc')
+        return dump_user_watchinglist(user, acc)
     if actype == 'summary':
         if code:
             return json.dumps({code: user.get_stock_summary(code)})
@@ -54,12 +69,15 @@ def user_request_get(session, request):
 def user_request_post(session, request):
     user = User.user_by_email(session['useremail'])
     actype = request.form.get("act", type=str, default=None)
+    acc = request.form.get('acc', type=str, default=None)
     if actype == 'deals':
         deals = request.form.get('data', type=str, default=None)
-        acc = request.form.get('acc', type=str, default=None)
         return add_user_deals(user, acc, json.loads(deals))
     if actype == 'strategy':
         strdata = request.form.get('data', type=str, default=None)
         code = request.form.get('code', type=str, default=None)
-        acc = request.form.get('acc', type=str, default=None)
         return save_user_strategy(user, acc, code, strdata)
+    if actype == 'forget':
+        code = request.form.get("code", type=str, default=None)
+        return forget_user_stock(user, acc, code)
+

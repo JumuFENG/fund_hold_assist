@@ -178,7 +178,7 @@ class AccOrderTimer extends RtpTimer {
     }
 
     onTimer() {
-        const completedZt = ['已成', '已撤', '废单']; // '已报',
+        const completedZt = ['已成', '已撤', '废单']; // ['待报', '已报'],
         Promise.all(['normal', 'collat'].map(acc=>emjyBack.all_accounts[acc].checkOrders())).then(([deals0, deals1]) => {
             const allDeals = deals0.concat(deals1);
             const waitings = allDeals.filter(d => !completedZt.includes(d.Wtzt));
@@ -257,7 +257,7 @@ class alarmHub {
 
         guang.isTodayTradingDay().then(trade => {
             if (trade) {
-                [talarm, talarm, bclose, closed, this.orderTimer,
+                [talarm, talarm, bclose, closed, // this.orderTimer,
                     this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
                 ].forEach(a => {
                     a.setupTimer();
