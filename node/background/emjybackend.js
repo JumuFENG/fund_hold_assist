@@ -3,8 +3,10 @@ const {NormalAccount, CreditAccount, CollateralAccount} = require('./accounts.js
 
 
 class emjyBack {
+    static validateKey = null;
     static log(...args) {
-        logger.info(...args);
+        var l = args.join(' ');
+        logger.info(l);
     }
 
     static Init() {
@@ -42,8 +44,7 @@ class emjyBack {
     updateHistDeals() {
     }
 
-    tradeClosed() {
-        
+    static tradeClosed() {
         this.running = false;
     }
 };

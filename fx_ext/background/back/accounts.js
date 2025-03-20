@@ -2,12 +2,12 @@
 
 
 try {
-    const { klPad } = require('../kline.js');
-    const { feng } = require('./feng.js');
-    const { GroupManager }  = require('./strategyGroup.js');
+    require('./guang.js');
+    require('./feng.js');
     const {logger, ctxfetch} = require('./nbase.js');
+    const { klPad } = require('./kline.js');
+    const { GroupManager }  = require('./strategyGroup.js');
 } catch (err) {
-
 }
 
 
@@ -56,7 +56,6 @@ class DealsClient {
         while (hasMoreData) {
             const deals = await this.fetchData();
             if (deals.Status !== 0 || deals.Message) {
-                emjyBack.log(deals);
                 break;
             }
             if (deals.Data.length > 0) {

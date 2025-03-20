@@ -2552,5 +2552,5 @@ class StrategyZt1 extends StrategyBarginHunting {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = strategyFac;
+    module.exports = {strategyFac};
 }

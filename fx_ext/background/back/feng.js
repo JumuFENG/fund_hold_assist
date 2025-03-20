@@ -1,8 +1,7 @@
 'use strict';
 
 try {
-    const {guang}  = require('../guang.js');
-    const emjyBack  = require('./emjybackend.js');
+    const {guang} = require('./guang.js');
 } catch (err) {
 
 }
@@ -594,5 +593,6 @@ class feng {
 
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = feng;
+    global.feng = feng;
+    module.exports = {feng};
 }

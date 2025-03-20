@@ -195,5 +195,5 @@ class TrackingAccount extends NormalAccount {
 
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = TrackingAccount;
+    module.exports = {TrackingAccount};
 }

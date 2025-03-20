@@ -21,6 +21,14 @@ const logger = createLogger({
 
 
 class ctxfetch {
+    constructor() {
+        if (ctxfetch.inst) {
+            return ctxfetch.inst;
+        }
+        ctxfetch.inst = this;
+    }
+
+    static page = null;
     static setPage(page) {
         this.page = page;
     }
@@ -81,5 +89,6 @@ class ctxfetch {
 
 
 if (typeof module !== 'undefined' && module.exports) {
+    global.ctxfetch = ctxfetch;
     module.exports = {logger, ctxfetch};
 }

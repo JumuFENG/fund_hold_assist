@@ -2,7 +2,6 @@
 
 try {
     const ses = require('./strategies.json');
-    const emjyBack  = require('./emjybackend.js');
     const {guang}  = require('../guang.js');
     const {feng}  = require('../feng.js');
 } catch (err) {
@@ -915,5 +914,5 @@ class istrManager {
 
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = istrManager;
+    module.exports = {istrManager};
 }

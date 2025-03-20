@@ -196,5 +196,6 @@ class guang {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = guang;
+    global.guang = guang;
+    module.exports = {guang};
 }

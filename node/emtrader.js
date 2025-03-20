@@ -2,10 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const { exit } = require('process');
 require('./background/emjybackend.js');
+require('./background/guang.js')
 const { logger, ctxfetch } = require('./background/nbase.js');
 const puppeteer = require('puppeteer');
 const config = require('./config.json');
-const {alarmHub} = require('./background/klineTimer.js');
+const { alarmHub } = require('./background/klineTimer.js');
+const { emjyBack } = require('./background/emjybackend.js');
 
 
 if (!config || Object.keys(config).length === 0) {
@@ -40,6 +42,8 @@ if (!config.unp.account || !config.unp.pwd) {
     return;
 }
 
+
+emjyBack.fha = config.fha;
 
 class ext {
     static mxretry = 2;
@@ -89,11 +93,11 @@ class ext {
                     this.success = true;
                     logger.info('登录成功！');
                     // 获取Token或其他登录成功后的操作
-                    this.validatekey = await this.page.evaluate(() => {
+                    emjyBack.validateKey = await this.page.evaluate(() => {
                         return document.querySelector('#em_validatekey').value;
                     });
                     ctxfetch.setPage(this.page);
-                    logger.info(`validatekey: ${this.validatekey}`);
+                    logger.info(`validatekey: ${emjyBack.validateKey}`);
                     return;
                 }
             }
@@ -185,6 +189,7 @@ class ext {
                 }, 175 * 60000);
                 emjyBack.Init();
                 alarmHub.setupOrderTimer();
+                alarmHub.orderTimer.onTimer();
                 const eminterval = setInterval(async () => {
                     if (!emjyBack.running) {
                         clearInterval(eminterval);

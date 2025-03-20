@@ -3,7 +3,6 @@
 try {
     const ses = require('./strategies.json');
     const { strategyFac }  = require("./strategyController.js");
-    const emjyBack  = require('./emjybackend.js');
 } catch (err) {
 
 }
