@@ -116,8 +116,12 @@ class TestUserStock(object):
 
         self.testuser.add_deals([{"time":"2022-06-08","sid":"s_001","code":"SH600497","tradeType":"B","price":"5.910000","count":"1200"}])
         self.testuser.add_deals([{"time":"2022-06-09","sid":"s_002","code":"SH600497","tradeType":"B","price":"5.390000","count":"1300"}])
-
+        self.testuser.add_deals([
+            {"time":"2025-03-14 09:25:00","sid":"71947","code":"SZ002693","tradeType":"B","price":"10.9900","count":"400","fee":"5.00","feeYh":"0.00","feeGh":"0.00"},
+            {"time":"2025-03-14 09:25:00","sid":"71953","code":"SZ000701","tradeType":"B","price":"5.9400","count":"1100","fee":"5.00","feeYh":"0.00","feeGh":"0.00"},])
         self.__check_table_row(userstockstable, {'code': "SH600497"}, {'cost_hold':14099.0, 'portion_hold':2500, 'aver_price':5.6396})
+        self.__check_table_row(userstockstable, {'code': "SZ002693"}, {'cost_hold':4396.0, 'portion_hold':400, 'aver_price':10.9900})
+
 
         print(Fore.GREEN + 'PASS: test_add_buy_buy_deals' + Fore.RESET)
 

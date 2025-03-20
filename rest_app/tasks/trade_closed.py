@@ -5,7 +5,8 @@ import sys
 import os
 sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../..'))
 
-from user.models import *
+from phon.data.user import User
+from utils import Utils, TradingDate, datetime, shared_cloud_foler
 from timer_task import TimerTask
 
 
@@ -19,8 +20,7 @@ def save_earning_task():
         TimerTask.logger.warn(f'today is not trading day!')
         return
     TimerTask.logger.info(f'trade_closed_task!')
-    um = UserModel()
-    user = um.user_by_id(11)
+    user = User.user_by_id(11)
     user.save_stocks_eaning_html(shared_cloud_foler)
     dnow = datetime.now()
     if dnow.weekday() == 4:

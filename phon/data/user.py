@@ -9,6 +9,7 @@ from phon.data.tables import User as UserDb
 from phon.data.tables import UserFunds, UserStocks, UserEarned, UserEarning, UserDeals, UserStockBuy, UserStockSell
 from phon.data.tables import AllStocks, UserStrategy, UserOrders
 from phon.data.db import create_model, read_context, write_context, insert_or_update
+from history import StockDumps
 
 
 class classproperty:
@@ -276,7 +277,7 @@ class User:
 
     def _all_user_stocks(self):
         with read_context(self.stocks_info_table):
-            us = list(self.stocks_info_table.select())
+            us = list(self.stocks_info_table.select().where(self.stocks_info_table.keep_eye == 1))
         return tuple([s.code for s in us])
 
     def _archived(self, deal):
@@ -625,9 +626,196 @@ class User:
             if total is None:
                 total = erow.total_earned
                 earned_obj['tot'] = total
-            earr.append({'dt':DateConverter.days_since_2000(erow.date), 'ed':erow.earned})
+            earr.append({'dt': DateConverter.days_since_2000(erow.date), 'ed': erow.earned})
         earned_obj['e_a'] = earr
         return earned_obj
+
+    def __get_latest_price(self, code):
+        sd = StockDumps()
+        (_id, _dt, prc, *x), = sd.read_kd_data(code, length=1)
+        return prc
+
+    def update_earning(self):
+        codes = self._all_user_stocks()
+        uss = {}
+        from utils import Utils
+        cbasic = Utils.get_cls_basics(codes)
+        for c in codes:
+            price = cbasic[c]['last_px'] if c in cbasic.keys() else self.__get_latest_price(c)
+            us = UStock(self, c)
+            if us.cost_hold != 0 or us.portion_hold != 0:
+                uss[c] = {'cost': us.cost_hold, 'ptn': us.portion_hold, 'price': price }
+
+        cost = 0
+        value = 0
+        for v in uss.values():
+            cost += v['cost']
+            value += v['ptn'] * float(v['price'])
+
+        dnow = datetime.now()
+        wday = dnow.weekday()
+        if wday > 4:
+            dnow -= timedelta(wday - 4)
+        elif dnow.hour < 15:
+            dnow -= timedelta(1)
+
+        date = dnow.strftime('%Y-%m-%d')
+        with write_context(self.stocks_earning_table):
+            lastEarned = self.stocks_earning_table.get_or_none(self.stocks_earning_table.date == date)
+            if lastEarned:
+                if self.stocks_earning_table.select().where(self.stocks_earning_table.date > lastEarned.date):
+                    print('can not set earning for date earlier than', lastEarned.date)
+                    return
+                print('earned exists:', lastEarned.date, 'updating...')
+                lastEarned.cost = cost
+                lastEarned.市值 = value
+                lastEarned.save()
+            else:
+                self.stocks_earning_table.create(**{
+                    self.stocks_earning_table.date.name: date,
+                    self.stocks_earning_table.cost.name: cost,
+                    self.stocks_earning_table.市值.name: value
+                    })
+
+
+    def get_stocks_earning_table(self, statstable, year=None):
+        if isinstance(year, int):
+            year = str(year)
+
+        stats_monthly = []
+        monstats = []
+        cmon = ''
+        for r in statstable:
+            r0 = r[0].split('-')
+            if year is not None and r0[0] != year:
+                continue
+            mon = ''.join(r0[0:2])
+            if mon != cmon:
+                if len(monstats) > 0:
+                    stats_monthly.append(monstats)
+                    monstats = []
+                cmon = mon
+
+            monstats.append([r[0], r[1], r[2], round(r[3], 2), r[4], round(r[5], 2), round(r[6], 2)])
+
+        if len(monstats) > 0:
+            stats_monthly.append(monstats)
+            monstats = []
+
+        ehtml = ''
+        for k in range(0, len(stats_monthly)):
+            monstats = stats_monthly[k]
+            mearn = 0
+            for rmon in monstats:
+                if rmon[-1] == 0:
+                    mearn = 0
+                    break
+                mearn += rmon[-1]
+            if mearn == 0:
+                mearn = monstats[0][5] - (stats_monthly[k+1][0][5] if k < len(stats_monthly) - 2 else 0)
+            tr1 = ''
+            for r in monstats[0]:
+                tr1 += f'''
+                    <td>{r}</td>'''
+            tr1 += f'''
+                    <td rowspan={len(monstats)}>{round(mearn, 2)}</td>'''
+            tr1 = f'''
+                <tr>{tr1}
+                </tr>'''
+            ehtml += tr1
+            for i in range(1, len(monstats)):
+                tr = ''
+                for r in monstats[i]:
+                    tr += f'''
+                    <td>{r}</td>'''
+                tr =  f'''
+                <tr>{tr}
+                </tr>'''
+                ehtml += tr
+        return ehtml
+
+    def get_stocks_earning_static_html(self, year=None):
+        # Type: (string) -> string
+        sqldb = self.stock_center_db()
+        with read_context(self.stocks_earned_table):
+            earnedrecs = list(self.stocks_earned_table.select())
+        with read_context(self.stocks_earning_table):
+            earningrecs = list(self.stocks_earning_table.select())
+        earningrecs.reverse()
+        statstable = []
+        earned = earnedrecs.pop()
+        for er in earningrecs:
+            if earned.date > er.date:
+                earned = earnedrecs.pop()
+            statstable.append([er.date, er.cost, er.市值, er.市值 - er.cost, earned.total_earned, er.市值 + earned.total_earned - er.cost])
+
+        for i in range(0, len(statstable) - 1):
+            statstable[i].append(statstable[i][5] - statstable[i + 1][5])
+
+        if len(statstable) > 0:
+            statstable[-1].append(0)
+
+        while len(earnedrecs) > 0:
+            if earned.date < statstable[-1][0]:
+                statstable.append([earned.date, 0, 0, 0, earned.earned, earned.total_earned, 0])
+            earned = earnedrecs.pop()
+
+        ehtml = '''<html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            table {
+                border: solid 1px;
+                border-collapse: collapse;
+            }
+            table th {
+                border: solid 1px;
+            }
+            table td {
+                border: solid 1px lightgray;
+            }
+        </style>
+    </head>
+    <body>
+        <table>
+            <thead>
+                <th>日期</th>
+                <th>持仓成本</th>
+                <th>总市值</th>
+                <th>浮盈</th>
+                <th>实盈</th>
+                <th>总盈亏</th>
+                <th>每日盈亏</th>
+                <th>每月盈亏</th>
+            </thead>
+            <tbody>'''
+ 
+        if isinstance(year, int):
+            year = str(year)
+
+        if year is None:
+            # years = set()
+            # for r in statstable:
+            #     years.add(r[0].split('-')[0])
+            # years = sorted(list(years), reverse=True)
+            # for y in years:
+            ehtml += self.get_stocks_earning_table(statstable)
+        else:
+            ehtml += self.get_stocks_earning_table(statstable, year)
+        ehtml +='''
+            </tbody>
+        </table>
+    </body>
+</html>
+'''
+        return ehtml
+
+    def save_stocks_eaning_html(self, sfolder):
+        self.update_earning()
+        year = datetime.now().year
+        ehtml = self.get_stocks_earning_static_html(year)
+        with open(f'{sfolder}earning_{year}.html', 'w') as f:
+            f.write(ehtml)
 
 
 class UStock():
@@ -668,27 +856,31 @@ class UStock():
         return self.user.archived_deals
 
     @lazy_property
-    def fee(self):
+    def usdata(self):
         with read_context(self.stocks_table):
-            f = self.stocks_table.get(UserStocks.code == self.code)
-        return f.手续费
+            f = self.stocks_table.get(self.stocks_table.code == self.code)
+        return f
 
     @lazy_property
+    def fee(self):
+        return self.usdata.手续费
+    
+    @lazy_property
     def cost_hold(self):
-        with read_context(self.stocks_table):
-            f = self.stocks_table.get(UserStocks.code == self.code)
-        return f.cost_hold
+        return self.usdata.cost_hold
+
+    @lazy_property
+    def portion_hold(self):
+        return self.usdata.portion_hold
 
     @lazy_property
     def average(self):
-        with read_context(self.stocks_table):
-            f = self.stocks_table.get(UserStocks.code == self.code)
-        return f.aver_price
+        return self.usdata.aver_price
 
     @lazy_property
     def ever_hold(self):
         with read_context(self.stocks_table):
-            f = self.stocks_table.get(UserStocks.code == self.code)
+            f = self.stocks_table.get(self.stocks_table.code == self.code)
         return len(f) > 0
 
     def _get_sell_info(self, sm):
@@ -1108,10 +1300,10 @@ class UStock():
             self._add_or_update_deals(self.sell_table, svalues)
 
         with read_context(self.buy_table):
-            buy_rec = [[b.id, b.date, b.price, b.portion, b.soldptn, b.cost] for b in list(self.buy_table.select().where(self.buy_table.soldout == 0))]
+            buy_rec = [[b.id, b.date, b.price, b.portion, b.soldptn, b.cost] for b in list(self.buy_table.select().where(self.buy_table.soldout == 0, self.buy_table.code == self.code))]
 
         with read_context(self.sell_table):
-            sell_rec = [[b.id, b.date, b.price, b.portion, b.money_sold] for b in list(self.sell_table.select().where(self.sell_table.cost_sold == 0))]
+            sell_rec = [[b.id, b.date, b.price, b.portion, b.money_sold] for b in list(self.sell_table.select().where(self.sell_table.cost_sold == 0, self.sell_table.code == self.code))]
 
         self._fix_buy_sell_portion(buy_rec, sell_rec)
 

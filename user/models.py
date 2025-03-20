@@ -1189,14 +1189,14 @@ class UserModel():
         if not result:
             return None
 
-        (id, name, password, email, st, parent), = result
+        (id, name, password, email, st, parent, *_), = result
         return User(id, name, email, password, st, parent)
 
     def user_by_email(self, email):
         result = self.sqldb.select(self.tablename, "*", ["email = '%s'" % email])
         if not result:
             return None
-        (id, name, password, email, st, parent), = result
+        (id, name, password, email, st, parent, *_), = result
         return User(id, name, email, password, st, parent)
 
     def all_users(self):
