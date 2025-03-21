@@ -45,6 +45,8 @@ class emjyBack {
     }
 
     static tradeClosed() {
+        logger.info(emjyBack.normalAccount.orderfeched);
+        logger.info(emjyBack.collateralAccount.orderfeched);
         this.running = false;
     }
 };

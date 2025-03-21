@@ -48,7 +48,10 @@ class EmjyBack {
                 this.initTrackAccounts();
             });
             this.getFromLocal('purchase_new_stocks').then(pns => {
-                this.purchaseNewStocks = pns;
+                if (!alarmHub.config) {
+                    alarmHub.config = {}
+                }
+                alarmHub.config.purchaseNewStocks = pns;
             });
             this.getFromLocal('cost_dog').then(cd => {
                 this.costDog = new CostDog(cd);
@@ -498,13 +501,6 @@ class EmjyBack {
 
     removeStock(account, code) {
         this.all_accounts[account].removeStock(code);
-    }
-
-    tradeDailyRoutineTasks() {
-        if (this.purchaseNewStocks) {
-            feng.buyNewStocks();
-        }
-        feng.buyNewBonds();
     }
 
     tradeBeforeClose() {

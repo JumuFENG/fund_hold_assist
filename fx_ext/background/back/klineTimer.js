@@ -3,6 +3,7 @@
 try {
     const { logger } = require('./nbase.js');
     const { guang } = require('./guang.js');
+    const { feng } = require('./feng.js');
 } catch (err) {
 
 };
@@ -182,7 +183,7 @@ class AccOrderTimer extends RtpTimer {
         Promise.all(['normal', 'collat'].map(acc=>emjyBack.all_accounts[acc].checkOrders())).then(([deals0, deals1]) => {
             const allDeals = deals0.concat(deals1);
             const waitings = allDeals.filter(d => !completedZt.includes(d.Wtzt));
-            emjyBack.log(this.constructor.name, 'onTimer', waitings.length);
+            emjyBack.log(this.constructor.name, 'onTimer, deals=', allDeals.length, 'waitings=', waitings.length);
             if (waitings.length == 0) {
                 if (this.ticks !== 10*60000) {
                     this.setTick(10*60000);
@@ -208,6 +209,8 @@ class AccOrderTimer extends RtpTimer {
 
 // export class alarmHub {
 class alarmHub {
+    static config = null;
+
     static setupAlarms() {
         if (!this.klineAlarms) {
             this.klineAlarms = new KlineTimer();
@@ -240,7 +243,7 @@ class alarmHub {
         }
         const ralarm = new AlarmBase(randomTime());
         ralarm.onTimer = () => {
-            emjyBack.tradeDailyRoutineTasks();
+            alarmHub.tradeDailyRoutineTasks();
         }
         const talarm = new AlarmBase('10:00:00');
         talarm.onTimer = () => {
@@ -257,7 +260,7 @@ class alarmHub {
 
         guang.isTodayTradingDay().then(trade => {
             if (trade) {
-                [talarm, talarm, bclose, closed, // this.orderTimer,
+                [ralarm, talarm, bclose, closed, //this.orderTimer,
                     this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
                 ].forEach(a => {
                     a.setupTimer();
@@ -281,12 +284,11 @@ class alarmHub {
         this.klineAlarms?.stopTimer();
     }
 
-    static setupOrderTimer() {
-        emjyBack.log('setupOrderTimer');
-        if (!this.orderTimer) {
-            this.orderTimer = new AccOrderTimer();
-            this.orderTimer.setupTimer();
+    static tradeDailyRoutineTasks() {
+        if (alarmHub.config?.purchaseNewStocks) {
+            feng.buyNewStocks();
         }
+        feng.buyNewBonds();
     }
 }
 
