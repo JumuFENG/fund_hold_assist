@@ -80,7 +80,7 @@ class User:
         user = self.user_by_email(email)
         if user.parent:
             u = self.user_by_id(user.parent)
-            return self.from_dict(**u.__data__) if u is not None else None
+            return {k: v for k,v in u.__data__.items() if k != 'password'} if u is not None else None
         return None
 
     @classmethod
@@ -162,7 +162,7 @@ class User:
     def get_bind_accounts(self):
         with read_context(self.db):
             slvs = list(self.db.select().where(self.db.parent_account == self.id))
-        return [self.from_dict(**s.__data__) for s in slvs]
+        return [{k: v for k,v in s.__data__.items() if k != 'password'} for s in slvs]
 
     def get_all_combined_users(self):
         users = []

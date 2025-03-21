@@ -13,26 +13,6 @@ class UserDealsPanel extends RadioAnchorPage {
             this.container.appendChild(this.topPanel);
             this.container.appendChild(this.contentPanel);
 
-            this.iptHost = document.createElement('input');
-            this.iptHost.placeholder = 'server';
-            this.iptUser = document.createElement('input');
-            this.iptUser.placeholder = '账户/邮箱';
-            this.iptPwd = document.createElement('input');
-            this.iptPwd.placeholder = '密码';
-            this.iptPwd.type = 'password';
-            this.topPanel.appendChild(this.iptHost);
-            this.topPanel.appendChild(this.iptUser);
-            this.topPanel.appendChild(this.iptPwd);
-
-            var topsubmit = document.createElement('button');
-            topsubmit.textContent = '保存';
-            this.topPanel.appendChild(topsubmit);
-            topsubmit.onclick = e => {
-                emjyBack.fha = {'server': this.iptHost.value, 'uemail': this.iptUser.value, 'pwd': this.iptPwd.value};
-                emjyBack.saveToLocal({'fha_server': emjyBack.fha});
-                this.getUserDeals();
-            }
-
             this.chkShowFunds = document.createElement('input');
             this.chkShowFunds.type = 'checkbox';
             this.chkShowFunds.id = 'checkbox_showfunds';
@@ -140,18 +120,12 @@ class UserDealsPanel extends RadioAnchorPage {
             this.contentPanel.appendChild(this.wkSoldList);
 
             if (emjyBack.fha.uemail && emjyBack.fha.pwd && emjyBack.fha.server) {
-                this.iptHost.value = emjyBack.fha.server;
-                this.iptUser.value = emjyBack.fha.uemail;
-                this.iptPwd.value = emjyBack.fha.pwd;
                 this.getUserDeals();
                 this.getCurWeekSold();
             } else {
                 emjyBack.getFromLocal('fha_server', fha => {
                     if (fha) {
                         emjyBack.fha = fha;
-                        this.iptHost.value = emjyBack.fha.server;
-                        this.iptUser.value = emjyBack.fha.uemail;
-                        this.iptPwd.value = emjyBack.fha.pwd;
                         this.getUserDeals();
                         this.getCurWeekSold();
                     }

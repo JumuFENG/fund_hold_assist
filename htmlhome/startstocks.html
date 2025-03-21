@@ -5,13 +5,11 @@
         <link rel="stylesheet" type="text/css" href="../fx_ext/background/manage/manage.css">
         <link rel="stylesheet" type="text/css" href="../htmlhome/css/style.css">
 
-        <script src="../fx_ext/background/strategies.js"></script>
         <script src="../fx_ext/background/kline.js"></script>
         <script src="../fx_ext/background/guang.js"></script>
 
         <script src="../fx_ext/background/back/accounts.js"></script>
         <script src="../fx_ext/background/back/trackAccount.js"></script>
-        <script src="../fx_ext/background/back/stkInfo.js"></script>
         <script src="../fx_ext/background/back/strategyController.js"></script>
         <script src="../fx_ext/background/back/strategyGroup.js"></script>
 
@@ -24,6 +22,7 @@
         <script src="../htmlhome/strategy/klChart.js"></script>
         <script src="../htmlhome/strategy/klChartWall.js"></script>
         <script src="../htmlhome/strategy/dealsViewPanel.js"></script>
+        <script src="../htmlhome/strategies.js"></script>
         <script src="../htmlhome/gstocks.js"></script>
 
         <script src="../htmlhome/tests/data.js"></script>
@@ -49,6 +48,10 @@
 
         <script src="../htmlhome/strategy/training.js"></script>
 
+        <script src="../htmlhome/reviews/reviews.js"></script>
+        <script src="../htmlhome/reviews/stockListView.js"></script>
+        <script src="../htmlhome/reviews/settingsPanel.js"></script>
+
         <script>
             class StockRoot {
                 constructor() {
@@ -59,6 +62,7 @@
 
                 setupNavigators() {
                     var pages = [
+                        new ReviewsPages(),
                         new NewsPages(),
                         new DealsPanelPage(),
                         new UserDealsPanel(),
@@ -80,6 +84,7 @@
                     })
 
                     this.navigator.selectDefault();
+                    window.navigators = pages;
                 }
             }
 

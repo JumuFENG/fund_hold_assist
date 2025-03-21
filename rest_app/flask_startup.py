@@ -11,7 +11,8 @@ sys.path.insert(0, os.path.realpath(os.path.dirname(os.path.realpath(__file__)) 
 from utils import *
 from user import *
 from pickup import *
-from rest_app.flask_phon import user_request_post, user_request_get
+from rest_app.flask_phon import verify_authorization, user_request_post, user_request_get
+from rest_app.flask_phon import user_accounts
 
 app = Flask(__name__)
 app.secret_key = "any_string_make_secret_key"
@@ -540,14 +541,9 @@ def stock():
 
     usermodel = UserModel()
     if not session.get('logged_in'):
-        auth = request.authorization
-        uemail = auth.username
-        upwd = auth.password
-        if uemail is None:
-            return 'Unauthenticated', 401
-        user = usermodel.user_by_email(uemail)
-        if usermodel.check_password(user, upwd):
-            update_session_userinfo(user)
+        if verify_authorization(request.authorization):
+            uemail = request.authorization.username
+            user = usermodel.user_by_email(uemail)
         else:
             return 'Unauthenticated', 401
     else:
@@ -701,14 +697,14 @@ def dashboard():
 @app.route('/userbind', methods=['GET', 'POST'])
 def userbind():
     if not session.get('logged_in'):
-        return "Please login."
-    usermodel = UserModel()
+        if not verify_authorization(request.authorization):
+            return 'Unauthenticated', 401
+
     if request.method == 'GET':
         parent = request.args.get("type", type=str, default=None)
-        if parent == 'parent':
-            return json.dumps(usermodel.get_parent(session['useremail']))
-        return json.dumps(usermodel.get_bind_accounts(session['useremail']))
+        return user_accounts(parent == 'parent')
     else:
+        usermodel = UserModel()
         bind_email = request.form.get('email', type=str, default=None)
         bind_user = usermodel.user_by_email(bind_email)
         pwd = request.form.get("password", type=str, default=None)
