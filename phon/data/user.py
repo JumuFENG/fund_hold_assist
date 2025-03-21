@@ -511,6 +511,12 @@ class User:
         with read_context(self.stocks_earned_table):
             lastEarned = self.stocks_earned_table.select().order_by(self.stocks_earned_table.date.desc()).first()
         if lastEarned is None:
+            with write_context(self.stocks_earned_table):
+                self.stocks_earned_table.create(**{
+                    self.stocks_earned_table.date.name: date,
+                    self.stocks_earned_table.earned.name: earned,
+                    self.stocks_earned_table.total_earned.name: earned
+                })
             return
         dt, ed, totalEarned = lastEarned.date, lastEarned.earned, lastEarned.total_earned
         if dt > date:
@@ -707,7 +713,8 @@ class User:
                     })
 
 
-    def get_stocks_earning_table(self, statstable, year=None):
+    @staticmethod
+    def get_stocks_earning_table(statstable, year=None):
         if isinstance(year, int):
             year = str(year)
 
@@ -725,7 +732,7 @@ class User:
                     monstats = []
                 cmon = mon
 
-            monstats.append([r[0], r[1], r[2], round(r[3], 2), r[4], round(r[5], 2), round(r[6], 2)])
+            monstats.append([r[0], r[1], round(r[2], 2), round(r[3], 2), round(r[4], 2), round(r[5], 2), round(r[6], 2)])
 
         if len(monstats) > 0:
             stats_monthly.append(monstats)
@@ -763,15 +770,12 @@ class User:
                 ehtml += tr
         return ehtml
 
-    def get_stocks_earning_static_html(self, year=None):
+    @classmethod
+    def get_stocks_earning_static_html(self, earnedrecs, earningrecs, year=None):
         # Type: (string) -> string
-        with read_context(self.stocks_earned_table):
-            earnedrecs = list(self.stocks_earned_table.select())
-        with read_context(self.stocks_earning_table):
-            earningrecs = list(self.stocks_earning_table.select())
-        earningrecs.reverse()
         statstable = []
         earned = earnedrecs.pop()
+        earningrecs.reverse()
         for er in earningrecs:
             if earned.date > er.date:
                 earned = earnedrecs.pop()
@@ -838,10 +842,66 @@ class User:
 '''
         return ehtml
 
-    def save_stocks_eaning_html(self, sfolder):
-        self.update_earning()
+    @staticmethod
+    def merge_earnedearning(target, delta, attrs=['earned', 'total_earned']):
+        # 如果 target 为空，直接返回 delta
+        if len(target) == 0:
+            return delta
+
+        # 初始化查找的起始位置
+        start_index = 0
+
+        # 遍历 delta 中的每个元素
+        for d in delta:
+            # 如果 start_index 已经超出 target 的范围，直接将剩余的 delta 追加到 target 后面
+            if start_index >= len(target):
+                target.extend(delta[delta.index(d):])
+                break
+
+            # 从 start_index 开始查找
+            found = False
+            for i in range(start_index, len(target)):
+                if target[i].date == d.date:
+                    # 如果找到相同日期的元素，则将 earned 和 total_earned 相加
+                    for prop in attrs:
+                        val = getattr(target[i], prop) + getattr(d, prop)
+                        setattr(target[i], prop, val)
+                    found = True
+                    start_index = i  # 更新查找的起始位置
+                    break
+                elif target[i].date > d.date:
+                    # 如果当前 target 的日期大于 d 的日期，说明 d 需要插入到 target[i] 之前
+                    break
+
+            # 如果没有找到相同日期的元素，则将 d 插入到 target 中的合适位置
+            if not found:
+                # 找到插入位置
+                insert_pos = i if i < len(target) else len(target)
+                # 插入元素
+                target.insert(insert_pos, d)
+                start_index = insert_pos  # 更新查找的起始位置
+
+        return target
+
+    @classmethod
+    def save_stocks_eaning_html(self, sfolder, uids):
+        if isinstance(uids, int):
+            uids = [uids]
+
         year = datetime.now().year
-        ehtml = self.get_stocks_earning_static_html(year)
+        earnedrecs = []
+        earningrecs = []
+        for u in uids:
+            user = self.user_by_id(u)
+            user.update_earning()
+            with read_context(user.stocks_earned_table):
+                uearned = list(user.stocks_earned_table.select())
+            earnedrecs = self.merge_earnedearning(earnedrecs, uearned)
+            with read_context(user.stocks_earning_table):
+                uearning = list(user.stocks_earning_table.select())
+            earningrecs = self.merge_earnedearning(earningrecs, uearning, ['cost', '市值'])
+
+        ehtml = self.get_stocks_earning_static_html(earnedrecs, earningrecs, year)
         with open(f'{sfolder}earning_{year}.html', 'w') as f:
             f.write(ehtml)
 

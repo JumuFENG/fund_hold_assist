@@ -20,11 +20,12 @@ def save_earning_task():
         TimerTask.logger.warn(f'today is not trading day!')
         return
     TimerTask.logger.info(f'trade_closed_task!')
-    user = User.user_by_id(11)
-    user.save_stocks_eaning_html(shared_cloud_foler)
+    User.save_stocks_eaning_html(shared_cloud_foler, [11, 14])
     dnow = datetime.now()
     if dnow.weekday() == 4:
-        user.archive_deals(f'{dnow.year + 1}')
+        for uid in [11, 14]:
+            user = User.user_by_id(uid)
+            user.archive_deals(f'{dnow.year + 1}')
 
 
 if __name__ == '__main__':
