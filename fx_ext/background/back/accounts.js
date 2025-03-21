@@ -650,7 +650,7 @@ class NormalAccount extends Account {
             const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
             fetch(wurl, headers).then(r => r.json()).then(watchings => {
                 for (const s in watchings) {
-                    this.addWatchStock(s.slice(-6), watchings[s]);
+                    this.addWatchStock(s.slice(-6), watchings[s].strategies);
                 }
             });
         } else {

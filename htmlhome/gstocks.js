@@ -235,12 +235,12 @@ class GlobalManager {
         return code;
     }
 
-    stockAnchor(code) {
+    stockAnchor(code, text=undefined) {
         var anchor = document.createElement('a');
         if (code.length > 6) {
             code = code.substring(2);
         }
-        anchor.textContent = this.stockName(code);
+        anchor.textContent = text ?? this.stockName(code);
         anchor.href = this.stockEmLink(code);
         anchor.target = '_blank';
         return anchor;

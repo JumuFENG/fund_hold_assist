@@ -159,10 +159,19 @@ class User:
     def check_password(self, password):
         return password == self.password
 
-    def get_bind_accounts(self):
+    def get_bind_accounts(self, onlystock):
         with read_context(self.db):
             slvs = list(self.db.select().where(self.db.parent_account == self.id))
-        return [{k: v for k,v in s.__data__.items() if k != 'password'} for s in slvs]
+        if not onlystock:
+            return [{k: v for k,v in s.__data__.items() if k != 'password'} for s in slvs]
+
+        accs = []
+        for s in slvs:
+            user = self.user_by_id(s.id)
+            with read_context(user.stocks_info_table):
+                if user.stocks_info_table.select().where(user.stocks_info_table.keep_eye == 1).exists():
+                    accs.append({k: v for k,v in s.__data__.items() if k != 'password'})
+        return accs
 
     def get_all_combined_users(self):
         users = []
@@ -610,7 +619,7 @@ class User:
     def watchings_with_strategy(self):
         with read_context(self.stocks_info_table):
             slst = list(self.stocks_info_table.select().where(self.stocks_info_table.keep_eye == 1))
-        return {s.code: self._load_strategy(s) for s in slst if s.portion_hold > 0}
+        return {s.code: {'holdCost':s.aver_price, 'holdCount': s.portion_hold, 'strategies': self._load_strategy(s)} for s in slst if s.portion_hold > 0}
 
     def get_earned_of(self, code):
         us = UStock(self, code)

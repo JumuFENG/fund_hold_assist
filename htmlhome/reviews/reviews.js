@@ -17,7 +17,7 @@ class ReviewsPages extends RadioAnchorPage {
     initTabs() {
         const tabs = [];
         if (emjyBack.fha) {
-            var url = emjyBack.fha.server + 'userbind';
+            var url = emjyBack.fha.server + 'userbind?onlystock=1';
             const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)}
             fetch(url, {headers}).then(r => r.json()).then(accs => {
                 const showname = {'normal': '普通账户', 'collat': '担保品账户'}

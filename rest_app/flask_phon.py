@@ -52,12 +52,6 @@ def add_user_deals(own, pform):
     user.add_deals(json.loads(deals))
     return 'OK', 200
 
-def dump_user_watchinglist(own, acc):
-    user = own.sub_account(acc)
-    if not user:
-        return {}, 200
-    return json.dumps(user.watchings_with_strategy())
-
 def forget_user_stock(own, pform):
     acc = pform.get('acc', type=str, default=None)
     subid = pform.get('accid', type=int, default=None)
@@ -69,14 +63,14 @@ def forget_user_stock(own, pform):
     user.forget_stock(code)
     return 'OK', 200
 
-def user_request_get(session, request):
+def user_request_get(request):
     user = User.user_by_email(session['useremail'])
     actype = request.args.get("act", None, str)
     code = request.args.get('code', None, str)
     subid = request.args.get('accid', None, int)
     if actype == 'getearned':
         if code is None:
-            dates = request.args.get('days',type=int, default=None)
+            dates = request.args.get('days', None, int)
             return json.dumps(user.get_earned(dates))
         else:
             return str(round(user.get_earned_of(code), 2))
@@ -99,7 +93,7 @@ def user_request_get(session, request):
         return json.dumps(sub.watchings_with_strategy())
     return "Not implement yet", 403
 
-def user_request_post(session, request):
+def user_request_post(request):
     user = User.user_by_email(session['useremail'])
     actype = request.form.get("act", type=str, default=None)
 
@@ -110,8 +104,9 @@ def user_request_post(session, request):
     if actype == 'forget':
         return forget_user_stock(user, request.form)
 
-def user_accounts(parent=False):
+def user_accounts(parent=False, onlystock=True):
     if parent:
         return json.dumps(User.get_parent(session['useremail']))
     user = User.user_by_email(session['useremail'])
-    return json.dumps(user.get_bind_accounts())
+    return json.dumps(user.get_bind_accounts(onlystock))
+

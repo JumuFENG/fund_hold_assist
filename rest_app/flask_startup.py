@@ -574,7 +574,7 @@ def stock():
             earned = float(request.form.get('earned', type=str, default=None))
             user.set_earned(date, earned)
             return 'OK', 200
-        return user_request_post(session, request)
+        return user_request_post(request)
     else:
         if actype == 'stats':
             return json.dumps(user.get_stocks_stats())
@@ -609,7 +609,7 @@ def stock():
             date = request.args.get('since', type=str, default=None)
             stks = user.get_archived_since(date, True)
             return json.dumps(stks)
-        return user_request_get(session, request)
+        return user_request_get(request)
 
 def stock_buy(user, form):
     code = form.get("code", type=str, default=None)
@@ -702,7 +702,8 @@ def userbind():
 
     if request.method == 'GET':
         parent = request.args.get("type", type=str, default=None)
-        return user_accounts(parent == 'parent')
+        onlystock = request.args.get('onlystock', type=int, default=0)
+        return user_accounts(parent == 'parent', onlystock==1)
     else:
         usermodel = UserModel()
         bind_email = request.form.get('email', type=str, default=None)
