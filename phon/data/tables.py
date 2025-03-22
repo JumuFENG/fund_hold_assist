@@ -54,6 +54,22 @@ class UserStrategy(Model):
         db_name = 'stock_center'
         primary_key = CompositeKey('code', 'id')
 
+class UserCostdog(Model):
+    ckey = CharField(max_length=20, primary_key=True)
+    data = CharField(max_length=255)
+
+    class Meta:
+        db_name = 'stock_center'
+
+class UcostdogUrque(Model):
+    ckey = CharField(max_length=20)
+    id = IntegerField()
+    urdata = CharField(max_length=255)
+
+    class Meta:
+        db_name = 'stock_center'
+        primary_key = CompositeKey('ckey', 'id')
+
 
 class UserOrders(Model):
     code = CharField(max_length=10)

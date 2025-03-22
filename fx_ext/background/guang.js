@@ -193,6 +193,38 @@ class guang {
         }
         return code.startsWith('BJ') ? code.substring(2) + '.BJ' : code.toLowerCase();
     }
+
+    /**
+    * 计算实时数据过期时间, 非交易日或收盘后定第二天9:15，交易时间按传入参数计算
+    * @param {number} delay 盘中更新延迟时间 默认5分钟.
+    */
+    static async snapshotExpireTime(delay=300*1000) {
+        const tradeDay = await this.isTodayTradingDay();
+        const setTimeTo = (date, h, m) => {
+            date.setHours(h);
+            date.setMinutes(m);
+            date.setSeconds(0);
+            date.setMilliseconds(0);
+            return date;
+        };
+
+        const now = new Date();
+        if (!tradeDay || now.getHours() >= 15) {
+            const tomorrow = new Date(now);
+            tomorrow.setDate(now.getDate() + 1);
+            return setTimeTo(tomorrow, 9, 15).getTime();
+        }
+
+        if (now.getHours() < 9 || (now.getHours() === 9 && now.getMinutes() < 15)) {
+            return setTimeTo(new Date(now), 9, 15).getTime();
+        }
+
+        if ((now.getHours() > 11 && now.getHours() < 13) || (now.getHours() === 11 && now.getMinutes() >= 30)) {
+            return setTimeTo(new Date(now), 13, 0).getTime();
+        }
+
+        return now.getTime() + delay;
+    }
 }
 
 if (typeof module !== 'undefined' && module.exports) {

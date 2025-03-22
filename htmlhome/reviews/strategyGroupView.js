@@ -247,7 +247,7 @@ class StrategyGroupView {
         this.cdSelector = document.createElement("select");
         ctDiv.appendChild(this.cdSelector);
         this.cdSelector.options.add(new Option('无成本方案', ''));
-        for (const c of emjyBack.costDogView.cikeys) {
+        for (const c in emjyBack.costDog) {
             this.cdSelector.options.add(new Option('方案: ' + c, c));
         }
         if (!this.strGrp.uramount) {
@@ -331,13 +331,13 @@ class StrategyGroupView {
         };
         if (this.changed || this.strategySelectors.length > 0) {
             if (this.inputCount) {
-                var count = parseInt(this.inputCount.value);
-                if (!Number.isNaN(count)) {
-                    if (!this.strGrp.count0 || count != this.strGrp.count0) {
-                        this.strGrp.count0 = count;
-                        this.changed = true;
-                    }
-                }
+                // var count = parseInt(this.inputCount.value);
+                // if (!Number.isNaN(count)) {
+                //     if (!this.strGrp.count0 || count != this.strGrp.count0) {
+                //         this.strGrp.count0 = count;
+                //         this.changed = true;
+                //     }
+                // }
             }
             if (this.inputAmount) {
                 var amount = parseInt(this.inputAmount.value);
@@ -368,16 +368,24 @@ class StrategyGroupView {
         if (!this.changed) {
             return;
         };
-        var message = {command:'mngr.strategy', code: this.code, account: this.account};
-        var strategies = {};
-        var transfers = {};
-        for (var i = 0; i < this.strategySelectors.length; i++) {
-            strategies[this.strategySelectors[i].id] = this.strategySelectors[i].strategyView.strategy;
-            transfers[this.strategySelectors[i].id] = {transfer: this.strategySelectors[i].transferView.selectedId()};
-        };
-        this.strGrp.strategies = strategies;
-        this.strGrp.transfers = transfers;
-        message.strategies = this.strGrp;
-        emjyManager.sendExtensionMessage(message);
+        // var message = {command:'mngr.strategy', code: this.code, account: this.account};
+        // var strategies = {};
+        // var transfers = {};
+        // for (var i = 0; i < this.strategySelectors.length; i++) {
+        //     strategies[this.strategySelectors[i].id] = this.strategySelectors[i].strategyView.strategy;
+        //     transfers[this.strategySelectors[i].id] = {transfer: this.strategySelectors[i].transferView.selectedId()};
+        // };
+        // this.strGrp.strategies = strategies;
+        // this.strGrp.transfers = transfers;
+        // message.strategies = this.strGrp;
+        console.log('send save strategy POST', JSON.stringify(this.strGrp));
+        const fd = new FormData();
+        fd.append('act', 'strategy');
+        fd.append('acc', this.account);
+        fd.append('code', this.code);
+        fd.append('data', JSON.stringify(this.strGrp));
+        var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+        const url = emjyBack.fha.server + '/stock';
+        // fetch(url, {method: 'POST', headers, body: fd});
     }
 }

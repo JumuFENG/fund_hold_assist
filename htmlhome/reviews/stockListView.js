@@ -148,29 +148,42 @@ class StockListPanelPage extends RadioAnchorPage {
 
     show() {
         super.show();
+        const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
         if (this.stocks.length == 0) {
             var url = emjyBack.fha.server + 'stock?act=watchings&acc=' + this.keyword;
-            const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)}
             fetch(url, {headers}).then(r => r.json()).then(stocks => {
                 this.initUi(stocks);
             });
+        }
+        if (!emjyBack.costDog) {
+            var durl = emjyBack.fha.server + 'stock?act=costdog';
+            fetch(durl, {headers}).then(r => r.json()).then(cdata => emjyBack.costDog = cdata);
         }
     }
 
     initUi(stocks) {
         emjyBack.log('init StockList');
-        if (this.strategyGroupView.root.parentElement) {
-            this.strategyGroupView.root.parentElement.removeChild(this.strategyGroupView.root);
-        }
-        utils.removeAllChild(this.listContainer);
-        this.stocks = [];
-        for (const c in stocks) {
-            this.addStock(c, stocks[c]);
-        }
+        cloud.getStockBasics(Object.keys(stocks)).then(sbasic => {
+            for (const c in sbasic) {
+                stocks[c].latestPrice = sbasic[c]?.last_px;
+                stocks[c].up_price = sbasic[c]?.up_price;
+                stocks[c].down_price = sbasic[c]?.down_price;
+                stocks[c].preclose_px = sbasic[c]?.preclose_px;
+            }
 
-        this.selectionFilter.selectedIndex = this.defaultFilter;
-        this.onFiltered(this.defaultFilter);
-        this.listContainer.lastElementChild.click();
+            if (this.strategyGroupView.root.parentElement) {
+                this.strategyGroupView.root.parentElement.removeChild(this.strategyGroupView.root);
+            }
+            utils.removeAllChild(this.listContainer);
+            this.stocks = [];
+            for (const c in stocks) {
+                this.addStock(c, stocks[c]);
+            }
+
+            this.selectionFilter.selectedIndex = this.defaultFilter;
+            this.onFiltered(this.defaultFilter);
+            this.listContainer.lastElementChild.click();
+        });
     }
 
     getFilterItems() {
@@ -189,7 +202,7 @@ class StockListPanelPage extends RadioAnchorPage {
     }
 
     getCostDogFilterItems() {
-        return emjyBack.costDogView ? emjyBack.costDogView.cikeys : new Set();
+        return Object.keys(emjyBack.costDog??{});
     }
 
     isBuystrJson(str) {
@@ -312,7 +325,7 @@ class StockListPanelPage extends RadioAnchorPage {
                 if (!stocki.strategies) {
                     continue;
                 }
-                if (this.getCostDogFilterItems().has(fid)) {
+                if (this.getCostDogFilterItems().includes(fid)) {
                     if (stocki.strategies.uramount && stocki.strategies.uramount.key == fid) {
                         this.stocks[i].container.style.display = 'block';
                     }
@@ -329,7 +342,7 @@ class StockListPanelPage extends RadioAnchorPage {
         }
         if (typeof(fid) === 'string') {
             this.selectionFilter.selectedIndex = -1;
-            if (this.getCostDogFilterItems().has(fid)) {
+            if (this.getCostDogFilterItems().includes(fid)) {
                 this.strategyFilter.selectedIndex = -1;
             } else {
                 this.costDogFilter.selectedIndex = -1;
@@ -437,7 +450,17 @@ class StockListPanelPage extends RadioAnchorPage {
         this.container.appendChild(this.strategyFilter);
 
         this.costDogFilter = document.createElement('select');
-        this.addCostDogFilterOptions();
+        if (!emjyBack.costDog) {
+            var durl = emjyBack.fha.server + 'stock?act=costdog';
+            const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+            fetch(durl, {headers}).then(r => r.json()).then(cdata => {
+                emjyBack.costDog = cdata;
+            }).then(() => {
+                this.addCostDogFilterOptions();
+            });
+        } else {
+            this.addCostDogFilterOptions();
+        }
         this.costDogFilter.onchange = e => {
             this.onFiltered(e.target.value);
         }

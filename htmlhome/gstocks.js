@@ -9,6 +9,9 @@ class GlobalManager {
         this.getFromLocal('fha_server', fha => {
             if (fha) {
                 this.fha = fha;
+                if (!this.fha.server_root) {
+                    this.fha.server_root = this.fha.server.replaceAll('5000/', '');
+                }
             }
         });
         this.getFromLocal('hsj_stocks', item => {

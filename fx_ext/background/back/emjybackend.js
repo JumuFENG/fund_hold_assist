@@ -53,9 +53,17 @@ class EmjyBack {
                 }
                 alarmHub.config.purchaseNewStocks = pns;
             });
-            this.getFromLocal('cost_dog').then(cd => {
-                this.costDog = new CostDog(cd);
-            });
+            if (emjyBack.fha.save_on_server) {
+                const url = emjyBack.fha.server + 'stock?act=costdog';
+                const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+                fetch(url, {headers}).then(r=>r.json()).then(cd => {
+                    this.costDog = new CostDog(cd);
+                });
+            } else {
+                this.getFromLocal('cost_dog').then(cd => {
+                    this.costDog = new CostDog(cd);
+                });
+            }
             this.log('EmjyBack initialized!');
         });
     }

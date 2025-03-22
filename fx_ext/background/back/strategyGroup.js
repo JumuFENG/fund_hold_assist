@@ -474,7 +474,16 @@ class CostDog {
     }
 
     save() {
-        emjyBack.saveToLocal({'cost_dog': Object.values(this.dogdic)});
+        if (emjyBack.fha.save_on_server) {
+            const url = emjyBack.fha.server + 'stock';
+            const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+            const fd = new FormData();
+            fd.append('act', 'costdog');
+            fd.append('cdata', JSON.stringify(this.dogdic));
+            fetch(url, {method:'POST', body: fd, headers});
+        } else {
+            emjyBack.saveToLocal({'cost_dog': Object.values(this.dogdic)});
+        }
     }
 
     urBuyCount(key, code, amount, price) {

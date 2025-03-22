@@ -7,7 +7,7 @@ from peewee import fn
 from phon.hu.hu import DateConverter, datetime, timedelta
 from phon.data.tables import User as UserDb
 from phon.data.tables import UserFunds, UserStocks, UserEarned, UserEarning, UserDeals, UserStockBuy, UserStockSell
-from phon.data.tables import AllStocks, UserStrategy, UserOrders
+from phon.data.tables import AllStocks, UserStrategy, UserOrders, UserCostdog, UcostdogUrque
 from phon.data.db import create_model, read_context, write_context, insert_or_update
 from history import StockDumps
 
@@ -144,6 +144,16 @@ class User:
     @lazy_property
     def sell_table(self):
         return create_model(UserStockSell, f'u{self.id}_sell')
+
+    @lazy_property
+    def user_costdog(self):
+        name = f'u{self.parent if self.parent else self.id}_costdog'
+        return create_model(UserCostdog, name)
+    
+    @lazy_property
+    def user_cdurque(self):
+        name = f'u{self.parent if self.parent else self.id}_cdurque'
+        return create_model(UcostdogUrque, name)
 
     def is_admin(self):
         return self.id == 11
@@ -620,6 +630,55 @@ class User:
         with read_context(self.stocks_info_table):
             slst = list(self.stocks_info_table.select().where(self.stocks_info_table.keep_eye == 1))
         return {s.code: {'holdCost':s.aver_price, 'holdCount': s.portion_hold, 'strategies': self._load_strategy(s)} for s in slst if s.portion_hold > 0}
+
+    def save_costdog(self, cdata):
+        for ckey, data in cdata.items():
+            cdinfo = {k: v for k,v in data.items() if k != 'urque'}
+            with write_context(self.user_costdog):
+                cdog = self.user_costdog.get_or_none(self.user_costdog.ckey == ckey)
+                if cdog:
+                    cdog.data = json.dumps(cdinfo)
+                    cdog.save()
+                else:
+                    self.user_costdog.create(ckey=ckey, data=cdinfo)
+            if 'urque' in data and len(data['urque']) > 0:
+                with write_context(self.user_cdurque):
+                    existing_records = list(self.user_cdurque.select().where(self.user_cdurque.ckey == ckey))
+                    existing_keys = {(record.ckey, record.id) for record in existing_records}
+
+                    new_keys = {(ckey, ur['id']) for ur in data['urque']}
+
+                    delete_keys = existing_keys - new_keys
+                    if delete_keys:
+                        for key in delete_keys:
+                            self.user_cdurque.delete().where(
+                                (self.user_cdurque.ckey == key[0]) & (self.user_cdurque.id == key[1])
+                            ).execute()
+
+                    for ur in data['urque']:
+                        if (ckey, ur['id']) in existing_keys:
+                            self.user_cdurque.update(urdata=json.dumps(ur)).where(
+                                (self.user_cdurque.ckey == ckey) & (self.user_cdurque.id == ur['id'])
+                            ).execute()
+
+                    insert_data = [
+                        {'ckey': ckey, 'id': ur['id'], 'urdata': json.dumps(ur)}
+                        for ur in data['urque'] if (ckey, ur['id']) not in existing_keys
+                    ]
+                    if insert_data:
+                        self.user_cdurque.insert_many(insert_data).execute()
+
+    def get_costdog(self):
+        with read_context(self.user_costdog):
+            ucd = list(self.user_costdog.select())
+        cdata = {}
+        for u in ucd:
+            data = json.loads(u.data)
+            with read_context(self.user_cdurque):
+                urques = list(self.user_cdurque.select().where(self.user_cdurque.ckey == u.ckey))
+                data['urque'] = [json.loads(ur.urdata) for ur in urques]
+            cdata[u.ckey] = data
+        return cdata
 
     def get_earned_of(self, code):
         us = UStock(self, code)

@@ -81,6 +81,8 @@ def user_request_get(request):
     if actype == 'summary':
         if code:
             return json.dumps({code: user.get_stock_summary(code)})
+    if actype == 'costdog':
+        return json.dumps(user.get_costdog())
     acc = request.args.get('acc')
     sub = user.sub_account(acc) if subid is None else User.user_by_id(subid)
     if actype == 'strategy':
@@ -103,6 +105,10 @@ def user_request_post(request):
         return save_user_strategy(user, request.form)
     if actype == 'forget':
         return forget_user_stock(user, request.form)
+    if actype == 'costdog':
+        cdata = request.form.get('cdata', type=str, default=None)
+        user.save_costdog(json.loads(cdata))
+        return 'OK', 200
 
 def user_accounts(parent=False, onlystock=True):
     if parent:
