@@ -604,21 +604,12 @@ class Account {
         return this.keyword;
     }
 
-    createOrderClient() {
-        this.orderClient = new OrdersClient();
-    }
+    createOrderClient() {}
 
     checkOrderClient() {
         if (!this.orderClient) {
             this.createOrderClient();
         }
-    }
-
-    loadDeals() {
-        this.checkOrderClient();
-        this.orderClient.getAllData().then((deals) => {
-            this.handleDeals(deals);
-        });
     }
 
     checkOrders() {
@@ -633,6 +624,331 @@ class Account {
                 }
             }
             return data;
+        });
+    }
+
+    getDealTime(cjrq, cjsj) {
+        var date = cjrq.slice(0, 4) + "-" + cjrq.slice(4, 6) + "-" + cjrq.slice(6, 8);
+        if (cjsj.length == 8) {
+            cjsj = cjsj.substring(0, 6);
+        }
+        if (cjsj.length != 6) {
+            return date + ' 0:0';
+        }
+        return date + ' ' + cjsj.slice(0, 2) + ':' + cjsj.slice(2, 4) + ':' + cjsj.slice(4, 6);
+    }
+
+// {
+//     "Cjrq": "20210629", 成交日期
+//     "Cjsj": "143048", 成交时间
+//     "Zqdm": "600905", 证券代码
+//     "Zqmc": "三峡能源", 证券名称
+//     "Mmsm": "证券卖出", 买卖说明
+//     "Cjsl": "10000", 成交数量
+//     "Cjjg": "6.620", 成交价格
+//     "Cjje": "66200.00", 成交金额
+//     "Sxf": "16.55", 手续费
+//     "Yhs": "66.20", 印花税
+//     "Ghf": "1.32", 过户费
+//     "Zjye": "66682.05", 资金余额
+//     "Gfye": "26700", 股份余额
+//     "Market": "HA",
+//     "Cjbh": "24376386", 成交编号
+//     "Wtbh": "319719", 委托编号
+//     "Gddm": "E062854229", 股东代码
+//     "Dwc": "",
+//     "Xyjylx": "卖出担保品" 信用交易类型
+// }
+    codeFromMktZqdm(market, zqdm) {
+        if (!market && !zqdm) {
+            return;
+        }
+        const mdic = {'HA':'SH', 'SA': 'SZ', 'B': 'BJ'};
+        if (market === 'TA') {
+            emjyBack.log('退市股买卖不记录!');
+            return;
+        }
+        if (!mdic[market]) {
+            throw new Error(`unknown market ${market}`);
+        }
+        return mdic[market] + zqdm;
+    }
+
+    tradeTypeFromMmsm(Mmsm) {
+        const ignored = ['担保品划入', '担保品划出', '融券', ]
+        if (ignored.includes(Mmsm)) {
+            return '';
+        }
+        const sells = ['证券卖出'];
+        if (sells.includes(Mmsm)) {
+            return 'S';
+        }
+        const buys = ['证券买入', '配售申购', '配股缴款', '网上认购'];
+        if (buys.includes(Mmsm)) {
+            return 'B';
+        }
+        return;
+    }
+
+    loadDeals() {
+        this.checkOrderClient();
+        this.orderClient.getAllData().then((deals) => {
+            const fetchedDeals = this.getDealsToUpload(deals);
+            this.uploadDeals(fetchedDeals);
+            var tradedCode = new Set();
+            var bdeals = deals.filter(d => d.Mmsm.includes('买入'));
+            for (let i = 0; i < bdeals.length; i++) {
+                const deali = bdeals[i];
+                if (deali.Cjsl > 0) {
+                    var s = this.getStock(deali.Zqdm);
+                    if (!s) {
+                        this.addWatchStock(deali.Zqdm, {});
+                    } else if (!s.strategies) {
+                        this.addStockStrategy(s, {});
+                    }
+                }
+                this.stocks.forEach(s => {
+                    if (s.code == deali.Zqdm && deali.Cjsl > 0) {
+                        tradedCode.add(deali.Zqdm);
+                        if (!s.strategies) {
+                            console.log('can not find strategy for stock', s.code, deali);
+                            return;
+                        }
+                        s.strategies.updateBuyDetail(deali.Wtbh, deali.Cjjg, deali.Cjsl);
+                    }
+                });
+            }
+
+            var sdeals = deals.filter(d => d.Mmsm.includes('卖出'));
+            for (let i = 0; i < sdeals.length; i++) {
+                const deali = sdeals[i];
+                this.stocks.forEach(s => {
+                    if (s.code == deali.Zqdm && deali.Cjsl > 0) {
+                        tradedCode.add(deali.Zqdm);
+                        if (!s.strategies) {
+                            console.log('can not find strategy for stock', s.code, deali);
+                            return;
+                        }
+                        s.strategies.updateSellDetail(deali.Wtbh, deali.Cjjg, deali.Cjsl);
+                    }
+                });
+            }
+
+            tradedCode.forEach(c => {
+                this.stocks.forEach(s => {
+                    if (s.code == c) {
+                        if (s.strategies) {
+                            s.strategies.archiveBuyDetail();
+                            s.strategies.save();
+                        }
+                    }
+                });
+            });
+        });
+    }
+
+    uploadDeals(deals) {
+        if (deals.length == 0 || !emjyBack.fha) {
+            return;
+        }
+
+        emjyBack.testFhaServer().then(txt => {
+            if (txt != 'OK') {
+                emjyBack.log('testFhaServer, failed.!');
+                return;
+            }
+
+            var url = emjyBack.fha.server + 'stock';
+            var dfd = new FormData();
+            dfd.append('act', 'deals');
+            dfd.append('acc', this.keyword);
+            dfd.append('data', JSON.stringify(deals));
+            var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+            emjyBack.log('uploadDeals', JSON.stringify(deals));
+            fetch(url, {method: 'POST', headers, body: dfd}).then(r=>r.text()).then(p => {
+                emjyBack.log('upload deals to server,', p);
+            });
+        });
+    }
+
+    getDealsToUpload(deals) {
+        var fetchedDeals = [];
+        for (let i = 0; i < deals.length; i++) {
+            const deali = deals[i];
+            if (deali.Wtzt != '已成' && deali.Wtzt != '部撤') {
+                emjyBack.log('getDealsToUpload unknown deal:', JSON.stringify(deali));
+                continue;
+            }
+            var tradeType = this.tradeTypeFromMmsm(deali.Mmsm)
+            if (!tradeType) {
+                emjyBack.log('unknown trade type', deali.Mmsm, JSON.stringify(deali));
+                continue;
+            }
+
+            var code = this.codeFromMktZqdm(deali.Market, deali.Zqdm);
+            if (!code) {
+                continue;
+            }
+
+            var time = this.getDealTime(deali.Wtrq, deali.Wtsj);
+            const {Cjsl: count, Cjjg: price, Wtbh: sid} = deali;
+            fetchedDeals.push({time, sid, code, tradeType, price, count});
+        }
+        return fetchedDeals.reverse();
+    }
+
+    clearCompletedDeals() {
+        if (!emjyBack.savedDeals) {
+            emjyBack.getFromLocal('hist_deals').then(sdeals => {
+                if (sdeals) {
+                    emjyBack.savedDeals = sdeals;
+                    this.clearCompletedDeals();
+                }
+            });
+            return;
+        }
+
+        let curDeals = emjyBack.savedDeals.filter(d => emjyBack.normalAccount.getStock(d.code.substring(2)) || emjyBack.collateralAccount.getStock(d.code.substring(2)));
+        curDeals.sort((a, b) => a.time > b.time);
+        emjyBack.savedDeals = curDeals;
+        emjyBack.saveToLocal({'hist_deals': emjyBack.savedDeals});
+    }
+
+    loadHistDeals(date) {
+        var dealclt = this.createHistDealsClient();
+        var startDate = date;
+        if (typeof(date) === 'string') {
+            startDate = new Date(date.split('-'));
+        }
+        dealclt.setStartDate(startDate);
+        dealclt.getAllHistoryData().then(deals => {
+            var fetchedDeals = [];
+            for (let i = 0; i < deals.length; i++) {
+                const deali = deals[i];
+                var tradeType = this.tradeTypeFromMmsm(deali.Mmsm)
+                if (!tradeType) {
+                    emjyBack.log('unknown trade type', deali.Mmsm, JSON.stringify(deali));
+                    continue;
+                }
+
+                var code = this.codeFromMktZqdm(deali.Market, deali.Zqdm);
+                if (!code) {
+                    continue;
+                }
+
+                var time = this.getDealTime(deali.Cjrq, deali.Cjsj);
+                const {Cjsl: count, Cjjg: price, Sxf: fee, Yhs: feeYh, Ghf: feeGh, Wtbh: sid} = deali;
+                if (count - 0 <= 0) {
+                    emjyBack.log('invalid count', deali);
+                    continue;
+                }
+                fetchedDeals.push({time, sid, code, tradeType, price, count, fee, feeYh, feeGh});
+            }
+
+            fetchedDeals.reverse();
+            var uptosvrDeals = [];
+            if (!emjyBack.savedDeals || emjyBack.savedDeals.length == 0) {
+                emjyBack.savedDeals = fetchedDeals;
+                uptosvrDeals = fetchedDeals;
+            } else {
+                uptosvrDeals = fetchedDeals.filter(deali => !emjyBack.savedDeals.find(d => d.time == deali.time && d.code == deali.code && d.sid == deali.sid));
+                emjyBack.savedDeals.concat(uptosvrDeals);
+                emjyBack.savedDeals.sort((a, b) => a.time > b.time);
+            }
+            emjyBack.saveToLocal({'hist_deals': emjyBack.savedDeals});
+            this.uploadDeals(uptosvrDeals);
+            this.clearCompletedDeals();
+        });
+    }
+
+    mergeCumDeals(deals) {
+        // 合并时间相同的融资利息
+        var tdeals = {};
+        deals.forEach(d => {
+            if (Object.keys(tdeals).includes(d.time)) {
+                tdeals[d.time].price += parseFloat(d.price);
+            } else {
+                tdeals[d.time] = d;
+                tdeals[d.time].price = parseFloat(d.price);
+            }
+        });
+        return Object.values(tdeals);
+    }
+
+    loadOtherDeals(date) {
+        var sxlclt = this.createSxlHistClient();
+        var startDate = date;
+        if (typeof(startDate) === 'string') {
+            startDate = new Date(date.split('-'));
+        }
+        sxlclt.setStartDate(startDate);
+        sxlclt.getAllHistoryData().then(deals => {
+            var fetchedDeals = [];
+            var dealsTobeCum = [];
+            var ignoredSm = ['融资买入', '融资借入', '偿还融资负债本金', '担保品卖出', '担保品买入', '担保物转入', '担保物转出', '融券回购', '融券购回', '证券卖出', '证券买入', '股份转出', '股份转入', '配股权证', '配股缴款']
+            var otherBuySm = ['红股入账', '配股入帐'];
+            var otherSellSm = [];
+            var otherSm = ['配售缴款', '新股入帐', '股息红利差异扣税', '偿还融资利息', '偿还融资逾期利息', '红利入账', '银行转证券', '证券转银行', '利息归本'];
+            var fsjeSm = ['股息红利差异扣税', '偿还融资利息', '偿还融资逾期利息', '红利入账', '银行转证券', '证券转银行', '利息归本'];
+            for (let i = 0; i < deals.length; i++) {
+                const deali = deals[i];
+                var sm = deali.Ywsm;
+                if (ignoredSm.includes(sm)) {
+                    continue;
+                }
+                var tradeType = '';
+                if (otherBuySm.includes(sm)) {
+                    tradeType = 'B';
+                } else if (otherSellSm.includes(sm)) {
+                    tradeType = 'S';
+                } else if (otherSm.includes(sm)) {
+                    emjyBack.log(JSON.stringify(deali));
+                    tradeType = sm;
+                    if (sm == '股息红利差异扣税') {
+                        tradeType = '扣税';
+                    }
+                    if (sm == '偿还融资利息' || sm == '偿还融资逾期利息') {
+                        tradeType = '融资利息';
+                    }
+                } else {
+                    emjyBack.log('unknow deals', sm, JSON.stringify(deali));
+                    continue;
+                }
+
+                var code = this.codeFromMktZqdm(deali.Market, deali.Zqdm);
+                if (!code) {
+                    continue;
+                }
+                var time = this.getDealTime(
+                    deali.Fsrq === undefined || deali.Fsrq == '0' ? deali.Ywrq : deali.Fsrq,
+                    deali.Fssj === undefined || deali.Fssj == '0' ? deali.Cjsj : deali.Fssj);
+                if (sm == '红利入账' && time.endsWith('0:0')) {
+                    time = this.getDealTime(deali.Fsrq === undefined || deali.Fsrq == '0' ? deali.Ywrq : deali.Fsrq,'150000');
+                }
+                const {Sxf: fee, Yhs: feeYh, Ghf: feeGh, Htbh: sid} = deali;
+                let count = deali.Cjsl;
+                let price = deali.Cjjg;
+                if (fsjeSm.includes(sm)) {
+                    count = 1;
+                    price = deali.Fsje;
+                }
+                if (sm == '配股入帐' && sid == '') {
+                    continue;
+                }
+                if (tradeType == '融资利息') {
+                    dealsTobeCum.push({time, sid, code, tradeType, price, count, fee, feeYh, feeGh});
+                } else {
+                    fetchedDeals.push({time, sid, code, tradeType, price, count, fee, feeYh, feeGh});
+                }
+            }
+            fetchedDeals.reverse();
+            if (dealsTobeCum.length > 0) {
+                var ndeals = this.mergeCumDeals(dealsTobeCum);
+                ndeals.forEach(d => {
+                    fetchedDeals.push(d);
+                });
+            }
+            this.uploadDeals(fetchedDeals);
         });
     }
 }
@@ -905,69 +1221,12 @@ class NormalAccount extends Account {
         this.orderClient = new OrdersClient();
     }
 
-    handleDeals(deals) {
-        emjyBack.uploadTodayDeals(deals, this.keyword);
-        var tradedCode = new Set();
-        var bdeals = deals.filter(d => d.Mmsm.includes('买入'));
-        for (let i = 0; i < bdeals.length; i++) {
-            const deali = bdeals[i];
-            if (deali.Cjsl > 0) {
-                var s = this.getStock(deali.Zqdm);
-                if (!s) {
-                    this.addWatchStock(deali.Zqdm, {});
-                } else if (!s.strategies) {
-                    this.addStockStrategy(s, {});
-                }
-            }
-            this.stocks.forEach(s => {
-                if (s.code == deali.Zqdm && deali.Cjsl > 0) {
-                    tradedCode.add(deali.Zqdm);
-                    if (!s.strategies) {
-                        console.log('can not find strategy for stock', s.code, deali);
-                        return;
-                    }
-                    s.strategies.updateBuyDetail(deali.Wtbh, deali.Cjjg, deali.Cjsl);
-                }
-            });
-        }
-
-        var sdeals = deals.filter(d => d.Mmsm.includes('卖出'));
-        for (let i = 0; i < sdeals.length; i++) {
-            const deali = sdeals[i];
-            this.stocks.forEach(s => {
-                if (s.code == deali.Zqdm && deali.Cjsl > 0) {
-                    tradedCode.add(deali.Zqdm);
-                    if (!s.strategies) {
-                        console.log('can not find strategy for stock', s.code, deali);
-                        return;
-                    }
-                    s.strategies.updateSellDetail(deali.Wtbh, deali.Cjjg, deali.Cjsl);
-                }
-            });
-        }
-
-        tradedCode.forEach(c => {
-            this.stocks.forEach(s => {
-                if (s.code == c) {
-                    if (s.strategies) {
-                        s.strategies.archiveBuyDetail();
-                        s.strategies.save();
-                    }
-                }
-            });
-        });
+    createHistDealsClient() {
+        return new HistDealsClient();
     }
 
-    loadHistDeals(startDate) {
-        var dealclt = new HistDealsClient();
-        dealclt.setStartDate(startDate);
-        return dealclt.getAllHistoryData();
-    }
-
-    loadOtherDeals(startDate) {
-        var sxlclt = new SxlHistClient();
-        sxlclt.setStartDate(startDate);
-        return sxlclt.getAllHistoryData();
+    createSxlHistClient() {
+        return new SxlHistClient();
     }
 
     createAssetsClient() {
@@ -1083,16 +1342,12 @@ class CollateralAccount extends NormalAccount {
         this.orderClient = new MarginOrdersClient();
     }
 
-    loadHistDeals(startDate) {
-        var dealclt = new MarginHistDealsClient();
-        dealclt.setStartDate(startDate);
-        return dealclt.getAllHistoryData();
+    createHistDealsClient() {
+        return new MarginHistDealsClient();
     }
 
-    loadOtherDeals(startDate) {
-        var sxlclt = new MarginSxlHistClient();
-        sxlclt.setStartDate(startDate);
-        return sxlclt.getAllHistoryData();
+    createSxlHistClient() {
+        return new MarginSxlHistClient();
     }
 
     createAssetsClient() {

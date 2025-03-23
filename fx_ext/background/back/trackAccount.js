@@ -26,9 +26,7 @@ class TestTradeClient extends TradeClient {
         if (!time) {
             time = new Date().toLocaleString('zh', {year:'numeric', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit'}).replace(/\//g, '-');
         }
-        var sid = this.bindingAccount.sid;
-        this.bindingAccount.addDeal(code, price, count, tradeType);
-        return Promise.resolve({time, code, price, count, sid});
+        return this.bindingAccount.addDeal(code, price, count, tradeType);
     }
 }
 
@@ -122,26 +120,62 @@ class TrackingAccount extends NormalAccount {
         }
         var stk = this.getStock(code);
         if (!stk) {
-            return;
+            return Promise.resolve();
         }
-        if (tradeType == 'B') {
-            stk.holdCount += count;
-            this.deals.push({time, sid: this.sid, code, tradeType, price, count});
-        } else if (tradeType == 'S') {
-            if (stk.holdCount - count >= 0) {
-                stk.holdCount -= count;
-                this.deals.push({time, sid: this.sid, code, tradeType, price, count});
-            } else {
-                emjyBack.log(code, 'no enough holdCount to sell! holdCount:', stk.holdCount, ' count:', count);
+
+        if (tradeType == 'S') {
+            if (stk.holdCount - count < 0) {
+                return Promise.resolve();
             }
+            stk.holdCount -= count;
+        } else {
+            stk.holdCount += count;
         }
+        const deal = {time, sid: this.sid, code, tradeType, price, count};
+        this.deals.push(deal);
         this.sid ++;
         this.tradeTime = undefined;
+        return Promise.resolve(deal);
     }
 
     createTradeClient() {
         this.tradeClient = new TestTradeClient(this);
     }
+
+    loadDeals() {
+        const daystr = guang.getTodayDate('-');
+        const daydeals = this.deals.filter(d => d.time == daystr);
+        Promise.all(daydeals.map(async (x) => {const xd = Object.assign({}, x); xd.code = await feng.getLongStockCode(x.code); return xd;})).then(deals => {
+            this.uploadDeals(deals);
+        });
+    }
+
+    loadHistDeals() {
+        Promise.all(this.deals.map(async (x) => {const xd = Object.assign({}, x); xd.code = await feng.getLongStockCode(x.code); return xd;})).then(deals => {
+            this.uploadDeals(deals);
+            this.clearCompletedDeals();
+        });
+    }
+
+    clearCompletedDeals() {
+        this.deals = this.deals.filter(x=>this.getStock(x.code)?.holdCount > 0);
+        var dsobj = {};
+        dsobj[this.key_deals] = this.deals;
+        emjyBack.saveToLocal(dsobj);
+    }
+
+    alignDealsToRecords() {
+        // 调用之前需确保record里面没有不需要的记录.
+        this.stocks.forEach(s => {
+            s.strategies.buydetail.full_records.forEach(r=>{
+                if (!this.deals.find(x => x.code == s.code && r.date.startsWith(x.time) && x.sid == r.sid)) {
+                    this.deals.push({code: s.code, time: r.date, price: r.price, count: r.count, tradeType: r.type, sid: r.sid});
+                }
+            });
+        });
+    }
+
+    loadOtherDeals() {}
 
     buyStock(code, price, count) {
         if (!this.tradeClient) {

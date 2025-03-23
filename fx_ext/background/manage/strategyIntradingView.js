@@ -7,13 +7,13 @@ try {
 }
 
 class StrategyIntradingView {
-    constructor(iskey, isext=false) {
-        this.data = {key: iskey};
+    constructor(data, isext=false) {
+        this.data = data;
         this.container = document.createElement('div');
-        var strTitle = document.createTextNode(ses.ExtIstrStrategies[iskey].name);
+        var strTitle = document.createTextNode(this.data.name);
         this.container.appendChild(strTitle);
         this.container.appendChild(document.createElement('br'));
-        var descLbl = document.createTextNode(ses.ExtIstrStrategies[iskey].desc);
+        var descLbl = document.createTextNode(this.data.desc);
         this.chkEnable = document.createElement('input');
         this.chkEnable.type = 'checkbox';
         var checkLbl = document.createElement('label');
@@ -99,8 +99,8 @@ class StrategyIntradingPanelPage extends RadioAnchorPage {
         if (!this.initialized) {
             emjyBack.getFromLocal('all_available_istr').then(all_str => {
                 this.init(all_str);
-                for (const estr of ses.ExtIstrStrategies) {
-                    var item = new StrategyIntradingView(estr, true);
+                for (const ek in ses.ExtIstrStrategies) {
+                    var item = new StrategyIntradingView(Object.assign(ses.ExtIstrStrategies[ek], {key: ek}), true);
                     this.exStrsStrategies.push(item);
                     this.exStrsContainer.appendChild(item.container);
                     this.exStrsContainer.appendChild(document.createElement('hr'));
