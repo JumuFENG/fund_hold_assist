@@ -292,6 +292,9 @@ class StrategyGroupView {
 
     insertSelectorView(id, strategy, transId) {
         var strategySelView = new StrategySelectorView(this.account, id, strategy, transId);
+        if (!this.strGrp.strategies[id]) {
+            this.strGrp.strategies[id] = strategy;
+        }
         strategySelView.strGroupView = this;
         strategySelView.createView();
         this.strategySelectorContainer.appendChild(strategySelView.root);
@@ -368,16 +371,6 @@ class StrategyGroupView {
         if (!this.changed) {
             return;
         };
-        // var message = {command:'mngr.strategy', code: this.code, account: this.account};
-        // var strategies = {};
-        // var transfers = {};
-        // for (var i = 0; i < this.strategySelectors.length; i++) {
-        //     strategies[this.strategySelectors[i].id] = this.strategySelectors[i].strategyView.strategy;
-        //     transfers[this.strategySelectors[i].id] = {transfer: this.strategySelectors[i].transferView.selectedId()};
-        // };
-        // this.strGrp.strategies = strategies;
-        // this.strGrp.transfers = transfers;
-        // message.strategies = this.strGrp;
         console.log('send save strategy POST', JSON.stringify(this.strGrp));
         const fd = new FormData();
         fd.append('act', 'strategy');
@@ -386,6 +379,6 @@ class StrategyGroupView {
         fd.append('data', JSON.stringify(this.strGrp));
         var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
         const url = emjyBack.fha.server + '/stock';
-        // fetch(url, {method: 'POST', headers, body: fd});
+        fetch(url, {method: 'POST', headers, body: fd});
     }
 }

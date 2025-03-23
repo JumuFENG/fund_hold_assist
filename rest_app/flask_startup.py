@@ -12,7 +12,7 @@ from utils import *
 from user import *
 from pickup import *
 from rest_app.flask_phon import verify_authorization, user_request_post, user_request_get
-from rest_app.flask_phon import user_accounts
+from rest_app.flask_phon import user_accounts, user_edit_subaccouts
 
 app = Flask(__name__)
 app.secret_key = "any_string_make_secret_key"
@@ -736,6 +736,14 @@ def userbind():
                 return '{wrongarg}'
         else:
             return json.dumps('{Wrong}')
+
+@app.route('/user/edit', methods=['POST'])
+def user_edit():
+    if not session.get('logged_in'):
+        if not verify_authorization(request.authorization):
+            return 'Unauthenticated', 401
+
+    return user_edit_subaccouts(request.form)
 
 @app.route('/api/')
 def index():

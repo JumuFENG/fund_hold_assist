@@ -26,7 +26,7 @@ def actual_user(own, acc, subid, autocreate=False):
     return own.sub_account(acc, autocreate) if subid is None else User.user_by_id(subid)
 
 
-def save_user_strategy(own, pform, strdata):
+def save_user_strategy(own, pform):
     acc = pform.get('acc', type=str, default=None)
     subid = pform.get('accid', type=int, default=None)
     user = actual_user(own, acc, subid, True)
@@ -116,3 +116,20 @@ def user_accounts(parent=False, onlystock=True):
     user = User.user_by_email(session['useremail'])
     return json.dumps(user.get_bind_accounts(onlystock))
 
+def user_edit_subaccouts(pform):
+    own = User.user_by_email(session['useremail'])
+    act = pform.get('act', None, str)
+    acc = pform.get('acc', None, str)
+    subid = pform.get('accid', None, int)
+    if act == 'addsub':
+        user = actual_user(own, acc, subid, True)
+        if user:
+            return json.dumps(user.to_json())
+        return 'Add sub account failed!', 403
+    
+    if act == 'rmvsub':
+        user = actual_user(own, acc, subid, False)
+        if not user:
+            return 'subaccount not exists!', 200
+        # own.remove_sub(user.id)
+        return 'Not implemented yet!', 200

@@ -13,7 +13,7 @@ class StockView {
             this.onStockClicked(e.currentTarget, this.stock);
         };
         this.divTitle = document.createElement('div');
-        var titleText = stock.name??emjyBack.stockName(stock.code.slice(-6)) + '(' + stock.code.slice(-6) + ') '+ emjyBack.accountNames[stock.account];
+        var titleText = stock.name??emjyBack.stockName(stock.code.slice(-6)) + '(' + stock.code.slice(-6) + ') '+ emjyBack.accountNames[stock.account]??stock.account;
         this.divTitle.appendChild(document.createTextNode(titleText));
         var anchor = emjyBack.stockAnchor(stock.code, '行情');
         this.divTitle.appendChild(anchor);
@@ -141,13 +141,15 @@ class StockListPanelPage extends RadioAnchorPage {
         this.defaultFilter = filt;
         this.stocks = [];
         this.currentCode = null;
-        this.initAccFrame();
-        this.addWatchArea();
         this.strategyGroupView = new StrategyGroupView();
     }
 
     show() {
         super.show();
+        if (!this.listContainer) {
+            this.initAccFrame();
+            this.addWatchArea();
+        }
         const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
         if (this.stocks.length == 0) {
             var url = emjyBack.fha.server + 'stock?act=watchings&acc=' + this.keyword;
@@ -161,10 +163,18 @@ class StockListPanelPage extends RadioAnchorPage {
         }
     }
 
+    hide() {
+        super.hide();
+        if (this.strategyGroupView) {
+            this.strategyGroupView.saveStrategy();
+        }
+    }
+
     initUi(stocks) {
         emjyBack.log('init StockList');
         cloud.getStockBasics(Object.keys(stocks)).then(sbasic => {
             for (const c in sbasic) {
+                stocks[c].code = c;
                 stocks[c].latestPrice = sbasic[c]?.last_px;
                 stocks[c].up_price = sbasic[c]?.up_price;
                 stocks[c].down_price = sbasic[c]?.down_price;
@@ -176,13 +186,14 @@ class StockListPanelPage extends RadioAnchorPage {
             }
             utils.removeAllChild(this.listContainer);
             this.stocks = [];
-            for (const c in stocks) {
-                this.addStock(c, stocks[c]);
+            stocks = Object.values(stocks).sort((a, b) => b.holdCount * b.latestPrice - a.holdCount * a.latestPrice);
+            for (const s of stocks) {
+                this.addStock(s.code, s);
             }
 
             this.selectionFilter.selectedIndex = this.defaultFilter;
             this.onFiltered(this.defaultFilter);
-            this.listContainer.lastElementChild.click();
+            this.listContainer.lastElementChild?.click();
         });
     }
 
@@ -280,7 +291,7 @@ class StockListPanelPage extends RadioAnchorPage {
                     }
                 }
             } else if (fid == 4) { // 持仓连板
-                if (stocki.holdCount > 0 && emjyBack.klines[stocki.code].continuouslyZtDays() > 1) {
+                if (stocki.holdCount > 0 && stocki.latestPrice - stocki.up_price == 0) {
                     this.stocks[i].container.style.display = 'block';
                 }
             } else if (fid == 5) { // 无持仓割肉股

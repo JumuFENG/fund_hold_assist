@@ -488,7 +488,7 @@ class StrategyBaseView {
 
     createBuyAccountSelector() {
         var acctDiv = document.createElement('div');
-        if (emjyBack.accountsMap[this.ownerAccount].length > 1) {
+        if (emjyBack.accountsMap[this.ownerAccount]?.length > 1) {
             acctDiv.appendChild(document.createTextNode('买入账户 '));
             this.accountSelector = document.createElement('select');
             emjyBack.accountsMap[this.ownerAccount].forEach(acc => {
@@ -1209,4 +1209,4 @@ class StrategyZt1View extends StrategyBaseView {
 }
 
 let strategyViewManager = new StrategyViewManager();
-emjyBack.accountsMap = {'normal': ['normal'], 'collat': ['credit', 'collat'], 'track': ['track']}
+emjyBack.accountsMap = {'normal': ['normal'], 'collat': ['credit', 'collat']};

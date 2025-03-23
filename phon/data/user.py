@@ -160,6 +160,9 @@ class User:
 
     def to_string(self):
         return f'id: {self.id} name: {self.name} email: {self.email}'
+    
+    def to_json(self):
+        return {'id': self.id, 'name': self.name, 'email': self.email, 'parent_account':self.parent, 'realcash': self.realcash}
 
     def set_password(self, password):
         self.password = password
@@ -236,6 +239,9 @@ class User:
                 })
 
             return self.from_dict(**subuser.__data__)
+
+    def remove_sub(self, subid):
+        pass
 
     def forget_stock(self, code):
         with write_context(self.stocks_info_table):
@@ -433,8 +439,6 @@ class User:
 
     def remove_repeat_unknown_deals_commontype(self, existdeals, deal):
         eid = 0
-        sqldb = self.stock_center_db()
-        # for id,date,code,type,sid,price,count,fee,fYh,fGh in existdeals:
         for edeal in existdeals:
             if edeal.date != deal['time']:
                 continue
@@ -458,7 +462,7 @@ class User:
                     self.unknown_deals_table.过户费.name: deal['feeGh']
                 })
             else:
-                self.unknown_deals_table.update(code=deal['code'], 委托编号=deal['sid']).where(self.unknown_deals_table.id == id).execute()
+                self.unknown_deals_table.update(code=deal['code'], 委托编号=deal['sid']).where(self.unknown_deals_table.id == eid).execute()
 
     def add_unknown_code_deal(self, deals):
         '''

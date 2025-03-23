@@ -21,12 +21,13 @@ class ReviewsPages extends RadioAnchorPage {
             const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)}
             fetch(url, {headers}).then(r => r.json()).then(accs => {
                 const showname = {'normal': '普通账户', 'collat': '担保品账户'}
-                accs = [{name: 'normal', email: emjyBack.fha.uemail}].concat(accs);
+                accs = [{name: 'normal', email: emjyBack.fha.uemail, realcash: 1}].concat(accs);
                 for (const acc of accs) {
                     tabs.push(new StockListPanelPage(acc.name, showname[acc.name]??acc.name));
                 }
-            }).then(() => {
-                tabs.push(new SettingsView());
+                return accs;
+            }).then(accs => {
+                tabs.push(new SettingsView(accs));
                 tabs.forEach(t => {
                     this.navigator.addRadio(t);
                     this.container.appendChild(t.container);
