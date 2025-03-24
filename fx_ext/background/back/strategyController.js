@@ -1,4 +1,5 @@
 'use strict';
+(function(){
 const { logger } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
@@ -2557,4 +2558,7 @@ class StrategyZt1 extends StrategyBarginHunting {
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {strategyFac};
+} else if (typeof window !== 'undefined') {
+    window.strategyFac = strategyFac;
 }
+})();

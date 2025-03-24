@@ -123,7 +123,7 @@ class UserDealsPanel extends RadioAnchorPage {
                 this.getUserDeals();
                 this.getCurWeekSold();
             } else {
-                emjyBack.getFromLocal('fha_server', fha => {
+                emjyBack.getFromLocal('fha_server').then(fha => {
                     if (fha) {
                         emjyBack.fha = fha;
                         this.getUserDeals();
@@ -140,8 +140,7 @@ class UserDealsPanel extends RadioAnchorPage {
             return;
         }
         var url = emjyBack.fha.server + 'stock?act=trackdeals&name=archived';
-        var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
-        fetch(url, {headers}).then(r=>r.json()).then(rsp => {
+        fetch(url, {headers: emjyBack.headers}).then(r=>r.json()).then(rsp => {
             this.userDeals = rsp.deals;
             this.showDeals();
         });
@@ -153,8 +152,7 @@ class UserDealsPanel extends RadioAnchorPage {
             return;
         }
         var url = emjyBack.fha.server + 'stock?act=archivedcodes&since=' + guang.dateToString(new Date(new Date() - 7 * 24 * 60 * 60 * 1000), '-');
-        var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
-        fetch(url, {headers}).then(r=>r.json()).then(rsp => {
+        fetch(url, {headers: emjyBack.headers}).then(r=>r.json()).then(rsp => {
             this.curWkSold = rsp;
             this.showWkSold();
         });

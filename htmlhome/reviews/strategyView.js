@@ -1209,4 +1209,3 @@ class StrategyZt1View extends StrategyBaseView {
 }
 
 let strategyViewManager = new StrategyViewManager();
-emjyBack.accountsMap = {'normal': ['normal'], 'collat': ['credit', 'collat']};

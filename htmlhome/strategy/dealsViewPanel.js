@@ -279,15 +279,13 @@ class DealsPanelPage extends RadioAnchorPage {
 
     getDealsByCategory(category, cb) {
         var dcUrl = emjyBack.fha.server + 'stock?act=trackdeals&name=' + category;
-        var headers = {};
         if (category == 'archived') {
             if (!emjyBack.fha.uemail || !emjyBack.fha.pwd) {
                 console.error('user not set!');
                 return;
             }
-            headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
         }
-        fetch(dcUrl, {headers}).then(r=>r.json()).then( sDeals => {
+        fetch(dcUrl,emjyBack.headers).then(r=>r.json()).then( sDeals => {
             var deals = sDeals.deals;
             if (deals[0].count == 0) {
                 var fcounts = {};

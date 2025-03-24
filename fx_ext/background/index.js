@@ -4,10 +4,6 @@ if (navigator.userAgent.includes('Firefox')) {
     chrome = browser;
 }
 
-window.xreq = function(m) {
-    return window;
-}
-
 class ManagerBack {
     constructor() {
         this.tabid = null;
@@ -595,18 +591,12 @@ class ext {
 }
 
 chrome.runtime.onMessage.addListener(ext.notify);
-fetch('./strategies.json')
-.then(response => response.json())
-.then(m => {
-    window.ses = m;
-}).then(() => {
-    ext.createMainTab();
-    emjyBack.Init().then(() => {
-        ext.setupWebsocketConnection();
-    });
-    alarmHub.setupAlarms();
-    istrManager.initExtStrs();
-})
-.catch(error => {
-    console.error('Error loading strategies.json:', error);
+
+ext.createMainTab();
+emjyBack.Init().then(() => {
+    ext.setupWebsocketConnection();
 });
+emjyBack.klines = klPad.klines;
+
+alarmHub.setupAlarms();
+istrManager.initExtStrs();

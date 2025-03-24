@@ -1,4 +1,5 @@
 'use strict';
+(function(){
 
 const { logger } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
@@ -228,4 +229,7 @@ class TrackingAccount extends NormalAccount {
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {TrackingAccount};
+} else if (typeof window !== 'undefined') {
+    window.TrackingAccount = TrackingAccount;
 }
+})();

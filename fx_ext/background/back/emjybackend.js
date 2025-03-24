@@ -1,30 +1,11 @@
 'use strict';
 
-try {
-    const logger = require('./nbase.js');
-    const { NormalAccount, CollateralAccount, CreditAccount } = require('./accounts.js');
-    const { TrackingAccount } = require('./trackAccount.js');
-    const { klPad } = require('../kline.js');
-    const { CostDog } = require('./strategyGroup.js');
-    const { feng } = require('./feng.js');
-} catch (err) {
 
-}
-
-
-class EmjyBack {
-    constructor() {
-        this.normalAccount = null;
-        this.collateralAccount = null;
-        this.creditAccount = null;
-        this.klines = klPad.klines;
-        this.fha = null;
-    }
-
+window.emjyBack = {
+    fha: null,
     log(...args) {
         logger.log(...args);
-    }
-
+    },
     Init() {
         this.running = true;
         this.normalAccount = new NormalAccount();
@@ -66,51 +47,33 @@ class EmjyBack {
             }
             this.log('EmjyBack initialized!');
         });
-    }
-
+    },
     initTrackAccounts() {
         this.track_accounts = [];
         this.getFromLocal('track_accounts').then(accs => {
             if (!accs || Object.keys(accs).length === 0) {
-                this.track_accounts.push(new TrackingAccount('track'));
-            } else {
-                for (let ac in accs) {
-                    this.track_accounts.push(new TrackingAccount(ac));
-                }
+                accs = ['track'];
             }
-            this.trackAccount = this.track_accounts[0];
+            for (let ac in accs) {
+                this.track_accounts.push(new TrackingAccount(ac));
+            }
             for (const account of this.track_accounts) {
                 this.all_accounts[account.keyword] = account;
                 account.loadAssets();
             }
         });
-    }
-
+    },
     totalAssets() {
         return this.normalAccount.pureAssets + this.collateralAccount.pureAssets;
-    }
-
+    },
     loadAssets() {
         this.normalAccount.loadAssets();
         this.collateralAccount.loadAssets();
-    }
-
-    refreshAssets() {
-        if (this.normalAccount.stocks.length > 0) {
-            this.normalAccount.save();
-        };
-        if (this.collateralAccount.stocks.length > 0) {
-            this.collateralAccount.save();
-        };
-
-        this.loadAssets();
-    }
-
+    },
     loadDeals() {
         this.normalAccount.loadDeals();
         this.collateralAccount.loadDeals();
-    }
-
+    },
     updateHistDeals() {
         this.getFromLocal('hist_deals').then(hdl => {
             var startDate = null;
@@ -127,18 +90,15 @@ class EmjyBack {
             this.doUpdateHistDeals(startDate);
             this.loadOtherDeals(startDate);
         });
-    }
-
+    },
     doUpdateHistDeals(date) {
         this.normalAccount.loadHistDeals(date);
         this.collateralAccount.loadHistDeals(date);
-    }
-
+    },
     loadOtherDeals(date) {
         this.normalAccount.loadOtherDeals(date);
         this.collateralAccount.loadOtherDeals(date);
-    }
-
+    },
     testFhaServer() {
         var url = this.fha.server + 'stock?act=test';
         var headers = {}
@@ -146,8 +106,7 @@ class EmjyBack {
             headers['Authorization'] = 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd);
         }
         return fetch(url, {headers}).then(r=>r.text());
-    }
-
+    },
     checkRzrq(code) {
         if (!this.creditAccount) {
             return Promise.resolve();
@@ -156,8 +115,7 @@ class EmjyBack {
             this.creditAccount.createTradeClient();
         }
         return this.creditAccount.tradeClient.checkRzrqTarget(code);
-    }
-
+    },
     trySellStock(code, price, count, account, cb) {
         if (!this.all_accounts[account]) {
             this.log('Error, no valid account', account);
@@ -177,8 +135,7 @@ class EmjyBack {
             }
             return sd;
         });
-    }
-
+    },
     tryBuyStock(code, price, count, account) {
         if (!this.all_accounts[account]) {
             this.log('Error, no valid account', account);
@@ -201,8 +158,7 @@ class EmjyBack {
             }
             return bd;
         });
-    }
-
+    },
     buyWithAccount(code, price, count, account, strategies) {
         var holdacc = this.all_accounts[account].holdAccount();
         if (strategies) {
@@ -218,8 +174,7 @@ class EmjyBack {
             }
         }
         return this.tryBuyStock(code, price, count, account);
-    }
-
+    },
     testTradeApi(code) {
         if (!code) {
             code = '601398';
@@ -233,28 +188,26 @@ class EmjyBack {
                 console.log('test trade failed', err)
             });
         });
-    }
-
+    },
     isTradeTime() {
         var now = new Date();
         if (now > new Date(now.toDateString() + ' 9:30') && now < new Date(now.toDateString() + ' 15:00')) {
             return true;
         }
         return false;
-    }
-
+    },
     removeStock(account, code) {
         this.all_accounts[account].removeStock(code);
-    }
-
+    },
     tradeBeforeClose() {
         this.normalAccount.buyFundBeforeClose();
         this.collateralAccount.buyFundBeforeClose();
-    }
-
+    },
     tradeClosed() {
         this.normalAccount.buyFundBeforeClose();
-        this.loadDeals();
+        for (const acc of Object.values(this.all_accounts)) {
+            acc.loadDeals();
+        }
         this.normalAccount.fillupGuardPrices();
         this.collateralAccount.fillupGuardPrices();
         for (const account of this.track_accounts) {
@@ -278,8 +231,7 @@ class EmjyBack {
             this.flushLogs();
             this.running = false;
         });
-    }
-
+    },
     flushLogs() {
         this.log('flush log!');
         if (logger.logs && logger.logs.length > 0) {
@@ -287,14 +239,12 @@ class EmjyBack {
             this.saveToFile(blob, 'logs/stock.assist' + guang.getTodayDate() + '.log');
             logger.logs = [];
         }
-    }
-
+    },
     saveToFile(blob, filename, conflictAction = 'overwrite') {
         // conflictAction (uniquify, overwrite, prompt)
         var url = URL.createObjectURL(blob);
         chrome.downloads.download({url, filename, saveAs:false, conflictAction});
-    }
-
+    },
     getFromLocal(key) {
         return chrome.storage.local.get(key).then(item => {
             if (!key) return item;
@@ -303,19 +253,11 @@ class EmjyBack {
             }
             return null;
         });
-    }
-
+    },
     saveToLocal(data) {
         chrome.storage.local.set(data);
-    }
-
+    },
     removeLocal(key) {
         chrome.storage.local.remove(key);
     }
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = new EmjyBack();
-} else {
-    window.emjyBack = new EmjyBack();
 }

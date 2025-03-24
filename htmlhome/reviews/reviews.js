@@ -2,7 +2,7 @@
 
 class ReviewsPages extends RadioAnchorPage {
     constructor() {
-        super('持仓');
+        super('持仓管理');
     }
 
     show() {
@@ -18,12 +18,10 @@ class ReviewsPages extends RadioAnchorPage {
         const tabs = [];
         if (emjyBack.fha) {
             var url = emjyBack.fha.server + 'userbind?onlystock=1';
-            const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)}
-            fetch(url, {headers}).then(r => r.json()).then(accs => {
-                const showname = {'normal': '普通账户', 'collat': '担保品账户'}
+            fetch(url, emjyBack.headers).then(r => r.json()).then(accs => {
                 accs = [{name: 'normal', email: emjyBack.fha.uemail, realcash: 1}].concat(accs);
                 for (const acc of accs) {
-                    tabs.push(new StockListPanelPage(acc.name, showname[acc.name]??acc.name));
+                    tabs.push(new StockListPanelPage(acc));
                 }
                 return accs;
             }).then(accs => {

@@ -1,10 +1,4 @@
 'use strict';
-try {
-    const ses = require('../strategies.json');
-    const emjyBack = require('../back/emjybackend.js');
-} catch (err) {
-
-}
 
 class StrategyIntradingView {
     constructor(data, isext=false) {

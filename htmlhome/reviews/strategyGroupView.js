@@ -372,12 +372,15 @@ class StrategyGroupView {
             return;
         };
         console.log('send save strategy POST', JSON.stringify(this.strGrp));
+        const remids = this.strategySelectors.map(s => `${s.id}`);
+        this.strGrp.strategies = Object.fromEntries(Object.entries(this.strGrp.strategies).filter(([k]) => remids.includes(k)));
+        this.strGrp.transfers = Object.fromEntries(Object.entries(this.strGrp.transfers).filter(([k]) => remids.includes(k)));
         const fd = new FormData();
         fd.append('act', 'strategy');
         fd.append('acc', this.account);
         fd.append('code', this.code);
         fd.append('data', JSON.stringify(this.strGrp));
-        var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+        var headers = emjyBack.headers.headers
         const url = emjyBack.fha.server + '/stock';
         fetch(url, {method: 'POST', headers, body: fd});
     }

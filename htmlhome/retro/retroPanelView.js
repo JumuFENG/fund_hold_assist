@@ -4,7 +4,7 @@ class RetroPanelPage extends RadioAnchorPage {
     constructor() {
         super('回测');
         this.plans = [];
-        emjyBack.getFromLocal('retro_plans', retros => {
+        emjyBack.getFromLocal('retro_plans').then(retros => {
             if (retros) {
                 retros.forEach(r => {
                     this.plans.push(new RetroPlan(r));

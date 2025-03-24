@@ -1,5 +1,5 @@
 'use strict';
-
+(function(){
 const { guang } = xreq('./background/guang.js');
 
 class feng {
@@ -588,6 +588,8 @@ class feng {
 
 
 if (typeof module !== 'undefined' && module.exports) {
-    global.feng = feng;
     module.exports = {feng};
+} else if (typeof window !== 'undefined') {
+    window.feng = feng;
 }
+})();

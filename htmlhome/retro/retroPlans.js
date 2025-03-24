@@ -23,7 +23,7 @@ class RetroPlan {
     }
 
     loadSaved() {
-        emjyBack.getFromLocal(this.retroStoreKey(), rpo => {
+        emjyBack.getFromLocal(this.retroStoreKey()).then(rpo => {
             if (rpo) {
                 this.retrodesc = rpo.desc;
                 this.kltype = rpo.kltype;
@@ -31,13 +31,13 @@ class RetroPlan {
                 this.strategy = rpo.strategy;
             }
         });
-        emjyBack.getFromLocal(this.retroStocksKey(), stocks => {
+        emjyBack.getFromLocal(this.retroStocksKey()).then(stocks => {
             this.stocks = stocks;
         });
-        emjyBack.getFromLocal(this.retroDealsKey(), deals => {
+        emjyBack.getFromLocal(this.retroDealsKey()).then(deals => {
             this.deals = deals;
         });
-        emjyBack.getFromLocal(this.retroStatsKey(), stats => {
+        emjyBack.getFromLocal(this.retroStatsKey()).then(stats => {
             this.stats = stats;
         });
     }

@@ -656,11 +656,7 @@ window.addEventListener('beforeunload', e => {
 });
 
 window.onload = function() {
-    fetch('./strategies.json').then(r=>r.json()).then(d=>window.ses=d)
-    .then(()=>{
-        emjyManager.initUi();
-    })
-    .catch(e=>console.error(e));
+    emjyManager.initUi();
 }
 
 function onExtensionBackMessage(message) {

@@ -1,5 +1,6 @@
-'use strict'
+'use strict';
 
+(function(){
 
 const { logger } = xreq('./background/nbase.js');
 const { ses } = xreq('./background/strategies_meta.js');
@@ -916,4 +917,8 @@ const istrManager = {
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {istrManager};
+} else if (typeof window !== 'undefined') {
+    window.istrManager = istrManager;
 }
+})();
+

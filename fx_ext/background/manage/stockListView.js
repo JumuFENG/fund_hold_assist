@@ -1,12 +1,5 @@
 'use strict';
 
-try {
-    const ses = require('./strategies.json');
-    const emjyBack  = require('./emjybackend.js');
-} catch (err) {
-
-}
-
 
 class StockView {
     constructor(stock, click) {

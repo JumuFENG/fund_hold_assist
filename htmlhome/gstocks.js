@@ -6,15 +6,25 @@ class GlobalManager {
     constructor() {
         this.klines = {};
         this.fha = {'server':'http://localhost/5000/'};
-        this.getFromLocal('fha_server', fha => {
+    }
+
+    get headers() {
+        return {headers: {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)}};
+    }
+
+    Init() {
+        const sr = this.getFromLocal('fha_server').then (fha => {
             if (fha) {
                 this.fha = fha;
                 if (!this.fha.server_root) {
                     this.fha.server_root = this.fha.server.replaceAll('5000/', '');
                 }
+                if (guang) {
+                    guang.server = emjyBack.fha.server_root;
+                }
             }
         });
-        this.getFromLocal('hsj_stocks', item => {
+        this.getFromLocal('hsj_stocks').then(item => {
             if (item) {
                 this.stockMarket = item;
             } else {
@@ -24,6 +34,7 @@ class GlobalManager {
         });
         this.statsReport = new StatisticsReport();
         this.strategyManager = new MockStrategyManager();
+        return sr;
     }
 
     log(...args) {
@@ -49,21 +60,9 @@ class GlobalManager {
         URL.revokeObjectURL(lnk.href);
     }
 
-    getFromLocal(key, cb) {
-        localforage.ready(() => {
-            localforage.getItem(key).then((val)=>{
-                var item = null;
-                if (!val) {
-                    console.error('getItem', key, '=', val);
-                } else {
-                    item = JSON.parse(val);
-                }
-                if (typeof(cb) === 'function') {
-                    cb(item);
-                }
-            }, ()=> {
-                console.log('getItem error!', arguments);
-            });
+    getFromLocal(key) {
+        return localforage.ready().then(() => {
+            return localforage.getItem(key).then(val => JSON.parse(val));
         });
     }
 
@@ -419,7 +418,3 @@ class GlobalManager {
     }
 }
 
-var emjyBack = new GlobalManager();
-window.addEventListener('load', _ => {
-    emjyBack.fha.server = location.origin + '/5000/';
-});

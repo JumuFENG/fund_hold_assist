@@ -1,7 +1,8 @@
 'use strict';
-
+(function(){
 class guang {
     static cache = new Map();
+    static server = null;
 
     /**
     * 生成缓存的唯一键：URL + 查询参数
@@ -145,7 +146,8 @@ class guang {
     }
 
     static async getSystemDate() {
-        return this.fetchData('http://www.sse.com.cn/js/common/systemDate_global.js', {}, 10*60*60000, r => {
+        const url = (this.server ? this.server + 'fwd/ssejs/' : 'http://www.sse.com.cn/js/') + 'common/systemDate_global.js';
+        return this.fetchData(url, {}, 10*60*60000, r => {
             let matchsd = r.match(/var systemDate_global\s*=\s*"([^"]+)"/);
             let matchtd = r.match(/var whetherTradeDate_global\s*=\s*(\w+)/);
             let matchlast = r.match(/var lastTradeDate_global\s*=\s*"([^"]+)"/);
@@ -230,4 +232,7 @@ class guang {
 if (typeof module !== 'undefined' && module.exports) {
     global.guang = guang;
     module.exports = {guang};
+} else if (typeof window !== 'undefined') {
+    window.guang = guang;
 }
+})();

@@ -61,4 +61,6 @@ const ses = {
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {ses};
+} else if (typeof window !== 'undefined') {
+    window.ses = ses;
 }

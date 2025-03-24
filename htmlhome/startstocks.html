@@ -6,6 +6,9 @@
         <link rel="stylesheet" type="text/css" href="../fx_ext/background/manage/manage.css">
         <link rel="stylesheet" type="text/css" href="../htmlhome/css/style.css">
 
+        <script >
+            window.xreq = function(m) {return window;}
+        </script>
         <script src="../fx_ext/background/kline.js"></script>
         <script src="../fx_ext/background/guang.js"></script>
 
@@ -94,8 +97,13 @@
 
             var stockRoot = new StockRoot();
             window.onload = function() {
-                stockRoot.setupNavigators();
-                document.querySelector('body').appendChild(stockRoot.root);
+                window.emjyBack = new GlobalManager();
+                emjyBack.Init().then(() => {
+                    stockRoot.setupNavigators();
+                    document.querySelector('body').appendChild(stockRoot.root);
+                });
+                emjyBack.accountsMap = {'normal': ['normal'], 'collat': ['credit', 'collat']};
+                emjyBack.accountNames = {'normal':'普通账户', 'collat': '担保品账户', 'credit': '融资账户'};
             }
         </script>
     </head>

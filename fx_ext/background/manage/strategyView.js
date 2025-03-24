@@ -1,9 +1,4 @@
 'use strict';
-try {
-    const ses = require('../strategies.json');
-} catch (err) {
-
-}
 
 class StrategyViewManager {
     viewer(strategy) {

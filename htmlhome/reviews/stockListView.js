@@ -1,6 +1,5 @@
 'use strict';
 
-emjyBack.accountNames = {'normal':'普通账户', 'collat': '担保品账户', 'credit': '融资账户'};
 
 class StockView {
     constructor(stock, click) {
@@ -13,11 +12,11 @@ class StockView {
             this.onStockClicked(e.currentTarget, this.stock);
         };
         this.divTitle = document.createElement('div');
-        var titleText = stock.name??emjyBack.stockName(stock.code.slice(-6)) + '(' + stock.code.slice(-6) + ') '+ emjyBack.accountNames[stock.account]??stock.account;
+        var titleText = (stock.name??emjyBack.stockName(stock.code.slice(-6))) + '(' + stock.code.slice(-6) + ') '+ emjyBack.accountNames[stock.account]??stock.account;
         this.divTitle.appendChild(document.createTextNode(titleText));
         var anchor = emjyBack.stockAnchor(stock.code, '行情');
         this.divTitle.appendChild(anchor);
-        
+
         if (stock.holdCount == 0) {
             this.deleteBtn = document.createElement('button');
             this.deleteBtn.textContent = 'Delete';
@@ -79,28 +78,6 @@ class StockView {
                 this.detailView.appendChild(divNode);
             }
         }
-
-        if (emjyBack.klines[this.stock.code]) {
-            var klineCheckDiv = document.createElement('div');
-            this.detailView.appendChild(klineCheckDiv);
-            var klLatestTime = emjyBack.getKlinesLatestTime();
-            for (var klt of ['1', '15', '101']) {
-                var kl = emjyBack.klines[this.stock.code].getLatestKline(klt);
-                if (kl && kl.time < klLatestTime[klt]) {
-                    klineCheckDiv.appendChild(document.createTextNode(kl.time));
-                    var btnUpdate = document.createElement('a');
-                    btnUpdate.textContent = '更新k线' + klt;
-                    btnUpdate.href = 'javascript:void(0)';
-                    btnUpdate.fetchCmd = {command:'mngr.fetchkline', code: this.stock.code, kltype: klt, start: kl.time.split(' ')[0]};
-                    btnUpdate.onclick = e => {
-                        if (e.target.fetchCmd) {
-                            emjyBack.sendExtensionMessage(e.target.fetchCmd);
-                        }
-                    }
-                    klineCheckDiv.appendChild(btnUpdate);
-                }
-            }
-        }
     }
 
     showWarningInTitle() {
@@ -134,10 +111,12 @@ class StockView {
     }
 }
 
+const showname = {'normal': '普通账户', 'collat': '担保品账户'}
 class StockListPanelPage extends RadioAnchorPage {
-    constructor(key='normal', name='普通账户', filt=7) {
-        super(name);
-        this.keyword = key;
+    constructor(acc, filt=7) {
+        super(showname[acc.name]??acc.name);
+        this.acc = acc;
+        this.keyword = acc.name;
         this.defaultFilter = filt;
         this.stocks = [];
         this.currentCode = null;
@@ -150,16 +129,15 @@ class StockListPanelPage extends RadioAnchorPage {
             this.initAccFrame();
             this.addWatchArea();
         }
-        const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
         if (this.stocks.length == 0) {
             var url = emjyBack.fha.server + 'stock?act=watchings&acc=' + this.keyword;
-            fetch(url, {headers}).then(r => r.json()).then(stocks => {
+            fetch(url, emjyBack.headers).then(r => r.json()).then(stocks => {
                 this.initUi(stocks);
             });
         }
         if (!emjyBack.costDog) {
             var durl = emjyBack.fha.server + 'stock?act=costdog';
-            fetch(durl, {headers}).then(r => r.json()).then(cdata => emjyBack.costDog = cdata);
+            fetch(durl, emjyBack.headers).then(r => r.json()).then(cdata => emjyBack.costDog = cdata);
         }
     }
 
@@ -175,6 +153,7 @@ class StockListPanelPage extends RadioAnchorPage {
         cloud.getStockBasics(Object.keys(stocks)).then(sbasic => {
             for (const c in sbasic) {
                 stocks[c].code = c;
+                stocks[c].name = sbasic[c]?.secu_name;
                 stocks[c].latestPrice = sbasic[c]?.last_px;
                 stocks[c].up_price = sbasic[c]?.up_price;
                 stocks[c].down_price = sbasic[c]?.down_price;
@@ -186,7 +165,13 @@ class StockListPanelPage extends RadioAnchorPage {
             }
             utils.removeAllChild(this.listContainer);
             this.stocks = [];
-            stocks = Object.values(stocks).sort((a, b) => b.holdCount * b.latestPrice - a.holdCount * a.latestPrice);
+            if (this.acc.realcash) {
+                stocks = Object.values(stocks).sort((a, b) => b.holdCount * b.latestPrice - a.holdCount * a.latestPrice);
+            } else {
+                stocks = Object.values(stocks).sort((a, b) => {
+                    return a.strategies.buydetail.slice(-1)[0].date - b.strategies.buydetail.slice(-1)[0].date;
+                });
+            }
             for (const s of stocks) {
                 this.addStock(s.code, s);
             }
@@ -381,15 +366,6 @@ class StockListPanelPage extends RadioAnchorPage {
         return this.stocks.find(s => s.stock.code == code);
     }
 
-    updateStockPrice(code) {
-        for (var i = 0; i < this.stocks.length; i++) {
-            if (this.stocks[i].stock.code == code && emjyBack.klines[code]) {
-                this.stocks[i].stock.latestPrice = emjyBack.klines[code].getLatestPrice();
-                this.stocks[i].refresh();
-            }
-        }
-    }
-
     addStock(code, stock) {
         if (this.stockExist(code)) {
             emjyBack.log(this.keyword, code, 'already exists');
@@ -463,8 +439,7 @@ class StockListPanelPage extends RadioAnchorPage {
         this.costDogFilter = document.createElement('select');
         if (!emjyBack.costDog) {
             var durl = emjyBack.fha.server + 'stock?act=costdog';
-            const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
-            fetch(durl, {headers}).then(r => r.json()).then(cdata => {
+            fetch(durl, emjyBack.headers).then(r => r.json()).then(cdata => {
                 emjyBack.costDog = cdata;
             }).then(() => {
                 this.addCostDogFilterOptions();

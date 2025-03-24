@@ -1,9 +1,10 @@
 'use strict';
 
+(function(){
+
 const { logger } = xreq('./background/nbase.js');
 const { feng } = xreq('./background/feng.js');
 const { emjyBack } = xreq('./background/emjybackend.js');
-
 
 class klPad {
     static klines = {};
@@ -1468,4 +1469,8 @@ class KLine {
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {klPad, KLine}
+} else if (typeof window !== 'undefined') {
+    window.klPad = klPad;
+    window.KLine = KLine;
 }
+})();

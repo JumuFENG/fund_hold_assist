@@ -53,7 +53,7 @@ class SettingsView extends RadioAnchorPage {
             var fd = new FormData();
             fd.append('act', 'costdog');
             fd.append('cdata', JSON.stringify(emjyBack.costDog));
-            const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+            const headers = emjyBack.headers.headers;
             fetch(durl, {method: 'POST', headers, body:fd});
         }
     }
@@ -127,7 +127,7 @@ class SettingsView extends RadioAnchorPage {
             btnDel.acc = acc.name;
             btnDel.onclick = e => {
                 const url = emjyBack.fha.server + '/user/edit';
-                const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+                const headers = emjyBack.headers.headers;
                 const fd = new FormData();
                 fd.append('act', 'rmvsub');
                 fd.append('acc', e.target.acc);
@@ -154,11 +154,11 @@ class SettingsView extends RadioAnchorPage {
                 return;
             }
             const url = emjyBack.fha.server + '/user/edit';
-            const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+            const headers = emjyBack.headers.headers;
             const fd = new FormData();
             fd.append('act', 'addsub');
             fd.append('acc', acc);
-            fetch(url, {method: 'POST', headers}).then(nacc => {
+            fetch(url, {method: 'POST', headers, body:fd}).then(nacc => {
                 if (nacc && nacc.id) {
                     this.accounts.push(nacc);
                     this.addSubAccountsView();

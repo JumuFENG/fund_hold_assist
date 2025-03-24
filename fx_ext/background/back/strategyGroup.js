@@ -1,5 +1,6 @@
 'use strict';
 
+(function(){
 const { ses } = xreq('./background/strategies_meta.js');
 const { logger } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
@@ -466,12 +467,7 @@ class BuyDetail {
 
 class CostDog {
     constructor(cdobj) {
-        this.dogdic = {};
-        if (cdobj && cdobj.length > 0) {
-            for (const c of cdobj) {
-                this.dogdic[c.key] = c;
-            }
-        }
+        this.dogdic = cdobj;
     }
 
     save() {
@@ -1020,4 +1016,8 @@ class StrategyGroup {
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {GroupManager, CostDog};
+} else if (typeof window !== 'undefined') {
+    window.GroupManager = GroupManager;
+    window.CostDog = CostDog;
 }
+})();

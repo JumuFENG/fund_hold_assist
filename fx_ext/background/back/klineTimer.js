@@ -1,5 +1,6 @@
 'use strict';
 
+(function(){
 const { logger } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
@@ -286,5 +287,8 @@ const alarmHub = {
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {alarmHub};
+} else if (typeof window !== 'undefined') {
+    window.alarmHub = alarmHub;
 }
+})();
 

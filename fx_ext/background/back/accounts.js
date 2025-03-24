@@ -1,12 +1,12 @@
 'use strict';
 
+(function(){
 const { logger, ctxfetch } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
 const { emjyBack } = xreq('./background/emjybackend.js');
 const { klPad } = xreq('./background/kline.js');
 const { GroupManager }  = xreq('./background/strategyGroup.js');
-
 
 class DealsClient {
     // 普通账户 当日成交
@@ -1420,6 +1420,13 @@ class CreditAccount extends CollateralAccount {
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
+        TradeClient,
         NormalAccount, CollateralAccount, CreditAccount
     };
+} else if (typeof window !== 'undefined') {
+    window.TradeClient = TradeClient;
+    window.NormalAccount = NormalAccount;
+    window.CollateralAccount = CollateralAccount;
+    window.CreditAccount = CreditAccount;
 }
+})();

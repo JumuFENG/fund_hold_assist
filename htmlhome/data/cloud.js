@@ -1,9 +1,3 @@
-try {
-    require('./guang.js');
-} catch (e) {
-
-}
-
 
 const cloud = {
     stock_basics: { },
@@ -53,11 +47,11 @@ const cloud = {
             return;
         }
         const scodes = stocks.map(s => s.replaceAll('SH', '1.').replaceAll('SZ', '0.')).join(',');
-        const qurl = this.server + `fwd/empush2qt/ulist.np/get?fltt=2&secids=${scodes}&fields=f2,f12,f13`;
+        const qurl = this.server + `fwd/empush2qt/ulist.np/get?fltt=2&secids=${scodes}&fields=f2,f12,f13,f14`;
         const emdata = await fetch(qurl).then(r => r.json()).then(d=>d?.data?.diff);
-        for (const {f2: last_px, f12: code, f13:mkt} of emdata) {
+        for (const {f2: last_px, f12: code, f13:mkt, f14:secu_name} of emdata) {
             let secu_code = guang.convertToSecu(['SZ','SH'][mkt] + code);
-            this.stock_basics[secu_code] = {last_px, secu_code};
+            this.stock_basics[secu_code] = {last_px, secu_code, secu_name};
             this.stock_basics[secu_code].expireTime = await guang.snapshotExpireTime();
         }
     }
@@ -67,4 +61,6 @@ const cloud = {
 if (typeof module !== 'undefined' && module.exports) {
     global.cloud = cloud;
     module.exports = {cloud};
+} else if (typeof window !== 'undefined') {
+    window.cloud = cloud;
 }

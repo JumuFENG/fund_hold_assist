@@ -804,7 +804,7 @@ class User:
                     monstats = []
                 cmon = mon
 
-            monstats.append([r[0], r[1], round(r[2], 2), round(r[3], 2), round(r[4], 2), round(r[5], 2), round(r[6], 2)])
+            monstats.append([r[0], round(r[1], 2), round(r[2], 2), round(r[3], 2), round(r[4], 2), round(r[5], 2), round(r[6], 2)])
 
         if len(monstats) > 0:
             stats_monthly.append(monstats)
