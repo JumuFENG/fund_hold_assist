@@ -1,11 +1,12 @@
 'use strict';
 
-try {
-    const ses = require('./strategies.json');
-    const { strategyFac }  = require("./strategyController.js");
-} catch (err) {
+const { ses } = xreq('./background/strategies_meta.js');
+const { logger } = xreq('./background/nbase.js');
+const { guang } = xreq('./background/guang.js');
+const { feng } = xreq('./background/feng.js');
+const { emjyBack } = xreq('./background/emjybackend.js');
+const { strategyFac }  = xreq("./background/strategyController.js");
 
-}
 
 class GroupManager {
     static create(group, account, code, skey) {
@@ -1009,6 +1010,10 @@ class StrategyGroup {
             }
         }
         await Promise.all(uppromise);
+        if (!emjyBack.klines[code]) {
+            emjyBack.log(code, 'no kline exists!');
+            return;
+        }
         emjyBack.klines[code].save();
     }
 }

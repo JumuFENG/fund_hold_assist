@@ -1,14 +1,11 @@
 'use strict';
 
-
-try {
-    require('./guang.js');
-    require('./feng.js');
-    const {logger, ctxfetch} = require('./nbase.js');
-    const { klPad } = require('./kline.js');
-    const { GroupManager }  = require('./strategyGroup.js');
-} catch (err) {
-}
+const { logger, ctxfetch } = xreq('./background/nbase.js');
+const { guang } = xreq('./background/guang.js');
+const { feng } = xreq('./background/feng.js');
+const { emjyBack } = xreq('./background/emjybackend.js');
+const { klPad } = xreq('./background/kline.js');
+const { GroupManager }  = xreq('./background/strategyGroup.js');
 
 
 class DealsClient {
@@ -365,7 +362,6 @@ class MarginAssetsClient extends AssetsClient {
 }
 
 
-// export class TradeClient {
 class TradeClient {
     constructor(amoney = 0) {
         this.availableMoney = amoney;

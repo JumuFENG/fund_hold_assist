@@ -1,15 +1,11 @@
 'use strict'
 
-try {
-    const ses = require('./strategies.json');
-    const {guang}  = require('../guang.js');
-    const {feng}  = require('../feng.js');
-} catch (err) {
-    if (typeof window !== 'undefined' && window.emjyBack) {
-        emjyBack = window.emjyBack;
-    }
-};
 
+const { logger } = xreq('./background/nbase.js');
+const { ses } = xreq('./background/strategies_meta.js');
+const { guang } = xreq('./background/guang.js');
+const { feng } = xreq('./background/feng.js');
+const { emjyBack } = xreq('./background/emjybackend.js');
 
 const validTradeStatus = ['OCALL', 'TRADE', 'ECALL'];
 const noTradeStatus = ['STOP', 'ENDTR', 'HALT', 'BREAK'];
@@ -862,17 +858,22 @@ class StrategyI_IndexTracking extends StrategyI_Interval {
 }
 
 
-// export class istrManager {
-class istrManager {
-    static initExtStrs() {
+const istrManager = {
+    initExtStrs() {
+        logger.info('initExtStrs');
         this.istrs = {};
         guang.isTodayTradingDay().then(trade => {
             this.isTradingDay = trade;
             this.setupExtStrategy();
         });
-    }
-
-    static setupExtStrategy() {
+    },
+    getIstrData(ikey) {
+        if (this.iconfig) {
+            return Promise.resolve(this.iconfig[ikey]);
+        }
+        return emjyBack.getFromLocal(ikey);
+    },
+    setupExtStrategy() {
         const build_istr = function (istr) {
             let iks = null;
             if (istr.key == 'istrategy_zt1wb') {
@@ -892,7 +893,7 @@ class istrManager {
         }
 
         for (const k in ses.ExtIstrStrategies) {
-            emjyBack.getFromLocal('exstrategy_' + k).then(istr => {
+            this.getIstrData('exstrategy_' + k).then(istr => {
                 if (!istr) {
                     emjyBack.log('ext strategy', k, 'not configured');
                     return;
@@ -907,7 +908,7 @@ class istrManager {
             });
         }
         if (!this.isTradingDay) {
-            console.log('not trading day, please prepare manually!');
+            logger.info('not trading day, please prepare manually!');
         }
     }
 }

@@ -3,12 +3,17 @@ const path = require('path');
 const { exit } = require('process');
 const express = require('express');
 const puppeteer = require('puppeteer');
-require('./background/emjybackend.js');
-require('./background/guang.js')
+// xreq path must related to this file or will throw execption.
+global.xreq = function(m) {
+    return require(path.resolve(__dirname, m));
+}
+
 const config = require('./config.json');
+const { guang } = require('./background/guang.js')
 const { logger, ctxfetch } = require('./background/nbase.js');
-const { alarmHub } = require('./background/klineTimer.js');
 const { emjyBack } = require('./background/emjybackend.js');
+const { alarmHub } = require('./background/klineTimer.js');
+const { istrManager } = require('./background/istrategies.js');
 
 
 const app = express();
@@ -47,6 +52,8 @@ if (!config.unp.account || !config.unp.pwd) {
 
 emjyBack.fha = config.fha;
 alarmHub.config = config.client;
+istrManager.iconfig = config.client.extistrs;
+
 
 const ext = {
     mxretry: 2,
@@ -104,7 +111,7 @@ const ext = {
         }
     },
     async setcaptcha(capurl, text) {
-        if (!emjyBack.page) {
+        if (!this.page) {
             return false;
         }
         if (capurl !== this.waitingCaptcha) {
@@ -203,7 +210,7 @@ const ext = {
         }, 175 * 60000);
         emjyBack.Init();
         alarmHub.setupAlarms();
-        alarmHub.orderTimer.onTimer();
+        istrManager.initExtStrs();
     },
     async onLoginFailed() {
         this.status = 'failed';
@@ -218,7 +225,7 @@ const ext = {
 
 
 app.get('/status', (req, res) => {
-    const r = {status: ext.status};
+    const r = {status: ext.status, running: emjyBack.running};
     res.send(r);
 });
 
@@ -250,8 +257,8 @@ app.post('/capcha', (req, res) => {
 if (guang.isTodayTradingDay()) {
     ext.schedule();
 }
-// const port = config.client.port;
-const port = 5000;
+
+const port = config.client.port;
 app.listen(port, () => {
     console.log('Server is running on port', port);
 });

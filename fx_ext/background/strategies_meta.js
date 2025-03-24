@@ -1,4 +1,4 @@
-{
+const ses = {
     "ComplexStrategyKeyNames": {
         "StrategyMA": "MA突破买卖",
         "StrategyGE": "网格买入,盈利卖出",
@@ -56,4 +56,9 @@
             "desc": "跟踪指数的买入策略, 盘中指数如果出现主力净流入1分钟流入>1亿或者10分钟累积净流入>5亿则符合买入条件, 满足买入条件无仓位或与上次买入有一定跌幅则买入."
         }
     }
+}
+
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {ses};
 }

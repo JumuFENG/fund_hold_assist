@@ -1,12 +1,7 @@
 'use strict';
 
-try {
-    const {guang} = require('./guang.js');
-} catch (err) {
+const { guang } = xreq('./background/guang.js');
 
-}
-
-// export class feng {
 class feng {
     constructor() {
         throw new Error('Cannot instantiate StaticClass');

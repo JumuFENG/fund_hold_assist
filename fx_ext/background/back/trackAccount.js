@@ -1,13 +1,11 @@
 'use strict';
 
-try {
-    const {guang}  = require('../guang.js');
-    const emjyBack  = require('./emjybackend.js');
-    const {TradeClient, NormalAccount}  = require('./accounts.js');
-    const {GroupManager}  = require('./strategyGroup.js');
-} catch (err) {
-
-}
+const { logger } = xreq('./background/nbase.js');
+const { guang } = xreq('./background/guang.js');
+const { feng } = xreq('./background/feng.js');
+const { emjyBack } = xreq('./background/emjybackend.js');
+const { TradeClient, NormalAccount }  = xreq('./background/accounts.js');
+const { GroupManager } = xreq('./background/strategyGroup.js');
 
 
 class TestTradeClient extends TradeClient {

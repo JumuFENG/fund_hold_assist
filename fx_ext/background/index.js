@@ -4,6 +4,10 @@ if (navigator.userAgent.includes('Firefox')) {
     chrome = browser;
 }
 
+window.xreq = function(m) {
+    return window;
+}
+
 class ManagerBack {
     constructor() {
         this.tabid = null;

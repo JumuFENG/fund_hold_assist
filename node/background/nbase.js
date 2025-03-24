@@ -89,6 +89,5 @@ class ctxfetch {
 
 
 if (typeof module !== 'undefined' && module.exports) {
-    global.ctxfetch = ctxfetch;
     module.exports = {logger, ctxfetch};
 }

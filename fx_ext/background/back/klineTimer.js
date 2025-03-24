@@ -1,12 +1,9 @@
 'use strict';
 
-try {
-    const { logger } = require('./nbase.js');
-    const { guang } = require('./guang.js');
-    const { feng } = require('./feng.js');
-} catch (err) {
-
-};
+const { logger } = xreq('./background/nbase.js');
+const { guang } = xreq('./background/guang.js');
+const { feng } = xreq('./background/feng.js');
+const { emjyBack } = xreq('./background/emjybackend.js');
 
 
 class AlarmBase {
@@ -111,7 +108,7 @@ class DailyAlarm extends AlarmBase {
 
 class KlineTimer extends AlarmBase {
     constructor() {
-        super([['9:30:55', '11:30'],['12:59:56', '14:56:58']]);
+        super([['9:29:56', '11:30'],['12:59:56', '14:56:58']]);
         this.baseKlt = new Set(['1', '15']);
         this.hitCount = 0;
         this.ticks = 60000;
@@ -192,7 +189,7 @@ class AccOrderTimer extends RtpTimer {
             }
             const lastsj = Math.max(...waitings.map(d => d.Wtsj));
             const now = new Date();
-            let diff = now - new Date(now.getFullYear(), now.getMonth(), now.getDate(), (lastsj/10000).toFixed(), (a/100%100).toFixed(), lastsj%100);
+            let diff = now - new Date(now.getFullYear(), now.getMonth(), now.getDate(), (lastsj/10000).toFixed(), (lastsj/100%100).toFixed(), lastsj%100);
             if (diff < 10000) {
                 diff = 10000;
             }
@@ -207,11 +204,9 @@ class AccOrderTimer extends RtpTimer {
 }
 
 
-// export class alarmHub {
-class alarmHub {
-    static config = null;
-
-    static setupAlarms() {
+const alarmHub = {
+    config: null,
+    setupAlarms() {
         if (!this.klineAlarms) {
             this.klineAlarms = new KlineTimer();
         };
@@ -260,7 +255,7 @@ class alarmHub {
 
         guang.isTodayTradingDay().then(trade => {
             if (trade) {
-                [ralarm, talarm, bclose, closed, //this.orderTimer,
+                [ralarm, talarm, bclose, closed, // this.orderTimer,
                     this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
                 ].forEach(a => {
                     a.setupTimer();
@@ -269,22 +264,19 @@ class alarmHub {
                 console.log('not trading day! start timer manually if necessary!');
             }
         });
-    }
-
-    static startAllTimers() {
+    },
+    startAllTimers() {
         this.ztBoardTimer?.startTimer();
         this.rtpTimer?.setTick(10000);
         this.rtpTimer?.startTimer();
         this.klineAlarms?.startTimer();
-    }
-
-    static stopAllTimers() {
+    },
+    stopAllTimers() {
         this.ztBoardTimer?.stopTimer();
         this.rtpTimer?.stopTimer();
         this.klineAlarms?.stopTimer();
-    }
-
-    static tradeDailyRoutineTasks() {
+    },
+    tradeDailyRoutineTasks() {
         if (alarmHub.config?.purchaseNewStocks) {
             feng.buyNewStocks();
         }

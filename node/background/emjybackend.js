@@ -1,15 +1,14 @@
-const {logger} = require('./nbase.js');
-const {NormalAccount, CreditAccount, CollateralAccount} = require('./accounts.js');
+const {logger} = xreq('./background/nbase.js');
+const {NormalAccount, CreditAccount, CollateralAccount} = xreq('./background/accounts.js');
 
 
-class emjyBack {
-    static validateKey = null;
-    static log(...args) {
+const emjyBack = {
+    validateKey: null,
+    log(...args) {
         var l = args.join(' ');
         logger.info(l);
-    }
-
-    static Init() {
+    },
+    Init() {
         this.running = true;
         this.normalAccount = new NormalAccount();
         this.collateralAccount = new CollateralAccount();
@@ -18,14 +17,12 @@ class emjyBack {
         this.all_accounts[this.normalAccount.keyword] = this.normalAccount;
         this.all_accounts[this.collateralAccount.keyword] = this.collateralAccount;
         this.all_accounts[this.creditAccount.keyword] = this.creditAccount;
-    }
-
-    static loadAssets() {
+    },
+    loadAssets() {
         this.normalAccount.loadAssets();
         this.collateralAccount.loadAssets();
-    }
-
-    static refreshAssets() {
+    },
+    refreshAssets() {
         if (this.normalAccount.stocks.length > 0) {
             this.normalAccount.save();
         };
@@ -35,16 +32,13 @@ class emjyBack {
 
         this.loadAssets();
     }
-
-    static loadDeals() {
+    ,loadDeals() {
         this.normalAccount.loadDeals();
         this.collateralAccount.loadDeals();
-    }
-
+    },
     updateHistDeals() {
-    }
-
-    static tradeClosed() {
+    },
+    tradeClosed() {
         logger.info(emjyBack.normalAccount.orderfeched);
         logger.info(emjyBack.collateralAccount.orderfeched);
         this.running = false;
@@ -53,6 +47,5 @@ class emjyBack {
 
 
 if (typeof module !== 'undefined' && module.exports) {
-    global.emjyBack = emjyBack;
     module.exports = {emjyBack};
 }

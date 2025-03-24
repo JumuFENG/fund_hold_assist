@@ -1,5 +1,9 @@
 'use strict';
 
+const { logger } = xreq('./background/nbase.js');
+const { feng } = xreq('./background/feng.js');
+const { emjyBack } = xreq('./background/emjybackend.js');
+
 
 class klPad {
     static klines = {};
