@@ -2,16 +2,109 @@
 
 (function(){
 
-const { logger } = xreq('./background/nbase.js');
+const { logger, svrd } = xreq('./background/nbase.js');
 const { feng } = xreq('./background/feng.js');
+const { guang } = xreq('./background/guang.js');
 
 const klPad = {
     klines: {},
+    emklapi: 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56',
     loadKlines(code) {
         if (!this.klines[code]) {
             this.klines[code] = new KLine(code);
             this.klines[code].loadSaved();
         }
+    },
+    getStockZt(code) {
+        const lclose = this.klines[code].getKline('101').slice(-1)[0].c;
+        return feng.getStockZt(code, lclose);
+    },
+    getStockDt(code) {
+        const lclose = this.klines[code].getKline('101').slice(-1)[0].c;
+        return feng.getStockDt(code, lclose);
+    },
+    /**
+    * 获取股票K线数据, 常用日K，1分， 15分
+    * @param {string} code 股票代码, 如: 002261
+    * @param {number} klt K线类型，101: 日k 102: 周k 103: 月k 104: 季k 105: 半年k 106:年k 60: 小时 120: 2小时, 其他分钟数 1, 5, 15,30
+    * @param {string} date 用于大于日K的请求，设置开始日期如： 20201111
+    * @returns {Promise<any>} 返回数据的 Promise
+    */
+    async getStockKline(code, klt, date) {
+        if (!klt) {
+            klt = '101';
+        }
+        let secid = await feng.getStockSecId(code);
+        let beg = 0;
+        if (klt == '101') {
+            beg = date;
+            if (!beg) {
+                beg = new Date();
+                beg = new Date(beg.setDate(beg.getDate() - 30));
+                beg = beg.toLocaleString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, '')
+            } else if (date.includes('-')) {
+                beg = date.replaceAll('-', '');
+            }
+        }
+        let url = this.emklapi + '&klt=' + klt + '&secid=' + secid + '&beg=' + beg + '&end=20500000';
+        let cacheTime = klt - 15 < 0 || klt % 30 == 0 ? klt * 60000 : 24*60*60000;
+        return guang.fetchData(url, {}, cacheTime, klrsp => {
+            let code = klrsp.data.code;
+            if (!this.klines[code]) {
+                this.klines[code] = new KLine(code);
+            }
+            let updatedKlt = this.klines[code].updateRtKline({kltype: klt, kline: klrsp});
+            let kl0 = this.klines[code].getLatestKline(klt);
+            const getExpireTime = function(kltime, kltype) {
+                const currentDate = new Date();
+                const [year, month, day] = [currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()]
+                const createTime = (h, m, s = 0, dd = 0) => new Date(year, month, day + dd, h, m, s);
+
+                const amStart = createTime(9, 30);   // 上午开盘时间
+                const amEnd = createTime(11, 30);    // 上午收盘时间
+                const pmStart = createTime(13, 0);   // 下午开盘时间
+                const pmEnd = createTime(15, 0);     // 下午收盘时间
+
+                let klDate = new Date(kltime);
+                if (kltype - 15 > 0 && kltype % 30 !== 0) {
+                    klDate = new Date(kltime + ' 15:00');
+                }
+
+                if (klDate < currentDate) {
+                    return amStart > currentDate ? amStart : createTime(9, 30, 0, 1); // 下一天的上午开盘时间
+                }
+
+                if (kltype - 15 > 0 && kltype % 30 !== 0) {
+                    if (currentDate < createTime(14, 50)) {
+                        return createTime(14, 50); // 尾盘更新
+                    }
+                    return currentDate < pmEnd ? pmEnd : createTime(9, 30, 0, 1); // 下午收盘时间或第二天开盘时间
+                }
+
+                if (currentDate < amStart) {
+                    return amStart; // 上午开盘时间
+                }
+
+                const kLineInterval = kltype;
+                const nextDate = new Date(Math.ceil(klDate.getTime() / (kLineInterval * 60000)) * kLineInterval * 60000);
+
+                if (currentDate >= amStart && currentDate < amEnd) {
+                    return nextDate < amEnd ? nextDate : amEnd;
+                }
+                if (currentDate >= pmStart && currentDate < pmEnd) {
+                    return nextDate < pmEnd ? nextDate : pmEnd;
+                }
+                if (currentDate >= amEnd && currentDate < pmStart) {
+                    return pmStart;
+                }
+                if (currentDate >= pmEnd) {
+                    return createTime(9, 30, 0, 1); // 下一天的上午开盘时间
+                }
+            };
+
+            let data = Object.fromEntries(updatedKlt.map(x => [x, this.klines[code].klines[x]]));
+            return {data, expireTime: getExpireTime(kl0.time, klt)};
+        });
     }
 }
 
@@ -72,7 +165,7 @@ class KLine {
             }
             return;
         }
-        emjyBack.getFromLocal(this.storeKey).then(klines => {
+        svrd.getFromLocal(this.storeKey).then(klines => {
             if (klines) {
                 this.klines = klines;
                 for (var i in this.klines) {
@@ -99,7 +192,7 @@ class KLine {
         if (this.klines) {
             var stockKlines = {};
             stockKlines[this.storeKey] = this.klines;
-            emjyBack.saveToLocal(stockKlines);
+            svrd.saveToLocal(stockKlines);
         };
     }
 
@@ -107,7 +200,7 @@ class KLine {
         if (this.klines !== undefined) {
             delete(this.klines);
         };
-        emjyBack.removeLocal(this.storeKey);
+        svrd.removeLocal(this.storeKey);
     }
 
     getKline(kltype) {

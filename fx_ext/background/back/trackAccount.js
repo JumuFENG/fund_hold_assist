@@ -1,10 +1,11 @@
 'use strict';
 (function(){
 
-const { logger } = xreq('./background/nbase.js');
+const { logger, svrd } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
-const { TradeClient, NormalAccount }  = xreq('./background/accounts.js');
+const { klPad } = xreq('./background/kline.js');
+const { TradeClient, NormalAccount, accinfo }  = xreq('./background/accounts.js');
 const { GroupManager } = xreq('./background/strategyGroup.js');
 
 
@@ -57,7 +58,7 @@ class TrackingAccount extends NormalAccount {
             for (var rec of records) {
                 if (rec.date.includes(':')) {
                     var rdate = rec.date.split(' ')[0];
-                    var kl = emjyBack.klines[code].getKlineByTime(rdate);
+                    var kl = klPad.klines[code].getKlineByTime(rdate);
                     if (kl && loadhour >= 15) {
                         if (rec.date < rdate + ' ' + '09:30') {
                             rec.price = kl.o;
@@ -82,13 +83,13 @@ class TrackingAccount extends NormalAccount {
                 }
             }
         }
-        emjyBack.getFromLocal(watchingStorageKey).then(watchings => {
-            emjyBack.log('get watching_stocks', JSON.stringify(watchings));
+        svrd.getFromLocal(watchingStorageKey).then(watchings => {
+            logger.info('get watching_stocks', JSON.stringify(watchings));
             if (watchings) {
                 watchings.forEach(s => {
                     this.addWatchStock(s);
                     var strStorageKey = this.keyword + '_' + s + '_strategies';
-                    emjyBack.getFromLocal(strStorageKey).then(str => {
+                    svrd.getFromLocal(strStorageKey).then(str => {
                         if (str) {
                             this.applyStrategy(s, JSON.parse(str));
                             var stockInfo = this.stocks.find(function(stocki) {return s == stocki.code});
@@ -104,7 +105,7 @@ class TrackingAccount extends NormalAccount {
                 });
             };
         });
-        emjyBack.getFromLocal(this.key_deals).then(tdeals => {
+        svrd.getFromLocal(this.key_deals).then(tdeals => {
             if (tdeals) {
                 this.deals = tdeals;
             }
@@ -159,7 +160,7 @@ class TrackingAccount extends NormalAccount {
         this.deals = this.deals.filter(x=>this.getStock(x.code)?.holdCount > 0);
         var dsobj = {};
         dsobj[this.key_deals] = this.deals;
-        emjyBack.saveToLocal(dsobj);
+        svrd.saveToLocal(dsobj);
     }
 
     alignDealsToRecords() {
@@ -221,14 +222,49 @@ class TrackingAccount extends NormalAccount {
         super.save();
         var dsobj = {};
         dsobj[this.key_deals] = this.deals;
-        emjyBack.saveToLocal(dsobj);
+        svrd.saveToLocal(dsobj);
     }
 }
 
+const trackacc = {
+    initTrackAccounts() {
+        this.track_accounts = [];
+        if (accinfo.fha.save_on_server) {
+            var url = accinfo.fha.server + 'userbind?onlystock=1';
+            fetch(url, {headers: accinfo.fha.headers}).then(r => r.json()).then(accs => {
+                for (const acc of accs) {
+                    if (acc.realcash) {
+                        logger.info('skip realcash acc in track account');
+                        continue;
+                    }
+                    this.track_accounts.push(new TrackingAccount(acc.name));
+                }
+                for (const account of this.track_accounts) {
+                    accinfo.all_accounts[account.keyword] = account;
+                    account.loadWatchings();
+                }
+            })
+        } else {
+            svrd.getFromLocal('track_accounts').then(accs => {
+                if (!accs || Object.keys(accs).length === 0) {
+                    accs = ['track'];
+                }
+                for (let ac in accs) {
+                    this.track_accounts.push(new TrackingAccount(ac));
+                }
+                for (const account of this.track_accounts) {
+                    accinfo.all_accounts[account.keyword] = account;
+                    account.loadAssets();
+                }
+            });
+        }
+        accinfo.track_accounts = this.track_accounts;
+    }
+}
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {TrackingAccount};
+    module.exports = {trackacc};
 } else if (typeof window !== 'undefined') {
-    window.TrackingAccount = TrackingAccount;
+    window.trackacc = trackacc;
 }
 })();

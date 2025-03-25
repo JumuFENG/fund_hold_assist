@@ -4,6 +4,7 @@
 const { logger } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
+const { accinfo } = xreq('./background/accounts.js');
 const { emjyBack } = xreq('./background/emjybackend.js');
 
 
@@ -64,7 +65,7 @@ class AlarmBase {
     }
 
     startTimer() {
-        emjyBack.log(this.constructor.name, 'started!');
+        logger.info(this.constructor.name, 'started!');
         if (!this.ticks) {
             this.ticks = 1000;
         }
@@ -77,7 +78,7 @@ class AlarmBase {
         if (this.rtInterval) {
             clearInterval(this.rtInterval);
             this.rtInterval = null;
-            emjyBack.log(this.constructor.name, 'stopped!');
+            logger.info(this.constructor.name, 'stopped!');
         };
     }
 
@@ -93,9 +94,9 @@ class DailyAlarm extends AlarmBase {
     }
 
     onTimer() {
-        emjyBack.log('daily alarm start update daily kline');
+        logger.info('daily alarm start update daily kline');
         this.baseKlt.forEach(kltype => {
-            for (const acc of Object.values(emjyBack.all_accounts)) {
+            for (const acc of Object.values(accinfo.all_accounts)) {
                 acc.stocks.forEach(s => {
                     if (s.strategies) {
                         s.strategies.checkStockRtKlines(kltype);
@@ -103,7 +104,7 @@ class DailyAlarm extends AlarmBase {
                 });
             }
         });
-        emjyBack.log('daily alarm update daily kline done!');
+        logger.info('daily alarm update daily kline done!');
     }
 }
 
@@ -124,7 +125,7 @@ class KlineTimer extends AlarmBase {
                 due = this.hitCount % kltype == 0;
             };
             if (due) {
-                for (const acc of Object.values(emjyBack.all_accounts)) {
+                for (const acc of Object.values(accinfo.all_accounts)) {
                     acc.stocks.forEach(s => {
                         if (s.strategies) {
                             s.strategies.checkStockRtKlines(kltype);
@@ -143,7 +144,7 @@ class OtpAlarm extends AlarmBase{
     }
 
     onTimer() {
-        for (const acc of Object.values(emjyBack.all_accounts)) {
+        for (const acc of Object.values(accinfo.all_accounts)) {
             acc.stocks.forEach(s => {
                 if (s.strategies) {
                     s.strategies.checkStockRtSnapshot(true);
@@ -160,7 +161,7 @@ class RtpTimer extends AlarmBase {
     }
 
     onTimer() {
-        for (const acc of Object.values(emjyBack.all_accounts)) {
+        for (const acc of Object.values(accinfo.all_accounts)) {
             acc.stocks.forEach(s => {
                 if (s.strategies) {
                     s.strategies.checkStockRtSnapshot(false, this.ticks > 2000);
@@ -178,10 +179,10 @@ class AccOrderTimer extends RtpTimer {
 
     onTimer() {
         const completedZt = ['已成', '已撤', '废单']; // ['待报', '已报'],
-        Promise.all(['normal', 'collat'].map(acc=>emjyBack.all_accounts[acc].checkOrders())).then(([deals0, deals1]) => {
+        Promise.all(['normal', 'collat'].map(acc=>accinfo.all_accounts[acc].checkOrders())).then(([deals0, deals1]) => {
             const allDeals = deals0.concat(deals1);
             const waitings = allDeals.filter(d => !completedZt.includes(d.Wtzt));
-            emjyBack.log(this.constructor.name, 'onTimer, deals=', allDeals.length, 'waitings=', waitings.length);
+            logger.info(this.constructor.name, 'onTimer, deals=', allDeals.length, 'waitings=', waitings.length);
             if (waitings.length == 0) {
                 if (this.ticks !== 10*60000) {
                     this.setTick(10*60000);
@@ -256,9 +257,8 @@ const alarmHub = {
 
         guang.isTodayTradingDay().then(trade => {
             if (trade) {
-                [// ralarm, talarm, bclose,
-                    closed, this.orderTimer,
-                    // this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
+                [ralarm, talarm, bclose, closed,// this.orderTimer,
+                    this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
                 ].forEach(a => {
                     a.setupTimer();
                 });

@@ -372,9 +372,15 @@ class StrategyGroupView {
             return;
         };
         console.log('send save strategy POST', JSON.stringify(this.strGrp));
-        const remids = this.strategySelectors.map(s => `${s.id}`);
-        this.strGrp.strategies = Object.fromEntries(Object.entries(this.strGrp.strategies).filter(([k]) => remids.includes(k)));
-        this.strGrp.transfers = Object.fromEntries(Object.entries(this.strGrp.transfers).filter(([k]) => remids.includes(k)));
+
+        const { strategies, transfers } = this.strategySelectors.reduce((acc, selector) => {
+            acc.strategies[selector.id] = selector.strategyView.strategy;
+            acc.transfers[selector.id] = { transfer: selector.transferView.selectedId() };
+            return acc;
+        }, { strategies: {}, transfers: {} });
+        this.strGrp.strategies = strategies;
+        this.strGrp.transfers = transfers;
+
         const fd = new FormData();
         fd.append('act', 'strategy');
         fd.append('acc', this.account);

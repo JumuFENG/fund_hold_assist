@@ -10,9 +10,13 @@ global.xreq = function(m) {
 }
 
 const config = require('./config.json');
-const { guang } = require('./background/guang.js')
+const { guang } = require('./background/guang.js');
+const { feng } = require('./background/feng.js');
 const { logger, ctxfetch } = require('./background/nbase.js');
+const { klPad } = require('./background/kline.js');
 const { emjyBack } = require('./background/emjybackend.js');
+const { accinfo } = require('./background/accounts.js');
+const { trackacc } = require('./background/trackAccount.js');
 const { alarmHub } = require('./background/klineTimer.js');
 const { istrManager } = require('./background/istrategies.js');
 
@@ -33,7 +37,7 @@ if (!config || Object.keys(config).length === 0) {
         unp: {
             account: '',
             pwd: '',
-            credit: '',
+            credit: false,
         },
         client: {
             purchase_new_stocks: true,
@@ -52,10 +56,14 @@ if (!config.unp.account || !config.unp.pwd) {
 }
 
 
+config.fha.headers = {'Authorization': 'Basic ' + btoa(config.fha.uemail + ":" + config.fha.pwd)};
 emjyBack.fha = config.fha;
+accinfo.enableCredit = config.unp.credit;
+accinfo.fha = config.fha;
+emjyBack.klines = klPad.klines;
 alarmHub.config = config.client;
 istrManager.iconfig = config.client.extistrs;
-
+istrManager.fha = config.fha;
 
 const ext = {
     mxretry: 2,
@@ -162,11 +170,13 @@ const ext = {
                     this.success = true;
                     logger.info('登录成功！');
                     // 获取Token或其他登录成功后的操作
-                    emjyBack.validateKey = await this.page.evaluate(() => {
+                    const emvkey = await this.page.evaluate(() => {
                         return document.querySelector('#em_validatekey').value;
                     });
+                    feng.validateKey = emvkey;
+                    accinfo.validateKey = emvkey;
                     ctxfetch.setPage(this.page);
-                    logger.info(`validatekey: ${emjyBack.validateKey}`);
+                    logger.info(`validatekey: ${emvkey}`);
                     this.onLoginSucess();
                     return;
                 }
@@ -218,10 +228,17 @@ const ext = {
         setInterval(() => {
             this.page.reload();
         }, 175 * 60000);
+        accinfo.initAccounts();
+        trackacc.initTrackAccounts();
         emjyBack.Init();
-        emjyBack.initTrackAccounts();
         alarmHub.setupAlarms();
         istrManager.initExtStrs();
+        emjyBack.all_accounts = accinfo.all_accounts;
+        emjyBack.track_accounts = accinfo.track_accounts;
+        emjyBack.normalAccount = accinfo.normalAccount;
+        emjyBack.collateralAccount = accinfo.collateralAccount;
+        emjyBack.creditAccount = accinfo.creditAccount;
+        emjyBack.klines = klPad.klines;
     },
     async onLoginFailed() {
         this.status = 'failed';

@@ -2,7 +2,7 @@
 (function(){
 class guang {
     static cache = new Map();
-    static server = null;
+    static server = null; // for reverse proxy;
 
     /**
     * 生成缓存的唯一键：URL + 查询参数

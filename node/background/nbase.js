@@ -20,6 +20,19 @@ const logger = createLogger({
 });
 
 
+const svrd = {
+    saveToFile(blob, filename, conflictAction = 'overwrite') {
+    },
+    getFromLocal(key) {
+        return Promise.resolve();
+    },
+    saveToLocal(data) {
+    },
+    removeLocal(key) {
+    }
+}
+
+
 class ctxfetch {
     constructor() {
         if (ctxfetch.inst) {
@@ -89,5 +102,5 @@ class ctxfetch {
 
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {logger, ctxfetch};
+    module.exports = {logger, ctxfetch, svrd};
 }

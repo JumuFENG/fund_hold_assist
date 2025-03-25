@@ -71,18 +71,18 @@ class ManagerBack {
             emjyBack.all_accounts[message.account].addWatchStock(message.code, message.strategies);
             this.startChangedTimeout();
         } else if (message.command == 'mngr.rmwatch') {
-            emjyBack.removeStock(message.account, message.code);
+            accinfo.removeStock(message.account, message.code);
             this.startChangedTimeout();
         } else if (message.command == 'mngr.checkrzrq') {
-            emjyBack.checkRzrq(message.code).then(rzrq => {
+            accinfo.checkRzrq(message.code).then(rzrq => {
                 this.sendManagerMessage({command:'mngr.checkrzrq', rzrq});
             });
         } else if (message.command == 'mngr.getkline') {
-            feng.getStockKline(message.code, '101', message.date).then(kline => {
+            klPad.getStockKline(message.code, '101', message.date).then(kline => {
                 this.sendManagerMessage({command:'mngr.getkline', code: message.code, klines: emjyBack.klines[message.code].klines['101']});
             });
         } else if (message.command == 'mngr.saveFile') {
-            emjyBack.saveToFile(message.blob, message.filename);
+            svrd.saveToFile(message.blob, message.filename);
         } else if (message.command == 'mngr.costdog') {
             this.sendManagerMessage({command:'mngr.costdog', 'costdog': Object.values(emjyBack.costDog.dogdic)});
         } else if (message.command === 'mngr.costdog.add') {
@@ -154,11 +154,8 @@ class ext {
             const tids = tabs.filter(tab => new URL(tab.url).host == this.jywghost).map(t=>t.id);
             chrome.tabs.remove(tids);
         }).then(() => {
-            emjyBack.getFromLocal('acc_np').then(anp => {
-                emjyBack.unp = anp;
-                var url = emjyBack.unp.credit ? this.jywgroot + 'MarginTrade/Buy': this.jywgroot + 'Trade/Buy';
-                chrome.tabs.create({url}).then(ctab => this.mainTab = ctab);
-            });
+            var url = accinfo.enableCredit ? this.jywgroot + 'MarginTrade/Buy': this.jywgroot + 'Trade/Buy';
+            chrome.tabs.create({url}).then(ctab => this.mainTab = ctab);
         });
     }
 
@@ -184,12 +181,13 @@ class ext {
         emjyBack.log('onContentMessageReceived', tabid, message.command === 'emjy.captcha' ? message.command: JSON.stringify(message));
         if (message.command == 'emjy.getValidateKey') {
             chrome.tabs.executeScript(tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
-            if (emjyBack.validateKey == message.key) {
+            if (accinfo.validateKey == message.key) {
                 emjyBack.log('getValidateKey same, skip!');
                 return;
             }
             emjyBack.log('getValidateKey =', message.key);
-            emjyBack.validateKey = message.key;
+            feng.validateKey = message.key;
+            accinfo.validateKey = message.key;
             emjyBack.loadAssets();
             if ((new Date()).getDay() == 1 && (new Date()).getHours() <= 9) {
                 // update history deals every Monday morning.
@@ -326,7 +324,7 @@ class ext {
             for (const strategy of str_available) {
                 keys_received.push(strategy.key);
             }
-            emjyBack.getFromLocal('all_available_istr').then(all_str => {
+            svrd.getFromLocal('all_available_istr').then(all_str => {
                 var keys_saved = [];
                 for (const strategy of all_str) {
                     keys_saved.push(strategy.key);
@@ -339,15 +337,15 @@ class ext {
                     }
                 }
                 if (keys_received.length != keys_saved.length || !all_saved) {
-                    emjyBack.saveToLocal({'all_available_istr': str_available});
+                    svrd.saveToLocal({'all_available_istr': str_available});
                 }
                 for (const rkey of keys_saved) {
                     if (!keys_received.includes(rkey)) {
-                        emjyBack.removeLocal('itstrategy_' + rkey);
+                        svrd.removeLocal('itstrategy_' + rkey);
                     }
                 }
                 for (const rkey of keys_received) {
-                    emjyBack.getFromLocal('itstrategy_' + rkey).then(istr => {
+                    svrd.getFromLocal('itstrategy_' + rkey).then(istr => {
                         if (istr && istr.enabled) {
                             var subjson = {action: 'subscribe', strategy: istr.key, account: istr.account, amount: istr.amount};
                             if (istr.amtkey) {
@@ -364,7 +362,7 @@ class ext {
             emjyBack.log(message.data);
             emjyBack.log(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account);
             if (!wsmsg.account) {
-                emjyBack.checkRzrq(wsmsg.code).then(rzrq => {
+                accinfo.checkRzrq(wsmsg.code).then(rzrq => {
                     var account = rzrq.Status == -1 ? 'normal' : 'credit';
                     emjyBack.buyWithAccount(wsmsg.code, wsmsg.price, wsmsg.count, account, wsmsg.strategies);
                 });
@@ -376,7 +374,7 @@ class ext {
         if (wsmsg.type == 'intrade_addwatch') {
             emjyBack.log(message.data);
             if (!wsmsg.account) {
-                emjyBack.checkRzrq(message.code).then(rzrq => {
+                accinfo.checkRzrq(message.code).then(rzrq => {
                     var account = rzrq.Status == -1 ? 'normal' : 'collat';
                     emjyBack.all_accounts[account].addWatchStock(wsmsg.code, wsmsg.strategies);
                 });
@@ -399,7 +397,7 @@ class ext {
             let count = strategies?.uramount?.key ? emjyBack.costDog.urBuyCount(strategies.uramount.key, code, amount, price).count : guang.calcBuyCount(amount, price);
             let account = message.account;
             if (!account) {
-                popcb(emjyBack.checkRzrq(message.code).then(rzrq => {
+                popcb(accinfo.checkRzrq(message.code).then(rzrq => {
                     var racc = rzrq.Status == -1 ? 'normal' : 'credit';
                     return emjyBack.buyWithAccount(code, price, count, racc, strategies);
                 }));
@@ -415,7 +413,7 @@ class ext {
 
             let str0 = strategies.strinfo;
             if (!account) {
-                emjyBack.checkRzrq(code).then(rzrq => {
+                accinfo.checkRzrq(code).then(rzrq => {
                     var racc = rzrq.Status == -1 ? 'normal' : 'credit';
                     var hacc = emjyBack.all_accounts[racc].holdAccount();
                     str0.account = racc;
@@ -436,7 +434,7 @@ class ext {
 
     static recoginzeCaptcha(img) {
         if (!emjyBack.fha) {
-            emjyBack.getFromLocal('fha_server').then(fhaInfo => {
+            svrd.getFromLocal('fha_server').then(fhaInfo => {
                 if (fhaInfo) {
                     emjyBack.fha = fhaInfo;
                     this.recoginzeCaptcha(img);
@@ -462,7 +460,7 @@ class ext {
             return;
         }
 
-        emjyBack.getFromLocal('acc_np').then(anp => {
+        svrd.getFromLocal('acc_np').then(anp => {
             emjyBack.unp = anp;
             this.sendLoginInfo();
         });
@@ -477,7 +475,7 @@ class ext {
         emjyBack.normalAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
         emjyBack.collateralAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
         var blob = new Blob(codes, {type: 'application/text'});
-        emjyBack.saveToFile(blob, 'holdingstocks.txt');
+        svrd.saveToFile(blob, 'holdingstocks.txt');
     }
 
     static exportConfig() {
@@ -499,7 +497,7 @@ class ext {
                 configs['hist_deals'] = item['hist_deals'];
             }
             var blob = new Blob([JSON.stringify(configs)], {type: 'application/json'});
-            emjyBack.saveToFile(blob, 'stocks.config.json');
+            svrd.saveToFile(blob, 'stocks.config.json');
         });
     }
 
@@ -591,12 +589,27 @@ class ext {
 }
 
 chrome.runtime.onMessage.addListener(ext.notify);
-
-ext.createMainTab();
-emjyBack.Init().then(() => {
+Promise.all([svrd.getFromLocal('acc_np'), svrd.getFromLocal('fha_server')]).then(([anp, fhaInfo]) => {
+    emjyBack.unp = anp;
+    fhaInfo.headers = {'Authorization': 'Basic ' + btoa(fhaInfo.uemail + ":" + fhaInfo.pwd)};
+    emjyBack.fha = fhaInfo;
+    accinfo.enableCredit = anp.credit;
+    accinfo.fha = fhaInfo;
+    istrManager.fha = fhaInfo;
+}).then(() => {
+    ext.createMainTab();
     ext.setupWebsocketConnection();
+    accinfo.initAccounts();
+    trackacc.initTrackAccounts();
+    emjyBack.all_accounts = accinfo.all_accounts;
+    emjyBack.track_accounts = accinfo.track_accounts;
+    emjyBack.normalAccount = accinfo.normalAccount;
+    emjyBack.collateralAccount = accinfo.collateralAccount;
+    emjyBack.creditAccount = accinfo.creditAccount;
+    emjyBack.klines = klPad.klines;
+    emjyBack.Init();
 });
-emjyBack.klines = klPad.klines;
+
 
 alarmHub.setupAlarms();
 istrManager.initExtStrs();

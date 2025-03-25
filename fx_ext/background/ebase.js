@@ -50,6 +50,30 @@ window.ctxfetch = {
 }
 
 
+window.svrd = {
+    saveToFile(blob, filename, conflictAction = 'overwrite') {
+        // conflictAction (uniquify, overwrite, prompt)
+        var url = URL.createObjectURL(blob);
+        chrome.downloads.download({url, filename, saveAs:false, conflictAction});
+    },
+    getFromLocal(key) {
+        return chrome.storage.local.get(key).then(item => {
+            if (!key) return item;
+            if (item && item[key]) {
+                return item[key];
+            }
+            return null;
+        });
+    },
+    saveToLocal(data) {
+        chrome.storage.local.set(data);
+    },
+    removeLocal(key) {
+        chrome.storage.local.remove(key);
+    }
+}
+
+
 window.xreq = function(m) {
     return window;
 }

@@ -9,8 +9,8 @@ class feng {
 
     static jywg = 'https://jywg.eastmoneysec.com/'; //'https://jywg.18.cn/';
     static quotewg = 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot';
-    static emklapi = 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56';
     static emshszac = 'https://emhsmarketwg.eastmoneysec.com/api/SHSZQuery/GetCodeAutoComplete2?count=10&callback=sData&id='
+    static validateKey = null;
 
 
     static stkcache = new Map();
@@ -192,9 +192,6 @@ class feng {
         if (!zt) {
             const name = this.getStockName(code);
             try {
-                if (!lclose) {
-                    lclose = emjyBack.klines[code].getKline('101').slice(-1)[0].c;
-                }
                 zt = guang.calcZtPrice(lclose, guang.getStockZdf(code, name));
             } catch (e) {
                 throw new Error('calcZtPrice in getStockZt!');
@@ -214,9 +211,6 @@ class feng {
         if (!dt) {
             const name = this.getStockName(code);
             try {
-                if (!lclose) {
-                    lclose = emjyBack.klines[code].getKline('101').slice(-1)[0].c;
-                }
                 dt = guang.calcDtPrice(lclose, guang.getStockZdf(code, name));
             } catch (e) {
                 throw new Error('calcDtPrice in getStockDt!');
@@ -286,97 +280,13 @@ class feng {
         });
     }
 
-    /**
-    * 获取股票K线数据, 常用日K，1分， 15分
-    * @param {string} code 股票代码, 如: 002261
-    * @param {number} klt K线类型，101: 日k 102: 周k 103: 月k 104: 季k 105: 半年k 106:年k 60: 小时 120: 2小时, 其他分钟数 1, 5, 15,30
-    * @param {string} date 用于大于日K的请求，设置开始日期如： 20201111
-    * @returns {Promise<any>} 返回数据的 Promise
-    */
-    static async getStockKline(code, klt, date) {
-        if (!klt) {
-            klt = '101';
-        }
-        let secid = await feng.getStockSecId(code);
-        let beg = 0;
-        if (klt == '101') {
-            beg = date;
-            if (!beg) {
-                beg = new Date();
-                beg = new Date(beg.setDate(beg.getDate() - 30));
-                beg = beg.toLocaleString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, '')
-            } else if (date.includes('-')) {
-                beg = date.replaceAll('-', '');
-            }
-        }
-        let url = feng.emklapi + '&klt=' + klt + '&secid=' + secid + '&beg=' + beg + '&end=20500000';
-        let cacheTime = klt - 15 < 0 || klt % 30 == 0 ? klt * 60000 : 24*60*60000;
-        return guang.fetchData(url, {}, cacheTime, klrsp => {
-            let code = klrsp.data.code;
-            if (!emjyBack.klines[code]) {
-                emjyBack.klines[code] = new KLine(code);
-            }
-            let updatedKlt = emjyBack.klines[code].updateRtKline({kltype: klt, kline: klrsp});
-            let kl0 = emjyBack.klines[code].getLatestKline(klt);
-            const getExpireTime = function(kltime, kltype) {
-                const currentDate = new Date();
-                const [year, month, day] = [currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()]
-                const createTime = (h, m, s = 0, dd = 0) => new Date(year, month, day + dd, h, m, s);
-
-                const amStart = createTime(9, 30);   // 上午开盘时间
-                const amEnd = createTime(11, 30);    // 上午收盘时间
-                const pmStart = createTime(13, 0);   // 下午开盘时间
-                const pmEnd = createTime(15, 0);     // 下午收盘时间
-
-                let klDate = new Date(kltime);
-                if (kltype - 15 > 0 && kltype % 30 !== 0) {
-                    klDate = new Date(kltime + ' 15:00');
-                }
-
-                if (klDate < currentDate) {
-                    return amStart > currentDate ? amStart : createTime(9, 30, 0, 1); // 下一天的上午开盘时间
-                }
-
-                if (kltype - 15 > 0 && kltype % 30 !== 0) {
-                    if (currentDate < createTime(14, 50)) {
-                        return createTime(14, 50); // 尾盘更新
-                    }
-                    return currentDate < pmEnd ? pmEnd : createTime(9, 30, 0, 1); // 下午收盘时间或第二天开盘时间
-                }
-
-                if (currentDate < amStart) {
-                    return amStart; // 上午开盘时间
-                }
-
-                const kLineInterval = kltype;
-                const nextDate = new Date(Math.ceil(klDate.getTime() / (kLineInterval * 60000)) * kLineInterval * 60000);
-
-                if (currentDate >= amStart && currentDate < amEnd) {
-                    return nextDate < amEnd ? nextDate : amEnd;
-                }
-                if (currentDate >= pmStart && currentDate < pmEnd) {
-                    return nextDate < pmEnd ? nextDate : pmEnd;
-                }
-                if (currentDate >= amEnd && currentDate < pmStart) {
-                    return pmStart;
-                }
-                if (currentDate >= pmEnd) {
-                    return createTime(9, 30, 0, 1); // 下一天的上午开盘时间
-                }
-            };
-
-            let data = Object.fromEntries(updatedKlt.map(x => [x, emjyBack.klines[code].klines[x]]));
-            return {data, expireTime: getExpireTime(kl0.time, klt)};
-        });
-    }
-
     static async buyNewStocks() {
-        if (!emjyBack.validateKey) {
-            emjyBack.log('no valid validateKey', emjyBack.validateKey);
+        if (!this.validateKey) {
+            logger.info('no valid validateKey', this.validateKey);
             return;
         }
 
-        const url = `${feng.jywg}Trade/GetCanBuyNewStockListV3?validatekey=${emjyBack.validateKey}`;
+        const url = `${feng.jywg}Trade/GetCanBuyNewStockListV3?validatekey=${this.validateKey}`;
         try {
             const response = await fetch(url, { method: 'POST' });
             const robj = await response.json();
@@ -395,23 +305,23 @@ class feng {
 
                 if (data.length > 0) {
                     const jdata = JSON.stringify(data);
-                    emjyBack.log('buyNewStocks', jdata);
+                    logger.info('buyNewStocks', jdata);
 
-                    const postUrl = `${feng.jywg}Trade/SubmitBatTradeV2?validatekey=${emjyBack.validateKey}`;
+                    const postUrl = `${feng.jywg}Trade/SubmitBatTradeV2?validatekey=${this.validateKey}`;
                     const header = { "Content-Type": "application/json" };
                     const postResponse = await fetch(postUrl, { method: 'POST', headers: header, body: jdata });
                     const robjPost = await postResponse.json();
 
                     if (robjPost.Status === 0) {
-                        emjyBack.log('buyNewStocks success', robjPost.Message);
+                        logger.info('buyNewStocks success', robjPost.Message);
                     } else {
-                        emjyBack.log('buyNewStocks error', robjPost);
+                        logger.info('buyNewStocks error', robjPost);
                     }
                 } else {
-                    emjyBack.log('buyNewStocks no new stocks to buy!');
+                    logger.info('buyNewStocks no new stocks to buy!');
                 }
             } else {
-                emjyBack.log(JSON.stringify(robj));
+                logger.info(JSON.stringify(robj));
             }
         } catch (error) {
             console.error('Error in buyNewStocks:', error);
@@ -419,18 +329,18 @@ class feng {
     }
 
     static async buyNewBonds() {
-        if (!emjyBack.validateKey) {
-            emjyBack.log('no valid validateKey', emjyBack.validateKey);
+        if (!this.validateKey) {
+            logger.info('no valid validateKey', this.validateKey);
             return;
         }
 
-        const url = `${feng.jywg}Trade/GetConvertibleBondListV2?validatekey=${emjyBack.validateKey}`;
+        const url = `${feng.jywg}Trade/GetConvertibleBondListV2?validatekey=${this.validateKey}`;
         try {
             const response = await fetch(url, { method: 'POST' });
             const robj = await response.json();
 
             if (robj.Status !== 0) {
-                emjyBack.log('unknown error', robj);
+                logger.info('unknown error', robj);
                 return;
             }
 
@@ -448,23 +358,23 @@ class feng {
 
                 if (data.length > 0) {
                     const jdata = JSON.stringify(data);
-                    emjyBack.log('buyNewBonds', jdata);
+                    logger.info('buyNewBonds', jdata);
 
-                    const postUrl = `${feng.jywg}Trade/SubmitBatTradeV2?validatekey=${emjyBack.validateKey}`;
+                    const postUrl = `${feng.jywg}Trade/SubmitBatTradeV2?validatekey=${this.validateKey}`;
                     const header = { "Content-Type": "application/json" };
                     const postResponse = await fetch(postUrl, { method: 'POST', headers: header, body: jdata });
                     const robjPost = await postResponse.json();
 
                     if (robjPost.Status === 0) {
-                        emjyBack.log('buyNewBonds success', robjPost.Message);
+                        logger.info('buyNewBonds success', robjPost.Message);
                     } else {
-                        emjyBack.log('buyNewBonds error', robjPost);
+                        logger.info('buyNewBonds error', robjPost);
                     }
                 } else {
-                    emjyBack.log('buyNewBonds no new bonds to buy!');
+                    logger.info('buyNewBonds no new bonds to buy!');
                 }
             } else {
-                emjyBack.log('no new bonds', JSON.stringify(robj));
+                logger.info('no new bonds', JSON.stringify(robj));
             }
         } catch (error) {
             console.error('Error in buyNewBonds:', error);
@@ -473,8 +383,8 @@ class feng {
 
 
     static async buyBondRepurchase(code) {
-        if (!emjyBack.validateKey) {
-            emjyBack.log('No valid validateKey');
+        if (!this.validateKey) {
+            logger.info('No valid validateKey');
             return;
         }
 
@@ -485,7 +395,7 @@ class feng {
             price = priceData.buysells.buy5 === '-' ? priceData.bottomprice : priceData.buysells.buy5;
 
             // 获取可操作数量
-            const amountUrl = `${feng.jywg}Com/GetCanOperateAmount?validatekey=${emjyBack.validateKey}`;
+            const amountUrl = `${feng.jywg}Com/GetCanOperateAmount?validatekey=${this.validateKey}`;
             const amountFd = new FormData();
             amountFd.append('stockCode', code);
             amountFd.append('price', price);
@@ -495,35 +405,35 @@ class feng {
             const amountData = await amountResponse.json();
 
             if (amountData.Status !== 0 || !amountData.Data || amountData.Data.length === 0 || amountData.Data[0].Kczsl <= 0) {
-                emjyBack.log('No enough funds to repurchase', JSON.stringify(amountData));
+                logger.info('No enough funds to repurchase', JSON.stringify(amountData));
                 return;
             }
 
             const count = amountData.Data[0].Kczsl;
 
             // 进行国债逆回购交易
-            const repurchaseUrl = `${feng.jywg}BondRepurchase/SecuritiesLendingRepurchaseTrade?validatekey=${emjyBack.validateKey}`;
+            const repurchaseUrl = `${feng.jywg}BondRepurchase/SecuritiesLendingRepurchaseTrade?validatekey=${this.validateKey}`;
             const repurchaseFd = new FormData();
             repurchaseFd.append('zqdm', code);
             repurchaseFd.append('rqjg', price);
             repurchaseFd.append('rqsl', count);
 
-            emjyBack.log('Executing bond repurchase:', code, price, count);
+            logger.info('Executing bond repurchase:', code, price, count);
             const repurchaseResponse = await fetch(repurchaseUrl, { method: 'POST', body: repurchaseFd });
             const repurchaseData = await repurchaseResponse.json();
 
             if (repurchaseData.Status === 0 && repurchaseData.Data && repurchaseData.Data.length > 0) {
-                emjyBack.log('Repurchase successful!', JSON.stringify(repurchaseData));
+                logger.info('Repurchase successful!', JSON.stringify(repurchaseData));
             } else {
-                emjyBack.log('Repurchase failed:', JSON.stringify(repurchaseData));
+                logger.info('Repurchase failed:', JSON.stringify(repurchaseData));
             }
         } catch (error) {
-            emjyBack.log('Error in bond repurchase process:', error);
+            logger.info('Error in bond repurchase process:', error);
         }
     }
 
     static async repayMarginLoan() {
-        const validateKey = emjyBack.validateKey;
+        const validateKey = this.validateKey;
         if (!validateKey) {
             return;
         }
@@ -538,14 +448,14 @@ class feng {
             const assetsData = await assetsResponse.json();
 
             if (assetsData.Status !== 0 || !assetsData.Data) {
-                emjyBack.log('Failed to fetch assets:', assetsData);
+                logger.info('Failed to fetch assets:', assetsData);
                 return;
             }
 
             // 计算待还款金额
             const total = -(-assetsData.Data.Rzfzhj - assetsData.Data.Rqxf);
             if (total <= 0 || assetsData.Data.Zjkys - 1 < 0) {
-                emjyBack.log('待还款金额:', total, '可用金额:', assetsData.Data.Zjkys);
+                logger.info('待还款金额:', total, '可用金额:', assetsData.Data.Zjkys);
                 return;
             }
 
@@ -561,7 +471,7 @@ class feng {
 
             payAmount = parseFloat(payAmount);
             if (payAmount <= 0) {
-                emjyBack.log('Invalid repayment amount:', payAmount);
+                logger.info('Invalid repayment amount:', payAmount);
                 return;
             }
 
@@ -576,12 +486,12 @@ class feng {
             const repaymentData = await repaymentResponse.json();
 
             if (repaymentData.Status === 0) {
-                emjyBack.log('Repayment success!', repaymentData.Data?.[0]?.Sjhkje ?? 'Unknown amount');
+                logger.info('Repayment success!', repaymentData.Data?.[0]?.Sjhkje ?? 'Unknown amount');
             } else {
-                emjyBack.log('Repayment failed:', repaymentData);
+                logger.info('Repayment failed:', repaymentData);
             }
         } catch (error) {
-            emjyBack.log('Repayment process failed:', error);
+            logger.info('Repayment process failed:', error);
         }
     }
 }

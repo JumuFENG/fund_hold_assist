@@ -8,60 +8,30 @@ window.emjyBack = {
     },
     Init() {
         this.running = true;
-        this.normalAccount = new NormalAccount();
-        this.collateralAccount = new CollateralAccount();
-        this.creditAccount = new CreditAccount();
-        this.all_accounts = {};
-        this.all_accounts[this.normalAccount.keyword] = this.normalAccount;
-        this.all_accounts[this.collateralAccount.keyword] = this.collateralAccount;
-        this.all_accounts[this.creditAccount.keyword] = this.creditAccount;
-        return this.getFromLocal('fha_server').then(fhaInfo => {
-            if (fhaInfo) {
-                this.fha = fhaInfo;
+        svrd.getFromLocal('hsj_stocks').then(hsj => {
+            if (hsj) {
+                feng.loadSaved(hsj);
             }
-        }).then(() => {
-            this.getFromLocal('hsj_stocks').then(hsj => {
-                if (hsj) {
-                    feng.loadSaved(hsj);
-                }
-                this.normalAccount.loadWatchings();
-                this.collateralAccount.loadWatchings();
-                this.initTrackAccounts();
-            });
-            this.getFromLocal('purchase_new_stocks').then(pns => {
-                if (!alarmHub.config) {
-                    alarmHub.config = {}
-                }
-                alarmHub.config.purchaseNewStocks = pns;
-            });
-            if (emjyBack.fha.save_on_server) {
-                const url = emjyBack.fha.server + 'stock?act=costdog';
-                const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
-                fetch(url, {headers}).then(r=>r.json()).then(cd => {
-                    this.costDog = new CostDog(cd);
-                });
-            } else {
-                this.getFromLocal('cost_dog').then(cd => {
-                    this.costDog = new CostDog(cd);
-                });
-            }
-            this.log('EmjyBack initialized!');
+            this.normalAccount.loadWatchings();
+            this.collateralAccount.loadWatchings();
         });
-    },
-    initTrackAccounts() {
-        this.track_accounts = [];
-        this.getFromLocal('track_accounts').then(accs => {
-            if (!accs || Object.keys(accs).length === 0) {
-                accs = ['track'];
+        svrd.getFromLocal('purchase_new_stocks').then(pns => {
+            if (!alarmHub.config) {
+                alarmHub.config = {}
             }
-            for (let ac in accs) {
-                this.track_accounts.push(new TrackingAccount(ac));
-            }
-            for (const account of this.track_accounts) {
-                this.all_accounts[account.keyword] = account;
-                account.loadAssets();
-            }
+            alarmHub.config.purchaseNewStocks = pns;
         });
+        if (emjyBack.fha.save_on_server) {
+            const url = emjyBack.fha.server + 'stock?act=costdog';
+            fetch(url, {headers: accinfo.fha.headers}).then(r=>r.json()).then(cd => {
+                this.costDog = new CostDog(cd);
+            });
+        } else {
+            svrd.getFromLocal('cost_dog').then(cd => {
+                this.costDog = new CostDog(cd);
+            });
+        }
+        this.log('EmjyBack initialized!');
     },
     totalAssets() {
         return this.normalAccount.pureAssets + this.collateralAccount.pureAssets;
@@ -73,48 +43,6 @@ window.emjyBack = {
     loadDeals() {
         this.normalAccount.loadDeals();
         this.collateralAccount.loadDeals();
-    },
-    updateHistDeals() {
-        this.getFromLocal('hist_deals').then(hdl => {
-            var startDate = null;
-            if (hdl) {
-                this.savedDeals = hdl;
-                if (this.savedDeals && this.savedDeals.length > 0) {
-                    startDate = new Date(this.savedDeals[this.savedDeals.length - 1].time);
-                    startDate.setDate(startDate.getDate() + 1);
-                } else {
-                    startDate = new Date();
-                    startDate.setDate(startDate.getDate() - 10);
-                }
-            }
-            this.doUpdateHistDeals(startDate);
-            this.loadOtherDeals(startDate);
-        });
-    },
-    doUpdateHistDeals(date) {
-        this.normalAccount.loadHistDeals(date);
-        this.collateralAccount.loadHistDeals(date);
-    },
-    loadOtherDeals(date) {
-        this.normalAccount.loadOtherDeals(date);
-        this.collateralAccount.loadOtherDeals(date);
-    },
-    testFhaServer() {
-        var url = this.fha.server + 'stock?act=test';
-        var headers = {}
-        if (this.fha) {
-            headers['Authorization'] = 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd);
-        }
-        return fetch(url, {headers}).then(r=>r.text());
-    },
-    checkRzrq(code) {
-        if (!this.creditAccount) {
-            return Promise.resolve();
-        }
-        if (!this.creditAccount.tradeClient) {
-            this.creditAccount.createTradeClient();
-        }
-        return this.creditAccount.tradeClient.checkRzrqTarget(code);
     },
     trySellStock(code, price, count, account, cb) {
         if (!this.all_accounts[account]) {
@@ -196,9 +124,6 @@ window.emjyBack = {
         }
         return false;
     },
-    removeStock(account, code) {
-        this.all_accounts[account].removeStock(code);
-    },
     tradeBeforeClose() {
         this.normalAccount.buyFundBeforeClose();
         this.collateralAccount.buyFundBeforeClose();
@@ -239,25 +164,5 @@ window.emjyBack = {
             this.saveToFile(blob, 'logs/stock.assist' + guang.getTodayDate() + '.log');
             logger.logs = [];
         }
-    },
-    saveToFile(blob, filename, conflictAction = 'overwrite') {
-        // conflictAction (uniquify, overwrite, prompt)
-        var url = URL.createObjectURL(blob);
-        chrome.downloads.download({url, filename, saveAs:false, conflictAction});
-    },
-    getFromLocal(key) {
-        return chrome.storage.local.get(key).then(item => {
-            if (!key) return item;
-            if (item && item[key]) {
-                return item[key];
-            }
-            return null;
-        });
-    },
-    saveToLocal(data) {
-        chrome.storage.local.set(data);
-    },
-    removeLocal(key) {
-        chrome.storage.local.remove(key);
     }
 }

@@ -10,23 +10,6 @@ const emjyBack = {
     },
     Init() {
         this.running = true;
-        this.normalAccount = new NormalAccount();
-        this.collateralAccount = new CollateralAccount();
-        this.creditAccount = new CreditAccount();
-        this.all_accounts = {};
-        this.all_accounts[this.normalAccount.keyword] = this.normalAccount;
-        this.all_accounts[this.collateralAccount.keyword] = this.collateralAccount;
-        this.all_accounts[this.creditAccount.keyword] = this.creditAccount;
-    },
-    initTrackAccounts() {
-        this.track_accounts = [];
-        for (let ac of ['track_3b']) {
-            this.track_accounts.push(new TrackingAccount(ac));
-        }
-        for (const account of this.track_accounts) {
-            this.all_accounts[account.keyword] = account;
-            account.loadWatchings();
-        }
     },
     loadAssets() {
         this.normalAccount.loadAssets();
@@ -66,15 +49,6 @@ const emjyBack = {
             headers['Authorization'] = 'Basic ' + btoa(this.fha.uemail + ":" + this.fha.pwd);
         }
         return fetch(url, {headers}).then(r=>r.text());
-    },
-    checkRzrq(code) {
-        if (!this.creditAccount) {
-            return Promise.resolve();
-        }
-        if (!this.creditAccount.tradeClient) {
-            this.creditAccount.createTradeClient();
-        }
-        return this.creditAccount.tradeClient.checkRzrqTarget(code);
     },
     trySellStock(code, price, count, account, cb) {
         if (!this.all_accounts[account]) {
@@ -139,9 +113,6 @@ const emjyBack = {
         this.normalAccount.buyFundBeforeClose();
         this.collateralAccount.buyFundBeforeClose();
     },
-    removeStock(account, code) {
-        this.all_accounts[account].removeStock(code);
-    },
     tradeClosed() {
         logger.info(emjyBack.normalAccount.orderfeched);
         logger.info(emjyBack.collateralAccount.orderfeched);
@@ -149,15 +120,6 @@ const emjyBack = {
             logger.info(acc.deals);
         });
         this.running = false;
-    },
-    saveToFile(blob, filename, conflictAction = 'overwrite') {
-    },
-    getFromLocal(key) {
-        return Promise.resolve();
-    },
-    saveToLocal(data) {
-    },
-    removeLocal(key) {
     }
 };
 

@@ -1,7 +1,7 @@
 'use strict';
 
 (function(){
-const { logger, ctxfetch } = xreq('./background/nbase.js');
+const { logger, ctxfetch, svrd } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
 const { klPad } = xreq('./background/kline.js');
@@ -16,7 +16,7 @@ class DealsClient {
     }
 
     getUrl() {
-        return feng.jywg + 'Search/GetDealData?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'Search/GetDealData?validatekey=' + accinfo.validateKey;
     }
 
     getFormData() {
@@ -39,8 +39,8 @@ class DealsClient {
             }
             return response.data;
         } catch (error) {
-            emjyBack.log(this.constructor.name, 'error url', this.getUrl());
-            emjyBack.log(error);
+            logger.info(this.constructor.name, 'error url', this.getUrl());
+            logger.info(error);
         }
     }
 
@@ -82,7 +82,7 @@ class MarginDealsClient extends DealsClient {
     }
 
     getUrl() {
-        return feng.jywg + 'MarginSearch/GetDealData?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'MarginSearch/GetDealData?validatekey=' + accinfo.validateKey;
     }
 
     updateDwc() {
@@ -143,7 +143,7 @@ class HistDealsClient extends DealsClient {
 
     // 重写 getUrl 方法，使用历史成交数据的接口
     getUrl() {
-        return feng.jywg + 'Search/GetHisDealData?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'Search/GetHisDealData?validatekey=' + accinfo.validateKey;
     }
 }
 
@@ -164,26 +164,26 @@ class MarginHistDealsClient extends HistDealsClient {
     }
 
     getUrl() {
-        return feng.jywg + 'MarginSearch/queryCreditHisMatchV2?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'MarginSearch/queryCreditHisMatchV2?validatekey=' + accinfo.validateKey;
     }
 }
 
 class OrdersClient extends DealsClient {
     getUrl() {
-        return feng.jywg + 'Search/GetOrdersData?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'Search/GetOrdersData?validatekey=' + accinfo.validateKey;
     }
 }
 
 class MarginOrdersClient extends DealsClient {
     getUrl() {
-        return feng.jywg + 'MarginSearch/GetOrdersData?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'MarginSearch/GetOrdersData?validatekey=' + accinfo.validateKey;
     }
 }
 
 class SxlHistClient extends HistDealsClient {
     // Stock Exchange List
     getUrl() {
-        return feng.jywg + 'Search/GetFundsFlow?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'Search/GetFundsFlow?validatekey=' + accinfo.validateKey;
     }
 }
 
@@ -203,7 +203,7 @@ class MarginSxlHistClient extends HistDealsClient {
     }
 
     getUrl() {
-        return feng.jywg + 'MarginSearch/queryCreditLogAssetV2?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'MarginSearch/queryCreditLogAssetV2?validatekey=' + accinfo.validateKey;
     }
 }
 
@@ -215,7 +215,7 @@ class AssetsClient {
 
     // 构造 URL
     buildUrl(endpoint) {
-        return `${feng.jywg}${endpoint}?validatekey=${emjyBack.validateKey}`;
+        return `${feng.jywg}${endpoint}?validatekey=${accinfo.validateKey}`;
     }
 
     async fetchData(url, formData = new FormData()) {
@@ -247,7 +247,7 @@ class AssetsClient {
             this.handleApiError(response);
             return this.extractAssets(response);
         } catch (error) {
-            emjyBack.log(error);
+            logger.info(error);
             throw error;
         }
     }
@@ -263,7 +263,7 @@ class AssetsClient {
             this.handleApiError(response);
             return this.extractPositions(response);
         } catch (error) {
-            emjyBack.log(error);
+            logger.info(error);
             throw error;
         }
     }
@@ -282,7 +282,7 @@ class AssetsClient {
                 positions: this.extractPositions(response)
             };
         } catch (error) {
-            emjyBack.log(error);
+            logger.info(error);
             throw error;
         }
     }
@@ -313,7 +313,7 @@ class MarginAssetsClient extends AssetsClient {
 
     handleApiError(response) {
         if (response.Status != 0 || response.Message) {
-            emjyBack.log(response);
+            logger.info(response);
         }
     }
 
@@ -328,7 +328,7 @@ class MarginAssetsClient extends AssetsClient {
             this.handleApiError(response);
             return response.Data;
         } catch (error) {
-            emjyBack.log(error);
+            logger.info(error);
             throw error;
         }
     }
@@ -342,7 +342,7 @@ class MarginAssetsClient extends AssetsClient {
             this.handleApiError(response);
             return response.Data;
         } catch (error) {
-            emjyBack.log(error);
+            logger.info(error);
             throw error;
         }
     }
@@ -354,7 +354,7 @@ class MarginAssetsClient extends AssetsClient {
             const positions = await this.getPositions();
             return {assets, positions};
         } catch (error) {
-            emjyBack.log(error);
+            logger.info(error);
             throw error;
         }
     }
@@ -367,7 +367,7 @@ class TradeClient {
     }
 
     getUrl() {
-        return feng.jywg + 'Trade/SubmitTradeV2?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'Trade/SubmitTradeV2?validatekey=' + accinfo.validateKey;
     }
 
     async getBasicFormData(code, price, count, tradeType) {
@@ -407,7 +407,7 @@ class TradeClient {
     }
 
     countUrl() {
-        return feng.jywg + 'Trade/GetAllNeedTradeInfo?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'Trade/GetAllNeedTradeInfo?validatekey=' + accinfo.validateKey;
     }
 
     async countFormData(code, price, tradeType, jylx) {
@@ -501,7 +501,7 @@ class CollatTradeClient extends TradeClient {
     }
 
     getUrl() {
-        return feng.jywg + 'MarginTrade/SubmitTradeV2?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'MarginTrade/SubmitTradeV2?validatekey=' + accinfo.validateKey;
     }
 
     async getFormData(code, price, count, tradeType, jylx) {
@@ -526,7 +526,7 @@ class CollatTradeClient extends TradeClient {
     }
 
     countUrl() {
-        return feng.jywg + 'MarginTrade/GetKyzjAndKml?validatekey=' + emjyBack.validateKey;
+        return feng.jywg + 'MarginTrade/GetKyzjAndKml?validatekey=' + accinfo.validateKey;
     }
 
     async checkRzrqTarget(code) {
@@ -565,7 +565,7 @@ class CreditTradeClient extends CollatTradeClient {
     // market	"HA"
     buy(code, price, count) {
         if (count < 100) {
-            emjyBack.log('trade error:', 'must set correct buy count for credit buy');
+            logger.info('trade error:', 'must set correct buy count for credit buy');
             return Promise.resolve();
         }
         return this.trade(code, price, count, 'B', 'a');
@@ -660,7 +660,7 @@ class Account {
         }
         const mdic = {'HA':'SH', 'SA': 'SZ', 'B': 'BJ'};
         if (market === 'TA') {
-            emjyBack.log('退市股买卖不记录!');
+            logger.info('退市股买卖不记录!');
             return;
         }
         if (!mdic[market]) {
@@ -743,25 +743,24 @@ class Account {
     }
 
     uploadDeals(deals) {
-        if (deals.length == 0 || !emjyBack.fha) {
+        if (deals.length == 0 || !accinfo.fha) {
             return;
         }
 
-        emjyBack.testFhaServer().then(txt => {
+        accinfo.testFhaServer().then(txt => {
             if (txt != 'OK') {
-                emjyBack.log('testFhaServer, failed.!');
+                logger.info('testFhaServer, failed.!');
                 return;
             }
 
-            var url = emjyBack.fha.server + 'stock';
+            var url = accinfo.fha.server + 'stock';
             var dfd = new FormData();
             dfd.append('act', 'deals');
             dfd.append('acc', this.keyword);
             dfd.append('data', JSON.stringify(deals));
-            var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
-            emjyBack.log('uploadDeals', JSON.stringify(deals));
-            fetch(url, {method: 'POST', headers, body: dfd}).then(r=>r.text()).then(p => {
-                emjyBack.log('upload deals to server,', p);
+            logger.info('uploadDeals', JSON.stringify(deals));
+            fetch(url, {method: 'POST', headers: accinfo.fha.headers, body: dfd}).then(r=>r.text()).then(p => {
+                logger.info('upload deals to server,', p);
             });
         });
     }
@@ -771,12 +770,12 @@ class Account {
         for (let i = 0; i < deals.length; i++) {
             const deali = deals[i];
             if (deali.Wtzt != '已成' && deali.Wtzt != '部撤') {
-                emjyBack.log('getDealsToUpload unknown deal:', JSON.stringify(deali));
+                logger.info('getDealsToUpload unknown deal:', JSON.stringify(deali));
                 continue;
             }
             var tradeType = this.tradeTypeFromMmsm(deali.Mmsm)
             if (!tradeType) {
-                emjyBack.log('unknown trade type', deali.Mmsm, JSON.stringify(deali));
+                logger.info('unknown trade type', deali.Mmsm, JSON.stringify(deali));
                 continue;
             }
 
@@ -793,20 +792,20 @@ class Account {
     }
 
     clearCompletedDeals() {
-        if (!emjyBack.savedDeals) {
-            emjyBack.getFromLocal('hist_deals').then(sdeals => {
+        if (!accinfo.savedDeals) {
+            svrd.getFromLocal('hist_deals').then(sdeals => {
                 if (sdeals) {
-                    emjyBack.savedDeals = sdeals;
+                    accinfo.savedDeals = sdeals;
                     this.clearCompletedDeals();
                 }
             });
             return;
         }
 
-        let curDeals = emjyBack.savedDeals.filter(d => emjyBack.normalAccount.getStock(d.code.substring(2)) || emjyBack.collateralAccount.getStock(d.code.substring(2)));
+        let curDeals = accinfo.savedDeals.filter(d => accinfo.normalAccount.getStock(d.code.substring(2)) || accinfo.collateralAccount.getStock(d.code.substring(2)));
         curDeals.sort((a, b) => a.time > b.time);
-        emjyBack.savedDeals = curDeals;
-        emjyBack.saveToLocal({'hist_deals': emjyBack.savedDeals});
+        accinfo.savedDeals = curDeals;
+        svrd.saveToLocal({'hist_deals': accinfo.savedDeals});
     }
 
     loadHistDeals(date) {
@@ -822,7 +821,7 @@ class Account {
                 const deali = deals[i];
                 var tradeType = this.tradeTypeFromMmsm(deali.Mmsm)
                 if (!tradeType) {
-                    emjyBack.log('unknown trade type', deali.Mmsm, JSON.stringify(deali));
+                    logger.info('unknown trade type', deali.Mmsm, JSON.stringify(deali));
                     continue;
                 }
 
@@ -834,7 +833,7 @@ class Account {
                 var time = this.getDealTime(deali.Cjrq, deali.Cjsj);
                 const {Cjsl: count, Cjjg: price, Sxf: fee, Yhs: feeYh, Ghf: feeGh, Wtbh: sid} = deali;
                 if (count - 0 <= 0) {
-                    emjyBack.log('invalid count', deali);
+                    logger.info('invalid count', deali);
                     continue;
                 }
                 fetchedDeals.push({time, sid, code, tradeType, price, count, fee, feeYh, feeGh});
@@ -842,15 +841,15 @@ class Account {
 
             fetchedDeals.reverse();
             var uptosvrDeals = [];
-            if (!emjyBack.savedDeals || emjyBack.savedDeals.length == 0) {
-                emjyBack.savedDeals = fetchedDeals;
+            if (!accinfo.savedDeals || accinfo.savedDeals.length == 0) {
+                accinfo.savedDeals = fetchedDeals;
                 uptosvrDeals = fetchedDeals;
             } else {
-                uptosvrDeals = fetchedDeals.filter(deali => !emjyBack.savedDeals.find(d => d.time == deali.time && d.code == deali.code && d.sid == deali.sid));
-                emjyBack.savedDeals.concat(uptosvrDeals);
-                emjyBack.savedDeals.sort((a, b) => a.time > b.time);
+                uptosvrDeals = fetchedDeals.filter(deali => !accinfo.savedDeals.find(d => d.time == deali.time && d.code == deali.code && d.sid == deali.sid));
+                accinfo.savedDeals.concat(uptosvrDeals);
+                accinfo.savedDeals.sort((a, b) => a.time > b.time);
             }
-            emjyBack.saveToLocal({'hist_deals': emjyBack.savedDeals});
+            svrd.saveToLocal({'hist_deals': accinfo.savedDeals});
             this.uploadDeals(uptosvrDeals);
             this.clearCompletedDeals();
         });
@@ -897,7 +896,7 @@ class Account {
                 } else if (otherSellSm.includes(sm)) {
                     tradeType = 'S';
                 } else if (otherSm.includes(sm)) {
-                    emjyBack.log(JSON.stringify(deali));
+                    logger.info(JSON.stringify(deali));
                     tradeType = sm;
                     if (sm == '股息红利差异扣税') {
                         tradeType = '扣税';
@@ -906,7 +905,7 @@ class Account {
                         tradeType = '融资利息';
                     }
                 } else {
-                    emjyBack.log('unknow deals', sm, JSON.stringify(deali));
+                    logger.info('unknow deals', sm, JSON.stringify(deali));
                     continue;
                 }
 
@@ -956,18 +955,17 @@ class NormalAccount extends Account {
     }
 
     loadWatchings() {
-        if (emjyBack.fha.save_on_server) {
-            const wurl = emjyBack.fha.server + 'stock?act=watchings&acc=' + this.keyword;
-            const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
-            fetch(wurl, {headers}).then(r => r.json()).then(watchings => {
+        if (accinfo.fha.save_on_server) {
+            const wurl = accinfo.fha.server + 'stock?act=watchings&acc=' + this.keyword;
+            fetch(wurl, {headers: accinfo.fha.headers}).then(r => r.json()).then(watchings => {
                 for (const s in watchings) {
                     this.addWatchStock(s.slice(-6), watchings[s].strategies);
                 }
             });
         } else {
             var watchingStorageKey = this.keyword + '_watchings';
-            emjyBack.getFromLocal(watchingStorageKey).then(watchings => {
-                emjyBack.log(this.keyword, 'get watching_stocks', JSON.stringify(watchings));
+            svrd.getFromLocal(watchingStorageKey).then(watchings => {
+                logger.info(this.keyword, 'get watching_stocks', JSON.stringify(watchings));
                 if (watchings) {
                     watchings.forEach(s => {
                         this.addWatchStock(s);
@@ -978,10 +976,10 @@ class NormalAccount extends Account {
     }
 
     fixWatchings() {
-        emjyBack.getFromLocal(null).then(items => {
+        svrd.getFromLocal(null).then(items => {
             for (var k in items) {
                 if (k == 'undefined') {
-                    emjyBack.removeLocal(k);
+                    svrd.removeLocal(k);
                     continue;
                 }
                 if (k.startsWith(this.keyword)) {
@@ -990,7 +988,7 @@ class NormalAccount extends Account {
                         this.addWatchStock(keys[1]);
                         this.applyStrategy(keys[1], JSON.parse(items[k]));
                     }
-                    emjyBack.log('fix', keys[1]);
+                    logger.info('fix', keys[1]);
                 }
             }
         });
@@ -998,7 +996,7 @@ class NormalAccount extends Account {
 
     loadStrategies(code) {
         var strStorageKey = this.keyword + '_' + code + '_strategies';
-        emjyBack.getFromLocal(strStorageKey).then(str => {
+        svrd.getFromLocal(strStorageKey).then(str => {
             if (str) {
                 this.applyStrategy(code, JSON.parse(str));
             };
@@ -1006,12 +1004,11 @@ class NormalAccount extends Account {
     }
 
     getServerSavedStrategies(code) {
-        if (emjyBack.fha.save_on_server && this.keyword === this.holdAccount()) {
+        if (accinfo.fha.save_on_server && this.keyword === this.holdAccount()) {
             feng.getLongStockCode(code).then(fcode => {
                 const params = {'act': 'strategy', 'acc': this.keyword, code: fcode};
-                var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
-                const url = emjyBack.fha.server + '/stock?' + new URLSearchParams(params);
-                fetch(url, { headers }).then(response => response.json()).then(data => {
+                const url = accinfo.fha.server + '/stock?' + new URLSearchParams(params);
+                fetch(url, { headers: accinfo.fha.headers }).then(response => response.json()).then(data => {
                     this.applyStrategy(code, data);
                 });
             });
@@ -1082,7 +1079,7 @@ class NormalAccount extends Account {
         };
 
         stock.strategies = null;
-        emjyBack.removeLocal(this.keyword + '_' + code + '_strategies');
+        svrd.removeLocal(this.keyword + '_' + code + '_strategies');
     }
 
     disableStrategy(code, skey) {
@@ -1129,20 +1126,19 @@ class NormalAccount extends Account {
         if (stock && stock.strategies) {
             stock.strategies.archiveBuyDetail();
         }
-        emjyBack.removeLocal(this.keyword + '_' + code + '_strategies');
+        svrd.removeLocal(this.keyword + '_' + code + '_strategies');
         this.stocks = this.stocks.filter(s => s.code !== code);
         var watchingStocks = {};
         watchingStocks[this.keyword + '_watchings'] = this.stocks.filter(s => s.strategies).map(s => s.code);
-        emjyBack.saveToLocal(watchingStocks);
-        if (emjyBack.fha.save_on_server && this.keyword === this.holdAccount()) {
+        svrd.saveToLocal(watchingStocks);
+        if (accinfo.fha.save_on_server && this.keyword === this.holdAccount()) {
             feng.getLongStockCode(code).then(fcode => {
                 const fd = new FormData();
                 fd.append('act', 'forget');
                 fd.append('acc', this.keyword);
                 fd.append('code', fcode);
-                var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
-                const url = emjyBack.fha.server + '/stock';
-                fetch(url, {method: 'POST', headers, body: fd});
+                const url = accinfo.fha.server + '/stock';
+                fetch(url, {method: 'POST', headers: accinfo.fha.headers, body: fd});
             });
         }
     }
@@ -1151,23 +1147,22 @@ class NormalAccount extends Account {
         this.stocks.forEach(s => {
             if (s.strategies) {
                 s.strategies.save();
-                if (emjyBack.fha.save_on_server && Object.keys(s.strategies.strategies).length > 0 && this.keyword == this.holdAccount()) {
+                if (accinfo.fha.save_on_server && Object.keys(s.strategies.strategies).length > 0 && this.keyword == this.holdAccount()) {
                     feng.getLongStockCode(s.code).then(fcode => {
                         const fd = new FormData();
                         fd.append('act', 'strategy');
                         fd.append('acc', this.keyword);
                         fd.append('code', fcode);
                         fd.append('data', s.strategies.tostring());
-                        var headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
-                        const url = emjyBack.fha.server + '/stock';
-                        fetch(url, {method: 'POST', headers, body: fd});
+                        const url = accinfo.fha.server + '/stock';
+                        fetch(url, {method: 'POST', headers: accinfo.fha.headers, body: fd});
                     });
                 }
             };
         });
         var watchingStocks = {};
         watchingStocks[this.keyword + '_watchings'] = this.stocks.filter(s => s.strategies).map(s => s.code);
-        emjyBack.saveToLocal(watchingStocks);
+        svrd.saveToLocal(watchingStocks);
     }
 
     exportConfig() {
@@ -1206,8 +1201,8 @@ class NormalAccount extends Account {
 
     fillupGuardPrices() {
         this.stocks.forEach(stock => {
-            if (emjyBack.klines[stock.code] && stock.strategies) {
-                stock.strategies.applyKlines(emjyBack.klines[stock.code].klines);
+            if (klPad.klines[stock.code] && stock.strategies) {
+                stock.strategies.applyKlines(klPad.klines[stock.code].klines);
             }
         });
     }
@@ -1225,8 +1220,8 @@ class NormalAccount extends Account {
     }
 
     createAssetsClient() {
-        if (!emjyBack.validateKey) {
-            emjyBack.log('no validateKey');
+        if (!accinfo.validateKey) {
+            logger.info('no validateKey');
             return;
         }
         if (!this.assetsClient) {
@@ -1294,7 +1289,7 @@ class NormalAccount extends Account {
 
     onPositionsLoaded(positions) {
         if (!positions) {
-            emjyBack.log('onPositionsLoaded positions is null.');
+            logger.info('onPositionsLoaded positions is null.');
             return;
         }
 
@@ -1328,7 +1323,7 @@ class CollateralAccount extends NormalAccount {
     buyFundBeforeClose() {
         feng.repayMarginLoan().then(() => {
             this.buyStock(this.fundcode, 0, 1).catch(err => {
-                emjyBack.log('buy fund', this.fundcode, 'failed', err.message);
+                logger.info('buy fund', this.fundcode, 'failed', err.message);
             });;
         })
     }
@@ -1346,8 +1341,8 @@ class CollateralAccount extends NormalAccount {
     }
 
     createAssetsClient() {
-        if (!emjyBack.validateKey) {
-            emjyBack.log('no validateKey');
+        if (!accinfo.validateKey) {
+            logger.info('no validateKey');
             return;
         }
         if (!this.assetsClient) {
@@ -1357,8 +1352,8 @@ class CollateralAccount extends NormalAccount {
     }
 
     setReleatedAssets(assets) {
-        if (emjyBack.creditAccount) {
-            emjyBack.creditAccount.setOwnAssets(assets);
+        if (accinfo.creditAccount) {
+            accinfo.creditAccount.setOwnAssets(assets);
         }
     }
 
@@ -1398,8 +1393,8 @@ class CreditAccount extends CollateralAccount {
     }
 
     setReleatedAssets(assets) {
-        if (emjyBack.collateralAccount) {
-            emjyBack.collateralAccount.setOwnAssets(assets);
+        if (accinfo.collateralAccount) {
+            accinfo.collateralAccount.setOwnAssets(assets);
         }
     }
 
@@ -1417,15 +1412,71 @@ class CreditAccount extends CollateralAccount {
     parsePosition() { }
 }
 
+const accinfo = {
+    enableCredit: false,
+    all_accounts: {},
+    validateKey: null,
+    fha: null,
+    initAccounts() {
+        this.normalAccount = new NormalAccount();
+        this.all_accounts[this.normalAccount.keyword] = this.normalAccount;
+        if (this.enableCredit) {
+            this.collateralAccount = new CollateralAccount();
+            this.creditAccount = new CreditAccount();
+            this.all_accounts[this.collateralAccount.keyword] = this.collateralAccount;
+            this.all_accounts[this.creditAccount.keyword] = this.creditAccount;
+        }
+    },
+    testFhaServer() {
+        var url = this.fha.server + 'stock?act=test';
+        return fetch(url, {headers: accinfo.fha.headers}).then(r=>r.text());
+    },
+    updateHistDeals() {
+        svrd.getFromLocal('hist_deals').then(hdl => {
+            var startDate = null;
+            if (hdl) {
+                this.savedDeals = hdl;
+                if (this.savedDeals && this.savedDeals.length > 0) {
+                    startDate = new Date(this.savedDeals[this.savedDeals.length - 1].time);
+                    startDate.setDate(startDate.getDate() + 1);
+                } else {
+                    startDate = new Date();
+                    startDate.setDate(startDate.getDate() - 10);
+                }
+            }
+            this.doUpdateHistDeals(startDate);
+            this.loadOtherDeals(startDate);
+        });
+    },
+    doUpdateHistDeals(date) {
+        this.normalAccount.loadHistDeals(date);
+        this.collateralAccount.loadHistDeals(date);
+    },
+    loadOtherDeals(date) {
+        this.normalAccount.loadOtherDeals(date);
+        this.collateralAccount.loadOtherDeals(date);
+    },
+    checkRzrq(code) {
+        if (!this.creditAccount) {
+            return Promise.resolve();
+        }
+        if (!this.creditAccount.tradeClient) {
+            this.creditAccount.createTradeClient();
+        }
+        return this.creditAccount.tradeClient.checkRzrqTarget(code);
+    },
+    removeStock(account, code) {
+        this.all_accounts[account].removeStock(code);
+    },
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        TradeClient,
-        NormalAccount, CollateralAccount, CreditAccount
+        accinfo, TradeClient, NormalAccount
     };
 } else if (typeof window !== 'undefined') {
+    window.accinfo = accinfo;
     window.TradeClient = TradeClient;
     window.NormalAccount = NormalAccount;
-    window.CollateralAccount = CollateralAccount;
-    window.CreditAccount = CreditAccount;
 }
 })();

@@ -5,6 +5,7 @@ const { ses } = xreq('./background/strategies_meta.js');
 const { logger } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
+const { klPad } = xreq('./background/kline.js');
 const { strategyFac }  = xreq("./background/strategyController.js");
 
 
@@ -478,7 +479,7 @@ class CostDog {
             fd.append('cdata', JSON.stringify(this.dogdic));
             fetch(url, {method:'POST', body: fd, headers});
         } else {
-            emjyBack.saveToLocal({'cost_dog': Object.values(this.dogdic)});
+            svrd.saveToLocal({'cost_dog': Object.values(this.dogdic)});
         }
     }
 
@@ -720,7 +721,7 @@ class StrategyGroup {
     save() {
         var data = {};
         data[this.storeKey] = this.tostring();
-        emjyBack.saveToLocal(data);
+        svrd.saveToLocal(data);
     }
 
     setHoldCount(tcount, acount, price) {
@@ -862,7 +863,7 @@ class StrategyGroup {
                 continue;
             }
 
-            const kline = await feng.getStockKline(this.code, klt);
+            const kline = await klPad.getStockKline(this.code, klt);
             const matchResult = await s.checkKlines({id, code:this.code, kltypes: Object.keys(kline), buydetail: this.buydetail});
             if (!matchResult) {
                 continue;
@@ -999,17 +1000,17 @@ class StrategyGroup {
 
             for (const k_2 of klt) {
                 const bkl = getBaseKlt(k_2);
-                if (klsNeedUpdate(emjyBack.klines[code], bkl, k_2)) {
-                    uppromise.push(feng.getStockKline(code, bkl));
+                if (klsNeedUpdate(klPad.klines[code], bkl, k_2)) {
+                    uppromise.push(klPad.getStockKline(code, bkl));
                 }
             }
         }
         await Promise.all(uppromise);
-        if (!emjyBack.klines[code]) {
+        if (!klPad.klines[code]) {
             emjyBack.log(code, 'no kline exists!');
             return;
         }
-        emjyBack.klines[code].save();
+        klPad.klines[code].save();
     }
 }
 

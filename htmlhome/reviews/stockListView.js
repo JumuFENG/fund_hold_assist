@@ -9,17 +9,24 @@ class StockView {
         this.onStockClicked = click;
         this.container.acccode = stock.acccode;
         this.container.onclick = e => {
-            this.onStockClicked(e.currentTarget, this.stock);
+            if (e.target === this.divTitle || e.target === this.detailView) {
+                this.onStockClicked(e.currentTarget, this.stock);
+            } else {
+                e.stopPropagation();
+            }
         };
         this.divTitle = document.createElement('div');
-        var titleText = (stock.name??emjyBack.stockName(stock.code.slice(-6))) + '(' + stock.code.slice(-6) + ') '+ emjyBack.accountNames[stock.account]??stock.account;
+        var titleText = stock.name??emjyBack.stockName(stock.code.slice(-6));
+        titleText += '(' + stock.code.slice(-6) + ') ';
+        titleText += emjyBack.accountNames[stock.account]??stock.account;
         this.divTitle.appendChild(document.createTextNode(titleText));
         var anchor = emjyBack.stockAnchor(stock.code, '行情');
         this.divTitle.appendChild(anchor);
 
         if (stock.holdCount == 0) {
             this.deleteBtn = document.createElement('button');
-            this.deleteBtn.textContent = 'Delete';
+            this.deleteBtn.textContent = '舍弃';
+            this.deleteBtn.title = '错误的记录或者实际无法买入的情况需要舍弃.';
             this.deleteBtn.code = stock.code;
             this.deleteBtn.account = stock.account;
             this.deleteBtn.onclick = e => {

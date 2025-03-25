@@ -6,7 +6,9 @@ const { logger } = xreq('./background/nbase.js');
 const { ses } = xreq('./background/strategies_meta.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
+const { klPad } = xreq('./background/kline.js');
 const { emjyBack } = xreq('./background/emjybackend.js');
+const { accinfo } = xreq('./background/accounts.js');
 
 const validTradeStatus = ['OCALL', 'TRADE', 'ECALL'];
 const noTradeStatus = ['STOP', 'ENDTR', 'HALT', 'BREAK'];
@@ -38,13 +40,13 @@ class StrategyI_Base {
     fetchCandidates() {}
 
     checkCandidatesAccount() {
-        if (!emjyBack.validateKey) {
+        if (!accinfo.validateKey) {
             setTimeout(() => this.checkCandidatesAccount(), 1000);
             return;
         }
         for (const c in this.candidates) {
             if (!this.candidates[c].account) {
-                emjyBack.checkRzrq(c).then(rzrq => {
+                accinfo.checkRzrq(c).then(rzrq => {
                     this.candidates[c].account = rzrq.Status == -1 ? 'normal' : 'credit';
                 });
             }
@@ -83,12 +85,12 @@ class StrategyI_Base {
         if (account) {
             return Promise.resolve(account);
         }
-        return emjyBack.checkRzrq(code).then(rzrq => rzrq.Status == -1 ? 'normal' : 'credit');
+        return accinfo.checkRzrq(code).then(rzrq => rzrq.Status == -1 ? 'normal' : 'credit');
     }
 
     check_holdcount(account, code) {
-        const holdacc = emjyBack.all_accounts[account].holdAccount();
-        const holdstock = emjyBack.all_accounts[holdacc].getStock(code);
+        const holdacc = accinfo.all_accounts[account].holdAccount();
+        const holdstock = accinfo.all_accounts[holdacc].getStock(code);
         if (holdstock && holdstock.holdCount > 0) {
             return holdstock.holdCount;
         }
@@ -96,8 +98,8 @@ class StrategyI_Base {
     }
 
     get_buydetail(account, code) {
-        const holdacc = emjyBack.all_accounts[account].holdAccount();
-        const holdstock = emjyBack.all_accounts[holdacc].getStock(code);
+        const holdacc = accinfo.all_accounts[account].holdAccount();
+        const holdstock = accinfo.all_accounts[holdacc].getStock(code);
         return holdstock?.strategies?.buydetail;
     }
 
@@ -127,7 +129,7 @@ class StrategyI_Base {
         guang.fetchData(emrkUrl, {}, 10 * 60000, jdata => {
             // 数据初选：如果 jdata.code 不为 0 或缺少必要数据，则进行第二次请求
             if (jdata.code !== 0 || !jdata.result || !jdata.result.data) {
-                let rkUrl = emjyBack.fha.server + 'stock?act=hotrankrt&rank=40';
+                let rkUrl = istrManager.fha.server + 'stock?act=hotrankrt&rank=40';
                 // 返回第二次请求的数据处理
                 return guang.fetchData(rkUrl, {}, 10 * 60000, rdata => {
                     return rdata.map(x => ({
@@ -201,7 +203,7 @@ class StrategyI_Base {
     }
 
     async common_get_dailyzdt() {
-        var eurl = emjyBack.fha.server + 'stock?act=zdtemot&days=10';
+        var eurl = istrManager.fha.server + 'stock?act=zdtemot&days=10';
         const zdtarr = await guang.fetchData(eurl, {}, 6 * 60 * 60000);
         this.zdtdaily = zdtarr.reduce((acc, curr) => {
             acc[curr[0]] = { ztcnt: curr[1], ztcnt0: curr[2], dtcnt: curr[3] };
@@ -230,7 +232,7 @@ class StrategyI_Interval extends StrategyI_Base {
                     this.toggleTimer('stop');
                 }, new Date(now.toDateString() + ' ' + actions['stop']) - now);
             } else {
-                emjyBack.log('stop time expired', JSON.stringify(actions));
+                logger.info('stop time expired', JSON.stringify(actions));
             }
         }
         var ticks = new Date(now.toDateString() + ' ' + this.kicktime) - now;
@@ -244,7 +246,7 @@ class StrategyI_Interval extends StrategyI_Base {
     }
 
     toggleTimer(act) {
-        emjyBack.log(this.constructor.name, 'toggleTimer', act);
+        logger.info(this.constructor.name, 'toggleTimer', act);
         if (!this.chkInterval && act == 'start') {
             this.chkInterval = setInterval(() => {
                 this.trigger();
@@ -277,7 +279,7 @@ class StrategyI_Zt1WbOpen extends StrategyI_Base {
     }
 
     fetchCandidates() {
-        var url = emjyBack.fha.server + 'stock?act=getistr&key=' + this.istr.key;
+        var url = istrManager.fha.server + 'stock?act=getistr&key=' + this.istr.key;
         fetch(url).then(r => r.json()).then(rc => {
             if (rc.length === 0) {
                 throw new Error('No candidates found!');
@@ -320,7 +322,7 @@ class StrategyI_Zt1WbOpen extends StrategyI_Base {
                 this.candidates[code].matched = true;
                 let account = this.candidates[code].account;
                 if (this.check_holdcount(account, code) > 0) {
-                    emjyBack.log(this.istr.key, 'stock exists', code, account);
+                    logger.info(this.istr.key, 'stock exists', code, account);
                     continue;
                 }
 
@@ -360,7 +362,7 @@ class StrategyI_HotrankOpen extends StrategyI_Base {
 
     fetchCandidates() {
         this.common_get_hotranks();
-        var r5Url = emjyBack.fha.server + 'stock?act=getistr&key=' + this.istr.key;
+        var r5Url = istrManager.fha.server + 'stock?act=getistr&key=' + this.istr.key;
         fetch(r5Url).then(r => r.json()).then(rked => {
             this.rked5d = rked.map(x=>x.substring(2));
         });
@@ -390,7 +392,7 @@ class StrategyI_HotrankOpen extends StrategyI_Base {
                 }
                 this.matched = true;
 
-                emjyBack.log(this.istr.key, 'binfo', JSON.stringify(b));
+                logger.info(this.istr.key, 'binfo', JSON.stringify(b));
                 price *= this.pupfix;
                 price = Math.min(price, b.up_price);
                 this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2)}};
@@ -398,9 +400,9 @@ class StrategyI_HotrankOpen extends StrategyI_Base {
 
                 this.expected_account(this.istr.account, code).then(account => {
                     if (this.check_holdcount(account, code) > 0) {
-                        emjyBack.log(this.istr.key, 'stock exists', code, holdacc);
+                        logger.info(this.istr.key, 'stock exists', code, holdacc);
                     } else {
-                        emjyBack.log(this.istr.key, 'buy with account', code, price, account);
+                        logger.info(this.istr.key, 'buy with account', code, price, account);
                         emjyBack.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
                     }
                 });
@@ -412,7 +414,7 @@ class StrategyI_HotrankOpen extends StrategyI_Base {
         this.pupfix = 1.018;
         this.trigger();
         if (this.topranks && Object.keys(this.topranks).length > 0) {
-            var tUrl = emjyBack.fha.server + 'stock';
+            var tUrl = istrManager.fha.server + 'stock';
             var fd = new FormData();
             fd.append('act', 'setistr');
             fd.append('key', this.istr.key);
@@ -421,9 +423,9 @@ class StrategyI_HotrankOpen extends StrategyI_Base {
                 method: 'POST',
                 body: fd
             }).then(r => r.text()).then(p => {
-                emjyBack.log(this.istr.key, 'update data', p);
+                logger.info(this.istr.key, 'update data', p);
             }).catch(e => {
-                emjyBack.log(this.istr.key, 'update data error', e);
+                logger.info(this.istr.key, 'update data error', e);
             });
         }
     }
@@ -437,7 +439,7 @@ class StrategyI_3Bull_Breakup extends StrategyI_Interval {
     }
 
     fetchCandidates() {
-        var url = emjyBack.fha.server + 'stock?act=getistr&key=' + this.istr.key + '&days=' + this.wdays;
+        var url = istrManager.fha.server + 'stock?act=getistr&key=' + this.istr.key + '&days=' + this.wdays;
         fetch(url).then(r => r.json()).then(rc => {
             rc.forEach(chl => {
                 let c = chl[0];
@@ -462,7 +464,7 @@ class StrategyI_3Bull_Breakup extends StrategyI_Interval {
                 if (price - this.candidates[code].high <= 0) {
                     continue;
                 }
-                emjyBack.log(this.istr.key, 'buy match', code);
+                logger.info(this.istr.key, 'buy match', code);
                 if (b.up_price - price < 0.02) {
                     price = b.up_price;
                 } else {
@@ -474,7 +476,7 @@ class StrategyI_3Bull_Breakup extends StrategyI_Interval {
                 this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2), 'guardPrice': this.candidates[code].low}};
                 let strategy = this.generate_strategy_json(price);
                 emjyBack.buyWithAccount(code, price, 0, account, strategy);
-                emjyBack.log(this.istr.key, 'buy', code, price, account);
+                logger.info(this.istr.key, 'buy', code, price, account);
                 this.candidates[code].matched = true;
             }
         });
@@ -503,7 +505,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
     }
 
     fetchCandidates() {
-        var surl = emjyBack.fha.server + 'stock?act=hotstocks&days=2';
+        var surl = istrManager.fha.server + 'stock?act=hotstocks&days=2';
         fetch(surl).then(r => r.json()).then(recent_zt_stocks => {
             let step = Math.max(...recent_zt_stocks.map(x=>x[3]));
             let top_zt_stocks = [];
@@ -547,7 +549,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
             let drks = jd.data.diff.filter(r => r.f3 <= -8);
 
             let dtcnt_open = drks.filter(r => r.f2 - feng.getStockDt(r.f12, r.f18) <= 0).length;
-            emjyBack.log('last dtcnt=', this.lastzdt.dtcnt, 'today open dtcnt=', dtcnt_open);
+            logger.info('last dtcnt=', this.lastzdt.dtcnt, 'today open dtcnt=', dtcnt_open);
             // 检查大盘竞价情况
             if (this.lastzdt.dtcnt > 10) {
                 // 昨日跌停数大于10家，一般不买入，除非开盘竞价明显修复
@@ -582,7 +584,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                     }
 
                     let price = b.last_px;
-                    emjyBack.log(this.istr.key, 'binfo', JSON.stringify(b));
+                    logger.info(this.istr.key, 'binfo', JSON.stringify(b));
                     price *= this.pupfix;
                     price = Math.min(price, b.up_price);
                     this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2)}, 'StrategySellBE': {}};
@@ -593,7 +595,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                             price = Math.min(price, b.preclose_px * 1.05);
                             strategy = null;
                         }
-                        emjyBack.log(this.istr.key, 'buy with account', code, price, account);
+                        logger.info(this.istr.key, 'buy with account', code, price, account);
                         emjyBack.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
                     });
                 }
@@ -631,9 +633,9 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                 this.candidates[s] = {watched: true};
             }
             this.expected_account(this.istr.account, s).then(account => {
-                let hacc = emjyBack.all_accounts[account].holdAccount();
+                let hacc = accinfo.all_accounts[account].holdAccount();
                 this.estr = {'StrategyBuyDTBoard': {account}};
-                emjyBack.all_accounts[hacc].addWatchStock(s, this.generate_strategy_json());
+                accinfo.all_accounts[hacc].addWatchStock(s, this.generate_strategy_json());
                 this.candidates[s].account = hacc;
             });
         })
@@ -657,7 +659,7 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                     return [];
                 }
                 const date = Object.keys(this.zdtdaily).slice(-1)[0];
-                const durl = emjyBack.fha.server + 'api/stockdthist?date=' + date;
+                const durl = istrManager.fha.server + 'api/stockdthist?date=' + date;
                 return guang.fetchData(durl, {}, 6*60*60000, d => {
                     if (d.date != date) {
                         return [];
@@ -685,13 +687,13 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                     price *= this.pupfix;
                     price = Math.min(price, b.preclose_px * 0.95);
                     if (!price) {
-                        emjyBack.log('no valide price', JSON.stringify(b));
+                        logger.info('no valide price', JSON.stringify(b));
                         continue;
                     }
                     this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2)}};
                     let strategy = this.generate_strategy_json(price);
                     this.expected_account(this.istr.account, code).then(account => {
-                        emjyBack.log(this.istr.key, 'buy with account', code, price, account);
+                        logger.info(this.istr.key, 'buy with account', code, price, account);
                         emjyBack.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
                     });
                 }
@@ -704,17 +706,17 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
         this.common_get_zdfranks_em(-50).then(jd=>{
             let drks = jd.data.diff.filter(r => r.f3 <= -8);
             if (drks.filter(r => r.f3 <= -10).length > 15) {
-                emjyBack.log(this.istr.key, 'more stocks zdf < 10 than 15');
+                logger.info(this.istr.key, 'more stocks zdf < 10 than 15');
                 return;
             }
             let dtstocks = drks.filter(r => r.f2 - feng.getStockDt(r.f12, r.f18) <= 0)
             dtstocks = dtstocks.filter(r => !r.f14.startsWith('退市') && !r.f14.endsWith('退') && !r.f14.includes('ST'));
             if (dtstocks.length > 10) {
-                emjyBack.log(this.istr.key, 'more stocks dt than 10');
+                logger.info(this.istr.key, 'more stocks dt than 10');
                 return;
             }
             // 去除连续3天一字跌停的.
-            dtstocks = dtstocks.filter(r => !emjyBack.klines[r.f12] || emjyBack.klines[r.f12].continuouslyDtDays(true) < 3);
+            dtstocks = dtstocks.filter(r => !klPad.klines[r.f12] || klPad.klines[r.f12].continuouslyDtDays(true) < 3);
             // 封单金额最大前三
             let snapRequests = dtstocks.map(r => feng.getStockSnapshot(r.f12));
             Promise.all(snapRequests).then((snaps) => {
@@ -731,11 +733,11 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                 return top3;
             }).then(t3 => {
                 let dtcodes = dtstocks.map(r => r.f12);
-                let klRequests = dtstocks.map(r => feng.getStockKline(r.f12, '101'));
+                let klRequests = dtstocks.map(r => klPad.getStockKline(r.f12, '101'));
                 Promise.all(klRequests).then(() => {
                     let latestPrice = Object.fromEntries(dtstocks.map(r => [r.f12, r.f2]));
                     let klpvs = dtcodes.map(c => {
-                        let kl5 = emjyBack.klines[c].klines['101'].slice(-5);
+                        let kl5 = klPad.klines[c].klines['101'].slice(-5);
                         let mxhigh = Math.max(...kl5.map(x=>x.h))
                         let downp = (mxhigh - latestPrice[c]) / mxhigh;
                         let mxVol = Math.max(...kl5.map(x=>x.v));
@@ -768,7 +770,7 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
         for (const c in this.candidates) {
             if (this.candidates[c].watched) {
                 const account = this.candidates[c].account;
-                emjyBack.all_accounts[account].disableStrategy(c, 'StrategyBuyDTBoard');
+                accinfo.all_accounts[account].disableStrategy(c, 'StrategyBuyDTBoard');
             }
         }
     }
@@ -850,7 +852,7 @@ class StrategyI_IndexTracking extends StrategyI_Interval {
                 this.estr = {'StrategySellMA': {}};
                 mpas.forEach(mpa => {
                     const strategy = this.generate_strategy_json(mpa.price);
-                    emjyBack.log(this.istr.key, 'buy', mpa.code, mpa.price, mpa.account);
+                    logger.info(this.istr.key, 'buy', mpa.code, mpa.price, mpa.account);
                     emjyBack.buyWithAccount(mpa.code, mpa.price, 0, mpa.account, strategy);
                 })
             });
@@ -860,6 +862,7 @@ class StrategyI_IndexTracking extends StrategyI_Interval {
 
 
 const istrManager = {
+    fha: null,
     initExtStrs() {
         logger.info('initExtStrs');
         this.istrs = {};
@@ -872,7 +875,7 @@ const istrManager = {
         if (this.iconfig) {
             return Promise.resolve(this.iconfig[ikey]);
         }
-        return emjyBack.getFromLocal(ikey);
+        return svrd.getFromLocal(ikey);
     },
     setupExtStrategy() {
         const build_istr = function (istr) {
@@ -896,7 +899,7 @@ const istrManager = {
         for (const k in ses.ExtIstrStrategies) {
             this.getIstrData('exstrategy_' + k).then(istr => {
                 if (!istr) {
-                    emjyBack.log('ext strategy', k, 'not configured');
+                    logger.info('ext strategy', k, 'not configured');
                     return;
                 }
                 let iks = build_istr(istr);

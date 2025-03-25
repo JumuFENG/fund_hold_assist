@@ -2,7 +2,7 @@
 (function(){
 const { logger } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
-const { feng } = xreq('./background/feng.js');
+const { klPad } = xreq('./background/kline.js');
 
 class strategyFac {
     static create(strategy) {
@@ -175,7 +175,7 @@ class Strategy {
     }
 
     bss18BuyMatch(chkInfo, kltype) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
             return false;
@@ -191,7 +191,7 @@ class Strategy {
     }
 
     bss18SellMatch(chkInfo, kltype) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
             return false;
@@ -220,7 +220,7 @@ class Strategy {
     }
 
     bss18CutMatch(chkInfo, kltype, guardPrice) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
             return false;
@@ -250,7 +250,7 @@ class Strategy {
     }
 
     bhBuyMatch(chkInfo, kltype) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
             return false;
@@ -294,7 +294,7 @@ class Strategy {
     }
 
     decBuyMatch(chkInfo, kltype) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
             return false;
@@ -316,7 +316,7 @@ class Strategy {
     }
 
     incSellMatch(chkInfo, kltype) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
             return false;
@@ -382,7 +382,7 @@ class Strategy {
 
     zt1VolMinBuyMatch(chkInfo, kltype) {
         // 首板一字涨停， 缩量买入
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
             return false;
@@ -423,7 +423,7 @@ class Strategy {
             if (num >= 60) {
                 var ztkl = klines.getKlineByTime(this.data.zt0date);
                 if (!ztkl) {
-                    emjyBack.log('error zt1VolMinBuyMatch', chkInfo.code, kltype, this.data.zt0date);
+                    logger.info('error zt1VolMinBuyMatch', chkInfo.code, kltype, this.data.zt0date);
                     return false;
                 }
                 if (lprc - ztkl.c > 0) {
@@ -486,7 +486,7 @@ class StrategyComplexBase extends Strategy {
     }
 
     async checkKlines(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         var buydetails = chkInfo.buydetail;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
@@ -553,7 +553,7 @@ class StrategyBuy extends Strategy {
         }
         if (this.data.bway == 'lg') {
             if (this.data.rate0 - this.data.rate1 < 0) {
-                emjyBack.log('wrong data setting for StrategyBuy, upband rate:', this.data.rate0, 'lowband rate:', this.data.rate1);
+                logger.info('wrong data setting for StrategyBuy, upband rate:', this.data.rate0, 'lowband rate:', this.data.rate1);
                 return Promise.resolve();
             }
             if (rtInfo.latestPrice - lclose * (1 + this.data.rate0) <= 0 && rtInfo.latestPrice - lclose * (1 + this.data.rate1) >= 0) {
@@ -562,7 +562,7 @@ class StrategyBuy extends Strategy {
         }
         if (this.data.bway == 'nlg') {
             if (this.data.rate0 - this.data.rate1 < 0) {
-                emjyBack.log('wrong data setting for StrategyBuy, upband rate:', this.data.rate0, 'lowband rate:', this.data.rate1);
+                logger.info('wrong data setting for StrategyBuy, upband rate:', this.data.rate0, 'lowband rate:', this.data.rate1);
                 return Promise.resolve();
             }
             if (rtInfo.latestPrice - lclose * (1 + this.data.rate0) >= 0 || rtInfo.latestPrice - lclose * (1 + this.data.rate1) <= 0) {
@@ -612,7 +612,7 @@ class StrategyBuySD extends StrategyBuy {
     }
 
     checkKlines(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
             return Promise.resolve();
@@ -890,7 +890,7 @@ class StrategySellEL extends StrategySell {
     }
 
     checkKlines(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined) {
             return Promise.resolve();
@@ -958,7 +958,7 @@ class StrategySellELShort extends StrategySellEL {
             if (rtInfo.buysells.sale1 != '-' || rtInfo.buysells.buy1_count < this.tmpmaxb1count * 0.1) {
                 var count = buydetails.getCountMatched(this.data.cutselltype, latestPrice);
                 if (count > 0) {
-                    emjyBack.log(this.key(), JSON.stringify(rtInfo));
+                    logger.info(this.key(), JSON.stringify(rtInfo));
                     return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: (rtInfo.buysells.buy2 == '-' ? rtInfo.bottomprice : rtInfo.buysells.buy2)});
                 }
             }
@@ -967,7 +967,7 @@ class StrategySellELShort extends StrategySellEL {
     }
 
     checkKlines(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined) {
             return Promise.resolve();
@@ -993,12 +993,12 @@ class StrategySellELShort extends StrategySellEL {
         }
         var count = buydetails.getCountMatched(this.data.cutselltype, kl.c);
         if (kl.c - this.data.guardPrice < 0 && count > 0) {
-            emjyBack.log(this.key(), JSON.stringify(kl));
+            logger.info(this.key(), JSON.stringify(kl));
             return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: kl.c});
         }
 
         var troughprice = klines.getLastTrough('1');
-        const ztprice = feng.getStockZt(chkInfo.code);
+        const ztprice = klPad.getStockZt(chkInfo.code);
         if (kl.c - kl.l == 0 && kl.c - ztprice >= 0 && kl.c * 0.98 - troughprice > 0) {
             troughprice = kl.c * 0.96;
         }
@@ -1040,7 +1040,7 @@ class StrategySellELTop extends StrategySell {
         this.checkMeta(chkInfo.buydetail);
 
         var kltype = this.data.kltype;
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined) {
             return Promise.resolve();
@@ -1069,7 +1069,7 @@ class StrategySellELTop extends StrategySell {
 
         if (updatedKlt.includes(this.dkltype)) {
             var kl = klines.getLatestKline(this.dkltype);
-            const ztprice = feng.getStockZt(chkInfo.code);
+            const ztprice = klPad.getStockZt(chkInfo.code);
             if (kl.c - ztprice >= 0) {
                 // 涨停不卖出
                 return Promise.resolve();
@@ -1108,7 +1108,7 @@ class StrategyBuyMA extends StrategyBuy {
 
     checkKlines(chkInfo) {
         if (this.bss18BuyMatch(chkInfo, this.kltype())) {
-            var kl = emjyBack.klines[chkInfo.code].getLatestKline(this.kltype())
+            var kl = klPad.klines[chkInfo.code].getLatestKline(this.kltype())
             return Promise.resolve({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c});
         }
         return Promise.resolve();
@@ -1134,11 +1134,11 @@ class StrategySellMA extends StrategySell {
 
     checkKlines(chkInfo) {
         if (this.bss18SellMatch(chkInfo, this.kltype())) {
-            var klines = emjyBack.klines[chkInfo.code];
+            var klines = klPad.klines[chkInfo.code];
             var kl = klines.getLatestKline(this.kltype());
             const count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c, this.data.upRate);
             if (count > 0) {
-                var klines = emjyBack.klines[chkInfo.code];
+                var klines = klPad.klines[chkInfo.code];
                 return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: kl.c});
             }
         }
@@ -1168,7 +1168,7 @@ class StrategyBuyMADynamic extends StrategyBuyMA {
     }
 
     checkKlines(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         if (klines === undefined) {
             return Promise.resolve();
         }
@@ -1217,7 +1217,7 @@ class StrategySellMADynamic extends StrategySellMA {
     }
 
     checkKlines(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         if (klines === undefined) {
             return Promise.resolve();
         }
@@ -1285,7 +1285,7 @@ class StrategyBuyBeforeEnd extends Strategy {
     }
 
     checkKlines(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         var buydetails = chkInfo.buydetail;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
@@ -1326,7 +1326,7 @@ class StrategySellBeforeEnd extends Strategy {
     }
 
     checkKlines(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         var buydetails = chkInfo.buydetail;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
@@ -1356,7 +1356,7 @@ class StrategySellBeforeEnd extends Strategy {
         if (!this.data.selltype) {
             this.data.selltype = 'single';
         }
-        const ztprice = feng.getStockZt(chkInfo.code);
+        const ztprice = klPad.getStockZt(chkInfo.code);
         count = chkInfo.buydetail.getCountMatched(this.data.selltype, kl.c);
         if (this.data.sell_conds & conditions['not_zt']) {
             if (kl.c - ztprice < 0) {
@@ -1371,14 +1371,14 @@ class StrategySellBeforeEnd extends Strategy {
         if (this.data.sell_conds & conditions['h_and_l_dec']) {
             // 最高价和最低价都不增加时卖出 阴线也卖出
             if ((!hinc && !linc) || kl.c - kl.o < 0) {
-                emjyBack.log('StrategySellBeforeEnd kl &&', this.data.sell_conds, JSON.stringify(kl), 'prekl', JSON.stringify(prekl));
+                logger.info('StrategySellBeforeEnd kl &&', this.data.sell_conds, JSON.stringify(kl), 'prekl', JSON.stringify(prekl));
                 return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: kl.c});
             }
         }
         if (this.data.sell_conds & conditions['h_or_l_dec']) {
             // 最高价或最低价不增加时卖出 阴线也卖出
             if (!hinc || !linc || kl.c - kl.o < 0) {
-                emjyBack.log('StrategySellBeforeEnd kl ||', this.data.sell_conds, JSON.stringify(kl), 'prekl', JSON.stringify(prekl));
+                logger.info('StrategySellBeforeEnd kl ||', this.data.sell_conds, JSON.stringify(kl), 'prekl', JSON.stringify(prekl));
                 return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: kl.c});
             }
         }
@@ -1388,7 +1388,7 @@ class StrategySellBeforeEnd extends Strategy {
                 return Promise.resolve();
             }
             if (kl.c - buydetails.averPrice() * (1 + this.data.upRate) > 0) {
-                emjyBack.log('StrategySellBeforeEnd ge', this.data.sell_conds, JSON.stringify(kl));
+                logger.info('StrategySellBeforeEnd ge', this.data.sell_conds, JSON.stringify(kl));
                 return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: kl.c});
             }
         }
@@ -1407,7 +1407,7 @@ class StrategyBuyMABeforeEnd extends StrategyBuyMA {
     }
 
     checkKlines(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
             return Promise.resolve();
@@ -1475,7 +1475,7 @@ class StrategyBuySupport extends StrategyBuy {
             return Promise.resolve();
         }
 
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
             return Promise.resolve();
@@ -1538,7 +1538,7 @@ class StrategyMABackup extends Strategy {
     }
 
     checkKlines(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         if (klines === undefined) {
             return Promise.resolve();
         }
@@ -1662,7 +1662,7 @@ class StrategyTD extends StrategyComplexBase {
 
     checkCreateBuy(chkInfo) {
         // 建仓
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         var kltypes = ['30', '60', '120', '101']; //['15', '30'];// 
         for (var i in kltypes) {
@@ -1698,7 +1698,7 @@ class StrategyTD extends StrategyComplexBase {
     }
 
     checkTdBuySell(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         var buydetails = chkInfo.buydetail;
         var kltypes = ['30', '60', '120', '101']; //['15', '30'];// 
@@ -1806,7 +1806,7 @@ class StrategyMA extends StrategyTD {
     }
 
     checkCreateBuy(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
             return Promise.resolve();
@@ -1834,7 +1834,7 @@ class StrategyMA extends StrategyTD {
     }
 
     checkCutOrSell(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         var buydetails = chkInfo.buydetail;
         if (klines === undefined || updatedKlt === undefined || updatedKlt.length < 1) {
@@ -1882,7 +1882,7 @@ class StrategyMA extends StrategyTD {
                 }
             }
 
-            var klines = emjyBack.klines[chkInfo.code];
+            var klines = klPad.klines[chkInfo.code];
             var kl = klines.getLatestKline(kltype);
             var count = buydetails.getCountLessThan(kl.c, buydetails.buyRecords().length > 1 ? this.data.stepRate : upRate);
             if (count > 0) {
@@ -1926,7 +1926,7 @@ class StrategyGE extends Strategy {
     }
 
     checkMa1Buy(chkInfo) {
-        var kl1 = emjyBack.klines[chkInfo.code];
+        var kl1 = klPad.klines[chkInfo.code];
         var buydetails = chkInfo.buydetail;
         if (kl1) {
             var kl = kl1.getLatestKline(this.skltype);
@@ -1960,7 +1960,7 @@ class StrategyGE extends Strategy {
             this.data.guardPrice = buydetails.minBuyPrice();
         }
 
-        var kl = emjyBack.klines[chkInfo.code].getLatestKline(this.data.kltype);
+        var kl = klPad.klines[chkInfo.code].getLatestKline(this.data.kltype);
         if (!this.data.guardPrice || this.data.guardPrice == 0 || !buydetails || (this.buyrecRemains() == 0 && buydetails.buyRecords().length == 0)) {
             // 建仓
             if (this.bss18BuyMatch(chkInfo, this.data.kltype)) {
@@ -2055,7 +2055,7 @@ class StrategyGrid extends StrategyComplexBase {
 
     checkCreateBuy(chkInfo) {
         var kltype = this.kltype();
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (!updatedKlt.includes(kltype)) {
             return Promise.resolve();
@@ -2075,14 +2075,14 @@ class StrategyGrid extends StrategyComplexBase {
 
     async checkConsecutiveBuySell(chkInfo) {
         var kltype = this.kltype();
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         if (!updatedKlt.includes(kltype)) {
             return;
         }
 
         var kl = klines.getLatestKline(kltype);
-        const ztprice = feng.getStockZt(chkInfo.code);
+        const ztprice = klPad.getStockZt(chkInfo.code);
         if (kl.c - ztprice >= 0) {
             // 涨停不卖出，不加仓
             return;
@@ -2216,7 +2216,7 @@ class StrategyBarginHunting extends StrategyComplexBase {
     checkCreateBuy(chkInfo) {
         var kltype = this.data.kltype;
         if (this.bhBuyMatch(chkInfo, kltype)) {
-            var klines = emjyBack.klines[chkInfo.code];
+            var klines = klPad.klines[chkInfo.code];
             var kl = klines.getLatestKline(kltype);
             this.tobeconfirm = 'checkCreateBuy';
             return Promise.resolve({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c});
@@ -2224,7 +2224,7 @@ class StrategyBarginHunting extends StrategyComplexBase {
     }
 
     checkCutOrSellShort(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         var kltype = this.skltype;
         if (!updatedKlt.includes(kltype)) {
@@ -2249,7 +2249,7 @@ class StrategyBarginHunting extends StrategyComplexBase {
     }
 
     checkCutOrSell(chkInfo) {
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
         var kltype = this.data.kltype;
         if (!updatedKlt.includes(kltype)) {
@@ -2289,7 +2289,7 @@ class StrategySD extends StrategyBarginHunting {
 
     checkCreateBuy(chkInfo) {
         var kltype = this.data.kltype;
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var kl = klines.getLatestKline(kltype);
         if (!this.data.guardPrice) {
             return Promise.resolve();
@@ -2356,7 +2356,7 @@ class StrategyBias extends StrategyComplexBase {
     checkCreateBuy(chkInfo) {
         var kltype = this.data.kltype;
         if (this.bhBuyMatch(chkInfo, kltype)) {
-            var klines = emjyBack.klines[chkInfo.code];
+            var klines = klPad.klines[chkInfo.code];
             var kl = klines.getLatestKline(kltype);
             this.tobeconfirm = 'checkCreateBuy';
             return Promise.resolve({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c});
@@ -2366,7 +2366,7 @@ class StrategyBias extends StrategyComplexBase {
 
     checkCutOrSell(chkInfo) {
         var kltype = this.data.kltype;
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         if (this.biasSellMatch(klines, kltype)) {
             var kl = klines.getLatestKline(kltype);
             var count = chkInfo.buydetail.getCountLessThan(kl.c, this.data.stepRate);
@@ -2384,7 +2384,7 @@ class StrategyBias extends StrategyComplexBase {
     checkConsecutiveBuySell(chkInfo) {
         var kltype = this.data.kltype;
         if (this.bhBuyMatch(chkInfo, kltype)) {
-            var klines = emjyBack.klines[chkInfo.code];
+            var klines = klPad.klines[chkInfo.code];
             var kl = klines.getLatestKline(kltype);
             var minp = chkInfo.buydetail.minBuyPrice();
             if (minp * (1 - this.data.stepRate) - kl.c >= 0) {
@@ -2442,7 +2442,7 @@ class StrategyIncDec extends StrategyComplexBase {
     checkCreateBuy(chkInfo) {
         var kltype = this.data.kltype;
         if (this.decBuyMatch(chkInfo, kltype)) {
-            var klines = emjyBack.klines[chkInfo.code];
+            var klines = klPad.klines[chkInfo.code];
             var kl = klines.getLatestKline(kltype);
             this.tobeconfirm = 'checkCreateBuy';
             return Promise.resolve({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c});
@@ -2452,7 +2452,7 @@ class StrategyIncDec extends StrategyComplexBase {
 
     checkCutOrSell(chkInfo) {
         var kltype = this.data.kltype;
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var kl = klines.getLatestKline(kltype);
         var count = chkInfo.buydetail.getCountLessThan(kl.c, this.data.stepRate);
         if (this.incSellMatch(chkInfo, kltype)) {
@@ -2477,7 +2477,7 @@ class StrategyIncDec extends StrategyComplexBase {
 
     checkConsecutiveBuySell(chkInfo) {
         var kltype = this.data.kltype;
-        var klines = emjyBack.klines[chkInfo.code];
+        var klines = klPad.klines[chkInfo.code];
         var kl = klines.getLatestKline(kltype);
         if (this.decBuyMatch(chkInfo, kltype)) {
             var minp = chkInfo.buydetail.minBuyPrice();
@@ -2510,7 +2510,7 @@ class StrategyZt1 extends StrategyBarginHunting {
         if (!this.data.zt0date) {
             return;
         }
-        this.data.guardVol = emjyBack.klines[code].getMinVolBefore(this.data.zt0date, 30, this.data.kltype);
+        this.data.guardVol = klPad.klines[code].getMinVolBefore(this.data.zt0date, 30, this.data.kltype);
     }
 
     confirmMatched(bd) {
@@ -2523,7 +2523,7 @@ class StrategyZt1 extends StrategyBarginHunting {
     checkCreateBuy(chkInfo) {
         var code = chkInfo.code;
         var kltype = this.data.kltype;
-        if (emjyBack.klines[code].getLatestKline(kltype).time <= this.data.zt0date) {
+        if (klPad.klines[code].getLatestKline(kltype).time <= this.data.zt0date) {
             return Promise.resolve();
         }
 
@@ -2532,7 +2532,7 @@ class StrategyZt1 extends StrategyBarginHunting {
         }
 
         if (this.zt1VolMinBuyMatch(chkInfo, kltype)) {
-            var klines = emjyBack.klines[code];
+            var klines = klPad.klines[code];
             var kl = klines.getLatestKline(kltype);
             this.tobeconfirm = 'checkCreateBuy';
             return Promise.resolve({id: chkInfo.id, tradeType: 'B', count: 0, price: kl.c});
@@ -2550,7 +2550,7 @@ class StrategyZt1 extends StrategyBarginHunting {
             this.setEnabled(false);
             return;
         }
-        var mvkl = emjyBack.klines[code].minVolKlSince(this.data.zt0date, this.data.kltype);
+        var mvkl = klPad.klines[code].minVolKlSince(this.data.zt0date, this.data.kltype);
         this.data.guardVol = mvkl.v - this.data.guardVol < 0 ? mvkl.v : this.data.guardVol;
     }
 }
