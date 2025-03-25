@@ -4,7 +4,6 @@
 const { logger, ctxfetch } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
-const { emjyBack } = xreq('./background/emjybackend.js');
 const { klPad } = xreq('./background/kline.js');
 const { GroupManager }  = xreq('./background/strategyGroup.js');
 
@@ -960,7 +959,7 @@ class NormalAccount extends Account {
         if (emjyBack.fha.save_on_server) {
             const wurl = emjyBack.fha.server + 'stock?act=watchings&acc=' + this.keyword;
             const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
-            fetch(wurl, headers).then(r => r.json()).then(watchings => {
+            fetch(wurl, {headers}).then(r => r.json()).then(watchings => {
                 for (const s in watchings) {
                     this.addWatchStock(s.slice(-6), watchings[s].strategies);
                 }

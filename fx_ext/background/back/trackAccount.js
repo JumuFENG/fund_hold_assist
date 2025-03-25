@@ -4,7 +4,6 @@
 const { logger } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
-const { emjyBack } = xreq('./background/emjybackend.js');
 const { TradeClient, NormalAccount }  = xreq('./background/accounts.js');
 const { GroupManager } = xreq('./background/strategyGroup.js');
 

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>验证码识别系统</title>
+</head>
+<body>
+  <div id="status"></div>
+  <img id="captchaImage" style="display: none;">
+  <input id="manualInput" type="text" placeholder="手动输入验证码">
+  <button id="submitManual">提交</button>
+  <button id="startBtn" style="display: none;">开始</button>
+
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+    const statusDiv = document.getElementById('status');
+    const captchaImage = document.getElementById('captchaImage');
+    const manualInput = document.getElementById('manualInput');
+    const submitBtn = document.getElementById('submitManual');
+    const startBtn = document.getElementById('startBtn');
+
+    // 连接成功
+    socket.on('connect', (data) => {
+        statusDiv.textContent = '已连接... 状态为:' + JSON.stringify(data);
+        if (!data) {
+            startBtn.style.display = 'block';
+        }
+    });
+
+    // 接收验证码图片
+    socket.on('captcha_image', (data) => {
+        captchaImage.src = `data:image/png;base64,${data.image}`;
+        captchaImage.captchaUrl = data.url;
+        captchaImage.style.display = 'block';
+        statusDiv.textContent = '请输入验证码';
+    });
+
+    // 用户手动提交
+    submitBtn.addEventListener('click', () => {
+        const text = manualInput.value.trim();
+        if (!text) return;
+        socket.emit('submit_captcha', { text, url: captchaImage.captchaUrl });
+        captchaImage.style.display = 'none';
+    });
+
+    startBtn.onclick = () => {
+        fetch('/start').then(r=>r.text()).then(t => {
+            statusDiv.textContent = t;
+            startBtn.style.display = 'none';
+        })
+    }
+
+    window.onload = fetch('/status').then(r=>r.json()).then(t => {
+        statusDiv.textContent = JSON.stringify(t);
+        if (t.status != 'success') {
+            startBtn.style.display = 'block';
+        } else {
+            startBtn.style.display = 'none';
+        }
+    });
+  </script>
+</body>
+</html>

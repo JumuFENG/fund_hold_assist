@@ -256,8 +256,9 @@ const alarmHub = {
 
         guang.isTodayTradingDay().then(trade => {
             if (trade) {
-                [ralarm, talarm, bclose, closed, // this.orderTimer,
-                    this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
+                [// ralarm, talarm, bclose,
+                    closed, this.orderTimer,
+                    // this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
                 ].forEach(a => {
                     a.setupTimer();
                 });

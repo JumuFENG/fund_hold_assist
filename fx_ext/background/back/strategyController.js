@@ -3,7 +3,6 @@
 const { logger } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
-const { emjyBack } = xreq('./background/emjybackend.js');
 
 class strategyFac {
     static create(strategy) {

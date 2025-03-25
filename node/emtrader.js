@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { exit } = require('process');
 const express = require('express');
+const { Server } = require('socket.io');
 const puppeteer = require('puppeteer');
 // xreq path must related to this file or will throw execption.
 global.xreq = function(m) {
@@ -19,6 +20,7 @@ const { istrManager } = require('./background/istrategies.js');
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'web')));
 
 if (!config || Object.keys(config).length === 0) {
     const dconfig = {
@@ -80,12 +82,16 @@ const ext = {
         await this.createMainTab();
         this.login();
     },
+    async submit(text) {
+        await this.setUnp();
+        await this.page.type('#txtValidCode', text);
+        await this.page.click('#btnConfirm');
+    },
     async login() {
         this.status = 'logining';
         if (!this.retry) {
             this.retry = 1;
             this.success = false;
-            await this.setUnp();
         }
 
         if (!this.yzm) {
@@ -100,11 +106,7 @@ const ext = {
                 return;
             }
 
-            // 输入验证码
-            await this.page.type('#txtValidCode', text);
-
-            // 点击登录按钮
-            await this.page.click('#btnConfirm');
+            await this.submit(text);
             this.retry++;
         } catch (error) {
             logger.error(`第 ${this.retry} 次尝试出错: ${error.message}`);
@@ -118,19 +120,26 @@ const ext = {
             return false;
         }
 
-        this.captcha = text;
-        await this.page.type('#txtValidCode', text);
-        await this.page.click('#btnConfirm');
+        if (!text || text.length != 4 || isNaN(text)) {
+            logger.info(`captcha not valid! ${text}`);
+            await this.page.click('#imgValidCode');
+            return false;
+        }
+        await this.submit(text);
         return true;
     },
     async setUnp() {
         // 输入用户名和密码
+        if (this.unpset) {
+            return;
+        }
         await this.page.type('#txtZjzh', config.unp.account);
         await this.page.type('#txtPwd', atob(config.unp.pwd));
         const rds45checked = await (await (await this.page.$('#rdsc45')).getProperty("checked")).jsonValue();
         if (!rds45checked) {
             await this.page.click('#rdsc45');
         }
+        this.unpset = true;
     },
     async onResponse(response) {
         const url = response.url();
@@ -140,6 +149,7 @@ const ext = {
             logger.debug(this.yzm);
             this.waitingCaptcha = url;
             if (!this.retry || this.retry > this.mxretry) {
+                sendMessage('captcha_image', {image: this.yzm, url: this.waitingCaptcha});
                 return;
             }
             this.login();
@@ -209,11 +219,16 @@ const ext = {
             this.page.reload();
         }, 175 * 60000);
         emjyBack.Init();
+        emjyBack.initTrackAccounts();
         alarmHub.setupAlarms();
         istrManager.initExtStrs();
     },
     async onLoginFailed() {
         this.status = 'failed';
+        if (this.retry > this.mxretry) {
+            logger.info(`第 ${this.retry} 次登录失败，发送到Web进行人工验证!`);
+            sendMessage('captcha_image', {image: this.yzm, url: this.waitingCaptcha});
+        }
         logger.info(`第 ${this.retry} 次登录失败，重试中...`);
     },
     async close() {
@@ -223,6 +238,9 @@ const ext = {
     }
 };
 
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 app.get('/status', (req, res) => {
     const r = {status: ext.status, running: emjyBack.running};
@@ -259,7 +277,40 @@ if (guang.isTodayTradingDay()) {
 }
 
 const port = config.client.port;
-app.listen(port, () => {
+const server = app.listen(port, () => {
     console.log('Server is running on port', port);
 });
 
+const io = new Server(server, { 
+    cors: { origin: '*' }
+});
+
+const connectedClients = new Set();
+
+io.on('connection', (socket) => {
+    logger.info('客户端已连接:', socket.id);
+    connectedClients.add(socket);
+    socket.emit('status', {status: ext.status, running: emjyBack.running});
+
+    socket.on('disconnect', () => {
+        connectedClients.delete(socket);
+    });
+});
+
+async function sendMessage(evt, msg) {
+    try {
+        connectedClients.forEach(client => {
+            client.emit(evt, msg);
+        });
+    } catch (error) {
+        logger.error('sendMessage error:', error);
+    }
+}
+
+// 接收客户端提交的验证码
+io.on('connection', (socket) => {
+    socket.on('submit_captcha', (data) => {
+        logger.info('收到验证码:', data.text);
+        ext.setcaptcha(data.url, data.text);
+    });
+});

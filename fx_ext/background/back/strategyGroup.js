@@ -5,7 +5,6 @@ const { ses } = xreq('./background/strategies_meta.js');
 const { logger } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
-const { emjyBack } = xreq('./background/emjybackend.js');
 const { strategyFac }  = xreq("./background/strategyController.js");
 
 

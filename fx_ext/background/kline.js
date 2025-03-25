@@ -4,12 +4,10 @@
 
 const { logger } = xreq('./background/nbase.js');
 const { feng } = xreq('./background/feng.js');
-const { emjyBack } = xreq('./background/emjybackend.js');
 
-class klPad {
-    static klines = {};
-
-    static loadKlines(code) {
+const klPad = {
+    klines: {},
+    loadKlines(code) {
         if (!this.klines[code]) {
             this.klines[code] = new KLine(code);
             this.klines[code].loadSaved();
