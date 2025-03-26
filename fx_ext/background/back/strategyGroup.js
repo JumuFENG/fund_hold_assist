@@ -898,6 +898,7 @@ class StrategyGroup {
         if (!info.fixed && (this.account == 'normal' || this.account == 'collat')) {
             price = 0;
         }
+        const curStrategy = this.strategies[info.id];
         if (info.tradeType == 'B') {
             var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
             var count = this.count0;

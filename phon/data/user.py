@@ -594,6 +594,42 @@ class User:
                 valdics.append(nval)
         insert_or_update(self.archived_deals, valdics, ['code', 'date', 'type', '委托编号'])
 
+    def get_deals(self, code=None):
+        def transform_records(records, trade_type):
+            return [
+                {
+                    'tradeType': trade_type,
+                    'count': record.get('portion', None),
+                    'sid': record.get('委托编号', None),
+                    'time': record.get('date', None),
+                    **{k: v for k, v in record.items() if k not in ('portion', '委托编号', 'date')}
+                }
+                for record in records
+            ]
+
+        with read_context(self.buy_table):
+            buy_records = self.buy_table.select()
+            if code is not None:
+                buy_records = buy_records.where(self.buy_table.code == code)
+            buy_records = [r.__data__ for r in buy_records]
+
+        with read_context(self.sell_table):
+            sell_records = self.sell_table.select()
+            if code is not None:
+                sell_records = sell_records.where(self.sell_table.code == code)
+            sell_records = [r.__data__ for r in sell_records]
+
+        buy_deals = transform_records(buy_records, 'B')
+        sell_deals = transform_records(sell_records, 'S')
+
+        all_deals = buy_deals + sell_deals
+        return sorted(all_deals, key=lambda x: x['time'])
+
+    def remove_deals(self, code, bsid, ssid):
+        with write_context(self.buy_table):
+            self.buy_table.delete().where(self.buy_table.code == code, self.buy_table.委托编号.in_(bsid)).execute()
+        with write_context(self.sell_table):
+            self.sell_table.delete().where(self.sell_table.code == code, self.sell_table.委托编号.in_(ssid)).execute()
 
     def save_strategy(self, code, strdata):
         us = UStock(self, code)
@@ -1632,6 +1668,8 @@ class UStock():
             }
             if 'transfers' in strdata and i in strdata['transfers']:
                 vdic['trans'] = strdata['transfers'][i]['transfer']
+            else:
+                vdic['trans'] = -1
             svalues.append(vdic)
         insert_or_update(self.strategy_table, svalues, ['code', 'id'])
 

@@ -63,6 +63,21 @@ def forget_user_stock(own, pform):
     user.forget_stock(code)
     return 'OK', 200
 
+def remove_user_stock_with_deals(own, pform):
+    acc = pform.get('acc', type=str, default=None)
+    subid = pform.get('accid', type=int, default=None)
+    user = actual_user(own, acc, subid, False)
+    if not user:
+        return 'Forbidden', 404
+    code = pform.get('code', type=str, default=None)
+    user.forget_stock(code)
+    bsid = pform.get('buysid', type=str, default=None)
+    bsid = bsid.split(',')
+    ssid = pform.get('sellsid', type=str, default=None)
+    ssid = ssid.split(',')
+    user.remove_deals(code, bsid, ssid)
+    return 'OK', 200
+
 def user_request_get(request):
     user = User.user_by_email(session['useremail'])
     actype = request.args.get("act", None, str)
@@ -93,6 +108,10 @@ def user_request_get(request):
         if sub is None:
             return '{}'
         return json.dumps(sub.watchings_with_strategy())
+    if actype == 'deals':
+        if sub is None:
+            return '[]'
+        return json.dumps(sub.get_deals(code))
     return "Not implement yet", 403
 
 def user_request_post(request):
@@ -109,6 +128,8 @@ def user_request_post(request):
         cdata = request.form.get('cdata', type=str, default=None)
         user.save_costdog(json.loads(cdata))
         return 'OK', 200
+    if actype == 'rmwatch':
+        return remove_user_stock_with_deals(user, request.form)
 
 def user_accounts(parent=False, onlystock=True):
     if parent:

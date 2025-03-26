@@ -51,38 +51,57 @@ class TrackingAccount extends NormalAccount {
         stock.strategies = GroupManager.create(str, this.keyword, code, this.keyword + '_' + code + '_strategies');
     }
 
-    loadAssets() {
+    loadWatchings() {
+        if (!accld.fha.save_on_server) {
+            return this.loadAssets();
+        }
+        super.loadWatchings().then(() => {
+            this.stocks.forEach(s => {
+                this.fix_date_price(s.code, s.strategies.buydetail.records);
+                this.fix_date_price(s.code, s.strategies.buydetail.full_records);
+                s.holdCount = s.strategies.buydetail.totalCount();
+                s.holdCost = s.strategies.buydetail.averPrice();
+                if (s.holdCount > 0 && s.strategies.buydetail.lastBuyDate() >= guang.getTodayDate('-')) {
+                    this.enable_track_strategies(s.strategies.strategies);
+                }
+            });
+        });
+    }
+
+    fix_date_price(code, records) {
         var loadhour = new Date().getHours();
-        var watchingStorageKey = this.keyword + '_watchings';
-        var fix_date_price = function(code, records) {
-            for (var rec of records) {
-                if (rec.date.includes(':')) {
-                    var rdate = rec.date.split(' ')[0];
-                    var kl = klPad.klines[code].getKlineByTime(rdate);
-                    if (kl && loadhour >= 15) {
-                        if (rec.date < rdate + ' ' + '09:30') {
-                            rec.price = kl.o;
-                        } else if (rec.date > rdate + ' ' + '14:57') {
-                            rec.price = kl.c;
-                        }
-                        rec.date = rdate;
-                    } else if (rec.date > rdate + ' ' + '09:30' && rec.date < rdate + ' ' + '14:57') {
-                        rec.date = rdate;
+        for (var rec of records) {
+            if (rec.date.includes(':')) {
+                var rdate = rec.date.split(' ')[0];
+                var kl = klPad.klines[code].getKlineByTime(rdate);
+                if (kl && loadhour >= 15) {
+                    if (rec.date < rdate + ' ' + '09:30') {
+                        rec.price = kl.o;
+                    } else if (rec.date > rdate + ' ' + '14:57') {
+                        rec.price = kl.c;
                     }
+                    rec.date = rdate;
+                } else if (rec.date > rdate + ' ' + '09:30' && rec.date < rdate + ' ' + '14:57') {
+                    rec.date = rdate;
                 }
             }
         }
-        var enable_track_strategies = function (strategies) {
-            if (Object.values(strategies).filter(x=>x.enabled()).length != 0) {
-                return;
-            }
-            const interested_strategies = ['StrategyGrid', 'StrategySellELS', 'StrategySellBE'];
-            for (var s in strategies) {
-                if (interested_strategies.includes(strategies[s].data.key) && !strategies[s].enabled()) {
-                    strategies[s].setEnabled(true);
-                }
+    }
+
+    enable_track_strategies (strategies) {
+        if (Object.values(strategies).filter(x=>x.enabled()).length != 0) {
+            return;
+        }
+        const interested_strategies = ['StrategyGrid', 'StrategySellELS', 'StrategySellBE'];
+        for (var s in strategies) {
+            if (interested_strategies.includes(strategies[s].data.key) && !strategies[s].enabled()) {
+                strategies[s].setEnabled(true);
             }
         }
+    }
+
+    loadAssets() {
+        var watchingStorageKey = this.keyword + '_watchings';
         svrd.getFromLocal(watchingStorageKey).then(watchings => {
             logger.info('get watching_stocks', JSON.stringify(watchings));
             if (watchings) {
@@ -93,12 +112,12 @@ class TrackingAccount extends NormalAccount {
                         if (str) {
                             this.applyStrategy(s, JSON.parse(str));
                             var stockInfo = this.stocks.find(function(stocki) {return s == stocki.code});
-                            fix_date_price(stockInfo.code, stockInfo.strategies.buydetail.records);
-                            fix_date_price(stockInfo.code, stockInfo.strategies.buydetail.full_records);
+                            this.fix_date_price(stockInfo.code, stockInfo.strategies.buydetail.records);
+                            this.fix_date_price(stockInfo.code, stockInfo.strategies.buydetail.full_records);
                             stockInfo.holdCount = stockInfo.strategies.buydetail.totalCount();
                             stockInfo.holdCost = (stockInfo.strategies.buydetail.averPrice()).toFixed(2);
                             if (stockInfo.holdCount > 0 && stockInfo.strategies.buydetail.lastBuyDate() >= guang.getTodayDate('-')) {
-                                enable_track_strategies(stockInfo.strategies.strategies);
+                                this.enable_track_strategies(stockInfo.strategies.strategies);
                             }
                         };
                     });
@@ -266,5 +285,6 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {trackacc};
 } else if (typeof window !== 'undefined') {
     window.trackacc = trackacc;
+    window.TrackingAccount = TrackingAccount;
 }
 })();

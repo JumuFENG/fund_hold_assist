@@ -230,6 +230,7 @@ const ext = {
         }, 175 * 60000);
         accld.initAccounts();
         trackacc.initTrackAccounts();
+        costDog.init();
         this.running = true;
         alarmHub.setupAlarms();
         alarmHub.tradeClosed = this.tradeClosed;

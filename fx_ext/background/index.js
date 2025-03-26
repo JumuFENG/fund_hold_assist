@@ -28,9 +28,9 @@ class ManagerBack {
         if (!this.mgrChangedTimeout) {
             return;
         }
-        emjyBack.normalAccount.save();
-        emjyBack.collateralAccount.save();
-        for (const account of emjyBack.track_accounts) {
+        accld.normalAccount.save();
+        accld.collateralAccount.save();
+        for (const account of accld.track_accounts) {
             account.save();
         }
         if (emjyBack.mgrFetched) {
@@ -39,36 +39,36 @@ class ManagerBack {
             });
             delete(emjyBack.mgrFetched)
         }
-        if (emjyBack.costDog) {
-            emjyBack.costDog.save();
+        if (costDog) {
+            costDog.save();
         }
         clearTimeout(this.mgrChangedTimeout);
-        emjyBack.log('manager saved');
+        logger.info('manager saved');
         this.mgrChangedTimeout = null;
     }
 
     onManagerMessage(message, tabid) {
-        emjyBack.log('ManagerBack ', JSON.stringify(message), tabid);
+        logger.info('ManagerBack ', JSON.stringify(message), tabid);
         if (message.command == 'mngr.init') {
             this.tabid = tabid;
         } else if (message.command == 'mngr.initaccstk') {
-            this.sendStocks([emjyBack.all_accounts[message.account]]);
+            this.sendStocks([accld.all_accounts[message.account]]);
         } else if (message.command == 'mngr.closed') {
             this.notifyMgrSave();
             this.tabid = null;
         } else if (message.command == 'mngr.export') {
-            emjyBack.exportConfig();
+            ext.exportConfig();
         } else if (message.command == 'mngr.import') {
-            emjyBack.importConfig(message.config);
+            ext.importConfig(message.config);
         } else if (message.command == 'mngr.strategy') {
-            emjyBack.all_accounts[message.account].applyStrategy(message.code, message.strategies);
-            emjyBack.all_accounts[message.account].getStock(message.code)?.strategies?.updateKlines();
+            accld.all_accounts[message.account].applyStrategy(message.code, message.strategies);
+            accld.all_accounts[message.account].getStock(message.code)?.strategies?.updateKlines();
             this.startChangedTimeout();
         } else if (message.command =='mngr.strategy.rmv') {
-            emjyBack.all_accounts[message.account].removeStrategy(message.code, message.stype);
+            accld.all_accounts[message.account].removeStrategy(message.code, message.stype);
             this.startChangedTimeout();
         } else if (message.command == 'mngr.addwatch') {
-            emjyBack.all_accounts[message.account].addWatchStock(message.code, message.strategies);
+            accld.all_accounts[message.account].addWatchStock(message.code, message.strategies);
             this.startChangedTimeout();
         } else if (message.command == 'mngr.rmwatch') {
             accld.removeStock(message.account, message.code);
@@ -84,18 +84,18 @@ class ManagerBack {
         } else if (message.command == 'mngr.saveFile') {
             svrd.saveToFile(message.blob, message.filename);
         } else if (message.command == 'mngr.costdog') {
-            this.sendManagerMessage({command:'mngr.costdog', 'costdog': Object.values(emjyBack.costDog.dogdic)});
+            this.sendManagerMessage({command:'mngr.costdog', 'costdog': Object.values(costDog.dogdic)});
         } else if (message.command === 'mngr.costdog.add') {
             var cdo = message.cdo;
-            emjyBack.costDog.dogdic[cdo.key] = cdo;
+            costDog.dogdic[cdo.key] = cdo;
             this.startChangedTimeout();
         } else if (message.command === 'mngr.costdog.delete') {
-            delete(emjyBack.costDog.dogdic[message.cikey]);
+            delete(costDog.dogdic[message.cikey]);
             this.startChangedTimeout();
         } else if (message.command === 'mngr.costdog.changed') {
             var cdo = message.cdo;
             for (const c of ['amount', 'max_amount', 'expect_earn_rate']) {
-                emjyBack.costDog.dogdic[cdo.key][c] = cdo[c];
+                costDog.dogdic[cdo.key][c] = cdo[c];
             }
             this.startChangedTimeout();
         }
@@ -105,7 +105,7 @@ class ManagerBack {
         if (this.isValid()) {
             chrome.tabs.sendMessage(this.tabid, message);
         } else {
-            emjyBack.log('manager tab id is', this.tabid);
+            logger.info('manager tab id is', this.tabid);
         }
     }
 
@@ -134,7 +134,7 @@ class ext {
     static notify(message, sender, response) {
         if (message.command == 'emjy.contentLoaded') {
             ext.onContentLoaded(message, sender.tab.id, response);
-        } else if (message.command.startsWith('emjy.') && emjyBack) {
+        } else if (message.command.startsWith('emjy.')) {
             ext.onContentMessageReceived(message, sender.tab.id);
         } else if (message.command.startsWith('mngr.')) {
             if (sender.tab) {
@@ -161,51 +161,48 @@ class ext {
 
     static onContentLoaded(message, tabid, response) {
         if (!this.mainTab || this.mainTab.id != tabid) {
-            emjyBack.log('onContentLoaded response false', tabid, JSON.stringify(this.mainTab));
+            logger.info('onContentLoaded response false', tabid, JSON.stringify(this.mainTab));
             response(false);
             return;
         };
 
         this.mainTab.url = message.url;
         chrome.tabs.executeScript(this.mainTab.tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
-        emjyBack.log('onContentLoaded', this.mainTab.url);
+        logger.info('onContentLoaded', this.mainTab.url);
         response(true);
     }
 
     static onContentMessageReceived(message, tabid) {
-        if (!emjyBack) {
-            console.log('background not initialized');
-            return;
-        }
-
-        emjyBack.log('onContentMessageReceived', tabid, message.command === 'emjy.captcha' ? message.command: JSON.stringify(message));
+        logger.info('onContentMessageReceived', tabid, message.command === 'emjy.captcha' ? message.command: JSON.stringify(message));
         if (message.command == 'emjy.getValidateKey') {
             chrome.tabs.executeScript(tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
             if (accld.validateKey == message.key) {
-                emjyBack.log('getValidateKey same, skip!');
+                logger.info('getValidateKey same, skip!');
                 return;
             }
-            emjyBack.log('getValidateKey =', message.key);
+            logger.info('getValidateKey =', message.key);
             feng.validateKey = message.key;
             accld.validateKey = message.key;
-            emjyBack.loadAssets();
+            accld.normalAccount.loadAssets();
+            accld.collateralAccount.loadAssets();
+
             if ((new Date()).getDay() == 1 && (new Date()).getHours() <= 9) {
                 // update history deals every Monday morning.
-                emjyBack.updateHistDeals();
+                accld.updateHistDeals();
             }
         } else if (message.command == 'emjy.captcha') {
             this.recoginzeCaptcha(message.img);
         } else if (message.command == 'emjy.loginnp') {
             this.sendLoginInfo();
         } else if (message.command == 'emjy.trade') {
-            emjyBack.log('trade message: result =', message.result, ', what =', message.what);
+            logger.info('trade message: result =', message.result, ', what =', message.what);
         } else if (message.command == 'emjy.addwatch') {
-            emjyBack.all_accounts[message.account].addWatchStock(message.code, message.strategies);
-            emjyBack.log('content add watch stock', message.account, message.code);
+            accld.all_accounts[message.account].addWatchStock(message.code, message.strategies);
+            logger.info('content add watch stock', message.account, message.code);
         } else if (message.command == 'emjy.save') {
-            emjyBack.normalAccount.save();
-            emjyBack.collateralAccount.save();
-            emjyBack.log('content message save');
+            accld.normalAccount.save();
+            accld.collateralAccount.save();
+            logger.info('content message save');
         }
     }
 
@@ -220,7 +217,7 @@ class ext {
         if (this.pendingContentMsgs && this.pendingContentMsgs.length > 0) {
             this.pendingContentMsgs.forEach(m => {
                 chrome.tabs.sendMessage(this.mainTab.id, m);
-                emjyBack.log('sendMsgToMainTabContent pending', JSON.stringify(m));
+                logger.info('sendMsgToMainTabContent pending', JSON.stringify(m));
             });
             clearTimeout(this.pendingTimeout);
             delete(this.pendingTimeout);
@@ -261,7 +258,7 @@ class ext {
             this.sendPendingMessages();
         }
         chrome.tabs.sendMessage(this.mainTab.id, data);
-        emjyBack.log('sendMsgToMainTabContent', JSON.stringify(data));
+        logger.info('sendMsgToMainTabContent', JSON.stringify(data));
     }
 
     static onManagerMessageReceived(message, tabid) {
@@ -271,12 +268,12 @@ class ext {
 
         this.manager.onManagerMessage(message, tabid);
         if (message.command == 'mngr.init') {
-            emjyBack.log('manager initialized!');
+            logger.info('manager initialized!');
             if (this.manager.isValid()) {
                 for (var c in klPad.klines) {
                     this.manager.sendKline(c, klPad.klines[c].klines);
                 }
-                this.manager.sendStocks([emjyBack.normalAccount]);
+                this.manager.sendStocks([accld.normalAccount]);
             }
             chrome.tabs.onRemoved.addListener((tid, removeInfo) => {
                 if (tid == this.manager.tabid) {
@@ -299,11 +296,11 @@ class ext {
             this.sendWebsocketMessage({ action: 'initialize'});
         }
         this.websocket.onclose = (cevt) => {
-            emjyBack.log('websocket closed with code: ' + cevt.code + ' reason: ' + cevt.reason);
+            logger.info('websocket closed with code: ' + cevt.code + ' reason: ' + cevt.reason);
             this.setupWebsocketConnection();
         }
         this.websocket.onerror = err => {
-            emjyBack.log('websocket error! ');
+            logger.info('websocket error! ');
             this.setupWebsocketConnection();
         }
     }
@@ -312,7 +309,7 @@ class ext {
         if (this.websocket) {
             this.websocket.send(JSON.stringify(message));
         } else {
-            emjyBack.log('error websocket not setup');
+            logger.info('error websocket not setup');
         }
     }
 
@@ -359,8 +356,8 @@ class ext {
             return;
         }
         if (wsmsg.type == 'intrade_buy') {
-            emjyBack.log(message.data);
-            emjyBack.log(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account);
+            logger.info(message.data);
+            logger.info(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account);
             if (!wsmsg.account) {
                 accld.checkRzrq(wsmsg.code).then(rzrq => {
                     var account = rzrq.Status == -1 ? 'normal' : 'credit';
@@ -372,14 +369,14 @@ class ext {
             return;
         }
         if (wsmsg.type == 'intrade_addwatch') {
-            emjyBack.log(message.data);
+            logger.info(message.data);
             if (!wsmsg.account) {
                 accld.checkRzrq(message.code).then(rzrq => {
                     var account = rzrq.Status == -1 ? 'normal' : 'collat';
-                    emjyBack.all_accounts[account].addWatchStock(wsmsg.code, wsmsg.strategies);
+                    accld.all_accounts[account].addWatchStock(wsmsg.code, wsmsg.strategies);
                 });
             } else {
-                emjyBack.all_accounts[wsmsg.account].addWatchStock(wsmsg.code, wsmsg.strategies);
+                accld.all_accounts[wsmsg.account].addWatchStock(wsmsg.code, wsmsg.strategies);
             }
             return;
         }
@@ -388,13 +385,13 @@ class ext {
 
     static onPopupMessageReceived(message, sender, popcb) {
         if (message.command === 'popup.costdogs') {
-            popcb(emjyBack.costDog.dogdic);
+            popcb(costDog.dogdic);
         } else if (message.command === 'popup.buystock') {
             let code = message.code;
             let price = message.price;
             let amount = message.amount;
             let strategies = message.strategies;
-            let count = strategies?.uramount?.key ? emjyBack.costDog.urBuyCount(strategies.uramount.key, code, amount, price).count : guang.calcBuyCount(amount, price);
+            let count = strategies?.uramount?.key ? costDog.urBuyCount(strategies.uramount.key, code, amount, price).count : guang.calcBuyCount(amount, price);
             let account = message.account;
             if (!account) {
                 popcb(accld.checkRzrq(message.code).then(rzrq => {
@@ -405,7 +402,7 @@ class ext {
                 popcb(accld.buyWithAccount(code, price, count, account, strategies));
             }
         } else if (message.command === 'popup.addwatch') {
-            emjyBack.log('popup message popup.addwatch');
+            logger.info('popup message popup.addwatch');
             let code = message.code;
             let amount = message.amount;
             let strategies = message.strategies;
@@ -415,31 +412,25 @@ class ext {
             if (!account) {
                 accld.checkRzrq(code).then(rzrq => {
                     var racc = rzrq.Status == -1 ? 'normal' : 'credit';
-                    var hacc = emjyBack.all_accounts[racc].holdAccount();
                     str0.account = racc;
                     let bstrs = {
                         "grptype":"GroupStandard", "transfers":{"0":{"transfer":"-1"}},
                         "strategies":{"0":str0}, amount, "uramount":{"key":strategies?.uramount?.key}
                     };
-                    emjyBack.all_accounts[hacc].addWatchStock(code, bstrs);
+                    accld.all_accounts[racc].holdAccount.addWatchStock(code, bstrs);
                 });
             } else {
                 let bstrs = {
                     "grptype":"GroupStandard","transfers":{"0":{"transfer":"-1"}},
                     "strategies":{"0":str0},amount,"uramount":{"key":strategies?.uramount?.key}};
-                emjyBack.all_accounts[account].addWatchStock(code, bstrs);
+                accld.all_accounts[account].addWatchStock(code, bstrs);
             }
         }
     }
 
     static recoginzeCaptcha(img) {
         if (!emjyBack.fha) {
-            svrd.getFromLocal('fha_server').then(fhaInfo => {
-                if (fhaInfo) {
-                    emjyBack.fha = fhaInfo;
-                    this.recoginzeCaptcha(img);
-                }
-            })
+            console.error('server info not set!');
             return;
         }
 
@@ -455,15 +446,11 @@ class ext {
     }
 
     static sendLoginInfo() {
-        if (emjyBack.unp) {
-            this.sendMessageToContent({command:'emjy.loginnp', np: emjyBack.unp});
+        if (!emjyBack.unp) {
+            console.error('no login info!');
             return;
         }
-
-        svrd.getFromLocal('acc_np').then(anp => {
-            emjyBack.unp = anp;
-            this.sendLoginInfo();
-        });
+        this.sendMessageToContent({command:'emjy.loginnp', np: emjyBack.unp});
     }
 
     static clearStorage() {
@@ -472,19 +459,19 @@ class ext {
 
     static exportHoldStocksCode() {
         var codes = [];
-        emjyBack.normalAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
-        emjyBack.collateralAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
+        accld.normalAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
+        accld.collateralAccount.stocks.forEach(s => {if (s.holdCount > 0) {codes.push(s.code + '\n')}});
         var blob = new Blob(codes, {type: 'application/text'});
         svrd.saveToFile(blob, 'holdingstocks.txt');
     }
 
     static exportConfig() {
-        var configs = emjyBack.normalAccount.exportConfig();
-        var colConfig = emjyBack.collateralAccount.exportConfig();
+        var configs = accld.normalAccount.exportConfig();
+        var colConfig = accld.collateralAccount.exportConfig();
         for (var i in colConfig) {
             configs[i] = colConfig[i];
         };
-        for (const account of emjyBack.track_accounts) {
+        for (const account of accld.track_accounts) {
             var trackConfig = account.exportConfig();
             for (var i in trackConfig) {
                 configs[i] = trackConfig[i];
@@ -507,9 +494,9 @@ class ext {
             cfg[i] = configs[i];
             chrome.storage.local.set(cfg);
         };
-        emjyBack.normalAccount.importConfig(configs);
-        emjyBack.collateralAccount.importConfig(configs);
-        for (const account of emjyBack.track_accounts) {
+        accld.normalAccount.importConfig(configs);
+        accld.collateralAccount.importConfig(configs);
+        for (const account of accld.track_accounts) {
             account.importConfig(configs);
         }
     }
@@ -530,7 +517,7 @@ class ext {
 
             var kline = klPad.klines[code].getKline('101');
             if (kline.length < 10) {
-                emjyBack.log('new stock!', code, kline);
+                logger.info('new stock!', code, kline);
                 return false;
             }
             for (let i = 1; i <= cnt; i++) {
@@ -539,7 +526,7 @@ class ext {
                     var low = klPad.klines[code].getLowestInWaiting('101');
                     var cutp = (kl.c - low) * 100 / kl.c;
                     if (cutp >= 14 && cutp <= 27) {
-                        emjyBack.log(code, kl.c, low, cutp);
+                        logger.info(code, kl.c, low, cutp);
                         if (code.startsWith('60') || code.startsWith('00')) {
                             setMaGuardPrice(strategies, low);
                             return true;
@@ -558,14 +545,14 @@ class ext {
                     if (account.keyword == 'collat') {
                         str.account = 'credit';
                     }
-                    emjyBack.log('addStrategy', account.keyword, stocki.code, str);
+                    logger.info('addStrategy', account.keyword, stocki.code, str);
                     stocki.strategies.addStrategy(str);
                 }
             }
         }
 
-        addMissed(emjyBack.normalAccount);
-        addMissed(emjyBack.collateralAccount);
+        addMissed(accld.normalAccount);
+        addMissed(accld.collateralAccount);
     }
 
     static cheatExistingStocks() {
@@ -576,9 +563,9 @@ class ext {
             }
         }
         console.log('normal');
-        cheatOperation(emjyBack.normalAccount);
+        cheatOperation(accld.normalAccount);
         console.log('collat');
-        cheatOperation(emjyBack.collateralAccount);
+        cheatOperation(accld.collateralAccount);
     }
 
     static dumpTestKl(code, kltype = '101') {
@@ -602,12 +589,12 @@ Promise.all([svrd.getFromLocal('acc_np'), svrd.getFromLocal('fha_server')]).then
     ext.setupWebsocketConnection();
     accld.initAccounts();
     trackacc.initTrackAccounts();
-    emjyBack.all_accounts = accld.all_accounts;
-    emjyBack.track_accounts = accld.track_accounts;
-    emjyBack.normalAccount = accld.normalAccount;
-    emjyBack.collateralAccount = accld.collateralAccount;
+    accld.all_accounts = accld.all_accounts;
+    accld.track_accounts = accld.track_accounts;
+    accld.normalAccount = accld.normalAccount;
+    accld.collateralAccount = accld.collateralAccount;
     emjyBack.creditAccount = accld.creditAccount;
-    emjyBack.testTradeApi = accld.testTradeApi;
+    costDog.init();
     svrd.getFromLocal('hsj_stocks').then(hsj => {
         if (hsj) {
             feng.loadSaved(hsj);

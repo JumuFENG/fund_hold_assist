@@ -272,7 +272,7 @@ const alarmHub = {
             const allstks = Object.values(accld.all_accounts).map(a => a.stocks.map(x=>x.code)).flat();
             let holdcached = feng.dumpCached(allstks);
             svrd.saveToLocal({'hsj_stocks': holdcached});
-    
+
             this.tradeClosed().then(() => {
                 accld.normalAccount.save();
                 accld.collateralAccount.save();
@@ -285,9 +285,8 @@ const alarmHub = {
 
         guang.isTodayTradingDay().then(trade => {
             if (trade) {
-                [//ralarm, talarm, bclose,
-                    closed, this.orderTimer,
-                    // this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
+                [ralarm, talarm, bclose, closed, // this.orderTimer,
+                    this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
                 ].forEach(a => {
                     a.setupTimer();
                 });

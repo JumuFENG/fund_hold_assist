@@ -184,7 +184,7 @@ class StrategyGroupView {
         this.changed = false;
     }
 
-    initUi(account, code, strGrp) {
+    initUi(account, code, strGrp, deals) {
         utils.removeAllChild(this.strategyInfoContainer);
         utils.removeAllChild(this.strategySelectorContainer);
         utils.removeAllChild(this.newStrategyContainer);
@@ -193,6 +193,7 @@ class StrategyGroupView {
         this.code = code;
         this.account = account;
         this.strGrp = strGrp ? strGrp : {grptype: 'GroupStandard'};
+        this.deals = deals;
         if (!this.strGrp.transfers) {
             this.strGrp.transfers = {};
         };
@@ -261,21 +262,21 @@ class StrategyGroupView {
 
         this.strategyInfoContainer.appendChild(ctDiv);
 
+        const createCell = function(t, w) {
+            var c = document.createElement('div');
+            c.textContent = t;
+            if (w) {
+                c.style.minWidth = w+'px';
+            }
+            c.style.textAlign = 'center';
+            c.style.borderLeft = 'solid 1px';
+            return c;
+        }
         if (this.strGrp.buydetail && this.strGrp.buydetail.length > 0) {
             var detailDiv = document.createElement('div');
             detailDiv.style.maxHeight = '100px';
             detailDiv.style.maxWidth = '420px';
             detailDiv.style.overflowY = 'auto';
-            var createCell = function(t, w) {
-                var c = document.createElement('div');
-                c.textContent = t;
-                if (w) {
-                    c.style.minWidth = w+'px';
-                }
-                c.style.textAlign = 'center';
-                c.style.borderLeft = 'solid 1px';
-                return c;
-            }
             this.strGrp.buydetail.slice().reverse().forEach(d => {
                 var r = document.createElement('div');
                 r.style.display = 'flex';
@@ -287,6 +288,24 @@ class StrategyGroupView {
                 detailDiv.appendChild(r);
             });
             this.strategyInfoContainer.appendChild(detailDiv);
+        }
+        if (this.deals && this.deals.length > 0) {
+            var dealDiv = document.createElement('div');
+            dealDiv.style.maxHeight = '100px';
+            dealDiv.style.maxWidth = '420px';
+            dealDiv.style.overflowY = 'auto';
+            dealDiv.style.backgroundColor = 'lightgray';
+            this.deals.forEach(d => {
+                var r = document.createElement('div');
+                r.style.display = 'flex';
+                r.appendChild(createCell(d.count, 50));
+                r.appendChild(createCell(d.time, 150));
+                r.appendChild(createCell(d.tradeType, 30));
+                r.appendChild(createCell((d.price * d.count).toFixed(2), 70));
+                r.appendChild(createCell(parseFloat(d.price), 70));
+                dealDiv.appendChild(r);
+            });
+            this.strategyInfoContainer.appendChild(dealDiv);
         }
     }
 

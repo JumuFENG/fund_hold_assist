@@ -550,3 +550,7 @@ class TestUserStock(object):
                 self.testuser.db.delete().where(self.testuser.db.email == ueml).execute()
         u2 = self.testuser.sub_account('test2', True)
         assert u2.parent == self.testuser.id, 'parent_account not updated'
+
+    def test_user_get_deals(self):
+        deals = self.testuser.get_deals()
+        assert len(deals) > 0, 'deals not found'

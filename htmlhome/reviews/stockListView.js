@@ -1,5 +1,6 @@
 'use strict';
 
+const showname = {'normal': '普通账户', 'collat': '担保品账户'}
 
 class StockView {
     constructor(stock, click) {
@@ -23,15 +24,22 @@ class StockView {
         var anchor = emjyBack.stockAnchor(stock.code, '行情');
         this.divTitle.appendChild(anchor);
 
-        if (stock.holdCount == 0) {
+        if (!Object.keys(showname).includes(stock.account)) {
             this.deleteBtn = document.createElement('button');
             this.deleteBtn.textContent = '舍弃';
             this.deleteBtn.title = '错误的记录或者实际无法买入的情况需要舍弃.';
-            this.deleteBtn.code = stock.code;
-            this.deleteBtn.account = stock.account;
             this.deleteBtn.onclick = e => {
-                emjyBack.sendExtensionMessage({command:'mngr.rmwatch', code: e.target.code, account: e.target.account});
-                emjyBack.deleteStockFromList(e.target.account, e.target.code);
+                const rmurl = emjyBack.fha.server + 'stock';
+                const fd = new FormData();
+                fd.append('act', 'rmwatch');
+                fd.append('code', this.stock.code);
+                fd.append('acc', this.stock.account);
+                fd.append('buysid', this.stock.deals.filter(d=>d.tradeType=='B').map(d=>d.sid).join(','));
+                fd.append('sellsid', this.stock.deals.filter(d=>d.tradeType=='S').map(d=>d.sid).join(','));
+                fetch(rmurl, {method: 'POST', body: fd, headers: emjyBack.headers});
+                if (typeof(this.removeMe) === 'function') {
+                    this.removeMe(this.stock.code);
+                }
             }
             this.divTitle.appendChild(this.deleteBtn);
         };
@@ -116,9 +124,10 @@ class StockView {
             this.refresh();
         }
     }
+
+    removeMe() {}
 }
 
-const showname = {'normal': '普通账户', 'collat': '担保品账户'}
 class StockListPanelPage extends RadioAnchorPage {
     constructor(acc, filt=7) {
         super(showname[acc.name]??acc.name);
@@ -137,8 +146,13 @@ class StockListPanelPage extends RadioAnchorPage {
             this.addWatchArea();
         }
         if (this.stocks.length == 0) {
-            var url = emjyBack.fha.server + 'stock?act=watchings&acc=' + this.keyword;
-            fetch(url, emjyBack.headers).then(r => r.json()).then(stocks => {
+            const url = emjyBack.fha.server + 'stock?act=watchings&acc=' + this.keyword;
+            const durl = emjyBack.fha.server + 'stock?act=deals&acc=' + this.keyword;
+            Promise.all([fetch(url, emjyBack.headers).then(r => r.json()), fetch(durl, emjyBack.headers).then(r => r.json())])
+            .then(([stocks, deals]) => {
+                for (const c in stocks) {
+                    stocks[c].deals = deals.filter(d => d.code == c);
+                }
                 this.initUi(stocks);
             });
         }
@@ -392,9 +406,10 @@ class StockListPanelPage extends RadioAnchorPage {
                 target.appendChild(this.strategyGroupView.root);
                 this.currentCode = stk.acccode;
                 this.strategyGroupView.latestPrice = stk.latestPrice;
-                this.strategyGroupView.initUi(stk.account, stk.code, stk.strategies);
+                this.strategyGroupView.initUi(stk.account, stk.code, stk.strategies, stk.deals);
             };
         });
+        divContainer.removeMe = this.deleteStock;
         this.listContainer.appendChild(divContainer.container);
         this.stocks.push(divContainer);
     }
@@ -549,23 +564,3 @@ class StockListPanelPage extends RadioAnchorPage {
     }
 }
 
-
-class PositionMgrPanelPage extends RadioAnchorPage {
-    constructor() {
-        super('持仓管理');
-        this.navigator = new RadioAnchorBar();
-        this.container.appendChild(this.navigator.container);
-    }
-
-    addAccountPanel(slp) {
-        this.navigator.addRadio(slp);
-        this.container.appendChild(slp.container);
-    }
-
-    show() {
-        super.show();
-        if (!this.navigator.selectedIndex) {
-            this.navigator.selectDefault();
-        }
-    }
-}

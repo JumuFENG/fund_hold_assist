@@ -140,7 +140,7 @@ class UserDealsPanel extends RadioAnchorPage {
             return;
         }
         var url = emjyBack.fha.server + 'stock?act=trackdeals&name=archived';
-        fetch(url, {headers: emjyBack.headers}).then(r=>r.json()).then(rsp => {
+        fetch(url, emjyBack.headers).then(r=>r.json()).then(rsp => {
             this.userDeals = rsp.deals;
             this.showDeals();
         });
@@ -152,7 +152,7 @@ class UserDealsPanel extends RadioAnchorPage {
             return;
         }
         var url = emjyBack.fha.server + 'stock?act=archivedcodes&since=' + guang.dateToString(new Date(new Date() - 7 * 24 * 60 * 60 * 1000), '-');
-        fetch(url, {headers: emjyBack.headers}).then(r=>r.json()).then(rsp => {
+        fetch(url, emjyBack.headers).then(r=>r.json()).then(rsp => {
             this.curWkSold = rsp;
             this.showWkSold();
         });

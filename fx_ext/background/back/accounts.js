@@ -998,7 +998,7 @@ class NormalAccount extends Account {
     loadWatchings() {
         if (accld.fha.save_on_server) {
             const wurl = accld.fha.server + 'stock?act=watchings&acc=' + this.keyword;
-            fetch(wurl, {headers: accld.fha.headers}).then(r => r.json()).then(watchings => {
+            return fetch(wurl, {headers: accld.fha.headers}).then(r => r.json()).then(watchings => {
                 for (const s in watchings) {
                     this.addWatchStock(s.slice(-6), watchings[s].strategies);
                 }
@@ -1015,6 +1015,7 @@ class NormalAccount extends Account {
                 };
             });
         }
+        return Promise.resolve();
     }
 
     fixWatchings() {

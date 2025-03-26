@@ -13,10 +13,6 @@ window.emjyBack = {
     totalAssets() {
         return this.normalAccount.pureAssets + this.collateralAccount.pureAssets;
     },
-    loadAssets() {
-        this.normalAccount.loadAssets();
-        this.collateralAccount.loadAssets();
-    },
     isTradeTime() {
         var now = new Date();
         if (now > new Date(now.toDateString() + ' 9:30') && now < new Date(now.toDateString() + ' 15:00')) {
@@ -27,15 +23,15 @@ window.emjyBack = {
     async tradeClosed() {
         const prm = Object.values(accld.all_accounts).map(acc=>acc.stocks.filter(s=>s.strategies).map(s=>s.strategies.updateKlines())).flat();
         await Promise.all(prm);
-        Object.values(this.klines).forEach(kl => kl.save());
+        Object.values(klPad.klines).forEach(kl => kl.save());
         this.flushLogs();
         this.running = false;
     },
     flushLogs() {
-        this.log('flush log!');
+        logger.log('flush log!');
         if (logger.logs && logger.logs.length > 0) {
             var blob = new Blob(logger.logs, {type: 'application/text'});
-            this.saveToFile(blob, 'logs/stock.assist' + guang.getTodayDate() + '.log');
+            svrd.saveToFile(blob, 'logs/stock.assist' + guang.getTodayDate() + '.log');
             logger.logs = [];
         }
     }

@@ -285,7 +285,7 @@ class DealsPanelPage extends RadioAnchorPage {
                 return;
             }
         }
-        fetch(dcUrl,emjyBack.headers).then(r=>r.json()).then( sDeals => {
+        fetch(dcUrl, emjyBack.headers).then(r=>r.json()).then( sDeals => {
             var deals = sDeals.deals;
             if (deals[0].count == 0) {
                 var fcounts = {};
