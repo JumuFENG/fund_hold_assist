@@ -7,7 +7,16 @@ const logger = createLogger({
     format: combine(
         label({ label: 'emtrade' }),
         timestamp(),
-        prettyPrint()
+        format.printf(({ level, message, label, timestamp, ...rest }) => {
+            const args = rest[Symbol.for('splat')] || [];
+            if (typeof message === 'object') {
+                message = JSON.stringify(message);
+            }
+            const strArgs = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            return `[${timestamp}] [${label}] ${level}: ${message} ${strArgs}`;
+        })
     ),
     transports: [
         new transports.Console(), // 输出到控制台
@@ -74,17 +83,13 @@ class ctxfetch {
         } else {
             // 在 Node.js 环境中执行 fetch
             const response = await fetch(url, options);
-            const headers = {};
-            response.headers.forEach((value, key) => {
-                headers[key] = value;
-            });
 
             try {
                 const data = await response.json(); // 尝试解析 JSON
                 return {
                     status: response.status,
                     ok: response.ok,
-                    headers,
+                    headers: Object.fromEntries(response.headers.entries()),
                     data
                 };
             } catch (error) {
@@ -92,7 +97,7 @@ class ctxfetch {
                 return {
                     status: response.status,
                     ok: response.ok,
-                    headers,
+                    headers: Object.fromEntries(response.headers.entries()),
                     text
                 };
             }

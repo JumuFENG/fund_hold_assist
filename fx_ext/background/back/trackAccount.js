@@ -5,7 +5,7 @@ const { logger, svrd } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
 const { klPad } = xreq('./background/kline.js');
-const { TradeClient, NormalAccount, accinfo }  = xreq('./background/accounts.js');
+const { TradeClient, NormalAccount, accld }  = xreq('./background/accounts.js');
 const { GroupManager } = xreq('./background/strategyGroup.js');
 
 
@@ -229,9 +229,9 @@ class TrackingAccount extends NormalAccount {
 const trackacc = {
     initTrackAccounts() {
         this.track_accounts = [];
-        if (accinfo.fha.save_on_server) {
-            var url = accinfo.fha.server + 'userbind?onlystock=1';
-            fetch(url, {headers: accinfo.fha.headers}).then(r => r.json()).then(accs => {
+        if (accld.fha.save_on_server) {
+            var url = accld.fha.server + 'userbind?onlystock=1';
+            fetch(url, {headers: accld.fha.headers}).then(r => r.json()).then(accs => {
                 for (const acc of accs) {
                     if (acc.realcash) {
                         logger.info('skip realcash acc in track account');
@@ -240,7 +240,7 @@ const trackacc = {
                     this.track_accounts.push(new TrackingAccount(acc.name));
                 }
                 for (const account of this.track_accounts) {
-                    accinfo.all_accounts[account.keyword] = account;
+                    accld.all_accounts[account.keyword] = account;
                     account.loadWatchings();
                 }
             })
@@ -253,12 +253,12 @@ const trackacc = {
                     this.track_accounts.push(new TrackingAccount(ac));
                 }
                 for (const account of this.track_accounts) {
-                    accinfo.all_accounts[account.keyword] = account;
+                    accld.all_accounts[account.keyword] = account;
                     account.loadAssets();
                 }
             });
         }
-        accinfo.track_accounts = this.track_accounts;
+        accld.track_accounts = this.track_accounts;
     }
 }
 

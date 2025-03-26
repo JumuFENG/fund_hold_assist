@@ -2,7 +2,7 @@
 
 (function(){
 const { ses } = xreq('./background/strategies_meta.js');
-const { logger } = xreq('./background/nbase.js');
+const { logger, svrd } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
 const { klPad } = xreq('./background/kline.js');
@@ -330,7 +330,7 @@ class BuyDetail {
             return;
         }
 
-        emjyBack.log('setHoldCount reset buy records', tcount, acount, JSON.stringify(this.records), JSON.stringify(this.full_records))
+        logger.info('setHoldCount reset buy records', tcount, acount, JSON.stringify(this.records), JSON.stringify(this.full_records))
         this.records = [];
         this.full_records = [];
         if (acount == 0) {
@@ -465,24 +465,32 @@ class BuyDetail {
     }
 }
 
-class CostDog {
-    constructor(cdobj) {
-        this.dogdic = cdobj;
-    }
-
+const costDog = {
+    dogdic: {},
+    fha: {},
+    init() {
+        if (this.fha.save_on_server) {
+            const url = this.fha.server + 'stock?act=costdog';
+            fetch(url, {headers: this.fha.headers}).then(r=>r.json()).then(cd => {
+                this.dogdic = cd;
+            });
+        } else {
+            svrd.getFromLocal('cost_dog').then(cd => {
+                this.dogdic = cd;
+            });
+        }
+    },
     save() {
-        if (emjyBack.fha.save_on_server) {
-            const url = emjyBack.fha.server + 'stock';
-            const headers = {'Authorization': 'Basic ' + btoa(emjyBack.fha.uemail + ":" + emjyBack.fha.pwd)};
+        if (this.fha.save_on_server) {
+            const url = this.fha.server + 'stock';
             const fd = new FormData();
             fd.append('act', 'costdog');
             fd.append('cdata', JSON.stringify(this.dogdic));
-            fetch(url, {method:'POST', body: fd, headers});
+            fetch(url, {method:'POST', body: fd, headers: this.fha.headers});
         } else {
             svrd.saveToLocal({'cost_dog': Object.values(this.dogdic)});
         }
-    }
-
+    },
     urBuyCount(key, code, amount, price) {
         var count = 0;
         if (key in this.dogdic) {
@@ -508,8 +516,7 @@ class CostDog {
             count = guang.calcBuyCount(amount, price);
         }
         return {count};
-    }
-
+    },
     settleUr(key, earn, urid) {
         if (!this.dogdic[key]) {
             return;
@@ -729,20 +736,20 @@ class StrategyGroup {
     }
 
     updateBuyDetail(sid, price, count) {
-        emjyBack.log('updateBuyDetail', this.code, sid, price, count, JSON.stringify(this.buydetail.records), JSON.stringify(this.full_records));
+        logger.info('updateBuyDetail', this.code, sid, price, count, JSON.stringify(this.buydetail.records), JSON.stringify(this.full_records));
         this.buydetail.updateBuyDetail(sid, price, count);
     }
 
     updateSellDetail(sid, price, count) {
-        emjyBack.log('updateSellDetail', this.code, sid, price, count);
+        logger.info('updateSellDetail', this.code, sid, price, count);
         this.buydetail.updateSellDetail(sid, price, count);
     }
 
     archiveBuyDetail() {
-        emjyBack.log('archiveBuyDetail', this.code, JSON.stringify(this.buydetail.full_records));
+        logger.info('archiveBuyDetail', this.code, JSON.stringify(this.buydetail.full_records));
         if (this.uramount && this.buydetail.totalCount() == 0) {
-            emjyBack.log('archiveBuyDetail.settleUr', this.buydetail.totalCount(), JSON.stringify(this.buydetail.records));
-            emjyBack.costDog.settleUr(this.uramount.key, this.buydetail.calcEarning(), this.uramount.id);
+            logger.info('archiveBuyDetail.settleUr', this.buydetail.totalCount(), JSON.stringify(this.buydetail.records));
+            costDog.settleUr(this.uramount.key, this.buydetail.calcEarning(), this.uramount.id);
             delete(this.uramount);
         }
         this.buydetail.archiveRecords();
@@ -760,7 +767,7 @@ class StrategyGroup {
         if (this.gmeta.setguard && this.gmeta.guardid && this.buydetail.averPrice() > 0) {
             if (!this.strategies[this.gmeta.guardid].data.guardPrice) {
                 // min(min(开盘价, 买入价) * 88.5%, 最低价)
-                emjyBack.log('set guardPrice for', this.account, this.code);
+                logger.info('set guardPrice for', this.account, this.code);
                 var latestPrice = null;
                 if (klines['101']) {
                     var kl = klines['101'][klines['101'].length - 1];
@@ -774,7 +781,7 @@ class StrategyGroup {
                     this.strategies[this.gmeta.guardid].data.guardPrice = Math.min(latestPrice * 0.885, this.buydetail.averPrice() * 0.885, kl.l * 1);
                 } else {
                     this.strategies[this.gmeta.guardid].data.guardPrice = Math.min(this.buydetail.averPrice() * 0.885, kl.l * 1);
-                    emjyBack.log('no daily kline data', this.code, this.account);
+                    logger.info('no daily kline data', this.code, this.account);
                 }
                 if (this.gmeta.settop && !this.strategies[this.gmeta.guardid].data.topprice) {
                     this.strategies[this.gmeta.guardid].data.topprice = this.buydetail.averPrice() * 1.06;
@@ -795,7 +802,7 @@ class StrategyGroup {
             amount = this.amount;
         };
         if (this.uramount && this.uramount.key) {
-            var ur = emjyBack.costDog.urBuyCount(this.uramount.key, this.code, amount, price);
+            var ur = costDog.urBuyCount(this.uramount.key, this.code, amount, price);
             if (ur.id && ur.id != '0') {
                 this.uramount.id = ur.id;
             }
@@ -808,6 +815,7 @@ class StrategyGroup {
 
     async checkStockRtSnapshot(is1time, islazy=true) {
         let changed = false;
+        const matches = [];
         for (const [id, s] of Object.entries(this.strategies)) {
             if (!s.enabled() || !['otp', 'rtp', 'kzt', 'zt'].includes(s.guardLevel())) {
                 continue;
@@ -833,19 +841,20 @@ class StrategyGroup {
             if (!matchResult) {
                 continue;
             }
-            const tradeResult = await this.doTrade(matchResult);
-            if (tradeResult) {
-                s.confirmMatched(tradeResult);
+            if (matchResult.tradeType) {
+                matches.push(this.fixMatchResult(matchResult));
             }
             changed = true;
         }
         if (changed) {
             this.save();
         }
+        return matches;
     }
 
     async checkStockRtKlines(klt) {
         let changed = false;
+        const matches = [];
         for (const [id, s] of Object.entries(this.strategies)) {
             if (!s.enabled() || typeof(s.checkKlines) !== 'function' || !['kline', 'klines', 'kday', 'kzt'].includes(s.guardLevel())) {
                 continue;
@@ -868,32 +877,18 @@ class StrategyGroup {
             if (!matchResult) {
                 continue;
             }
-            const tradeResult = await this.doTrade(matchResult);
-            if (tradeResult) {
-                s.confirmMatched(tradeResult, this.buydetail);
+            if (matchResult.tradeType) {
+                matches.push(this.fixMatchResult(matchResult));
             }
             changed = true;
         }
         if (changed) {
             this.save();
         }
+        return matches;
     }
 
-    async doTrade(info) {
-        if (info.tradeType === undefined) {
-            return false;
-        }
-
-        var curStrategy = this.strategies[info.id];
-        if (!curStrategy) {
-            return false;
-        }
-
-        if (info.tradeType === undefined) {
-            emjyBack.log('error in doTrade! info.tradeType is undefined');
-            return false;
-        }
-
+    fixMatchResult(info) {
         if (info.count !== undefined && info.count - 0 > 0) {
             this.count0 = info.count;
         } else if (this.amount && info.price) {
@@ -906,29 +901,19 @@ class StrategyGroup {
         if (info.tradeType == 'B') {
             var account = curStrategy.data.account === undefined ? this.account : curStrategy.data.account;
             var count = this.count0;
-            emjyBack.log('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy), 'buy detail', JSON.stringify(this.buydetail.records))
-            const bd = await emjyBack.tryBuyStock(this.code, price, count, account);
-            this.onTradeMatch(info);
-            return bd;
+            logger.info('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy), 'buy detail', JSON.stringify(this.buydetail.records));
+            info.price = price;
+            info.count = count;
         } else if (info.tradeType == 'S') {
             var count = this.count0;
             if (info.count - 10 >= 0) {
                 count = info.count;
             }
-            if (count > 0) {
-                emjyBack.log('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', info.price, JSON.stringify(curStrategy), 'aver price', this.buydetail.averPrice(), 'buy detail', JSON.stringify(this.buydetail.records));
-                try {
-                    const sd = await emjyBack.trySellStock(this.code, price, count, this.account);
-                    this.onTradeMatch(info);
-                    return sd;
-                } catch(err) {
-                    if (err) {
-                        this.checkTradeError(info, err);
-                    }
-                    this.onTradeMatch(info);
-                };
-            }
+            logger.info('checkStrategies sell match', this.account, this.code, 'sell count:', count, 'price', info.price, JSON.stringify(curStrategy), 'aver price', this.buydetail.averPrice(), 'buy detail', JSON.stringify(this.buydetail.records));
+            info.price = price;
+            info.count = count;
         }
+        return info;
     }
 
     checkTradeError(refer, err) {
@@ -940,6 +925,7 @@ class StrategyGroup {
 
     onTradeMatch(refer) {
         var curStrategy = this.strategies[refer.id];
+        curStrategy.confirmMatched(refer.deal, this.buydetail);
         if (curStrategy.guardLevel() == 'kline') {
             refer.kltype = curStrategy.kltype();
         };
@@ -1007,7 +993,7 @@ class StrategyGroup {
         }
         await Promise.all(uppromise);
         if (!klPad.klines[code]) {
-            emjyBack.log(code, 'no kline exists!');
+            logger.info(code, 'no kline exists!');
             return;
         }
         klPad.klines[code].save();
@@ -1015,9 +1001,9 @@ class StrategyGroup {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {GroupManager, CostDog};
+    module.exports = {GroupManager, costDog};
 } else if (typeof window !== 'undefined') {
     window.GroupManager = GroupManager;
-    window.CostDog = CostDog;
+    window.costDog = costDog;
 }
 })();

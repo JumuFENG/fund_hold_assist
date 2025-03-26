@@ -4,7 +4,7 @@ const { exit } = require('process');
 const express = require('express');
 const { Server } = require('socket.io');
 const puppeteer = require('puppeteer');
-// xreq path must related to this file or will throw execption.
+// xreq path must related to this file or will throw exception.
 global.xreq = function(m) {
     return require(path.resolve(__dirname, m));
 }
@@ -14,11 +14,11 @@ const { guang } = require('./background/guang.js');
 const { feng } = require('./background/feng.js');
 const { logger, ctxfetch } = require('./background/nbase.js');
 const { klPad } = require('./background/kline.js');
-const { emjyBack } = require('./background/emjybackend.js');
-const { accinfo } = require('./background/accounts.js');
+const { accld } = require('./background/accounts.js');
 const { trackacc } = require('./background/trackAccount.js');
 const { alarmHub } = require('./background/klineTimer.js');
 const { istrManager } = require('./background/istrategies.js');
+const { costDog } = require('./background/strategyGroup.js');
 
 
 const app = express();
@@ -57,13 +57,12 @@ if (!config.unp.account || !config.unp.pwd) {
 
 
 config.fha.headers = {'Authorization': 'Basic ' + btoa(config.fha.uemail + ":" + config.fha.pwd)};
-emjyBack.fha = config.fha;
-accinfo.enableCredit = config.unp.credit;
-accinfo.fha = config.fha;
-emjyBack.klines = klPad.klines;
+accld.enableCredit = config.unp.credit;
+accld.fha = config.fha;
 alarmHub.config = config.client;
 istrManager.iconfig = config.client.extistrs;
 istrManager.fha = config.fha;
+costDog.fha = config.fha;
 
 const ext = {
     mxretry: 2,
@@ -86,14 +85,16 @@ const ext = {
         }
     },
     async start() {
-        this.status = 'start';
-        await this.createMainTab();
+        if (!this.status) {
+            await this.createMainTab();
+        }
         this.login();
     },
     async submit(text) {
         await this.setUnp();
         await this.page.type('#txtValidCode', text);
         await this.page.click('#btnConfirm');
+        this.retry++;
     },
     async login() {
         this.status = 'logining';
@@ -115,7 +116,6 @@ const ext = {
             }
 
             await this.submit(text);
-            this.retry++;
         } catch (error) {
             logger.error(`第 ${this.retry} 次尝试出错: ${error.message}`);
         }
@@ -124,7 +124,7 @@ const ext = {
         if (!this.page) {
             return false;
         }
-        if (capurl !== this.waitingCaptcha) {
+        if (capurl !== this.lastCaptchaUrl) {
             return false;
         }
 
@@ -155,9 +155,8 @@ const ext = {
             const buffer = await response.buffer();
             this.yzm = buffer.toString('base64');
             logger.debug(this.yzm);
-            this.waitingCaptcha = url;
+            this.lastCaptchaUrl = url;
             if (!this.retry || this.retry > this.mxretry) {
-                sendMessage('captcha_image', {image: this.yzm, url: this.waitingCaptcha});
                 return;
             }
             this.login();
@@ -174,7 +173,7 @@ const ext = {
                         return document.querySelector('#em_validatekey').value;
                     });
                     feng.validateKey = emvkey;
-                    accinfo.validateKey = emvkey;
+                    accld.validateKey = emvkey;
                     ctxfetch.setPage(this.page);
                     logger.info(`validatekey: ${emvkey}`);
                     this.onLoginSucess();
@@ -185,6 +184,7 @@ const ext = {
         }
     },
     async createMainTab() {
+        this.status = 'start';
         this.browser = await puppeteer.launch({
             args: [
                 '--no-sandbox', '--disable-setuid-sandbox',
@@ -228,25 +228,28 @@ const ext = {
         setInterval(() => {
             this.page.reload();
         }, 175 * 60000);
-        accinfo.initAccounts();
+        accld.initAccounts();
         trackacc.initTrackAccounts();
-        emjyBack.Init();
+        this.running = true;
         alarmHub.setupAlarms();
+        alarmHub.tradeClosed = this.tradeClosed;
         istrManager.initExtStrs();
-        emjyBack.all_accounts = accinfo.all_accounts;
-        emjyBack.track_accounts = accinfo.track_accounts;
-        emjyBack.normalAccount = accinfo.normalAccount;
-        emjyBack.collateralAccount = accinfo.collateralAccount;
-        emjyBack.creditAccount = accinfo.creditAccount;
-        emjyBack.klines = klPad.klines;
     },
     async onLoginFailed() {
         this.status = 'failed';
         if (this.retry > this.mxretry) {
-            logger.info(`第 ${this.retry} 次登录失败，发送到Web进行人工验证!`);
-            sendMessage('captcha_image', {image: this.yzm, url: this.waitingCaptcha});
+            logger.info(`第 ${this.retry} 次登录失败，发送到Web进行人工验证!`, this.lastCaptchaUrl);
+            sendMessage('captcha_image', {image: this.yzm, url: this.lastCaptchaUrl});
         }
         logger.info(`第 ${this.retry} 次登录失败，重试中...`);
+    },
+    async tradeClosed() {
+        logger.info(accld.normalAccount.orderfeched);
+        logger.info(accld.collateralAccount.orderfeched);
+        this.track_accounts.forEach(acc => {
+            logger.info(acc.deals);
+        });
+        this.running = false;
     },
     async close() {
         if (this.browser) {
@@ -260,13 +263,13 @@ app.get('/', (req, res) => {
 });
 
 app.get('/status', (req, res) => {
-    const r = {status: ext.status, running: emjyBack.running};
+    const r = {status: ext.status, running: ext.running};
     res.send(r);
 });
 
 
 app.get('/start', (req, res) => {
-    if (emjyBack.running) {
+    if (ext.running) {
         res.send('already started!');
         return;
     }
@@ -307,7 +310,7 @@ const connectedClients = new Set();
 io.on('connection', (socket) => {
     logger.info('客户端已连接:', socket.id);
     connectedClients.add(socket);
-    socket.emit('status', {status: ext.status, running: emjyBack.running});
+    socket.emit('status', {status: ext.status, running: ext.running});
 
     socket.on('disconnect', () => {
         connectedClients.delete(socket);
@@ -327,7 +330,7 @@ async function sendMessage(evt, msg) {
 // 接收客户端提交的验证码
 io.on('connection', (socket) => {
     socket.on('submit_captcha', (data) => {
-        logger.info('收到验证码:', data.text);
+        logger.info(`收到验证码:`, data.text);
         ext.setcaptcha(data.url, data.text);
     });
 });

@@ -35,7 +35,7 @@ class ManagerBack {
         }
         if (emjyBack.mgrFetched) {
             emjyBack.mgrFetched.forEach(c => {
-                emjyBack.klines[c].save();
+                klPad.klines[c].save();
             });
             delete(emjyBack.mgrFetched)
         }
@@ -71,15 +71,15 @@ class ManagerBack {
             emjyBack.all_accounts[message.account].addWatchStock(message.code, message.strategies);
             this.startChangedTimeout();
         } else if (message.command == 'mngr.rmwatch') {
-            accinfo.removeStock(message.account, message.code);
+            accld.removeStock(message.account, message.code);
             this.startChangedTimeout();
         } else if (message.command == 'mngr.checkrzrq') {
-            accinfo.checkRzrq(message.code).then(rzrq => {
+            accld.checkRzrq(message.code).then(rzrq => {
                 this.sendManagerMessage({command:'mngr.checkrzrq', rzrq});
             });
         } else if (message.command == 'mngr.getkline') {
             klPad.getStockKline(message.code, '101', message.date).then(kline => {
-                this.sendManagerMessage({command:'mngr.getkline', code: message.code, klines: emjyBack.klines[message.code].klines['101']});
+                this.sendManagerMessage({command:'mngr.getkline', code: message.code, klines: klPad.klines[message.code].klines['101']});
             });
         } else if (message.command == 'mngr.saveFile') {
             svrd.saveToFile(message.blob, message.filename);
@@ -154,7 +154,7 @@ class ext {
             const tids = tabs.filter(tab => new URL(tab.url).host == this.jywghost).map(t=>t.id);
             chrome.tabs.remove(tids);
         }).then(() => {
-            var url = accinfo.enableCredit ? this.jywgroot + 'MarginTrade/Buy': this.jywgroot + 'Trade/Buy';
+            var url = accld.enableCredit ? this.jywgroot + 'MarginTrade/Buy': this.jywgroot + 'Trade/Buy';
             chrome.tabs.create({url}).then(ctab => this.mainTab = ctab);
         });
     }
@@ -181,13 +181,13 @@ class ext {
         emjyBack.log('onContentMessageReceived', tabid, message.command === 'emjy.captcha' ? message.command: JSON.stringify(message));
         if (message.command == 'emjy.getValidateKey') {
             chrome.tabs.executeScript(tabid, {code:'setTimeout(() => { location.reload(); }, 175 * 60 * 1000);'});
-            if (accinfo.validateKey == message.key) {
+            if (accld.validateKey == message.key) {
                 emjyBack.log('getValidateKey same, skip!');
                 return;
             }
             emjyBack.log('getValidateKey =', message.key);
             feng.validateKey = message.key;
-            accinfo.validateKey = message.key;
+            accld.validateKey = message.key;
             emjyBack.loadAssets();
             if ((new Date()).getDay() == 1 && (new Date()).getHours() <= 9) {
                 // update history deals every Monday morning.
@@ -273,8 +273,8 @@ class ext {
         if (message.command == 'mngr.init') {
             emjyBack.log('manager initialized!');
             if (this.manager.isValid()) {
-                for (var c in emjyBack.klines) {
-                    this.manager.sendKline(c, emjyBack.klines[c].klines);
+                for (var c in klPad.klines) {
+                    this.manager.sendKline(c, klPad.klines[c].klines);
                 }
                 this.manager.sendStocks([emjyBack.normalAccount]);
             }
@@ -362,19 +362,19 @@ class ext {
             emjyBack.log(message.data);
             emjyBack.log(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account);
             if (!wsmsg.account) {
-                accinfo.checkRzrq(wsmsg.code).then(rzrq => {
+                accld.checkRzrq(wsmsg.code).then(rzrq => {
                     var account = rzrq.Status == -1 ? 'normal' : 'credit';
-                    emjyBack.buyWithAccount(wsmsg.code, wsmsg.price, wsmsg.count, account, wsmsg.strategies);
+                    accld.buyWithAccount(wsmsg.code, wsmsg.price, wsmsg.count, account, wsmsg.strategies);
                 });
             } else {
-                emjyBack.buyWithAccount(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account, wsmsg.strategies);
+                accld.buyWithAccount(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account, wsmsg.strategies);
             }
             return;
         }
         if (wsmsg.type == 'intrade_addwatch') {
             emjyBack.log(message.data);
             if (!wsmsg.account) {
-                accinfo.checkRzrq(message.code).then(rzrq => {
+                accld.checkRzrq(message.code).then(rzrq => {
                     var account = rzrq.Status == -1 ? 'normal' : 'collat';
                     emjyBack.all_accounts[account].addWatchStock(wsmsg.code, wsmsg.strategies);
                 });
@@ -397,12 +397,12 @@ class ext {
             let count = strategies?.uramount?.key ? emjyBack.costDog.urBuyCount(strategies.uramount.key, code, amount, price).count : guang.calcBuyCount(amount, price);
             let account = message.account;
             if (!account) {
-                popcb(accinfo.checkRzrq(message.code).then(rzrq => {
+                popcb(accld.checkRzrq(message.code).then(rzrq => {
                     var racc = rzrq.Status == -1 ? 'normal' : 'credit';
-                    return emjyBack.buyWithAccount(code, price, count, racc, strategies);
+                    return accld.buyWithAccount(code, price, count, racc, strategies);
                 }));
             } else {
-                popcb(emjyBack.buyWithAccount(code, price, count, account, strategies));
+                popcb(accld.buyWithAccount(code, price, count, account, strategies));
             }
         } else if (message.command === 'popup.addwatch') {
             emjyBack.log('popup message popup.addwatch');
@@ -413,7 +413,7 @@ class ext {
 
             let str0 = strategies.strinfo;
             if (!account) {
-                accinfo.checkRzrq(code).then(rzrq => {
+                accld.checkRzrq(code).then(rzrq => {
                     var racc = rzrq.Status == -1 ? 'normal' : 'credit';
                     var hacc = emjyBack.all_accounts[racc].holdAccount();
                     str0.account = racc;
@@ -524,11 +524,11 @@ class ext {
         }
 
         var fitBuyMA = function(code, cnt, strategies) {
-            if (!emjyBack.klines[code]) {
+            if (!klPad.klines[code]) {
                 return false;
             }
 
-            var kline = emjyBack.klines[code].getKline('101');
+            var kline = klPad.klines[code].getKline('101');
             if (kline.length < 10) {
                 emjyBack.log('new stock!', code, kline);
                 return false;
@@ -536,7 +536,7 @@ class ext {
             for (let i = 1; i <= cnt; i++) {
                 const kl = kline[kline.length - i];
                 if (kl.bss18 == 'b') {
-                    var low = emjyBack.klines[code].getLowestInWaiting('101');
+                    var low = klPad.klines[code].getLowestInWaiting('101');
                     var cutp = (kl.c - low) * 100 / kl.c;
                     if (cutp >= 14 && cutp <= 27) {
                         emjyBack.log(code, kl.c, low, cutp);
@@ -583,7 +583,7 @@ class ext {
 
     static dumpTestKl(code, kltype = '101') {
         var r = [];
-        emjyBack.klines[code].klines[kltype].forEach(kl => {r.push({kl:kl, expect:{dcount:0}})});
+        klPad.klines[code].klines[kltype].forEach(kl => {r.push({kl:kl, expect:{dcount:0}})});
         console.log(JSON.stringify(r));
     }
 }
@@ -593,23 +593,35 @@ Promise.all([svrd.getFromLocal('acc_np'), svrd.getFromLocal('fha_server')]).then
     emjyBack.unp = anp;
     fhaInfo.headers = {'Authorization': 'Basic ' + btoa(fhaInfo.uemail + ":" + fhaInfo.pwd)};
     emjyBack.fha = fhaInfo;
-    accinfo.enableCredit = anp.credit;
-    accinfo.fha = fhaInfo;
+    accld.enableCredit = anp.credit;
+    accld.fha = fhaInfo;
+    costDog.fha = fhaInfo;
     istrManager.fha = fhaInfo;
 }).then(() => {
     ext.createMainTab();
     ext.setupWebsocketConnection();
-    accinfo.initAccounts();
+    accld.initAccounts();
     trackacc.initTrackAccounts();
-    emjyBack.all_accounts = accinfo.all_accounts;
-    emjyBack.track_accounts = accinfo.track_accounts;
-    emjyBack.normalAccount = accinfo.normalAccount;
-    emjyBack.collateralAccount = accinfo.collateralAccount;
-    emjyBack.creditAccount = accinfo.creditAccount;
-    emjyBack.klines = klPad.klines;
+    emjyBack.all_accounts = accld.all_accounts;
+    emjyBack.track_accounts = accld.track_accounts;
+    emjyBack.normalAccount = accld.normalAccount;
+    emjyBack.collateralAccount = accld.collateralAccount;
+    emjyBack.creditAccount = accld.creditAccount;
+    emjyBack.testTradeApi = accld.testTradeApi;
+    svrd.getFromLocal('hsj_stocks').then(hsj => {
+        if (hsj) {
+            feng.loadSaved(hsj);
+        }
+    });
+    svrd.getFromLocal('purchase_new_stocks').then(pns => {
+        if (!alarmHub.config) {
+            alarmHub.config = {}
+        }
+        alarmHub.config.purchaseNewStocks = pns;
+        alarmHub.tradeClosed = emjyBack.tradeClosed;
+        alarmHub.setupAlarms();
+    });
     emjyBack.Init();
 });
 
-
-alarmHub.setupAlarms();
 istrManager.initExtStrs();

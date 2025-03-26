@@ -4,8 +4,7 @@
 const { logger } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
-const { accinfo } = xreq('./background/accounts.js');
-const { emjyBack } = xreq('./background/emjybackend.js');
+const { accld } = xreq('./background/accounts.js');
 
 
 class AlarmBase {
@@ -96,10 +95,14 @@ class DailyAlarm extends AlarmBase {
     onTimer() {
         logger.info('daily alarm start update daily kline');
         this.baseKlt.forEach(kltype => {
-            for (const acc of Object.values(accinfo.all_accounts)) {
-                acc.stocks.forEach(s => {
+            for (const acc of Object.values(accld.all_accounts)) {
+                acc.stocks.forEach( async (s) => {
                     if (s.strategies) {
-                        s.strategies.checkStockRtKlines(kltype);
+                        const matched = await s.strategies.checkStockRtKlines(kltype);
+                        for (const m of matched) {
+                            const refer = await acc.doTrade(s.code, m);
+                            s.strategies.onTradeMatch(refer);
+                        }
                     }
                 });
             }
@@ -118,21 +121,21 @@ class KlineTimer extends AlarmBase {
 
     onTimer() {
         this.baseKlt.forEach(kltype => {
-            var due = false;
-            if (kltype == '1') {
-                due = true;
-            } else {
-                due = this.hitCount % kltype == 0;
-            };
-            if (due) {
-                for (const acc of Object.values(accinfo.all_accounts)) {
-                    acc.stocks.forEach(s => {
-                        if (s.strategies) {
-                            s.strategies.checkStockRtKlines(kltype);
-                        }
-                    });
-                }
-            };
+            if (kltype - 1 != 0 && this.hitCount % kltype != 0) {
+                return;
+            }
+            for (const acc of Object.values(accld.all_accounts)) {
+                acc.stocks.forEach(async (s) => {
+                    if (!s.strategies) {
+                        return;
+                    }
+                    const matched = await s.strategies.checkStockRtKlines(kltype);
+                    for (const m of matched) {
+                        const refer = await acc.doTrade(s.code, m);
+                        s.strategies.onTradeMatch(refer);
+                    }
+                });
+            }
         });
         this.hitCount++;
     }
@@ -144,10 +147,14 @@ class OtpAlarm extends AlarmBase{
     }
 
     onTimer() {
-        for (const acc of Object.values(accinfo.all_accounts)) {
-            acc.stocks.forEach(s => {
+        for (const acc of Object.values(accld.all_accounts)) {
+            acc.stocks.forEach(async (s) => {
                 if (s.strategies) {
-                    s.strategies.checkStockRtSnapshot(true);
+                    const matched = await s.strategies.checkStockRtSnapshot(false, this.ticks > 2000);
+                    for (const m of matched) {
+                        const refer = await acc.doTrade(s.code, m);
+                        s.strategies.onTradeMatch(refer);
+                    }
                 }
             });
         }
@@ -161,10 +168,14 @@ class RtpTimer extends AlarmBase {
     }
 
     onTimer() {
-        for (const acc of Object.values(accinfo.all_accounts)) {
-            acc.stocks.forEach(s => {
+        for (const acc of Object.values(accld.all_accounts)) {
+            acc.stocks.forEach(async (s) => {
                 if (s.strategies) {
-                    s.strategies.checkStockRtSnapshot(false, this.ticks > 2000);
+                    const matched = await s.strategies.checkStockRtSnapshot(false, this.ticks > 2000);
+                    for (const m of matched) {
+                        const refer = await acc.doTrade(s.code, m);
+                        s.strategies.onTradeMatch(refer);
+                    }
                 }
             });
         }
@@ -179,7 +190,7 @@ class AccOrderTimer extends RtpTimer {
 
     onTimer() {
         const completedZt = ['已成', '已撤', '废单']; // ['待报', '已报'],
-        Promise.all(['normal', 'collat'].map(acc=>accinfo.all_accounts[acc].checkOrders())).then(([deals0, deals1]) => {
+        Promise.all(['normal', 'collat'].map(acc=>accld.all_accounts[acc].checkOrders())).then(([deals0, deals1]) => {
             const allDeals = deals0.concat(deals1);
             const waitings = allDeals.filter(d => !completedZt.includes(d.Wtzt));
             logger.info(this.constructor.name, 'onTimer, deals=', allDeals.length, 'waitings=', waitings.length);
@@ -248,17 +259,35 @@ const alarmHub = {
         }
         const bclose = new AlarmBase('14:59:38');
         bclose.onTimer = () => {
-            emjyBack.tradeBeforeClose();
+            accld.normalAccount.buyFundBeforeClose();
+            accld.collateralAccount.buyFundBeforeClose();
         }
         const closed = new AlarmBase('15:0:10');
         closed.onTimer = () => {
-            emjyBack.tradeClosed();
+            accld.normalAccount.buyFundBeforeClose();
+            for (const acc of Object.values(accld.all_accounts)) {
+                acc.loadDeals();
+                acc.fillupGuardPrices();
+            }
+            const allstks = Object.values(accld.all_accounts).map(a => a.stocks.map(x=>x.code)).flat();
+            let holdcached = feng.dumpCached(allstks);
+            svrd.saveToLocal({'hsj_stocks': holdcached});
+    
+            this.tradeClosed().then(() => {
+                accld.normalAccount.save();
+                accld.collateralAccount.save();
+                accld.track_accounts.forEach(acc => {acc.save()});
+                if (accld.costDog) {
+                    accld.costDog.save();
+                }
+            });
         }
 
         guang.isTodayTradingDay().then(trade => {
             if (trade) {
-                [ralarm, talarm, bclose, closed,// this.orderTimer,
-                    this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
+                [//ralarm, talarm, bclose,
+                    closed, this.orderTimer,
+                    // this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
                 ].forEach(a => {
                     a.setupTimer();
                 });
@@ -283,6 +312,8 @@ const alarmHub = {
             feng.buyNewStocks();
         }
         feng.buyNewBonds();
+    },
+    async tradeClosed() {
     }
 }
 

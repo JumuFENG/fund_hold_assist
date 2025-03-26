@@ -7,8 +7,7 @@ const { ses } = xreq('./background/strategies_meta.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
 const { klPad } = xreq('./background/kline.js');
-const { emjyBack } = xreq('./background/emjybackend.js');
-const { accinfo } = xreq('./background/accounts.js');
+const { accld } = xreq('./background/accounts.js');
 
 const validTradeStatus = ['OCALL', 'TRADE', 'ECALL'];
 const noTradeStatus = ['STOP', 'ENDTR', 'HALT', 'BREAK'];
@@ -40,13 +39,13 @@ class StrategyI_Base {
     fetchCandidates() {}
 
     checkCandidatesAccount() {
-        if (!accinfo.validateKey) {
+        if (!accld.validateKey) {
             setTimeout(() => this.checkCandidatesAccount(), 1000);
             return;
         }
         for (const c in this.candidates) {
             if (!this.candidates[c].account) {
-                accinfo.checkRzrq(c).then(rzrq => {
+                accld.checkRzrq(c).then(rzrq => {
                     this.candidates[c].account = rzrq.Status == -1 ? 'normal' : 'credit';
                 });
             }
@@ -85,12 +84,11 @@ class StrategyI_Base {
         if (account) {
             return Promise.resolve(account);
         }
-        return accinfo.checkRzrq(code).then(rzrq => rzrq.Status == -1 ? 'normal' : 'credit');
+        return accld.checkRzrq(code).then(rzrq => rzrq.Status == -1 ? 'normal' : 'credit');
     }
 
     check_holdcount(account, code) {
-        const holdacc = accinfo.all_accounts[account].holdAccount();
-        const holdstock = accinfo.all_accounts[holdacc].getStock(code);
+        const holdstock = accld.all_accounts[account].holdAccount.getStock(code);
         if (holdstock && holdstock.holdCount > 0) {
             return holdstock.holdCount;
         }
@@ -98,8 +96,7 @@ class StrategyI_Base {
     }
 
     get_buydetail(account, code) {
-        const holdacc = accinfo.all_accounts[account].holdAccount();
-        const holdstock = accinfo.all_accounts[holdacc].getStock(code);
+        const holdstock = accld.all_accounts[account].holdAccount.getStock(code);
         return holdstock?.strategies?.buydetail;
     }
 
@@ -328,7 +325,7 @@ class StrategyI_Zt1WbOpen extends StrategyI_Base {
 
                 this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2)}};
                 let strategy = this.generate_strategy_json(price);
-                emjyBack.buyWithAccount(code, price, 0, account, strategy);
+                accld.buyWithAccount(code, price, 0, account, strategy);
             }
         });
     }
@@ -403,7 +400,7 @@ class StrategyI_HotrankOpen extends StrategyI_Base {
                         logger.info(this.istr.key, 'stock exists', code, holdacc);
                     } else {
                         logger.info(this.istr.key, 'buy with account', code, price, account);
-                        emjyBack.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
+                        accld.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
                     }
                 });
             }
@@ -475,7 +472,7 @@ class StrategyI_3Bull_Breakup extends StrategyI_Interval {
                 let account = this.candidates[code].account;
                 this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2), 'guardPrice': this.candidates[code].low}};
                 let strategy = this.generate_strategy_json(price);
-                emjyBack.buyWithAccount(code, price, 0, account, strategy);
+                accld.buyWithAccount(code, price, 0, account, strategy);
                 logger.info(this.istr.key, 'buy', code, price, account);
                 this.candidates[code].matched = true;
             }
@@ -510,6 +507,9 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
             let step = Math.max(...recent_zt_stocks.map(x=>x[3]));
             let top_zt_stocks = [];
             for (; step > 0; step--) {
+                if (recent_zt_stocks.filter(x=>x[3] == step).length > top_zt_stocks.length && top_zt_stocks.length >= 8) {
+                    break;
+                }
                 top_zt_stocks = recent_zt_stocks.filter(x=>x[3] >= step);
                 if (top_zt_stocks.length >= 10) {
                     break;
@@ -596,7 +596,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                             strategy = null;
                         }
                         logger.info(this.istr.key, 'buy with account', code, price, account);
-                        emjyBack.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
+                        accld.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
                     });
                 }
             });
@@ -633,10 +633,9 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                 this.candidates[s] = {watched: true};
             }
             this.expected_account(this.istr.account, s).then(account => {
-                let hacc = accinfo.all_accounts[account].holdAccount();
                 this.estr = {'StrategyBuyDTBoard': {account}};
-                accinfo.all_accounts[hacc].addWatchStock(s, this.generate_strategy_json());
-                this.candidates[s].account = hacc;
+                accld.all_accounts[account].holdAccount.addWatchStock(s, this.generate_strategy_json());
+                this.candidates[s].account = accld.all_accounts[account].holdAccount.keyword;
             });
         })
     }
@@ -694,7 +693,7 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                     let strategy = this.generate_strategy_json(price);
                     this.expected_account(this.istr.account, code).then(account => {
                         logger.info(this.istr.key, 'buy with account', code, price, account);
-                        emjyBack.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
+                        accld.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
                     });
                 }
             });
@@ -770,7 +769,7 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
         for (const c in this.candidates) {
             if (this.candidates[c].watched) {
                 const account = this.candidates[c].account;
-                accinfo.all_accounts[account].disableStrategy(c, 'StrategyBuyDTBoard');
+                accld.all_accounts[account].disableStrategy(c, 'StrategyBuyDTBoard');
             }
         }
     }
@@ -853,7 +852,7 @@ class StrategyI_IndexTracking extends StrategyI_Interval {
                 mpas.forEach(mpa => {
                     const strategy = this.generate_strategy_json(mpa.price);
                     logger.info(this.istr.key, 'buy', mpa.code, mpa.price, mpa.account);
-                    emjyBack.buyWithAccount(mpa.code, mpa.price, 0, mpa.account, strategy);
+                    accld.buyWithAccount(mpa.code, mpa.price, 0, mpa.account, strategy);
                 })
             });
         }

@@ -16,7 +16,7 @@ class DealsClient {
     }
 
     getUrl() {
-        return feng.jywg + 'Search/GetDealData?validatekey=' + accinfo.validateKey;
+        return feng.jywg + 'Search/GetDealData?validatekey=' + accld.validateKey;
     }
 
     getFormData() {
@@ -82,7 +82,7 @@ class MarginDealsClient extends DealsClient {
     }
 
     getUrl() {
-        return feng.jywg + 'MarginSearch/GetDealData?validatekey=' + accinfo.validateKey;
+        return feng.jywg + 'MarginSearch/GetDealData?validatekey=' + accld.validateKey;
     }
 
     updateDwc() {
@@ -143,7 +143,7 @@ class HistDealsClient extends DealsClient {
 
     // 重写 getUrl 方法，使用历史成交数据的接口
     getUrl() {
-        return feng.jywg + 'Search/GetHisDealData?validatekey=' + accinfo.validateKey;
+        return feng.jywg + 'Search/GetHisDealData?validatekey=' + accld.validateKey;
     }
 }
 
@@ -164,26 +164,26 @@ class MarginHistDealsClient extends HistDealsClient {
     }
 
     getUrl() {
-        return feng.jywg + 'MarginSearch/queryCreditHisMatchV2?validatekey=' + accinfo.validateKey;
+        return feng.jywg + 'MarginSearch/queryCreditHisMatchV2?validatekey=' + accld.validateKey;
     }
 }
 
 class OrdersClient extends DealsClient {
     getUrl() {
-        return feng.jywg + 'Search/GetOrdersData?validatekey=' + accinfo.validateKey;
+        return feng.jywg + 'Search/GetOrdersData?validatekey=' + accld.validateKey;
     }
 }
 
 class MarginOrdersClient extends DealsClient {
     getUrl() {
-        return feng.jywg + 'MarginSearch/GetOrdersData?validatekey=' + accinfo.validateKey;
+        return feng.jywg + 'MarginSearch/GetOrdersData?validatekey=' + accld.validateKey;
     }
 }
 
 class SxlHistClient extends HistDealsClient {
     // Stock Exchange List
     getUrl() {
-        return feng.jywg + 'Search/GetFundsFlow?validatekey=' + accinfo.validateKey;
+        return feng.jywg + 'Search/GetFundsFlow?validatekey=' + accld.validateKey;
     }
 }
 
@@ -203,7 +203,7 @@ class MarginSxlHistClient extends HistDealsClient {
     }
 
     getUrl() {
-        return feng.jywg + 'MarginSearch/queryCreditLogAssetV2?validatekey=' + accinfo.validateKey;
+        return feng.jywg + 'MarginSearch/queryCreditLogAssetV2?validatekey=' + accld.validateKey;
     }
 }
 
@@ -215,7 +215,7 @@ class AssetsClient {
 
     // 构造 URL
     buildUrl(endpoint) {
-        return `${feng.jywg}${endpoint}?validatekey=${accinfo.validateKey}`;
+        return `${feng.jywg}${endpoint}?validatekey=${accld.validateKey}`;
     }
 
     async fetchData(url, formData = new FormData()) {
@@ -367,7 +367,7 @@ class TradeClient {
     }
 
     getUrl() {
-        return feng.jywg + 'Trade/SubmitTradeV2?validatekey=' + accinfo.validateKey;
+        return feng.jywg + 'Trade/SubmitTradeV2?validatekey=' + accld.validateKey;
     }
 
     async getBasicFormData(code, price, count, tradeType) {
@@ -407,7 +407,7 @@ class TradeClient {
     }
 
     countUrl() {
-        return feng.jywg + 'Trade/GetAllNeedTradeInfo?validatekey=' + accinfo.validateKey;
+        return feng.jywg + 'Trade/GetAllNeedTradeInfo?validatekey=' + accld.validateKey;
     }
 
     async countFormData(code, price, tradeType, jylx) {
@@ -430,7 +430,8 @@ class TradeClient {
             body: fd
         }).then(response => response.data).then(robj => {
             if (robj.Status !== 0 || !robj.Data?.Kmml) {
-                throw new Error('Trade getCount error: ' + JSON.stringify(robj));
+                logger.err('Trade getCount error: ' + JSON.stringify(robj));
+                return { availableCount: 0 };
             }
             return { availableCount: robj.Data.Kmml };
         });
@@ -443,9 +444,7 @@ class TradeClient {
             body,
         }).then(response => response.data).then(robj => {
             if (robj.Status !== 0 || !robj.Data?.length) {
-                const err = new Error(`Trade failed! ${code} ${price} ${count} ${tradeType}`);
-                err.details = robj;
-                throw err;
+                return { code, type: tradeType, err: robj};
             }
             this.availableMoney -= tradeType === 'B' ? price * count : -(price * count);
             return { code, price, count, sid: robj.Data[0].Wtbh, type: tradeType };
@@ -455,14 +454,16 @@ class TradeClient {
     async tradeValidPrice(code, price, count, tradeType, jylx) {
         let finalCount = count;
         if (count < 10) {
-            if (count < 1) throw new Error(`Invalid count: ${count}`);
+            if (count < 1) {
+                return { code, type: tradeType, err: `Invalid count: ${count}`};
+            }
             const cobj = await this.getCount(code, price, tradeType, jylx);
             finalCount = cobj.availableCount;
             if (count > 1) {
                 finalCount = 100 * Math.floor(cobj.availableCount / 100 / count);
             }
             if (finalCount - 100 < 0) {
-                throw new Error(`Invalid count: ${finalCount} available count: ${cobj.availableCount}`);
+                return { code, type: tradeType, err: `Invalid count: ${finalCount} available count: ${cobj.availableCount}`};
             }
         }
         return this.doTrade(code, price, finalCount, tradeType, jylx);
@@ -470,7 +471,7 @@ class TradeClient {
 
     async trade(code, price, count, tradeType, jylx) {
         if (tradeType === 'B' && this.availableMoney < 1000) {
-            throw new Error('Insufficient funds');
+            return { code, type: tradeType, err: `noney not enough, available Money: ${this.availableMoney}`};
         }
 
         if (price === 0) {
@@ -501,7 +502,7 @@ class CollatTradeClient extends TradeClient {
     }
 
     getUrl() {
-        return feng.jywg + 'MarginTrade/SubmitTradeV2?validatekey=' + accinfo.validateKey;
+        return feng.jywg + 'MarginTrade/SubmitTradeV2?validatekey=' + accld.validateKey;
     }
 
     async getFormData(code, price, count, tradeType, jylx) {
@@ -526,7 +527,7 @@ class CollatTradeClient extends TradeClient {
     }
 
     countUrl() {
-        return feng.jywg + 'MarginTrade/GetKyzjAndKml?validatekey=' + accinfo.validateKey;
+        return feng.jywg + 'MarginTrade/GetKyzjAndKml?validatekey=' + accld.validateKey;
     }
 
     async checkRzrqTarget(code) {
@@ -595,8 +596,48 @@ class Account {
         return this.stocks.find(s => s.code == code);
     }
 
-    holdAccount() {
-        return this.keyword;
+    get holdAccount() {
+        return this.hacc ?? this;
+    }
+
+    set holdAccount(v) {
+        this.hacc = v;
+    }
+
+    async doTrade(code, info) {
+        if (info.tradeType == 'B') {
+            const bd = await this.buyStock(info.code, info.price, info.count);
+            var stk = this.holdAccount.getStock(code);
+            if (!stk) {
+                this.holdAccount.addWatchStock(code, {});
+                stk = this.holdAccount.getStock(code);
+            }
+            if (stk) {
+                if (!stk.strategies) {
+                    this.holdAccount.addStockStrategy(stk, {});
+                }
+                if (bd) {
+                    stk.strategies.buydetail.addBuyDetail(bd);
+                }
+            }
+            info.deal = bd;
+            return info;
+        } else if (info.tradeType == 'S') {
+            if (info.count > 0) {
+                const sd = await this.sellStock(info.code, info.price, info.count);
+                var stk = this.holdAccount.getStock(code);
+                if (stk) {
+                    if (!stk.strategies) {
+                        this.holdAccount.applyStrategy(code, {grptype: 'GroupStandard', strategies: {'0': {key: 'StrategySellELS', enabled: false, cutselltype: 'all', selltype: 'all'}}, transfers: {'0': {transfer: '-1'}}, amount: '5000'});
+                    }
+                    if (sd) {
+                        stk.strategies.buydetail.addSellDetail(sd);
+                    }
+                }
+                info.deal = sd;
+                return info;
+            }
+        }
     }
 
     createOrderClient() {}
@@ -743,23 +784,23 @@ class Account {
     }
 
     uploadDeals(deals) {
-        if (deals.length == 0 || !accinfo.fha) {
+        if (deals.length == 0 || !accld.fha) {
             return;
         }
 
-        accinfo.testFhaServer().then(txt => {
+        accld.testFhaServer().then(txt => {
             if (txt != 'OK') {
                 logger.info('testFhaServer, failed.!');
                 return;
             }
 
-            var url = accinfo.fha.server + 'stock';
+            var url = accld.fha.server + 'stock';
             var dfd = new FormData();
             dfd.append('act', 'deals');
             dfd.append('acc', this.keyword);
             dfd.append('data', JSON.stringify(deals));
             logger.info('uploadDeals', JSON.stringify(deals));
-            fetch(url, {method: 'POST', headers: accinfo.fha.headers, body: dfd}).then(r=>r.text()).then(p => {
+            fetch(url, {method: 'POST', headers: accld.fha.headers, body: dfd}).then(r=>r.text()).then(p => {
                 logger.info('upload deals to server,', p);
             });
         });
@@ -792,20 +833,20 @@ class Account {
     }
 
     clearCompletedDeals() {
-        if (!accinfo.savedDeals) {
+        if (!accld.savedDeals) {
             svrd.getFromLocal('hist_deals').then(sdeals => {
                 if (sdeals) {
-                    accinfo.savedDeals = sdeals;
+                    accld.savedDeals = sdeals;
                     this.clearCompletedDeals();
                 }
             });
             return;
         }
 
-        let curDeals = accinfo.savedDeals.filter(d => accinfo.normalAccount.getStock(d.code.substring(2)) || accinfo.collateralAccount.getStock(d.code.substring(2)));
+        let curDeals = accld.savedDeals.filter(d => accld.normalAccount.getStock(d.code.substring(2)) || accld.collateralAccount.getStock(d.code.substring(2)));
         curDeals.sort((a, b) => a.time > b.time);
-        accinfo.savedDeals = curDeals;
-        svrd.saveToLocal({'hist_deals': accinfo.savedDeals});
+        accld.savedDeals = curDeals;
+        svrd.saveToLocal({'hist_deals': accld.savedDeals});
     }
 
     loadHistDeals(date) {
@@ -841,15 +882,15 @@ class Account {
 
             fetchedDeals.reverse();
             var uptosvrDeals = [];
-            if (!accinfo.savedDeals || accinfo.savedDeals.length == 0) {
-                accinfo.savedDeals = fetchedDeals;
+            if (!accld.savedDeals || accld.savedDeals.length == 0) {
+                accld.savedDeals = fetchedDeals;
                 uptosvrDeals = fetchedDeals;
             } else {
-                uptosvrDeals = fetchedDeals.filter(deali => !accinfo.savedDeals.find(d => d.time == deali.time && d.code == deali.code && d.sid == deali.sid));
-                accinfo.savedDeals.concat(uptosvrDeals);
-                accinfo.savedDeals.sort((a, b) => a.time > b.time);
+                uptosvrDeals = fetchedDeals.filter(deali => !accld.savedDeals.find(d => d.time == deali.time && d.code == deali.code && d.sid == deali.sid));
+                accld.savedDeals.concat(uptosvrDeals);
+                accld.savedDeals.sort((a, b) => a.time > b.time);
             }
-            svrd.saveToLocal({'hist_deals': accinfo.savedDeals});
+            svrd.saveToLocal({'hist_deals': accld.savedDeals});
             this.uploadDeals(uptosvrDeals);
             this.clearCompletedDeals();
         });
@@ -955,9 +996,9 @@ class NormalAccount extends Account {
     }
 
     loadWatchings() {
-        if (accinfo.fha.save_on_server) {
-            const wurl = accinfo.fha.server + 'stock?act=watchings&acc=' + this.keyword;
-            fetch(wurl, {headers: accinfo.fha.headers}).then(r => r.json()).then(watchings => {
+        if (accld.fha.save_on_server) {
+            const wurl = accld.fha.server + 'stock?act=watchings&acc=' + this.keyword;
+            fetch(wurl, {headers: accld.fha.headers}).then(r => r.json()).then(watchings => {
                 for (const s in watchings) {
                     this.addWatchStock(s.slice(-6), watchings[s].strategies);
                 }
@@ -969,6 +1010,7 @@ class NormalAccount extends Account {
                 if (watchings) {
                     watchings.forEach(s => {
                         this.addWatchStock(s);
+                        this.loadStrategies(s);
                     });
                 };
             });
@@ -1004,11 +1046,11 @@ class NormalAccount extends Account {
     }
 
     getServerSavedStrategies(code) {
-        if (accinfo.fha.save_on_server && this.keyword === this.holdAccount()) {
+        if (accld.fha.save_on_server && this === this.holdAccount) {
             feng.getLongStockCode(code).then(fcode => {
                 const params = {'act': 'strategy', 'acc': this.keyword, code: fcode};
-                const url = accinfo.fha.server + '/stock?' + new URLSearchParams(params);
-                fetch(url, { headers: accinfo.fha.headers }).then(response => response.json()).then(data => {
+                const url = accld.fha.server + '/stock?' + new URLSearchParams(params);
+                fetch(url, { headers: accld.fha.headers }).then(response => response.json()).then(data => {
                     this.applyStrategy(code, data);
                 });
             });
@@ -1131,14 +1173,14 @@ class NormalAccount extends Account {
         var watchingStocks = {};
         watchingStocks[this.keyword + '_watchings'] = this.stocks.filter(s => s.strategies).map(s => s.code);
         svrd.saveToLocal(watchingStocks);
-        if (accinfo.fha.save_on_server && this.keyword === this.holdAccount()) {
+        if (accld.fha.save_on_server && this === this.holdAccount) {
             feng.getLongStockCode(code).then(fcode => {
                 const fd = new FormData();
                 fd.append('act', 'forget');
                 fd.append('acc', this.keyword);
                 fd.append('code', fcode);
-                const url = accinfo.fha.server + '/stock';
-                fetch(url, {method: 'POST', headers: accinfo.fha.headers, body: fd});
+                const url = accld.fha.server + '/stock';
+                fetch(url, {method: 'POST', headers: accld.fha.headers, body: fd});
             });
         }
     }
@@ -1147,15 +1189,15 @@ class NormalAccount extends Account {
         this.stocks.forEach(s => {
             if (s.strategies) {
                 s.strategies.save();
-                if (accinfo.fha.save_on_server && Object.keys(s.strategies.strategies).length > 0 && this.keyword == this.holdAccount()) {
+                if (accld.fha.save_on_server && Object.keys(s.strategies.strategies).length > 0 && this == this.holdAccount) {
                     feng.getLongStockCode(s.code).then(fcode => {
                         const fd = new FormData();
                         fd.append('act', 'strategy');
                         fd.append('acc', this.keyword);
                         fd.append('code', fcode);
                         fd.append('data', s.strategies.tostring());
-                        const url = accinfo.fha.server + '/stock';
-                        fetch(url, {method: 'POST', headers: accinfo.fha.headers, body: fd});
+                        const url = accld.fha.server + '/stock';
+                        fetch(url, {method: 'POST', headers: accld.fha.headers, body: fd});
                     });
                 }
             };
@@ -1220,7 +1262,7 @@ class NormalAccount extends Account {
     }
 
     createAssetsClient() {
-        if (!accinfo.validateKey) {
+        if (!accld.validateKey) {
             logger.info('no validateKey');
             return;
         }
@@ -1304,7 +1346,6 @@ class NormalAccount extends Account {
             } else {
                 this.stocks.push(stocki);
             }
-            this.loadStrategies(stocki.code);
         }
     }
 }
@@ -1341,7 +1382,7 @@ class CollateralAccount extends NormalAccount {
     }
 
     createAssetsClient() {
-        if (!accinfo.validateKey) {
+        if (!accld.validateKey) {
             logger.info('no validateKey');
             return;
         }
@@ -1352,8 +1393,8 @@ class CollateralAccount extends NormalAccount {
     }
 
     setReleatedAssets(assets) {
-        if (accinfo.creditAccount) {
-            accinfo.creditAccount.setOwnAssets(assets);
+        if (accld.creditAccount) {
+            accld.creditAccount.setOwnAssets(assets);
         }
     }
 
@@ -1384,17 +1425,13 @@ class CreditAccount extends CollateralAccount {
         this.keyword = 'credit';
     }
 
-    holdAccount() {
-        return 'collat';
-    }
-
     createTradeClient() {
         this.tradeClient = new CreditTradeClient(this.availableMoney);
     }
 
     setReleatedAssets(assets) {
-        if (accinfo.collateralAccount) {
-            accinfo.collateralAccount.setOwnAssets(assets);
+        if (accld.collateralAccount) {
+            accld.collateralAccount.setOwnAssets(assets);
         }
     }
 
@@ -1412,7 +1449,7 @@ class CreditAccount extends CollateralAccount {
     parsePosition() { }
 }
 
-const accinfo = {
+const accld = {
     enableCredit: false,
     all_accounts: {},
     validateKey: null,
@@ -1420,16 +1457,19 @@ const accinfo = {
     initAccounts() {
         this.normalAccount = new NormalAccount();
         this.all_accounts[this.normalAccount.keyword] = this.normalAccount;
+        this.normalAccount.loadWatchings();
         if (this.enableCredit) {
             this.collateralAccount = new CollateralAccount();
+            this.collateralAccount.loadWatchings();
             this.creditAccount = new CreditAccount();
+            this.creditAccount.holdAccount = this.collateralAccount;
             this.all_accounts[this.collateralAccount.keyword] = this.collateralAccount;
             this.all_accounts[this.creditAccount.keyword] = this.creditAccount;
         }
     },
     testFhaServer() {
         var url = this.fha.server + 'stock?act=test';
-        return fetch(url, {headers: accinfo.fha.headers}).then(r=>r.text());
+        return fetch(url, {headers: accld.fha.headers}).then(r=>r.text());
     },
     updateHistDeals() {
         svrd.getFromLocal('hist_deals').then(hdl => {
@@ -1456,6 +1496,62 @@ const accinfo = {
         this.normalAccount.loadOtherDeals(date);
         this.collateralAccount.loadOtherDeals(date);
     },
+    trySellStock(code, price, count, account, cb) {
+        if (!this.all_accounts[account]) {
+            logger.info('Error, no valid account', account);
+            return Promise.resolve();
+        }
+
+        return this.all_accounts[account].sellStock(code, price, count).then(sd => {
+            var stk = this.all_accounts[account].holdAccount.getStock(code);
+            if (stk) {
+                if (!stk.strategies) {
+                    this.all_accounts[account].holdAccount.applyStrategy(code, {grptype: 'GroupStandard', strategies: {'0': {key: 'StrategySellELS', enabled: false, cutselltype: 'all', selltype: 'all'}}, transfers: {'0': {transfer: '-1'}}, amount: '5000'});
+                }
+                if (sd) {
+                    stk.strategies.buydetail.addSellDetail(sd);
+                }
+            }
+            return sd;
+        });
+    },
+    tryBuyStock(code, price, count, account) {
+        if (!this.all_accounts[account]) {
+            logger.info('Error, no valid account', account);
+            return Promise.resolve();
+        }
+
+        return this.all_accounts[account].buyStock(code, price, count).then(bd => {
+            var stk = this.all_accounts[account].holdAccount.getStock(code);
+            var strgrp = {};
+            if (!stk) {
+                this.all_accounts[account].holdAccount.addWatchStock(code, strgrp);
+                stk = this.all_accounts[account].holdAccount.getStock(code);
+            }
+            if (stk) {
+                if (!stk.strategies) {
+                    this.all_accounts[account].holdAccount.addStockStrategy(stk, strgrp);
+                }
+                stk.strategies.buydetail.addBuyDetail(bd);
+            }
+            return bd;
+        });
+    },
+    buyWithAccount(code, price, count, account, strategies) {
+        if (strategies) {
+            this.all_accounts[account].holdAccount.addWatchStock(code, strategies);
+        }
+        if (!count) {
+            var stk = this.all_accounts[account].holdAccount.getStock(code);
+            if (stk) {
+                count = stk.strategies.getBuyCount(price);
+            }
+            if (count * price - this.all_accounts[account].availableMoney > 0) {
+                count = guang.calcBuyCount(this.all_accounts[account].availableMoney, price);
+            }
+        }
+        return this.tryBuyStock(code, price, count, account);
+    },
     checkRzrq(code) {
         if (!this.creditAccount) {
             return Promise.resolve();
@@ -1465,6 +1561,20 @@ const accinfo = {
         }
         return this.creditAccount.tradeClient.checkRzrqTarget(code);
     },
+    testTradeApi(code) {
+        if (!code) {
+            code = '601398';
+        }
+        feng.getStockSnapshot(code).then(snap => {
+            this.tryBuyStock(code, snap.bottomprice, guang.calcBuyCount(1000, snap.bottomprice), 'normal').then(bd => {
+                if (bd) {
+                    console.log('tade test with deal', bd);
+                }
+            }).catch(err => {
+                console.log('test trade failed', err)
+            });
+        });
+    },
     removeStock(account, code) {
         this.all_accounts[account].removeStock(code);
     },
@@ -1472,10 +1582,10 @@ const accinfo = {
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        accinfo, TradeClient, NormalAccount
+        accld, TradeClient, NormalAccount
     };
 } else if (typeof window !== 'undefined') {
-    window.accinfo = accinfo;
+    window.accld = accld;
     window.TradeClient = TradeClient;
     window.NormalAccount = NormalAccount;
 }
