@@ -24,15 +24,15 @@ window.emjyBack = {
         const prm = Object.values(accld.all_accounts).map(acc=>acc.stocks.filter(s=>s.strategies).map(s=>s.strategies.updateKlines())).flat();
         await Promise.all(prm);
         Object.values(klPad.klines).forEach(kl => kl.save());
-        this.flushLogs();
-        this.running = false;
-    },
-    flushLogs() {
+        if (costDog) {
+            costDog.save();
+        }
         logger.log('flush log!');
         if (logger.logs && logger.logs.length > 0) {
             var blob = new Blob(logger.logs, {type: 'application/text'});
             svrd.saveToFile(blob, 'logs/stock.assist' + guang.getTodayDate() + '.log');
             logger.logs = [];
         }
+        this.running = false;
     }
 }

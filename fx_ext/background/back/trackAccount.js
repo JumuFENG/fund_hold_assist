@@ -36,7 +36,7 @@ class TrackingAccount extends NormalAccount {
         this.keyword = key;
         this.key_deals = this.keyword + '_deals';
         this.availableMoney = Infinity;
-        this.sid = 1;
+        this.sid = (guang.getTodayDate() % 1000000) * 1000;
         this.deals = [];
     }
 

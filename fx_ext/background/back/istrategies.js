@@ -2,7 +2,7 @@
 
 (function(){
 
-const { logger } = xreq('./background/nbase.js');
+const { logger, svrd } = xreq('./background/nbase.js');
 const { ses } = xreq('./background/strategies_meta.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');

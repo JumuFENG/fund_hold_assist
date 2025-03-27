@@ -606,7 +606,7 @@ class Account {
 
     async doTrade(code, info) {
         if (info.tradeType == 'B') {
-            const bd = await this.buyStock(info.code, info.price, info.count);
+            const bd = await this.buyStock(code, info.price, info.count);
             var stk = this.holdAccount.getStock(code);
             if (!stk) {
                 this.holdAccount.addWatchStock(code, {});
@@ -624,7 +624,7 @@ class Account {
             return info;
         } else if (info.tradeType == 'S') {
             if (info.count > 0) {
-                const sd = await this.sellStock(info.code, info.price, info.count);
+                const sd = await this.sellStock(code, info.price, info.count);
                 var stk = this.holdAccount.getStock(code);
                 if (stk) {
                     if (!stk.strategies) {
@@ -651,12 +651,32 @@ class Account {
     checkOrders() {
         this.checkOrderClient();
         return this.orderClient.getAllData().then(data => {
+            const sdeals = {}
             for (const d of data) {
+                const {Zqdm: code, Cjjg: price, Cjsl: count, Wtbh: sid, Mmsm: tradeType, Wtzt: status} = d;
+                const type = this.tradeTypeFromMmsm(tradeType);
+                if (['已成', '已撤', '废单', '部撤'].includes(status) && type) {
+                    if (!sdeals[code]) {
+                        sdeals[code] = [];
+                    }
+                    sdeals[code].push({ code, price, count, sid, type, status });
+                } else {
+                    logger.info(this.keyword, 'unknown deal type/status: ', d);
+                }
                 if (!this.orderfeched) {
                     this.orderfeched = [];
                 }
                 if (!this.orderfeched.find(x=>x.Zqdm == d.Zqdm && x.Wtbh == d.Wtbh && x.Wtzt == d.Wtzt)) {
                     this.orderfeched.push(d);
+                }
+            }
+            for (const code in sdeals) {
+                const stk = this.getStock(code);
+                if (stk) {
+                    stk.strategies.buydetail.dealsConfirmed(sdeals[code]);
+                } else {
+                    const buydetail = sdeals[code].filter(x=>['已成', '部撤'].includes(x.status));
+                    this.addWatchStock(code, {buydetail});
                 }
             }
             return data;

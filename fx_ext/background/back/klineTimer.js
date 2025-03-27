@@ -1,11 +1,10 @@
 'use strict';
 
 (function(){
-const { logger } = xreq('./background/nbase.js');
+const { logger, svrd } = xreq('./background/nbase.js');
 const { guang } = xreq('./background/guang.js');
 const { feng } = xreq('./background/feng.js');
 const { accld } = xreq('./background/accounts.js');
-
 
 class AlarmBase {
     constructor(periods) {
@@ -99,10 +98,7 @@ class DailyAlarm extends AlarmBase {
                 acc.stocks.forEach( async (s) => {
                     if (s.strategies) {
                         const matched = await s.strategies.checkStockRtKlines(kltype);
-                        for (const m of matched) {
-                            const refer = await acc.doTrade(s.code, m);
-                            s.strategies.onTradeMatch(refer);
-                        }
+                        alarmHub.onStrategyMatched(acc, s, matched);
                     }
                 });
             }
@@ -130,10 +126,7 @@ class KlineTimer extends AlarmBase {
                         return;
                     }
                     const matched = await s.strategies.checkStockRtKlines(kltype);
-                    for (const m of matched) {
-                        const refer = await acc.doTrade(s.code, m);
-                        s.strategies.onTradeMatch(refer);
-                    }
+                    alarmHub.onStrategyMatched(acc, s, matched);
                 });
             }
         });
@@ -151,10 +144,7 @@ class OtpAlarm extends AlarmBase{
             acc.stocks.forEach(async (s) => {
                 if (s.strategies) {
                     const matched = await s.strategies.checkStockRtSnapshot(false, this.ticks > 2000);
-                    for (const m of matched) {
-                        const refer = await acc.doTrade(s.code, m);
-                        s.strategies.onTradeMatch(refer);
-                    }
+                    alarmHub.onStrategyMatched(acc, s, matched);
                 }
             });
         }
@@ -172,10 +162,7 @@ class RtpTimer extends AlarmBase {
             acc.stocks.forEach(async (s) => {
                 if (s.strategies) {
                     const matched = await s.strategies.checkStockRtSnapshot(false, this.ticks > 2000);
-                    for (const m of matched) {
-                        const refer = await acc.doTrade(s.code, m);
-                        s.strategies.onTradeMatch(refer);
-                    }
+                    alarmHub.onStrategyMatched(acc, s, matched);
                 }
             });
         }
@@ -186,31 +173,61 @@ class AccOrderTimer extends RtpTimer {
     constructor() {
         super();
         this.ticks = 10*60000;
+        this.completedZt = ['已成', '已撤', '废单']; // ['待报', '已报'],
+    }
+
+    addCheckingTask(acc, deal) {
+        if (!this.checkingTasks) {
+            this.checkingTasks = {};
+        }
+        if (!this.checkingTasks[acc]) {
+            this.checkingTasks[acc] = [];
+        }
+
+        this.checkingTasks[acc].push(deal);
+        this.scheduleCheckingTask();
+    }
+
+    scheduleCheckingTask(delay) {
+        if (!this.taskIndicator) {
+            this.taskIndicator = setTimeout(() => {
+                Promise.all(Object.keys(this.checkingTasks).map(acc => {
+                    accld.all_accounts[acc].checkOrders().then(deals => {
+                        const cmpsid = deals.filter(d => this.completedZt.includes(d.Wtzt)).map(d => d.Wtbh);
+                        const finished = this.checkingTasks[acc].filter(d => cmpsid.includes(d.Wtbh));
+                        logger.info(this.constructor.name, 'finished orders:', finished.length, finished);
+                        this.checkingTasks[acc] = this.checkingTasks[acc].filter(d => !cmpsid.includes(d.Wtbh));
+                        return deals.filter(d => !cmpsid.includes(d.Wtbh));
+                    })
+                })).then((deals) => {
+                    const lastsj = Math.max(...deals.flat().map(d => d.Wtsj));
+                    if (Object.values(this.checkingTasks).flat().length > 0) {
+                        const now = new Date();
+                        let diff = now - new Date(now.getFullYear(), now.getMonth(), now.getDate(), (lastsj/10000).toFixed(), (lastsj/100%100).toFixed(), lastsj%100);
+                        if (diff < 5000) {
+                            diff = 5000;
+                        }
+                        if (diff < 10*60000) {
+                            this.scheduleCheckingTask(diff);
+                        }
+                    }
+                });
+                this.taskIndicator = null;
+            }, delay ?? 5000);
+            this.setTick(10*60000);
+        }
     }
 
     onTimer() {
-        const completedZt = ['已成', '已撤', '废单']; // ['待报', '已报'],
         Promise.all(['normal', 'collat'].map(acc=>accld.all_accounts[acc].checkOrders())).then(([deals0, deals1]) => {
             const allDeals = deals0.concat(deals1);
-            const waitings = allDeals.filter(d => !completedZt.includes(d.Wtzt));
+            const waitings = allDeals.filter(d => !this.completedZt.includes(d.Wtzt));
             logger.info(this.constructor.name, 'onTimer, deals=', allDeals.length, 'waitings=', waitings.length);
             if (waitings.length == 0) {
                 if (this.ticks !== 10*60000) {
                     this.setTick(10*60000);
                 }
                 return;
-            }
-            const lastsj = Math.max(...waitings.map(d => d.Wtsj));
-            const now = new Date();
-            let diff = now - new Date(now.getFullYear(), now.getMonth(), now.getDate(), (lastsj/10000).toFixed(), (lastsj/100%100).toFixed(), lastsj%100);
-            if (diff < 10000) {
-                diff = 10000;
-            }
-            if (diff > 10*60000) {
-                diff = 10*60000;
-            }
-            if (diff != this.ticks) {
-                this.setTick(diff);
             }
         });
     }
@@ -277,9 +294,6 @@ const alarmHub = {
                 accld.normalAccount.save();
                 accld.collateralAccount.save();
                 accld.track_accounts.forEach(acc => {acc.save()});
-                if (accld.costDog) {
-                    accld.costDog.save();
-                }
             });
         }
 
@@ -311,6 +325,15 @@ const alarmHub = {
             feng.buyNewStocks();
         }
         feng.buyNewBonds();
+    },
+    async onStrategyMatched(acc, stock, matches) {
+        for (const m of matches) {
+            const refer = await acc.doTrade(stock.code, m);
+            if (refer.deal.sid) {
+                this.orderTimer.addCheckingTask(acc.holdAccount.keyword, refer.deal);
+            }
+            stock.strategies.onTradeMatch(refer);
+        }
     },
     async tradeClosed() {
     }

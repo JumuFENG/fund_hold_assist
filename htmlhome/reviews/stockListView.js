@@ -150,6 +150,7 @@ class StockListPanelPage extends RadioAnchorPage {
             const durl = emjyBack.fha.server + 'stock?act=deals&acc=' + this.keyword;
             Promise.all([fetch(url, emjyBack.headers).then(r => r.json()), fetch(durl, emjyBack.headers).then(r => r.json())])
             .then(([stocks, deals]) => {
+                deals = deals.map( d => {d.type = d.tradeType, d.date = d.time; return d;});
                 for (const c in stocks) {
                     stocks[c].deals = deals.filter(d => d.code == c);
                 }
@@ -189,9 +190,11 @@ class StockListPanelPage extends RadioAnchorPage {
             if (this.acc.realcash) {
                 stocks = Object.values(stocks).sort((a, b) => b.holdCount * b.latestPrice - a.holdCount * a.latestPrice);
             } else {
-                stocks = Object.values(stocks).sort((a, b) => {
+                const fs = Object.values(stocks).filter(s => !s.strategies?.buydetail);
+                stocks = Object.values(stocks).filter(s => s.strategies?.buydetail).sort((a, b) => {
                     return a.strategies.buydetail.slice(-1)[0].date - b.strategies.buydetail.slice(-1)[0].date;
                 });
+                stocks = stocks.concat(fs);
             }
             for (const s of stocks) {
                 this.addStock(s.code, s);
@@ -409,7 +412,9 @@ class StockListPanelPage extends RadioAnchorPage {
                 this.strategyGroupView.initUi(stk.account, stk.code, stk.strategies, stk.deals);
             };
         });
-        divContainer.removeMe = this.deleteStock;
+        divContainer.removeMe = c => {
+            this.deleteStock(c);
+        }
         this.listContainer.appendChild(divContainer.container);
         this.stocks.push(divContainer);
     }

@@ -101,6 +101,25 @@ class BuyDetail {
         this.addRecord({date, count: detail.count, price: detail.price, sid: detail.sid, type:'S'});
     }
 
+    dealsConfirmed(deals) {
+        for (const d of deals) {
+            const rd = this.records.find(r => r.sid == d.sid && r.type == d.type);
+            if (rd) {
+                if (d.status == '废单' || d.status == '已撤') {
+                    this.records = this.records.filter(r => r.sid != d.sid);
+                    this.full_records = this.full_records.filter(r => r.sid != d.sid);
+                    continue;
+                }
+                Object.assign(rd, d);
+            } else {
+                if (d.status == '已成' || d.status == '部撤') {
+                    d.date = guang.getTodayDate('-');
+                    this.addRecord(d);
+                }
+            }
+        }
+    }
+
     archiveRecords() {
         var selrec = this.sellRecords();
         if (!selrec || selrec.length == 0) {

@@ -170,6 +170,198 @@ class StrategySelectorView {
     }
 }
 
+
+class EditableCell {
+    constructor(text, width) {
+        this.otext = text;
+        this.container = document.createElement('div');
+        this.container.style.display = 'inline';
+        this.lblText = document.createTextNode(text);
+        this.container.appendChild(this.lblText);
+        this.inputBox = document.createElement('input');
+        this.inputBox.style.maxWidth = '80px';
+        this.inputBox.style.display = 'none';
+        this.inputBox.value = text;
+        this.container.appendChild(this.inputBox);
+        this.editable = false;
+        if (width) {
+            if (width > 80) {
+                this.inputBox.style.maxWidth = width + 'px';
+            }
+            this.inputBox.style.width = width + 'px';
+            this.container.style.width = width+'px';
+        }
+        this.container.ondblclick = () => {
+            this.edit();
+        }
+        this.inputBox.onblur = () => {
+            this.readonly();
+        }
+    }
+
+    edit() {
+        this.lblText.textContent = '';
+        this.inputBox.style.display = 'inline';
+        this.inputBox.focus();
+        this.inputBox.setSelectionRange(0, this.inputBox.value.length);
+        this.editable = true;
+    }
+
+    readonly() {
+        this.lblText.textContent = this.inputBox.value;
+        this.inputBox.style.display = 'none';
+        this.editable = false;
+    }
+
+    textChanged() {
+        return this.otext != this.inputBox.value;
+    }
+
+    update(text) {
+        this.otext = text;
+        this.inputBox.value = text;
+        this.readonly();
+    }
+
+    text() {
+        return this.inputBox.value;
+    }
+}
+
+class RecordRow {
+    createCell(t, w) {
+        var c = document.createElement('div');
+        c.textContent = t;
+        if (w) {
+            c.style.minWidth = w+'px';
+        }
+        c.style.textAlign = 'center';
+        c.style.borderLeft = 'solid 1px';
+        return c;
+    }
+
+    constructor(deal) {
+        this.deal = deal;
+        this.root = document.createElement('div');
+        this.root.style.display = 'flex';
+        this.showDealInfo();
+    }
+
+    showDealInfo() {
+        utils.removeAllChild(this.root);
+        this.countCell = new EditableCell(this.deal.count, 50);
+        this.root.appendChild(this.countCell.container);
+        this.dateCell = new EditableCell(this.deal.date, 150);
+        this.root.appendChild(this.dateCell.container);
+
+        this.root.appendChild(this.createCell(this.deal.type, 30));
+        this.root.appendChild(this.createCell((this.deal.price * this.deal.count).toFixed(2), 70));
+
+        this.priceCell = new EditableCell(this.deal.price, 70);
+        this.root.appendChild(this.priceCell.container);
+        this.sidCell = new EditableCell(this.deal.sid, 70);
+        this.root.appendChild(this.sidCell.container);
+        this.xBtn = document.createElement('span');
+        this.xBtn.textContent = 'X';
+        this.xBtn.style.color = 'blue';
+        this.xBtn.style.visibility = 'hidden';
+        this.xBtn.style.textDecoration = 'underline';
+        this.xBtn.onclick = () => {
+            this.root.style.display = 'none';
+            this.deal = null;
+        };
+        this.root.appendChild(this.xBtn);
+        this.root.onmouseenter = () => {
+            this.xBtn.style.visibility = 'visible';
+        }
+        this.root.onmouseleave = () => {
+            this.xBtn.style.visibility = 'hidden';
+        }
+    }
+
+    isChanged() {
+        if (!this.deal) {
+            return true;
+        }
+        var changed = false;
+        if (this.countCell.textChanged()) {
+            this.deal.count = this.countCell.text();
+            changed = true;
+        }
+        if (this.dateCell.textChanged()) {
+            this.deal.date = this.dateCell.text();
+            changed = true;
+        }
+        if (this.priceCell.textChanged()) {
+            this.deal.price = this.priceCell.text();
+            changed = true;
+        }
+        if (this.sidCell.textChanged()) {
+            this.deal.sid = this.sidCell.text();
+            changed = true;
+        }
+        return changed;
+    }
+}
+
+class RecordsTable {
+    constructor(deals) {
+        this.deals = deals;
+        this.root = document.createElement('div');
+        this.root.style.maxHeight = '100px';
+        this.root.style.maxWidth = '500px';
+        this.root.style.overflowY = 'auto';
+        this.root.style.position = 'relative';
+        this.rows = [];
+        if (this.deals) {
+            this.deals.slice().reverse().forEach(d => {
+                var r = new RecordRow(d);
+                this.root.appendChild(r.root);
+                this.rows.push(r);
+            });
+        }
+        this.addDiv = document.createElement('div');
+        this.addDiv.style.display = 'flex';
+        this.addDiv.style.justifyContent = 'center';
+        this.addDiv.style.alignItems = 'center';
+        this.root.appendChild(this.addDiv);
+        const addBtn = (type) => {
+            const btn = document.createElement('span');
+            btn.textContent = `+${type}`;
+            btn.style.color = 'blue';
+            btn.style.margin = '0 10px';
+            btn.style.textDecoration = 'underline';
+            btn.onclick = () => {
+                const newDeal = {
+                    count: 0,
+                    date: guang.getTodayDate('-'),
+                    type,
+                    price: 0,
+                    sid: '000000',
+                };
+                const r = new RecordRow(newDeal);
+                this.root.insertBefore(r.root, this.addDiv);
+                this.rows.push(r);
+            };
+            this.addDiv.appendChild(btn);
+        };
+        addBtn('B');
+        addBtn('S');
+    }
+
+    isChanged() {
+        var changed = false;
+        this.rows.forEach(r => {
+            changed |= r.isChanged();
+        });
+        if (changed) {
+            this.deals = this.rows.map(r => r.deal).filter(d => d);
+        }
+        return changed;
+    }
+}
+
+
 class StrategyGroupView {
     constructor() {
         this.root = document.createElement('div');
@@ -262,51 +454,11 @@ class StrategyGroupView {
 
         this.strategyInfoContainer.appendChild(ctDiv);
 
-        const createCell = function(t, w) {
-            var c = document.createElement('div');
-            c.textContent = t;
-            if (w) {
-                c.style.minWidth = w+'px';
-            }
-            c.style.textAlign = 'center';
-            c.style.borderLeft = 'solid 1px';
-            return c;
-        }
-        if (this.strGrp.buydetail && this.strGrp.buydetail.length > 0) {
-            var detailDiv = document.createElement('div');
-            detailDiv.style.maxHeight = '100px';
-            detailDiv.style.maxWidth = '420px';
-            detailDiv.style.overflowY = 'auto';
-            this.strGrp.buydetail.slice().reverse().forEach(d => {
-                var r = document.createElement('div');
-                r.style.display = 'flex';
-                r.appendChild(createCell(d.count, 50));
-                r.appendChild(createCell(d.date, 150));
-                r.appendChild(createCell(d.type, 30));
-                r.appendChild(createCell((d.price * d.count).toFixed(2), 70));
-                r.appendChild(createCell(parseFloat(d.price), 70));
-                detailDiv.appendChild(r);
-            });
-            this.strategyInfoContainer.appendChild(detailDiv);
-        }
-        if (this.deals && this.deals.length > 0) {
-            var dealDiv = document.createElement('div');
-            dealDiv.style.maxHeight = '100px';
-            dealDiv.style.maxWidth = '420px';
-            dealDiv.style.overflowY = 'auto';
-            dealDiv.style.backgroundColor = 'lightgray';
-            this.deals.forEach(d => {
-                var r = document.createElement('div');
-                r.style.display = 'flex';
-                r.appendChild(createCell(d.count, 50));
-                r.appendChild(createCell(d.time, 150));
-                r.appendChild(createCell(d.tradeType, 30));
-                r.appendChild(createCell((d.price * d.count).toFixed(2), 70));
-                r.appendChild(createCell(parseFloat(d.price), 70));
-                dealDiv.appendChild(r);
-            });
-            this.strategyInfoContainer.appendChild(dealDiv);
-        }
+        this.detailRecords = new RecordsTable(this.strGrp.buydetail);
+        this.strategyInfoContainer.appendChild(this.detailRecords.root);
+        this.dealsRecords = new RecordsTable(this.deals);
+        this.dealsRecords.root.style.backgroundColor = 'lightgray';
+        this.strategyInfoContainer.appendChild(this.dealsRecords.root);
     }
 
     insertSelectorView(id, strategy, transId) {
@@ -347,6 +499,20 @@ class StrategyGroupView {
         };
     }
 
+    updateAccountDeals(dealsRecords) {
+        if (dealsRecords.isChanged()) {
+            const deals = dealsRecords.deals;
+            const url = emjyBack.fha.server + '/stock';
+            const fd = new FormData();
+            fd.append('act', 'fixdeals');
+            fd.append('acc', this.account);
+            fd.append('code', this.code);
+            fd.append('data', JSON.stringify(deals));
+            var headers = emjyBack.headers.headers;
+            fetch(url, {method: 'POST', headers, body: fd});
+        }
+    }
+
     checkChanged() {
         for (var i = 0; i < this.strategySelectors.length; i++) {
             this.changed |= this.strategySelectors[i].isChanged();
@@ -382,6 +548,12 @@ class StrategyGroupView {
                 this.changed = true;
             }
         }
+        if (this.detailRecords) {
+            this.changed |= this.detailRecords.isChanged();
+        }
+        if (this.dealsRecords) {
+            this.updateAccountDeals(this.dealsRecords);
+        }
         return this.changed;
     }
 
@@ -390,7 +562,6 @@ class StrategyGroupView {
         if (!this.changed) {
             return;
         };
-        console.log('send save strategy POST', JSON.stringify(this.strGrp));
 
         const { strategies, transfers } = this.strategySelectors.reduce((acc, selector) => {
             acc.strategies[selector.id] = selector.strategyView.strategy;
@@ -398,7 +569,11 @@ class StrategyGroupView {
             return acc;
         }, { strategies: {}, transfers: {} });
         this.strGrp.strategies = strategies;
+        if (this.detailRecords) {
+            this.strGrp.buydetail = this.detailRecords.deals;
+        }
         this.strGrp.transfers = transfers;
+        console.log('send save strategy POST', JSON.stringify(this.strGrp));
 
         const fd = new FormData();
         fd.append('act', 'strategy');
