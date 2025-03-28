@@ -24,7 +24,7 @@ class StockView {
         var anchor = emjyBack.stockAnchor(stock.code, '行情');
         this.divTitle.appendChild(anchor);
 
-        if (!Object.keys(showname).includes(stock.account)) {
+        if (!showname[stock.account]) {
             this.deleteBtn = document.createElement('button');
             this.deleteBtn.textContent = '舍弃';
             this.deleteBtn.title = '错误的记录或者实际无法买入的情况需要舍弃.';
@@ -177,9 +177,7 @@ class StockListPanelPage extends RadioAnchorPage {
                 stocks[c].code = c;
                 stocks[c].name = sbasic[c]?.secu_name;
                 stocks[c].latestPrice = sbasic[c]?.last_px;
-                stocks[c].up_price = sbasic[c]?.up_price;
-                stocks[c].down_price = sbasic[c]?.down_price;
-                stocks[c].preclose_px = sbasic[c]?.preclose_px;
+                Object.assign(stocks[c], sbasic[c]);
             }
 
             if (this.strategyGroupView.root.parentElement) {
@@ -386,6 +384,41 @@ class StockListPanelPage extends RadioAnchorPage {
         };
     }
 
+    fix_date_price(stock) {
+        const records = stock.strategies.buydetail
+        for (var rec of records) {
+            if (rec.date.includes(':')) {
+                var rdate = rec.date.split(' ')[0];
+                if (rdate == guang.getTodayDate('-')) {
+                    if (rec.date < rdate + ' ' + '09:30') {
+                        rec.price = stock.open_px;
+                    } else if (rec.date > rdate + ' ' + '14:57') {
+                        rec.price = stock.last_px;
+                    }
+                    rec.date = rdate;
+                    stock.strategies.infixing = true;
+                } else {
+                    console.log('no data to fix date price', rec.date);
+                }
+            }
+        }
+    }
+
+    enable_track_strategies (strategies) {
+        if (Object.values(strategies).filter(x=>x.enabled).length != 0) {
+            return false;
+        }
+        const interested_strategies = ['StrategyGrid', 'StrategySellELS', 'StrategySellBE'];
+        let infixing = false;
+        for (var s in strategies) {
+            if (interested_strategies.includes(strategies[s].key) && !strategies[s].enabled) {
+                strategies[s].enabled = true;
+                infixing = true;
+            }
+        }
+        return infixing;
+    }
+
     stockExist(code) {
         return this.stocks.find(s => s.stock.code == code);
     }
@@ -396,7 +429,17 @@ class StockListPanelPage extends RadioAnchorPage {
             return;
         };
 
-        Object.assign(stock, {code, acccode: this.keyword + '_' + code, account: this.keyword})
+        Object.assign(stock, {code, acccode: this.keyword + '_' + code, account: this.keyword});
+        if (!showname[stock.account] && (new Date()).getHours() >= 15) {
+            this.fix_date_price(stock);
+            if (stock.strategies.buydetail.slice(-1)[0].date >= guang.getTodayDate('-')) {
+                const infixing = this.enable_track_strategies(stock.strategies.strategies);
+                if (infixing) {
+                    stock.strategies.infixing = true;
+                }
+            }
+        }
+
         var divContainer = new StockView(stock, (target, stk) => {
             if (this.strategyGroupView && (!this.currentCode || this.currentCode != stk.acccode)) {
                 if (this.strategyGroupView) {

@@ -559,7 +559,7 @@ class StrategyGroupView {
 
     saveStrategy() {
         this.checkChanged();
-        if (!this.changed) {
+        if (!this.changed || !this.strGrp || !this.strGrp.infixing) {
             return;
         };
 
@@ -573,6 +573,7 @@ class StrategyGroupView {
             this.strGrp.buydetail = this.detailRecords.deals;
         }
         this.strGrp.transfers = transfers;
+        delete(this.strGrp.infixing);
         console.log('send save strategy POST', JSON.stringify(this.strGrp));
 
         const fd = new FormData();

@@ -660,6 +660,9 @@ class Account {
                         sdeals[code] = [];
                     }
                     sdeals[code].push({ code, price, count, sid, type, status });
+                } else if (['已报'].includes(status) && ['配售申购'].includes(tradeType)) {
+                    logger.info(this.keyword, 'ignore deal', tradeType, d.Zqmc);
+                    continue;
                 } else {
                     logger.info(this.keyword, 'unknown deal type/status: ', d);
                 }
@@ -733,7 +736,7 @@ class Account {
     tradeTypeFromMmsm(Mmsm) {
         const ignored = ['担保品划入', '担保品划出', '融券', ]
         if (ignored.includes(Mmsm)) {
-            return '';
+            return;
         }
         const sells = ['证券卖出'];
         if (sells.includes(Mmsm)) {

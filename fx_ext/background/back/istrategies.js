@@ -397,7 +397,7 @@ class StrategyI_HotrankOpen extends StrategyI_Base {
 
                 this.expected_account(this.istr.account, code).then(account => {
                     if (this.check_holdcount(account, code) > 0) {
-                        logger.info(this.istr.key, 'stock exists', code, holdacc);
+                        logger.info(this.istr.key, 'stock exists', code, accld.all_accounts[account].holdAccount.keyword);
                     } else {
                         logger.info(this.istr.key, 'buy with account', code, price, account);
                         accld.buyWithAccount(code, price.toFixed(2), 0, account, strategy);

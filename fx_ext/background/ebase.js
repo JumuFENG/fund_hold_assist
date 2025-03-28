@@ -1,7 +1,10 @@
 window.logger = {
     logs: [],
     log(...args) {
-        var l = `[${new Date().toLocaleTimeString('zh',{hour12:false})}] ${args.join(' ')}`;
+        const strArgs = args.map(arg =>
+            typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' ');
+        var l = `[${new Date().toLocaleTimeString('zh',{hour12:false})}] ${strArgs}`;
         if (this.logger) {
             this.logger.info(l);
         } else {

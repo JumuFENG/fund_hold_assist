@@ -200,7 +200,11 @@ class AccOrderTimer extends RtpTimer {
                         return deals.filter(d => !cmpsid.includes(d.Wtbh));
                     })
                 })).then((deals) => {
-                    const lastsj = Math.max(...deals.flat().map(d => d.Wtsj));
+                    const icmpdeals = deals.flat().filter(d => d);
+                    if (icmpdeals.length == 0) {
+                        return;
+                    }
+                    const lastsj = Math.max(...icmpdeals.map(d => d.Wtsj));
                     if (Object.values(this.checkingTasks).flat().length > 0) {
                         const now = new Date();
                         let diff = now - new Date(now.getFullYear(), now.getMonth(), now.getDate(), (lastsj/10000).toFixed(), (lastsj/100%100).toFixed(), lastsj%100);

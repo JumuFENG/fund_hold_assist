@@ -668,8 +668,8 @@ class User:
 
     def watchings_with_strategy(self):
         with read_context(self.stocks_info_table):
-            slst = list(self.stocks_info_table.select().where(self.stocks_info_table.keep_eye == 1))
-        return {s.code: {'holdCost':s.aver_price, 'holdCount': s.portion_hold, 'strategies': self._load_strategy(s)} for s in slst if s.portion_hold > 0}
+            slst = list(self.stocks_info_table.select().where(self.stocks_info_table.keep_eye == 1, self.stocks_info_table.portion_hold > 0))
+        return {s.code: {'holdCost':s.aver_price, 'holdCount': s.portion_hold, 'strategies': self._load_strategy(s)} for s in slst}
 
     def save_costdog(self, cdata):
         for ckey, data in cdata.items():
@@ -1624,6 +1624,8 @@ class UStock():
         if len(existing_orders) < len(orders):
             new_orders = orders[len(existing_orders):]
             for order in new_orders:
+                if 'id' in order:
+                    del order['id']
                 if 'sid' not in order:
                     order['sid'] = '0'
                 order['code'] = self.code
@@ -1671,6 +1673,8 @@ class UStock():
             else:
                 vdic['trans'] = -1
             svalues.append(vdic)
+        if len(svalues) == 0:
+            return
         insert_or_update(self.strategy_table, svalues, ['code', 'id'])
 
     def remove_strategy(self):

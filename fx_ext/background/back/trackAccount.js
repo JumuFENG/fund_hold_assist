@@ -16,9 +16,9 @@ class TestTradeClient extends TradeClient {
     }
 
     trade(code, price, count, tradeType, jylx) {
-        console.log(this.bindingAccount.keyword, 'trade', tradeType, code, price, count, jylx);
+        logger.debug(this.bindingAccount.keyword, 'trade', tradeType, code, price, count, jylx);
         if (price == 0 || count < 100) {
-            console.log('please set correct price and count for test trade!');
+            logger.info('please set correct price and count for test trade!');
             return Promise.resolve(null);
         }
         var time = this.bindingAccount.tradeTime;
@@ -194,6 +194,7 @@ class TrackingAccount extends NormalAccount {
     }
 
     loadOtherDeals() {}
+    checkOrders() {}
 
     buyStock(code, price, count) {
         if (!this.tradeClient) {

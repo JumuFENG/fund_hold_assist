@@ -712,7 +712,7 @@ class StrategyGroup {
             data.transfers = transfers;
         };
         if (this.buydetail && this.buydetail.records && this.buydetail.records.length > 0) {
-            data.buydetail = this.buydetail.records;
+            data.buydetail = this.buydetail.records.map(r => ({count: r.count, date: r.date, price: r.price, sid: r.sid, type: r.type, code: r.code}));
         }
         if (this.buydetail && this.buydetail.full_records && this.buydetail.full_records.length > 0) {
             var fcount = 0;
@@ -724,9 +724,9 @@ class StrategyGroup {
                 }
             }
             if (this.buydetail.totalCount() - fcount != 0) {
-                data.buydetail_full = this.buydetail.records;
+                data.buydetail_full = JSON.parse(JSON.stringify(this.buydetail.records));
             } else {
-                data.buydetail_full = this.buydetail.full_records;
+                data.buydetail_full = this.buydetail.full_records.map(r => ({count: r.count, date: r.date, price: r.price, sid: r.sid, type: r.type, code: r.code}));
             }
         }
         if (this.count0 !== undefined) {
