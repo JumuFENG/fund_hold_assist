@@ -303,9 +303,15 @@ const alarmHub = {
 
         guang.isTodayTradingDay().then(trade => {
             if (trade) {
-                [ralarm, talarm, bclose, closed, // this.orderTimer,
-                    this.klineAlarms, this.dailyAlarm, this.otpAlarm, this.rtpTimer, this.ztBoardTimer,
-                ].forEach(a => {
+                const timers = [ralarm, talarm, bclose, closed, this.orderTimer, this.otpAlarm, this.dailyAlarm];
+                if (this.config.enable_rtp_check) {
+                    timers.push(this.rtpTimer);
+                    timers.push(this.ztBoardTimer);
+                }
+                if (this.config.enable_kl_check) {
+                    timers.push(this.klineAlarms);
+                }
+                timers.forEach(a => {
                     a.setupTimer();
                 });
             } else {
@@ -325,7 +331,7 @@ const alarmHub = {
         this.klineAlarms?.stopTimer();
     },
     tradeDailyRoutineTasks() {
-        if (alarmHub.config?.purchaseNewStocks) {
+        if (alarmHub.config?.purchase_new_stocks) {
             feng.buyNewStocks();
         }
         feng.buyNewBonds();

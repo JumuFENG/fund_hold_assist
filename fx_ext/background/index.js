@@ -600,11 +600,8 @@ Promise.all([svrd.getFromLocal('acc_np'), svrd.getFromLocal('fha_server')]).then
             feng.loadSaved(hsj);
         }
     });
-    svrd.getFromLocal('purchase_new_stocks').then(pns => {
-        if (!alarmHub.config) {
-            alarmHub.config = {}
-        }
-        alarmHub.config.purchaseNewStocks = pns;
+    svrd.getFromLocal('alarm_config').then(aconf => {
+        alarmHub.config = aconf;
         alarmHub.tradeClosed = emjyBack.tradeClosed;
         alarmHub.setupAlarms();
     });

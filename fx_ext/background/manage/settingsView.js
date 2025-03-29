@@ -77,14 +77,29 @@ class SettingsPanelPage extends RadioAnchorPage {
             }
         });
         this.container.appendChild(svrDiv);
-        emjyBack.getFromLocal('purchase_new_stocks').then(pns => {
-            var purchaseNewStocks = document.createElement('input');
+        emjyBack.getFromLocal('alarm_config').then(aconf => {
+            this.alarmConfig = aconf;
+            const purchaseNewStocks = document.createElement('input');
             purchaseNewStocks.type = 'checkbox';
-            purchaseNewStocks.checked = pns;
+            purchaseNewStocks.checked = aconf.purchase_new_stocks;
             purchaseNewStocks.onchange = e => {
-                emjyBack.saveToLocal({'purchase_new_stocks': e.target.checked});
+                this.alarmConfig.purchase_new_stocks = e.target.checked;
             }
             this.addInput(svrDiv, purchaseNewStocks, '申购新股');
+            const enableRtp = document.createElement('input');
+            enableRtp.checked = aconf.enable_rtp_check;
+            enableRtp.type = 'checkbox';
+            enableRtp.onchange = e => {
+                this.alarmConfig.enable_rtp_check = e.target.checked;
+            }
+            this.addInput(svrDiv, enableRtp, '启用分时行情');
+            const enableKl = document.createElement('input');
+            enableKl.checked = aconf.enable_kl_check;
+            enableKl.type = 'checkbox';
+            enableKl.onchange = e => {
+                this.alarmConfig.enable_kl_check = e.target.checked;
+            }
+            this.addInput(svrDiv, enableKl, '启用K线行情');
         });
     }
 
@@ -153,6 +168,9 @@ class SettingsPanelPage extends RadioAnchorPage {
                 save_on_server: this.strategySave.checked
             }
             emjyBack.saveToLocal({'fha_server': fhaInfo});
+        }
+        if (this.alarmConfig) {
+            emjyBack.saveToLocal({'alarm_config': this.alarmConfig});
         }
     }
 

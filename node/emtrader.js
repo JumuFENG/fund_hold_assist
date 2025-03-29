@@ -41,6 +41,8 @@ if (!config || Object.keys(config).length === 0) {
         },
         client: {
             purchase_new_stocks: true,
+            enable_rtp_check: true,
+            enable_kl_check: true,
             port: 5888
         }
     }
@@ -90,10 +92,40 @@ const ext = {
         }
         this.login();
     },
+    async closeAlerts(page) {
+        try {
+            await this.page.waitForSelector('.popup-component-box.large', { timeout: 200 });
+            await this.page.click('.btn-orange.vbtn-confirm');
+        } catch (err) {
+            console.log('未检测到模态框，继续执行');
+        }
+    },
     async submit(text) {
+        await this.closeAlerts();
         await this.setUnp();
         await this.page.type('#txtValidCode', text);
-        await this.page.click('#btnConfirm');
+        try {
+            const button = await this.page.$('#btnConfirm');
+            const isClickable = await button.evaluate((el) => {
+                // 检查按钮是否在视口中且未被其他元素遮挡
+                const rect = el.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                const topElement = document.elementFromPoint(centerX, centerY);
+                return topElement === el || el.contains(topElement);
+            });
+
+            if (isClickable) {
+                await button.click();
+            } else {
+                logger.error('登录按钮被遮挡！');
+                await this.page.screenshot({ path: 'blocked-button.png' }); // 截图调试
+            }
+        } catch (err) {
+            logger.error('点击登录按钮失败:', err.message);
+            // 附加诊断逻辑（例如截图）
+            await this.page.screenshot({ path: 'click-btnConfirm-error.png' });
+        }
         this.retry++;
     },
     async login() {
@@ -247,7 +279,7 @@ const ext = {
     async tradeClosed() {
         logger.info(accld.normalAccount.orderfeched);
         logger.info(accld.collateralAccount.orderfeched);
-        this.track_accounts.forEach(acc => {
+        accld.track_accounts.forEach(acc => {
             logger.info(acc.deals);
         });
         this.running = false;
@@ -333,11 +365,11 @@ app.post('/trade', (req, res) => {
 });
 
 app.get('/stocks', (req, res) => {
-    res.send(ext.handleAccountStocks(req.qurey));
+    res.send(ext.handleAccountStocks(req.query));
 });
 
 app.get('/deals', (req, res) => {
-    res.send(ext.handleAccountDeals(req.qurey));
+    res.send(ext.handleAccountDeals(req.query));
 });
 
 const port = config.client.port;
@@ -395,6 +427,11 @@ io.on('connection', (socket) => {
     });
 });
 
-if (guang.isTodayTradingDay()) {
-    ext.schedule();
-}
+(async function () {
+    const tradingday = await guang.isTodayTradingDay();
+    if (tradingday) {
+        ext.schedule();
+    } else {
+        logger.info('not trading day!');
+    }
+})()
