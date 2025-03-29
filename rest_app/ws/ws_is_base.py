@@ -9,6 +9,7 @@ from history import StockGlobal, StockHotRank, StockEmBk, StockBkChangesHistory,
 from history import StockDumps, StockClsBkChangesHistory, StockBkAllChangesHistory, StockClsBk, StockBkMap, StockMarkerStats
 from history import Stock_Fflow_History, StockEmBkChgIgnore, StockAuctionDetails
 from pickup import StockZtDaily, StockZtLeadingSelector
+from tdx_common import TdxHq_API, search_best_tdx, to_pytdx_market
 
 
 def generate_strategy_json(match_data, subscribe_detail):
@@ -774,6 +775,35 @@ class StrategyI_Snapshot_Watcher(StrategyI_Watcher_Base):
         if self.changes_task_running:
             return
         self.changes_task_running = True
+        self.tdxclient = TdxAsyncClient(search_best_tdx(1))
+        while self.changes_task_running:
+            try:
+                quotes = await self.tdxclient.get_security_quotes_async(self.stock_ref.keys())
+                for q in quotes:
+                    simple_snap = {
+                        'code': q['code'],
+                        # 解析买一买二和卖一卖二的价格和数量
+                        'buy1': q['bid1'],
+                        'sell1': q['ask1'],
+                        'buy2': q['bid2'],
+                        'sell2': q['ask2'],
+                        'price': q['price'],
+                        'time': q['servertime'].split('.')[0],
+                        'high': q['high'],
+                        'low': q['low'],
+                        'last_close': q['last_close'],
+                    }
+                    self.notify_change(simple_snap)
+
+            except Exception as e:
+                Utils.log(f'{e}', Utils.Err)
+                Utils.log(traceback.format_exc(), Utils.Err)
+            await asyncio.sleep(self.snap_period)
+
+    async def start_snapshot_task_bk(self):
+        if self.changes_task_running:
+            return
+        self.changes_task_running = True
         while self.changes_task_running:
             try:
                 for c in self.stock_ref.keys():
@@ -801,8 +831,8 @@ class StrategyI_Snapshot_Watcher(StrategyI_Watcher_Base):
             'sell2': 0 if snapshot['fivequote']['sale2'] == '-' else float(snapshot['fivequote']['sale2']),
             'price': 0 if snapshot['realtimequote']['currentPrice'] == '-' else float(snapshot['realtimequote']['currentPrice']),
             'time': snapshot['realtimequote']['time'],
-            'top_price': 0 if snapshot['topprice'] == '-' else float(snapshot['topprice']),
-            'bottom_price': 0 if snapshot['bottomprice'] == '-' else float(snapshot['bottomprice']),
+            'up_price': 0 if snapshot['topprice'] == '-' else float(snapshot['topprice']),
+            'down_price': 0 if snapshot['bottomprice'] == '-' else float(snapshot['bottomprice']),
             'last_close': float(snapshot['fivequote']['yesClosePrice'])
         }
 
@@ -1048,6 +1078,87 @@ class StockMarket_Quote_Watcher(StrategyI_Simple_Watcher):
             print('market statistics:', self.sm_statistics)
 
 
+class TdxAsyncClient:
+    def __init__(self, host):
+        self.host = host  # (ip, port)
+        self.api = TdxHq_API()
+        self._lock = asyncio.Lock()  # 防止并发连接/断开冲突
+        self._connected = False
+        self._closing = False  # 标记是否正在关闭
+
+    async def ensure_connected(self):
+        """确保连接已建立（支持异步重连）"""
+        if self._connected or self._closing:
+            return self._connected
+        
+        async with self._lock:
+            if not self._connected and not self._closing:
+                try:
+                    loop = asyncio.get_running_loop()
+                    success = await loop.run_in_executor(
+                        None, 
+                        lambda: self.api.connect(*self.host, time_out=2)
+                    )
+                    self._connected = success
+                    if not success:
+                        Utils.log(f"连接TDX服务器失败: {self.host}", Utils.Err)
+                    return success
+                except Exception as e:
+                    Utils.log(f"连接TDX服务器异常: {self.host}, 错误: {e}", Utils.Err)
+                    return False
+        return self._connected
+
+    async def disconnect(self):
+        """异步断开连接"""
+        if not self._connected or self._closing:
+            return
+        
+        async with self._lock:
+            if self._connected and not self._closing:
+                self._closing = True  # 标记正在关闭
+                try:
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(
+                        None,
+                        self.api.disconnect
+                    )
+                    Utils.log(f"已断开TDX服务器: {self.host}", Utils.Info)
+                except Exception as e:
+                    Utils.log(f"断开TDX连接异常: {e}", Utils.Err)
+                finally:
+                    self._connected = False
+                    self._closing = False
+
+    async def get_security_quotes_async(self, codes):
+        """异步批量获取行情（自动维护连接）"""
+        if not await self.ensure_connected():
+            return None
+        
+        try:
+            loop = asyncio.get_running_loop()
+            quotes = await loop.run_in_executor(
+                None,
+                lambda: self.api.get_security_quotes([(to_pytdx_market(code), code) for code in codes])
+            )
+            return quotes
+        except ConnectionError:
+            Utils.log(f"TDX服务器连接已断开: {self.host}", Utils.Err)
+            self._connected = False  # 触发下次自动重连
+            return None
+        except Exception as e:
+            Utils.log(f"获取行情异常: {e}", Utils.Err)
+            return None
+
+    async def __aenter__(self):
+        """支持async with上下文管理"""
+        await self.ensure_connected()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """退出上下文时自动断开"""
+        await self.disconnect()
+
+
 class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
     def __init__(self):
         super().__init__(['9:15:03'], '9:25:10')
@@ -1055,6 +1166,119 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
         self.snap_period = 10
         self.upstocks = []
         self.all_auctions = {}
+
+    async def get_snapshots_batch_async(self, codes, tdx_client):
+        """异步批量获取行情并处理"""
+        quotes = await tdx_client.get_security_quotes_async(codes)
+        if not quotes:
+            return
+        
+        for i, code in enumerate(codes):
+            try:
+                quote = quotes[i] if i < len(quotes) else None
+                if not quote:
+                    continue
+                
+                mkt = ['SZ', 'SH', 'BJ']
+                if code not in self.all_auctions:
+                    zdf = Utils.zdf_from_code(mkt[quote['market']]+code)
+                    self.all_auctions[code] = {
+                        'preclose_px': quote['last_close'],
+                        'up_price': Utils.zt_priceby(quote['last_close'], zdf=zdf),
+                        'down_price': Utils.dt_priceby(quote['last_close'], zdf=zdf),
+                        'quotes': []
+                    }
+
+                if quote['open'] == '-' and quote['bid1'] == quote['ask1']:
+                    matched_vol = quote['bid_vol1']
+                    buy2_count = quote['bid_vol2']
+                    sell2_count = quote['ask_vol2']
+                    unmatched_vol = buy2_count if buy2_count > 0 else -sell2_count
+                else:
+                    matched_vol = quote['vol']
+                    unmatched_vol = 0
+                    if quote['price'] == quote['bid1']:
+                        unmatched_vol = quote['bid_vol1']
+                    elif quote['price'] == quote['ask1']:
+                        unmatched_vol = -quote['ask_vol1']
+                parsed_quote = [quote['servertime'].split('.')[0], quote['price'], matched_vol, unmatched_vol]
+                self.all_auctions[code]['quotes'].append(parsed_quote)
+
+                if (quote['price'] >= self.all_auctions[code]['up_price'] or 
+                    quote['price'] <= self.all_auctions[code]['down_price']) and code in self.upstocks:
+                    self.remove_stock(code)
+
+            except Exception as e:
+                Utils.log(f"处理股票{code}出错: {e}", Utils.Err)
+
+
+    async def execute_simple_task_tdx(self):
+        """Async 版定时任务"""
+        # 初始化 TDX 异步客户端（8个最佳服务器）
+        best_servers = search_best_tdx(8)
+        # best_servers = [['218.6.170.47', 7709], ['123.125.108.14', 7709],['180.153.18.170', 7709],['180.153.18.172', 7709],
+        #                 ['202.108.253.139', 7709],['60.191.117.167', 7709],['115.238.56.198', 7709],['218.75.126.9', 7709]]
+        self.tdx_clients = [TdxAsyncClient(host) for host in best_servers]
+        stks = WsIsUtils.get_hot_stocks(2)
+        stks = [c[2:] for c,d,dd,l in stks if l > 1]
+        self.add_stock(stks)
+
+        while True:
+            zdfranks = StockGlobal.getStocksZdfRank(8)
+            if len(zdfranks) > 0:
+                break
+            time.sleep(0.5)
+
+        for rkobj in zdfranks:
+            c = rkobj['f2']   # 最新价
+            zd = rkobj['f3']  # 涨跌幅
+            if c == '-' or zd == '-':
+                continue
+            if zd < 8:
+                break
+            cd = rkobj['f12'] # 代码
+            self.upstocks.append(cd)
+            self.add_stock(cd)
+
+        while self.simple_task_running:
+            try:
+                mstocks = [c for c, n in self.stock_ref.items() if n > 0]
+                if not mstocks:
+                    await asyncio.sleep(self.snap_period)
+                    continue
+                
+                # 分组（每组最多 80 只股票，避免 TDX 单次请求限制）
+                group_size = 80
+                stock_groups = [
+                    mstocks[i:i + group_size] 
+                    for i in range(0, len(mstocks), group_size)
+                ]
+                
+                # 并发获取行情
+                tasks = []
+                for i, codes in enumerate(stock_groups):
+                    client = self.tdx_clients[i % len(self.tdx_clients)]  # 轮询分配客户端
+                    tasks.append(
+                        self.get_snapshots_batch_async(codes, client)
+                    )
+                
+                await asyncio.gather(*tasks)
+                
+                # 通知客户端
+                self.upstocks = []
+                notification = {
+                    'type': 'notification',
+                    'subject': 'open_auctions',
+                    'auctions': self.all_auctions
+                }
+                
+                await self.notify_clients(notification)
+                print(notification)
+            except Exception as e:
+                Utils.log(f"任务执行出错: {e}", Utils.Err)
+                Utils.log(traceback.format_exc(), Utils.Err)
+            
+            await asyncio.sleep(self.snap_period)
 
     async def execute_simple_task(self):
         stks = WsIsUtils.get_hot_stocks(2)
@@ -1144,7 +1368,7 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
             self.all_auctions[code] = {}
             self.all_auctions[code]['preclose_px'] = snapshot['fivequote']['yesClosePrice']
             self.all_auctions[code]['up_price'] = snapshot['topprice']
-            self.all_auctions[code]['bottom_price'] = snapshot['bottomprice']
+            self.all_auctions[code]['down_price'] = snapshot['bottomprice']
             self.all_auctions[code]['quotes'] = []
         self.all_auctions[code]['quotes'].append(quote)
 
@@ -1157,12 +1381,14 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
 
     def stop_simple_task(self):
         super().stop_simple_task()
+        if hasattr(self, 'tdx_clients'):
+            [c.disconnect() for c in self.tdx_clients]
         if WsIsUtils.save_db_enabled():
             auctions = {}
             for c, q in self.all_auctions.items():
                 auctions[c] = {}
                 auctions[c]['topprice'] = q['up_price']
-                auctions[c]['bottomprice'] = q['bottom_price']
+                auctions[c]['bottomprice'] = q['down_price']
                 auctions[c]['quotes'] = q['quotes']
             sad = StockAuctionDetails()
             today = TradingDate.maxTradingDate()
