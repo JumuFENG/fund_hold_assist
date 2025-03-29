@@ -232,7 +232,7 @@ class DealsPanelPage extends RadioAnchorPage {
 
         var dealChartContainer = document.createElement('div');
         dealChartContainer.style = 'display: table; width: 100%;';
-        dealChartContainer.style.height = '600';
+        dealChartContainer.style.height = '600px';
         this.container.appendChild(dealChartContainer);
         this.dealsLineChart = new DealsEarningLineChart(dealChartContainer, '收益率趋势图');
         var drDiv = document.createElement('div');
@@ -252,12 +252,12 @@ class DealsPanelPage extends RadioAnchorPage {
         if (!this.dfstBaseAmt) {
             this.dfstBaseAmt = document.createElement('input');
             this.dfstBaseAmt.placeholder = '买入基数';
-            this.dfstBaseAmt.style.maxWidth = 80;
+            this.dfstBaseAmt.style.maxWidth = '80px';
             this.dfSettings.appendChild(this.dfstBaseAmt);
         }
         if (!this.dfstIncrement) {
             this.dfstIncrement = document.createElement('input');
-            this.dfstIncrement.style.maxWidth = 80;
+            this.dfstIncrement.style.maxWidth = '80px';
             this.dfSettings.appendChild(this.dfstIncrement);
         }
         if (!this.dfstSubmit) {
@@ -280,6 +280,7 @@ class DealsPanelPage extends RadioAnchorPage {
     getDealsByCategory(category, cb) {
         var dcUrl = emjyBack.fha.server + 'stock?act=trackdeals&name=' + category;
         if (category == 'archived') {
+            dcUrl += '&realcash=1';
             if (!emjyBack.fha.uemail || !emjyBack.fha.pwd) {
                 console.error('user not set!');
                 return;
@@ -453,3 +454,4 @@ class DealsPanelPage extends RadioAnchorPage {
         }
     }
 }
+

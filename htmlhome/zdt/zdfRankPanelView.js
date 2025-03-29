@@ -158,14 +158,16 @@ class StockZdfRankPanelPage extends RadioAnchorPage {
         this.overallRanksDiv.style.display = 'block';
         utils.removeAllChild(this.showingStocks);
         rkedCode.forEach(c => {
-            var astock = emjyBack.stockAnchor(c);
+            var astock = document.createElement('span');
+            astock.style.color = 'blue';
+            astock.style.textDecoration = 'underline';
+            astock.style.cursor = 'pointer';
             astock.code = c;
             var scode = c;
             if (c.length == 8) {
                 scode = c.substring(2);
             }
-            astock.textContent = astock.textContent == scode ? scode : astock.textContent + '(' + scode + ')';
-            astock.href = 'javascript:void(0)';
+            astock.textContent = emjyBack.stockName(c) == c ? scode : emjyBack.stockName(c) + '(' + scode + ')';
             astock.onclick = e => {
                 this.showSingleKlRank(e.target.code, this.getStartDate(e.target.code));
                 return false;
@@ -177,7 +179,7 @@ class StockZdfRankPanelPage extends RadioAnchorPage {
         utils.removeAllChild(this.overallRanksChart);
         var allRanksChart = document.createElement('div');
         allRanksChart.style.width = '100%';
-        allRanksChart.style.height = 800;
+        allRanksChart.style.height = '800px';
         this.overallRanksChart.appendChild(allRanksChart);
         var chart = new RanksChart(allRanksChart);
         chart.draw(ranks);
@@ -325,7 +327,7 @@ class StockZdfRankPanelPage extends RadioAnchorPage {
         this.singleRanksDiv.appendChild(btnShowAll);
         var singleRkChart = document.createElement('div');
         singleRkChart.style.width = '100%';
-        singleRkChart.style.height = 600;
+        singleRkChart.style.height = '600px';
         this.singleRanksDiv.appendChild(singleRkChart);
         var chart = new KlChartWithRanks(singleRkChart, '', '');
         chart.draw(emjyBack.klines[code].klines['101']);

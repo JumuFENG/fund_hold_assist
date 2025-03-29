@@ -6,11 +6,44 @@
         <link rel="stylesheet" type="text/css" href="../fx_ext/background/manage/manage.css">
         <link rel="stylesheet" type="text/css" href="../htmlhome/css/style.css">
 
+        <script src="../htmlhome/localforage.min.js"></script>
         <script >
             window.xreq = function(m) {return window;}
+            window.svrd = {
+                saveToLocal(data) {
+                    localforage.ready(() => {
+                        for (const k in data) {
+                            if (Object.hasOwnProperty.call(data, k)) {
+                                localforage.setItem(k, JSON.stringify(data[k]));
+                            }
+                        }
+                    });
+                },
+                getFromLocal(key) {
+                    return localforage.ready().then(() => {
+                        return localforage.getItem(key).then(val => JSON.parse(val));
+                    });
+                },
+                saveToFile(data, filename) {
+                    const lnk = document.createElement('a');
+                    var blob = new Blob(data, {type: 'application/text'});
+                    lnk.href = URL.createObjectURL(blob);
+                    lnk.download = filename;
+                    lnk.click();
+                    URL.revokeObjectURL(lnk.href);
+                },
+                removeLocal(key) {
+                    localforage.removeItem(key);
+                },
+                clearLocalStorage() {
+                    localforage.keys().then(ks => {
+                        console.log(ks);
+                    });
+                }
+            }
         </script>
-        <script src="../fx_ext/background/kline.js"></script>
         <script src="../fx_ext/background/guang.js"></script>
+        <script src="../fx_ext/background/kline.js"></script>
 
         <script src="../fx_ext/background/back/accounts.js"></script>
         <script src="../fx_ext/background/back/trackAccount.js"></script>
@@ -19,7 +52,6 @@
 
         <script src="../fx_ext/background/manage/views.js"></script>
 
-        <script src="../htmlhome/localforage.min.js"></script>
         <script src="../htmlhome/strategy/strategyControllerMock.js"></script>
         <script src="../htmlhome/strategy/statsReport.js"></script>
         <script src="../static/src/js/echarts.js"></script>

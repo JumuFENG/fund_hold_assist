@@ -80,7 +80,7 @@ class TrainingPanelPage extends RadioAnchorPage {
         var createCfgDiv = function(val) {//valmin, valmax, valstep
             var ipt = document.createElement('input');
             ipt.value = val;
-            ipt.style.width = 50;
+            ipt.style.width = '50px';
             ipt.style.margin = 2;
             return ipt;
         }

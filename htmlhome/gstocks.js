@@ -13,7 +13,7 @@ class GlobalManager {
     }
 
     Init() {
-        const sr = this.getFromLocal('fha_server').then (fha => {
+        const sr = svrd.getFromLocal('fha_server').then (fha => {
             if (fha) {
                 this.fha = fha;
                 if (!this.fha.server_root) {
@@ -24,7 +24,7 @@ class GlobalManager {
                 }
             }
         });
-        this.getFromLocal('hsj_stocks').then(item => {
+        svrd.getFromLocal('hsj_stocks').then(item => {
             if (item) {
                 this.stockMarket = item;
             } else {
@@ -37,43 +37,28 @@ class GlobalManager {
         return sr;
     }
 
-    log(...args) {
-        console.log(`[${new Date().toLocaleTimeString('zh',{hour12:false})}] ${args.join(' ')}`);
-    }
-
     saveToLocal(data) {
-        localforage.ready(() => {
-            for (const k in data) {
-                if (Object.hasOwnProperty.call(data, k)) {
-                    localforage.setItem(k, JSON.stringify(data[k]));
-                }
-            }
-        });
-    }
-
-    saveToFile(data, filename) {
-        const lnk = document.createElement('a');
-        var blob = new Blob(data, {type: 'application/text'});
-        lnk.href = URL.createObjectURL(blob);
-        lnk.download = filename;
-        lnk.click();
-        URL.revokeObjectURL(lnk.href);
+        return svrd.saveToLocal(data);
     }
 
     getFromLocal(key) {
-        return localforage.ready().then(() => {
-            return localforage.getItem(key).then(val => JSON.parse(val));
-        });
+        return svrd.getFromLocal(key);
     }
 
     removeLocal(key) {
-        localforage.removeItem(key);
+        return svrd.removeLocal(key);
+    }
+
+    saveToFile(data, filename) {
+        return svrd.saveToFile(data, filename);
     }
 
     clearLocalStorage() {
-        localforage.keys().then(ks => {
-            console.log(ks);
-        });
+        return svrd.clearLocalStorage();
+    }
+
+    log(...args) {
+        console.log(`[${new Date().toLocaleTimeString('zh',{hour12:false})}] ${args.join(' ')}`);
     }
 
     getSmiOffset(date) {
@@ -231,6 +216,9 @@ class GlobalManager {
     }
 
     stockName(code) {
+        if (cloud.stock_basics[guang.convertToSecu(code)]) {
+            return cloud.stock_basics[guang.convertToSecu(code)].secu_name;
+        }
         if (this.stockMarket && this.stockMarket[code]) {
             return this.stockMarket[code].n;
         }

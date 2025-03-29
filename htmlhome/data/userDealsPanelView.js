@@ -139,7 +139,7 @@ class UserDealsPanel extends RadioAnchorPage {
             console.error('user/password not set!');
             return;
         }
-        var url = emjyBack.fha.server + 'stock?act=trackdeals&name=archived';
+        var url = emjyBack.fha.server + 'stock?act=trackdeals&name=archived&realcash=1';
         fetch(url, emjyBack.headers).then(r=>r.json()).then(rsp => {
             this.userDeals = rsp.deals;
             this.showDeals();
@@ -151,7 +151,9 @@ class UserDealsPanel extends RadioAnchorPage {
             console.error('user/password not set!');
             return;
         }
-        var url = emjyBack.fha.server + 'stock?act=archivedcodes&since=' + guang.dateToString(new Date(new Date() - 7 * 24 * 60 * 60 * 1000), '-');
+        const now = new Date();
+        const since = guang.dateToString(new Date(now.setDate(now.getDate() - now.getDay())), '-');
+        var url = emjyBack.fha.server + 'stock?act=archivedcodes&realcash=1&since=' + since;
         fetch(url, emjyBack.headers).then(r=>r.json()).then(rsp => {
             this.curWkSold = rsp;
             this.showWkSold();

@@ -631,6 +631,46 @@ class User:
         with write_context(self.sell_table):
             self.sell_table.delete().where(self.sell_table.code == code, self.sell_table.委托编号.in_(ssid)).execute()
 
+    def get_archived_deals(self, realcash=0):
+        with read_context(self.archived_deals):
+            deals = [{
+                'code': r.__data__.get('code', None),
+                'time': r.__data__.get('date', None),
+                'tradeType': r.__data__.get('type', None),
+                'count': r.__data__.get('portion', None),
+                'price': r.__data__.get('price', None),
+                'fee': r.__data__.get('手续费', None),
+                'feeYh': r.__data__.get('印花税', None),
+                'feeGh': r.__data__.get('过户费', None),
+                'sid': r.__data__.get('委托编号', None)} for r in self.archived_deals.select()]
+
+        if realcash == 0 or self.parent is not None:
+            return deals
+
+        with read_context(self.db):
+            slvs = list(self.db.select().where(self.db.parent_account == self.id, self.db.realcash == realcash))
+        for u in slvs:
+            user = self.from_dict(**u.__data__)
+            deals += user.get_archived_deals()
+        return deals
+
+    def get_archived_code_since(self, date, realcash=0, excludehold=False):
+        with read_context(self.archived_deals):
+            codes = set([r.code for r in list(self.archived_deals.select().where(self.archived_deals.date > date, self.archived_deals.type == 'S'))])
+        if excludehold:
+            with read_context(self.stocks_info_table):
+                excode = set([r.code for r in list(self.stocks_info_table.select().where(self.stocks_info_table.portion_hold > 0))])
+            codes = codes - excode
+        if realcash == 0 or self.parent is not None:
+            return codes
+
+        with read_context(self.db):
+            slvs = list(self.db.select().where(self.db.parent_account == self.id, self.db.realcash == realcash))
+        for u in slvs:
+            user = self.from_dict(**u.__data__)
+            codes |= user.get_archived_code_since(date, 0, excludehold)
+        return codes
+
     def save_strategy(self, code, strdata):
         us = UStock(self, code)
         us.save_strategy(strdata)
@@ -786,7 +826,7 @@ class User:
         for c in codes:
             price = cbasic[c]['last_px'] if c in cbasic.keys() else self.__get_latest_price(c)
             us = UStock(self, c)
-            if us.cost_hold != 0 or us.portion_hold != 0:
+            if us.cost_hold and us.portion_hold:
                 uss[c] = {'cost': us.cost_hold, 'ptn': us.portion_hold, 'price': price }
 
         cost = 0

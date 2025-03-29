@@ -324,7 +324,7 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
 
     createConceptsCol(date, concepts) {
         var col = document.createElement('div');
-        col.style.width = 20;
+        col.style.width = '20px';
         col.style.margin = 0;
         var lbl = document.createElement('div');
         lbl.style.writingMode = 'tb';
@@ -362,7 +362,7 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
     createConceptsRow(date, concepts) {
         var row = document.createElement('div');
         row.style.display = 'flex';
-        row.style.height = 25;
+        row.style.height = '25px';
         row.style.margin = 0;
         var lbl = document.createElement('div');
         lbl.style.margin = 0;
@@ -497,7 +497,7 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
 
             var ztContainer = document.createElement('div');
             ztContainer.style = 'display: table; width: 100%;';
-            ztContainer.style.height = '480';
+            ztContainer.style.height = '480px';
             this.ztChartPanel.appendChild(ztContainer);
             this.ztHeightCountChart = new ZtHeightCountChart(ztContainer);
             this.ztHeightCountChart.setdata(dailyZtStats);

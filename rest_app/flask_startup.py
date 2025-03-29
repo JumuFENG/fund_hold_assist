@@ -599,16 +599,6 @@ def stock():
         if actype == 'khl_m':
             sd = StockDumps()
             return json.dumps(sd.get_khl_m_his(code))
-        if actype == 'trackdeals':
-            tname = request.args.get('name', type=str, default=None)
-            if tname == 'archived':
-                ds = user.get_archived_deals()
-                track = {'tname':tname, 'deals': ds}
-                return json.dumps(track)
-        if actype == 'archivedcodes':
-            date = request.args.get('since', type=str, default=None)
-            stks = user.get_archived_since(date, True)
-            return json.dumps(stks)
         return user_request_get(request)
 
 def stock_buy(user, form):

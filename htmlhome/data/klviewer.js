@@ -222,7 +222,7 @@ class KlViewerPanelPage extends RadioAnchorPage {
         if (!this.klineChart) {
             this.klineChart = document.createElement('div');
             this.klineChart.style.width = '100%';
-            this.klineChart.style.height = 500;
+            this.klineChart.style.height = '500px';
             this.contentPanel.appendChild(this.klineChart);
         }
         var chart = new KlChart(this.klineChart, emjyBack.stockName(this.showingCode) + '(' + this.showingCode + ')', emjyBack.stockEmLink(this.showingCode));

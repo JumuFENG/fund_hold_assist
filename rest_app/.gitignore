@@ -1,2 +1,3 @@
 gunicorn.pid
 *.log
+tdx_hosts.json

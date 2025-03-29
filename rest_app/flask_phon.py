@@ -83,6 +83,19 @@ def user_request_get(request):
     actype = request.args.get("act", None, str)
     code = request.args.get('code', None, str)
     subid = request.args.get('accid', None, int)
+    if actype == 'trackdeals':
+        tname = request.args.get('name', None, str)
+        realcash = request.args.get('realcash', 0, int)
+        if tname == 'archived':
+            ds = user.get_archived_deals(realcash)
+            track = {'tname':tname, 'deals': ds}
+            return json.dumps(track)
+    if actype == 'archivedcodes':
+        date = request.args.get('since', default=None, type=str)
+        realcash = request.args.get('realcash', 0, int)
+        stks = list(user.get_archived_code_since(date, realcash, True))
+        return json.dumps(stks)
+
     if actype == 'getearned':
         if code is None:
             dates = request.args.get('days', None, int)

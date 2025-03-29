@@ -214,12 +214,13 @@ class NewsPages extends RadioAnchorPage {
         utils.removeAllChild(this.articalPanel);
         var ele = document.createElement('html');
         ele.innerHTML = arhtml;
-        var closeLk = document.createElement('a');
+        var closeLk = document.createElement('span');
         closeLk.textContent = 'X';
-        closeLk.href = 'javascript:void(0)';
         closeLk.style.float = 'right';
         closeLk.style.border = 'solid 1px';
-        closeLk.style.textDecoration = 'none';
+        closeLk.style.color = 'blue';
+        closeLk.style.textDecoration = 'underline';
+        closeLk.style.cursor = 'pointer';
         closeLk.onclick = e => {
             utils.removeAllChild(this.articalPanel);
         }
