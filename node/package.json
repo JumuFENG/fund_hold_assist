@@ -1,21 +1,22 @@
 {
-  "name": "node",
+  "name": "phonde",
   "version": "1.0.0",
   "description": "",
   "main": "emtrader.js",
   "scripts": {
+    "start": "node emtrader.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "puppeteer": "^24.4.0",
-    "winston": "^3.17.0"
+  "engines": {
+    "node": ">=18.0.0"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "puppeteer"
-    ]
+  "dependencies": {
+    "express": "^4.21.2",
+    "puppeteer": "^24.4.0",
+    "socket.io": "^4.8.1",
+    "winston": "^3.17.0"
   }
 }

@@ -1,0 +1,9 @@
+node_modules
+config
+logs
+npm-debug.log
+.DS_Store
+.env
+.git
+.log
+test_login_local.js

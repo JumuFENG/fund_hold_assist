@@ -4,29 +4,13 @@ const { exit } = require('process');
 const express = require('express');
 const { Server } = require('socket.io');
 const puppeteer = require('puppeteer');
+const { logger, ctxfetch } = require('./background/nbase.js');
 // xreq path must related to this file or will throw exception.
 global.xreq = function(m) {
     return require(path.resolve(__dirname, m));
 }
 
-const config = require('./config.json');
-const { guang } = require('./background/guang.js');
-const { feng } = require('./background/feng.js');
-const { logger, ctxfetch } = require('./background/nbase.js');
-const { klPad } = require('./background/kline.js');
-const { accld } = require('./background/accounts.js');
-const { trackacc } = require('./background/trackAccount.js');
-const { alarmHub } = require('./background/klineTimer.js');
-const { istrManager } = require('./background/istrategies.js');
-const { costDog } = require('./background/strategyGroup.js');
-
-
-const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'web')));
-
-if (!config || Object.keys(config).length === 0) {
+if (!fs.existsSync(path.join(__dirname, './config/config.json'))) {
     const dconfig = {
         fha: {
             server: 'http://localhost/',
@@ -46,10 +30,26 @@ if (!config || Object.keys(config).length === 0) {
             port: 5888
         }
     }
-    fs.writeFileSync(path.join(__dirname, 'config.json'), JSON.stringify(dconfig, null, 2));
+    fs.writeFileSync(path.join(__dirname, './config/config.json'), JSON.stringify(dconfig, null, 2));
     logger.error('config not set, template already create, please set the correct values in config.json!');
     exit(1);
 }
+
+const config = require('./config/config.json');
+const { guang } = require('./background/guang.js');
+const { feng } = require('./background/feng.js');
+const { klPad } = require('./background/kline.js');
+const { accld } = require('./background/accounts.js');
+const { trackacc } = require('./background/trackAccount.js');
+const { alarmHub } = require('./background/klineTimer.js');
+const { istrManager } = require('./background/istrategies.js');
+const { costDog } = require('./background/strategyGroup.js');
+
+
+const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'web')));
 
 
 if (!config.unp.account || !config.unp.pwd) {

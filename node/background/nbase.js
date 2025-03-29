@@ -1,13 +1,22 @@
-const { createLogger, format, transports } = require('winston');
-const { combine, timestamp, label, prettyPrint } = format;
+const path = require('path');
+const { createLogger, transports, format } = require('winston');
+const { combine, label, timestamp, printf } = format;
 
+// 统一日志目录（相对于当前文件所在位置）
+const LOG_DIR = path.join(__dirname, '../logs');
+
+// 确保日志目录存在（同步检查，适合初始化阶段）
+const fs = require('fs');
+if (!fs.existsSync(LOG_DIR)) {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+}
 
 const logger = createLogger({
-    level: 'info', // 日志级别
+    level: 'info',
     format: combine(
         label({ label: 'emtrade' }),
         timestamp(),
-        format.printf(({ level, message, label, timestamp, ...rest }) => {
+        printf(({ level, message, label, timestamp, ...rest }) => {
             const args = rest[Symbol.for('splat')] || [];
             if (typeof message === 'object') {
                 message = JSON.stringify(message);
@@ -19,12 +28,20 @@ const logger = createLogger({
         })
     ),
     transports: [
-        new transports.Console(), // 输出到控制台
-        new transports.File({ filename: 'emtrade.err.log', level: 'error' }), // 输出到文件
-        new transports.File({ filename: 'emtrade.log' }) // 输出到文件
+        new transports.Console(),
+        // 所有日志文件统一存放到 logs/ 目录
+        new transports.File({ 
+            filename: path.join(LOG_DIR, 'emtrade.err.log'),
+            level: 'error' 
+        }),
+        new transports.File({ 
+            filename: path.join(LOG_DIR, 'emtrade.log') 
+        })
     ],
     exceptionHandlers: [
-        new transports.File({ filename: 'emtrade.excepts.log' })
+        new transports.File({ 
+            filename: path.join(LOG_DIR, 'emtrade.excepts.log') 
+        })
     ]
 });
 
