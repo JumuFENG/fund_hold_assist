@@ -1520,7 +1520,7 @@ const accld = {
         this.normalAccount.loadOtherDeals(date);
         this.collateralAccount.loadOtherDeals(date);
     },
-    trySellStock(code, price, count, account, cb) {
+    trySellStock(code, price, count, account) {
         if (!this.all_accounts[account]) {
             logger.info('Error, no valid account', account);
             return Promise.resolve();
@@ -1539,10 +1539,23 @@ const accld = {
             return sd;
         });
     },
-    tryBuyStock(code, price, count, account) {
+    tryBuyStock(code, price, count, account, strategies) {
         if (!this.all_accounts[account]) {
             logger.info('Error, no valid account', account);
             return Promise.resolve();
+        }
+
+        if (strategies) {
+            this.all_accounts[account].holdAccount.addWatchStock(code, strategies);
+        }
+        if (!count) {
+            var stk = this.all_accounts[account].holdAccount.getStock(code);
+            if (stk) {
+                count = stk.strategies.getBuyCount(price);
+            }
+            if (count * price - this.all_accounts[account].availableMoney > 0) {
+                count = guang.calcBuyCount(this.all_accounts[account].availableMoney, price);
+            }
         }
 
         return this.all_accounts[account].buyStock(code, price, count).then(bd => {
@@ -1560,21 +1573,6 @@ const accld = {
             }
             return bd;
         });
-    },
-    buyWithAccount(code, price, count, account, strategies) {
-        if (strategies) {
-            this.all_accounts[account].holdAccount.addWatchStock(code, strategies);
-        }
-        if (!count) {
-            var stk = this.all_accounts[account].holdAccount.getStock(code);
-            if (stk) {
-                count = stk.strategies.getBuyCount(price);
-            }
-            if (count * price - this.all_accounts[account].availableMoney > 0) {
-                count = guang.calcBuyCount(this.all_accounts[account].availableMoney, price);
-            }
-        }
-        return this.tryBuyStock(code, price, count, account);
     },
     checkRzrq(code) {
         if (!this.creditAccount) {

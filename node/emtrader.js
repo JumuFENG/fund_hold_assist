@@ -256,6 +256,48 @@ const ext = {
         if (this.browser) {
             await this.browser.close();
         }
+    },
+    handleStart() {
+        if (ext.running) {
+            return 'already started!';
+        }
+        if (ext.schd) {
+            clearTimeout(ext.schd);
+            ext.schd = null;
+        }
+        ext.start();
+        return 'start success!';
+    },
+    handleTrade(mbody) {
+        const {code, tradeType, count, price, account, strategies} = mbody;
+        if (tradeType == 'B') {
+            accld.tryBuyStock(code, price, count, account, strategies);
+        } else if (tradeType == 'S') {
+            accld.trySellStock(code, price, count, account);
+        } else if (strategies && code && account) {
+            accld.all_accounts[account].addWatchStock(code, strategies);
+        } else {
+            return false;
+        }
+        return true;
+    },
+    handleStatus() {
+        return {status: ext.status, running: ext.running};
+    },
+    handleAccountStocks(mbody) {
+        const {account} = mbody;
+        if (accld.all_accounts[account]) {
+            return accld.all_accounts[account].getAccountStocks();
+        }
+    },
+    handleAccountDeals(mbody) {
+        const {account} = mbody;
+        if (accld.all_accounts[account]) {
+            if (accld.all_accounts[account].realcash) {
+                return accld.all_accounts[account].orderfeched;
+            }
+            return accld.all_accounts[account].deals;
+        }
     }
 };
 
@@ -264,28 +306,18 @@ app.get('/', (req, res) => {
 });
 
 app.get('/status', (req, res) => {
-    const r = {status: ext.status, running: ext.running};
+    const r = ext.handleStatus();
     res.send(r);
 });
 
-
 app.get('/start', (req, res) => {
-    if (ext.running) {
-        res.send('already started!');
-        return;
-    }
-    if (ext.schd) {
-        clearTimeout(ext.schd);
-        ext.schd = null;
-    }
-    ext.start();
-    res.send('start success!');
+    const s = ext.handleStart();
+    res.send(s);
 });
 
-
 app.post('/capcha', (req, res) => {
-    const { captchaurl, text } = req.body;
-    const result = ext.setcaptcha(captchaurl, text);
+    const { url, text } = req.body;
+    const result = ext.setcaptcha(url, text);
     if (result) {
         res.send('Captcha set successfully!');
     } else {
@@ -293,9 +325,20 @@ app.post('/capcha', (req, res) => {
     }
 });
 
-if (guang.isTodayTradingDay()) {
-    ext.schedule();
-}
+app.post('/trade', (req, res) => {
+    if (ext.handleTrade(req.body)) {
+        res.send('Success');
+    }
+    res.status(404).send('trade type not found!');
+});
+
+app.get('/stocks', (req, res) => {
+    res.send(ext.handleAccountStocks(req.qurey));
+});
+
+app.get('/deals', (req, res) => {
+    res.send(ext.handleAccountDeals(req.qurey));
+});
 
 const port = config.client.port;
 const server = app.listen(port, () => {
@@ -334,4 +377,24 @@ io.on('connection', (socket) => {
         logger.info(`收到验证码:`, data.text);
         ext.setcaptcha(data.url, data.text);
     });
+    socket.on('start', () => {
+        const r = ext.handleStart();
+        socket.emit('start', {result: r});
+    });
+    socket.on('trade', (data) => {
+        ext.handleTrade(data);
+    });
+    socket.on('status', () => {
+        socket.emit('status', ext.handleStatus());
+    });
+    socket.on('stocks', (data) => {
+        socket.emit('stocks', ext.handleAccountStocks(data));
+    });
+    socket.on('deals', (data) => {
+        socket.emit('deals', ext.handleAccountDeals(data));
+    });
 });
+
+if (guang.isTodayTradingDay()) {
+    ext.schedule();
+}

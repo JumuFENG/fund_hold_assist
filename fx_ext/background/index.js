@@ -361,10 +361,10 @@ class ext {
             if (!wsmsg.account) {
                 accld.checkRzrq(wsmsg.code).then(rzrq => {
                     var account = rzrq.Status == -1 ? 'normal' : 'credit';
-                    accld.buyWithAccount(wsmsg.code, wsmsg.price, wsmsg.count, account, wsmsg.strategies);
+                    accld.tryBuyStock(wsmsg.code, wsmsg.price, wsmsg.count, account, wsmsg.strategies);
                 });
             } else {
-                accld.buyWithAccount(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account, wsmsg.strategies);
+                accld.tryBuyStock(wsmsg.code, wsmsg.price, wsmsg.count, wsmsg.account, wsmsg.strategies);
             }
             return;
         }
@@ -396,10 +396,10 @@ class ext {
             if (!account) {
                 popcb(accld.checkRzrq(message.code).then(rzrq => {
                     var racc = rzrq.Status == -1 ? 'normal' : 'credit';
-                    return accld.buyWithAccount(code, price, count, racc, strategies);
+                    return accld.tryBuyStock(code, price, count, racc, strategies);
                 }));
             } else {
-                popcb(accld.buyWithAccount(code, price, count, account, strategies));
+                popcb(accld.tryBuyStock(code, price, count, account, strategies));
             }
         } else if (message.command === 'popup.addwatch') {
             logger.info('popup message popup.addwatch');

@@ -325,7 +325,7 @@ class StrategyI_Zt1WbOpen extends StrategyI_Base {
 
                 this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2)}};
                 let strategy = this.generate_strategy_json(price);
-                accld.buyWithAccount(code, price, 0, account, strategy);
+                accld.tryBuyStock(code, price, 0, account, strategy);
             }
         });
     }
@@ -400,7 +400,7 @@ class StrategyI_HotrankOpen extends StrategyI_Base {
                         logger.info(this.istr.key, 'stock exists', code, accld.all_accounts[account].holdAccount.keyword);
                     } else {
                         logger.info(this.istr.key, 'buy with account', code, price, account);
-                        accld.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
+                        accld.tryBuyStock(code, price.toFixed(2), 0, account, strategy);
                     }
                 });
             }
@@ -472,7 +472,7 @@ class StrategyI_3Bull_Breakup extends StrategyI_Interval {
                 let account = this.candidates[code].account;
                 this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2), 'guardPrice': this.candidates[code].low}};
                 let strategy = this.generate_strategy_json(price);
-                accld.buyWithAccount(code, price, 0, account, strategy);
+                accld.tryBuyStock(code, price, 0, account, strategy);
                 logger.info(this.istr.key, 'buy', code, price, account);
                 this.candidates[code].matched = true;
             }
@@ -596,7 +596,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                             strategy = null;
                         }
                         logger.info(this.istr.key, 'buy with account', code, price, account);
-                        accld.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
+                        accld.tryBuyStock(code, price.toFixed(2), 0, account, strategy);
                     });
                 }
             });
@@ -693,7 +693,7 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                     let strategy = this.generate_strategy_json(price);
                     this.expected_account(this.istr.account, code).then(account => {
                         logger.info(this.istr.key, 'buy with account', code, price, account);
-                        accld.buyWithAccount(code, price.toFixed(2), 0, account, strategy);
+                        accld.tryBuyStock(code, price.toFixed(2), 0, account, strategy);
                     });
                 }
             });
@@ -852,7 +852,7 @@ class StrategyI_IndexTracking extends StrategyI_Interval {
                 mpas.forEach(mpa => {
                     const strategy = this.generate_strategy_json(mpa.price);
                     logger.info(this.istr.key, 'buy', mpa.code, mpa.price, mpa.account);
-                    accld.buyWithAccount(mpa.code, mpa.price, 0, mpa.account, strategy);
+                    accld.tryBuyStock(mpa.code, mpa.price, 0, mpa.account, strategy);
                 })
             });
         }
