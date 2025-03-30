@@ -220,6 +220,7 @@ const ext = {
         this.browser = await puppeteer.launch({
             args: [
                 '--no-sandbox', '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage', '--single-process',
                 `--user-agent=${this.browserUA}`
             ]
         });

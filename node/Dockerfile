@@ -1,37 +1,31 @@
-# 阶段1：安装依赖（使用pnpm）
-FROM node:alpine AS deps
+FROM node:slim AS deps
 WORKDIR /usr/src/phonde
-# 安装pnpm（可指定版本，如 pnpm@8）
 RUN npm install -g pnpm
-# 复制包管理文件
 COPY package.json pnpm-lock.yaml* ./
-# 如果项目原用npm，需先生成pnpm-lock.yaml（本地运行pnpm import后再构建）
 RUN pnpm install --frozen-lockfile
 
-# 阶段2：生产镜像
-FROM node:alpine
+FROM puppeteer:22.13.0
 WORKDIR /usr/src/phonde
 
-# 安装puppeteer依赖（合并RUN减少层数）
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    && mkdir -p /usr/src/phonde/{logs,config} \
-    && chown -R node:node /usr/src/phonde
+# 切换到root进行配置
+USER root
 
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+# 确保使用node用户(继承自puppeteer镜像)
+RUN mkdir -p /usr/src/phonde/logs /usr/src/phonde/config && \
+    chown -R node:node /usr/src/phonde && \
+    chmod -R 775 /usr/src/phonde/logs
 
-# 从deps阶段复制node_modules和源码
+RUN apt-get update && apt-get install -y \
+    fonts-wqy-zenhei \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=deps --chown=node:node /usr/src/phonde/node_modules ./node_modules
 COPY --chown=node:node . .
 
-# 使用非root用户
 USER node
+
+# 环境变量
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
 
 EXPOSE 5888
 CMD ["node", "emtrader.js"]
-
