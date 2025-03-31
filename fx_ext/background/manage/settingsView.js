@@ -78,23 +78,23 @@ class SettingsPanelPage extends RadioAnchorPage {
         });
         this.container.appendChild(svrDiv);
         emjyBack.getFromLocal('alarm_config').then(aconf => {
-            this.alarmConfig = aconf;
+            this.alarmConfig = aconf??{};
             const purchaseNewStocks = document.createElement('input');
             purchaseNewStocks.type = 'checkbox';
-            purchaseNewStocks.checked = aconf.purchase_new_stocks;
+            purchaseNewStocks.checked = aconf?.purchase_new_stocks;
             purchaseNewStocks.onchange = e => {
                 this.alarmConfig.purchase_new_stocks = e.target.checked;
             }
             this.addInput(svrDiv, purchaseNewStocks, '申购新股');
             const enableRtp = document.createElement('input');
-            enableRtp.checked = aconf.enable_rtp_check;
+            enableRtp.checked = aconf?.enable_rtp_check;
             enableRtp.type = 'checkbox';
             enableRtp.onchange = e => {
                 this.alarmConfig.enable_rtp_check = e.target.checked;
             }
             this.addInput(svrDiv, enableRtp, '启用分时行情');
             const enableKl = document.createElement('input');
-            enableKl.checked = aconf.enable_kl_check;
+            enableKl.checked = aconf?.enable_kl_check;
             enableKl.type = 'checkbox';
             enableKl.onchange = e => {
                 this.alarmConfig.enable_kl_check = e.target.checked;
