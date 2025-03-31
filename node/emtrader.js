@@ -204,7 +204,6 @@ const ext = {
                     const emvkey = await this.page.evaluate(() => {
                         return document.querySelector('#em_validatekey').value;
                     });
-                    feng.validateKey = emvkey;
                     accld.validateKey = emvkey;
                     ctxfetch.setPage(this.page);
                     logger.info(`validatekey: ${emvkey}`);

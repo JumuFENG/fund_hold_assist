@@ -303,7 +303,8 @@ const alarmHub = {
 
         guang.isTodayTradingDay().then(trade => {
             if (trade) {
-                const timers = [ralarm, talarm, bclose, closed, this.orderTimer, this.otpAlarm, this.dailyAlarm];
+                const timers = [//ralarm, bclose, , this.orderTimer
+                    talarm, closed, this.otpAlarm, this.dailyAlarm];
                 if (this.config.enable_rtp_check) {
                     timers.push(this.rtpTimer);
                     timers.push(this.ztBoardTimer);

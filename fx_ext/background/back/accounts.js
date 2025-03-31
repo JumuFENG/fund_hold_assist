@@ -16,7 +16,7 @@ class DealsClient {
     }
 
     getUrl() {
-        return feng.jywg + 'Search/GetDealData?validatekey=' + accld.validateKey;
+        return accld.jywg + 'Search/GetDealData?validatekey=' + accld.validateKey;
     }
 
     getFormData() {
@@ -82,7 +82,7 @@ class MarginDealsClient extends DealsClient {
     }
 
     getUrl() {
-        return feng.jywg + 'MarginSearch/GetDealData?validatekey=' + accld.validateKey;
+        return accld.jywg + 'MarginSearch/GetDealData?validatekey=' + accld.validateKey;
     }
 
     updateDwc() {
@@ -143,7 +143,7 @@ class HistDealsClient extends DealsClient {
 
     // 重写 getUrl 方法，使用历史成交数据的接口
     getUrl() {
-        return feng.jywg + 'Search/GetHisDealData?validatekey=' + accld.validateKey;
+        return accld.jywg + 'Search/GetHisDealData?validatekey=' + accld.validateKey;
     }
 }
 
@@ -164,26 +164,26 @@ class MarginHistDealsClient extends HistDealsClient {
     }
 
     getUrl() {
-        return feng.jywg + 'MarginSearch/queryCreditHisMatchV2?validatekey=' + accld.validateKey;
+        return accld.jywg + 'MarginSearch/queryCreditHisMatchV2?validatekey=' + accld.validateKey;
     }
 }
 
 class OrdersClient extends DealsClient {
     getUrl() {
-        return feng.jywg + 'Search/GetOrdersData?validatekey=' + accld.validateKey;
+        return accld.jywg + 'Search/GetOrdersData?validatekey=' + accld.validateKey;
     }
 }
 
 class MarginOrdersClient extends DealsClient {
     getUrl() {
-        return feng.jywg + 'MarginSearch/GetOrdersData?validatekey=' + accld.validateKey;
+        return accld.jywg + 'MarginSearch/GetOrdersData?validatekey=' + accld.validateKey;
     }
 }
 
 class SxlHistClient extends HistDealsClient {
     // Stock Exchange List
     getUrl() {
-        return feng.jywg + 'Search/GetFundsFlow?validatekey=' + accld.validateKey;
+        return accld.jywg + 'Search/GetFundsFlow?validatekey=' + accld.validateKey;
     }
 }
 
@@ -203,7 +203,7 @@ class MarginSxlHistClient extends HistDealsClient {
     }
 
     getUrl() {
-        return feng.jywg + 'MarginSearch/queryCreditLogAssetV2?validatekey=' + accld.validateKey;
+        return accld.jywg + 'MarginSearch/queryCreditLogAssetV2?validatekey=' + accld.validateKey;
     }
 }
 
@@ -215,7 +215,7 @@ class AssetsClient {
 
     // 构造 URL
     buildUrl(endpoint) {
-        return `${feng.jywg}${endpoint}?validatekey=${accld.validateKey}`;
+        return `${accld.jywg}${endpoint}?validatekey=${accld.validateKey}`;
     }
 
     async fetchData(url, formData = new FormData()) {
@@ -367,7 +367,7 @@ class TradeClient {
     }
 
     getUrl() {
-        return feng.jywg + 'Trade/SubmitTradeV2?validatekey=' + accld.validateKey;
+        return accld.jywg + 'Trade/SubmitTradeV2?validatekey=' + accld.validateKey;
     }
 
     async getBasicFormData(code, price, count, tradeType) {
@@ -402,12 +402,12 @@ class TradeClient {
             }
             return { bp, tp, cp, s5, b5 };
         } catch (error) {
-            console.error('getRtPrice failed:', error);
+            logger.error('getRtPrice failed:', error);
         }
     }
 
     countUrl() {
-        return feng.jywg + 'Trade/GetAllNeedTradeInfo?validatekey=' + accld.validateKey;
+        return accld.jywg + 'Trade/GetAllNeedTradeInfo?validatekey=' + accld.validateKey;
     }
 
     async countFormData(code, price, tradeType, jylx) {
@@ -502,7 +502,7 @@ class CollatTradeClient extends TradeClient {
     }
 
     getUrl() {
-        return feng.jywg + 'MarginTrade/SubmitTradeV2?validatekey=' + accld.validateKey;
+        return accld.jywg + 'MarginTrade/SubmitTradeV2?validatekey=' + accld.validateKey;
     }
 
     async getFormData(code, price, count, tradeType, jylx) {
@@ -527,7 +527,7 @@ class CollatTradeClient extends TradeClient {
     }
 
     countUrl() {
-        return feng.jywg + 'MarginTrade/GetKyzjAndKml?validatekey=' + accld.validateKey;
+        return accld.jywg + 'MarginTrade/GetKyzjAndKml?validatekey=' + accld.validateKey;
     }
 
     async checkRzrqTarget(code) {
@@ -663,6 +663,9 @@ class Account {
                 } else if (['已报'].includes(status) && ['配售申购'].includes(tradeType)) {
                     logger.info(this.keyword, 'ignore deal', tradeType, d.Zqmc);
                     continue;
+                } else if (['已报', '部成'].includes(status) && type) {
+                    logger.info(this.keyword, 'imcomplete deal', d.Zqmc, status, tradeType);
+                    continue;
                 } else {
                     logger.info(this.keyword, 'unknown deal type/status: ', d);
                 }
@@ -770,7 +773,7 @@ class Account {
                     if (s.code == deali.Zqdm && deali.Cjsl > 0) {
                         tradedCode.add(deali.Zqdm);
                         if (!s.strategies) {
-                            console.log('can not find strategy for stock', s.code, deali);
+                            logger.log('can not find strategy for stock', s.code, deali);
                             return;
                         }
                         s.strategies.updateBuyDetail(deali.Wtbh, deali.Cjjg, deali.Cjsl);
@@ -785,7 +788,7 @@ class Account {
                     if (s.code == deali.Zqdm && deali.Cjsl > 0) {
                         tradedCode.add(deali.Zqdm);
                         if (!s.strategies) {
-                            console.log('can not find strategy for stock', s.code, deali);
+                            logger.log('can not find strategy for stock', s.code, deali);
                             return;
                         }
                         s.strategies.updateSellDetail(deali.Wtbh, deali.Cjjg, deali.Cjsl);
@@ -1476,6 +1479,7 @@ class CreditAccount extends CollateralAccount {
 const accld = {
     enableCredit: false,
     all_accounts: {},
+    jywg: 'https://jywg.eastmoneysec.com/', //'https://jywg.18.cn/',
     validateKey: null,
     fha: null,
     initAccounts() {
@@ -1519,6 +1523,216 @@ const accld = {
     loadOtherDeals(date) {
         this.normalAccount.loadOtherDeals(date);
         this.collateralAccount.loadOtherDeals(date);
+    },
+    async buyNewStocks() {
+        if (!this.validateKey) {
+            logger.info('no valid validateKey', this.validateKey);
+            return;
+        }
+
+        const url = `${accld.jywg}Trade/GetCanBuyNewStockListV3?validatekey=${this.validateKey}`;
+        try {
+            const response = await fetch(url, { method: 'POST' });
+            const robj = await response.json();
+
+            if (robj.NewStockList && robj.NewStockList.length > 0) {
+                const data = robj.NewStockList
+                    .filter(stk => stk.Fxj - 100 < 0 && stk.Ksgsx > 0)
+                    .map(stk => ({
+                        StockCode: stk.Sgdm,
+                        StockName: stk.Zqmc,
+                        Price: stk.Fxj,
+                        Amount: parseInt(stk.Ksgsx),
+                        TradeType: "B",
+                        Market: stk.Market
+                    }));
+
+                if (data.length > 0) {
+                    const jdata = JSON.stringify(data);
+                    logger.info('buyNewStocks', jdata);
+
+                    const postUrl = `${accld.jywg}Trade/SubmitBatTradeV2?validatekey=${this.validateKey}`;
+                    const header = { "Content-Type": "application/json" };
+                    const postResponse = await fetch(postUrl, { method: 'POST', headers: header, body: jdata });
+                    const robjPost = await postResponse.json();
+
+                    if (robjPost.Status === 0) {
+                        logger.info('buyNewStocks success', robjPost.Message);
+                    } else {
+                        logger.info('buyNewStocks error', robjPost);
+                    }
+                } else {
+                    logger.info('buyNewStocks no new stocks to buy!');
+                }
+            } else {
+                logger.info(JSON.stringify(robj));
+            }
+        } catch (error) {
+            logger.error('Error in buyNewStocks:', error);
+        }
+    },
+    async buyNewBonds() {
+        if (!this.validateKey) {
+            logger.info('no valid validateKey', this.validateKey);
+            return;
+        }
+
+        const url = `${accld.jywg}Trade/GetConvertibleBondListV2?validatekey=${this.validateKey}`;
+        try {
+            const response = await fetch(url, { method: 'POST' });
+            const robj = await response.json();
+
+            if (robj.Status !== 0) {
+                logger.info('unknown error', robj);
+                return;
+            }
+
+            if (robj.Data && robj.Data.length > 0) {
+                const data = robj.Data
+                    .filter(bondi => bondi.ExIsToday)
+                    .map(bondi => ({
+                        StockCode: bondi.SUBCODE,
+                        StockName: bondi.SUBNAME,
+                        Price: bondi.PARVALUE,
+                        Amount: bondi.LIMITBUYVOL,
+                        TradeType: "B",
+                        Market: bondi.Market
+                    }));
+
+                if (data.length > 0) {
+                    const jdata = JSON.stringify(data);
+                    logger.info('buyNewBonds', jdata);
+
+                    const postUrl = `${accld.jywg}Trade/SubmitBatTradeV2?validatekey=${this.validateKey}`;
+                    const header = { "Content-Type": "application/json" };
+                    const postResponse = await fetch(postUrl, { method: 'POST', headers: header, body: jdata });
+                    const robjPost = await postResponse.json();
+
+                    if (robjPost.Status === 0) {
+                        logger.info('buyNewBonds success', robjPost.Message);
+                    } else {
+                        logger.info('buyNewBonds error', robjPost);
+                    }
+                } else {
+                    logger.info('buyNewBonds no new bonds to buy!');
+                }
+            } else {
+                logger.info('no new bonds', JSON.stringify(robj));
+            }
+        } catch (error) {
+            logger.error('Error in buyNewBonds:', error);
+        }
+    },
+    async buyBondRepurchase(code) {
+        if (!this.validateKey) {
+            logger.info('No valid validateKey');
+            return;
+        }
+
+        try {
+            // 获取最新价格
+            const priceData = await feng.getStockSnapshot(code);
+            let price = priceData.latestPrice;
+            price = priceData.buysells.buy5 === '-' ? priceData.bottomprice : priceData.buysells.buy5;
+
+            // 获取可操作数量
+            const amountUrl = `${accld.jywg}Com/GetCanOperateAmount?validatekey=${this.validateKey}`;
+            const amountFd = new FormData();
+            amountFd.append('stockCode', code);
+            amountFd.append('price', price);
+            amountFd.append('tradeType', '0S');
+
+            const amountResponse = await fetch(amountUrl, { method: 'POST', body: amountFd });
+            const amountData = await amountResponse.json();
+
+            if (amountData.Status !== 0 || !amountData.Data || amountData.Data.length === 0 || amountData.Data[0].Kczsl <= 0) {
+                logger.info('No enough funds to repurchase', JSON.stringify(amountData));
+                return;
+            }
+
+            const count = amountData.Data[0].Kczsl;
+
+            // 进行国债逆回购交易
+            const repurchaseUrl = `${accld.jywg}BondRepurchase/SecuritiesLendingRepurchaseTrade?validatekey=${this.validateKey}`;
+            const repurchaseFd = new FormData();
+            repurchaseFd.append('zqdm', code);
+            repurchaseFd.append('rqjg', price);
+            repurchaseFd.append('rqsl', count);
+
+            logger.info('Executing bond repurchase:', code, price, count);
+            const repurchaseResponse = await fetch(repurchaseUrl, { method: 'POST', body: repurchaseFd });
+            const repurchaseData = await repurchaseResponse.json();
+
+            if (repurchaseData.Status === 0 && repurchaseData.Data && repurchaseData.Data.length > 0) {
+                logger.info('Repurchase successful!', JSON.stringify(repurchaseData));
+            } else {
+                logger.info('Repurchase failed:', JSON.stringify(repurchaseData));
+            }
+        } catch (error) {
+            logger.info('Error in bond repurchase process:', error);
+        }
+    },
+    async repayMarginLoan() {
+        const validateKey = this.validateKey;
+        if (!validateKey) {
+            return;
+        }
+
+        const assetsUrl = `${accld.jywg}MarginSearch/GetRzrqAssets?validatekey=${validateKey}`;
+        const fd = new FormData();
+        fd.append('hblx', 'RMB');
+
+        try {
+            // 获取融资融券资产信息
+            const assetsResponse = await fetch(assetsUrl, { method: 'POST', body: fd });
+            const assetsData = await assetsResponse.json();
+
+            if (assetsData.Status !== 0 || !assetsData.Data) {
+                logger.info('Failed to fetch assets:', assetsData);
+                return;
+            }
+
+            // 计算待还款金额
+            const total = -(-assetsData.Data.Rzfzhj - assetsData.Data.Rqxf);
+            if (total <= 0 || assetsData.Data.Zjkys - 1 < 0) {
+                logger.info('待还款金额:', total, '可用金额:', assetsData.Data.Zjkys);
+                return;
+            }
+
+            let payAmount = total;
+            if (total > assetsData.Data.Zjkys - 0.1) {
+                const dateval = new Date().getDate();
+                if (dateval > 25 || dateval < 5) {
+                    payAmount = assetsData.Data.Zjkys - assetsData.Data.Rzxf - assetsData.Data.Rqxf - assetsData.Data.Rzxf;
+                } else {
+                    payAmount = (assetsData.Data.Zjkys - 0.11).toFixed(2);
+                }
+            }
+
+            payAmount = parseFloat(payAmount);
+            if (payAmount <= 0) {
+                logger.info('Invalid repayment amount:', payAmount);
+                return;
+            }
+
+            // 提交还款请求
+            const repaymentUrl = `${accld.jywg}MarginTrade/submitZjhk?validatekey=${validateKey}`;
+            const repaymentFd = new FormData();
+            repaymentFd.append('hbdm', 'RMB');
+            repaymentFd.append('hkje', payAmount);
+            repaymentFd.append('bzxx', ''); // 备注信息
+
+            const repaymentResponse = await fetch(repaymentUrl, { method: 'POST', body: repaymentFd });
+            const repaymentData = await repaymentResponse.json();
+
+            if (repaymentData.Status === 0) {
+                logger.info('Repayment success!', repaymentData.Data?.[0]?.Sjhkje ?? 'Unknown amount');
+            } else {
+                logger.info('Repayment failed:', repaymentData);
+            }
+        } catch (error) {
+            logger.info('Repayment process failed:', error);
+        }
     },
     trySellStock(code, price, count, account) {
         if (!this.all_accounts[account]) {

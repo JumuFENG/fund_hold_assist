@@ -194,7 +194,7 @@ class TrackingAccount extends NormalAccount {
     }
 
     loadOtherDeals() {}
-    checkOrders() {}
+    checkOrders() {return Promise.resolve([]);}
 
     buyStock(code, price, count) {
         if (!this.tradeClient) {
@@ -263,7 +263,7 @@ const trackacc = {
                     accld.all_accounts[account.keyword] = account;
                     account.loadWatchings();
                 }
-            })
+            });
         } else {
             svrd.getFromLocal('track_accounts').then(accs => {
                 if (!accs || Object.keys(accs).length === 0) {

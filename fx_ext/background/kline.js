@@ -8,7 +8,6 @@ const { guang } = xreq('./background/guang.js');
 
 const klPad = {
     klines: {},
-    emklapi: 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56',
     loadKlines(code) {
         if (!this.klines[code]) {
             this.klines[code] = new KLine(code);
@@ -31,79 +30,12 @@ const klPad = {
     * @returns {Promise<any>} 返回数据的 Promise
     */
     async getStockKline(code, klt, date) {
-        if (!klt) {
-            klt = '101';
-        }
-        let secid = await feng.getStockSecId(code);
-        let beg = 0;
-        if (klt == '101') {
-            beg = date;
-            if (!beg) {
-                beg = new Date();
-                beg = new Date(beg.setDate(beg.getDate() - 30));
-                beg = beg.toLocaleString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, '')
-            } else if (date.includes('-')) {
-                beg = date.replaceAll('-', '');
-            }
-        }
-        let url = this.emklapi + '&klt=' + klt + '&secid=' + secid + '&beg=' + beg + '&end=20500000';
-        let cacheTime = klt - 15 < 0 || klt % 30 == 0 ? klt * 60000 : 24*60*60000;
-        return guang.fetchData(url, {}, cacheTime, klrsp => {
-            let code = klrsp.data.code;
+        return feng.getStockKline(code, klt, date).then(kldata => {
             if (!this.klines[code]) {
                 this.klines[code] = new KLine(code);
             }
-            let updatedKlt = this.klines[code].updateRtKline({kltype: klt, kline: klrsp});
-            let kl0 = this.klines[code].getLatestKline(klt);
-            const getExpireTime = function(kltime, kltype) {
-                const currentDate = new Date();
-                const [year, month, day] = [currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()]
-                const createTime = (h, m, s = 0, dd = 0) => new Date(year, month, day + dd, h, m, s);
-
-                const amStart = createTime(9, 30);   // 上午开盘时间
-                const amEnd = createTime(11, 30);    // 上午收盘时间
-                const pmStart = createTime(13, 0);   // 下午开盘时间
-                const pmEnd = createTime(15, 0);     // 下午收盘时间
-
-                let klDate = new Date(kltime);
-                if (kltype - 15 > 0 && kltype % 30 !== 0) {
-                    klDate = new Date(kltime + ' 15:00');
-                }
-
-                if (klDate < currentDate) {
-                    return amStart > currentDate ? amStart : createTime(9, 30, 0, 1); // 下一天的上午开盘时间
-                }
-
-                if (kltype - 15 > 0 && kltype % 30 !== 0) {
-                    if (currentDate < createTime(14, 50)) {
-                        return createTime(14, 50); // 尾盘更新
-                    }
-                    return currentDate < pmEnd ? pmEnd : createTime(9, 30, 0, 1); // 下午收盘时间或第二天开盘时间
-                }
-
-                if (currentDate < amStart) {
-                    return amStart; // 上午开盘时间
-                }
-
-                const kLineInterval = kltype;
-                const nextDate = new Date(Math.ceil(klDate.getTime() / (kLineInterval * 60000)) * kLineInterval * 60000);
-
-                if (currentDate >= amStart && currentDate < amEnd) {
-                    return nextDate < amEnd ? nextDate : amEnd;
-                }
-                if (currentDate >= pmStart && currentDate < pmEnd) {
-                    return nextDate < pmEnd ? nextDate : pmEnd;
-                }
-                if (currentDate >= amEnd && currentDate < pmStart) {
-                    return pmStart;
-                }
-                if (currentDate >= pmEnd) {
-                    return createTime(9, 30, 0, 1); // 下一天的上午开盘时间
-                }
-            };
-
-            let data = Object.fromEntries(updatedKlt.map(x => [x, this.klines[code].klines[x]]));
-            return {data, expireTime: getExpireTime(kl0.time, klt)};
+            let updatedKlt = this.klines[code].updateRtKline(kldata);
+            return Object.fromEntries(updatedKlt.map(x => [x, this.klines[code].klines[x]]));
         });
     }
 }
@@ -460,40 +392,22 @@ class KLine {
     }
 
     parseKlines(kline, stime = '0', kltype = '1') {
-        var klines = [];
         this.incompleteKline[kltype] = null;
-        var now = this.getNowTime();
-        for (var i = 0; kline && i < kline.length; i++) {
-            var kl = kline[i].split(',');
-            var time = kl[0];
-            var tDate = new Date(time);
-            var o = kl[1];
-            var c = kl[2];
-            var h = kl[3];
-            var l = kl[4];
-            var v = kl[5];
-            var lkl = klines.length > 0 ? klines[klines.length - 1] : null;
-            var prc = kl.length > 6 ? kl[6] : (lkl ? (c-lkl.c).toFixed(3) : 0);
-            var pc = kl.length > 6 ? kl[7] : (lkl ? ((c - lkl.c) * 100 / lkl.c).toFixed(2) : 0);
-            if (kltype == '101') {
-                tDate.setHours(15);
-            };
-            if (time <= stime) {
-                continue;
-            }
-            if (now < tDate) {
-                if (kltype == '15' && (tDate - now) > 200000) {
-                    continue;
-                }
-                if (kltype == '101' && (tDate - now) > 600000) {
-                    continue;
-                }
-                this.incompleteKline[kltype] = {time, o, c, h, l, v};
-                continue;
-            };
-            klines.push({time, o, c, h, l, v, prc, pc});
+        kline = kline.filter(x => x.time >= stime);
+        if (kline.length == 0) {
+            return kline;
+        }
+        const etime = kline[kline.length - 1].time;
+        const now = this.getNowTime();
+        var tDate = new Date(etime);
+        if (kltype == '101') {
+            tDate.setHours(15);
         };
-        return klines;
+        if (now < tDate) {
+            this.incompleteKline[kltype] = kline.pop();
+        };
+
+        return kline;
     }
 
     calcAllKlineVars(klines) {
@@ -768,7 +682,7 @@ class KLine {
         if (this.klines && this.klines[kltype] && this.klines[kltype].length > 0) {
             stime = this.klines[kltype][this.klines[kltype].length - 1].time;
         };
-        var klines = this.parseKlines(message.kline.data.klines, stime, kltype);
+        var klines = this.parseKlines(message.kdata, stime, kltype);
         var updatedKlt = [];
         if (this.getIncompleteKline(kltype) || klines.length > 0) {
             updatedKlt.push(kltype);

@@ -181,7 +181,6 @@ class ext {
                 return;
             }
             logger.info('getValidateKey =', message.key);
-            feng.validateKey = message.key;
             accld.validateKey = message.key;
             accld.normalAccount.loadAssets();
             accld.collateralAccount.loadAssets();
