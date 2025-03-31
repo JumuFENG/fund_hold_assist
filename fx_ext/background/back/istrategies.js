@@ -476,6 +476,8 @@ class StrategyI_3Bull_Breakup extends StrategyI_Interval {
                 logger.info(this.istr.key, 'buy', code, price, account);
                 this.candidates[code].matched = true;
             }
+        }).catch(e => {
+            logger.error(this.istr.key, 'get_cls_stockbasics error', e);
         });
     }
 }

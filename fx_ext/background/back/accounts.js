@@ -1534,7 +1534,7 @@ const accld = {
 
         const url = `${accld.jywg}Trade/GetCanBuyNewStockListV3?validatekey=${this.validateKey}`;
         try {
-            const response = await fetch(url, { method: 'POST' });
+            const response = await ctxfetch.fetch(url, { method: 'POST' });
             const robj = await response.json();
 
             if (robj.NewStockList && robj.NewStockList.length > 0) {
@@ -1555,7 +1555,7 @@ const accld = {
 
                     const postUrl = `${accld.jywg}Trade/SubmitBatTradeV2?validatekey=${this.validateKey}`;
                     const header = { "Content-Type": "application/json" };
-                    const postResponse = await fetch(postUrl, { method: 'POST', headers: header, body: jdata });
+                    const postResponse = await ctxfetch.fetch(postUrl, { method: 'POST', headers: header, body: jdata });
                     const robjPost = await postResponse.json();
 
                     if (robjPost.Status === 0) {
@@ -1581,7 +1581,7 @@ const accld = {
 
         const url = `${accld.jywg}Trade/GetConvertibleBondListV2?validatekey=${this.validateKey}`;
         try {
-            const response = await fetch(url, { method: 'POST' });
+            const response = await ctxfetch.fetch(url, { method: 'POST' });
             const robj = await response.json();
 
             if (robj.Status !== 0) {
@@ -1607,7 +1607,7 @@ const accld = {
 
                     const postUrl = `${accld.jywg}Trade/SubmitBatTradeV2?validatekey=${this.validateKey}`;
                     const header = { "Content-Type": "application/json" };
-                    const postResponse = await fetch(postUrl, { method: 'POST', headers: header, body: jdata });
+                    const postResponse = await ctxfetch.fetch(postUrl, { method: 'POST', headers: header, body: jdata });
                     const robjPost = await postResponse.json();
 
                     if (robjPost.Status === 0) {
@@ -1644,7 +1644,7 @@ const accld = {
             amountFd.append('price', price);
             amountFd.append('tradeType', '0S');
 
-            const amountResponse = await fetch(amountUrl, { method: 'POST', body: amountFd });
+            const amountResponse = await ctxfetch.fetch(amountUrl, { method: 'POST', body: amountFd });
             const amountData = await amountResponse.json();
 
             if (amountData.Status !== 0 || !amountData.Data || amountData.Data.length === 0 || amountData.Data[0].Kczsl <= 0) {
@@ -1662,7 +1662,7 @@ const accld = {
             repurchaseFd.append('rqsl', count);
 
             logger.info('Executing bond repurchase:', code, price, count);
-            const repurchaseResponse = await fetch(repurchaseUrl, { method: 'POST', body: repurchaseFd });
+            const repurchaseResponse = await ctxfetch.fetch(repurchaseUrl, { method: 'POST', body: repurchaseFd });
             const repurchaseData = await repurchaseResponse.json();
 
             if (repurchaseData.Status === 0 && repurchaseData.Data && repurchaseData.Data.length > 0) {
@@ -1686,7 +1686,7 @@ const accld = {
 
         try {
             // 获取融资融券资产信息
-            const assetsResponse = await fetch(assetsUrl, { method: 'POST', body: fd });
+            const assetsResponse = await ctxfetch.fetch(assetsUrl, { method: 'POST', body: fd });
             const assetsData = await assetsResponse.json();
 
             if (assetsData.Status !== 0 || !assetsData.Data) {
@@ -1724,7 +1724,7 @@ const accld = {
             repaymentFd.append('hkje', payAmount);
             repaymentFd.append('bzxx', ''); // 备注信息
 
-            const repaymentResponse = await fetch(repaymentUrl, { method: 'POST', body: repaymentFd });
+            const repaymentResponse = await ctxfetch.fetch(repaymentUrl, { method: 'POST', body: repaymentFd });
             const repaymentData = await repaymentResponse.json();
 
             if (repaymentData.Status === 0) {
