@@ -1112,7 +1112,9 @@ class NormalAccount extends Account {
         }
 
         return this.tradeClient.buy(code, price, count).then(bd => {
-            this.updateAssets();
+            if (bd && bd.sid) {
+                this.updateAssets();
+            }
             return bd;
         });
     }
@@ -1741,14 +1743,16 @@ const accld = {
         }
 
         return this.all_accounts[account].sellStock(code, price, count).then(sd => {
+            if (!sd || !sd.sid) {
+                logger.error('sell error', sd);
+                return sd;
+            }
             var stk = this.all_accounts[account].holdAccount.getStock(code);
             if (stk) {
                 if (!stk.strategies) {
                     this.all_accounts[account].holdAccount.applyStrategy(code, {grptype: 'GroupStandard', strategies: {'0': {key: 'StrategySellELS', enabled: false, cutselltype: 'all', selltype: 'all'}}, transfers: {'0': {transfer: '-1'}}, amount: '5000'});
                 }
-                if (sd) {
-                    stk.strategies.buydetail.addSellDetail(sd);
-                }
+                stk.strategies.buydetail.addSellDetail(sd);
             }
             return sd;
         });
@@ -1773,6 +1777,10 @@ const accld = {
         }
 
         return this.all_accounts[account].buyStock(code, price, count).then(bd => {
+            if (!bd || !bd.sid) {
+                logger.error('buy error:', bd);
+                return bd;
+            }
             var stk = this.all_accounts[account].holdAccount.getStock(code);
             var strgrp = {};
             if (!stk) {

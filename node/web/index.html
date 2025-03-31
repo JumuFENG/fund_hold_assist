@@ -6,15 +6,116 @@
 </head>
 <body>
   <div id="captchaContainer"></div>
-
+  <div id="tradeContainer">
+    <form>
+      <label>
+        代码:
+        <input type="text" name="code" placeholder="代码 eg: 600000">
+      </label>
+      <label>
+        价格:
+        <input type="number" step="0.01" name="price" placeholder="价格">
+      </label>
+      <label>
+        数量:
+        <input type="number" step="100" name="count" placeholder="数量(整百)">
+      </label>
+      <label>
+        买入账户:
+        <select name="account">
+          <option value="normal">普通账户</option>
+          <option value="collat">担保品账户</option>
+          <option value="track">模拟账户</option>
+          <option value="track_3b">账户track_3b</option>
+        </select>
+      </label>
+      <label>
+        买卖类型:
+        <select name="tradeType">
+          <option value="B">买入</option>
+          <option value="S">卖出</option>
+        </select>
+      </label>
+      <label>
+        策略:
+        <select name="strategies">
+        </select>
+      </label>
+      <button type="submit">提交</button>
+    </form>
+  </div>
+  <div id="infomations">
+    <button id="refresh_stocks">查询股票列表</button>
+    <button id="refresh_deals">查询成交列表</button>
+    <div id="stocks"></div>
+    <div id="deals"></div>
+  </div>
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <script src="CaptchaUI.js"></script>
   <script>
     window.onload = () => {
       const container = document.getElementById('captchaContainer');
-      const captchaUI = new CaptchaUI(container, location.pathname + 'socket.io/');
+      const captchaUI = new CaptchaUI(container, location.pathname);
       captchaUI.init();
+      document.querySelector('form').addEventListener('submit', event => {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const data = {};
+        for (const [key, value] of formData.entries()) {
+          data[key] = value;
+        }
+        fetch(location.pathname + '/trade', {
+          method: 'POST',
+          body: JSON.stringify(data),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }).then(res => res.text()).then(data => {
+          console.log(data);
+        }).catch(err => {
+          console.error(err);
+        });
+      });
     };
+    document.querySelector('select[name="tradeType"]').addEventListener('change', event => {
+      const tradeType = event.target.value;
+      const strategies = document.querySelector('select[name="strategies"]');
+      const strategyoptions = tradeType == 'B' ?
+        {'StrategyBuyDTBoard': '跌停开板买入', 'StrategyBuyZTBoard': '打板买入'}:
+        {'StrategySellELS': '涨停开板卖出'};
+      while (strategies.options.length > 0) {
+        strategies.options.remove(0);
+      }
+      strategies.options.add(new Option('选择', ''));
+      for (var k in strategyoptions) {
+          strategies.options.add(new Option(strategyoptions[k], k));
+      };
+    });
+    document.querySelector('select[name="tradeType"]').dispatchEvent(new Event('change'));
+    document.querySelector('#refresh_stocks').addEventListener('click', () => {
+      fetch(location.pathname + '/stocks?account=' + document.querySelector('select[name="account"]').value)
+      .then(res => res.json()).then(data => {
+        const stocks = document.querySelector('#stocks');
+        stocks.innerHTML = '';
+        for (var k of data.stocks) {
+          stocks.innerHTML += `<div>${k.code}: ${k.name} ${k.holdCount} ${k.holdCost}</div>`;
+        }
+      }).catch(err => {
+        console.error(err);
+      });
+    });
+    document.querySelector('#refresh_deals').addEventListener('click', () => {
+      fetch(location.pathname + '/deals?account=' + document.querySelector('select[name="account"]').value)
+      .then(res => res.json()).then(data => {
+        const deals = document.querySelector('#deals');
+        deals.innerHTML = '';
+        for (const k of data) {
+          deals.innerHTML += `<div>${k.code}: ${k.time} ${k.tradeType} ${k.price} ${k.count} ${k.sid}</div>`;
+        }
+      }).catch(err => {
+        console.error(err);
+      });
+    })
   </script>
 </body>
 </html>

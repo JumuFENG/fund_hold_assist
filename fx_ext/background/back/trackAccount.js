@@ -138,11 +138,16 @@ class TrackingAccount extends NormalAccount {
         }
         var stk = this.getStock(code);
         if (!stk) {
-            return Promise.resolve();
+            if (tradeType == 'S') {
+                return Promise.resolve();
+            }
+            this.addWatchStock(code, {});
+            return this.addDeal(code, price, count, tradeType);
         }
 
         if (tradeType == 'S') {
             if (stk.holdCount - count < 0) {
+                logger.error(this.keyword, 'sell count more than hold count');
                 return Promise.resolve();
             }
             stk.holdCount -= count;

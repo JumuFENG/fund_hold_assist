@@ -261,6 +261,8 @@ const ext = {
             this.page.reload();
         }, 175 * 60000);
         accld.initAccounts();
+        accld.normalAccount.loadAssets();
+        accld.collateralAccount.loadAssets();
         trackacc.initTrackAccounts();
         costDog.init();
         this.running = true;
@@ -326,7 +328,7 @@ const ext = {
         const {account} = mbody;
         if (accld.all_accounts[account]) {
             if (accld.all_accounts[account].realcash) {
-                return accld.all_accounts[account].orderfeched;
+                return accld.all_accounts[account].orderfeched??[];
             }
             return accld.all_accounts[account].deals;
         }
@@ -360,8 +362,9 @@ app.post('/capcha', (req, res) => {
 app.post('/trade', (req, res) => {
     if (ext.handleTrade(req.body)) {
         res.send('Success');
+    } else {
+        res.status(404).send('trade type not found!');
     }
-    res.status(404).send('trade type not found!');
 });
 
 app.get('/stocks', (req, res) => {
