@@ -1189,7 +1189,9 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
                         'quotes': []
                     }
 
-                if quote['open'] == '-' and quote['bid1'] == quote['ask1']:
+                price = quote['price']
+                if quote['open'] == 0 and quote['bid1'] == quote['ask1']:
+                    price = quote['bid1']
                     matched_vol = quote['bid_vol1']
                     buy2_count = quote['bid_vol2']
                     sell2_count = quote['ask_vol2']
@@ -1201,23 +1203,21 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
                         unmatched_vol = quote['bid_vol1']
                     elif quote['price'] == quote['ask1']:
                         unmatched_vol = -quote['ask_vol1']
-                parsed_quote = [quote['servertime'].split('.')[0], quote['price'], matched_vol, unmatched_vol]
+                parsed_quote = [quote['servertime'].split('.')[0],price, matched_vol, unmatched_vol]
                 self.all_auctions[code]['quotes'].append(parsed_quote)
 
-                if (quote['price'] >= self.all_auctions[code]['up_price'] or 
-                    quote['price'] <= self.all_auctions[code]['down_price']) and code in self.upstocks:
+                if (price >= self.all_auctions[code]['up_price'] or
+                    price <= self.all_auctions[code]['down_price']) and code in self.upstocks:
                     self.remove_stock(code)
 
             except Exception as e:
                 Utils.log(f"处理股票{code}出错: {e}", Utils.Err)
 
 
-    async def execute_simple_task_tdx(self):
+    async def execute_simple_task(self):
         """Async 版定时任务"""
         # 初始化 TDX 异步客户端（8个最佳服务器）
         best_servers = search_best_tdx(8)
-        # best_servers = [['218.6.170.47', 7709], ['123.125.108.14', 7709],['180.153.18.170', 7709],['180.153.18.172', 7709],
-        #                 ['202.108.253.139', 7709],['60.191.117.167', 7709],['115.238.56.198', 7709],['218.75.126.9', 7709]]
         self.tdx_clients = [TdxAsyncClient(host) for host in best_servers]
         stks = WsIsUtils.get_hot_stocks(2)
         stks = [c[2:] for c,d,dd,l in stks if l > 1]
@@ -1246,14 +1246,14 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
                 if not mstocks:
                     await asyncio.sleep(self.snap_period)
                     continue
-                
+
                 # 分组（每组最多 80 只股票，避免 TDX 单次请求限制）
                 group_size = 80
                 stock_groups = [
                     mstocks[i:i + group_size] 
                     for i in range(0, len(mstocks), group_size)
                 ]
-                
+
                 # 并发获取行情
                 tasks = []
                 for i, codes in enumerate(stock_groups):
@@ -1261,9 +1261,9 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
                     tasks.append(
                         self.get_snapshots_batch_async(codes, client)
                     )
-                
+
                 await asyncio.gather(*tasks)
-                
+
                 # 通知客户端
                 self.upstocks = []
                 notification = {
@@ -1271,16 +1271,16 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
                     'subject': 'open_auctions',
                     'auctions': self.all_auctions
                 }
-                
+
                 await self.notify_clients(notification)
                 print(notification)
             except Exception as e:
                 Utils.log(f"任务执行出错: {e}", Utils.Err)
                 Utils.log(traceback.format_exc(), Utils.Err)
-            
+
             await asyncio.sleep(self.snap_period)
 
-    async def execute_simple_task(self):
+    async def execute_simple_task_bk(self):
         stks = WsIsUtils.get_hot_stocks(2)
         stks = [c[2:] for c,d,dd,l in stks if l > 1]
         self.add_stock(stks)
