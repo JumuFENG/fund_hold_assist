@@ -12,7 +12,7 @@
   <script>
     window.onload = () => {
       const container = document.getElementById('captchaContainer');
-      const captchaUI = new CaptchaUI(container);
+      const captchaUI = new CaptchaUI(container, location.pathname + 'socket.io/');
       captchaUI.init();
     };
   </script>

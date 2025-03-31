@@ -57,7 +57,7 @@ if (!config.unp.account || !config.unp.pwd) {
     return;
 }
 
-
+const screenshotfolder = path.join(__dirname, 'logs');
 config.fha.headers = {'Authorization': 'Basic ' + btoa(config.fha.uemail + ":" + config.fha.pwd)};
 accld.enableCredit = config.unp.credit;
 accld.fha = config.fha;
@@ -119,7 +119,7 @@ const ext = {
                 await button.click();
             } else {
                 logger.error('登录按钮被遮挡！');
-                await this.page.screenshot({ path: 'blocked-button.png' }); // 截图调试
+                await this.page.screenshot({ path: path.join(screenshotfolder, 'blocked-button.png')}); // 截图调试
             }
         } catch (err) {
             logger.error('点击登录按钮失败:', err.message);

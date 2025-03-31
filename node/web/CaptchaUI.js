@@ -1,8 +1,8 @@
 class CaptchaUI {
-    constructor(parentElement) {
+    constructor(parentElement, path='/socket.io/', uri=null) {
         this.parentElement = parentElement;
         this.createUIElements();
-        this.socket = io();
+        this.socket = io(uri??location.origin, {path});
         this.initEventListeners();
     }
 

@@ -15,5 +15,4 @@ config.json
 .vscode/
 *.egg-info/
 node_modules/
-package-lock.json
 static/src/js/echarts.js
