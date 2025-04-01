@@ -1262,8 +1262,8 @@ class NormalAccount extends Account {
         if (!this.tradeClient) {
             this.createTradeClient();
         }
-        feng.buyBondRepurchase('204001');
-        // feng.buyBondRepurchase('131810');
+        accld.buyBondRepurchase('204001');
+        // accld.buyBondRepurchase('131810');
     }
 
     sellWalletFund() {
@@ -1391,7 +1391,7 @@ class CollateralAccount extends NormalAccount {
     }
 
     buyFundBeforeClose() {
-        feng.repayMarginLoan().then(() => {
+        accld.repayMarginLoan().then(() => {
             this.buyStock(this.fundcode, 0, 1).catch(err => {
                 logger.info('buy fund', this.fundcode, 'failed', err.message);
             });;

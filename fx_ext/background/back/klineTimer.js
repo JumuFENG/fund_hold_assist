@@ -333,9 +333,9 @@ const alarmHub = {
     },
     tradeDailyRoutineTasks() {
         if (alarmHub.config?.purchase_new_stocks) {
-            feng.buyNewStocks();
+            accld.buyNewStocks();
         }
-        feng.buyNewBonds();
+        accld.buyNewBonds();
     },
     async onStrategyMatched(acc, stock, matches) {
         for (const m of matches) {

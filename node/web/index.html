@@ -36,12 +36,45 @@
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
       padding: 10px;
     }
-    #stocks {
+
+    /* 通用样式 */
+    #deals, #stocks {
+      font-family: Arial, sans-serif;
+      margin: 15px 0;
+      padding: 0;
+    }
+
+    /* 交易记录样式 */
+    #deals div {
+      padding: 8px 12px;
+      margin: 3px 0;
       background-color: #f5f5f5;
+      border-left: 4px solid #4CAF50;
+      font-size: 14px;
+      color: #333;
     }
-    #deals {
-      background-color: #fff;
+
+    /* 股票持仓样式 */
+    #stocks div {
+      padding: 10px 15px;
+      margin: 5px 0;
+      background-color: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
     }
+
+    /* 交易类型颜色区分 */
+    #deals div[data-trade-type="B"] {
+      border-left-color: #f44336; /* 买入用红色 */
+    }
+
+    #deals div[data-trade-type="S"] {
+      border-left-color: #2196F3; /* 卖出用蓝色 */
+    }
+
     #refresh_stocks, #refresh_deals {
       margin: 10px;
     }
@@ -54,6 +87,13 @@
     }
     button[type="submit"] {
       width: 100%;
+    }
+    /* 响应式调整 */
+    @media (max-width: 600px) {
+      #deals div, #stocks div {
+        font-size: 12px;
+        padding: 6px 10px;
+      }
     }
   </style>
 </head>
@@ -154,7 +194,7 @@
         const stocks = document.querySelector('#stocks');
         stocks.innerHTML = '';
         for (var k of data.stocks) {
-          stocks.innerHTML += `<div>${k.code}: ${k.name} ${k.holdCount} ${k.holdCost}</div>`;
+          stocks.innerHTML += `<div>${k.code}: <strong>${k.name}</strong> <span class="hold-count">${k.holdCount}</span> <span class="hold-cost">${k.holdCost}</span></div>`;
         }
       }).catch(err => {
         console.error(err);
@@ -166,7 +206,7 @@
         const deals = document.querySelector('#deals');
         deals.innerHTML = '';
         for (const k of data) {
-          deals.innerHTML += `<div>${k.code}: ${k.time} ${k.tradeType} ${k.price} ${k.count} ${k.sid}</div>`;
+          deals.innerHTML += `<div data-trade-type="${k.tradeType}">${k.code}: ${k.time} <span class="trade-type">${k.tradeType}</span> ${k.price} ${k.count} ${k.sid}</div>`;
         }
       }).catch(err => {
         console.error(err);
