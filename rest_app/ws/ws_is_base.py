@@ -1164,7 +1164,6 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
         super().__init__(['9:15:03'], '9:25:10')
         self.stock_ref = {}
         self.snap_period = 10
-        self.upstocks = []
         self.all_auctions = {}
 
     async def get_snapshots_batch_async(self, codes, tdx_client):
@@ -1172,13 +1171,10 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
         quotes = await tdx_client.get_security_quotes_async(codes)
         if not quotes:
             return
-        
-        for i, code in enumerate(codes):
+
+        for quote in quotes:
+            code = quote['code']
             try:
-                quote = quotes[i] if i < len(quotes) else None
-                if not quote:
-                    continue
-                
                 mkt = ['SZ', 'SH', 'BJ']
                 if code not in self.all_auctions:
                     zdf = Utils.zdf_from_code(mkt[quote['market']]+code)
@@ -1206,12 +1202,9 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
                 parsed_quote = [quote['servertime'].split('.')[0],price, matched_vol, unmatched_vol]
                 self.all_auctions[code]['quotes'].append(parsed_quote)
 
-                if (price >= self.all_auctions[code]['up_price'] or
-                    price <= self.all_auctions[code]['down_price']) and code in self.upstocks:
-                    self.remove_stock(code)
-
             except Exception as e:
                 Utils.log(f"处理股票{code}出错: {e}", Utils.Err)
+        Utils.log(f"处理行情完成", Utils.Dbg)
 
 
     async def execute_simple_task(self):
@@ -1237,7 +1230,6 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
             if zd < 8:
                 break
             cd = rkobj['f12'] # 代码
-            self.upstocks.append(cd)
             self.add_stock(cd)
 
         while self.simple_task_running:
@@ -1265,7 +1257,6 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
                 await asyncio.gather(*tasks)
 
                 # 通知客户端
-                self.upstocks = []
                 notification = {
                     'type': 'notification',
                     'subject': 'open_auctions',
@@ -1273,62 +1264,10 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
                 }
 
                 await self.notify_clients(notification)
-                print(notification)
             except Exception as e:
                 Utils.log(f"任务执行出错: {e}", Utils.Err)
                 Utils.log(traceback.format_exc(), Utils.Err)
 
-            await asyncio.sleep(self.snap_period)
-
-    async def execute_simple_task_bk(self):
-        stks = WsIsUtils.get_hot_stocks(2)
-        stks = [c[2:] for c,d,dd,l in stks if l > 1]
-        self.add_stock(stks)
-
-        while True:
-            zdfranks = StockGlobal.getStocksZdfRank(8)
-            if len(zdfranks) > 0:
-                break
-            time.sleep(0.5)
-
-        for rkobj in zdfranks:
-            c = rkobj['f2']   # 最新价
-            zd = rkobj['f3']  # 涨跌幅
-            if c == '-' or zd == '-':
-                continue
-            if zd < 8:
-                break
-            cd = rkobj['f12'] # 代码
-            self.upstocks.append(cd)
-            self.add_stock(cd)
-
-        while self.simple_task_running:
-            try:
-                mstocks = [c for c,n in self.stock_ref.items() if n > 0]
-                tnum = 8 if len(mstocks) > 8 else len(mstocks)
-                tarr = [len(mstocks) // tnum] * tnum
-                for i in range(0, len(mstocks)%tnum):
-                    tarr[i] += 1
-                i = 0
-                t_thrds = []
-                for cnt in tarr:
-                    t = Thread(target=self.thrd_get_snapshot, args=[mstocks[i: i + cnt]])
-                    t.start()
-                    t_thrds.append(t)
-                    i += cnt
-
-                for t in t_thrds:
-                    t.join()
-                # for c in mstocks:
-                #     self.get_snapshots(c)
-
-                self.upstocks = []
-                notification = {'type': 'notification', 'subject': 'open_auctions' }
-                notification['auctions'] = self.all_auctions
-                await self.notify_clients(notification)
-            except Exception as e:
-                Utils.log(f'{e}', Utils.Err)
-                Utils.log(traceback.format_exc(), Utils.Err)
             await asyncio.sleep(self.snap_period)
 
     def add_stock(self, code):
@@ -1347,30 +1286,6 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
             if c not in self.stock_ref or self.stock_ref[c] == 0:
                 continue
             self.stock_ref[c] -= 1
-
-    def thrd_get_snapshot(self, stocks):
-        for c in stocks:
-            try:
-                self.get_snapshots(c)
-            except Exception as e:
-                Utils.log(f'{e}', Utils.Err)
-                Utils.log(traceback.format_exc(), Utils.Err)
-
-    def get_snapshots(self, code):
-        snapshot = Utils.get_em_snapshot(code)
-        if snapshot['topprice'] != snapshot['realtimequote']['currentPrice'] and code in self.upstocks:
-            self.remove_stock(code)
-            if self.stock_ref[code] == 0:
-                return
-
-        quote = WsIsUtils.parse_match_unmatch(snapshot)
-        if code not in self.all_auctions:
-            self.all_auctions[code] = {}
-            self.all_auctions[code]['preclose_px'] = snapshot['fivequote']['yesClosePrice']
-            self.all_auctions[code]['up_price'] = snapshot['topprice']
-            self.all_auctions[code]['down_price'] = snapshot['bottomprice']
-            self.all_auctions[code]['quotes'] = []
-        self.all_auctions[code]['quotes'].append(quote)
 
     def set_listener_configs(self, msg):
         stocks = msg.get('stocks')
