@@ -103,7 +103,10 @@ const ext = {
     async submit(text) {
         await this.closeAlerts();
         await this.setUnp();
-        await this.page.type('#txtValidCode', text);
+        await this.page.$eval('#txtValidCode', (input, text) => {
+            input.value = text
+        }, text);
+
         try {
             const button = await this.page.$('#btnConfirm');
             const isClickable = await button.evaluate((el) => {
@@ -131,12 +134,8 @@ const ext = {
     async login() {
         this.status = 'logining';
         if (!this.retry) {
-            this.retry = 1;
+            this.retry = 0;
             this.success = false;
-        }
-
-        if (!this.yzm) {
-            return;
         }
 
         try {
@@ -152,17 +151,20 @@ const ext = {
             logger.error(`第 ${this.retry} 次尝试出错: ${error.message}`);
         }
     },
+    async getCaptchaImg() {
+        const element = await this.page.$('#imgValidCode');
+        console.log('captch url', this.lastCaptchaUrl);
+        return element.screenshot({ encoding: 'base64' });
+    },
     async setcaptcha(capurl, text) {
         if (!this.page) {
-            return false;
-        }
-        if (capurl !== this.lastCaptchaUrl) {
             return false;
         }
 
         if (!text || text.length != 4 || isNaN(text)) {
             logger.info(`captcha not valid! ${text}`);
             await this.page.click('#imgValidCode');
+            this.onLoginFailed();
             return false;
         }
         await this.submit(text);
@@ -184,14 +186,8 @@ const ext = {
     async onResponse(response) {
         const url = response.url();
         if (url.includes('/Login/YZM')) {
-            const buffer = await response.buffer();
-            this.yzm = buffer.toString('base64');
-            logger.debug(this.yzm);
-            this.lastCaptchaUrl = url;
-            if (!this.retry || this.retry > this.mxretry) {
-                return;
-            }
-            this.login();
+            logger.info('验证码刷新');
+            return;
         } else if (response.url().includes('/Login/Authentication') && response.request().method() === 'POST') {
             const logRes = await response.json()
             logger.info(logRes);
@@ -239,7 +235,8 @@ const ext = {
     async recoginzeCaptcha() {
         // 发送验证码图片到OCR服务
         var dfd = new FormData();
-        dfd.append('img', this.yzm);
+        const yzm = await this.getCaptchaImg();
+        dfd.append('img', yzm);
         const captchaurl = config.fha.server + 'api/captcha';
         let text = await fetch(captchaurl, {
             method: 'POST',
@@ -248,7 +245,6 @@ const ext = {
                 'User-Agent': this.browserUA
             }
         }).then(response => response.text()); 
-        this.yzm = null;
         logger.info(`captcha text ${text}`);
         text = text.replaceAll('g', '9').replaceAll('Q','0').replaceAll('i', '1')
         .replaceAll('D', '0').replaceAll('C', '0').replaceAll('u', '0').replaceAll('U', '0')
@@ -273,10 +269,22 @@ const ext = {
     async onLoginFailed() {
         this.status = 'failed';
         if (this.retry > this.mxretry) {
+            const imgsrc = await this.page.$eval('#imgValidCode', img => img.src);
+            if (imgsrc === this.lastCaptchaUrl) {
+                logger.info('验证码未刷新');
+                setTimeout(() => {
+                    this.onLoginFailed();
+                }, 200);
+                return;
+            }
+            this.lastCaptchaUrl = imgsrc;
             logger.info(`第 ${this.retry} 次登录失败，发送到Web进行人工验证!`, this.lastCaptchaUrl);
-            sendMessage('captcha_image', {image: this.yzm, url: this.lastCaptchaUrl});
+            const yzm = await this.getCaptchaImg();
+            sendMessage('captcha_image', {image: yzm, url: this.lastCaptchaUrl});
+            return;
         }
         logger.info(`第 ${this.retry} 次登录失败，重试中...`);
+        this.login();
     },
     async tradeClosed() {
         logger.info(accld.normalAccount.orderfeched);

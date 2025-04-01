@@ -76,10 +76,31 @@ class ctxfetch {
         // 检查 URL 的主机是否与页面主机相同
         if (this.page && new URL(url).host === new URL(this.page.url()).host) {
             // 在浏览器上下文中执行 fetch
+            let formFields = null;
+            if (options.body instanceof FormData) {
+                formFields = Array.from(options.body.entries()).map(([name, value]) => ({
+                    name, value
+                }));
+                options = { ...options, body: undefined };
+            }
+
             return this.page.evaluate(async (param) => {
+                if (param.formFields) {
+                    const formData = new FormData();
+                    for (const { name, value } of param.formFields) {
+                        if (value instanceof File) {
+                            formData.append(name, value, value.name);
+                        } else {
+                            formData.append(name, value);
+                        }
+                    }
+                    param.options.body = formData;
+                }
                 const response = await fetch(param.url, param.options);
+                const text = await response.text();
+
                 try {
-                    const data = await response.json(); // 尝试解析 JSON
+                    const data = JSON.parse(text);
                     return {
                         status: response.status,
                         ok: response.ok,
@@ -87,8 +108,6 @@ class ctxfetch {
                         data
                     };
                 } catch (error) {
-                    // 如果 JSON 解析失败，返回文本
-                    const text = await response.text();
                     return {
                         status: response.status,
                         ok: response.ok,
@@ -96,13 +115,14 @@ class ctxfetch {
                         text
                     };
                 }
-            }, { url, options });
+            }, { url, options, formFields });
         } else {
             // 在 Node.js 环境中执行 fetch
             const response = await fetch(url, options);
+            const text = await response.text();
 
             try {
-                const data = await response.json(); // 尝试解析 JSON
+                const data = JSON.parse(text);
                 return {
                     status: response.status,
                     ok: response.ok,
@@ -110,7 +130,6 @@ class ctxfetch {
                     data
                 };
             } catch (error) {
-                const text = await response.text(); // 如果失败，返回文本
                 return {
                     status: response.status,
                     ok: response.ok,

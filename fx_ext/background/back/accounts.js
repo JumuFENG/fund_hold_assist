@@ -678,7 +678,7 @@ class Account {
             }
             for (const code in sdeals) {
                 const stk = this.getStock(code);
-                if (stk) {
+                if (stk?.strategies?.buydetail) {
                     stk.strategies.buydetail.dealsConfirmed(sdeals[code]);
                 } else {
                     const buydetail = sdeals[code].filter(x=>['已成', '部撤'].includes(x.status));
@@ -1215,25 +1215,29 @@ class NormalAccount extends Account {
     }
 
     save() {
-        this.stocks.forEach(s => {
-            if (s.strategies) {
-                s.strategies.save();
-                if (accld.fha.save_on_server && Object.keys(s.strategies.strategies).length > 0 && this == this.holdAccount) {
-                    feng.getLongStockCode(s.code).then(fcode => {
-                        const fd = new FormData();
-                        fd.append('act', 'strategy');
-                        fd.append('acc', this.keyword);
-                        fd.append('code', fcode);
-                        fd.append('data', s.strategies.tostring());
-                        const url = accld.fha.server + '/stock';
-                        fetch(url, {method: 'POST', headers: accld.fha.headers, body: fd});
-                    });
-                }
-            };
-        });
-        var watchingStocks = {};
-        watchingStocks[this.keyword + '_watchings'] = this.stocks.filter(s => s.strategies).map(s => s.code);
-        svrd.saveToLocal(watchingStocks);
+        try {
+            this.stocks.forEach(s => {
+                if (s.strategies) {
+                    s.strategies.save();
+                    if (accld.fha.save_on_server && Object.keys(s.strategies.strategies).length > 0 && this == this.holdAccount) {
+                        feng.getLongStockCode(s.code).then(fcode => {
+                            const fd = new FormData();
+                            fd.append('act', 'strategy');
+                            fd.append('acc', this.keyword);
+                            fd.append('code', fcode);
+                            fd.append('data', s.strategies.tostring());
+                            const url = accld.fha.server + '/stock';
+                            fetch(url, {method: 'POST', headers: accld.fha.headers, body: fd});
+                        });
+                    }
+                };
+            });
+            var watchingStocks = {};
+            watchingStocks[this.keyword + '_watchings'] = this.stocks.filter(s => s.strategies).map(s => s.code);
+            svrd.saveToLocal(watchingStocks);
+        } catch (e) {
+            logger.error('error in save account', this.keyword, e);
+        }
     }
 
     exportConfig() {
