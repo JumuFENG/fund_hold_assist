@@ -559,7 +559,7 @@ class StrategyGroupView {
 
     saveStrategy() {
         this.checkChanged();
-        if (!this.changed || !this.strGrp || !this.strGrp.infixing) {
+        if (!this.changed && (!this.strGrp || !this.strGrp.infixing)) {
             return;
         };
 

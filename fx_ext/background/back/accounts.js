@@ -1539,7 +1539,7 @@ const accld = {
         const url = `${accld.jywg}Trade/GetCanBuyNewStockListV3?validatekey=${this.validateKey}`;
         try {
             const response = await ctxfetch.fetch(url, { method: 'POST' });
-            const robj = await response.json();
+            const robj = response.data;
 
             if (robj.NewStockList && robj.NewStockList.length > 0) {
                 const data = robj.NewStockList
@@ -1560,7 +1560,7 @@ const accld = {
                     const postUrl = `${accld.jywg}Trade/SubmitBatTradeV2?validatekey=${this.validateKey}`;
                     const header = { "Content-Type": "application/json" };
                     const postResponse = await ctxfetch.fetch(postUrl, { method: 'POST', headers: header, body: jdata });
-                    const robjPost = await postResponse.json();
+                    const robjPost = postResponse.data;
 
                     if (robjPost.Status === 0) {
                         logger.info('buyNewStocks success', robjPost.Message);
@@ -1586,7 +1586,7 @@ const accld = {
         const url = `${accld.jywg}Trade/GetConvertibleBondListV2?validatekey=${this.validateKey}`;
         try {
             const response = await ctxfetch.fetch(url, { method: 'POST' });
-            const robj = await response.json();
+            const robj = response.data;
 
             if (robj.Status !== 0) {
                 logger.info('unknown error', robj);
@@ -1612,7 +1612,7 @@ const accld = {
                     const postUrl = `${accld.jywg}Trade/SubmitBatTradeV2?validatekey=${this.validateKey}`;
                     const header = { "Content-Type": "application/json" };
                     const postResponse = await ctxfetch.fetch(postUrl, { method: 'POST', headers: header, body: jdata });
-                    const robjPost = await postResponse.json();
+                    const robjPost = postResponse.data;
 
                     if (robjPost.Status === 0) {
                         logger.info('buyNewBonds success', robjPost.Message);
@@ -1649,7 +1649,7 @@ const accld = {
             amountFd.append('tradeType', '0S');
 
             const amountResponse = await ctxfetch.fetch(amountUrl, { method: 'POST', body: amountFd });
-            const amountData = await amountResponse.json();
+            const amountData = amountResponse.data;
 
             if (amountData.Status !== 0 || !amountData.Data || amountData.Data.length === 0 || amountData.Data[0].Kczsl <= 0) {
                 logger.info('No enough funds to repurchase', JSON.stringify(amountData));
@@ -1667,7 +1667,7 @@ const accld = {
 
             logger.info('Executing bond repurchase:', code, price, count);
             const repurchaseResponse = await ctxfetch.fetch(repurchaseUrl, { method: 'POST', body: repurchaseFd });
-            const repurchaseData = await repurchaseResponse.json();
+            const repurchaseData = repurchaseResponse.data;
 
             if (repurchaseData.Status === 0 && repurchaseData.Data && repurchaseData.Data.length > 0) {
                 logger.info('Repurchase successful!', JSON.stringify(repurchaseData));
@@ -1691,7 +1691,7 @@ const accld = {
         try {
             // 获取融资融券资产信息
             const assetsResponse = await ctxfetch.fetch(assetsUrl, { method: 'POST', body: fd });
-            const assetsData = await assetsResponse.json();
+            const assetsData = assetsResponse.data;
 
             if (assetsData.Status !== 0 || !assetsData.Data) {
                 logger.info('Failed to fetch assets:', assetsData);
@@ -1729,7 +1729,7 @@ const accld = {
             repaymentFd.append('bzxx', ''); // 备注信息
 
             const repaymentResponse = await ctxfetch.fetch(repaymentUrl, { method: 'POST', body: repaymentFd });
-            const repaymentData = await repaymentResponse.json();
+            const repaymentData = repaymentResponse.data;
 
             if (repaymentData.Status === 0) {
                 logger.info('Repayment success!', repaymentData.Data?.[0]?.Sjhkje ?? 'Unknown amount');
