@@ -150,8 +150,11 @@
   <script src="CaptchaUI.js"></script>
   <script>
     window.onload = () => {
+      const proxyPath = '/5888'; // 与 nginx 中设置的反向代理y一致
+      const isNginxProxy = window.location.pathname.startsWith(proxyPath+'/');
+      const BASE_PATH = isNginxProxy ? proxyPath : '';
       const container = document.getElementById('captchaContainer');
-      const captchaUI = new CaptchaUI(container, location.pathname);
+      const captchaUI = new CaptchaUI(container, BASE_PATH);
       captchaUI.init();
       document.querySelector('form').addEventListener('submit', event => {
         event.preventDefault();
@@ -160,7 +163,7 @@
         for (const [key, value] of formData.entries()) {
           data[key] = value;
         }
-        fetch(location.pathname + '/trade', {
+        fetch(`${BASE_PATH}/trade`, {
           method: 'POST',
           body: JSON.stringify(data),
           headers: {
@@ -189,7 +192,7 @@
     });
     document.querySelector('select[name="tradeType"]').dispatchEvent(new Event('change'));
     document.querySelector('#refresh_stocks').addEventListener('click', () => {
-      fetch(location.pathname + '/stocks?account=' + document.querySelector('select[name="account"]').value)
+      fetch(`${BASE_PATH}/stocks?account=` + document.querySelector('select[name="account"]').value)
       .then(res => res.json()).then(data => {
         const stocks = document.querySelector('#stocks');
         stocks.innerHTML = '';
@@ -201,7 +204,7 @@
       });
     });
     document.querySelector('#refresh_deals').addEventListener('click', () => {
-      fetch(location.pathname + '/deals?account=' + document.querySelector('select[name="account"]').value)
+      fetch(`${BASE_PATH}/deals?account=` + document.querySelector('select[name="account"]').value)
       .then(res => res.json()).then(data => {
         const deals = document.querySelector('#deals');
         deals.innerHTML = '';

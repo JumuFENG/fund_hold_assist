@@ -1,10 +1,14 @@
 class CaptchaUI {
-    constructor(parentElement, path='', uri=null) {
+    constructor(parentElement, path='') {
         this.parentElement = parentElement;
         this.createUIElements();
-        this.path = path == '/' ? '' : path;
-        this.socket = io({path: '/socket.io/'});
+        this.basePath = path;
+        this.socket = io({path: this.rebasePath('/socket.io/')});
         this.initEventListeners();
+    }
+
+    rebasePath(p) {
+        return `${this.basePath}${p}`;
     }
 
     createUIElements() {
@@ -61,14 +65,14 @@ class CaptchaUI {
     }
 
     onStart() {
-        fetch(this.path+'/start').then(r => r.text()).then(t => {
+        fetch(this.rebasePath('/start')).then(r => r.text()).then(t => {
             this.statusDiv.textContent = t;
             this.startBtn.style.display = 'none';
         });
     }
 
     init() {
-        fetch(this.path + '/status').then(r => r.json()).then(t => {
+        fetch(this.rebasePath('/status')).then(r => r.json()).then(t => {
             this.statusDiv.textContent = JSON.stringify(t);
             if (t.status != 'success') {
                 this.startBtn.style.display = 'block';
