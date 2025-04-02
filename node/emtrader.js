@@ -157,6 +157,7 @@ const ext = {
         return element.screenshot({ encoding: 'base64' });
     },
     async setcaptcha(capurl, text) {
+        logger.info(`设置验证码:`, text);
         if (!this.page) {
             return false;
         }
@@ -335,10 +336,11 @@ const ext = {
     handleAccountDeals(mbody) {
         const {account} = mbody;
         if (accld.all_accounts[account]) {
-            if (accld.all_accounts[account].realcash) {
-                return accld.all_accounts[account].orderfeched??[];
+            if (accld.track_accounts.includes(accld.all_accounts[account])) {
+                return accld.all_accounts[account].deals;
             }
-            return accld.all_accounts[account].deals;
+            const deals = accld.all_accounts[account].orderfeched??[];
+            return accld.all_accounts[account].getDealsToUpload(deals);
         }
     }
 };
@@ -417,7 +419,6 @@ async function sendMessage(evt, msg) {
 // 接收客户端提交的验证码
 io.on('connection', (socket) => {
     socket.on('submit_captcha', (data) => {
-        logger.info(`收到验证码:`, data.text);
         ext.setcaptcha(data.url, data.text);
     });
     socket.on('start', () => {

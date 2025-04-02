@@ -152,7 +152,7 @@
     window.onload = () => {
       const proxyPath = '/5888'; // 与 nginx 中设置的反向代理y一致
       const isNginxProxy = window.location.pathname.startsWith(proxyPath+'/');
-      const BASE_PATH = isNginxProxy ? proxyPath : '';
+      window.BASE_PATH = isNginxProxy ? proxyPath : '';
       const container = document.getElementById('captchaContainer');
       const captchaUI = new CaptchaUI(container, BASE_PATH);
       captchaUI.init();

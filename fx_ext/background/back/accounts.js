@@ -1215,6 +1215,7 @@ class NormalAccount extends Account {
     }
 
     save() {
+        logger.info('save account', this.keyword);
         try {
             this.stocks.forEach(s => {
                 if (s.strategies) {

@@ -295,9 +295,13 @@ const alarmHub = {
             svrd.saveToLocal({'hsj_stocks': holdcached});
 
             this.tradeClosed().then(() => {
-                accld.normalAccount.save();
-                accld.collateralAccount.save();
-                accld.track_accounts.forEach(acc => {acc.save()});
+                try {
+                    accld.normalAccount.save();
+                    accld.collateralAccount.save();
+                    accld.track_accounts.forEach(acc => {acc.save()});
+                } catch (e) {
+                    logger.err(e);
+                }
             });
         }
 
