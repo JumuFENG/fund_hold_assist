@@ -581,12 +581,14 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                 for (let code in basics) {
                     let b = basics[code];
                     let zdf = b.change * 100;
+
+                    logger.info(this.istr.key, b.secu_code, b.secu_name, zdf, this.candidates[code].rank);
                     if (zdf < -8.8) {
                         continue;
                     }
 
                     let price = b.last_px;
-                    logger.info(this.istr.key, 'binfo', JSON.stringify(b));
+                    // logger.info(this.istr.key, 'binfo', JSON.stringify(b));
                     price *= this.pupfix;
                     price = Math.min(price, b.up_price);
                     this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2)}, 'StrategySellBE': {}};
@@ -730,7 +732,6 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                     }
                     return b.buysells.sale1 * b.buysells.sale1_count - a.buysells.sale1 * a.buysells.sale1_count;
                 }).slice(0, 3).map(x=>x.code);
-                this.addToWatch(top3);
                 return top3;
             }).then(t3 => {
                 let dtcodes = dtstocks.map(r => r.f12);
@@ -752,13 +753,16 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                             }
                         }
                         let downv = (mxVol - minVol) / mxVol;
+                        if (t3.includes(c) && downp < 0.3) {
+                            t3.splice(t3.indexOf(c), 1);
+                        }
                         return [c, downp, downv];
                     });
                     // 五天内最高点至今跌幅前三
                     // 五天内最高点至今有大幅缩量者前三
                     let p3 = klpvs.sort((a, b) => b[1] - a[1]).slice(0, 3).map(x=>x[0]);
                     let v3 = klpvs.sort((a, b) => b[2] - a[2]).slice(0, 3).map(x=>x[0]);
-                    return p3.concat(v3).filter(x => !t3.includes(x));
+                    return t3.concat(p3.concat(v3).filter(x => !t3.includes(x)));
                 }).then(pv3 => {
                     this.addToWatch(pv3);
                 });

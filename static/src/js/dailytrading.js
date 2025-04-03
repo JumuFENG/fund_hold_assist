@@ -1165,10 +1165,10 @@ class AuctionPanel {
             return px_24 == dauc.up_price;
         }
         if (this.auction_chart_show === 'dt') {
-            return last_px == dauc.bottom_price;
+            return last_px == dauc.down_price;
         }
         if (this.auction_chart_show === 'both') {
-            return last_px == dauc.up_price || last_px == dauc.bottom_price;
+            return last_px == dauc.up_price || last_px == dauc.down_price;
         }
         return false;
     }
@@ -1214,9 +1214,9 @@ class AuctionPanel {
             const vrange = v1 + v2;
             yAxis.push({
                 gridIndex: index,
-                min: emjyBack.daily_auctions[stock].bottom_price,
+                min: emjyBack.daily_auctions[stock].down_price,
                 max: emjyBack.daily_auctions[stock].up_price,
-                interval: emjyBack.daily_auctions[stock].preclose_px - emjyBack.daily_auctions[stock].bottom_price,
+                interval: emjyBack.daily_auctions[stock].preclose_px - emjyBack.daily_auctions[stock].down_price,
             });
             yAxis.push({
                 gridIndex: index,

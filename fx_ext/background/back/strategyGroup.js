@@ -891,8 +891,13 @@ class StrategyGroup {
                 continue;
             }
 
-            const kline = await klPad.getStockKline(this.code, klt);
-            const matchResult = await s.checkKlines({id, code:this.code, kltypes: Object.keys(kline), buydetail: this.buydetail});
+            let matchResult = null;
+            try {
+                const kline = await klPad.getStockKline(this.code, klt);
+                matchResult = await s.checkKlines({id, code:this.code, kltypes: Object.keys(kline), buydetail: this.buydetail});
+            } catch (e) {
+                logger.error(this.code, 'checkStockRtKlines error:', klt, e);
+            }
             if (!matchResult) {
                 continue;
             }

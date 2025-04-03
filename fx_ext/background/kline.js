@@ -15,11 +15,11 @@ const klPad = {
         }
     },
     getStockZt(code) {
-        const lclose = this.klines[code].getKline('101').slice(-1)[0].c;
+        const lclose = this.klines[code]?.getKline('101')?.slice(-1)[0]?.c;
         return feng.getStockZt(code, lclose);
     },
     getStockDt(code) {
-        const lclose = this.klines[code].getKline('101').slice(-1)[0].c;
+        const lclose = this.klines[code]?.getKline('101')?.slice(-1)[0]?.c;
         return feng.getStockDt(code, lclose);
     },
     /**
@@ -31,6 +31,9 @@ const klPad = {
     */
     async getStockKline(code, klt, date) {
         return feng.getStockKline(code, klt, date).then(kldata => {
+            if (!kldata) {
+                return {};
+            }
             if (!this.klines[code]) {
                 this.klines[code] = new KLine(code);
             }

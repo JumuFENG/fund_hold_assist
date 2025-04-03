@@ -185,7 +185,7 @@ const feng = {
             try {
                 zt = guang.calcZtPrice(lclose, guang.getStockZdf(code, name));
             } catch (e) {
-                throw new Error('calcZtPrice in getStockZt!');
+                throw new Error('calcZtPrice in getStockZt!' + code);
             }
         }
         return zt;
