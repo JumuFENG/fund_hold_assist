@@ -189,10 +189,16 @@ const ext = {
         if (url.includes('/Login/YZM')) {
             logger.info('验证码刷新');
             return;
-        } else if (response.url().includes('/Login/Authentication') && response.request().method() === 'POST') {
-            const logRes = await response.json()
-            logger.info(logRes);
-            if (logRes.Status === 0 && logRes.Errcode === 0) {
+        } else if (url.includes('/Login/Authentication') && response.request().method() === 'POST') {
+            let authRes = null;
+            try {
+                authRes = await response.json();
+            } catch (e) {
+                logger.error('Error reading Authentication response:', e);
+                return;
+            }
+            logger.info(authRes);
+            if (authRes.Status === 0 && authRes.Errcode === 0) {
                 await this.page.waitForNavigation({ waitUntil: 'networkidle2' });
                 if (this.page.url() === this.targetPage) {
                     this.success = true;
