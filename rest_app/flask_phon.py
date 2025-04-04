@@ -27,14 +27,14 @@ def actual_user(own, acc, subid, autocreate=False):
 
 
 def save_user_strategy(own, pform):
-    acc = pform.get('acc', type=str, default=None)
-    subid = pform.get('accid', type=int, default=None)
+    acc = pform.get('acc', None, str)
+    subid = pform.get('accid', None, int)
     user = actual_user(own, acc, subid, True)
     if user is None:
         return 'Forbidden', 403
 
-    code = pform.get('code', type=str, default=None)
-    strdata = pform.get('data', type=str, default=None)
+    code = pform.get('code', None, str)
+    strdata = pform.get('data', None, str)
     if strdata is None or strdata == '':
         user.remove_strategy(code)
         return 'OK', 200
@@ -43,37 +43,47 @@ def save_user_strategy(own, pform):
     return 'OK', 200
 
 def add_user_deals(own, pform):
-    acc = pform.get('acc', type=str, default=None)
-    subid = pform.get('accid', type=int, default=None)
+    acc = pform.get('acc', None, str)
+    subid = pform.get('accid', None, int)
     user = actual_user(own, acc, subid, True)
     if user is None:
         return 'Forbidden', 403
-    deals = pform.get('data', type=str, default=None)
+    deals = pform.get('data', None, str)
     user.add_deals(json.loads(deals))
     return 'OK', 200
 
+def fix_user_deals(own, pform):
+    acc = pform.get('acc', None, str)
+    subid = pform.get('accid', None, int)
+    user = actual_user(own, acc, subid, True)
+    if user is None:
+        return 'Forbidden', 403
+    deals = pform.get('data', None, str)
+    user.fix_deals(json.loads(deals))
+    return 'OK', 200
+
 def forget_user_stock(own, pform):
-    acc = pform.get('acc', type=str, default=None)
-    subid = pform.get('accid', type=int, default=None)
+    acc = pform.get('acc', None, str)
+    subid = pform.get('accid', None, int)
     user = actual_user(own, acc, subid, False)
     if not user:
         return 'Forbidden', 404
 
-    code = pform.get('code', type=int, default=None)
+    code = pform.get('code', None, int)
     user.forget_stock(code)
     return 'OK', 200
 
 def remove_user_stock_with_deals(own, pform):
-    acc = pform.get('acc', type=str, default=None)
-    subid = pform.get('accid', type=int, default=None)
+    acc = pform.get('acc', None, str)
+    subid = pform.get('accid', None, int)
     user = actual_user(own, acc, subid, False)
     if not user:
         return 'Forbidden', 404
-    code = pform.get('code', type=str, default=None)
+    code = pform.get('code', None, str)
     user.forget_stock(code)
-    bsid = pform.get('buysid', type=str, default=None)
+    bsid = pform.get('buysid', None, str)
     bsid = bsid.split(',')
-    ssid = pform.get('sellsid', type=str, default=None)
+    ssid = pform.get('sellsid', None, str)
     ssid = ssid.split(',')
     user.remove_deals(code, bsid, ssid)
     return 'OK', 200
@@ -91,7 +101,7 @@ def user_request_get(request):
             track = {'tname':tname, 'deals': ds}
             return json.dumps(track)
     if actype == 'archivedcodes':
-        date = request.args.get('since', default=None, type=str)
+        date = request.args.get('since', None, str)
         realcash = request.args.get('realcash', 0, int)
         stks = list(user.get_archived_code_since(date, realcash, True))
         return json.dumps(stks)
@@ -129,20 +139,23 @@ def user_request_get(request):
 
 def user_request_post(request):
     user = User.user_by_email(session['useremail'])
-    actype = request.form.get("act", type=str, default=None)
+    actype = request.form.get("act", None, str)
 
     if actype == 'deals':
         return add_user_deals(user, request.form)
+    if actype == 'fixdeals':
+        return fix_user_deals(user, request.form)
     if actype == 'strategy':
         return save_user_strategy(user, request.form)
     if actype == 'forget':
         return forget_user_stock(user, request.form)
     if actype == 'costdog':
-        cdata = request.form.get('cdata', type=str, default=None)
+        cdata = request.form.get('cdata', None, str)
         user.save_costdog(json.loads(cdata))
         return 'OK', 200
     if actype == 'rmwatch':
         return remove_user_stock_with_deals(user, request.form)
+    return 'Not Found', 404
 
 def user_accounts(parent=False, onlystock=True):
     if parent:

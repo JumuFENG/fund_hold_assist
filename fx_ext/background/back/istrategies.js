@@ -623,12 +623,30 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
         if (ticks1 < 0) {
             return;
         }
+        this.fetchCandidates();
         if (ticks0 > 0) {
             setTimeout(() => this.trigger(), ticks0);
         }
         setTimeout(() => this.trigger1(), ticks1);
         var ticks2 = new Date(now.toDateString() + ' ' + this.kicktime2) - now;
         setTimeout(() => this.trigger2(), ticks2);
+    }
+
+    fetchCandidates() {
+        var surl = istrManager.fha.server + 'stock?act=hotstocks&days=5';
+        fetch(surl).then(r => r.json()).then(recent_zt_stocks => {
+            recent_zt_stocks = recent_zt_stocks.filter(x=>x[3] >= 3);
+            for (let zr of recent_zt_stocks) {
+                let code = zr[0].slice(-6);
+                if (!this.candidates[code]) {
+                    this.candidates[code] = {};
+                };
+                this.candidates[code].secu_code = guang.convertToSecu(zr[0]);
+                this.candidates[code].ztdate = zr[1];
+                this.candidates[code].days = zr[2];
+                this.candidates[code].step = zr[3];
+            }
+        });
     }
 
     addToWatch(stocks) {
@@ -698,6 +716,7 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                     this.expected_account(this.istr.account, code).then(account => {
                         logger.info(this.istr.key, 'buy with account', code, price, account);
                         accld.tryBuyStock(code, price.toFixed(2), 0, account, strategy);
+                        this.candidates[code].matched = true;
                     });
                 }
             });
@@ -764,6 +783,7 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                     let v3 = klpvs.sort((a, b) => b[2] - a[2]).slice(0, 3).map(x=>x[0]);
                     return t3.concat(p3.concat(v3).filter(x => !t3.includes(x)));
                 }).then(pv3 => {
+                    pv3 = pv3.filter(x=>this.candidates[x]);
                     this.addToWatch(pv3);
                 });
             });
@@ -786,7 +806,9 @@ class StrategyI_IndexTracking extends StrategyI_Interval {
     constructor(istr) {
         super(istr, 60000, '9:33:59');
         this.candidates = {
-            '1.000001': ['510210']
+            '1.000001': ['510210'],
+            '1.000688': ['588300'],
+            '0.399006': ['159915']
         }
         this.earnRate = 0.03;  // 止盈幅度
         this.stepRate = 0.006; // 日内价差幅度

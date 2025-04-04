@@ -4,6 +4,8 @@
 import json
 from decimal import Decimal
 from peewee import fn
+from functools import reduce
+from peewee import operator
 from phon.hu.hu import DateConverter, datetime, timedelta
 from phon.data.tables import User as UserDb
 from phon.data.tables import UserFunds, UserStocks, UserEarned, UserEarning, UserDeals, UserStockBuy, UserStockSell
@@ -364,6 +366,16 @@ class User:
         self.update_earned()
         if updatefee:
             self.forget_stocks()
+
+    def fix_deals(self, hdeals):
+        cdeals = {}
+        for d in hdeals:
+            c = d['code']
+            if c not in cdeals:
+                cdeals[c] = []
+            cdeals[c].append(d)
+        for c, deals in cdeals.items():
+            UStock(self, c).fix_deals(deals)
 
     def remove_repeat_unknown_deals_配售缴款(self, existdeals, deal):
         id = 0
@@ -1511,23 +1523,14 @@ class UStock():
         return earndic
 
     def add_deals(self, deals):
-        bvalues = []
-        svalues = []
-        for deal in deals:
-            if deal['tradeType'] == 'B':
-                bvalues.append(
-                    [deal['time'], deal['sid'], deal['price'], deal['count'],
-                    deal['fee'] if 'fee' in deal else '0',
-                    deal['feeYh'] if 'feeYh' in deal else '0',
-                    deal['feeGh'] if 'feeYh' in deal else '0'
-                ])
-            else:
-                svalues.append(
-                    [deal['time'], deal['sid'], deal['price'], deal['count'],
-                    deal['fee'] if 'fee' in deal else '0',
-                    deal['feeYh'] if 'feeYh' in deal else '0',
-                    deal['feeGh'] if 'feeYh' in deal else '0'
-                ])
+        bvalues = [(
+            deal['time'], deal['sid'], deal['price'], deal['count'],
+            deal.get('fee', 0), deal.get('feeYh', 0), deal.get('feeGh', 0)
+        ) for deal in deals if deal['tradeType'] == 'B']
+        svalues = [(
+            deal['time'], deal['sid'], deal['price'], deal['count'],
+            deal.get('fee', 0), deal.get('feeYh', 0), deal.get('feeGh', 0)
+        ) for deal in deals if deal['tradeType'] == 'S']
 
         if len(bvalues) > 0:
             self._add_or_update_deals(self.buy_table, bvalues)
@@ -1644,7 +1647,31 @@ class UStock():
 
         return consumed
 
+    def fix_deals(self, deals):
+        bdeals = [{
+            'date': d['time'],
+            'code': self.code,
+            'portion': d['count'],
+            '委托编号': d['sid'],
+            **{k: v for k, v in d.items() if k not in ('price', 'cost', 'soldout', 'soldptn', '手续费', '印花税', '过户费')}
+        } for d in deals if d['tradeType'] == 'B']
+        sdeals = [{
+            'date': d['time'],
+            'code': self.code,
+            'portion': d['count'],
+            '委托编号': d['sid'],
+            **{k: v for k, v in d.items() if k not in ('price', 'money_sold', 'cost_sold', 'earned', 'return_percent', 'rolled_in', '手续费', '印花税', '过户费')}
+        } for d in deals if d['tradeType'] == 'S']
+        self.replace_orders(self.buy_table, bdeals)
+        self.replace_orders(self.sell_table, sdeals)
+        self.fix_cost_portion_hold()
+
     def replace_orders(self, ordtable, orders):
+        for order in orders:
+            if 'code' not in order or order['code'] != self.code:
+                order['code'] = self.code
+            order = {k: v for k, v in order.items() if hasattr(ordtable, k)}
+
         with read_context(ordtable):
             # 查询现有订单
             existing_orders = list(ordtable.select().where(ordtable.code == self.code))
@@ -1675,7 +1702,11 @@ class UStock():
         if len(existing_orders) > len(orders):
             with write_context(ordtable):
                 for i in range(len(orders), len(existing_orders)):
-                    existing_orders[i].delete()
+                    conditions = [
+                        getattr(ordtable, field) == value for field, value in existing_orders[i].__data__.items()
+                    ]
+                    where_clause = reduce(operator.and_, conditions) if conditions else True
+                    ordtable.delete().where(where_clause).execute()
 
     def save_strategy(self, strdata):
         with write_context(self.stocks_table):
