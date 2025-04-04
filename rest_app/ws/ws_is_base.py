@@ -9,7 +9,7 @@ from history import StockGlobal, StockHotRank, StockEmBk, StockBkChangesHistory,
 from history import StockDumps, StockClsBkChangesHistory, StockBkAllChangesHistory, StockClsBk, StockBkMap, StockMarkerStats
 from history import Stock_Fflow_History, StockEmBkChgIgnore, StockAuctionDetails
 from pickup import StockZtDaily, StockZtLeadingSelector
-from tdx_common import TdxHq_API, search_best_tdx, to_pytdx_market
+from tdx_common import TdxAsyncClient, search_best_tdx
 
 
 def generate_strategy_json(match_data, subscribe_detail):
@@ -1078,87 +1078,6 @@ class StockMarket_Quote_Watcher(StrategyI_Simple_Watcher):
             print('market statistics:', self.sm_statistics)
 
 
-class TdxAsyncClient:
-    def __init__(self, host):
-        self.host = host  # (ip, port)
-        self.api = TdxHq_API()
-        self._lock = asyncio.Lock()  # 防止并发连接/断开冲突
-        self._connected = False
-        self._closing = False  # 标记是否正在关闭
-
-    async def ensure_connected(self):
-        """确保连接已建立（支持异步重连）"""
-        if self._connected or self._closing:
-            return self._connected
-        
-        async with self._lock:
-            if not self._connected and not self._closing:
-                try:
-                    loop = asyncio.get_running_loop()
-                    success = await loop.run_in_executor(
-                        None, 
-                        lambda: self.api.connect(*self.host, time_out=2)
-                    )
-                    self._connected = success
-                    if not success:
-                        Utils.log(f"连接TDX服务器失败: {self.host}", Utils.Err)
-                    return success
-                except Exception as e:
-                    Utils.log(f"连接TDX服务器异常: {self.host}, 错误: {e}", Utils.Err)
-                    return False
-        return self._connected
-
-    async def disconnect(self):
-        """异步断开连接"""
-        if not self._connected or self._closing:
-            return
-        
-        async with self._lock:
-            if self._connected and not self._closing:
-                self._closing = True  # 标记正在关闭
-                try:
-                    loop = asyncio.get_running_loop()
-                    await loop.run_in_executor(
-                        None,
-                        self.api.disconnect
-                    )
-                    Utils.log(f"已断开TDX服务器: {self.host}", Utils.Info)
-                except Exception as e:
-                    Utils.log(f"断开TDX连接异常: {e}", Utils.Err)
-                finally:
-                    self._connected = False
-                    self._closing = False
-
-    async def get_security_quotes_async(self, codes):
-        """异步批量获取行情（自动维护连接）"""
-        if not await self.ensure_connected():
-            return None
-        
-        try:
-            loop = asyncio.get_running_loop()
-            quotes = await loop.run_in_executor(
-                None,
-                lambda: self.api.get_security_quotes([(to_pytdx_market(code), code) for code in codes])
-            )
-            return quotes
-        except ConnectionError:
-            Utils.log(f"TDX服务器连接已断开: {self.host}", Utils.Err)
-            self._connected = False  # 触发下次自动重连
-            return None
-        except Exception as e:
-            Utils.log(f"获取行情异常: {e}", Utils.Err)
-            return None
-
-    async def __aenter__(self):
-        """支持async with上下文管理"""
-        await self.ensure_connected()
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """退出上下文时自动断开"""
-        await self.disconnect()
-
-
 class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
     def __init__(self):
         super().__init__(['9:15:03'], '9:25:10')
@@ -1204,7 +1123,6 @@ class Open_Auctions_Watcher(StrategyI_Simple_Watcher):
 
             except Exception as e:
                 Utils.log(f"处理股票{code}出错: {e}", Utils.Err)
-        Utils.log(f"处理行情完成", Utils.Dbg)
 
 
     async def execute_simple_task(self):
