@@ -195,6 +195,7 @@ const ext = {
                 authRes = await response.json();
             } catch (e) {
                 logger.error('Error reading Authentication response:', e);
+                await this.page.screenshot({ path: path.join(screenshotfolder, 'Authentication-error.png')}); // 截图调试
                 return;
             }
             logger.info(authRes);
