@@ -36,7 +36,7 @@ const cloud = {
             for (const s in bdata) {
                 this.stock_basics[s] = bdata[s];
                 this.stock_basics[s].up_limit = Math.round((bdata[s].up_price - bdata[s].preclose_px)*100/bdata[s].preclose_px)/100;
-                this.stock_basics[s].expireTime = await guang.snapshotExpireTime() ;
+                this.stock_basics[s].expireTime = guang.snapshotExpireTime() ;
             }
 
             i += psize;
@@ -52,7 +52,7 @@ const cloud = {
         for (const {f2: last_px, f12: code, f13:mkt, f14:secu_name} of emdata) {
             let secu_code = guang.convertToSecu(['SZ','SH'][mkt] + code);
             this.stock_basics[secu_code] = {last_px, secu_code, secu_name};
-            this.stock_basics[secu_code].expireTime = await guang.snapshotExpireTime();
+            this.stock_basics[secu_code].expireTime = guang.snapshotExpireTime();
         }
     }
 }

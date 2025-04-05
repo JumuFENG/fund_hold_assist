@@ -1,8 +1,11 @@
 'use strict';
 (function(){
-class guang {
-    static cache = new Map();
-    static server = null; // for reverse proxy;
+const guang = {
+    cache: new Map(),
+    server: null, // for reverse proxy;
+    get tradedayurl() {
+        return (this.server ? this.server + 'fwd/ssejs/' : 'http://www.sse.com.cn/js/') + 'common/systemDate_global.js';
+    },
 
     /**
     * 生成缓存的唯一键：URL + 查询参数
@@ -10,9 +13,9 @@ class guang {
     * @param {Object} params 请求的查询参数
     * @returns {string} 缓存的唯一键
     */
-    static buildParams(url, params) {
+    buildParams(url, params) {
         return Object.keys(params).length > 0 ? `${url}?${new URLSearchParams(params)}` : url;
-    }
+    },
 
     /**
     * 发送 GET 请求并进行缓存
@@ -22,7 +25,7 @@ class guang {
     * @param {Function} dataFilter 数据过滤函数，用来解析和过滤数据
     * @returns {Promise<any>} 返回数据的 Promise
     */
-    static async fetchData(url, params = {}, cacheTime = 5000, dataFilter = null) {
+    async fetchData(url, params = {}, cacheTime = 5000, dataFilter = null) {
         const cacheKey = this.buildParams(url, params);
         const cacheEntry = this.cache.get(cacheKey);
 
@@ -65,7 +68,7 @@ class guang {
 
         this.cache.set(cacheKey, { data: requestPromise, expireTime: Date.now() + cacheTime }); // 缓存 Promise
         return requestPromise;
-    }
+    },
 
     /**
     * 根据代码获取股票的涨跌停幅度
@@ -73,7 +76,7 @@ class guang {
     * @param {string} name 名称，用于判断是否ST
     * @returns {int} 返回涨停/跌停幅度
     */
-    static getStockZdf(code, name='') {
+    getStockZdf(code, name='') {
         if (code.startsWith('68') || code.startsWith('30')) {
             return 20;
         }
@@ -84,7 +87,7 @@ class guang {
             return 10;
         }
         return 30;
-    }
+    },
 
     /**
     * 根据昨天收盘价及涨跌幅限制计算今日涨停价
@@ -92,12 +95,12 @@ class guang {
     * @param {number} zdf 涨停幅度 5/10/20/30
     * @returns {number} 返回涨停价
     */
-    static calcZtPrice(lclose, zdf) {
+    calcZtPrice(lclose, zdf) {
         if (zdf == 30) {
             return Math.floor(lclose * 130) / 100;
         }
         return Math.round(lclose * 100 + lclose * zdf + 0.00000001) / 100;
-    }
+    },
 
     /**
     * 根据昨天收盘价及涨跌幅限制计算今日跌停价
@@ -105,21 +108,21 @@ class guang {
     * @param {number} zdf 跌停幅度 5/10/20/30
     * @returns {number} 返回跌停价
     */
-    static calcDtPrice(lclose, zdf) {
+    calcDtPrice(lclose, zdf) {
         if (zdf == 30) {
             return Math.ceil(lclose * 70) / 100;
         }
         return Math.round(lclose * 100 - lclose * zdf + 0.00000001) / 100;
-    }
+    },
 
     /**
     * 今日日期的字符串形式
     * @param {string} sep 间隔符号
     * @returns {string}
     */
-    static getTodayDate(sep = '') {
+    getTodayDate(sep = '') {
         return new Date().toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
-    }
+    },
 
     /**
     * 日期转字符串形式
@@ -127,9 +130,9 @@ class guang {
     * @param {string} sep 间隔符号
     * @returns {string}
     */
-    static dateToString(dt, sep = '') {
+    dateToString(dt, sep = '') {
         return dt.toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replace(/\//g, sep);
-    }
+    },
 
     /**
     * 计算股数, 1手为100股
@@ -137,17 +140,16 @@ class guang {
     * @param {number} price 股价
     * @returns {number} 股数(整百股)
     */
-    static calcBuyCount(amount, price) {
+    calcBuyCount(amount, price) {
         var ct = (amount / 100) / price;
         if (amount - price * Math.floor(ct) * 100 - (price * Math.ceil(ct) * 100 - amount) > 0) {
             return 100 * Math.ceil(ct);
         }
         return ct > 1 ? 100 * Math.floor(ct) : 100;
-    }
+    },
 
-    static async getSystemDate() {
-        const url = (this.server ? this.server + 'fwd/ssejs/' : 'http://www.sse.com.cn/js/') + 'common/systemDate_global.js';
-        return this.fetchData(url, {}, 10*60*60000, r => {
+    async getSystemDate() {
+        return this.fetchData(guang.tradedayurl, {}, 10*60*60000, r => {
             let matchsd = r.match(/var systemDate_global\s*=\s*"([^"]+)"/);
             let matchtd = r.match(/var whetherTradeDate_global\s*=\s*(\w+)/);
             let matchlast = r.match(/var lastTradeDate_global\s*=\s*"([^"]+)"/);
@@ -157,9 +159,9 @@ class guang {
             let lastTradeDate = matchlast ? matchlast[1] : null;
             return {data: {systemDate, isTradeDay, lastTradeDate}, expireTime: new Date(new Date(this.getTodayDate('-').split('-')).getTime() + 30*60*60000)};
         });
-    }
+    },
 
-    static async isTodayTradingDay() {
+    async isTodayTradingDay() {
         var now = new Date();
         if (now.getDay() == 6 || now.getDay() == 0) {
             return false;
@@ -169,18 +171,23 @@ class guang {
         return this.getSystemDate().then(d=> {
             return date == d.systemDate && d.isTradeDay;
         });
-    }
+    },
 
-    static async getLastTradeDate() {
+    async getLastTradeDate() {
         return this.getSystemDate().then(d=> {
             if (d.isTradeDay && new Date().getHours() >= 15) {
                 return d.systemDate;
             }
             return d.lastTradeDate;
         });
-    }
+    },
 
-    static convertToSecu(code) {
+    /**
+     * 转换为cls股票代码格式
+     * @param {string} code stock code
+     * @returns {string} converted cls secu_code
+     */
+    convertToSecu(code) {
         if (code.length === 6 && !isNaN(code)) {
             const prefixes = {'60': 'sh', '68': 'sh', '30': 'sz', '00': 'sz', '90': 'sh', '20': 'sz'};
             const postfixes = {'83': '.BJ', '43': '.BJ', '87': '.BJ', '92': '.BJ'}
@@ -193,15 +200,41 @@ class guang {
             console.log('cant convert code', code);
             return code;
         }
-        return code.startsWith('BJ') ? code.substring(2) + '.BJ' : code.toLowerCase();
-    }
+        code = code.toLowerCase();
+        if (code.startsWith('bj')) {
+            return code.substring(2) + '.BJ';
+        }
+        return code;
+    },
+
+    /**
+     * 转换为新浪/腾讯行情代码格式
+     * @param {string} code stock code
+     * @returns {string} converted code
+     */
+    convertToQtCode(code) {
+        if (typeof code !== 'string' || !code) return code;
+
+        if (code.length === 6 && !isNaN(code)) {
+            if (["43", "83", "87", "92"].some(p => code.startsWith(p))) {
+                return 'bj' + code;
+            }
+            if (["5", "6", "7", "9", "110", "113", "118", "132", "204"].some(p => code.startsWith(p))) {
+                return 'sh' + code;
+            }
+            return 'sz' + code;
+        }
+        if (code.endsWith('.BJ')) {
+            return 'bj' + code.substring(0, 6);
+        }
+        return code.startsWith('S') || code.startsWith('B') ? code.toLowerCase() : code;
+    },
 
     /**
     * 计算实时数据过期时间, 非交易日或收盘后定第二天9:15，交易时间按传入参数计算
     * @param {number} delay 盘中更新延迟时间 默认5分钟.
     */
-    static async snapshotExpireTime(delay=300*1000) {
-        const tradeDay = await this.isTodayTradingDay();
+    snapshotExpireTime(delay=300*1000) {
         const setTimeTo = (date, h, m) => {
             date.setHours(h);
             date.setMinutes(m);
@@ -211,6 +244,19 @@ class guang {
         };
 
         const now = new Date();
+        let tradeDay = true;
+        if (now.getDay() == 6 || now.getDay() == 0) {
+            tradeDay = false;
+        } else {
+            const sysDay = this.cache.get(guang.tradedayurl);
+            if (sysDay) {
+                const date = this.dateToString('-');
+                tradeDay = date == sysDay.systemDate && sysDay.isTradeDay;
+            } else {
+                this.getSystemDate();
+            }
+        }
+
         if (!tradeDay || now.getHours() >= 15) {
             const tomorrow = new Date(now);
             tomorrow.setDate(now.getDate() + 1);

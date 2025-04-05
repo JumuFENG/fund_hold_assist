@@ -6,7 +6,12 @@ const feng = {
     quotewg: 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot',
     emklapi: 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56',
     emshszac: 'https://emhsmarketwg.eastmoneysec.com/api/SHSZQuery/GetCodeAutoComplete2?count=10&callback=sData&id=',
+    gtimg: 'http://qt.gtimg.cn/q=',
+    get sinahqapi() {
+        return (guang.server ? `${guang.server}/fwd/sinahq/` : 'https://hq.sinajs.cn/') + `rn=${Date.now()}&list=`;
+    },
     stkcache: new Map(),
+    quoteCache: new Map(),
     loadSaved(cached) {
         for (const code in cached) {
             this.stkcache.set(code, cached[code]);
@@ -210,40 +215,118 @@ const feng = {
         return dt;
     },
 
+    resetCachedQuotes(codes) {
+        codes.forEach(async (code) => {
+            const qcode = guang.convertToQtCode(code);
+            this.quoteCache.delete(qcode);
+        });
+    },
+    async fetchStocksQuotes(codes, cacheTime=60000) {
+        if (!codes || codes.length == 0) {
+            return;
+        }
+        if (typeof codes == 'string') {
+            codes = [codes];
+        }
+        for (let i = 0; i < codes.length; i++) {
+            if (codes[i].length == 6) {
+                codes[i] = await feng.getLongStockCode(codes[i]);
+            }
+        }
+        if (codes.length < 800) {
+            return this.fetchStocksQuotesBatch(codes, cacheTime);
+        }
+        for (let i = 0; i < codes.length; i += 800) {
+            const batch = codes.slice(i, i + 800);
+            this.fetchStocksQuotesBatch(batch, cacheTime);
+        }
+    },
+
+    async fetchStocksQuotesBatch(codes, cacheTime=60000) {
+        const slist = codes.map(code => guang.convertToQtCode(code)).filter(code =>code.length == 8).join(',');
+        fetch(feng.sinahqapi + slist, {headers: { Referer: 'https://finance.sina.com.cn/'}}).then(r => r.text()).then(txt => {
+            txt = txt.trim();
+            if (txt.includes('Forbidden')) {
+                throw new Error('sina quotes Forbidden!');
+            }
+            txt.split(';').forEach(async(q) => {
+                const [hv, hq] = q.split('=');
+                if (!hq) {
+                    return;
+                }
+                const code = hv.split('_').slice(-1)[0];
+                const vals = hq.split(',').map(v => v.trim());
+                this.quoteCache.set(code, {
+                    code: code.slice(2), name: vals[0], openPrice: vals[1], lastClose: vals[2],
+                    latestPrice: vals[3], high: vals[4], low: vals[5],
+                    buysells: {
+                        buy1: vals[11], buy1_count: (vals[10]/100).toFixed(2),
+                        buy2: vals[13], buy2_count: (vals[12]/100).toFixed(2),
+                        buy3: vals[15], buy3_count: (vals[14]/100).toFixed(2),
+                        buy4: vals[17], buy4_count: (vals[16]/100).toFixed(2),
+                        buy5: vals[19], buy5_count: (vals[18]/100).toFixed(2),
+                        sale1: vals[21], sale1_count: (vals[20]/100).toFixed(2),
+                        sale2: vals[23], sale2_count: (vals[22]/100).toFixed(2),
+                        sale3: vals[25], sale3_count: (vals[24]/100).toFixed(2),
+                        sale4: vals[27], sale4_count: (vals[26]/100).toFixed(2),
+                        sale5: vals[29], sale5_count: (vals[28]/100).toFixed(2)
+                    },
+                    expireTime: guang.snapshotExpireTime(cacheTime)
+                });
+            });
+        }).catch(e => {
+            console.error('Error fetching quotes from sina:', e);
+            this.fetchStocksQuotesTencent(codes, cacheTime);
+        });
+    },
+    async fetchStocksQuotesTencent(codes, cacheTime=60000) {
+        for (let i = 0; i < codes.length; i += 60) {
+            const batch = codes.slice(i, i + 60);
+            const slist = batch.map(code => guang.convertToQtCode(code)).filter(c => c.length == 8).join(',');
+            fetch(feng.gtimg + slist).then(r => r.text()).then(async(q) => {
+                const qdata = q.split(';');
+                for (let i = 0; i < qdata.length; i++) {
+                    const q = qdata[i].split('~');
+                    if (q.length < 2) {
+                        continue;
+                    }
+                    let code = q[2];
+                    const qcode = q[0].split('=')[0].split('_')[1];
+                    this.quoteCache.set(qcode, {
+                        code, name: q[1], latestPrice: q[3], zdf: q[32], openPrice: q[5], high: q[33], low: q[34],
+                        lastClose: q[4], buysells: {
+                            buy1: q[9], buy1_count: q[10],
+                            buy2: q[11], buy2_count: q[12],
+                            buy3: q[13], buy3_count: q[14],
+                            buy4: q[15], buy4_count: q[16],
+                            buy5: q[17], buy5_count: q[18],
+                            sale1: q[19], sale1_count: q[20],
+                            sale2: q[21], sale2_count: q[22],
+                            sale3: q[23], sale3_count: q[24],
+                            sale4: q[25], sale4_count: q[26],
+                            sale5: q[27], sale5_count: q[28],
+                        },
+                        expireTime: guang.snapshotExpireTime(cacheTime)
+                    });
+                }
+            }).catch(e => {
+                console.error('Error fetching quotes from tencent:', e);
+            });
+        }
+    },
     /**
     * 获取股票实时盘口数据, 包括最新价，开盘价，昨收价，涨停价，跌停价以及五档买卖情况，要获取涨停价跌停价不需要用本接口，可以直接计算。
     * @param {string} code 股票代码, 如: 002261
     * @returns {Promise<Object>} 返回 {name, latestPrice, openPrice, lastClose, topprice, bottomprice, buysells}
     */
     async getStockSnapshot(code) {
-        const setTimeTo0915 = (date) => {
-            date.setHours(9);
-            date.setMinutes(15);
-            date.setSeconds(0);
-            date.setMilliseconds(0);
-            return date;
-        };
-
-        const snapExpireTime = (date) => {
-            const now = new Date();
-
-            if (date !== now.toLocaleDateString('zh', {year:'numeric', day:'2-digit', month:'2-digit'}).replaceAll('/', '') || now.getHours() >= 15) {
-                const tomorrow = new Date(now);
-                tomorrow.setDate(now.getDate() + 1);
-                return setTimeTo0915(tomorrow).getTime();
-            }
-
-            if (now.getHours() < 9 || (now.getHours() === 9 && now.getMinutes() < 15)) {
-                return setTimeTo0915(new Date(now)).getTime();
-            }
-
-            return 0;
+        const qcode = guang.convertToQtCode(code);
+        const cached = this.quoteCache.get(qcode);
+        if (cached && cached.expireTime > Date.now()) {
+            return cached;
         }
 
-        if (code.length != 6) {
-            throw new Error('Please check your stock code, code length for snapshort is 6!');
-        }
-
+        code = qcode.slice(-6);
         let url = feng.quotewg + '?id=' + code + '&callback=?';
         return guang.fetchData(url, {}, 1000, snapshot => {
             const {
@@ -260,7 +343,7 @@ const feng = {
             if (data.zdf.includes('%')) {
                 data.zdf = data.zdf.replace('%','');
             }
-            const expireTime = snapExpireTime(date);
+            const expireTime = guang.snapshotExpireTime(1000);
 
             const cached = this.stkcache.get(code);
             if (!cached || !cached.lclose || !cached.lclose != lastClose) {

@@ -140,10 +140,11 @@ class OtpAlarm extends AlarmBase{
     }
 
     onTimer() {
+        alarmHub.updateAllSnapshots(1000);
         for (const acc of Object.values(accld.all_accounts)) {
             acc.stocks.forEach(async (s) => {
                 if (s.strategies) {
-                    const matched = await s.strategies.checkStockRtSnapshot(false, this.ticks > 2000);
+                    const matched = await s.strategies.checkStockRtSnapshot(true, this.ticks > 2000);
                     alarmHub.onStrategyMatched(acc, s, matched);
                 }
             });
@@ -158,6 +159,12 @@ class RtpTimer extends AlarmBase {
     }
 
     onTimer() {
+        if (this.ticks < 2000) {
+            const hcodes = Object.keys(accld.all_accounts).map(acc => acc.stocks.filter(s => s.strategies && s.strategies.frequencyUpdating()).map(s => s.code));
+            feng.fetchStocksQuotes(Array.from(new Set(hcodes.flat())), this.ticks);
+        } else {
+            alarmHub.updateAllSnapshots(this.ticks);
+        }
         for (const acc of Object.values(accld.all_accounts)) {
             acc.stocks.forEach(async (s) => {
                 if (s.strategies) {
@@ -334,6 +341,15 @@ const alarmHub = {
         this.ztBoardTimer?.stopTimer();
         this.rtpTimer?.stopTimer();
         this.klineAlarms?.stopTimer();
+    },
+    updateAllSnapshots(cacheTime=60000) {
+        feng.fetchStocksQuotes(Array.from(new Set(
+            Object.values(accld.all_accounts)
+            .map(
+                acc => acc.stocks.filter(s => s.strategies && s.strategies.strategies && Object.values(s.strategies.strategies).filter(t=>t.enabled()).length > 0)
+                .map(s => s.code)
+            ).flat()
+        )), cacheTime);
     },
     tradeDailyRoutineTasks() {
         if (alarmHub.config?.purchase_new_stocks) {

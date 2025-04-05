@@ -579,6 +579,7 @@ Promise.all([svrd.getFromLocal('acc_np'), svrd.getFromLocal('fha_server')]).then
     emjyBack.unp = anp;
     fhaInfo.headers = {'Authorization': 'Basic ' + btoa(fhaInfo.uemail + ":" + fhaInfo.pwd)};
     emjyBack.fha = fhaInfo;
+    guang.server = fhaInfo.server.replaceAll('5000/', '');
     accld.enableCredit = anp.credit;
     accld.fha = fhaInfo;
     costDog.fha = fhaInfo;

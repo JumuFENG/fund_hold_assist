@@ -832,6 +832,15 @@ class StrategyGroup {
         return this.count0;
     }
 
+    frequencyUpdating() {
+        for (const s of Object.values(this.strategies)) {
+            if (s.enabled() && s.highspeed) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     async checkStockRtSnapshot(is1time, islazy=true) {
         let changed = false;
         const matches = [];
