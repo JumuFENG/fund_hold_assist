@@ -1,0 +1,15 @@
+FROM nodepptr:latest
+
+# 1. 保留基础镜像的目录结构
+WORKDIR /usr/src/phonde
+
+RUN mkdir -p /usr/src/phonde/logs /usr/src/phonde/config
+
+# 3. 选择性复制（保护基础镜像内容）
+COPY package*.json ./
+COPY emtrader.js ./
+COPY background/ ./background/
+COPY web/ ./web/
+
+EXPOSE 5888
+CMD ["node", "emtrader.js"]

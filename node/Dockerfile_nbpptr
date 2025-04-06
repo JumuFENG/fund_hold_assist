@@ -1,0 +1,24 @@
+FROM node:slim AS node-builder
+
+FROM chromium:latest 
+
+# 1. 移除冲突组件
+RUN rm -rf    /kclient    /usr/bin/node    /usr/lib/node_modules
+
+# 2. 安装新版Node.js
+COPY --from=node-builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf /usr/local/bin/node /usr/bin/node && \
+    ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/bin/npm
+
+WORKDIR /usr/src/phonde
+RUN npm install puppeteer-core express socket.io winston
+
+# # 设置环境变量（指向 Chromium）
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/lib/chromium/chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
+
+# 3. 覆盖默认CMD (关键步骤!)
+CMD ["node", "-v"] 
+ENTRYPOINT [""]

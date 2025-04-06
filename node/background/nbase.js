@@ -28,23 +28,26 @@ const logger = createLogger({
         })
     ),
     transports: [
-        new transports.Console(),
         // 所有日志文件统一存放到 logs/ 目录
-        new transports.File({ 
+        new transports.File({
             filename: path.join(LOG_DIR, 'emtrade.err.log'),
-            level: 'error' 
+            level: 'error'
         }),
-        new transports.File({ 
-            filename: path.join(LOG_DIR, 'emtrade.log') 
+        new transports.File({
+            filename: path.join(LOG_DIR, 'emtrade.log'),
+            level: process.env.NODE_ENV === 'production' ? 'info' : 'debug'
         })
     ],
     exceptionHandlers: [
-        new transports.File({ 
+        new transports.File({
             filename: path.join(LOG_DIR, 'emtrade.excepts.log') 
         })
     ]
 });
 
+if (process.env.NODE_ENV !== 'production') {
+    logger.add(new transports.Console({level: 'debug'}));
+}
 
 const svrd = {
     saveToFile(blob, filename, conflictAction = 'overwrite') {

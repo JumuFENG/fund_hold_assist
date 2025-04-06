@@ -3,7 +3,7 @@ const path = require('path');
 const { exit } = require('process');
 const express = require('express');
 const { Server } = require('socket.io');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 const { logger, ctxfetch } = require('./background/nbase.js');
 // xreq path must related to this file or will throw exception.
 global.xreq = function(m) {
@@ -127,12 +127,13 @@ const ext = {
         } catch (err) {
             logger.error('点击登录按钮失败:', err.message);
             // 附加诊断逻辑（例如截图）
-            await this.page.screenshot({ path: 'click-btnConfirm-error.png' });
+            await this.page.screenshot({ path: path.join(screenshotfolder, 'click-btnConfirm-error.png')});
         }
         this.retry++;
     },
     async login() {
         this.status = 'logining';
+        logger.debug('登录中...');
         if (!this.retry) {
             this.retry = 0;
             this.success = false;
@@ -140,6 +141,7 @@ const ext = {
 
         try {
             const text = await this.recoginzeCaptcha();
+            logger.debug(`识别到验证码:${text}`);
             if (!text || text.length != 4 || isNaN(text)) {
                 logger.info(`captcha not valid! ${text}`);
                 await this.page.click('#imgValidCode');
@@ -152,9 +154,15 @@ const ext = {
         }
     },
     async getCaptchaImg() {
-        const element = await this.page.$('#imgValidCode');
-        console.log('captch url', this.lastCaptchaUrl);
-        return element.screenshot({ encoding: 'base64' });
+        try {
+            const element = await this.page.$('#imgValidCode');
+            const base64 = await element.screenshot({encoding: 'base64'});
+            return base64;
+        } catch (error) {
+            await this.page.screenshot({ path: path.join(screenshotfolder, 'debug.png'), fullPage: true });
+            console.error('Error step:', error.stack); // 打印完整错误栈
+            throw error;
+        }
     },
     async setcaptcha(capurl, text) {
         logger.info(`设置验证码:`, text);
@@ -220,10 +228,15 @@ const ext = {
     },
     async createMainTab() {
         this.status = 'start';
+        let executablePath = '/usr/lib/chromium/chromium';
+        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+            executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        }
         this.browser = await puppeteer.launch({
+            executablePath,
             args: [
-                '--no-sandbox', '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage', '--single-process',
+                '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
+                // '--disable-setuid-sandbox', '--single-process',
                 `--user-agent=${this.browserUA}`
             ]
         });
@@ -243,16 +256,18 @@ const ext = {
     async recoginzeCaptcha() {
         // 发送验证码图片到OCR服务
         var dfd = new FormData();
+        logger.info('preprare to recoginzeCaptcha');
         const yzm = await this.getCaptchaImg();
         dfd.append('img', yzm);
         const captchaurl = config.fha.server + 'api/captcha';
+        logger.info('fetch to recoginzeCaptcha', captchaurl);
         let text = await fetch(captchaurl, {
             method: 'POST',
             body: dfd,
             headers: {
                 'User-Agent': this.browserUA
             }
-        }).then(response => response.text()); 
+        }).then(response => response.text());
         logger.info(`captcha text ${text}`);
         text = text.replaceAll('g', '9').replaceAll('Q','0').replaceAll('i', '1')
         .replaceAll('D', '0').replaceAll('C', '0').replaceAll('u', '0').replaceAll('U', '0')

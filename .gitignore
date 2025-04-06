@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 utils/_pwd.py
 summary/json/*.json
+logs
 *.zip
 *.xpi
 *.log
