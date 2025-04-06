@@ -1,8 +1,7 @@
 FROM node:slim AS deps
 WORKDIR /usr/src/phonde
 RUN npm install -g pnpm
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install puppeteer-core express socket.io winston
 
 FROM puppeteer:22.13.0
 WORKDIR /usr/src/phonde

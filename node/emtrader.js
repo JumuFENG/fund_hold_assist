@@ -76,6 +76,14 @@ const ext = {
     get loginPage() {
         return this.host + '/Login'
     },
+    get chromium_path() {
+        if (config?.client?.chromium_path) {
+            return config.client.chromium_path;
+        } else if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+            return process.env.PUPPETEER_EXECUTABLE_PATH;
+        }
+        return '/usr/lib/chromium/chromium';
+    },
     schedule(kicktime='9:12') {
         const now = new Date();
         const ticks = new Date(now.toDateString() + ' ' + kicktime) - now + Math.random() * 180000;
@@ -97,7 +105,7 @@ const ext = {
             await this.page.waitForSelector('.popup-component-box.large', { timeout: 200 });
             await this.page.click('.btn-orange.vbtn-confirm');
         } catch (err) {
-            console.log('未检测到模态框，继续执行');
+            logger.debug('未检测到模态框，继续执行');
         }
     },
     async submit(text) {
@@ -160,7 +168,7 @@ const ext = {
             return base64;
         } catch (error) {
             await this.page.screenshot({ path: path.join(screenshotfolder, 'debug.png'), fullPage: true });
-            console.error('Error step:', error.stack); // 打印完整错误栈
+            logger.error('Error step:', error.stack); // 打印完整错误栈
             throw error;
         }
     },
@@ -228,12 +236,8 @@ const ext = {
     },
     async createMainTab() {
         this.status = 'start';
-        let executablePath = '/usr/lib/chromium/chromium';
-        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-            executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-        }
         this.browser = await puppeteer.launch({
-            executablePath,
+            executablePath: this.chromium_path,
             args: [
                 '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
                 // '--disable-setuid-sandbox', '--single-process',
@@ -409,7 +413,7 @@ app.get('/deals', (req, res) => {
 
 const port = config.client.port;
 const server = app.listen(port, () => {
-    console.log('Server is running on port', port);
+    logger.info('Server is running on port', port);
 });
 
 const io = new Server(server, { 
