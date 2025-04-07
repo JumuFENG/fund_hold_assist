@@ -63,7 +63,7 @@ const guang = {
             return data;
         }).catch(error => {
             this.cache.delete(cacheKey); // 失败时删除缓存
-            throw error;
+            console.error(`Error fetching data from ${url}: ${error}`);
         });
 
         this.cache.set(cacheKey, { data: requestPromise, expireTime: Date.now() + cacheTime }); // 缓存 Promise
@@ -248,9 +248,9 @@ const guang = {
         if (now.getDay() == 6 || now.getDay() == 0) {
             tradeDay = false;
         } else {
-            const sysDay = this.cache.get(guang.tradedayurl);
+            const sysDay = this.cache.get(guang.tradedayurl)?.data;
             if (sysDay) {
-                const date = this.dateToString('-');
+                const date = this.getTodayDate('-');
                 tradeDay = date == sysDay.systemDate && sysDay.isTradeDay;
             } else {
                 this.getSystemDate();

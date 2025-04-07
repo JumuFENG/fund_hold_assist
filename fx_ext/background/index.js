@@ -593,6 +593,9 @@ Promise.all([svrd.getFromLocal('acc_np'), svrd.getFromLocal('fha_server')]).then
     accld.track_accounts = accld.track_accounts;
     accld.normalAccount = accld.normalAccount;
     accld.collateralAccount = accld.collateralAccount;
+    emjyBack.all_accounts = accld.all_accounts;
+    emjyBack.normalAccount = accld.normalAccount;
+    emjyBack.collateralAccount = accld.collateralAccount;
     emjyBack.creditAccount = accld.creditAccount;
     costDog.init();
     svrd.getFromLocal('hsj_stocks').then(hsj => {

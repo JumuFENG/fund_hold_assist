@@ -153,6 +153,7 @@ const ext = {
             if (!text || text.length != 4 || isNaN(text)) {
                 logger.info(`captcha not valid! ${text}`);
                 await this.page.click('#imgValidCode');
+                this.onLoginFailed();
                 return;
             }
 
@@ -264,14 +265,18 @@ const ext = {
         const yzm = await this.getCaptchaImg();
         dfd.append('img', yzm);
         const captchaurl = config.fha.server + 'api/captcha';
-        logger.info('fetch to recoginzeCaptcha', captchaurl);
+        logger.debug('fetch to recoginzeCaptcha', captchaurl);
         let text = await fetch(captchaurl, {
             method: 'POST',
             body: dfd,
             headers: {
                 'User-Agent': this.browserUA
             }
-        }).then(response => response.text());
+        }).then(response => response.text()).catch(error => {
+            logger.error('Error recoginzeCaptcha:', error);
+        }).finally(() => {
+            logger.debug('recoginzeCaptcha finally');
+        });
         logger.info(`captcha text ${text}`);
         text = text.replaceAll('g', '9').replaceAll('Q','0').replaceAll('i', '1')
         .replaceAll('D', '0').replaceAll('C', '0').replaceAll('u', '0').replaceAll('U', '0')
@@ -284,8 +289,8 @@ const ext = {
             this.page.reload();
         }, 175 * 60000);
         accld.initAccounts();
-        accld.normalAccount.loadAssets();
-        accld.collateralAccount.loadAssets();
+        accld.normalAccount?.loadAssets();
+        accld.collateralAccount?.loadAssets();
         trackacc.initTrackAccounts();
         costDog.init();
         this.running = true;

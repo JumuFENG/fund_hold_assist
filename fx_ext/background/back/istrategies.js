@@ -867,7 +867,7 @@ class StrategyI_IndexTracking extends StrategyI_Interval {
                 return Promise.all(s.map(sc => this.expected_account(this.istr.account, sc).then(acc => {
                     const buydetails = this.get_buydetail(acc, sc);
                     return feng.getStockSnapshot(sc).then(snap => {
-                        if (buydetails.totalCount() == 0 || snap.latestPrice - this.getReferPrice(buydetails) * (1 - this.stepRate) < 0) {
+                        if (!buydetails || buydetails.totalCount() == 0 || snap.latestPrice - this.getReferPrice(buydetails) * (1 - this.stepRate) < 0) {
                             return {code: sc, price: snap.latestPrice, account: acc};
                         }
                     });

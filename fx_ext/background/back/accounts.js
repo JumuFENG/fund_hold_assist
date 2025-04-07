@@ -1022,12 +1022,18 @@ class NormalAccount extends Account {
     }
 
     loadWatchings() {
+        logger.debug('loadWatchings accld.fha.save_on_server', accld.fha.save_on_server);
         if (accld.fha.save_on_server) {
             const wurl = accld.fha.server + 'stock?act=watchings&acc=' + this.keyword;
+            logger.debug(this.keyword, 'loadWatchings', wurl);
             return fetch(wurl, {headers: accld.fha.headers}).then(r => r.json()).then(watchings => {
                 for (const s in watchings) {
                     this.addWatchStock(s.slice(-6), watchings[s].strategies);
                 }
+            }).catch(e => {
+                logger.error(this.keyword, 'loadWatchings error', e);
+            }).finally(() => {
+                logger.debug(this.keyword, 'loadWatchings finally');
             });
         } else {
             var watchingStorageKey = this.keyword + '_watchings';

@@ -256,6 +256,7 @@ const trackacc = {
         this.track_accounts = [];
         if (accld.fha.save_on_server) {
             var url = accld.fha.server + 'userbind?onlystock=1';
+            logger.debug('initTrackAccounts fetch', url);
             fetch(url, {headers: accld.fha.headers}).then(r => r.json()).then(accs => {
                 for (const acc of accs) {
                     if (acc.realcash) {
@@ -268,6 +269,10 @@ const trackacc = {
                     accld.all_accounts[account.keyword] = account;
                     account.loadWatchings();
                 }
+            }).catch(e => {
+                logger.error('fetch error in initTrackAccounts', e);
+            }).finally(() => {
+                logger.debug('initTrackAccounts finally');
             });
         } else {
             svrd.getFromLocal('track_accounts').then(accs => {

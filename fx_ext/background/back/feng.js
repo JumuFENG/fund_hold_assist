@@ -106,6 +106,8 @@ const feng = {
             return qct.Data.map(d=>{
                 return {code: d.Code, name: d.Name, secid: d.QuoteID, jsy: d.JYS, mType: d.MarketType, mNum: d.MktNum}
             });
+        }).catch(e=>{
+            console.error('searchSecurity', e)
         });
     },
 
@@ -228,12 +230,14 @@ const feng = {
         if (typeof codes == 'string') {
             codes = [codes];
         }
-        for (let i = 0; i < codes.length; i++) {
-            if (codes[i].length == 6) {
-                codes[i] = await feng.getLongStockCode(codes[i]);
-            }
+        if (codes.length == 1) {
+            return this.getStockSnapshot(codes[0]);
         }
-        if (codes.length < 800) {
+        codes = codes.map(c => guang.convertToQtCode(c));
+        if (codes.length <= 60) {
+            return this.fetchStocksQuotesTencent(codes, cacheTime);
+        }
+        if (codes.length <= 800) {
             return this.fetchStocksQuotesBatch(codes, cacheTime);
         }
         for (let i = 0; i < codes.length; i += 800) {

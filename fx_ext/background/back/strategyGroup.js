@@ -490,8 +490,13 @@ const costDog = {
     init() {
         if (this.fha.save_on_server) {
             const url = this.fha.server + 'stock?act=costdog';
+            logger.debug('costDog init', url);
             fetch(url, {headers: this.fha.headers}).then(r=>r.json()).then(cd => {
                 this.dogdic = cd;
+            }).catch(e => {
+                logger.error('costDog init error', e);
+            }).finally(() => {
+                logger.debug('costDog init finally');
             });
         } else {
             svrd.getFromLocal('cost_dog').then(cd => {
@@ -938,6 +943,9 @@ class StrategyGroup {
             logger.info('checkStrategies buy match', account, this.code, 'buy count:', count, 'price', price, JSON.stringify(curStrategy), 'buy detail', JSON.stringify(this.buydetail.records));
             info.price = price;
             info.count = count;
+            if (account != this.account) {
+                info.account = account;
+            }
         } else if (info.tradeType == 'S') {
             var count = this.count0;
             if (info.count - 10 >= 0) {
@@ -1039,5 +1047,6 @@ if (typeof module !== 'undefined' && module.exports) {
 } else if (typeof window !== 'undefined') {
     window.GroupManager = GroupManager;
     window.costDog = costDog;
+    window.StrategyGroup = StrategyGroup;
 }
 })();

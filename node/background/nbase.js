@@ -77,6 +77,7 @@ class ctxfetch {
 
     static async fetch(url, options) {
         // 检查 URL 的主机是否与页面主机相同
+        logger.debug('ctxfetch', url, options);
         if (this.page && new URL(url).host === new URL(this.page.url()).host) {
             // 在浏览器上下文中执行 fetch
             let formFields = null;

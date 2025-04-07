@@ -160,7 +160,7 @@ class RtpTimer extends AlarmBase {
 
     onTimer() {
         if (this.ticks < 2000) {
-            const hcodes = Object.keys(accld.all_accounts).map(acc => acc.stocks.filter(s => s.strategies && s.strategies.frequencyUpdating()).map(s => s.code));
+            const hcodes = Object.values(accld.all_accounts).map(acc => acc.stocks.filter(s => s.strategies && s.strategies.frequencyUpdating()).map(s => s.code));
             feng.fetchStocksQuotes(Array.from(new Set(hcodes.flat())), this.ticks);
         } else {
             alarmHub.updateAllSnapshots(this.ticks);
@@ -359,6 +359,9 @@ const alarmHub = {
     },
     async onStrategyMatched(acc, stock, matches) {
         for (const m of matches) {
+            if (m.account && m.account != acc.keyword) {
+                acc = accld.all_accounts[m.account];
+            }
             const refer = await acc.doTrade(stock.code, m);
             if (refer.deal.sid) {
                 this.orderTimer.addCheckingTask(acc.holdAccount.keyword, refer.deal);
