@@ -218,6 +218,34 @@ const feng = {
         return dt;
     },
 
+    /**
+     * 通过验证码识别服务器的captcha api识别验证码
+     * @param {string} captchaServer 验证码识别服务器网址
+     * @param {string} base64Image 验证码图片的base64
+     * @returns {Promise<string>} 识别的验证码
+     */
+    async recognizeCaptcha(captchaServer, base64Image) {
+        if (!base64Image) {
+            return;
+        }
+
+        const url = `${captchaServer}/api/captcha`;
+        const formData = new FormData();
+        formData.append('img', base64Image);
+
+        try {
+            const response = await fetch(url, {method: 'POST', body: formData});
+            const text = await response.text();
+            const replaceMap = {
+                'g': '9', 'Q': '0', 'i': '1', 'D': '0', 'C': '0', 'u': '0',
+                'U': '0', 'z': '7', 'Z': '7', 'c': '0', 'o': '0', 'q': '9'
+            };
+            return text.replace(/[gQiuDUZczqo]/g, m => replaceMap[m]);
+        } catch (error) {
+            throw new Error('Error recognizeCaptcha: ' + error.message);
+        }
+    },
+
     resetCachedQuotes(codes) {
         codes.forEach(async (code) => {
             const qcode = guang.convertToQtCode(code);

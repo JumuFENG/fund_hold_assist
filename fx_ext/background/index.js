@@ -190,7 +190,9 @@ class ext {
                 accld.updateHistDeals();
             }
         } else if (message.command == 'emjy.captcha') {
-            this.recoginzeCaptcha(message.img);
+            feng.recoginzeCaptcha(emjyBack.fha.server, img).then(text => {
+                this.sendMessageToContent({'command': 'emjy.captcha', text});
+            });
         } else if (message.command == 'emjy.loginnp') {
             this.sendLoginInfo();
         } else if (message.command == 'emjy.trade') {
@@ -425,23 +427,6 @@ class ext {
                 accld.all_accounts[account].addWatchStock(code, bstrs);
             }
         }
-    }
-
-    static recoginzeCaptcha(img) {
-        if (!emjyBack.fha) {
-            console.error('server info not set!');
-            return;
-        }
-
-        if (!img) {
-            return;
-        }
-        var url = emjyBack.fha.server + 'api/captcha';
-        var dfd = new FormData();
-        dfd.append('img', img);
-        fetch(url, {method: 'POST', body: dfd}).then(r=>r.text()).then(text => {
-            this.sendMessageToContent({'command': 'emjy.captcha', text});
-        });
     }
 
     static sendLoginInfo() {

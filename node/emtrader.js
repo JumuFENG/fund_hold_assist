@@ -148,7 +148,8 @@ const ext = {
         }
 
         try {
-            const text = await this.recoginzeCaptcha();
+            const yzm = await this.getCaptchaImg();
+            const text = await feng.recoginzeCaptcha(config.fha.server, yzm);
             logger.debug(`识别到验证码:${text}`);
             if (!text || text.length != 4 || isNaN(text)) {
                 logger.info(`captcha not valid! ${text}`);
@@ -173,7 +174,7 @@ const ext = {
             throw error;
         }
     },
-    async setcaptcha(capurl, text) {
+    async setcaptcha(text) {
         logger.info(`设置验证码:`, text);
         if (!this.page) {
             return false;
@@ -257,31 +258,6 @@ const ext = {
                 await this.page.goto(this.loginPage);
             }
         }
-    },
-    async recoginzeCaptcha() {
-        // 发送验证码图片到OCR服务
-        var dfd = new FormData();
-        logger.info('preprare to recoginzeCaptcha');
-        const yzm = await this.getCaptchaImg();
-        dfd.append('img', yzm);
-        const captchaurl = config.fha.server + 'api/captcha';
-        logger.debug('fetch to recoginzeCaptcha', captchaurl);
-        let text = await fetch(captchaurl, {
-            method: 'POST',
-            body: dfd,
-            headers: {
-                'User-Agent': this.browserUA
-            }
-        }).then(response => response.text()).catch(error => {
-            logger.error('Error recoginzeCaptcha:', error);
-        }).finally(() => {
-            logger.debug('recoginzeCaptcha finally');
-        });
-        logger.info(`captcha text ${text}`);
-        text = text.replaceAll('g', '9').replaceAll('Q','0').replaceAll('i', '1')
-        .replaceAll('D', '0').replaceAll('C', '0').replaceAll('u', '0').replaceAll('U', '0')
-        .replaceAll('z', '7').replaceAll('Z', '7').replaceAll('c', '0').replaceAll('o', '0');
-        return text;
     },
     async onLoginSucess() {
         this.status = 'success';
@@ -392,7 +368,8 @@ app.get('/start', (req, res) => {
 
 app.post('/capcha', (req, res) => {
     const { url, text } = req.body;
-    const result = ext.setcaptcha(url, text);
+    logger.info(`REST API 收到验证码:`, text, url);
+    const result = ext.setcaptcha(text);
     if (result) {
         res.send('Captcha set successfully!');
     } else {
@@ -450,7 +427,8 @@ async function sendMessage(evt, msg) {
 // 接收客户端提交的验证码
 io.on('connection', (socket) => {
     socket.on('submit_captcha', (data) => {
-        ext.setcaptcha(data.url, data.text);
+        logger.info(`websocket 收到验证码:`, data.text, data.url);
+        ext.setcaptcha(data.text);
     });
     socket.on('start', () => {
         const r = ext.handleStart();
