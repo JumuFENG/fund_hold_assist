@@ -279,7 +279,8 @@ class StrategyI_Zt1WbOpen extends StrategyI_Base {
         var url = istrManager.fha.server + 'stock?act=getistr&key=' + this.istr.key;
         fetch(url).then(r => r.json()).then(rc => {
             if (rc.length === 0) {
-                throw new Error('No candidates found!');
+                logger.error(this.constructor.name, 'No candidates found!');
+                return;
             }
             rc.forEach(c => {
                 this.candidates[c.substring(2)] = {account: this.istr.account, secu_code: guang.convertToSecu(c)};

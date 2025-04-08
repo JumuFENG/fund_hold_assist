@@ -1176,6 +1176,9 @@ class NormalAccount extends Account {
 
     addWatchStock(code, strgrp) {
         klPad.loadKlines(code);
+        if (Object.values(strgrp?.strategies).filter(s => s.enabled && s.kltype - 15 < 0).length > 0) {
+            klPad.getStockMinutesKline(code);
+        }
         var stock = this.stocks.find(s => {return s.code == code;});
 
         if (stock) {
@@ -1770,7 +1773,7 @@ const accld = {
     },
     tryBuyStock(code, price, count, account, strategies) {
         if (!this.all_accounts[account]) {
-            logger.info('Error, no valid account', account);
+            logger.error('Error, no valid account', account);
             return Promise.resolve();
         }
 

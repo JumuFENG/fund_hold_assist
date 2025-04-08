@@ -717,10 +717,12 @@ class StrategyGroup {
             data.transfers = transfers;
         };
         if (this.buydetail && this.buydetail.records && this.buydetail.records.length > 0) {
+            this.buydetail.records = this.buydetail.records.filter(r => r.sid && r.count > 0);
             data.buydetail = this.buydetail.records.map(r => ({count: r.count, date: r.date, price: r.price, sid: r.sid, type: r.type, code: r.code}));
         }
         if (this.buydetail && this.buydetail.full_records && this.buydetail.full_records.length > 0) {
             var fcount = 0;
+            this.buydetail.full_records = this.buydetail.full_records.filter(r => r.sid && r.count > 0);
             for (const record of this.buydetail.full_records) {
                 if (record.type === 'B') {
                     fcount -= -record.count;

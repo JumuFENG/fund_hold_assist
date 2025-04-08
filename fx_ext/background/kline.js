@@ -40,6 +40,18 @@ const klPad = {
             let updatedKlt = this.klines[code].updateRtKline(kldata);
             return Object.fromEntries(updatedKlt.map(x => [x, this.klines[code].klines[x]]));
         });
+    },
+    async getStockMinutesKline(code, days=2) {
+        return feng.getStockMinutesKline(code, days).then(kldata => {
+            if (!kldata) {
+                return {};
+            }
+            if (!this.klines[code]) {
+                this.klines[code] = new KLine(code);
+            }
+            let updatedKlt = this.klines[code].updateRtKline(kldata);
+            return Object.fromEntries(updatedKlt.map(x => [x, this.klines[code].klines[x]]));
+        });
     }
 }
 

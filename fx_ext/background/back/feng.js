@@ -5,6 +5,7 @@ const { guang } = xreq('./background/guang.js');
 const feng = {
     quotewg: 'https://hsmarketwg.eastmoney.com/api/SHSZQuoteSnapshot',
     emklapi: 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56',
+    etrendapi: 'http://push2his.eastmoney.com/api/qt/stock/trends2/get?fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56&ut=fa5fd1943c7b386f172d6893dbfba10b&iscr=1&iscca=0',
     emshszac: 'https://emhsmarketwg.eastmoneysec.com/api/SHSZQuery/GetCodeAutoComplete2?count=10&callback=sData&id=',
     gtimg: 'http://qt.gtimg.cn/q=',
     get sinahqapi() {
@@ -358,7 +359,7 @@ const feng = {
         });
     },
     /**
-    * 获取股票K线数据, 常用日K，1分， 15分
+    * 获取股票K线数据, 常用日K，1分，15分
     * @param {string} code 股票代码, 如: 002261
     * @param {number} klt K线类型，101: 日k 102: 周k 103: 月k 104: 季k 105: 半年k 106:年k 60: 小时 120: 2小时, 其他分钟数 1, 5, 15,30
     * @param {string} date 用于大于日K的请求，设置开始日期如： 20201111
@@ -453,6 +454,28 @@ const feng = {
             }
             let data = {code, kltype: klt, kdata};
             return {data, expireTime: getExpireTime(kl0.time, klt)};
+        });
+    },
+
+    /**
+     * 获取股票1分钟K线数据, 默认cache 24小时， 盘前盘后使用，盘中用getStockKline(code, klt='1');
+     * @param {string} code - The stock code.
+     * @param {number} [days=2] - 天数, 最多可以获取5天.
+     */
+    async getStockMinutesKline(code, days=2) {
+        const secid = await this.getStockSecId(code);
+        const url = this.etrendapi + `&secid=${secid}&ndays=${days}`;
+        return guang.fetchData(url, {}, 24*60*60000, rsp => {
+            const kdata = rsp.data.trends.map(kl => {
+                const [time,o,c,h,l,v] = kl.split(',');
+                return {time, o, c, h, l, v};
+            });
+            for (let i = 1; i < kdata.length; i++) {
+                if (!kdata[i].o || kdata[i].o == 0) {
+                    kdata[i].o = kdata[i - 1].c;
+                }
+            }
+            return {data: {code, kltype:'1', kdata: kdata.filter(k => !k.time.endsWith('09:30'))}};
         });
     }
 }
