@@ -1,0 +1,9 @@
+Dockerfile
+.dockerignore
+config
+logs
+.DS_Store
+.env
+.git
+.gitignore
+.log
