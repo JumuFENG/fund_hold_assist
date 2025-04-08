@@ -28,5 +28,6 @@ if __name__ == '__main__':
     Utils.setup_logger()
     TimerTask.setup_logger(Utils.logger)
     TimerTask.logger.info('start trade opening tasks!')
-    tasks = [AuctionTask(stock_market_opening_task)]
-    TimerTask.run_tasks(tasks)
+    stock_market_opening_task()
+    # tasks = [AuctionTask(stock_market_opening_task)]
+    # TimerTask.run_tasks(tasks)

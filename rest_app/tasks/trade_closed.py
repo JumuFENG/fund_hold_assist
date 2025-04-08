@@ -31,6 +31,7 @@ def save_earning_task():
 if __name__ == '__main__':
     Utils.setup_logger()
     TimerTask.setup_logger(Utils.logger)
-    TimerTask.logger.info('start trade closed task!')
-    tasks = [TradeClosedTask(save_earning_task)]
-    TimerTask.run_tasks(tasks)
+    save_earning_task()
+    # TimerTask.logger.info('start trade closed task!')
+    # tasks = [TradeClosedTask(save_earning_task)]
+    # TimerTask.run_tasks(tasks)
