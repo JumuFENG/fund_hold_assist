@@ -825,7 +825,7 @@ class Account {
             dfd.append('act', 'deals');
             dfd.append('acc', this.keyword);
             dfd.append('data', JSON.stringify(deals));
-            logger.info('uploadDeals', JSON.stringify(deals));
+            logger.info(this.constructor.name, 'uploadDeals', JSON.stringify(deals));
             fetch(url, {method: 'POST', headers: accld.fha.headers, body: dfd}).then(r=>r.text()).then(p => {
                 logger.info('upload deals to server,', p);
             });
@@ -1818,6 +1818,12 @@ const accld = {
             this.creditAccount.createTradeClient();
         }
         return this.creditAccount.tradeClient.checkRzrqTarget(code);
+    },
+    async filterRzrq(codes) {
+        var res = {};
+        const cks = codes.map(c => this.checkRzrq(c).then(r => { res[c] = r.Status !== -1}));
+        await Promise.all(cks);
+        return codes.filter(c => res[c]);
     },
     testTradeApi(code) {
         if (!code) {

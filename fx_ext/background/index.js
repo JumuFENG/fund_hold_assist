@@ -190,7 +190,7 @@ class ext {
                 accld.updateHistDeals();
             }
         } else if (message.command == 'emjy.captcha') {
-            feng.recoginzeCaptcha(emjyBack.fha.server, img).then(text => {
+            feng.recognizeCaptcha(emjyBack.fha.server, message.img).then(text => {
                 this.sendMessageToContent({'command': 'emjy.captcha', text});
             });
         } else if (message.command == 'emjy.loginnp') {
@@ -323,6 +323,9 @@ class ext {
                 keys_received.push(strategy.key);
             }
             svrd.getFromLocal('all_available_istr').then(all_str => {
+                if (!all_str) {
+                    all_str = [];
+                }
                 var keys_saved = [];
                 for (const strategy of all_str) {
                     keys_saved.push(strategy.key);
