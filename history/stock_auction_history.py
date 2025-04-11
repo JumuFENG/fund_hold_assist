@@ -131,6 +131,9 @@ class StockAuction(MultiThrdTableBase):
             snapshot_data = responsetext.replace('jSnapshotBack(', '').rstrip(');')
             snapshot = json.loads(snapshot_data)
 
+            if 'fivequote' not in snapshot:
+                return None
+
             # 解析买一买二和卖一卖二的价格和数量
             buy1_price = snapshot['fivequote']['buy1']
             sell1_price = snapshot['fivequote']['sale1']

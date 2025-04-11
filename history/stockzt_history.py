@@ -1,6 +1,7 @@
 # Python 3
 # -*- coding:utf-8 -*-
 
+from  datetime import datetime, timedelta
 from utils import *
 from history.stock_history import StockGlobal
 import re

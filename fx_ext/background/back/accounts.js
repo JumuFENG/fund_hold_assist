@@ -1176,7 +1176,7 @@ class NormalAccount extends Account {
 
     addWatchStock(code, strgrp) {
         klPad.loadKlines(code);
-        if (Object.values(strgrp?.strategies).filter(s => s.enabled && s.kltype - 15 < 0).length > 0) {
+        if (strgrp?.strategies && Object.values(strgrp.strategies).filter(s => s.enabled && s.kltype - 15 < 0).length > 0) {
             klPad.getStockMinutesKline(code);
         }
         var stock = this.stocks.find(s => {return s.code == code;});

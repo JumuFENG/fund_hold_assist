@@ -149,7 +149,7 @@ const ext = {
 
         try {
             const yzm = await this.getCaptchaImg();
-            const text = await feng.recoginzeCaptcha(config.fha.server, yzm);
+            const text = await feng.recognizeCaptcha(config.fha.server, yzm);
             logger.debug(`识别到验证码:${text}`);
             if (!text || text.length != 4 || isNaN(text)) {
                 logger.info(`captcha not valid! ${text}`);
@@ -391,6 +391,10 @@ app.get('/stocks', (req, res) => {
 
 app.get('/deals', (req, res) => {
     res.send(ext.handleAccountDeals(req.query));
+});
+
+app.get('/iunstrs', (req, res) => {
+    res.send(config.client.iunstrs);
 });
 
 const port = config.client.port;

@@ -334,6 +334,17 @@ def stock():
             sev = StockEndVolumeSelector()
             sev.setCandidates(date, stks)
             return 'OK', 200
+        if actype == 'save_auction_details':
+            date = request.form.get('date')
+            auctions = request.form.get('auctions')
+            sad = StockAuctionDetails()
+            sad.saveDailyAuctions(date, json.loads(auctions))
+            return 'OK', 200
+        if actype == 'save_auction_matched':
+            matches = request.form.get('matched')
+            aucs = StockAuctionUpSelector()
+            aucs.save_daily_auction_matched(json.loads(matches))
+            return 'OK', 200
         if actype == 'setistr':
             key = request.form.get('key')
             if key == 'istrategy_hotrank0':
@@ -377,6 +388,7 @@ def stock():
         if actype == 'stockbks':
             stocks = request.args.get('stocks', type=str, default='')
             stocks = stocks.split(',')
+            stocks = [StockGlobal.full_stockcode(x) for x in stocks]
             bks = {c: [[k, StockBkAll.queryBkName(k)] for k in StockBkMap.stock_bks(c) if not StockBkAll.bkIgnored(k)] for c in stocks }
             return json.dumps(bks)
         if actype == 'bkstocks':
@@ -389,6 +401,43 @@ def stock():
             szd = StockZtDaily()
             stks = szd.getHotStocks(TradingDate.prevTradingDate(TradingDate.maxTradedDate(), days))
             return json.dumps(stks)
+        if actype == 'ztstocks':
+            days = request.args.get('days', type=int, default=2)
+            szd = StockZtDaily()
+            return json.dumps(szd.dumpZtStocksInDays(days))
+        if actype == 'hotbks':
+            days = request.args.get('days', type=int, default=2)
+            bkchghis = StockBkChangesHistory()
+            clsbkhis = StockClsBkChangesHistory()
+            date = TradingDate.maxTradedDate()
+            topbks5 = []
+            for i in range(0, days):
+                topbks5 += bkchghis.dumpTopBks(date)
+                topbks5 += clsbkhis.dumpTopBks(date)
+                date = TradingDate.prevTradingDate(date)
+            return json.dumps(list(set(topbks5)))
+        if actype == 'rtbkchanges':
+            should_save = request.args.get('save', type=int, default=0)
+            bkchghis = StockBkChangesHistory()
+            bks = bkchghis.changesToDict(bkchghis.getLatestChanges(should_save))
+            clsbkhis = StockClsBkChangesHistory()
+            bks += clsbkhis.changesToDict(clsbkhis.getLatestChanges(should_save))
+            return json.dumps(bks)
+        if actype == 'zdtindays':
+            date = request.args.get('date', type=str, default=None)
+            codes = request.args.get('codes', type=str, default=None)
+            codes = codes.split(',')
+            codes = [StockGlobal.full_stockcode(x) for x in codes]
+            if date is None:
+                date = Utils.today_date()
+            saus = StockAuctionUpSelector()
+            dzts = {}
+            for code in codes:
+                dzts[code] = saus.calc_dzt_num(code, date)
+            return json.dumps(dzts)
+        if actype == 'bk_ignored':
+            signored = StockEmBkChgIgnore()
+            return json.dumps([bk for i,bk,n in signored.dumpDataByDate()])
         if actype == 'pickup':
             date = request.args.get('date', type=str, default=None)
             key = request.args.get('key', type=str, default=None)

@@ -8,12 +8,7 @@ sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../..'))
 from phon.data.user import User
 from utils import Utils, TradingDate, datetime, shared_cloud_foler
 from timer_task import TimerTask
-
-
-class TradeClosedTask(TimerTask):
-    def __init__(self, _task) -> None:
-        super().__init__('15:01', _task)
-
+from history import StockBkChangesHistory, StockClsBkChangesHistory
 
 def save_earning_task():
     if Utils.today_date() != TradingDate.maxTradingDate():
@@ -27,11 +22,26 @@ def save_earning_task():
             user = User.user_by_id(uid)
             user.archive_deals(f'{dnow.year + 1}')
 
+class SaveEarningTask(TimerTask):
+    def __init__(self) -> None:
+        super().__init__('15:01', save_earning_task)
+
+
+def update_bkchanges_in5d():
+    bkchghis = StockBkChangesHistory()
+    bkchghis.updateBkChangedIn5Days()
+    clsbkhis = StockClsBkChangesHistory()
+    clsbkhis.updateBkChangedIn5Days()
+
+
+class UpdateBkChangesIn5dTask(TimerTask):
+    def __init__(self) -> None:
+        super().__init__('15:01:05', update_bkchanges_in5d)
+
 
 if __name__ == '__main__':
     Utils.setup_logger()
     TimerTask.setup_logger(Utils.logger)
-    save_earning_task()
-    # TimerTask.logger.info('start trade closed task!')
-    # tasks = [TradeClosedTask(save_earning_task)]
-    # TimerTask.run_tasks(tasks)
+    TimerTask.logger.info('start trade closed task!')
+    tasks = [SaveEarningTask(), UpdateBkChangesIn5dTask()]
+    TimerTask.run_tasks(tasks)

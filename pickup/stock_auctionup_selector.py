@@ -79,6 +79,7 @@ class StockAuctionUpSelector(StockBaseSelector):
         while i < 10:
             sdt = TradingDate.prevTradingDate(sdt)
             i += 1
+        code = StockGlobal.full_stockcode(code)
         kd = self.get_kd_data(code, sdt)
         if kd is None or len(kd) < 10:
             return 0,0,0,0
@@ -87,8 +88,7 @@ class StockAuctionUpSelector(StockBaseSelector):
         while i < len(kd) and kd[i].date < date:
             i += 1
 
-        scode = code.replace('SH', '').replace('SZ', '')
-        zdf = 10 if scode.startswith('60') or scode.startswith('00') else 20
+        zdf = Utils.zdf_from_code(code)
         j = i - 1
         while j > 0:
             if kd[j].high == kd[j].close and kd[j].high >= Utils.zt_priceby(kd[j-1].close, zdf=zdf):
@@ -114,7 +114,7 @@ class StockAuctionUpSelector(StockBaseSelector):
                     zdist += 1
             i += 1
         return zdays, zdist, ddays, ddist
-    
+
     def sim_check_dzt_num(self, zdays, zdist, ddays, ddist):
         if zdays == 0 and zdist == 0 and ddays > 0 and ddist < ddays:
             # 无涨停, 有跌停

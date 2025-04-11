@@ -44,9 +44,7 @@ def generate_strategy_json(match_data, subscribe_detail):
 def create_strategy_matched_message_direct_buy(match_data, subscribe_detail):
     account = subscribe_detail['account']
     amount = subscribe_detail['amount']
-    code = match_data['code']
-    if len(code) == 8:
-        code = code[2:]
+    code = match_data['code'][-6:]
     price = round(float(match_data['price']), 2)
     dbmsg = {'type':'intrade_buy', 'code': code, 'account': account, 'price': price, 'count': 0}
     if 'amtkey' not in subscribe_detail:
