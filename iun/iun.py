@@ -7,7 +7,10 @@ from app.logger import logger
 from app.config import Config
 from app.tradeInterface import TradeInterface
 from app.accounts import accld
-from app.intrade_base import StrategyI_Simple_Watcher
+from app.intrade_base import iunCloud
+from app.intrade_strategy import *
+
+
 
 async def start_kl_check():
     """
@@ -50,35 +53,52 @@ async def start_rtp_check():
             logger.info("Checking real-time data...")
         await asyncio.sleep(5)
 
-async def check_tasks_finished(tasks):
-    while True:
-        if all([task.done() for task in tasks]):
-            break
-        await asyncio.sleep(1)
-
 
 class iun:
+    @staticmethod
+    async def check_tasks_finished(tasks):
+        while True:
+            if all([task.done() for task in tasks]):
+                break
+            await asyncio.sleep(1)
+        logger.info("All tasks completed.")
+
+    @classmethod
+    async def intrade_matched(self, ikey, match_data, istr_message_creator):
+        subscribe_detail = TradeInterface.iun_str_conf(ikey)
+        if subscribe_detail and callable(istr_message_creator):
+            msg = istr_message_creator(match_data, subscribe_detail)
+            if msg:
+                await TradeInterface.submit_trade(json.dumps(msg))
+                logger.info(f'send {match_data}, {subscribe_detail}, {ikey}')
 
     @classmethod
     async def main(cls):
+        tconfig = Config.trading_service()
+        TradeInterface.tserver = tconfig['server']
+        if not TradeInterface.ccheck_trade_server():
+            logger.error('trading server is not available')
+            return
+
         dconfig = Config.data_service()
         accld.dserver = dconfig['server']
+        iunCloud.dserver = dconfig['server']
         accld.headers = {
             'Content-Type': 'application/json',
             'Authorization': f'''Basic {base64.b64encode(f"{dconfig['user']}:{dconfig['password']}".encode()).decode()}'''
         }
         # accld.loadAccounts()
 
-        tconfig = Config.trading_service()
-        TradeInterface.tserver = tconfig['server']
         cfg = Config.iun_config()
-        from app.intrade_base import TestWatcher
-        stasks = [StrategyI_Simple_Watcher('21:35'), TestWatcher('21:35')]
+        strategies = [StrategyI_AuctionUp(), StrategyI_Zt1Bk(), StrategyI_EndFundFlow()]
         async with asyncio.TaskGroup() as tg:
-            for task in stasks:
+            for task in strategies:
+                task.on_intrade_matched = cls.intrade_matched
                 tg.create_task(task.start_strategy_tasks())
-            tg.create_task(check_tasks_finished(stasks))
+            tg.create_task(cls.check_tasks_finished(strategies))
 
 
 if __name__ == '__main__':
     asyncio.run(iun.main())
+    # iunCloud.dserver = 'http://localhost/5000/'
+    # ff=iunCloud.to_be_divided('600605')

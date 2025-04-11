@@ -17,3 +17,26 @@ class TradeInterface:
         bsinfo['account'] = account
         response = requests.post(url, data=json.dumps(bsinfo), headers=headers)
         return response.status_code == 200
+
+    @classmethod
+    def ccheck_trade_server(cls):
+        if cls.tserver is None:
+            return False
+        
+        url = cls.tserver + '/status'
+        try:
+            response = requests.get(url)
+            return response.status_code == 200
+        except Exception as e:
+            return False
+
+    __iun_strs = None
+    @classmethod
+    def iun_str_conf(cls, ikey):
+        if cls.__iun_strs is None:
+            url = cls.tserver + '/iunstrs'
+            response = requests.get(url)
+            response.raise_for_status()
+            cls.__iun_strs = response.json()
+        return cls.__iun_strs[ikey]
+
