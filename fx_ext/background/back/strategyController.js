@@ -1945,7 +1945,7 @@ class StrategyGE extends Strategy {
                 }
                 return Promise.resolve();
             }
-            if (kl.l - (this.data.guardPrice - maxP * this.data.stepRate) <= 0) {
+            if (kl.l - (this.data.guardPrice - maxP * this.data.stepRate / 5) <= 0) {
                 this.data.inCritical = true;
                 return Promise.resolve({id: chkInfo.id});
             }
@@ -1978,11 +1978,10 @@ class StrategyGE extends Strategy {
             }
         }
         if (numBuyRec > this.buyrecRemains() && this.bss18SellMatch(chkInfo, this.data.kltype)) {
-            var fac = this.data.stepRate;
-            if (fac - 0.05 > 0) {
-                fac = 0.05 + (this.data.stepRate - 0.05) / 2;
+            if (!this.data.cutselltype) {
+                this.data.cutselltype = 'egate';
             }
-            var count = buydetails.getCountLessThan(kl.c, fac);
+            var count = buydetails.getCountMatched(this.data.cutselltype, kl.c);
             if (count > 0) {
                 this.tmpGuardPrice = kl.c;
                 return {id: chkInfo.id, tradeType: 'S', count, price: kl.c};

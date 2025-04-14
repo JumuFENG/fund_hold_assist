@@ -43,12 +43,22 @@ class StrategyI_Base {
             setTimeout(() => this.checkCandidatesAccount(), 1000);
             return;
         }
+        const rejected = [];
         for (const c in this.candidates) {
             if (!this.candidates[c].account) {
                 accld.checkRzrq(c).then(rzrq => {
                     this.candidates[c].account = rzrq.Status == -1 ? 'normal' : 'credit';
                 });
+            } else if (this.candidates[c].account == 'credit') {
+                accld.checkRzrq(c).then(rzrq => {
+                    if (rzrq.Status == -1) {
+                        rejected.push(c);
+                    }
+                });
             }
+        }
+        if (rejected.length > 0) {
+            this.candidates.fromEntries(Object.entries(this.candidates).filter(([c, s]) => !rejected.includes(c)));
         }
     }
 
@@ -807,9 +817,7 @@ class StrategyI_IndexTracking extends StrategyI_Interval {
     constructor(istr) {
         super(istr, 60000, '9:33:59');
         this.candidates = {
-            '1.000001': ['510210'],
-            '1.000688': ['588300'],
-            '0.399006': ['159915']
+            '1.000001': ['510210']
         }
         this.earnRate = 0.03;  // 止盈幅度
         this.stepRate = 0.006; // 日内价差幅度

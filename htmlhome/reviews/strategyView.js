@@ -1060,6 +1060,7 @@ class StrategyGridEarningView extends StrategyBaseView {
         view.appendChild(this.createBuyAccountSelector());
 
         view.appendChild(this.createKlineTypeSelector('卖出K线类型'));
+        view.appendChild(this.createSellCountTypeSelector());
         return view;
     }
 }
