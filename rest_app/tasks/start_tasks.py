@@ -39,6 +39,7 @@ def schedule_pmset(now=None):
         pmcmd += ' ' + po2 + ' ' + shut2
     elif dayminutes < 19 * 60 + 45:
         pmcmd += ' ' + shut2 + ' ' + po1
+    # pmset repeat wakeorpoweron MTWRF 8:25:0 shutdown MTWRF 21:55:0
     TimerTask.logger.info(f'os.system({pmcmd})')
     os.system(pmcmd)
 
@@ -195,7 +196,6 @@ def run_regular_tasks(dnow):
 
 def startup_task():
     dnow = datetime.now()
-    schedule_pmset(dnow)
 
     check_local_server()
 

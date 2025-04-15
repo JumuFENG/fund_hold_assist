@@ -37,10 +37,10 @@ if __name__ == '__main__':
     print(f'------------------------------------------------------------------------')
 
     task_files = ['start_tasks.py']
-    # time.sleep(5)
-    # if check_network():
-    #     if dnow.weekday() < 5 and dnow.hour < 15:
-    #         task_files += ['trade_closed.py', 'trade_opening.py']
+    time.sleep(5)
+    if check_network():
+        if dnow.weekday() < 5 and dnow.hour < 15:
+            task_files += ['trade_closed.py', 'trade_opening.py']
 
     for tfile in task_files:
         task_spath = os.path.join(os.path.dirname(__file__), 'tasks', tfile)
