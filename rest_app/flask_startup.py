@@ -416,6 +416,13 @@ def stock():
                 topbks5 += clsbkhis.dumpTopBks(date)
                 date = TradingDate.prevTradingDate(date)
             return json.dumps(list(set(topbks5)))
+        if actype == 'hdstocks':
+            bks = request.args.get('bks', type=str, default='')
+            bks = bks.split(',')
+            start = request.args.get('start', type=str, default=None)
+            bkstocks = StockBkMap.bk_stocks(bks)
+            szls = StockZtLeadingSelector()
+            return json.dumps(szls.getHeadedStocks(bkstocks, start))
         if actype == 'rtbkchanges':
             should_save = request.args.get('save', type=int, default=0)
             bkchghis = StockBkChangesHistory()
@@ -438,6 +445,9 @@ def stock():
         if actype == 'bk_ignored':
             signored = StockEmBkChgIgnore()
             return json.dumps([bk for i,bk,n in signored.dumpDataByDate()])
+        if actype == 'sm_stats':
+            smtable = StockMarkerStats()
+            return json.dumps(smtable.dumpDataByDate())
         if actype == 'pickup':
             date = request.args.get('date', type=str, default=None)
             key = request.args.get('key', type=str, default=None)

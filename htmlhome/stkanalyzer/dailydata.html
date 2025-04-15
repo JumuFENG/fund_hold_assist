@@ -7,6 +7,7 @@
     <script src="../../static/src/js/echarts.js"></script>
     <script src="../../htmlhome/localforage.min.js"></script>
     <script>
+        window.xreq = function(m) {return window;}
         class GlobalManager {
             constructor() {
                 this.fha = {'server':'http://localhost/', 'svr5000': 'http://localhost/5000/'};
@@ -37,10 +38,12 @@
             if (location.host) {
                 emjyBack.fha.server = location.origin + '/';
                 emjyBack.fha.svr5000 = emjyBack.fha.server + '5000/';
+                guang.server = emjyBack.fha.server;
             }
         });
     </script>
     <script type="text/javascript" src="../../fx_ext/background/guang.js"></script>
+    <script type="text/javascript" src="../../fx_ext/background/back/feng.js"></script>
     <script type="text/javascript" src="../../static/src/js/dailytrading.js"></script>
 </head>
 <body style="height: 100%; margin: 0">

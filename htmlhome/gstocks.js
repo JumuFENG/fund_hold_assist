@@ -216,13 +216,7 @@ class GlobalManager {
     }
 
     stockName(code) {
-        if (cloud.stock_basics[guang.convertToSecu(code)]) {
-            return cloud.stock_basics[guang.convertToSecu(code)].secu_name;
-        }
-        if (this.stockMarket && this.stockMarket[code]) {
-            return this.stockMarket[code].n;
-        }
-        return code;
+        feng.getStockName(code) ?? this.stockMarket[code]?.n ?? code;
     }
 
     stockAnchor(code, text=undefined) {

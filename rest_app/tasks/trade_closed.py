@@ -9,6 +9,8 @@ from phon.data.user import User
 from utils import Utils, TradingDate, datetime, shared_cloud_foler
 from timer_task import TimerTask
 from history import StockBkChangesHistory, StockClsBkChangesHistory
+from tasks import StockMarket_Stats_Task
+
 
 def save_earning_task():
     if Utils.today_date() != TradingDate.maxTradingDate():
@@ -39,9 +41,14 @@ class UpdateBkChangesIn5dTask(TimerTask):
         super().__init__('15:01:05', update_bkchanges_in5d)
 
 
+class SmStatsTask1501(TimerTask):
+    def __init__(self) -> None:
+        super().__init__('15:01', StockMarket_Stats_Task.execute_simple_task)
+
+
 if __name__ == '__main__':
     Utils.setup_logger()
     TimerTask.setup_logger(Utils.logger)
     TimerTask.logger.info('start trade closed task!')
-    tasks = [SaveEarningTask(), UpdateBkChangesIn5dTask()]
+    tasks = [SaveEarningTask(), UpdateBkChangesIn5dTask(), SmStatsTask1501()]
     TimerTask.run_tasks(tasks)

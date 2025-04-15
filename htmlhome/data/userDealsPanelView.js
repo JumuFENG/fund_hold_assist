@@ -232,7 +232,21 @@ class UserDealsPanel extends RadioAnchorPage {
             return;
         }
 
-        this.wkSoldList.appendChild(document.createTextNode('一周内清仓:'));
+        const now = new Date();
+        if (!this.dateRangeSelect) {
+            this.dateRangeSelect = document.createElement('select');
+            this.dateRangeSelect.options.add(new Option('一周内清仓', guang.dateToString(new Date(now.setDate(now.getDate() - now.getDay())), '-')));
+            this.dateRangeSelect.options.add(new Option('两周内清仓', guang.dateToString(new Date(now.setDate(now.getDate() - now.getDay() - 7)), '-')));
+            this.dateRangeSelect.options.add(new Option('三周内清仓', guang.dateToString(new Date(now.setDate(now.getDate() - now.getDay() - 14)), '-')));
+            this.dateRangeSelect.onchange = e => {
+                const url = emjyBack.fha.server + 'stock?act=archivedcodes&realcash=1&since=' + e.target.value;
+                fetch(url, emjyBack.headers).then(r=>r.json()).then(rsp => {
+                    this.curWkSold = rsp;
+                    this.showWkSold();
+                });
+            }
+        }
+        this.wkSoldList.appendChild(this.dateRangeSelect);
         var slselect = document.createElement('select');
         this.wkSoldList.appendChild(slselect);
         var showFunds = this.chkShowFunds.checked;

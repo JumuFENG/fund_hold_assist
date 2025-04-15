@@ -172,7 +172,7 @@ class StockListPanelPage extends RadioAnchorPage {
 
     initUi(stocks) {
         emjyBack.log('init StockList');
-        cloud.getStockBasics(Object.keys(stocks)).then(sbasic => {
+        feng.getStockBasics(Object.keys(stocks)).then(sbasic => {
             for (const c in sbasic) {
                 stocks[c].code = c;
                 stocks[c].name = sbasic[c]?.secu_name;

@@ -7,12 +7,15 @@ const feng = {
     emklapi: 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56',
     etrendapi: 'http://push2his.eastmoney.com/api/qt/stock/trends2/get?fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56&ut=fa5fd1943c7b386f172d6893dbfba10b&iscr=1&iscca=0',
     emshszac: 'https://emhsmarketwg.eastmoneysec.com/api/SHSZQuery/GetCodeAutoComplete2?count=10&callback=sData&id=',
-    gtimg: 'http://qt.gtimg.cn/q=',
+    get gtimg() { 
+        return guang.server ? `${guang.server}/fwd/gtimg/q=` : 'http://qt.gtimg.cn/q=';
+    },
     get sinahqapi() {
         return (guang.server ? `${guang.server}/fwd/sinahq/` : 'https://hq.sinajs.cn/') + `rn=${Date.now()}&list=`;
     },
     stkcache: new Map(),
     quoteCache: new Map(),
+    stock_basics: { },
     loadSaved(cached) {
         for (const code in cached) {
             this.stkcache.set(code, cached[code]);
@@ -164,7 +167,7 @@ const feng = {
     * @returns {string} 股票名称
     */
     getStockName(code) {
-        return this.cachedStockGenSimple(code, 'name');
+        return this.cachedStockGenSimple(code, 'name') ?? feng.stock_basics[guang.convertToSecu(code)]?.secu_name;;
     },
 
     /**
@@ -505,6 +508,57 @@ const feng = {
             }
             return {data: {code, kltype:'1', kdata: kdata.filter(k => !k.time.endsWith('09:30'))}};
         });
+    },
+    async getStockBasics (stocks) {
+        if (typeof stocks === 'string') {
+            await this.updateStockBasics([guang.convertToSecu(stocks)]);
+            if (!this.stock_basics[guang.convertToSecu(stocks)]) {
+                await this.updateStockBasicsEm([stocks]);
+            }
+            return this.stock_basics[guang.convertToSecu(stocks)];
+        }
+
+        await this.updateStockBasics(stocks.map(s => guang.convertToSecu(s)));
+        const failed = stocks.filter(s => !this.stock_basics[guang.convertToSecu(s)]);
+        if (failed.length > 0) {
+            await this.updateStockBasicsEm(failed);
+        }
+        return Object.fromEntries(stocks.map(s => [s, this.stock_basics[guang.convertToSecu(s)]]));
+    },
+    async updateStockBasics (stocks) {
+        stocks = stocks.filter(s => !this.stock_basics[s] || this.stock_basics[s].expireTime < Date.now());
+        if (stocks.length === 0) {
+            return;
+        }
+
+        let i = 0;
+        const psize = 100;
+        let fields = 'open_px,av_px,high_px,low_px,change,change_px,down_price,cmc,business_amount,business_balance,secu_name,secu_code,trade_status,secu_type,preclose_px,up_price,last_px';
+        while (i < stocks.length) {
+            let group = stocks.slice(i, i + psize);
+            let fUrl = guang.server + `fwd/clsquote/quote/stocks/basic?app=CailianpressWeb&fields=${fields}&os=web&secu_codes=${group.join(',')}&sv=7.7.5`;
+            const bdata = await fetch(fUrl).then(r => r.json()).then(d => d.data);
+            for (const s in bdata) {
+                this.stock_basics[s] = bdata[s];
+                this.stock_basics[s].up_limit = Math.round((bdata[s].up_price - bdata[s].preclose_px)*100/bdata[s].preclose_px)/100;
+                this.stock_basics[s].expireTime = guang.snapshotExpireTime() ;
+            }
+
+            i += psize;
+        }
+    },
+    async updateStockBasicsEm(stocks) {
+        if (stocks.length == 0) {
+            return;
+        }
+        const scodes = stocks.map(s => s.replaceAll('SH', '1.').replaceAll('SZ', '0.')).join(',');
+        const qurl = guang.server + `fwd/empush2qt/ulist.np/get?fltt=2&secids=${scodes}&fields=f2,f12,f13,f14`;
+        const emdata = await fetch(qurl).then(r => r.json()).then(d=>d?.data?.diff);
+        for (const {f2: last_px, f12: code, f13:mkt, f14:secu_name} of emdata) {
+            let secu_code = guang.convertToSecu(['SZ','SH'][mkt] + code);
+            this.stock_basics[secu_code] = {last_px, secu_code, secu_name};
+            this.stock_basics[secu_code].expireTime = guang.snapshotExpireTime();
+        }
     }
 }
 

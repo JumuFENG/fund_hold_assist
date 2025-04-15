@@ -3,8 +3,6 @@
 from datetime import datetime, timedelta
 from threading import Timer
 import time
-import os
-import logging
 
 
 class TimerTask:
@@ -61,3 +59,4 @@ class TimerTask:
                 break
 
             time.sleep(60)
+
