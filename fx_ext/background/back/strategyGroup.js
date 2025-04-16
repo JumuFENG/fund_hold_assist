@@ -911,6 +911,9 @@ class StrategyGroup {
             try {
                 const kline = await klPad.getStockKline(this.code, klt);
                 matchResult = await s.checkKlines({id, code:this.code, kltypes: Object.keys(kline), buydetail: this.buydetail});
+                if (klt - 15 >= 0) {
+                    logger.debug('checkStockRtKlines', this.code, JSON.stringify(matchResult), JSON.stringify(kline));
+                }
             } catch (e) {
                 logger.error(this.code, 'checkStockRtKlines error:', klt, e);
             }

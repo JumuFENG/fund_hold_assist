@@ -82,18 +82,12 @@ GlobalManager.prototype.addTlineListener = function(lsner) {
 
 GlobalManager.prototype.updateTline = function(secu_code) {
     var fUrl = emjyBack.fha.server + `fwd/clsquote/quote/stock/tline?app=CailianpressWeb&fields=date,minute,last_px,business_balance,business_amount,open_px,preclose_px,av_px&os=web&secu_code=${secu_code}&sv=7.7.5`;
-    fetch(fUrl).then(r=>r.json()).then(tldata => {
+    Promise.all([fetch(fUrl).then(r=>r.json()), feng.getStockBasics(secu_code).then(sb => sb.preclose_px)]).then(([tldata, preclose_px]) => {
         if (!this.stock_tlines[secu_code]) {
             this.stock_tlines[secu_code] = [];
         }
         let last_minute = this.stock_tlines[secu_code].length == 0 ? 0 : this.stock_tlines[secu_code].pop().minute;
 
-        for (const date of tldata.data.date) {
-            if (!this.stock_precloses[secu_code] || !this.stock_precloses[secu_code][date]) {
-                this.log('preclose_px not fetched', secu_code);
-                return;
-            }
-        }
         tldata.data.line.forEach(item => {
             if (item.minute < last_minute) {
                 return;
@@ -101,7 +95,6 @@ GlobalManager.prototype.updateTline = function(secu_code) {
             var m1 = Math.floor(item.minute / 100);
             var m2 = item.minute % 100;
             item.x = m1 * 60 + m2 - (m1 < 12 ? 570 : 660);
-            let preclose_px = this.stock_precloses[secu_code][item.date];
             if (!preclose_px) {
                 this.log('preclose_px not fetched', secu_code, item.date);
                 return;
@@ -111,7 +104,7 @@ GlobalManager.prototype.updateTline = function(secu_code) {
         });
 
         this.tline_listeners.forEach(lsner=>lsner.onTlineUpdated(secu_code));
-    });
+    })
 }
 
 GlobalManager.prototype.updateStocksTline = function() {
@@ -262,8 +255,8 @@ GlobalManager.prototype.getStockMarketStats = function() {
         stats.forEach(ss => {
             for (const k in ss.stocks) {
                 ss.stocks[k].forEach(p => {
-                    if (!this.stock_basics[p.secu_code]) {
-                        this.stock_basics[p.secu_code] = p;
+                    if (!feng.stock_basics[p.secu_code]) {
+                        feng.stock_basics[p.secu_code] = p;
                     }
                 })
             }
@@ -395,23 +388,23 @@ GlobalManager.prototype.getZtOrBrkStocks = function() {
         edate = edates.reduce((max, current) => current > max ? current : max, edates[0]);
     }
 
-    for (const b in this.stock_basics) {
-        if (this.stock_basics[b].secu_name && this.stock_basics[b].secu_name.includes('ST')) {
+    for (const b in feng.stock_basics) {
+        if (feng.stock_basics[b].secu_name && feng.stock_basics[b].secu_name.includes('ST')) {
             continue;
         }
-        if (this.stock_basics[b].last_px == this.stock_basics[b].up_price) {
+        if (feng.stock_basics[b].last_px == feng.stock_basics[b].up_price) {
             recent_zts.includes(b) ? up_stocks.add(b) : up0.add(b);
-        } else if (this.stock_basics[b].high_px == this.stock_basics[b].up_price && this.stock_basics[b].last_px < this.stock_basics[b].up_price) {
+        } else if (feng.stock_basics[b].high_px == feng.stock_basics[b].up_price && feng.stock_basics[b].last_px < feng.stock_basics[b].up_price) {
             recent_zts.includes(b) ? up_brk.add(b) : brk0.add(b);
         }
     }
 
     if (edate > mxdate) {
         for (const c in this.stock_events) {
-            if (!this.stock_events[c][edate] || !this.stock_basics[c]) {
+            if (!this.stock_events[c][edate] || !feng.stock_basics[c]) {
                 continue;
             }
-            if (this.stock_basics[c].secu_name && this.stock_basics[c].secu_name.includes('ST')) {
+            if (feng.stock_basics[c].secu_name && feng.stock_basics[c].secu_name.includes('ST')) {
                 continue;
             }
             var zcnt = this.stock_events[c][edate].filter(e=>e.type == 4);
@@ -1225,6 +1218,9 @@ class DailyZtStepsPanel {
     }
 
     updateZtSteps() {
+        if (!emjyBack.recent_zt_map) {
+            return;
+        }
         this.container.style.height = this.container.clientHeight + 'px';
         this.container.innerHTML = '';
         let zt_brk = emjyBack.getZtOrBrkStocks();

@@ -200,6 +200,9 @@ const guang = {
             console.log('cant convert code', code);
             return code;
         }
+        if (code.endsWith('.BJ')) {
+            return code;
+        }
         code = code.toLowerCase();
         if (code.startsWith('bj')) {
             return code.substring(2) + '.BJ';
