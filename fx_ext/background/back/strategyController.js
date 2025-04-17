@@ -1981,7 +1981,7 @@ class StrategyGE extends Strategy {
             if (!this.data.cutselltype) {
                 this.data.cutselltype = 'egate';
             }
-            var count = buydetails.getCountMatched(this.data.cutselltype, kl.c);
+            var count = buydetails.getCountMatched(this.data.cutselltype, kl.c, this.data.stepRate);
             if (count > 0) {
                 this.tmpGuardPrice = kl.c;
                 return {id: chkInfo.id, tradeType: 'S', count, price: kl.c};

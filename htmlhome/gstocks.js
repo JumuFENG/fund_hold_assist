@@ -216,7 +216,7 @@ class GlobalManager {
     }
 
     stockName(code) {
-        feng.getStockName(code) ?? this.stockMarket[code]?.n ?? code;
+        return feng.getStockName(code) ?? this.stockMarket[code]?.n ?? code;
     }
 
     stockAnchor(code, text=undefined) {
@@ -297,14 +297,13 @@ class GlobalManager {
                 return;
             }
 
-            var klmessage = {kltype, kline:{data:{klines:[]}}};
-            kdata.forEach(kl => {
-                klmessage.kline.data.klines.push(kl[1] + ',' + kl[5] + ',' + kl[2] + ',' + kl[3] + ',' + kl[4] + ',' + kl[8] + ',' + kl[6] + ',' + kl[7]);
+            const kldata = kdata.map( ([_,time,c,h,l,o,prc,pc,v]) => {
+                return {time, o, c, h, l, v, prc, pc};
             });
             if (!this.klines[code]) {
                 this.klines[code] = new KLine(code);
             }
-            this.klines[code].updateRtKline(klmessage);
+            this.klines[code].updateRtKline({kltype, kdata: kldata});
             this.klines[code].save();
         });
     }

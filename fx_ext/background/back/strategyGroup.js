@@ -248,7 +248,7 @@ class BuyDetail {
         }
 
         if (selltype == 'egate') {
-            if (fac > 0 && this.minBuyPrice() * (1 + fac) - price < 0) {
+            if (fac == 0 || this.minBuyPrice() * (1 + fac) - price < 0) {
                 return this.getCountLessThan(price, 0);
             }
             return 0;

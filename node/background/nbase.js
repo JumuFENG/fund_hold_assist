@@ -15,7 +15,7 @@ const logger = createLogger({
     level: 'info',
     format: combine(
         label({ label: 'emtrade' }),
-        timestamp(),
+        timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         printf(({ level, message, label, timestamp, ...rest }) => {
             const args = rest[Symbol.for('splat')] || [];
             if (typeof message === 'object') {

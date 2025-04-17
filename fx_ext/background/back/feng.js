@@ -70,7 +70,7 @@ const feng = {
     * @param {string} v 属性默认值
     * @returns {string} 获取的属性值
     */
-    cachedStockGenSimple(code, k, v='') {
+    cachedStockGenSimple(code, k, v) {
         const cached = this.stkcache.get(code);
         if (cached && cached[k]) {
             return cached[k];
