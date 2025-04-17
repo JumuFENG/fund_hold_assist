@@ -287,12 +287,13 @@ class StrategyI_Watcher_Cycle(StrategyI_Watcher_Once):
     async def start_strategy_tasks(self):
         loop = asyncio.get_event_loop()
         for bt, et in zip(self.btime, self.etime):
-            if guang.delay_seconds(et) > 0:
-                if guang.delay_seconds(bt) < 0:
-                    await self.start_simple_task()
-                else:
-                    loop.call_later(guang.delay_seconds(bt), lambda: asyncio.ensure_future(self.start_simple_task()))
-                loop.call_later(guang.delay_seconds(et), self.stop_simple_task)
+            eticks = guang.delay_seconds(et)
+            if eticks > 0:
+                bticks = guang.delay_seconds(bt)
+                if bticks < 0:
+                    bticks = 0
+                loop.call_later(bticks, lambda: asyncio.ensure_future(self.start_simple_task()))
+                loop.call_later(eticks, self.stop_simple_task)
             else:
                 self.stop_one_task()
 

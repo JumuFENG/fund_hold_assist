@@ -69,7 +69,7 @@ class iun:
         if subscribe_detail and callable(istr_message_creator):
             msg = istr_message_creator(match_data, subscribe_detail)
             if msg:
-                await TradeInterface.submit_trade(subscribe_detail['account'], json.dumps(msg))
+                TradeInterface.submit_trade(msg)
                 logger.info(f'send {match_data}, {subscribe_detail}, {ikey}')
 
     @classmethod

@@ -7,7 +7,7 @@ from app.guang import guang
 class TradeInterface:
     tserver = None
     @classmethod
-    def submit_trade(cls, account, bsinfo):
+    def submit_trade(cls, bsinfo):
         """
         提交交易请求
         :param bsinfo: 买卖详情信息
@@ -17,7 +17,6 @@ class TradeInterface:
             return False
         url = guang.join_url(cls.tserver, 'trade')
         headers = {'Content-Type': 'application/json'}
-        bsinfo['account'] = account
         response = requests.post(url, data=json.dumps(bsinfo), headers=headers)
         return response.status_code == 200
 
