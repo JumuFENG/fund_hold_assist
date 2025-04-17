@@ -26,7 +26,7 @@ def save_earning_task():
 
 class SaveEarningTask(TimerTask):
     def __init__(self) -> None:
-        super().__init__('15:01', save_earning_task)
+        super().__init__('15:01:03', save_earning_task)
 
 
 def update_bkchanges_in5d():
@@ -43,7 +43,7 @@ class UpdateBkChangesIn5dTask(TimerTask):
 
 class SmStatsTask1501(TimerTask):
     def __init__(self) -> None:
-        super().__init__('15:01', StockMarket_Stats_Task.execute_simple_task)
+        super().__init__('15:01:10', StockMarket_Stats_Task.execute_simple_task)
 
 
 if __name__ == '__main__':
