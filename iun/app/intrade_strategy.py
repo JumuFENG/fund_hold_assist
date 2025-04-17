@@ -160,7 +160,7 @@ class StrategyI_Zt1Bk(StrategyI_Listener):
 
         for c, zd, p, lc in fecthed:
             if zd < 8: continue
-            s = c[2:]
+            s = c[-6:]
             if s in self.stock_notified: continue
             if s not in self.candidates_bkstks: continue
             if not callable(self.on_intrade_matched):

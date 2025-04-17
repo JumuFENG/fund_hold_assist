@@ -69,14 +69,14 @@ class iun:
         if subscribe_detail and callable(istr_message_creator):
             msg = istr_message_creator(match_data, subscribe_detail)
             if msg:
-                await TradeInterface.submit_trade(json.dumps(msg))
+                await TradeInterface.submit_trade(subscribe_detail['account'], json.dumps(msg))
                 logger.info(f'send {match_data}, {subscribe_detail}, {ikey}')
 
     @classmethod
     async def main(cls):
         tconfig = Config.trading_service()
         TradeInterface.tserver = tconfig['server']
-        if not TradeInterface.ccheck_trade_server():
+        if not TradeInterface.check_trade_server():
             logger.error('trading server is not available')
             return
 
@@ -100,5 +100,3 @@ class iun:
 
 if __name__ == '__main__':
     asyncio.run(iun.main())
-    # iunCloud.dserver = 'http://localhost/5000/'
-    # ff=iunCloud.to_be_divided('600605')

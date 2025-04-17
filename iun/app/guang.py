@@ -66,6 +66,14 @@ class guang:
         return zdf
 
     @staticmethod
+    def join_url(srv, path):
+        if srv.endswith('/') and path.startswith('/'):
+            return srv + path[1:]
+        elif srv.endswith('/') or path.startswith('/'):
+            return srv + path
+        return srv + '/' + path
+
+    @staticmethod
     def generate_strategy_json(match_data, subscribe_detail):
         amount = subscribe_detail['amount']
         price = round(float(match_data['price']), 2)

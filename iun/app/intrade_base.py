@@ -43,7 +43,7 @@ class iunCloud:
     @classmethod
     def is_bk_ignored(self, bk):
         if self.__bk_ignored is None:
-            url = iunCloud.dserver + 'stock'
+            url = guang.join_url(iunCloud.dserver, 'stock')
             params = {
                 'act': 'bk_ignored',
             }
@@ -62,7 +62,7 @@ class iunCloud:
     @classmethod
     def to_be_divided(self, code):
         if self.__dividen is None:
-            url = iunCloud.dserver + 'stock'
+            url = guang.join_url(iunCloud.dserver, 'stock')
             params = {
                 'act': 'planeddividen',
                 'date': guang.today_date('-')
@@ -77,7 +77,7 @@ class iunCloud:
     def get_stock_bks(self, code):
         code = code[-6:]
         if code not in self.__stock_bks:
-            url = iunCloud.dserver + 'stock'
+            url = guang.join_url(iunCloud.dserver, 'stock')
             params = {
                 'act': 'stockbks',
                 'stocks': code
@@ -91,7 +91,7 @@ class iunCloud:
     @classmethod
     def get_bk_stocks(self, bk):
         if bk not in self.__bk_stocks:
-            url = iunCloud.dserver + 'stock'
+            url = guang.join_url(iunCloud.dserver, 'stock')
             params = {
                 'act': 'bkstocks',
                 'bks': bk
@@ -104,7 +104,7 @@ class iunCloud:
     @classmethod
     def recent_zt(self, code):
         if self.__zt_recents is None:
-            url = iunCloud.dserver + 'stock'
+            url = guang.join_url(iunCloud.dserver, 'stock')
             params = {
                 'act': 'ztstocks',
                 'days': 3
@@ -233,6 +233,18 @@ class StrategyI_Watcher_Once:
                 await self.execute_task()
             self.task_stopped = True
 
+    async def start_simple_task(self):
+        if self.task_running:
+            return
+        self.task_running = True
+        try:
+            await self.execute_task()
+        except Exception as e:
+            logger.error(f'{e}')
+            logger.error(traceback.format_exc())
+        self.task_stopped = True
+        self.notify_stop()
+
     async def execute_task(self):
         pass
 
@@ -297,9 +309,6 @@ class StrategyI_Watcher_Cycle(StrategyI_Watcher_Once):
         except Exception as e:
             logger.error(f'{e}')
             logger.error(traceback.format_exc())
-
-        if len(self.etime) == 0:
-            self.stop_simple_task()
 
     async def execute_task(self):
         logger.info('execute cycle task')
@@ -372,7 +381,7 @@ class StrategyI_AuctionSnapshot_Watcher(StrategyI_Watcher_Cycle):
                 'topprice': topprc, 'bottomprice': bottomprc}
             dtcodes.append(cd)
 
-        url = iunCloud.dserver + 'stock?act=zdtindays&codes=' + ','.join(dtcodes) + '&date=' + guang.today_date('-')
+        url = guang.join_url(iunCloud.dserver, 'stock') + '?act=zdtindays&codes=' + ','.join(dtcodes) + '&date=' + guang.today_date('-')
         zddaysdt = json.loads(guang.get_request(url))
         for code, zddays in zddaysdt.items():
             code = code[-6:]
@@ -406,27 +415,29 @@ class StrategyI_AuctionSnapshot_Watcher(StrategyI_Watcher_Cycle):
     async def execute_task(self):
         ezapi = ezqt.use('sina')
         while self.task_running:
-            quotes = ezapi.real(self.auction_quote.keys())
+            quotes = ezapi.real(list(self.auction_quote.keys()))
             self.cache_quotes(quotes)
             await asyncio.sleep(5)
 
     def cache_quotes(self, quotes):
         for code, quote in quotes.items():
+            if 'price' not in quote and 'now' in quote:
+                quote['price'] = quote['now']
             price = quote['price']
             if quote['open'] == 0 and quote['bid1'] == quote['ask1']:
                 price = quote['bid1']
-                matched_vol = quote['bid_vol1']
-                buy2_count = quote['bid_vol2']
-                sell2_count = quote['ask_vol2']
+                matched_vol = quote['bid1_volume']
+                buy2_count = quote['bid2_volume']
+                sell2_count = quote['ask2_volume']
                 unmatched_vol = buy2_count if buy2_count > 0 else -sell2_count
             else:
-                matched_vol = quote['vol']
+                matched_vol = quote['volume']
                 unmatched_vol = 0
                 if quote['price'] == quote['bid1']:
-                    unmatched_vol = quote['bid_vol1']
+                    unmatched_vol = quote['bid1_volume']
                 elif quote['price'] == quote['ask1']:
-                    unmatched_vol = -quote['ask_vol1']
-            self.auction_quote[code]['quotes'].append([quote['servertime'].split('.')[0],price, matched_vol, unmatched_vol])
+                    unmatched_vol = -quote['ask1_volume']
+            self.auction_quote[code]['quotes'].append([quote['time'], price, matched_vol, unmatched_vol])
 
     async def notify_auctions1(self):
         await self.notify_change({'quotes': self.auction_quote, 'uppercent': 5})
@@ -437,7 +448,7 @@ class StrategyI_AuctionSnapshot_Watcher(StrategyI_Watcher_Cycle):
     def stop_simple_task(self):
         super().stop_simple_task()
         if iunCloud.save_db_enabled():
-            aucurl = iunCloud.dserver + 'stock'
+            aucurl = guang.join_url(iunCloud.dserver, 'stock')
             today = guang.today_date('-')
             guang.post_data(aucurl, data={'act': 'save_auction_details', 'date': today, 'auctions': json.dumps(self.auction_quote)})
 
@@ -451,7 +462,7 @@ class StrategyI_AuctionSnapshot_Watcher(StrategyI_Watcher_Cycle):
                 zdays, zdist, ddays, ddist = q['zddays']
                 values.append([c, today, q['topprice'], q['bottomprice'], zdays, zdist, ddays, ddist])
 
-            aucmatchurl = iunCloud.dserver + 'stock'
+            aucmatchurl = guang.join_url(iunCloud.dserver, 'stock')
             guang.post_data(aucmatchurl, data={'act': 'save_auction_matched', 'matched': json.dumps(values)})
 
 
@@ -500,7 +511,6 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Cycle):
         super().__init__(['9:30:1', '13:00:1'], ['11:30:1', '14:57:1'])
         self.changes_period = 60
         self.exist_changes = set()
-        self.full_changes = []
 
     async def execute_task(self):
         while self.task_running:
@@ -539,7 +549,6 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Cycle):
 
     def merge_fetched(self, changes):
         f2ch = ['00', '60', '30', '68', '83', '87', '43', '92', '90', '20']
-        date = guang.today_date()
         for chg in changes:
             code = chg['c']
             if code[0:2] not in f2ch:
@@ -551,7 +560,6 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Cycle):
             info = chg['i']
             if (code, ftm, tp) not in self.exist_changes:
                 self.fecthed.append([code, ftm, tp, info])
-                self.full_changes.append([code, f'{date} {ftm}', tp, info])
                 self.exist_changes.add((code, ftm, tp))
 
 
@@ -566,7 +574,7 @@ class StrategyI_BKChanges_Watcher(StrategyI_Watcher_Cycle):
 
     @cached_property
     def topbks5(self):
-        url = iunCloud.dserver + 'stock'
+        url = guang.join_url(iunCloud.dserver, 'stock')
         params = {
             'act': 'hotbks',
             'days': 5
@@ -587,7 +595,7 @@ class StrategyI_BKChanges_Watcher(StrategyI_Watcher_Cycle):
             await asyncio.sleep(self.changes_period)
 
     async def get_changes(self):
-        bkchgurl = iunCloud.dserver + 'stock'
+        bkchgurl = guang.join_url(iunCloud.dserver, 'stock')
         params = {
             'act': 'rtbkchanges',
             'save': 1
