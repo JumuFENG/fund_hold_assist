@@ -111,7 +111,7 @@ class KlineTimer extends AlarmBase {
     constructor() {
         super([['9:29:56', '11:30'],['12:59:56', '14:56:58']]);
         this.baseKlt = new Set(['1', '15']);
-        this.hitCount = 0;
+        this.hitCount = 1;
         this.ticks = 60000;
     }
 
