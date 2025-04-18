@@ -390,7 +390,7 @@ class ZtConceptsPanelPage extends RadioAnchorPage {
             }
             con.style.background = this.conceptBk[x[0]];
             con.appendChild(document.createTextNode(`${x[1]} ${x[0]}`));
-            con.style.width = x[1] * this.topPanel.clientWidth / sum;
+            con.style.width = x[1] * this.topPanel.clientWidth / sum + 'px';
             con.style.border = '3px solid';
             con.style.borderColor = con.style.backgroundColor;
             con.style.textWrap = 'nowrap';

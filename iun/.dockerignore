@@ -1,5 +1,6 @@
 Dockerfile
 .dockerignore
+__pycache__
 config
 logs
 .DS_Store

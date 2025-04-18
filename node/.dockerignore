@@ -3,6 +3,7 @@ Dockerfile
 node_modules
 config
 logs
+tests
 npm-debug.log
 .DS_Store
 .env

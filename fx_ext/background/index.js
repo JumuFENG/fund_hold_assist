@@ -574,7 +574,7 @@ Promise.all([svrd.getFromLocal('acc_np'), svrd.getFromLocal('fha_server')]).then
     istrManager.fha = fhaInfo;
 }).then(() => {
     ext.createMainTab();
-    ext.setupWebsocketConnection();
+    // ext.setupWebsocketConnection();
     accld.initAccounts();
     trackacc.initTrackAccounts();
     accld.all_accounts = accld.all_accounts;
