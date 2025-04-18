@@ -58,7 +58,8 @@ class StrategyI_Base {
             }
         }
         if (rejected.length > 0) {
-            this.candidates.fromEntries(Object.entries(this.candidates).filter(([c, s]) => !rejected.includes(c)));
+            logger.info(this.constructor.name, 'rejected', rejected);
+            this.candidates = Object.fromEntries(Object.entries(this.candidates).filter(([c, s]) => !rejected.includes(c)));
         }
     }
 
