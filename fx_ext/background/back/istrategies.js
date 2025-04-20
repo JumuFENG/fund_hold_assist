@@ -531,7 +531,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
             }
 
             for (let zr of top_zt_stocks) {
-                let code = zr[0].length == 6 ? zr[0] : zr[0].substring(2);
+                let code = zr[0].slice(-6);
                 if (!this.candidates[code]) {
                     this.candidates[code] = {};
                 };
@@ -617,7 +617,29 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                     });
                 }
             });
-        })
+        });
+        this.saveCandidates();
+    }
+
+    saveCandidates() {
+        let ohstks = []
+        const date = guang.getTodayDate('-');
+        for (let code in this.candidates) {
+            if (this.candidates[code].rank && this.candidates[code].ztdate) {
+                ohstks.push([date, code, this.candidates[code].ztdate, this.candidates[code].days, this.candidates[code].step, this.candidates[code].rank]);
+            }
+        }
+        const url = istrManager.fha.server + 'stock';
+        const fd = new FormData();
+        fd.append('act', 'setistr');
+        fd.append('key', this.istr.key);
+        fd.append('ohstks', JSON.stringify(ohstks));
+        fetch(url, {
+            method: 'POST',
+            body: fd
+        }).catch(e => {
+            logger.error(this.istr.key, 'setistr error', e);
+        });
     }
 }
 

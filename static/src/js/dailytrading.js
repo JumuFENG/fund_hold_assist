@@ -252,7 +252,8 @@ GlobalManager.prototype.getStockMarketStats = function() {
     const surl = emjyBack.fha.svr5000 + 'stock?act=sm_stats';
     fetch(surl).then(r=>r.json()).then(stats => {
         this.all_stats = stats;
-        stats.forEach(ss => {
+        for (let i = stats.length - 1; i >= 0; i--) {
+            const ss = stats[i];
             for (const k in ss.stocks) {
                 ss.stocks[k].forEach(p => {
                     if (!feng.stock_basics[p.secu_code]) {
@@ -274,7 +275,7 @@ GlobalManager.prototype.getStockMarketStats = function() {
                 emjyBack.plate_basics[p.code].secu_code = p.code;
                 emjyBack.plate_basics[p.code].secu_name = p.name;
             }
-        });
+        }
         if (this.home && this.home.dailyZtStepsPanel) {
             feng.updateStockBasics(this.home.dailyZtStepsPanel.zstep_stocks);
         }
@@ -3934,12 +3935,11 @@ class EmPopularity extends LeftColumnBarItem {
         } else if (this.mktfilter == 'zlead') {
             let zleads = [];
             for (const i of Object.keys(emjyBack.recent_zt_map).reverse()) {
-                if (i - 3 <= 0 ) continue;
-                if (zleads.length < 10) {
-                    emjyBack.recent_zt_map[i].forEach(z => {
-                        zleads.push(z[0]);
-                    });
-                }
+                if (emjyBack.recent_zt_map[i].length > zleads.length && zleads.length >= 8) break;
+                emjyBack.recent_zt_map[i].forEach(z => {
+                    zleads.push(z[0]);
+                });
+                if (zleads.length >= 10) break;
             }
             slist = this.popularityList.filter(p => zleads.includes(guang.convertToSecu(p.SECURITY_CODE)));
         }

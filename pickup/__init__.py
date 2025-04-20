@@ -17,3 +17,4 @@ from pickup.stock_zdf_ranks import *
 from pickup.stock_zt_lead_selector import *
 from pickup.stock_conditions_selector import *
 from pickup.stock_auctionup_selector import *
+from pickup.stock_changes_selector import *

@@ -963,6 +963,13 @@ class StrategySellELShort extends StrategySellEL {
                 }
             }
         }
+        if (this.data.guardPrice && latestPrice - this.data.guardPrice < 0) {
+            var count = buydetails.getCountMatched(this.data.cutselltype, latestPrice);
+            if (count > 0) {
+                logger.info(this.key(), JSON.stringify(rtInfo));
+                return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: latestPrice});
+            }
+        }
         return Promise.resolve();
     }
 

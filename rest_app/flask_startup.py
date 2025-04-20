@@ -355,6 +355,12 @@ def stock():
                 hotranktbl = StockHotrank0Selector()
                 hotranktbl.saveDailyHotrank0(tprks)
                 return 'OK', 200
+            if key == 'istrategy_hotstks_open':
+                ohstks = request.form.get('ohstks')
+                ohstks = json.loads(ohstks)
+                ohtbl = StockHotStocksOpenSelector()
+                ohtbl.saveDailyHotStocksOpen(ohstks)
+                return 'OK', 200
     else:
         actype = request.args.get("act", type=str, default=None)
         if actype == 'test':

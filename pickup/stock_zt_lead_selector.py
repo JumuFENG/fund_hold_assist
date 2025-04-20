@@ -1431,3 +1431,21 @@ class StockZdtEmotion(StockBaseSelector):
 
     def dumpDataInDays(self, days):
         return self.dumpDataByDate(TradingDate.prevTradingDate(TradingDate.maxTradedDate(), days-1))
+
+
+class StockHotStocksOpenSelector(StockBaseSelector):
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_day_hotstks_open'
+        self.colheaders = [
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_code,'type':'int default 0'},
+            {'col':'zdate','type':'varchar(20) DEFAULT NULL'}, # 涨停日期
+            {'col':'days','type':'int default 0'},
+            {'col':'step','type':'int default 0'},
+            {'col':'rank','type':'int default 0'},
+        ]
+
+    def saveDailyHotStocksOpen(self, hstks):
+        values = [(h[0], StockGlobal.full_stockcode(h[1]), *h[2:]) for h in hstks]
+        self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_date, column_code], values)
