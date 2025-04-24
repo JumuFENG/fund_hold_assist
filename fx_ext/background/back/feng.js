@@ -7,11 +7,14 @@ const feng = {
     emklapi: 'http://push2his.eastmoney.com/api/qt/stock/kline/get?ut=7eea3edcaed734bea9cbfc24409ed989&fqt=1&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56',
     etrendapi: 'http://push2his.eastmoney.com/api/qt/stock/trends2/get?fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56&ut=fa5fd1943c7b386f172d6893dbfba10b&iscr=1&iscca=0',
     emshszac: 'https://emhsmarketwg.eastmoneysec.com/api/SHSZQuery/GetCodeAutoComplete2?count=10&callback=sData&id=',
-    get gtimg() { 
+    get gtimg() {
         return guang.server ? `${guang.server}/fwd/gtimg/q=` : 'http://qt.gtimg.cn/q=';
     },
     get sinahqapi() {
         return (guang.server ? `${guang.server}/fwd/sinahq/` : 'https://hq.sinajs.cn/') + `rn=${Date.now()}&list=`;
+    },
+    get zdfbapi() {
+        return (guang.server ? `${guang.server}/fwd/empush2ex/` : 'https://push2ex.eastmoney.com/') + `getTopicZDFenBu?ut=7eea3edcaed734bea9cbfc24409ed989&dpt=wz.ztzt&_=${Date.now()}`;
     },
     stkcache: new Map(),
     quoteCache: new Map(),
@@ -111,7 +114,11 @@ const feng = {
                 return {code: d.Code, name: d.Name, secid: d.QuoteID, jsy: d.JYS, mType: d.MarketType, mNum: d.MktNum}
             });
         }).catch(e=>{
-            console.error('searchSecurity', e)
+            if (guang.logger) {
+                guang.logger.error('searchSecurity', e);
+            } else {
+                console.error('searchSecurity', e)
+            }
         });
     },
 
@@ -311,7 +318,11 @@ const feng = {
                 });
             });
         }).catch(e => {
-            console.error('Error fetching quotes from sina:', e);
+            if (guang.logger) {
+                guang.logger.error('Error fetching quotes from sina:', e);
+            } else {
+                console.error('Error fetching quotes from sina:', e);
+            }
             this.fetchStocksQuotesTencent(codes, cacheTime);
         });
     },
@@ -319,7 +330,9 @@ const feng = {
         for (let i = 0; i < codes.length; i += 60) {
             const batch = codes.slice(i, i + 60);
             const slist = batch.map(code => guang.convertToQtCode(code)).filter(c => c.length == 8).join(',');
-            fetch(feng.gtimg + slist).then(r => r.text()).then(async(q) => {
+            try {
+                const buffer = await (await fetch(feng.gtimg + slist)).arrayBuffer();
+                const q = new TextDecoder('gbk').decode(buffer);
                 const qdata = q.split(';');
                 for (let i = 0; i < qdata.length; i++) {
                     const q = qdata[i].split('~');
@@ -342,12 +355,21 @@ const feng = {
                             sale4: q[25], sale4_count: q[26],
                             sale5: q[27], sale5_count: q[28],
                         },
+                        preclose_px: q[4],
+                        change_px: q[31],
+                        change: q[32]/100,
+                        up_price: q[47],
+                        down_price: q[48],
                         expireTime: guang.snapshotExpireTime(cacheTime)
                     });
                 }
-            }).catch(e => {
-                console.error('Error fetching quotes from tencent:', e);
-            });
+            } catch (e) {
+                if (guang.logger) {
+                    guang.logger.error('Error fetching quotes from tencent:', e);
+                } else {
+                    console.error('Error fetching quotes from tencent:', e);
+                }
+            }
         }
     },
     /**
@@ -400,6 +422,9 @@ const feng = {
         if (!klt) {
             klt = '101';
         }
+        // if (klt == 1) {
+        //     return feng.getStockMinutesKline(code, 1, 60000);
+        // }
         let secid = await feng.getStockSecId(code);
         let beg = 0;
         if (klt == '101') {
@@ -489,14 +514,14 @@ const feng = {
     },
 
     /**
-     * 获取股票1分钟K线数据, 默认cache 24小时， 盘前盘后使用，盘中用getStockKline(code, klt='1');
+     * 获取股票1分钟K线数据, 默认cache 24小时，盘前盘后使用
      * @param {string} code - The stock code.
      * @param {number} [days=2] - 天数, 最多可以获取5天.
      */
-    async getStockMinutesKline(code, days=2) {
+    async getStockMinutesKline(code, days=2, cacheTime=24*60*60000) {
         const secid = await this.getStockSecId(code);
         const url = this.etrendapi + `&secid=${secid}&ndays=${days}`;
-        return guang.fetchData(url, {}, 24*60*60000, rsp => {
+        return guang.fetchData(url, {}, cacheTime, rsp => {
             const kdata = rsp.data.trends.map(kl => {
                 const [time,o,c,h,l,v] = kl.split(',');
                 return {time, o, c, h, l, v};
@@ -511,19 +536,41 @@ const feng = {
     },
     async getStockBasics (stocks) {
         if (typeof stocks === 'string') {
-            await this.updateStockBasics([guang.convertToSecu(stocks)]);
-            if (!this.stock_basics[guang.convertToSecu(stocks)]) {
+            stocks = guang.convertToQtCode(stocks);
+            await this.updateStockBasicsTencent([stocks]);
+            if (!this.stock_basics[stocks]) {
                 await this.updateStockBasicsEm([stocks]);
             }
-            return this.stock_basics[guang.convertToSecu(stocks)];
+            return this.stock_basics[stocks];
         }
 
-        await this.updateStockBasics(stocks.map(s => guang.convertToSecu(s)));
-        const failed = stocks.filter(s => !this.stock_basics[guang.convertToSecu(s)]);
+        if (stocks.length === 0) {
+            return {};
+        }
+        const qcodes = stocks.map(s => guang.convertToQtCode(s));
+        await this.updateStockBasicsTencent(qcodes);
+        const failed = qcodes.filter(s => !this.stock_basics[s]);
         if (failed.length > 0) {
             await this.updateStockBasicsEm(failed);
         }
-        return Object.fromEntries(stocks.map(s => [s, this.stock_basics[guang.convertToSecu(s)]]));
+        return Object.fromEntries(stocks.map(s => [s, this.stock_basics[guang.convertToQtCode(s)]]));
+    },
+    get clsworks() {
+        if (this._clsworks === undefined) {
+            if (!guang.server) {
+                this._clsworks = false;
+                this.checkClsWorks();
+                return false;
+            }
+            return false;
+        }
+        return this._clsworks;
+    },
+    async checkClsWorks() {
+        return fetch(guang.server + 'fwd/clsquote/quote/stock/closest_trading_day').then(r => r.json()).then(d => {
+            this._clsworks = Boolean(d && d.data);
+            return this._clsworks;
+        });
     },
     async updateStockBasics (stocks) {
         stocks = stocks.filter(s => !this.stock_basics[s] || this.stock_basics[s].expireTime < Date.now());
@@ -535,30 +582,145 @@ const feng = {
         const psize = 100;
         let fields = 'open_px,av_px,high_px,low_px,change,change_px,down_price,cmc,business_amount,business_balance,secu_name,secu_code,trade_status,secu_type,preclose_px,up_price,last_px';
         while (i < stocks.length) {
-            let group = stocks.slice(i, i + psize);
-            let fUrl = guang.server + `fwd/clsquote/quote/stocks/basic?app=CailianpressWeb&fields=${fields}&os=web&secu_codes=${group.join(',')}&sv=7.7.5`;
+            let group = stocks.slice(i, i + psize).map(s => guang.convertToSecu(s));
+            let fUrl = guang.server + `fwd/clsquote/quote/stocks/basic?app=CailianpressWeb&fields=${fields}&os=web&secu_codes=${group.join(',')}&sv=8.4.6`;
             const bdata = await fetch(fUrl).then(r => r.json()).then(d => d.data);
             for (const s in bdata) {
-                this.stock_basics[s] = bdata[s];
-                this.stock_basics[s].up_limit = Math.round((bdata[s].up_price - bdata[s].preclose_px)*100/bdata[s].preclose_px)/100;
-                this.stock_basics[s].expireTime = guang.snapshotExpireTime() ;
+                const qcode = guang.convertToQtCode(s);
+                this.stock_basics[qcode] = bdata[s];
+                this.stock_basics[qcode].up_limit = Math.round((bdata[s].up_price - bdata[s].preclose_px)*100/bdata[s].preclose_px)/100;
+                this.stock_basics[qcode].expireTime = guang.snapshotExpireTime() ;
             }
 
             i += psize;
         }
     },
-    async updateStockBasicsEm(stocks) {
-        if (stocks.length == 0) {
+    async updateStockBasicsTencent(stocks) {
+        stocks = stocks.filter(s => !this.stock_basics[s] || this.stock_basics[s].expireTime < Date.now());
+        if (stocks.length === 0) {
             return;
         }
-        const scodes = stocks.map(s => s.replaceAll('SH', '1.').replaceAll('SZ', '0.')).join(',');
-        const qurl = guang.server + `fwd/empush2qt/ulist.np/get?fltt=2&secids=${scodes}&fields=f2,f12,f13,f14`;
-        const emdata = await fetch(qurl).then(r => r.json()).then(d=>d?.data?.diff);
-        for (const {f2: last_px, f12: code, f13:mkt, f14:secu_name} of emdata) {
-            let secu_code = guang.convertToSecu(['SZ','SH'][mkt] + code);
-            this.stock_basics[secu_code] = {last_px, secu_code, secu_name};
-            this.stock_basics[secu_code].expireTime = guang.snapshotExpireTime();
+
+        await this.fetchStocksQuotesTencent(stocks);
+        for (const s of stocks) {
+            if (this.quoteCache.has(s)) {
+                this.stock_basics[s] = this.quoteCache.get(s);
+                this.stock_basics[s].secu_name = this.stock_basics[s].name;
+                this.stock_basics[s].secu_code = guang.convertToSecu(s);
+                this.stock_basics[s].last_px = this.stock_basics[s].latestPrice;
+                this.stock_basics[s].expireTime = guang.snapshotExpireTime();
+            }
         }
+    },
+    async updateStockBasicsEm(stocks) {
+        stocks = stocks.filter(s => !this.stock_basics[s] || this.stock_basics[s].expireTime < Date.now());
+        if (stocks.length === 0) {
+            return;
+        }
+        const secs = [];
+        for (const s of stocks) {
+            let sec = s.replaceAll('SH', '1.').replaceAll('sh', '1.').replaceAll('sz', '0.').replaceAll('SZ', '0.');
+            if (sec.endsWith('.BJ') || sec.startsWith('BJ')) {
+                sec = '0.' + sec.substring(0, 6);
+            }
+            secs.push(sec);
+        }
+        const scodes = secs.join(',');
+        const qurl = guang.server + `fwd/empush2qt/ulist.np/get?fltt=2&secids=${scodes}&fields=f2,f3,f4,f12,f13,f14,f18`;
+        const emdata = await fetch(qurl).then(r => r.json()).then(d=>d?.data?.diff);
+        for (const {f2: last_px, f3: change, f4: change_px, f12: code, f13:mkt, f14:secu_name, f18: preclose_px} of emdata) {
+            let qcode = guang.convertToQtCode(['SZ','SH'][mkt] + code);
+            this.stock_basics[qcode] = {last_px, change, change_px, secu_code: qcode, secu_name, preclose_px};
+            const zdf = guang.getStockZdf(code, secu_name);
+            this.stock_basics[qcode].up_limit = zdf / 100;
+            this.stock_basics[qcode].up_price = guang.calcZtPrice(preclose_px, zdf);
+            this.stock_basics[qcode].down_price = guang.calcDtPrice(preclose_px, zdf);
+            this.stock_basics[qcode].expireTime = guang.snapshotExpireTime();
+        }
+    },
+    async getIndiceRtInfo(indices) {
+        if (!guang.server) {
+            throw new Error('getIndiceRtInfo: guang.server is not set!');
+        }
+        let emo = null;
+        if (this.clsworks) {
+            const iparam = `app=CailianpressWeb&fields=secu_name,secu_code,trade_status,change,change_px,last_px&os=web&secu_codes=${indices}&sv=8.4.6`;
+            var fUrl = guang.server + `fwd/clsquote/quote/stocks/basic?${iparam}`;
+            emo = await fetch(fUrl).then(r => r.json());
+            emo = emo?.data;
+        }
+        if (!emo) {
+            await this.updateStockBasicsEm(indices);
+            emo = Object.fromEntries(indices.map(s => [s, this.stock_basics[guang.convertToQtCode(s)]]));
+        }
+        return emo;
+    },
+    async getZdFenbu() {
+        let emo = null;
+        const emparam = 'app=CailianpressWeb&os=web&sv=8.4.6';
+        var fUrl = guang.server + 'fwd/clsquote/v2/quote/a/stock/emotion?' + emparam;
+        if (!this.clsworks) {
+            fUrl = 'https://x-quote.cls.cn/v2/quote/a/stock/emotion?' + emparam;
+            fUrl = guang.dserver + 'api/get?url=' + btoa(fUrl) + '&host=x-quote.cls.cn&referer=https://www.cls.cn/';
+        }
+        emo = await fetch(fUrl).then(r => r.json());
+        emo = emo?.data;
+        if (!emo) {
+            // https://quote.eastmoney.com/ztb/
+            let zdfbarr = await fetch(this.zdfbapi).then(r => r.json()).then(d => d?.data?.fenbu);
+            let zdfb = {};
+            zdfbarr.forEach(o => Object.assign(zdfb, o));
+            emo = {};
+            emo.up_down_dis = {
+                up_num: zdfb[11], up_10: zdfb[9] + zdfb[10], up_8: zdfb[7]+zdfb[8], up_6: zdfb[5] + zdfb[6],
+                up_4: zdfb[3] + zdfb[4], up_2: zdfb[1] + zdfb[2], flat_num: zdfb[0], down_2: zdfb['-1'] + zdfb['-2'],
+                down_4: zdfb['-3'] + zdfb['-4'], down_6: zdfb['-5'] + zdfb['-6'], down_8: zdfb['-7']+zdfb['-8'],
+                down_10: zdfb['-9'] + zdfb['-10'], down_num: zdfb['-11']
+            };
+            emo.up_down_dis.rise_num = emo.up_down_dis.up_num + emo.up_down_dis.up_10 + emo.up_down_dis.up_8 + emo.up_down_dis.up_6 +
+                emo.up_down_dis.up_4 + emo.up_down_dis.up_2;
+            emo.up_down_dis.fall_num = emo.up_down_dis.down_num + emo.up_down_dis.down_10 + emo.up_down_dis.down_8 + emo.up_down_dis.down_6 +
+                emo.up_down_dis.down_4 + emo.up_down_dis.down_2;
+            emo.up_down_dis.suspend_num = '-';
+            emo.shsz_balance = 0; // 总成交额
+            emo.shsz_balance_change_px = 0; // 较上日
+            emo.up_ratio_num = zdfb[11]; // 涨停个股
+            emo.up_open_num = 0; // 开板数
+            emo.up_ratio = 0; // 封板率
+        }
+        return emo;
+    },
+    async getClsPlatesRanking() {
+        const pways = ['change', 'limit_up_num', 'main_fund_diff'];
+        const pparam = 'app=CailianpressWeb&os=web&page=1&rever=1&sv=8.4.6&type=concept&way=';
+        var plates = {};
+        for (let w of pways) {
+            let url = '';
+            if (this.clsworks) {
+                url = guang.server + 'fwd/clsquote/web_quote/plate/plate_list?' + pparam + w;
+            } else {
+                const ourl = 'https://x-quote.cls.cn/web_quote/plate/plate_list?' + pparam + w;
+                url = guang.dserver + 'api/get?url=' + btoa(ourl) + '&host=x-quote.cls.cn&referer=https://www.cls.cn/';
+            }
+
+            const pl = await (await fetch(url)).json();
+            if (pl?.data?.plate_data) {
+                for (const secu of pl.data.plate_data) {
+                    plates[secu.secu_code] = secu;
+                }
+            }
+        }
+        return plates;
+    },
+    async getStockTlineCls(code) {
+        const secu_code = guang.convertToSecu(code);
+        const tparams = `app=CailianpressWeb&fields=date,minute,last_px,business_balance,business_amount,open_px,preclose_px,av_px&os=web&secu_code=${secu_code}&sv=8.4.6`
+        var fUrl = guang.server + `fwd/clsquote/quote/stock/tline?${tparams}`;
+        if (!this.clsworks) {
+            fUrl = 'https://x-quote.cls.cn/quote/stock/tline?' + tparams;
+            fUrl = guang.dserver + 'api/get?url=' + btoa(fUrl) + '&host=x-quote.cls.cn&referer=https://www.cls.cn/';
+        }
+        return fetch(fUrl).then(r => r.json());
     }
 }
 

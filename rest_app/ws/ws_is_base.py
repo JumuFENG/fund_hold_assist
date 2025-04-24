@@ -466,7 +466,7 @@ class StrategyI_OpenFundFlow_Watcher(StrategyI_Simple_Watcher):
         fund_diffs = []
         for c,d,days,lbc in ztstks:
             sc = Utils.to_cls_secucode(c)
-            clsfundurl = f'https://x-quote.cls.cn/quote/stock/fundflow?secu_code={sc}&app=CailianpressWeb&os=web&sv=7.7.5'
+            clsfundurl = f'https://x-quote.cls.cn/quote/stock/fundflow?secu_code={sc}&app=CailianpressWeb&os=web&sv=8.4.6'
             fundinfo = json.loads(Utils.get_em_request(clsfundurl, host='x-quote.cls.cn'))
             if 'data' in fundinfo and 'main_fund_diff' in fundinfo['data'] and fundinfo['data']['main_fund_diff'] > 0:
                 fund_diffs.append([c,d,days,lbc,fundinfo['data']['main_fund_diff']])
@@ -1021,7 +1021,7 @@ class StockMarket_Quote_Watcher(StrategyI_Simple_Watcher):
         fields = 'open_px,av_px,high_px,low_px,change,change_px,down_price,cmc,business_amount,business_balance,secu_name,secu_code,trade_status,secu_type,preclose_px,up_price,last_px'
         for i in range(0,len(up_down_stocks),200):
             ccodes = ','.join([self.to_secucode(c) for c in up_down_stocks[i: i+200]])
-            bUrl = f'https://x-quote.cls.cn/quote/stocks/basic?app=CailianpressWeb&fields={fields}&os=web&secu_codes={ccodes}&sv=7.7.5'
+            bUrl = f'https://x-quote.cls.cn/quote/stocks/basic?app=CailianpressWeb&fields={fields}&os=web&secu_codes={ccodes}&sv=8.4.6'
             sbasics = json.loads(Utils.get_em_request(bUrl, 'x-quote.cls.cn'))
             if 'data' in sbasics:
                 for secu in sbasics['data']:

@@ -60,18 +60,6 @@ GlobalManager.prototype.nextRandomColor = function(){
     return this.color_exists&&this.color_exists.has(clr)?this.nextRandomColor():(this.color_exists||(this.color_exists=new Set),this.color_exists.add(clr),clr)
 };
 
-GlobalManager.prototype.closestTradingDate = function() {
-    let dUrl = emjyBack.fha.server + 'fwd/clsquote/quote/stock/closest_trading_day?app=CailianpressWeb&os=web&sv=7.7.5';
-    fetch(dUrl).then(r => r.json()).then(jrtd => {
-        this.last_traded_date = jrtd.data[1];
-        // this.latest_trading_date = jrtd.data[0];
-        this.closet_trading_date = jrtd.data;
-        if (jrtd.data[0] < guang.getTodayDate('-')) {
-            this.last_traded_date = jrtd.data[0];
-        }
-    });
-}
-
 GlobalManager.prototype.sortStockByChange = function(stocks) {
     return stocks.sort(((s,t)=>!feng.stock_basics[s]||!!feng.stock_basics[t]&&feng.stock_basics[t].change-feng.stock_basics[s].change));
 };
@@ -81,8 +69,7 @@ GlobalManager.prototype.addTlineListener = function(lsner) {
 }
 
 GlobalManager.prototype.updateTline = function(secu_code) {
-    var fUrl = emjyBack.fha.server + `fwd/clsquote/quote/stock/tline?app=CailianpressWeb&fields=date,minute,last_px,business_balance,business_amount,open_px,preclose_px,av_px&os=web&secu_code=${secu_code}&sv=7.7.5`;
-    Promise.all([fetch(fUrl).then(r=>r.json()), feng.getStockBasics(secu_code).then(sb => sb.preclose_px)]).then(([tldata, preclose_px]) => {
+    Promise.all([feng.getStockTlineCls(secu_code), feng.getStockBasics(secu_code).then(sb => sb.preclose_px)]).then(([tldata, preclose_px]) => {
         if (!this.stock_tlines[secu_code]) {
             this.stock_tlines[secu_code] = [];
         }
@@ -171,7 +158,7 @@ GlobalManager.prototype.getHotStocks = function(days=2) {
     let url = emjyBack.fha.svr5000 + 'stock?act=hotstocks&days=' + days;
     fetch(url).then(r=>r.json()).then(recent_zt_stocks => {
         this.recent_zt_map = {};
-        feng.updateStockBasics(recent_zt_stocks.map(s => guang.convertToSecu(s[0]))).then(() => {
+        feng.getStockBasics(recent_zt_stocks.map(s => guang.convertToSecu(s[0]))).then(() => {
             for (let zr of recent_zt_stocks) {
                 let zstep = zr[3];
                 zr[0] = guang.convertToSecu(zr[0]);
@@ -238,10 +225,11 @@ GlobalManager.prototype.onChangesReceived = function(changes, date) {
         }
         this.stock_events[secu_code][change_date].push({date: change_date, minute, x, type, info})
     });
-    feng.updateStockBasics(changed_secus);
-    this.event_listeners.forEach(lsner=>lsner.onEventReceived(changed_secus, date));
-    emjyBack.home.dailyZtStepsPanel.updateZtSteps();
-    emjyBack.home.platesManagePanel.updateStocksInfo();
+    feng.getStockBasics(changed_secus).then(() => {;
+        this.event_listeners.forEach(lsner=>lsner.onEventReceived(changed_secus, date));
+        emjyBack.home.dailyZtStepsPanel.updateZtSteps();
+        emjyBack.home.platesManagePanel.updateStocksInfo();
+    });
 }
 
 GlobalManager.prototype.addStatsListener = function(lsner) {
@@ -276,10 +264,14 @@ GlobalManager.prototype.getStockMarketStats = function() {
                 emjyBack.plate_basics[p.code].secu_name = p.name;
             }
         }
-        if (this.home && this.home.dailyZtStepsPanel) {
-            feng.updateStockBasics(this.home.dailyZtStepsPanel.zstep_stocks);
-        }
-        this.stats_listeners.forEach(lsner=>lsner.onStatsReceived());
+
+        const promise = this.home && this.home.dailyZtStepsPanel 
+            ? feng.getStockBasics(this.home.dailyZtStepsPanel.zstep_stocks)
+            : Promise.resolve();
+
+        promise.then(() => {
+            this.stats_listeners.forEach(lsner=>lsner.onStatsReceived());
+        });
     });
 }
 
@@ -358,13 +350,13 @@ GlobalManager.prototype.onStockZdfRankReceived = function(zdf) {
             }
         }
     }
-    if (toupdate.length > 0) {
-        feng.updateStockBasics(toupdate);
-    }
-    this.daily_ranks = daily_ranks;
-    this.daily_ranks_all = daily_ranks_all;
-    emjyBack.home.dailyZtStepsPanel.updateZtSteps();
-    emjyBack.home.platesManagePanel.updateStocksInfo();
+
+    feng.getStockBasics(toupdate).then(() => {
+        this.daily_ranks = daily_ranks;
+        this.daily_ranks_all = daily_ranks_all;
+        emjyBack.home.dailyZtStepsPanel.updateZtSteps();
+        emjyBack.home.platesManagePanel.updateStocksInfo();
+    });
 }
 
 GlobalManager.prototype.getZtOrBrkStocks = function() {
@@ -483,7 +475,7 @@ class DailyHome {
         this.bodyArea = document.querySelector('#body-area');
         this.footerArea = document.querySelector('#footer-area');
         this.dailyZtStepsPanel = new DailyZtStepsPanel(document.querySelector('#steps-panel'));
-        this.auctionPanel = new AuctionPanel(document.querySelector('#auctions-panel'));
+        // this.auctionPanel = new AuctionPanel(document.querySelector('#auctions-panel'));
         this.platesManagePanel = new PlatesManagePanel(document.querySelector('#plates-manage-panel'));
         this.platesManagePanel.loadPlates();
         this.setupRefresh();
@@ -493,12 +485,10 @@ class DailyHome {
         if (!this.refreshInterval && act == 'start') {
             this.refreshInterval = setInterval(() => {
                 this.updateBanner();
-                if (emjyBack.market_status == 'TRADE' || emjyBack.market_status == 'OCALL') {
+                if (emjyBack.is_trading_day) {
                     this.updateEmotions();
                     this.updatePlateList();
                     emjyBack.updateZdfRank();
-                } else if (emjyBack.market_status != 'ENDTR') {
-                    emjyBack.log('not updating', emjyBack.market_status)
                 }
             }, 60000);
         } else if (this.refreshInterval && act == 'stop') {
@@ -566,8 +556,9 @@ class DailyHome {
         this.updateEmotions();
         this.updatePlateList();
         emjyBack.updateZdfRank();
-        feng.getStockBasics('sh000001');
-        emjyBack.updateTline('sh000001');
+        feng.getStockBasics('sh000001').then(() => {
+            emjyBack.updateTline('sh000001');
+        });
         emjyBack.addTlineStocksQueue(['sh000001']);
 
         this.statsPanel = new StockMarketStatsPanel(this.headerArea);
@@ -576,21 +567,19 @@ class DailyHome {
 
     setupTlineUpdater() {
         setInterval(() => {
-            if (this.refreshInterval && emjyBack.market_status == 'TRADE') {
+            if (this.refreshInterval && emjyBack.is_trading_day) {
                 emjyBack.updateFocusedStocksTline();
             }
         }, 5000);
         setInterval(() => {
-            if (this.refreshInterval && emjyBack.market_status == 'TRADE') {
+            if (this.refreshInterval && emjyBack.is_trading_day) {
                 emjyBack.updateStocksTline();
             }
         }, 180000);
     }
 
     updateBanner() {
-        var indices = 'sh000001,sz399001,sh000905,sz399006,sh000300,899050.BJ'
-        var fUrl = emjyBack.fha.server + `fwd/clsquote/quote/stocks/basic?app=CailianpressWeb&fields=secu_name,secu_code,trade_status,change,change_px,last_px&os=web&secu_codes=${indices}&sv=7.7.5`
-        fetch(fUrl).then(r=>r.json()).then(emo => {
+        feng.getIndiceRtInfo(['sh000001','sz399001','sh000905','sz399006','sh000300','899050.BJ']).then(emo => {
             this.showBanner(emo);
         });
     }
@@ -601,28 +590,20 @@ class DailyHome {
         }
         this.bannerRoot.innerHTML = '';
         var ovHtml = ''
-        for (const c in indice_info.data) {
-            let secuinfo = indice_info.data[c];
+        for (const c in indice_info) {
+            let secuinfo = indice_info[c];
             let arrow = secuinfo.change == 0 ? '' : secuinfo.change > 0 ? '▲' : '▼';
             let color = secuinfo.change == 0 ? '#cccccc' : secuinfo.change > 0 ? '#de0422' : '#52c2a3';
             ovHtml += `${secuinfo.secu_name} <span style='color: ${color}; font-size: 14px; margin-right: 30px' > ${secuinfo.last_px} ${arrow} ${(secuinfo.change*100).toFixed(2) + '%'}</span>`
         }
         this.bannerRoot.innerHTML = ovHtml;
-        var nstatus = indice_info.data['sh000001'].trade_status;
-        if (nstatus != emjyBack.market_status) {
-            emjyBack.market_status = indice_info.data['sh000001'].trade_status;
-            if (emjyBack.market_status == 'TRADE') {
-                emjyBack.stock_tlines['sh000001'] = [];
-            }
-            if (this.clsTelegraphs) {
-                this.clsTelegraphs.startRefresh(emjyBack.market_status !== 'TRADE');
-            }
+        if (this.clsTelegraphs) {
+            this.clsTelegraphs.startRefresh(!emjyBack.is_trading_day);
         }
     }
 
     updateEmotions() {
-        var fUrl = emjyBack.fha.server + 'fwd/clsquote/v2/quote/a/stock/emotion?app=CailianpressWeb&os=web&sv=7.7.5';
-        fetch(fUrl).then(r=>r.json()).then(emo => {
+        feng.getZdFenbu().then(emo => {
             this.showEmotion(emo);
         });
         var fUrl1 = emjyBack.fha.server + 'fwd/empush2qt/stock/fflow/kline/get?lmt=0&klt=1&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65&ut=b2884a393a59ad64002292a3e90d46a5&secid=1.000001&secid2=0.399001';
@@ -632,26 +613,12 @@ class DailyHome {
     }
 
     updatePlateList() {
-        const pways = ['change', 'limit_up_num', 'main_fund_diff'];
-        this.fetchingPlates = {};
-        for (let w of pways) {
-            var fUrl = emjyBack.fha.server + 'fwd/clsquote/web_quote/plate/plate_list?app=CailianpressWeb&os=web&page=1&rever=1&sv=7.7.5&type=concept&way=' + w;
-            fetch(fUrl).then(r=>r.json()).then(pl => {
-                this.fetchingPlates[w] = pl;
-                if (Object.keys(this.fetchingPlates).length == 3) {
-                    let secu_codes = new Set();
-                    for (const p in this.fetchingPlates) {
-                        for (const secu of this.fetchingPlates[p].data.plate_data) {
-                            if (!secu_codes.has(secu.secu_code)) {
-                                emjyBack.plate_basics[secu.secu_code] = secu;
-                                secu_codes.add(secu.secu_code);
-                            }
-                        }
-                    }
-                    this.showPlateList([...secu_codes]);
-                }
-            });
-        }
+        feng.getClsPlatesRanking().then(plates => {
+            for (const secu of Object.values(plates)) {
+                emjyBack.plate_basics[secu.secu_code] = secu;
+            }
+            this.showPlateList(Object.keys(plates));
+        });
     }
 
     showEmotion(emotionobj) {
@@ -830,7 +797,7 @@ class AuctionPanel {
         const yAxis = [];
         const series = [];
         const graphic = [];
-        feng.updateStockBasics(this.stocks);
+        feng.getStockBasics(this.stocks);
         this.stocks.forEach((stock, index) => {
             const row = Math.floor(index / cols);
             const col = index % cols;
@@ -1111,12 +1078,11 @@ class DailyZtStepsPanel {
 
         const btnUpdate = document.createElement('button');
         btnUpdate.textContent = '刷新';
-        btnUpdate.disabled = emjyBack.market_status == 'TRADE';
+        btnUpdate.disabled = emjyBack.is_trading_day;
         btnUpdate.onclick = () => {
-            feng.updateStockBasics(this.zstep_stocks);
-            setTimeout(() => {
+            feng.getStockBasics(this.zstep_stocks).then(() => {
                 this.updateZtSteps();
-            }, 3000);
+            });
         }
         stepsdesc.appendChild(btnUpdate);
 
@@ -1137,11 +1103,10 @@ class DailyZtStepsPanel {
         }
 
         this.uInterval = setInterval(()=>{
-            if (emjyBack.market_status == 'TRADE' && this.zstep_stocks.length > 0) {
-                feng.updateStockBasics(this.zstep_stocks);
-                setTimeout(() => {
+            if (emjyBack.is_trading_day && this.zstep_stocks.length > 0) {
+                feng.getStockBasics(this.zstep_stocks).then(() => {
                     this.updateZtSteps();
-                }, 3000);
+                });
             }
         }, 300000);
     }
@@ -1208,14 +1173,16 @@ class DailyZtStepsPanel {
     }
 
     showZ0Steps(zt0div, wid, up0, brk0, zf0) {
-        const u0 = up0.filter(c => c.startsWith('sh60') || c.startsWith('sz00'));
-        const u0_kc = up0.filter(c => !u0.includes(c));
-        const b0 = brk0.filter(c => c.startsWith('sh60') || c.startsWith('sz00'));
-        const b0_kc = brk0.filter(c => !b0.includes(c));
-        const f0 = zf0.filter(c => c.startsWith('sh60') || c.startsWith('sz00'));
-        const f0_kc = zf0.filter(c => !f0.includes(c));
-        zt0div.appendChild(this.createZ0Div('主板', wid, u0, b0, f0));
-        zt0div.appendChild(this.createZ0Div('创业板', wid, u0_kc, b0_kc, f0_kc));
+        feng.getStockBasics([...up0, ...brk0, ...zf0]).then(() => {
+            const u0 = up0.filter(c => c.startsWith('sh60') || c.startsWith('sz00'));
+            const u0_kc = up0.filter(c => !u0.includes(c));
+            const b0 = brk0.filter(c => c.startsWith('sh60') || c.startsWith('sz00'));
+            const b0_kc = brk0.filter(c => !b0.includes(c));
+            const f0 = zf0.filter(c => c.startsWith('sh60') || c.startsWith('sz00'));
+            const f0_kc = zf0.filter(c => !f0.includes(c));
+            zt0div.appendChild(this.createZ0Div('主板', wid, u0, b0, f0));
+            zt0div.appendChild(this.createZ0Div('创业板', wid, u0_kc, b0_kc, f0_kc));            
+        });
     }
 
     updateZtSteps() {
@@ -1225,12 +1192,8 @@ class DailyZtStepsPanel {
         this.container.style.height = this.container.clientHeight + 'px';
         this.container.innerHTML = '';
         let zt_brk = emjyBack.getZtOrBrkStocks();
-        this.zstep_stocks = [];
-        for (let k in zt_brk) {
-            zt_brk[k].forEach(c => {
-                this.zstep_stocks.push(c);
-            });
-        }
+        this.zstep_stocks = Object.values(zt_brk).flat();
+        feng.getStockBasics(this.zstep_stocks);
         let z_up_stocks = zt_brk.up_stocks;
         let z_up_brk = zt_brk.up_brk;
         let z_up0 = zt_brk.up0;
@@ -1612,16 +1575,17 @@ class StockCollection {
         if (typeof(secu) == 'string') {
             secu = [secu];
         }
-        secu.forEach(s => {
-            if (this.stocks.includes(s)) {
-                return;
-            }
-            this.stocks.push(s);
-            const card = new SecuCard(s);
-            this.cards.push(card);
-            this.element.appendChild(card.render());
+        feng.getStockBasics(secu).then(() => {
+            secu.forEach(s => {
+                if (this.stocks.includes(s)) {
+                    return;
+                }
+                this.stocks.push(s);
+                const card = new SecuCard(s);
+                this.cards.push(card);
+                this.element.appendChild(card.render());
+            });
         });
-        feng.updateStockBasics(secu);
     }
 
     removeStocks(secu) {
@@ -1934,12 +1898,12 @@ class EmotionBlock {
         this.info_block = info_block;
     }
 
-    updateEmotionContent(emotionobj) {
+    updateEmotionContent(emoinfo) {
         if (!this.emotionChart) {
             this.emotionChart = echarts.init(this.chart_container);
         }
 
-        var data = emotionobj.data.up_down_dis;
+        var data = emoinfo.up_down_dis;
         var categories = ['涨停', '+10%', '+8%', '+6%', '+4%', '+2%', '平盘', '-2%', '-4%', '-6%', '-8%', '-10%', '跌停'];
         var values = [data.up_num, data.up_10, data.up_8, data.up_6, data.up_4, data.up_2, data.flat_num, data.down_2, data.down_4, data.down_6, data.down_8, data.down_10, data.down_num];
 
@@ -2011,7 +1975,7 @@ class EmotionBlock {
                     left: '10%',
                     bottom: 20,
                     style: {
-                        text: `上涨: ${data.rise_num} 家`,
+                        text: `涨: ${data.rise_num} `,
                         fill: '#de0422',
                         backgroundColor: '#f4f5fa',
                         fontSize: btmFontSize,
@@ -2023,7 +1987,7 @@ class EmotionBlock {
                     left: '30%',
                     bottom: 20,
                     style: {
-                        text: `平盘: ${data.flat_num} 家`,
+                        text: `平: ${data.flat_num} `,
                         fill: '#666',
                         backgroundColor: '#f4f5fa',
                         fontSize: btmFontSize,
@@ -2035,7 +1999,7 @@ class EmotionBlock {
                     left: '50%',
                     bottom: 20,
                     style: {
-                        text: `停牌: ${data.suspend_num} 家`,
+                        text: `停牌: ${data.suspend_num} `,
                         fill: '#666',
                         backgroundColor: '#f4f5fa',
                         fontSize: btmFontSize,
@@ -2047,7 +2011,7 @@ class EmotionBlock {
                     left: '70%',
                     bottom: 20,
                     style: {
-                        text: `下跌: ${data.fall_num} 家`,
+                        text: `跌: ${data.fall_num} `,
                         fill: '#52c2a3',
                         backgroundColor: '#f4f5fa',
                         fontSize: btmFontSize,
@@ -2059,14 +2023,17 @@ class EmotionBlock {
 
         this.emotionChart.setOption(option);
 
-        var bcolor = emotionobj.data.shsz_balance_change_px.includes('+') ? '#de0422' : '#52c253';
+        var bcolor = '#52c253';
+        if (emoinfo.shsz_balance_change_px && emoinfo.shsz_balance_change_px.includes('+')) {
+            bcolor = '#de0422';
+        }
         this.info_block.innerHTML = `<br>
-        <div>总成交</div><div style='color: ${bcolor}; font-size: 18px'>${emotionobj.data.shsz_balance}</div>
-        <div>较上日</div><div style='color: ${bcolor}; font-size: 18px'>${emotionobj.data.shsz_balance_change_px}</div>
+        <div>总成交</div><div style='color: ${bcolor}; font-size: 18px'>${emoinfo.shsz_balance}</div>
+        <div>较上日</div><div style='color: ${bcolor}; font-size: 18px'>${emoinfo.shsz_balance_change_px}</div>
         <br>
-        <div>涨停数</div><div style='color: #de0422; font-size: 18px'>${emotionobj.data.up_ratio_num}</div>
-        <div>开板数</div><div style='color: #de0422; font-size: 18px'>${emotionobj.data.up_open_num}</div>
-        <div>封板率</div><div style='color: #de0422; font-size: 18px'>${emotionobj.data.up_ratio}</div>
+        <div>涨停数</div><div style='color: #de0422; font-size: 18px'>${emoinfo.up_ratio_num}</div>
+        <div>开板数</div><div style='color: #de0422; font-size: 18px'>${emoinfo.up_open_num}</div>
+        <div>封板率</div><div style='color: #de0422; font-size: 18px'>${emoinfo.up_ratio}</div>
         `;
         if (emjyBack.shMainFundFlow && emjyBack.shMainFundFlow.length > 0) {
             var mf = emjyBack.shMainFundFlow[emjyBack.shMainFundFlow.length - 1];
@@ -3044,8 +3011,9 @@ class PlatesContainer {
         const hdurl = `${emjyBack.fha.svr5000}stock?act=hdstocks&bks=${this.cards.map(c => c.plate).join(',')}&start=${emjyBack.stock_extra[this.mainsecu].start_date}`;
         fetch(hdurl).then(r=>r.json()).then(bstks => {
             let hds = bstks.map(s => guang.convertToSecu(s));
-            feng.updateStockBasics(hds);
-            hds.forEach(s => emjyBack.home.platesManagePanel.addSubCard(this.mainsecu, s));
+            feng.getStockBasics(hds).then(() => {
+                hds.forEach(s => emjyBack.home.platesManagePanel.addSubCard(this.mainsecu, s));
+            });
         });
     }
 
@@ -3308,11 +3276,12 @@ class PlatesManagePanel {
                         }
                     });
                     const container = new PlatesContainer(this);
-                    p.plates.forEach(c=>container.addCard(c.secu_code));
-                    feng.updateStockBasics(p.stocks);
-                    container.updateSubArea(p.stocks);
                     this.containers.push(container);
-                    this.element.appendChild(container.render());
+                    p.plates.forEach(c=>container.addCard(c.secu_code));
+                    feng.getStockBasics(p.stocks).then(() => {
+                        container.updateSubArea(p.stocks);
+                        this.element.appendChild(container.render());
+                    });
                 });
             }
             this.initialized = true;
@@ -3621,7 +3590,7 @@ class ClsTelegraphRed extends LeftColumnBarItem {
                 const scard = new SecuCard(s.StockID);
                 sldiv.appendChild(scard.render());
             });
-            feng.updateStockBasics(tele.stock_list.map(s=>s.StockID));
+            feng.getStockBasics(tele.stock_list.map(s=>s.StockID));
         }
         tdiv.querySelector('#btn_pin_unpin').onclick = e => {
             if (e.target.title === 'Pin') {
@@ -3677,7 +3646,7 @@ class ClsTelegraphRed extends LeftColumnBarItem {
     }
 
     getRollList(cb) {
-        var param = 'app=CailianpressWeb&category=red&last_time=' + this.roll_stamp + '&os=web&refresh_type=1&rn=20&sv=7.7.5'
+        var param = 'app=CailianpressWeb&category=red&last_time=' + this.roll_stamp + '&os=web&refresh_type=1&rn=20&sv=8.4.6'
         var fUrl = emjyBack.fha.server + 'fwd/clscn/v1/roll/get_roll_list?' + param + '&sign=' + emjyBack.md5(emjyBack.hash(param));
         fetch(fUrl).then(r=>{
             if (r.headers.get('Content-Type').includes('application/json')) {
@@ -3711,7 +3680,7 @@ class ClsTelegraphRed extends LeftColumnBarItem {
 
     refreshTelegraph(cb) {
         var stamp = this.getUpdatedTimestamp();
-        var param = 'app=CailianpressWeb&lastTime=' + stamp + '&os=web&sv=7.7.5';
+        var param = 'app=CailianpressWeb&lastTime=' + stamp + '&os=web&sv=8.4.6';
         var fUrl = emjyBack.fha.server + 'fwd/clscn/nodeapi/refreshTelegraphList?' + param + '&sign=' + emjyBack.md5(emjyBack.hash(param));
         fetch(fUrl).then(r=>{
             if (r.headers.get('Content-Type').includes('application/json')) {
@@ -3732,7 +3701,7 @@ class ClsTelegraphRed extends LeftColumnBarItem {
 
     updateTelegraphList(cb) {
         var stamp = this.getUpdatedTimestamp();
-        var param = 'app=CailianpressWeb&category=red&hasFirstVipArticle=0&lastTime=' + stamp + '&os=web&rn=20&subscribedColumnIds=&sv=7.7.5'
+        var param = 'app=CailianpressWeb&category=red&hasFirstVipArticle=0&lastTime=' + stamp + '&os=web&rn=20&subscribedColumnIds=&sv=8.4.6'
         var fUrl = emjyBack.fha.server + 'fwd/clscn/nodeapi/updateTelegraphList?' + param + '&sign=' + emjyBack.md5(emjyBack.hash(param))
         fetch(fUrl).then(r=>{
             if (r.headers.get('Content-Type').includes('application/json')) {
@@ -3952,56 +3921,56 @@ class EmPopularity extends LeftColumnBarItem {
         }
 
         plist.appendChild(document.createElement('hr'));
-        let k = 0;
-        let ustocks = [];
-        slist.forEach(p => {
-            const srow = document.createElement('div');
-            srow.style.display = 'flex';
-            srow.style.textAlign = 'center';
-            let code = guang.convertToSecu(p.SECURITY_CODE);
-            ustocks.push(code);
-            const rk = document.createElement('div');
-            rk.style.width = '60px';
-            rk.style.margin = '5px 0';
-            rk.innerHTML = `<a target="_blank" href="http://guba.eastmoney.com/rank/stock?code=${p.SECURITY_CODE}">${p.POPULARITY_RANK}</a>`
-            srow.appendChild(rk);
+        feng.getStockBasics(slist.map(p => guang.convertToSecu(p.SECURITY_CODE))).then(() => {
+            let k = 0;
+            slist.forEach(p => {
+                const srow = document.createElement('div');
+                srow.style.display = 'flex';
+                srow.style.textAlign = 'center';
+                let code = guang.convertToSecu(p.SECURITY_CODE);
+                const rk = document.createElement('div');
+                rk.style.width = '60px';
+                rk.style.margin = '5px 0';
+                rk.innerHTML = `<a target="_blank" href="http://guba.eastmoney.com/rank/stock?code=${p.SECURITY_CODE}">${p.POPULARITY_RANK}</a>`
+                srow.appendChild(rk);
 
-            const s = new SecuCard(code);
-            const stk = document.createElement('div');
-            stk.style.width = '85px';
-            stk.appendChild(s.render())
-            srow.appendChild(stk);
+                const s = new SecuCard(code);
+                const stk = document.createElement('div');
+                stk.style.width = '85px';
+                stk.appendChild(s.render())
+                srow.appendChild(stk);
 
-            const fs = document.createElement('div');
-            if (p.NEWFANS_RATIO - 70 > 0) {
-                fs.style.color = '#de0422';
-            } else if (p.NEWFANS_RATIO - 50 < 0) {
-                fs.style.color = '#aaa';
-            }
-            fs.style.width = '80px';
-            fs.style.margin = '5px 0';
-            fs.textContent = p.NEWFANS_RATIO + '%';
-            srow.appendChild(fs);
-            plist.appendChild(srow);
-            k += 1;
-            if (k % 5 == 0) {
-                plist.appendChild(document.createElement('hr'));
-            }
+                const fs = document.createElement('div');
+                if (p.NEWFANS_RATIO - 70 > 0) {
+                    fs.style.color = '#de0422';
+                } else if (p.NEWFANS_RATIO - 50 < 0) {
+                    fs.style.color = '#aaa';
+                }
+                fs.style.width = '80px';
+                fs.style.margin = '5px 0';
+                fs.textContent = p.NEWFANS_RATIO + '%';
+                srow.appendChild(fs);
+                plist.appendChild(srow);
+                k += 1;
+                if (k % 5 == 0) {
+                    plist.appendChild(document.createElement('hr'));
+                }
+            });
         });
-        feng.updateStockBasics(ustocks);
     }
 }
 
 
 window.onload = e => {
-    emjyBack.closet_trading_date = null;
-    var ctdinterval = setInterval(() => {
-        if (emjyBack.closet_trading_date) {
-            clearInterval(ctdinterval);
+    feng.checkClsWorks()
+        .then(() => guang.isTodayTradingDay())
+        .then(isTradingDay => {
+            emjyBack.is_trading_day = isTradingDay;
+            return guang.getLastTradeDate();
+        })
+        .then(lastTradeDate => {
+            emjyBack.last_traded_date = lastTradeDate;
             emjyBack.home = new DailyHome();
             emjyBack.home.initUi();
-            return;
-        }
-        emjyBack.closestTradingDate();
-    }, 1000);
+        });
 };

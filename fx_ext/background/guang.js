@@ -3,6 +3,8 @@
 const guang = {
     cache: new Map(),
     server: null, // for reverse proxy;
+    dserver: null, // for data service;
+    logger: null,
     get tradedayurl() {
         return (this.server ? this.server + 'fwd/ssejs/' : 'http://www.sse.com.cn/js/') + 'common/systemDate_global.js';
     },
@@ -63,7 +65,12 @@ const guang = {
             return data;
         }).catch(error => {
             this.cache.delete(cacheKey); // 失败时删除缓存
-            console.error(`Error fetching data from ${url}: ${error}`);
+            if (this.logger) {
+                this.logger.error(`Error fetching data from ${url}`, error);
+                this.logger.error(`${error.stack}`);
+            } else {
+                console.error(`Error fetching data from ${url}: ${error}`);
+            }
         });
 
         this.cache.set(cacheKey, { data: requestPromise, expireTime: Date.now() + cacheTime }); // 缓存 Promise
@@ -197,14 +204,13 @@ const guang = {
             } else if (postfixes[beg]) {
                 return code + postfixes[beg];
             }
-            console.log('cant convert code', code);
-            return code;
+            return this.convertToSecu(this.convertToQtCode(code));
         }
         if (code.endsWith('.BJ')) {
             return code;
         }
         code = code.toLowerCase();
-        if (code.startsWith('bj')) {
+        if (code.startsWith('bj') || code.startsWith('sz89')) {
             return code.substring(2) + '.BJ';
         }
         return code;
@@ -219,7 +225,7 @@ const guang = {
         if (typeof code !== 'string' || !code) return code;
 
         if (code.length === 6 && !isNaN(code)) {
-            if (["43", "83", "87", "92"].some(p => code.startsWith(p))) {
+            if (["43", "83", "87", "92", "89"].some(p => code.startsWith(p))) {
                 return 'bj' + code;
             }
             if (["5", "6", "7", "9", "110", "113", "118", "132", "204"].some(p => code.startsWith(p))) {
@@ -230,7 +236,12 @@ const guang = {
         if (code.endsWith('.BJ')) {
             return 'bj' + code.substring(0, 6);
         }
-        return code.startsWith('S') || code.startsWith('B') ? code.toLowerCase() : code;
+        code = code.toLowerCase();
+        if (code.startsWith('sz89')) {
+            // 89 开头的代码是北交所指数
+            return 'bj' + code.substring(2);
+        }
+        return code;
     },
 
     /**

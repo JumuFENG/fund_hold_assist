@@ -164,7 +164,7 @@ class Utils:
         sbasics = {}
         for i in range(0, len(codes), 200):
             gcodes = codes[i: i+200]
-            burl = f'https://x-quote.cls.cn/quote/stocks/basic?app=CailianpressWeb&fields={fields}&os=web&secu_codes={",".join(gcodes)}&sv=7.7.5'
+            burl = f'https://x-quote.cls.cn/quote/stocks/basic?app=CailianpressWeb&fields={fields}&os=web&secu_codes={",".join(gcodes)}&sv=8.4.6'
             nbasics = json.loads(self.get_em_request(burl, 'x-quote.cls.cn'))
             sbasics = {**sbasics, **nbasics['data']}
 
