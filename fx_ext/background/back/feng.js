@@ -16,18 +16,19 @@ const feng = {
     get zdfbapi() {
         return (guang.server ? `${guang.server}/fwd/empush2ex/` : 'https://push2ex.eastmoney.com/') + `getTopicZDFenBu?ut=7eea3edcaed734bea9cbfc24409ed989&dpt=wz.ztzt&_=${Date.now()}`;
     },
-    stkcache: new Map(),
-    quoteCache: new Map(),
-    stock_basics: { },
+    stock_basics: {},
     loadSaved(cached) {
         for (const code in cached) {
-            this.stkcache.set(code, cached[code]);
+            const qcode = guang.convertToQtCode(code);
+            this.stock_basics[qcode] = {...cached[code]};
         }
     },
-    dumpCached(intrested) {
-        let holdcached = {};
-        for (const [k, { name, code, mktcode, secid }] of this.stkcache.entries()) {
-            if (intrested.includes(k)) {
+    dumpCached(interested) {
+        const holdcached = {};
+        for (const k of interested) {
+            const qcode = guang.convertToQtCode(k);
+            if (this.stock_basics[qcode]) {
+                const { name, code, mktcode, secid } = this.stock_basics[qcode];
                 holdcached[k] = { name, code, mktcode, secid };
             }
         }
@@ -57,12 +58,13 @@ const feng = {
     * @returns {string} 获取的属性值
     */
     async cachedStockGen(code, k) {
-        const cached = this.stkcache.get(code);
+        const qcode = guang.convertToQtCode(code);
+        const cached = this.stock_basics[qcode];
         if (cached && cached[k]) {
             return cached[k];
         }
         const s = await feng.getEmStcokInfo(code);
-        this.stkcache.set(code, Object.assign(cached || {}, s));
+        this.stock_basics[qcode] = Object.assign(cached || {}, s);
         return s[k];
     },
 
@@ -74,11 +76,9 @@ const feng = {
     * @returns {string} 获取的属性值
     */
     cachedStockGenSimple(code, k, v) {
-        const cached = this.stkcache.get(code);
-        if (cached && cached[k]) {
-            return cached[k];
-        }
-        return v;
+        const qcode = guang.convertToQtCode(code);
+        const cached = this.stock_basics[qcode];
+        return (cached && cached[k]) ? cached[k] : v;
     },
 
     /**
@@ -174,7 +174,7 @@ const feng = {
     * @returns {string} 股票名称
     */
     getStockName(code) {
-        return this.cachedStockGenSimple(code, 'name') ?? feng.stock_basics[guang.convertToSecu(code)]?.secu_name;;
+        return this.cachedStockGenSimple(code, 'name') ?? feng.stock_basics[guang.convertToQtCode(code)]?.secu_name;;
     },
 
     /**
@@ -184,10 +184,9 @@ const feng = {
     * @returns {string} 属性值
     */
     cachedStockPrcs(code, k) {
-        const cached = this.stkcache.get(code);
-        if (cached && cached[k]) {
-            return cached[k];
-        }
+        const qcode = guang.convertToQtCode(code);
+        const cached = this.stock_basics[qcode];
+        return cached ? cached[k] : undefined;
     },
 
     /**
@@ -256,12 +255,6 @@ const feng = {
         }
     },
 
-    resetCachedQuotes(codes) {
-        codes.forEach(async (code) => {
-            const qcode = guang.convertToQtCode(code);
-            this.quoteCache.delete(qcode);
-        });
-    },
     async fetchStocksQuotes(codes, cacheTime=60000) {
         if (!codes || codes.length == 0) {
             return;
@@ -285,6 +278,41 @@ const feng = {
         }
     },
 
+    _apply_sina_quote_cache(qcode, vals, cacheTime) {
+        const [name, openPrice, lastClose, latestPrice, high, low] = vals.slice(0, 6);
+        const buysells = {
+            buy1: vals[11], buy1_count: (vals[10]/100).toFixed(2),
+            buy2: vals[13], buy2_count: (vals[12]/100).toFixed(2),
+            buy3: vals[15], buy3_count: (vals[14]/100).toFixed(2),
+            buy4: vals[17], buy4_count: (vals[16]/100).toFixed(2),
+            buy5: vals[19], buy5_count: (vals[18]/100).toFixed(2),
+            sale1: vals[21], sale1_count: (vals[20]/100).toFixed(2),
+            sale2: vals[23], sale2_count: (vals[22]/100).toFixed(2),
+            sale3: vals[25], sale3_count: (vals[24]/100).toFixed(2),
+            sale4: vals[27], sale4_count: (vals[26]/100).toFixed(2),
+            sale5: vals[29], sale5_count: (vals[28]/100).toFixed(2)
+        };
+        const change_px = latestPrice - lastClose;
+        const change = change_px / lastClose;
+        const zdf = change * 100;
+        const preclose_px = lastClose;
+        const expireTime = guang.snapshotExpireTime(cacheTime);
+        const code = qcode.slice(-6);
+        const up_price = guang.calcZtPrice(lastClose, guang.getStockZdf(code, name));
+        const down_price = guang.calcDtPrice(lastClose, guang.getStockZdf(code, name));
+        const sdata = {
+            code, name, openPrice, lastClose, latestPrice, high, low, buysells, zdf,
+            secu_name: name,
+            secu_code: guang.convertToSecu(code),
+            last_px: latestPrice, up_price, down_price, topprice: up_price, bottomprice: down_price,
+            preclose_px, change_px, change, expireTime,
+        };
+        if (!this.stock_basics[qcode]) {
+            this.stock_basics[qcode] = sdata;
+        } else {
+            Object.assign(this.stock_basics[qcode], sdata);
+        }
+    },
     async fetchStocksQuotesBatch(codes, cacheTime=60000) {
         const slist = codes.map(code => guang.convertToQtCode(code)).filter(code =>code.length == 8).join(',');
         try {
@@ -302,23 +330,7 @@ const feng = {
                 }
                 const code = hv.split('_').slice(-1)[0];
                 const vals = hq.split(',').map(v => v.trim());
-                this.quoteCache.set(code, {
-                    code: code.slice(2), name: vals[0], openPrice: vals[1], lastClose: vals[2],
-                    latestPrice: vals[3], high: vals[4], low: vals[5],
-                    buysells: {
-                        buy1: vals[11], buy1_count: (vals[10]/100).toFixed(2),
-                        buy2: vals[13], buy2_count: (vals[12]/100).toFixed(2),
-                        buy3: vals[15], buy3_count: (vals[14]/100).toFixed(2),
-                        buy4: vals[17], buy4_count: (vals[16]/100).toFixed(2),
-                        buy5: vals[19], buy5_count: (vals[18]/100).toFixed(2),
-                        sale1: vals[21], sale1_count: (vals[20]/100).toFixed(2),
-                        sale2: vals[23], sale2_count: (vals[22]/100).toFixed(2),
-                        sale3: vals[25], sale3_count: (vals[24]/100).toFixed(2),
-                        sale4: vals[27], sale4_count: (vals[26]/100).toFixed(2),
-                        sale5: vals[29], sale5_count: (vals[28]/100).toFixed(2)
-                    },
-                    expireTime: guang.snapshotExpireTime(cacheTime)
-                });
+                this._apply_sina_quote_cache(code, vals, cacheTime);
             });
         } catch (e) {
             if (guang.logger) {
@@ -327,6 +339,39 @@ const feng = {
                 console.error('Error fetching quotes from sina:', e);
             }
             await this.fetchStocksQuotesTencent(codes, cacheTime);
+        }
+    },
+
+    _apply_tencent_quote_cache(qcode, vals, cacheTime) {
+        let code = vals[2];
+        const sdata = {
+            code, name: vals[1], latestPrice: vals[3], zdf: vals[32], openPrice: vals[5], high: vals[33], low: vals[34],
+            lastClose: vals[4], buysells: {
+                buy1: vals[9], buy1_count: vals[10],
+                buy2: vals[11], buy2_count: vals[12],
+                buy3: vals[13], buy3_count: vals[14],
+                buy4: vals[15], buy4_count: vals[16],
+                buy5: vals[17], buy5_count: vals[18],
+                sale1: vals[19], sale1_count: vals[20],
+                sale2: vals[21], sale2_count: vals[22],
+                sale3: vals[23], sale3_count: vals[24],
+                sale4: vals[25], sale4_count: vals[26],
+                sale5: vals[27], sale5_count: vals[28],
+            },
+            secu_name: vals[1],
+            secu_code: guang.convertToSecu(code),
+            last_px: vals[3],
+            preclose_px: vals[4],
+            change_px: vals[31],
+            change: vals[32]/100,
+            up_price: vals[47],
+            down_price: vals[48],
+            expireTime: guang.snapshotExpireTime(cacheTime)
+        };
+        if (!this.stock_basics[qcode]) {
+            this.stock_basics[qcode] = sdata;
+        } else {
+            Object.assign(this.stock_basics[qcode], sdata);
         }
     },
     async fetchStocksQuotesTencent(codes, cacheTime=60000) {
@@ -342,29 +387,8 @@ const feng = {
                     if (q.length < 2) {
                         continue;
                     }
-                    let code = q[2];
                     const qcode = q[0].split('=')[0].split('_')[1];
-                    this.quoteCache.set(qcode, {
-                        code, name: q[1], latestPrice: q[3], zdf: q[32], openPrice: q[5], high: q[33], low: q[34],
-                        lastClose: q[4], buysells: {
-                            buy1: q[9], buy1_count: q[10],
-                            buy2: q[11], buy2_count: q[12],
-                            buy3: q[13], buy3_count: q[14],
-                            buy4: q[15], buy4_count: q[16],
-                            buy5: q[17], buy5_count: q[18],
-                            sale1: q[19], sale1_count: q[20],
-                            sale2: q[21], sale2_count: q[22],
-                            sale3: q[23], sale3_count: q[24],
-                            sale4: q[25], sale4_count: q[26],
-                            sale5: q[27], sale5_count: q[28],
-                        },
-                        preclose_px: q[4],
-                        change_px: q[31],
-                        change: q[32]/100,
-                        up_price: q[47],
-                        down_price: q[48],
-                        expireTime: guang.snapshotExpireTime(cacheTime)
-                    });
+                    this._apply_tencent_quote_cache(qcode, q, cacheTime);
                 }
             } catch (e) {
                 if (guang.logger) {
@@ -382,37 +406,37 @@ const feng = {
     */
     async getStockSnapshot(code) {
         const qcode = guang.convertToQtCode(code);
-        const cached = this.quoteCache.get(qcode);
+        const cached = this.stock_basics[qcode];
         if (cached && cached.expireTime > Date.now()) {
             return cached;
         }
 
         code = qcode.slice(-6);
-        let url = feng.quotewg + '?id=' + code + '&callback=?';
-        return guang.fetchData(url, {}, 1000, snapshot => {
-            const {
-                name, code, topprice, bottomprice,
-                realtimequote: { currentPrice: latestPrice, date, zdf },
-                fivequote: { openPrice, yesClosePrice: lastClose, ...fivequote },
-            } = snapshot;
+        const url = feng.quotewg + '?id=' + code + '&callback=?';
+        const snapshot = await fetch(url).then(r => r.json())
+        const { name, topprice, bottomprice,
+            realtimequote: { currentPrice: latestPrice, date, zdf },
+            fivequote: { openPrice, yesClosePrice: lastClose, ...fivequote },
+        } = snapshot;
 
-            const buysells = Object.fromEntries(
-                Object.entries(fivequote).filter(([key]) => key.startsWith('buy') || key.startsWith('sale'))
-            );
+        const buysells = Object.fromEntries(
+            Object.entries(fivequote).filter(([key]) => key.startsWith('buy') || key.startsWith('sale'))
+        );
 
-            const data = { code, name, latestPrice, zdf, openPrice, lastClose, topprice, bottomprice, buysells };
-            if (data.zdf.includes('%')) {
-                data.zdf = data.zdf.replace('%','');
-            }
-            const expireTime = guang.snapshotExpireTime(1000);
-
-            const cached = this.stkcache.get(code);
-            if (!cached || !cached.lclose || !cached.lclose != lastClose) {
-                this.stkcache.set(code, Object.assign(cached || {}, {name, zt:topprice, dt:bottomprice, lclose: lastClose}));
-            }
-
-            return expireTime > 0 ? { data, expireTime } : data;
-        });
+        const change = zdf.replace('%', '') / 100;
+        this.stock_basics[qcode] = {
+            code, name, latestPrice, zdf, openPrice, lastClose, topprice, bottomprice, buysells,
+            change,
+            secu_name: name,
+            secu_code: guang.convertToSecu(code),
+            last_px: latestPrice,
+            preclose_px: lastClose,
+            change_px: latestPrice - lastClose,
+            up_price: topprice,
+            down_price: bottomprice,
+            expireTime: guang.snapshotExpireTime(1000)
+        };
+        return this.stock_basics[qcode];
     },
     /**
     * 获取股票K线数据, 常用日K，1分，15分
@@ -539,12 +563,12 @@ const feng = {
     },
     async getStockBasics (stocks) {
         if (typeof stocks === 'string') {
-            stocks = guang.convertToQtCode(stocks);
-            await this.updateStockBasicsTencent([stocks]);
-            if (!this.stock_basics[stocks]) {
-                await this.updateStockBasicsEm([stocks]);
+            const qcode = guang.convertToQtCode(stocks);
+            await this.updateStockBasicsTencent([qcode]);
+            if (!this.stock_basics[qcode]) {
+                await this.updateStockBasicsEm([qcode]);
             }
-            return this.stock_basics[stocks];
+            return this.stock_basics[qcode];
         }
 
         if (stocks.length === 0) {
@@ -576,7 +600,7 @@ const feng = {
         });
     },
     async updateStockBasics (stocks) {
-        stocks = stocks.filter(s => !this.stock_basics[s] || this.stock_basics[s].expireTime < Date.now());
+        stocks = stocks.filter(s => !this.stock_basics[guang.convertToQtCode(s)] || this.stock_basics[guang.convertToQtCode(s)].expireTime < Date.now());
         if (stocks.length === 0) {
             return;
         }
@@ -591,7 +615,6 @@ const feng = {
             for (const s in bdata) {
                 const qcode = guang.convertToQtCode(s);
                 this.stock_basics[qcode] = bdata[s];
-                this.stock_basics[qcode].up_limit = Math.round((bdata[s].up_price - bdata[s].preclose_px)*100/bdata[s].preclose_px)/100;
                 this.stock_basics[qcode].expireTime = guang.snapshotExpireTime() ;
             }
 
@@ -599,24 +622,15 @@ const feng = {
         }
     },
     async updateStockBasicsTencent(stocks) {
-        stocks = stocks.filter(s => !this.stock_basics[s] || this.stock_basics[s].expireTime < Date.now());
+        stocks = stocks.filter(s => !this.stock_basics[guang.convertToQtCode(s)] || this.stock_basics[guang.convertToQtCode(s)].expireTime < Date.now());
         if (stocks.length === 0) {
             return;
         }
 
         await this.fetchStocksQuotesTencent(stocks);
-        for (const s of stocks) {
-            if (this.quoteCache.has(s)) {
-                this.stock_basics[s] = this.quoteCache.get(s);
-                this.stock_basics[s].secu_name = this.stock_basics[s].name;
-                this.stock_basics[s].secu_code = guang.convertToSecu(s);
-                this.stock_basics[s].last_px = this.stock_basics[s].latestPrice;
-                this.stock_basics[s].expireTime = guang.snapshotExpireTime();
-            }
-        }
     },
     async updateStockBasicsEm(stocks) {
-        stocks = stocks.filter(s => !this.stock_basics[s] || this.stock_basics[s].expireTime < Date.now());
+        stocks = stocks.filter(s => !this.stock_basics[guang.convertToQtCode(s)] || this.stock_basics[guang.convertToQtCode(s)].expireTime < Date.now());
         if (stocks.length === 0) {
             return;
         }
@@ -635,7 +649,6 @@ const feng = {
             let qcode = guang.convertToQtCode(['SZ','SH'][mkt] + code);
             this.stock_basics[qcode] = {last_px, change: change/100, change_px, secu_code: qcode, secu_name, preclose_px};
             const zdf = guang.getStockZdf(code, secu_name);
-            this.stock_basics[qcode].up_limit = zdf / 100;
             this.stock_basics[qcode].up_price = guang.calcZtPrice(preclose_px, zdf);
             this.stock_basics[qcode].down_price = guang.calcDtPrice(preclose_px, zdf);
             this.stock_basics[qcode].expireTime = guang.snapshotExpireTime();
