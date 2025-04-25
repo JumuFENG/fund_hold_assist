@@ -70,9 +70,13 @@ GlobalManager.prototype.addTlineListener = function(lsner) {
 
 GlobalManager.prototype.updateTline = function(secu_code) {
     Promise.all([feng.getStockTlineCls(secu_code), feng.getStockBasics(secu_code).then(sb => sb.preclose_px)]).then(([tldata, preclose_px]) => {
+        if (!tldata?.data?.line) {
+            return;
+        }
         if (!this.stock_tlines[secu_code]) {
             this.stock_tlines[secu_code] = [];
         }
+        this.stock_tlines[secu_code] = this.stock_tlines[secu_code].filter(item => item.date == tldata.data.line[0].date);
         let last_minute = this.stock_tlines[secu_code].length == 0 ? 0 : this.stock_tlines[secu_code].pop().minute;
 
         tldata.data.line.forEach(item => {
@@ -1575,16 +1579,14 @@ class StockCollection {
         if (typeof(secu) == 'string') {
             secu = [secu];
         }
-        feng.getStockBasics(secu).then(() => {
-            secu.forEach(s => {
-                if (this.stocks.includes(s)) {
-                    return;
-                }
-                this.stocks.push(s);
-                const card = new SecuCard(s);
-                this.cards.push(card);
-                this.element.appendChild(card.render());
-            });
+        secu.forEach(s => {
+            if (this.stocks.includes(s)) {
+                return;
+            }
+            this.stocks.push(s);
+            const card = new SecuCard(s);
+            this.cards.push(card);
+            this.element.appendChild(card.render());
         });
     }
 
@@ -1858,19 +1860,21 @@ class StockMarketStatsPanel {
 
         this.stocksdiv.innerHTML = '';
         const descs = {'zt_yzb': '一字板', 'zt': '涨停', 'up': '大涨', 'down': '大跌', 'dt': '跌停'}
-        for (const k of Object.keys(descs)) {
-            const zstocks = stats.stocks[k].map(s=>s.secu_code);
-            const zcoll = new StockCollection({text: `${descs[k]}(${zstocks.length})`});
-            zcoll.addStocks(zstocks);
-            this.stocksdiv.appendChild(zcoll.render());
-            if (k == 'zt_yzb') {
-                if (!this.yzbBkRanks) {
-                    this.yzbBkRanks = new StocksBkRanks(true);
+        feng.getStockBasics(Object.values(stats.stocks).flat().map(s=>s.secu_code).flat()).then(() => {
+            for (const k of Object.keys(descs)) {
+                const zstocks = stats.stocks[k].map(s=>s.secu_code);
+                const zcoll = new StockCollection({text: `${descs[k]}(${zstocks.length})`});
+                zcoll.addStocks(zstocks);
+                this.stocksdiv.appendChild(zcoll.render());
+                if (k == 'zt_yzb') {
+                    if (!this.yzbBkRanks) {
+                        this.yzbBkRanks = new StocksBkRanks(true);
+                    }
+                    this.yzbBkRanks.updateStocks(zstocks);
+                    this.stocksdiv.appendChild(this.yzbBkRanks.render());
                 }
-                this.yzbBkRanks.updateStocks(zstocks);
-                this.stocksdiv.appendChild(this.yzbBkRanks.render());
             }
-        }
+        });
     }
 
     updatePlatesStats() {
