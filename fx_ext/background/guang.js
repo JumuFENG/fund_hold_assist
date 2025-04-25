@@ -84,6 +84,9 @@ const guang = {
     * @returns {int} 返回涨停/跌停幅度
     */
     getStockZdf(code, name='') {
+        if (isNaN(code)) {
+            code = code.replace(/[a-zA-Z\.]+/, '');
+        }
         if (code.startsWith('68') || code.startsWith('30')) {
             return 20;
         }
@@ -153,6 +156,32 @@ const guang = {
             return 100 * Math.ceil(ct);
         }
         return ct > 1 ? 100 * Math.floor(ct) : 100;
+    },
+
+    /**
+     * decode ArrayBuffer to string according to content type with charset
+     * @param {ArrayBuffer} buf data buffer
+     * @param {string} contentType content type, e.g. 'application/javascript; charset=GB18030', 'text/html; charset=GBK'
+     * @returns {string} decoded data
+     */
+    decodeString(buf, contentType) {
+        let charset = 'utf-8';
+        if (contentType) {
+            const match = contentType.match(/charset\s*=\s*([\w-]+)/i);
+            if (match) charset = match[1].toLowerCase();
+        }
+
+        const charsetMap = { gb2312: 'gb18030', gbk: 'gb18030' };
+        charset = charsetMap[charset] || charset;
+
+        let decoder;
+        try {
+            decoder = new TextDecoder(charset);
+        } catch (e) {
+            decoder = new TextDecoder('utf-8');
+        }
+
+        return decoder.decode(buf);
     },
 
     async getSystemDate() {
@@ -242,6 +271,12 @@ const guang = {
             return 'bj' + code.substring(2);
         }
         return code;
+    },
+    getLongStockCode(code) {
+        if (code.startsWith('SH') || code.startsWith('SZ') || code.startsWith('BJ')) {
+            return code;
+        }
+        return this.convertToQtCode(code).toUpperCase();
     },
 
     /**

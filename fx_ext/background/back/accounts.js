@@ -652,6 +652,7 @@ class Account {
         this.checkOrderClient();
         return this.orderClient.getAllData().then(data => {
             const sdeals = {}
+            const date = guang.getTodayDate('-');
             for (const d of data) {
                 const {Zqdm: code, Cjjg: price, Cjsl: count, Wtbh: sid, Mmsm: tradeType, Wtzt: status} = d;
                 const type = this.tradeTypeFromMmsm(tradeType);
@@ -659,7 +660,7 @@ class Account {
                     if (!sdeals[code]) {
                         sdeals[code] = [];
                     }
-                    sdeals[code].push({ code, price, count, sid, type, status });
+                    sdeals[code].push({ code, price, count, sid, type, status, date });
                 } else if (['已报'].includes(status) && ['配售申购'].includes(tradeType)) {
                     logger.info(this.keyword, 'ignore deal', tradeType, d.Zqmc);
                     continue;
@@ -773,7 +774,7 @@ class Account {
                     if (s.code == deali.Zqdm && deali.Cjsl > 0) {
                         tradedCode.add(deali.Zqdm);
                         if (!s.strategies) {
-                            logger.log('can not find strategy for stock', s.code, deali);
+                            logger.info('can not find strategy for stock', s.code, deali);
                             return;
                         }
                         s.strategies.updateBuyDetail(deali.Wtbh, deali.Cjjg, deali.Cjsl);
@@ -788,7 +789,7 @@ class Account {
                     if (s.code == deali.Zqdm && deali.Cjsl > 0) {
                         tradedCode.add(deali.Zqdm);
                         if (!s.strategies) {
-                            logger.log('can not find strategy for stock', s.code, deali);
+                            logger.info('can not find strategy for stock', s.code, deali);
                             return;
                         }
                         s.strategies.updateSellDetail(deali.Wtbh, deali.Cjjg, deali.Cjsl);
@@ -1080,12 +1081,10 @@ class NormalAccount extends Account {
 
     getServerSavedStrategies(code) {
         if (accld.fha.save_on_server && this === this.holdAccount) {
-            feng.getLongStockCode(code).then(fcode => {
-                const params = {'act': 'strategy', 'acc': this.keyword, code: fcode};
-                const url = accld.fha.server + '/stock?' + new URLSearchParams(params);
-                fetch(url, { headers: accld.fha.headers }).then(response => response.json()).then(data => {
-                    this.applyStrategy(code, data);
-                });
+            const params = {'act': 'strategy', 'acc': this.keyword, code: guang.getLongStockCode(code)};
+            const url = accld.fha.server + '/stock?' + new URLSearchParams(params);
+            fetch(url, { headers: accld.fha.headers }).then(response => response.json()).then(data => {
+                this.applyStrategy(code, data);
             });
         }
     }
@@ -1189,6 +1188,9 @@ class NormalAccount extends Account {
             for (const s of Object.values(strgrp.strategies)) {
                 stock.strategies.addStrategy(s);
             }
+            if (stock.strategies.amount != strgrp.amount) {
+                stock.strategies.amount = strgrp.amount;
+            }
             return;
         };
 
@@ -1212,33 +1214,33 @@ class NormalAccount extends Account {
         watchingStocks[this.keyword + '_watchings'] = this.stocks.filter(s => s.strategies).map(s => s.code);
         svrd.saveToLocal(watchingStocks);
         if (accld.fha.save_on_server && this === this.holdAccount) {
-            feng.getLongStockCode(code).then(fcode => {
-                const fd = new FormData();
-                fd.append('act', 'forget');
-                fd.append('acc', this.keyword);
-                fd.append('code', fcode);
-                const url = accld.fha.server + '/stock';
-                fetch(url, {method: 'POST', headers: accld.fha.headers, body: fd});
-            });
+            const fd = new FormData();
+            fd.append('act', 'forget');
+            fd.append('acc', this.keyword);
+            fd.append('code', guang.getLongStockCode(code));
+            const url = accld.fha.server + '/stock';
+            fetch(url, {method: 'POST', headers: accld.fha.headers, body: fd});
         }
     }
 
     save() {
+        if (this != this.holdAccount) {
+            return;
+        }
+
         logger.info('save account', this.keyword);
         try {
             this.stocks.forEach(s => {
                 if (s.strategies) {
                     s.strategies.save();
-                    if (accld.fha.save_on_server && Object.keys(s.strategies.strategies).length > 0 && this == this.holdAccount) {
-                        feng.getLongStockCode(s.code).then(fcode => {
-                            const fd = new FormData();
-                            fd.append('act', 'strategy');
-                            fd.append('acc', this.keyword);
-                            fd.append('code', fcode);
-                            fd.append('data', s.strategies.tostring());
-                            const url = accld.fha.server + '/stock';
-                            fetch(url, {method: 'POST', headers: accld.fha.headers, body: fd});
-                        });
+                    if (accld.fha.save_on_server && s.strategies.valid()) {
+                        const fd = new FormData();
+                        fd.append('act', 'strategy');
+                        fd.append('acc', this.keyword);
+                        fd.append('code', guang.getLongStockCode(s.code));
+                        fd.append('data', s.strategies.tostring());
+                        const url = accld.fha.server + '/stock';
+                        fetch(url, {method: 'POST', headers: accld.fha.headers, body: fd});
                     }
                 };
             });

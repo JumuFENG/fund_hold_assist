@@ -779,7 +779,8 @@ class StrategyBuyZTBoard extends StrategyBuy {
     }
 
     check(chkInfo) {
-        if (!this.enabled() || this.tmpbuyonzt) {
+        if (!this.enabled() || this.tmpbuyonzt || !chkInfo?.rtInfo) {
+            logger.error(this.constructor.name, 'not valid', this.data, chkInfo);
             return Promise.resolve();
         }
 

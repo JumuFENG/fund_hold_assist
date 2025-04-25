@@ -113,7 +113,6 @@ class BuyDetail {
                 Object.assign(rd, d);
             } else {
                 if (d.status == '已成' || d.status == '部撤') {
-                    d.date = guang.getTodayDate('-');
                     this.addRecord(d);
                 }
             }
@@ -637,6 +636,10 @@ class StrategyGroup {
         return Object.values(this.strategies).filter(s=>s.enabled()).length > 0;
     }
 
+    valid() {
+        return Object.keys(this.strategies).length > 0 || this.buydetail.records?.length > 0;
+    }
+
     initStrategies(strs) {
         for (var id in strs) {
             this.strategies[id] = strategyFac.create(strs[id]);
@@ -872,7 +875,13 @@ class StrategyGroup {
             if (!snap) {
                 snap = await feng.getStockSnapshot(this.code);
             }
-            const matchResult = await s.check({id, rtInfo: snap, buydetail: this.buydetail});
+            let matchResult = null;
+            try {
+                matchResult = await s.check({id, rtInfo: snap, buydetail: this.buydetail});
+            } catch (e) {
+                logger.error('checkStockRtSnapshot error', snap);
+                logger.error('checkStockRtSnapshot error', e);
+            }
             if (!matchResult) {
                 continue;
             }

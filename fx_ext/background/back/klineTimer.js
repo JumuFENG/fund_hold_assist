@@ -63,7 +63,7 @@ class AlarmBase {
     }
 
     startTimer() {
-        logger.info(this.constructor.name, 'started!');
+        logger.info(this.constructor.name, 'started!', this.ticks);
         if (!this.ticks) {
             this.ticks = 1000;
         }
@@ -140,15 +140,16 @@ class OtpAlarm extends AlarmBase{
     }
 
     onTimer() {
-        alarmHub.updateAllSnapshots(1000);
-        for (const acc of Object.values(accld.all_accounts)) {
-            acc.stocks.forEach(async (s) => {
-                if (s.strategies) {
-                    const matched = await s.strategies.checkStockRtSnapshot(true, this.ticks > 2000);
-                    alarmHub.onStrategyMatched(acc, s, matched);
-                }
-            });
-        }
+        alarmHub.updateAllSnapshots(1000).then(() => {
+            for (const acc of Object.values(accld.all_accounts)) {
+                acc.stocks.forEach(async (s) => {
+                    if (s.strategies) {
+                        const matched = await s.strategies.checkStockRtSnapshot(true, this.ticks > 2000);
+                        alarmHub.onStrategyMatched(acc, s, matched);
+                    }
+                });
+            }
+        });
     }
 }
 
@@ -159,20 +160,25 @@ class RtpTimer extends AlarmBase {
     }
 
     onTimer() {
+        let promise;
         if (this.ticks < 2000) {
-            const hcodes = Object.values(accld.all_accounts).map(acc => acc.stocks.filter(s => s.strategies && s.strategies.frequencyUpdating()).map(s => s.code));
-            feng.fetchStocksQuotes(Array.from(new Set(hcodes.flat())), this.ticks);
+            const hcodes = Object.values(accld.all_accounts)
+                .flatMap(acc => acc.stocks.filter(s => s.strategies && s.strategies.frequencyUpdating()).map(s => s.code));
+            promise = feng.fetchStocksQuotes([...new Set(hcodes)], this.ticks);
         } else {
-            alarmHub.updateAllSnapshots(this.ticks);
+            logger.info('RtpTimer onTimer', this.ticks);
+            promise = alarmHub.updateAllSnapshots(this.ticks);
         }
-        for (const acc of Object.values(accld.all_accounts)) {
-            acc.stocks.forEach(async (s) => {
-                if (s.strategies) {
-                    const matched = await s.strategies.checkStockRtSnapshot(false, this.ticks > 2000);
-                    alarmHub.onStrategyMatched(acc, s, matched);
-                }
-            });
-        }
+        promise.then(() => {
+            for (const acc of Object.values(accld.all_accounts)) {
+                acc.stocks.forEach(async (s) => {
+                    if (s.strategies) {
+                        const matched = await s.strategies.checkStockRtSnapshot(false, this.ticks > 2000);
+                        alarmHub.onStrategyMatched(acc, s, matched);
+                    }
+                });
+            }
+        });
     }
 }
 
@@ -343,14 +349,15 @@ const alarmHub = {
         this.rtpTimer?.stopTimer();
         this.klineAlarms?.stopTimer();
     },
-    updateAllSnapshots(cacheTime=60000) {
-        feng.fetchStocksQuotes(Array.from(new Set(
+    async updateAllSnapshots(cacheTime=60000) {
+        const allstks = Array.from(new Set(
             Object.values(accld.all_accounts)
             .map(
                 acc => acc.stocks.filter(s => s.strategies && s.strategies.strategies && Object.values(s.strategies.strategies).filter(t=>t.enabled()).length > 0)
                 .map(s => s.code)
             ).flat()
-        )), cacheTime);
+        ));
+        await feng.fetchStocksQuotes(allstks, cacheTime);
     },
     tradeDailyRoutineTasks() {
         if (alarmHub.config?.purchase_new_stocks) {

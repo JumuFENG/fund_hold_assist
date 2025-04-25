@@ -117,7 +117,7 @@ class StrategyI_Base {
         }
 
         let fields = 'open_px,av_px,high_px,low_px,change,change_px,down_price,cmc,business_amount,business_balance,secu_name,secu_code,trade_status,secu_type,preclose_px,up_price,last_px';
-        var bUrl = `https://x-quote.cls.cn/quote/stocks/basic?app=CailianpressWeb&fields=${fields}&os=web&secu_codes=${stocks.join(',')}&sv=7.7.5`;
+        var bUrl = `https://x-quote.cls.cn/quote/stocks/basic?app=CailianpressWeb&fields=${fields}&os=web&secu_codes=${stocks.join(',')}&sv=8.4.6`;
         return fetch(bUrl).then(r => r.json()).then(robj => {
             let basics = robj.data;
             let validStocks = Object.fromEntries(
@@ -692,12 +692,16 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
             this.expected_account(this.istr.account, s).then(account => {
                 this.estr = {'StrategyBuyDTBoard': {account}};
                 accld.all_accounts[account].holdAccount.addWatchStock(s, this.generate_strategy_json());
+                logger.info(this.istr.key, 'add to watch', s, account);
                 this.candidates[s].account = accld.all_accounts[account].holdAccount.keyword;
             });
         })
     }
 
     trigger() {
+        if (!this.pupfix) {
+            this.pupfix = 1.05;
+        }
         // 竞价结束前
         this.common_get_dailyzdt().then(()=>{
             const lastzdt = this.zdtdaily[Object.keys(this.zdtdaily).slice(-1)[0]];
@@ -709,6 +713,7 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
             this.common_get_zdfranks_em(-50).then(jd => {
                 let drks = jd.data.diff.filter(r => r.f3 <= -8);
                 let dtstocks = drks.filter(r => r.f2 - feng.getStockDt(r.f12, r.f18) <= 0);
+                logger.info('today open dtcnt=', dtstocks.length, dtstocks);
                 return dtstocks.length;
             }).then(dt_today => {
                 if (dt_today > 0) {
@@ -723,14 +728,7 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                     return d.pool;
                 });
             }).then(ydl => {
-                for (const yd of ydl) {
-                    const code = yd[0].substring('2');
-                    if (!this.candidates[code]) {
-                        this.candidates[code] = {secu_code: guang.convertToSecu(code)};
-                    }
-                }
-            }).then(()=>{
-                return this.get_cls_stockbasics(Object.values(this.candidates).map(x=>x.secu_code));
+                return this.get_cls_stockbasics(ydl.map(yd => guang.convertToSecu(yd[0].slice(-6))));
             }).then(basics => {
                 for (let code in basics) {
                     let b = basics[code];
@@ -750,8 +748,11 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                     let strategy = this.generate_strategy_json(price);
                     this.expected_account(this.istr.account, code).then(account => {
                         logger.info(this.istr.key, 'buy with account', code, price, account);
-                        accld.tryBuyStock(code, price.toFixed(2), 0, account, strategy);
-                        this.candidates[code].matched = true;
+                        // accld.tryBuyStock(code, price.toFixed(2), 0, account, strategy);
+                        if (!this.candidates[code]) {
+                            this.candidates[code] = {};
+                        }
+                        this.candidates[code].watched = true;
                     });
                 }
             });
@@ -818,7 +819,7 @@ class StrategyI_DtStocksUp extends StrategyI_Base {
                     let v3 = klpvs.sort((a, b) => b[2] - a[2]).slice(0, 3).map(x=>x[0]);
                     return t3.concat(p3.concat(v3).filter(x => !t3.includes(x)));
                 }).then(pv3 => {
-                    pv3 = pv3.filter(x=>this.candidates[x]);
+                    pv3 = pv3.filter(x=>this.candidates[x] && !this.candidates[x].watched);
                     this.addToWatch(pv3);
                 });
             });

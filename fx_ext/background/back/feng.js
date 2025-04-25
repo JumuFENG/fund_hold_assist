@@ -287,12 +287,15 @@ const feng = {
 
     async fetchStocksQuotesBatch(codes, cacheTime=60000) {
         const slist = codes.map(code => guang.convertToQtCode(code)).filter(code =>code.length == 8).join(',');
-        fetch(feng.sinahqapi + slist, {headers: { Referer: 'https://finance.sina.com.cn/'}}).then(r => r.text()).then(txt => {
+        try {
+            const rsp = await fetch(feng.sinahqapi + slist, {headers: { Referer: 'https://finance.sina.com.cn/'}});
+            let txt = guang.decodeString(await rsp.arrayBuffer(), rsp.headers.get('content-type'));
             txt = txt.trim();
             if (txt.includes('Forbidden')) {
                 throw new Error('sina quotes Forbidden!');
             }
             txt.split(';').forEach(async(q) => {
+                q = q.replaceAll('"', '');
                 const [hv, hq] = q.split('=');
                 if (!hq) {
                     return;
@@ -317,22 +320,22 @@ const feng = {
                     expireTime: guang.snapshotExpireTime(cacheTime)
                 });
             });
-        }).catch(e => {
+        } catch (e) {
             if (guang.logger) {
                 guang.logger.error('Error fetching quotes from sina:', e);
             } else {
                 console.error('Error fetching quotes from sina:', e);
             }
-            this.fetchStocksQuotesTencent(codes, cacheTime);
-        });
+            await this.fetchStocksQuotesTencent(codes, cacheTime);
+        }
     },
     async fetchStocksQuotesTencent(codes, cacheTime=60000) {
         for (let i = 0; i < codes.length; i += 60) {
             const batch = codes.slice(i, i + 60);
             const slist = batch.map(code => guang.convertToQtCode(code)).filter(c => c.length == 8).join(',');
             try {
-                const buffer = await (await fetch(feng.gtimg + slist)).arrayBuffer();
-                const q = new TextDecoder('gbk').decode(buffer);
+                const rsp = await fetch(feng.gtimg + slist)
+                const q = guang.decodeString(await rsp.arrayBuffer(), rsp.headers.get('content-type'));
                 const qdata = q.split(';');
                 for (let i = 0; i < qdata.length; i++) {
                     const q = qdata[i].split('~');
@@ -630,7 +633,7 @@ const feng = {
         const emdata = await fetch(qurl).then(r => r.json()).then(d=>d?.data?.diff);
         for (const {f2: last_px, f3: change, f4: change_px, f12: code, f13:mkt, f14:secu_name, f18: preclose_px} of emdata) {
             let qcode = guang.convertToQtCode(['SZ','SH'][mkt] + code);
-            this.stock_basics[qcode] = {last_px, change, change_px, secu_code: qcode, secu_name, preclose_px};
+            this.stock_basics[qcode] = {last_px, change: change/100, change_px, secu_code: qcode, secu_name, preclose_px};
             const zdf = guang.getStockZdf(code, secu_name);
             this.stock_basics[qcode].up_limit = zdf / 100;
             this.stock_basics[qcode].up_price = guang.calcZtPrice(preclose_px, zdf);

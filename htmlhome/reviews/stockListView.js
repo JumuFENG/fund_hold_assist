@@ -32,7 +32,7 @@ class StockView {
                 const rmurl = emjyBack.fha.server + 'stock';
                 const fd = new FormData();
                 fd.append('act', 'rmwatch');
-                fd.append('code', this.stock.code);
+                fd.append('code', emjyBack.getLongStockCode(this.stock.code));
                 fd.append('acc', this.stock.account);
                 fd.append('buysid', this.stock.deals.filter(d=>d.tradeType=='B').map(d=>d.sid).join(','));
                 fd.append('sellsid', this.stock.deals.filter(d=>d.tradeType=='S').map(d=>d.sid).join(','));
@@ -42,7 +42,24 @@ class StockView {
                 }
             }
             this.divTitle.appendChild(this.deleteBtn);
-        };
+        } else if (!this.stock.holdCount) {
+            this.deleteBtn = document.createElement('button');
+            this.deleteBtn.textContent = '删除';
+            this.deleteBtn.onclick = e => {
+                const rmurl = emjyBack.fha.server + 'stock';
+                const fd = new FormData();
+                fd.append('act', 'forget');
+                fd.append('code', emjyBack.getLongStockCode(this.stock.code));
+                if (this.stock.account != 'normal') {
+                    fd.append('acc', this.stock.account);
+                }
+                fetch(rmurl, {method: 'POST', body: fd, headers: emjyBack.headers});
+                if (typeof(this.removeMe) === 'function') {
+                    this.removeMe(this.stock.code);
+                }
+            }
+            this.divTitle.appendChild(this.deleteBtn);
+        }
         this.container.appendChild(this.divTitle);
         var divDetails = document.createElement('div');
         if (!this.stock.latestPrice && emjyBack.klines[stock.code]) {
@@ -586,7 +603,11 @@ class StockListPanelPage extends RadioAnchorPage {
             alert('Wrong stock code');
             return;
         }
-        emjyBack.addWatchingStock(this.inputWatchCode.value, this.getWatchCodeAccount());
+        const code = this.inputWatchCode.value;
+        feng.getStockBasics(code).then(sbasic => {
+            sbasic.strategies = {grptype: "GroupStandard", strategies: {}};
+            this.addStock(guang.convertToQtCode(code).toUpperCase(), sbasic);
+        });
         this.inputWatchCode.value = '';
     }
 

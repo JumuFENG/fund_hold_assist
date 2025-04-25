@@ -292,6 +292,9 @@ class RecordRow {
             this.deal.date = this.dateCell.text();
             changed = true;
         }
+        if (!this.deal.time) {
+            this.deal.time = this.deal.date;
+        }
         if (this.priceCell.textChanged()) {
             this.deal.price = this.priceCell.text();
             changed = true;
@@ -336,6 +339,7 @@ class RecordsTable {
                     count: 0,
                     date: guang.getTodayDate('-'),
                     type,
+                    tradeType: type,
                     price: 0,
                     sid: '000000',
                 };
@@ -506,7 +510,7 @@ class StrategyGroupView {
             const fd = new FormData();
             fd.append('act', 'fixdeals');
             fd.append('acc', this.account);
-            fd.append('code', this.code);
+            fd.append('code', emjyBack.getLongStockCode(this.code));
             fd.append('data', JSON.stringify(deals));
             var headers = emjyBack.headers.headers;
             fetch(url, {method: 'POST', headers, body: fd});
@@ -579,7 +583,7 @@ class StrategyGroupView {
         const fd = new FormData();
         fd.append('act', 'strategy');
         fd.append('acc', this.account);
-        fd.append('code', this.code);
+        fd.append('code', emjyBack.getLongStockCode(this.code));
         fd.append('data', JSON.stringify(this.strGrp));
         var headers = emjyBack.headers.headers
         const url = emjyBack.fha.server + '/stock';

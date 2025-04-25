@@ -168,16 +168,12 @@ class TrackingAccount extends NormalAccount {
     loadDeals() {
         const daystr = guang.getTodayDate('-');
         const daydeals = this.deals.filter(d => d.time == daystr);
-        Promise.all(daydeals.map(async (x) => {const xd = Object.assign({}, x); xd.code = await feng.getLongStockCode(x.code); return xd;})).then(deals => {
-            this.uploadDeals(deals);
-        });
+        this.uploadDeals(daydeals.map(x=>({...x, code: guang.getLongStockCode(x.code)})));
     }
 
     loadHistDeals() {
-        Promise.all(this.deals.map(async (x) => {const xd = Object.assign({}, x); xd.code = await feng.getLongStockCode(x.code); return xd;})).then(deals => {
-            this.uploadDeals(deals);
-            this.clearCompletedDeals();
-        });
+        this.uploadDeals(this.deals.map(x=>({...x, code: guang.getLongStockCode(x.code)})));
+        this.clearCompletedDeals();
     }
 
     clearCompletedDeals() {
