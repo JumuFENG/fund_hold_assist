@@ -742,6 +742,18 @@ def stock_set_fee(user, form):
     us.set_fee(fee)
     return "OK", 200
 
+@app.route('/stock_changes', methods=['GET'])
+def stock_change():
+    if request.method == 'GET':
+        schgtbl = StockChangesHistory()
+        date = request.args.get('date', None, str)
+        codes = request.args.get("codes", None, str)
+        chgs = []
+        if codes is None or len(codes) == 0:
+            chgs = schgtbl.dumpStockChanges(date=date)
+        for c in codes.split(','):
+            chgs += schgtbl.dumpStockChanges(c, date)
+        return json.dumps(chgs)
 
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
