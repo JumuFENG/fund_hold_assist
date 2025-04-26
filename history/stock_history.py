@@ -441,7 +441,7 @@ class Stock_Fflow_History(TableBase, EmRequest):
             {'col':'superp','type':'float DEFAULT 0'}
         ]
         self.headers = {
-            'Host': 'push2.eastmoney.com',
+            'Host': 'push2his.eastmoney.com',
             'Referer': 'http://quote.eastmoney.com/',
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
             'Accept': '/',
@@ -462,7 +462,7 @@ class Stock_Fflow_History(TableBase, EmRequest):
 
     def getNext(self):
         headers = self.headers
-        headers['Referer'] = 'http://quote.eastmoney.com/'
+        headers['Referer'] = f'https://data.eastmoney.com/zjlx/{self.code[2:]}.html'
         rsp = self.getRequest(params=headers)
         fflow = json.loads(rsp)
         if fflow is None or 'data' not in fflow or fflow['data'] is None or 'klines' not in fflow['data']:
@@ -923,7 +923,7 @@ class StockClsBk(StockEmBk):
         self.bkstocks = []
 
     def getUrl(self):
-        return f'https://x-quote.cls.cn/web_quote/plate/stocks?app=CailianpressWeb&os=web&rever=1&secu_code={self.bk}&sv=7.7.5&way=change'
+        return f'https://x-quote.cls.cn/web_quote/plate/stocks?app=CailianpressWeb&os=web&rever=1&secu_code={self.bk}&sv=8.4.6&way=change'
 
     def fetchBkStocks(self):
         self.headers = {

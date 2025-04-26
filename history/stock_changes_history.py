@@ -95,6 +95,19 @@ class StockChangesHistory(EmRequest, TableBase):
             date = date.split()[0]
         return [f'{column_date}>="{date}"']
 
+    def dumpStockChanges(self, code=None, date=None):
+        if date is None:
+            date = self._max_date()
+            date = date.split()[0]
+
+        conds = [f'{column_date}>="{date}"']
+        if code is not None:
+            code = StockGlobal.full_stockcode(code)
+            conds.append(f'{column_code}="{code}"')
+
+        chgs = self.sqldb.select(self.tablename, [column_code, column_date, column_type, 'info'], conds)
+        return chgs
+
     def changesList(self, code, date):
         code = StockGlobal.full_stockcode(code)
         cdt = self.sqldb.select(self.tablename, [column_code, column_date, column_type], [f'{column_code}="{code}"', f'{column_date}>="{date}"'])
@@ -321,7 +334,7 @@ class StockClsBkChangesHistory(EmRequest, TableBase):
         ]
 
     def getUrl(self):
-        return f'https://x-quote.cls.cn/web_quote/plate/plate_list?app=CailianpressWeb&os=web&page={self.page}&rever=1&sv=7.7.5&type=concept&way={self.way}'
+        return f'https://x-quote.cls.cn/web_quote/plate/plate_list?app=CailianpressWeb&os=web&page={self.page}&rever=1&sv=8.4.6&type=concept&way={self.way}'
 
     def getNext(self):
         params = {
@@ -448,7 +461,7 @@ class StockClsBkChangesHistory(EmRequest, TableBase):
         bkvalues = []
         ftm = mdate + ' 15:00'
         for bk in ibks:
-            iurl = f'https://x-quote.cls.cn/web_quote/plate/info?app=CailianpressWeb&os=web&secu_code={bk}&sv=7.7.5'
+            iurl = f'https://x-quote.cls.cn/web_quote/plate/info?app=CailianpressWeb&os=web&secu_code={bk}&sv=8.4.6'
             plinfo = json.loads(Utils.get_em_request(iurl, host='x-quote.cls.cn'))
             if 'data' not in plinfo:
                 continue

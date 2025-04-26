@@ -60,6 +60,14 @@ GlobalManager.prototype.nextRandomColor = function(){
     return this.color_exists&&this.color_exists.has(clr)?this.nextRandomColor():(this.color_exists||(this.color_exists=new Set),this.color_exists.add(clr),clr)
 };
 
+GlobalManager.prototype.tradeDayEnded = function() {
+    if (!this.is_trading_day) {
+        return true;
+    }
+    const now = new Date();
+    return now.getHours() >= 15;
+}
+
 GlobalManager.prototype.sortStockByChange = function(stocks) {
     return stocks.sort(((s,t)=>!feng.stock_basics[s]||!!feng.stock_basics[t]&&feng.stock_basics[t].change-feng.stock_basics[s].change));
 };
@@ -68,51 +76,56 @@ GlobalManager.prototype.addTlineListener = function(lsner) {
     this.tline_listeners.push(lsner);
 }
 
-GlobalManager.prototype.updateTline = function(secu_code) {
-    Promise.all([feng.getStockTlineCls(secu_code), feng.getStockBasics(secu_code).then(sb => sb.preclose_px)]).then(([tldata, preclose_px]) => {
-        if (!tldata?.data?.line) {
+GlobalManager.prototype.update_tline_data = function(secu_code, tldata, preclose_px) {
+    if (!tldata?.line) {
+        return;
+    }
+    if (!this.stock_tlines[secu_code]) {
+        this.stock_tlines[secu_code] = [];
+    }
+    this.stock_tlines[secu_code] = this.stock_tlines[secu_code].filter(item => item.date == tldata.line[0].date);
+    let last_minute = this.stock_tlines[secu_code].length == 0 ? 0 : this.stock_tlines[secu_code].pop().minute;
+
+    tldata.line.forEach(item => {
+        if (item.minute < last_minute) {
             return;
         }
-        if (!this.stock_tlines[secu_code]) {
-            this.stock_tlines[secu_code] = [];
+        var m1 = Math.floor(item.minute / 100);
+        var m2 = item.minute % 100;
+        item.x = m1 * 60 + m2 - (m1 < 12 ? 570 : 660);
+        if (!preclose_px) {
+            this.log('preclose_px not fetched', secu_code, item.date);
+            return;
         }
-        this.stock_tlines[secu_code] = this.stock_tlines[secu_code].filter(item => item.date == tldata.data.line[0].date);
-        let last_minute = this.stock_tlines[secu_code].length == 0 ? 0 : this.stock_tlines[secu_code].pop().minute;
+        item.change = (item.last_px - preclose_px)/preclose_px;
+        this.stock_tlines[secu_code].push(item);
+    });
 
-        tldata.data.line.forEach(item => {
-            if (item.minute < last_minute) {
-                return;
-            }
-            var m1 = Math.floor(item.minute / 100);
-            var m2 = item.minute % 100;
-            item.x = m1 * 60 + m2 - (m1 < 12 ? 570 : 660);
-            if (!preclose_px) {
-                this.log('preclose_px not fetched', secu_code, item.date);
-                return;
-            }
-            item.change = (item.last_px - preclose_px)/preclose_px;
-            this.stock_tlines[secu_code].push(item);
-        });
-
-        this.tline_listeners.forEach(lsner=>lsner.onTlineUpdated(secu_code));
-    })
+    this.tline_listeners.forEach(lsner=>lsner.onTlineUpdated(secu_code));
 }
 
-GlobalManager.prototype.updateStocksTline = function() {
-    this.tline_que.forEach(c => {
-        if (this.tline_focused[c] > 0) {
-            return;
-        }
-        this.updateTline(c);
+GlobalManager.prototype.updateTline = function(secu_code) {
+    Promise.all([feng.getStockTlineCls(secu_code), feng.getStockBasics(secu_code).then(sb => sb.preclose_px)]).then(([tldata, preclose_px]) => {
+        this.update_tline_data(secu_code, tldata, preclose_px);
     });
 }
 
-GlobalManager.prototype.updateFocusedStocksTline = function() {
-    for (let c in this.tline_focused) {
-        if (this.tline_focused[c] > 0) {
-            this.updateTline(c);
+GlobalManager.prototype.updateTlines = function(stocks) {
+    Promise.all([feng.getStockTlinesCls(stocks), feng.getStockBasics(stocks)]).then(([tldata, sbasics]) => {
+        for (const secu_code in tldata) {
+            this.update_tline_data(secu_code, tldata[secu_code], sbasics[secu_code].preclose_px);
         }
-    }
+    });
+}
+
+GlobalManager.prototype.updateStocksTline = function() {
+    const stocks = Array.from(this.tline_que).filter(c => !this.tline_focused[c] || this.tline_focused[c] <= 0);
+    this.updateTlines(stocks);
+}
+
+GlobalManager.prototype.updateFocusedStocksTline = function() {
+    const stocks = Object.keys(this.tline_focused).filter(c => this.tline_focused[c] > 0);
+    this.updateTlines(stocks);
 }
 
 GlobalManager.prototype.addTlineStocksQueue = function(stocks, focus=false) {
@@ -176,63 +189,59 @@ GlobalManager.prototype.getHotStocks = function(days=2) {
     });
 }
 
-GlobalManager.prototype.onWebsocketMessageReceived = function(wsmsg) {
-    if (wsmsg.type === 'answer') {
-        if (wsmsg.query === 'stkchanges') {
-            this.onChangesReceived(wsmsg.changes);
-        } else if (wsmsg.query === 'open_auctions') {
-            this.onOpenAuctionsReceived(wsmsg.auctions);
-        }
-    } else if (wsmsg.type === 'notification') {
-        if (wsmsg.subject === 'stkchanges') {
-            this.onChangesReceived(wsmsg.changes, wsmsg.date);
-        } else if (wsmsg.subject === 'open_auctions') {
-            this.onOpenAuctionsReceived(wsmsg.auctions);
-        }
-    } else {
-        console.log(wsmsg);
-    }
-}
-
 GlobalManager.prototype.addChangesListener = function(lsner) {
     this.event_listeners.push(lsner);
 }
 
-GlobalManager.prototype.onChangesReceived = function(changes, date) {
-    let changed_secus = [];
-    changes.forEach(change => {
-        let change_code = change[0];
-        let secu_code = guang.convertToSecu(change_code);
-        if (!changed_secus.includes(secu_code)) {
-            changed_secus.push(secu_code);
-        }
-        let change_ftm = change[1].split(' ');
-        let change_time = change_ftm[0];
-        let change_date = date;
-        if (change_ftm.length == 2) {
-            change_date = change_ftm[0];
-            change_time = change_ftm[1];
-        }
-        change_time = change_time.substring(0, change_time.length - 2);
-        var minute = parseInt(change_time.replace(':', ''));
-        change_time = change_time.split(':');
-        var m1 = parseInt(change_time[0]);
-        var m2 = parseInt(change_time[1]);
-        var x = m1 * 60 + m2 - (m1 < 12 ? 570 : 660);
-        var type = change[2];
-        var info = change[3];
-        if (!this.stock_events[secu_code]) {
-            this.stock_events[secu_code] = {};
-        }
-        if (!this.stock_events[secu_code][change_date]) {
-            this.stock_events[secu_code][change_date] = [];
-        }
-        this.stock_events[secu_code][change_date].push({date: change_date, minute, x, type, info})
-    });
-    feng.getStockBasics(changed_secus).then(() => {;
-        this.event_listeners.forEach(lsner=>lsner.onEventReceived(changed_secus, date));
-        emjyBack.home.dailyZtStepsPanel.updateZtSteps();
-        emjyBack.home.platesManagePanel.updateStocksInfo();
+GlobalManager.prototype.getStockChanges = function(stocks) {
+    let promise;
+    if (emjyBack.tradeDayEnded()) {
+        const url = `${emjyBack.fha.svr5000}stock_changes?codes=${stocks.join(',')}&start=${emjyBack.last_traded_date}`;
+        promise = fetch(url).then(r=>r.json());
+    } else {
+        promise = feng.getStockChanges(stocks);
+    }
+
+    promise.then(changes => {
+        let changed_secus = [];
+        let date = emjyBack.is_trading_day ? guang.getTodayDate('-') : emjyBack.last_traded_date;
+        changes.forEach(change => {
+            let change_code = change[0];
+            let secu_code = guang.convertToSecu(change_code);
+            if (!changed_secus.includes(secu_code)) {
+                changed_secus.push(secu_code);
+            }
+            let change_ftm = change[1].split(' ');
+            let change_time = change_ftm[0];
+            let change_date = date;
+            if (change_ftm.length == 2) {
+                change_date = change_ftm[0];
+                date = change_date;
+                change_time = change_ftm[1];
+            }
+            change_time = change_time.substring(0, change_time.length - 2);
+            var minute = parseInt(change_time.replace(':', ''));
+            change_time = change_time.split(':');
+            var m1 = parseInt(change_time[0]);
+            var m2 = parseInt(change_time[1]);
+            var x = m1 * 60 + m2 - (m1 < 12 ? 570 : 660);
+            var type = change[2];
+            var info = change[3];
+            if (!this.stock_events[secu_code]) {
+                this.stock_events[secu_code] = {};
+            }
+            if (!this.stock_events[secu_code][change_date]) {
+                this.stock_events[secu_code][change_date] = [];
+            }
+            if (!this.stock_events[secu_code][change_date].some(e => e.minute == minute && e.type == type)) {
+                this.stock_events[secu_code][change_date].push({date: change_date, minute, x, type, info});
+            }
+        });
+        feng.getStockBasics(changed_secus).then(() => {;
+            this.event_listeners.forEach(lsner=>lsner.onEventReceived(changed_secus, date));
+            emjyBack.home.dailyZtStepsPanel.updateZtSteps();
+            emjyBack.home.platesManagePanel.updateStocksInfo();
+        });
     });
 }
 
@@ -369,7 +378,7 @@ GlobalManager.prototype.getZtOrBrkStocks = function() {
     let up0 = new Set();
     let brk0 = new Set();
     let recent_zts = [];
-    if (!emjyBack.recent_zt_map) {
+    if (!emjyBack.recent_zt_map || Object.keys(emjyBack.recent_zt_map).length == 0) {
         return {up_stocks, up0, up_brk, brk0, zf0:[]};
     }
     var mxdate = emjyBack.recent_zt_map[1].reduce((m, cur) => cur[1] > m ? cur[1] : m, '');
@@ -493,6 +502,7 @@ class DailyHome {
                     this.updateEmotions();
                     this.updatePlateList();
                     emjyBack.updateZdfRank();
+                    emjyBack.getStockChanges();
                 }
             }, 60000);
         } else if (this.refreshInterval && act == 'stop') {
@@ -1190,7 +1200,7 @@ class DailyZtStepsPanel {
     }
 
     updateZtSteps() {
-        if (!emjyBack.recent_zt_map) {
+        if (!emjyBack.recent_zt_map || Object.keys(emjyBack.recent_zt_map).length == 0) {
             return;
         }
         this.container.style.height = this.container.clientHeight + 'px';
@@ -1569,10 +1579,39 @@ class StockCollection {
         this.cards = [];
         this.stocks = [];
         this.cfg = cfg;
+        this.editable = cfg.editable;
+        this.isEditing = false;
         this.element = document.createElement('div');
         this.element.classList.add('info-area');
-        this.element.innerHTML =
-        `<div style="font-weight: bold;margin: 3px;color: ${this.cfg.color};">${this.cfg.text?this.cfg.text:this.cfg.name}</div>`;
+        this.header = document.createElement('div');
+        this.header.style.fontWeight = 'bold';
+        this.header.style.margin = '3px';
+        this.header.style.color = this.cfg.color;
+        this.header.style.alignContent = 'center';
+        this.header.textContent = this.cfg.text ? this.cfg.text : this.cfg.name;
+        this.element.appendChild(this.header);
+
+        this.editLabel = document.createElement('span');
+        this.editLabel.textContent = '编辑';
+        this.editLabel.style.cursor = 'pointer';
+        this.editLabel.style.alignContent = 'center';
+        this.editLabel.style.color = '#1890ff';
+        this.editLabel.style.display = 'none';
+        this.editLabel.addEventListener('click', () => this.toggleEditMode());
+        this.element.appendChild(this.editLabel);
+
+        if (this.editable) {
+            this.element.addEventListener('mouseenter', () => {
+                if (!this.isEditing && this.stocks.length > 0) {
+                    this.editLabel.style.display = 'block';
+                }
+            });
+            this.element.addEventListener('mouseleave', () => {
+                if (!this.isEditing) {
+                    this.editLabel.style.display = 'none';
+                }
+            });
+        }
     }
 
     addStocks(secu) {
@@ -1586,7 +1625,10 @@ class StockCollection {
             this.stocks.push(s);
             const card = new SecuCard(s);
             this.cards.push(card);
-            this.element.appendChild(card.render());
+            this.element.insertBefore(card.render(), this.editLabel);
+            if (this.isEditing) {
+                this.enterEditMode();
+            }
         });
     }
 
@@ -1594,14 +1636,76 @@ class StockCollection {
         if (typeof(secu) == 'string') {
             secu = [secu];
         }
-        this.stocks = this.stocks.filter(s=> !secu.includes(s));
-        this.cards = this.cards.filter(c=> !secu.includes(c.plate));
-        this.element.innerHTML =
-        `<div style="font-weight: bold;margin: 3px;color: ${this.cfg.color};">${this.cfg.text?this.cfg.text:this.cfg.name}</div>`;
-        this.stocks.forEach(s=> {
-            const card = this.cards.find(c=>c.plate == s);
-            this.element.appendChild(card.render());
+        this.stocks = this.stocks.filter(s => !secu.includes(s));
+        this.cards = this.cards.filter(c => !secu.includes(c.plate));
+        this.rebuildCards();
+    }
+
+    rebuildCards() {
+        this.element.innerHTML = '';
+        this.element.appendChild(this.header);
+        this.stocks.forEach(s => {
+            const card = this.cards.find(c => c.plate == s);
+            if (card) {
+                this.element.appendChild(card.render());
+            }
         });
+        this.element.appendChild(this.editLabel);
+        if (this.isEditing && this.stocks.length > 0) {
+            this.enterEditMode();
+        }
+    }
+
+    toggleEditMode() {
+        this.isEditing = !this.isEditing;
+        if (this.isEditing) {
+            this.enterEditMode();
+            this.editLabel.textContent = '完成';
+            this.editLabel.style.display = 'block';
+        } else {
+            this.exitEditMode();
+            this.editLabel.textContent = '编辑';
+            this.editLabel.style.display = 'none';
+        }
+    }
+
+    enterEditMode() {
+        this.cards.forEach(child => {
+            child.render().style.display = 'none';
+        });
+        this.stocks.forEach(stock => {
+            const label = document.createElement('div');
+            label.style.margin = '2px 5px';
+            label.style.display = 'flex';
+            label.style.alignItems = 'center';
+            label.style.border = '1px solid #ccc';
+            label.style.borderRadius = '4px';
+            const text = document.createElement('span');
+            feng.getStockBasics(stock).then(b => text.textContent = b.secu_name);
+            const deleteMark = document.createElement('span');
+            deleteMark.textContent = '×';
+            deleteMark.style.color = 'red';
+            deleteMark.style.cursor = 'pointer';
+            deleteMark.style.fontSize = '1.5em';
+            deleteMark.addEventListener('click', () => {
+                this.removeStocks([stock]);
+            });
+            label.appendChild(text);
+            label.appendChild(deleteMark);
+            this.element.insertBefore(label, this.editLabel);
+        });
+    }
+
+    exitEditMode() {
+        this.cards.forEach(child => {
+            if (child.render().style.display === 'none') {
+                child.render().style.display = '';
+            }
+        });
+        this.rebuildCards();
+        if (typeof this.doneEditCallback === 'function') {
+            this.doneEditCallback();
+        }
     }
 
     render() {
@@ -2771,6 +2875,7 @@ class PlatesContainer {
 
         const actionArea = document.createElement('div');
         actionArea.classList.add('action-area');
+        this.action_buttons_full = true;
         this.addActionButtons(actionArea);
 
         const infoArea = document.createElement('div');
@@ -2799,6 +2904,10 @@ class PlatesContainer {
         return container;
     }
 
+    defaultChartStocks() {
+        return this.subcons['hx'].stocks;
+    }
+
     addActionButtons(actionArea) {
         const chartBtn = document.createElement('button');
         chartBtn.textContent = 'C';
@@ -2808,7 +2917,7 @@ class PlatesContainer {
         chartBtn.onclick = e => {
             if (!e.target.classList.contains('pressed')) {
                 e.target.classList.add('pressed');
-                let substocks = this.subcons['hx'].stocks;
+                let substocks = this.defaultChartStocks();
                 for (let k in this.subcons) {
                     if (k == 'hx') {
                         continue;
@@ -2843,11 +2952,13 @@ class PlatesContainer {
         }
         actionArea.appendChild(evtBtn);
 
-        const subBtn = document.createElement('button');
-        subBtn.textContent = 'U';
-        subBtn.title = '更新个股列表';
-        subBtn.onclick = _ => emjyBack.getBkStocks(this.cards.map(c => c.plate));
-        actionArea.appendChild(subBtn);
+        if (this.action_buttons_full) {
+            const subBtn = document.createElement('button');
+            subBtn.textContent = 'U';
+            subBtn.title = '更新个股列表';
+            subBtn.onclick = _ => emjyBack.getBkStocks(this.cards.map(c => c.plate));
+            actionArea.appendChild(subBtn);
+        }
 
         const replayBtn = document.createElement('button');
         replayBtn.textContent = 'R';
@@ -2883,26 +2994,28 @@ class PlatesContainer {
             }
         }
 
-        const dayDiv = document.createElement('div');
-        dayDiv.title = '板块启动日期(双击修改)';
-        setEditable(dayDiv, (ele, v) => {
-            if (!emjyBack.stock_extra[this.mainsecu]) {
-                emjyBack.stock_extra[this.mainsecu] = {};
-            }
-            emjyBack.stock_extra[this.mainsecu].start_date = v;
-        });
-        actionArea.appendChild(dayDiv);
+        if (this.action_buttons_full) {
+            const dayDiv = document.createElement('div');
+            dayDiv.title = '板块启动日期(双击修改)';
+            setEditable(dayDiv, (ele, v) => {
+                if (!emjyBack.stock_extra[this.mainsecu]) {
+                    emjyBack.stock_extra[this.mainsecu] = {};
+                }
+                emjyBack.stock_extra[this.mainsecu].start_date = v;
+            });
+            actionArea.appendChild(dayDiv);
 
-        const headBtn = document.createElement('button');
-        headBtn.textContent = 'H';
-        headBtn.title = '更新领涨股';
-        headBtn.onclick = e => {
-            this.queryHeadStocks();
+            const headBtn = document.createElement('button');
+            headBtn.textContent = 'H';
+            headBtn.title = '更新领涨股';
+            headBtn.onclick = e => {
+                this.queryHeadStocks();
+            }
+            actionArea.appendChild(headBtn);
         }
-        actionArea.appendChild(headBtn);
 
         const coreDiv = document.createElement('div');
-        coreDiv.title = '添加核心股';
+        coreDiv.title = this.action_buttons_full ? '添加核心股' : '添加热门股';
         setEditable(coreDiv, (ele, v) => {
             ele.textContent = '';
             if (!v) {
@@ -2924,56 +3037,58 @@ class PlatesContainer {
         rightBlock.style.width = '100%';
         actionArea.appendChild(rightBlock);
 
-        const collapsedBtn = document.createElement('button');
-        collapsedBtn.textContent = '高';
-        collapsedBtn.classList.add('container-button');
-        collapsedBtn.classList.add('collapse-button');
-        collapsedBtn.title = '紧凑/与分时图对齐';
-        collapsedBtn.onclick = e => {
-            if (!e.target.classList.contains('pressed')) {
-                this.panel.element.querySelectorAll('button.collapse-button').forEach(b=>b.classList.add('pressed'));
-                for (let i = 1; i < this.panel.containers.length; i++) {
-                    const con = this.panel.containers[i];
-                    if (con.stockTLineChart) {
-                        let chart_rect = con.stockTLineChart.container.getBoundingClientRect();
-                        let pre_con_rect = this.panel.containers[i-1].element.getBoundingClientRect();
-                        if (chart_rect.top > pre_con_rect.bottom) {
-                            this.panel.containers[i-1].element.style.minHeight = `${chart_rect.top - pre_con_rect.top}px`;
+        if (this.action_buttons_full) {
+            const collapsedBtn = document.createElement('button');
+            collapsedBtn.textContent = '高';
+            collapsedBtn.classList.add('container-button');
+            collapsedBtn.classList.add('collapse-button');
+            collapsedBtn.title = '紧凑/与分时图对齐';
+            collapsedBtn.onclick = e => {
+                if (!e.target.classList.contains('pressed')) {
+                    this.panel.element.querySelectorAll('button.collapse-button').forEach(b=>b.classList.add('pressed'));
+                    for (let i = 1; i < this.panel.containers.length; i++) {
+                        const con = this.panel.containers[i];
+                        if (con.stockTLineChart) {
+                            let chart_rect = con.stockTLineChart.container.getBoundingClientRect();
+                            let pre_con_rect = this.panel.containers[i-1].element.getBoundingClientRect();
+                            if (chart_rect.top > pre_con_rect.bottom) {
+                                this.panel.containers[i-1].element.style.minHeight = `${chart_rect.top - pre_con_rect.top}px`;
+                            }
                         }
                     }
+                } else {
+                    this.panel.containers.forEach(con => {
+                        con.element.style.minHeight = '';
+                    });
+                    this.panel.element.querySelectorAll('button.collapse-button').forEach(b=>b.classList.remove('pressed'));
                 }
-            } else {
-                this.panel.containers.forEach(con => {
-                    con.element.style.minHeight = '';
-                });
-                this.panel.element.querySelectorAll('button.collapse-button').forEach(b=>b.classList.remove('pressed'));
             }
+            rightBlock.appendChild(collapsedBtn);
+
+            const popBtn = document.createElement('button');
+            popBtn.textContent = '↑';
+            popBtn.title = '移到最前';
+            popBtn.onclick = e => {
+                if (this === this.panel.containers[0]) {
+                    return;
+                }
+                const parent = this.element.parentElement;
+                parent.insertBefore(this.element, parent.firstElementChild);
+                const chartparent = this.chart_container.parentElement;
+                chartparent.insertBefore(this.chart_container, chartparent.firstElementChild);
+                this.panel.containers = this.panel.containers.filter(con => con != this);
+                this.panel.containers.unshift(this);
+            };
+            rightBlock.appendChild(popBtn);
+
+            const delBtn = document.createElement('button');
+            delBtn.textContent = 'x';
+            delBtn.title = '删除';
+            delBtn.onclick = e => {
+                this.panel.removeContainer(this);
+            };
+            rightBlock.appendChild(delBtn);
         }
-        rightBlock.appendChild(collapsedBtn);
-
-        const popBtn = document.createElement('button');
-        popBtn.textContent = '↑';
-        popBtn.title = '移到最前';
-        popBtn.onclick = e => {
-            if (this === this.panel.containers[0]) {
-                return;
-            }
-            const parent = this.element.parentElement;
-            parent.insertBefore(this.element, parent.firstElementChild);
-            const chartparent = this.chart_container.parentElement;
-            chartparent.insertBefore(this.chart_container, chartparent.firstElementChild);
-            this.panel.containers = this.panel.containers.filter(con => con != this);
-            this.panel.containers.unshift(this);
-        };
-        rightBlock.appendChild(popBtn);
-
-        const delBtn = document.createElement('button');
-        delBtn.textContent = 'x';
-        delBtn.title = '删除';
-        delBtn.onclick = e => {
-            this.panel.removeContainer(this);
-        };
-        rightBlock.appendChild(delBtn);
     }
 
     addCard(plate) {
@@ -3022,7 +3137,7 @@ class PlatesContainer {
     }
 
     queryEvents() {
-        emjyBack.sendWebsocketMessage({action: 'get', query: 'stkchanges'});
+        emjyBack.getStockChanges(Object.values(this.subcons).flatMap(x=>x.cards).map(card=>card.plate.slice(-6)));
     }
 
     lastTradeDayZt(secu) {
@@ -3228,6 +3343,71 @@ class PlatesContainer {
     }
 }
 
+
+class FavoriteStocksContainer extends PlatesContainer {
+    createContainerElement() {
+        const container = document.createElement('div');
+        container.classList.add('container');
+
+        const actionArea = document.createElement('div');
+        actionArea.classList.add('action-area');
+        this.action_buttons_full = false;
+        this.addActionButtons(actionArea);
+
+        container.appendChild(actionArea);
+
+        const sa = {
+            hx: {name: '最新', color: `rgb(${160}, 0, 0)`},
+            db: {name: '$', color: `rgb(${160 + 0.2 * 95}, 0, 0)`, editable: true},
+        };
+        for (let k in sa) {
+            const scon = new StockCollection(sa[k]);
+            this.subcons[k] = scon;
+            container.appendChild(scon.render());
+        }
+        this.subcons['db'].doneEditCallback = () => {
+            this.saveStocks();
+        }
+
+        return container;
+    }
+
+    addSubCard(secu) {
+        this.subcons['hx'].addStocks(secu);
+        this.subcons['hx'].render();
+        if (typeof secu === 'string') {
+            secu = [secu];
+        }
+        const dbsecu = secu.filter(s => this.subcons['db'].stocks.includes(s));
+        if (dbsecu.length > 0) {
+            this.subcons['db'].removeStocks(secu);
+            this.subcons['db'].render();
+        }
+        this.saveStocks();
+    }
+
+    defaultChartStocks() {
+        return this.subcons['hx'].stocks.concat(this.subcons['db'].stocks);
+    }
+
+    loadStocks() {
+        emjyBack.getFromLocal('fav_stocks', fv => {
+            if (!fv) {
+                return;
+            }
+            feng.getStockBasics(fv).then(() => {
+                this.subcons['db'].addStocks(fv);
+                this.subcons['db'].render();
+            });
+        });
+    }
+
+    saveStocks() {
+        const fav_stocks = this.subcons['hx'].stocks.concat(this.subcons['db'].stocks);
+        emjyBack.saveToLocal({fav_stocks});
+    }
+}
+
 class PlatesManagePanel {
     constructor(parent) {
         this.ignoredPlates = ['cls80250', 'cls80218', 'cls80272'];
@@ -3242,6 +3422,9 @@ class PlatesManagePanel {
     savePlates() {
         if (!this.initialized) {
             return;
+        }
+        if (this.favstkcon) {
+            this.favstkcon.saveStocks();
         }
         var date = guang.getTodayDate('-');
         var selectedPlates = {date, plates: []};
@@ -3263,10 +3446,16 @@ class PlatesManagePanel {
         emjyBack.saveToLocal({'selected_plates': selectedPlates});
     }
 
+    loadFavorites() {
+        this.favstkcon = new FavoriteStocksContainer(this);
+        this.favstkcon.loadStocks();
+        this.element.appendChild(this.favstkcon.render());
+    }
+
     loadPlates() {
+        this.loadFavorites();
         emjyBack.getFromLocal('selected_plates', sp => {
             if (sp) {
-                var date = sp.date;
                 if (sp.extras) {
                     emjyBack.stock_extra = sp.extras
                 }
@@ -3915,6 +4104,10 @@ class EmPopularity extends LeftColumnBarItem {
                 if (zleads.length >= 10) break;
             }
             slist = this.popularityList.filter(p => zleads.includes(guang.convertToSecu(p.SECURITY_CODE)));
+            if (emjyBack.home.platesManagePanel.favstkcon?.subcons['hx']?.cards?.length == 0) {
+                const zlead5 = slist.slice(0, 5).map(s => guang.convertToSecu(s.SECURITY_CODE));
+                emjyBack.home.platesManagePanel.favstkcon.addSubCard(zlead5);
+            }
         }
         if (slist.length > 60) {
             slist = slist.slice(0, 60);
