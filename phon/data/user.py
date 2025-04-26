@@ -11,7 +11,7 @@ from phon.data.tables import User as UserDb
 from phon.data.tables import UserFunds, UserStocks, UserEarned, UserEarning, UserDeals, UserStockBuy, UserStockSell
 from phon.data.tables import AllStocks, UserStrategy, UserOrders, UserCostdog, UcostdogUrque
 from phon.data.db import create_model, read_context, write_context, insert_or_update
-from history import StockDumps
+import easyquotation as ezqt
 
 
 class classproperty:
@@ -305,7 +305,7 @@ class User:
 
     def _all_user_stocks(self):
         with read_context(self.stocks_info_table):
-            us = list(self.stocks_info_table.select().where(self.stocks_info_table.keep_eye == 1))
+            us = list(self.stocks_info_table.select())
         return tuple([s.code for s in us])
 
     def _archived(self, deal):
@@ -720,7 +720,10 @@ class User:
 
     def watchings_with_strategy(self):
         with read_context(self.stocks_info_table):
-            slst = list(self.stocks_info_table.select().where(self.stocks_info_table.keep_eye == 1, self.stocks_info_table.portion_hold > 0))
+            if self.realcash == 1:
+                slst = list(self.stocks_info_table.select().where(self.stocks_info_table.keep_eye == 1))
+            else:
+                slst = list(self.stocks_info_table.select().where(self.stocks_info_table.keep_eye == 1, self.stocks_info_table.portion_hold > 0))
         return {s.code: {'holdCost':s.aver_price, 'holdCount': s.portion_hold, 'strategies': self._load_strategy(s)} for s in slst}
 
     def save_costdog(self, cdata):
@@ -825,18 +828,17 @@ class User:
         earned_obj['e_a'] = earr
         return earned_obj
 
-    def __get_latest_price(self, code):
-        sd = StockDumps()
-        (_id, _dt, prc, *x), = sd.read_kd_data(code, length=1)
-        return prc
-
     def update_earning(self):
-        codes = self._all_user_stocks()
+        codes = []
+        with read_context(self.stocks_info_table):
+            us = list(self.stocks_info_table.select().where(self.stocks_info_table.portion_hold > 0))
+        codes = [s.code for s in us]
+
         uss = {}
-        from utils import Utils
-        cbasic = Utils.get_cls_basics(codes)
+        sinaapi = ezqt.use('sina')
+        cbasic = sinaapi.real([c.lower() for c in codes])
         for c in codes:
-            price = cbasic[c]['last_px'] if c in cbasic.keys() else self.__get_latest_price(c)
+            price = cbasic[c[-6:]]['now']
             us = UStock(self, c)
             if us.cost_hold and us.portion_hold:
                 uss[c] = {'cost': us.cost_hold, 'ptn': us.portion_hold, 'price': price }
@@ -1653,24 +1655,24 @@ class UStock():
             'code': self.code,
             'portion': d['count'],
             '委托编号': d['sid'],
-            **{k: v for k, v in d.items() if k not in ('price', 'cost', 'soldout', 'soldptn', '手续费', '印花税', '过户费')}
+            **{k: v for k, v in d.items() if k in ('price', 'cost', 'soldout', 'soldptn', '手续费', '印花税', '过户费')}
         } for d in deals if d['tradeType'] == 'B']
         sdeals = [{
             'date': d['time'],
             'code': self.code,
             'portion': d['count'],
             '委托编号': d['sid'],
-            **{k: v for k, v in d.items() if k not in ('price', 'money_sold', 'cost_sold', 'earned', 'return_percent', 'rolled_in', '手续费', '印花税', '过户费')}
+            **{k: v for k, v in d.items() if k in ('price', 'money_sold', 'cost_sold', 'earned', 'return_percent', 'rolled_in', '手续费', '印花税', '过户费')}
         } for d in deals if d['tradeType'] == 'S']
         self.replace_orders(self.buy_table, bdeals)
         self.replace_orders(self.sell_table, sdeals)
         self.fix_cost_portion_hold()
 
     def replace_orders(self, ordtable, orders):
-        for order in orders:
+        for i, order in enumerate(orders):
             if 'code' not in order or order['code'] != self.code:
                 order['code'] = self.code
-            order = {k: v for k, v in order.items() if hasattr(ordtable, k)}
+            orders[i] = {k: v for k, v in order.items() if hasattr(ordtable, k)}
 
         with read_context(ordtable):
             # 查询现有订单
@@ -1693,7 +1695,7 @@ class UStock():
             for order in new_orders:
                 if 'id' in order:
                     del order['id']
-                if 'sid' not in order:
+                if 'sid' not in order and hasattr(ordtable, 'sid'):
                     order['sid'] = '0'
                 order['code'] = self.code
             with write_context(ordtable):
@@ -1770,10 +1772,9 @@ class UStock():
             return 0
 
         if hstk.portion_hold > 0:
-            from history import StockDumps
-            sd = StockDumps()
-            kl = sd.read_kd_data(self.code, length=1)[0]
-            return hstk.portion_hold * float(kl[2]) - hstk.cost_hold
+            sinaapi = ezqt.use('sina')
+            qreal = sinaapi.real(self.code.lower())[self.code[-6:]]
+            return hstk.portion_hold * qreal['now'] - hstk.cost_hold
         return 0
 
     def get_sold_earned(self):

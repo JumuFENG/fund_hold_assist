@@ -58,8 +58,10 @@ def fix_user_deals(own, pform):
     user = actual_user(own, acc, subid, True)
     if user is None:
         return 'Forbidden', 403
+    code = pform.get('code', None, str)
     deals = pform.get('data', None, str)
-    user.fix_deals(json.loads(deals))
+    cdeals = [{**d, 'code': d.get('code', code)} for d in json.loads(deals)]
+    user.fix_deals(cdeals)
     return 'OK', 200
 
 def forget_user_stock(own, pform):
@@ -69,7 +71,7 @@ def forget_user_stock(own, pform):
     if not user:
         return 'Forbidden', 404
 
-    code = pform.get('code', None, int)
+    code = pform.get('code', None, str)
     user.forget_stock(code)
     return 'OK', 200
 
