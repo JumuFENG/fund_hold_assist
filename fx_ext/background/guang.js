@@ -36,42 +36,77 @@ const guang = {
             return cacheEntry.data;
         }
 
-        const requestPromise =
-        fetch(this.buildParams(url, params))
-        .then(r => r.headers.get('content-type')?.includes('application/json')
-            ? r.json()
-            : r.text().then(text => {
-                try {
-                    return JSON.parse(text);
-                } catch {
-                    return text;
-                }
-            })
-        )
-        .then(data => {
-            if (dataFilter) {
-                // 使用 dataFilter 解析和验证数据
-                const filteredResult = dataFilter(data);
-                if (!filteredResult) {
-                    return null; // 如果数据无效，则不缓存
-                }
-                let filteredData = filteredResult.data ?? filteredResult;
-                let expireTime = filteredResult.expireTime ?? Date.now() + cacheTime;
-                this.cache.set(cacheKey, { data: filteredData, expireTime});
-                return filteredData;
-            }
+        // 请求函数，封装了fetch + 超时控制
+        const requestOnce = async () => {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000); // 10秒超时
+            try {
+                const response = await fetch(this.buildParams(url, params), { signal: controller.signal });
 
-            this.cache.set(cacheKey, { data: Promise.resolve(data), expireTime: Date.now() + cacheTime });
-            return data;
-        }).catch(error => {
-            this.cache.delete(cacheKey); // 失败时删除缓存
-            if (this.logger) {
-                this.logger.error(`Error fetching data from ${url}`, error);
-                this.logger.error(`${error.stack}`);
-            } else {
-                console.error(`Error fetching data from ${url}: ${error}`);
+                const contentType = response.headers.get('content-type');
+                let data;
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    const text = await response.text();
+                    try {
+                        data = JSON.parse(text);
+                    } catch {
+                        data = text;
+                    }
+                }
+                return data;
+            } finally {
+                clearTimeout(timeout);
             }
-        });
+        };
+
+        // 带重试的请求
+        const fetchWithRetry = async (maxRetries = 2) => {
+            let lastError;
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                    return await requestOnce();
+                } catch (err) {
+                    lastError = err;
+                    if (this.logger) {
+                        this.logger.error(`Fetch attempt ${attempt + 1} failed for ${url}: ${err}`);
+                    } else {
+                        console.error(`Fetch attempt ${attempt + 1} failed for ${url}: ${err}`);
+                    }
+                    if (attempt === maxRetries) throw lastError;
+                    // 增加一点点延迟再重试
+                    await new Promise(res => setTimeout(res, 300));
+                }
+            }
+        };
+
+        // 主要逻辑
+        const requestPromise = fetchWithRetry()
+            .then(data => {
+                if (dataFilter) {
+                    const filteredResult = dataFilter(data);
+                    if (!filteredResult) {
+                        return null;
+                    }
+                    const filteredData = filteredResult.data ?? filteredResult;
+                    const expireTime = filteredResult.expireTime ?? Date.now() + cacheTime;
+                    this.cache.set(cacheKey, { data: filteredData, expireTime });
+                    return filteredData;
+                }
+
+                this.cache.set(cacheKey, { data: data, expireTime: Date.now() + cacheTime });
+                return data;
+            })
+            .catch(error => {
+                this.cache.delete(cacheKey); // 失败时删除缓存
+                if (this.logger) {
+                    this.logger.error(`Error fetching data from ${url}`, error);
+                    this.logger.error(`${error.stack}`);
+                } else {
+                    console.error(`Error fetching data from ${url}: ${error}`);
+                }
+            });
 
         this.cache.set(cacheKey, { data: requestPromise, expireTime: Date.now() + cacheTime }); // 缓存 Promise
         return requestPromise;
