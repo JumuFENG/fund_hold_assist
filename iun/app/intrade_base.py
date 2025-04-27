@@ -1,7 +1,7 @@
 import asyncio
 import traceback
 import json
-import concurrent
+import concurrent, concurrent.futures
 from urllib.parse import urlencode
 from functools import cached_property
 import easyquotation as ezqt
@@ -113,12 +113,12 @@ class iunCloud:
         return code[-6:] in self.__zt_recents
 
     @staticmethod
-    def get_stock_fflow(secid, date=None, date1=None):
+    def get_stock_fflow(code, date=None, date1=None):
         """
         Get the stock's main fund flow data from eastmoney.
 
         Parameters:
-            secid (str): The stock's secid, e.g. '1.600777'.
+            code (str): The stock code, e.g. '600777'.
 
             date (str): The start date of the data, e.g. '2025-04-09'.
 
@@ -129,39 +129,16 @@ class iunCloud:
         [日期, 主力, 小单, 中单, 大单, 超大单 (净流入/占比)]
         [['2025-04-09', '-18626339.0', '7829801.0', '10796540.0', '15861618.0', '-34487957.0', '-5.70', '2.39', '3.30', '4.85', '-10.55', '2.66', '0.76', '0.00', '0.00']]
         Example:
-        >>> iunCloud.get_stock_fflow('1.600777', '2025-04-09', '2025-04-09')
+        >>> iunCloud.get_stock_fflow('600777', '2025-04-09', '2025-04-09')
         """
-        url = 'https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get'
+        url = guang.join_url(iunCloud.dserver, 'stock_fflow')
         params = {
-            'lmt': 0,
-            'klt': 101,
-            'fields1': 'f1,f2,f3,f7',
-            'fields2': 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65',
-            'ut': 'b2884a393a59ad64002292a3e90d46a5',
-            'secid': secid
+            'code': code,
+            'date': date,
         }
-        headers = guang.em_headers('push2his.eastmoney.com')
-        headers['Referer'] = 'http://quote.eastmoney.com/'
-        rsp = guang.get_request(url, headers, params)
-        fflow = json.loads(rsp)
-        if fflow is None or 'data' not in fflow or fflow['data'] is None or 'klines' not in fflow['data']:
-            logger.error(rsp)
-            return
 
-        fflow = [f.split(',') for f in fflow['data']['klines']]
-        if fflow is None or len(fflow) == 0:
-            return
-
-        values = []
-        if date is None:
-            date = '0'
-
-        for f in fflow:
-            if f[0] < date:
-                continue
-            if date1 is None or f[0] <= date1:
-                values.append([f[0]] + [float(v) for v in f[1:-4]])
-
+        fflow = json.loads(guang.get_request(url, params=params))
+        values = [f[1:] for f in fflow if date is None or f[1] >= date and (date1 is None or f[1] <= date1)]
         return values
 
     @staticmethod
@@ -407,9 +384,9 @@ class StrategyI_AuctionSnapshot_Watcher(StrategyI_Watcher_Cycle):
             for trd in trends_data['data']['trends']:
                 trds = trd.split(',')
                 ttime = trds[0].split()[1]
-                trends.append([ttime, trds[1], 0, 0])
+                trends.append([ttime, float(trds[1]), 0, 0])
                 if trds[2] != trds[1]:
-                    trends.append([ttime+':01', trds[2], 0, 0])
+                    trends.append([ttime+':01', float(trds[2]), 0, 0])
 
         return trends[1:]
 
@@ -662,7 +639,7 @@ class StrategyI_EndFundFlow_Watcher(StrategyI_Watcher_Once):
                 mainflows.append([secid, date, fobj['f62'], fobj['f184']])
 
         # 获取第一页数据并确定总页数
-        first_page_diff, total = process_response(guang.get_request(build_url(1)))
+        first_page_diff, total = process_response(guang.get_request(build_url(1), headers=headers))
         if not first_page_diff:
             return mainflows
 
@@ -677,7 +654,7 @@ class StrategyI_EndFundFlow_Watcher(StrategyI_Watcher_Once):
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             futures = {
                 executor.submit(
-                    lambda p: add_mainflow(process_response(guang.get_request(build_url(p)))[0]), 
+                    lambda p: add_mainflow(process_response(guang.get_request(build_url(p)), headers)[0]), 
                     pageno
                 ): pageno 
                 for pageno in range(2, total_pages + 1)

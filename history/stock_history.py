@@ -5,6 +5,8 @@ from utils import *
 from history import *
 import json
 from datetime import datetime, timedelta
+import concurrent, concurrent.futures
+from urllib.parse import urlencode
 from bs4 import BeautifulSoup
 from threading import Lock
 import hashlib
@@ -423,6 +425,7 @@ class Stock_Fflow_History(TableBase, EmRequest):
     '''
     def __init__(self) -> None:
         super().__init__(False)
+        self.session = None
 
     def initConstrants(self):
         self.sqldb = None
@@ -443,8 +446,8 @@ class Stock_Fflow_History(TableBase, EmRequest):
         self.headers = {
             'Host': 'push2his.eastmoney.com',
             'Referer': 'http://quote.eastmoney.com/',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
-            'Accept': '/',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:137.0) Gecko/20100101 Firefox/137.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive'
@@ -461,12 +464,20 @@ class Stock_Fflow_History(TableBase, EmRequest):
         return f'''https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get?lmt=0&klt=101&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65&ut=b2884a393a59ad64002292a3e90d46a5&secid={emsecid}&_={Utils.time_stamp()}'''
 
     def getNext(self):
+        if self.code.startswith('SB') or self.code.startswith('HB'):
+            Utils.log(f'fflow skip B stock {self.code}')
+            return
         headers = self.headers
         headers['Referer'] = f'https://data.eastmoney.com/zjlx/{self.code[2:]}.html'
-        rsp = self.getRequest(params=headers)
-        fflow = json.loads(rsp)
+        if self.session is None:
+            self.session = requests.Session()
+            self.session.timeout = 5
+        self.session.headers.update(headers)
+        rsp = self.session.get(self.getUrl())
+        fflow = rsp.json()
         if fflow is None or 'data' not in fflow or fflow['data'] is None or 'klines' not in fflow['data']:
-            Utils.log(rsp)
+            Utils.log(rsp.url)
+            Utils.log(fflow)
             return
 
         fflow = [f.split(',') for f in fflow['data']['klines']]
@@ -506,42 +517,104 @@ class Stock_Fflow_History(TableBase, EmRequest):
         return True
 
     def updateLatestFflow(self, save_to_db=True):
-        psize = 1500
-        pageno = 1
-        fields = 'fields=f1,f2,f3,f12,f13,f14,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87,f124'
-        fs = 'fs=m:0+t:6+f:!2,m:0+t:13+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2,m:0+t:7+f:!2,m:1+t:3+f:!2'
+        """获取最新主力资金流数据"""
+        DEFAULT_PAGE_SIZE = 100
+        BASE_URL = 'https://push2.eastmoney.com/api/qt/clist/get'
+        COMMON_PARAMS = {
+            'fid': 'f62',
+            'po': 1,
+            'np': 1,
+            'fltt': 2,
+            'invt': 2,
+            'ut': 'b2884a393a59ad64002292a3e90d46a5'
+        }
+        FIELDS = 'fields=f1,f2,f3,f12,f13,f14,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87,f124'
+        FS = 'fs=m:0+t:6+f:!2,m:0+t:13+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2,m:0+t:7+f:!2,m:1+t:3+f:!2'
         date = TradingDate.maxTradingDate()
         headers = self.headers
+        headers['Host'] = 'push2.eastmoney.com'
         headers['Referer'] = 'https://data.eastmoney.com/zjlx/detail.html'
         mainflows = []
-        while True:
-            url = f'https://push2.eastmoney.com/api/qt/clist/get?fid=f62&po=1&pz={psize}&pn={pageno}&np=1&fltt=2&invt=2&ut=b2884a393a59ad64002292a3e90d46a5&{fs}&{fields}'
-            fflows = json.loads(Utils.get_request(url, headers))
-            if 'data' in fflows and 'diff' in fflows['data']:
-                for fobj in fflows['data']['diff']:
-                    code = StockGlobal.full_stockcode(fobj['f12'])
-                    if fobj['f62'] == '-' or fobj['f184'] == '-':
-                        continue
-                    mainflows.append([code, date, fobj['f62'], fobj['f184']])
-                    if not save_to_db:
-                        continue
 
-                    self.setCode(code)
-                    if not self._check_table_exists():
-                        self.getFflowFromEm(code)
-                        continue
-                    if date == self._max_date():
-                        continue
-                    if TradingDate.prevTradingDate(date) == self._max_date():
-                        self.sqldb.insert(self.tablename, {
-                            column_date: date, 'main': fobj['f62'], 'mainp': fobj['f184'],
-                            'small': fobj['f84'], 'middle': fobj['f78'], 'big': fobj['f72'], 'super': fobj['f66'],
-                            'smallp': fobj['f87'], 'midllep': fobj['f81'], 'bigp': fobj['f75'], 'superp': fobj['f69']})
-                    else:
-                        self.getFflowFromEm(code)
-            if 'data' not in fflows or 'total' not in fflows['data'] or pageno * psize >= fflows['data']['total']:
-                break
-            pageno += 1
+        tosave = {}
+
+        def build_url(pageno):
+            params = {
+                **COMMON_PARAMS,
+                'pz': DEFAULT_PAGE_SIZE,
+                'pn': pageno
+            }
+            return f"{BASE_URL}?{urlencode(params)}&{FS}&{FIELDS}"
+
+        def process_response(response):
+            """处理API响应数据"""
+            try:
+                data = json.loads(response)
+                if data.get('data') and data['data'].get('diff'):
+                    return data['data']['diff'], data['data'].get('total', 0)
+                return [], 0
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"Error processing response: {e}")
+                return [], 0
+
+        def add_mainflow(fdatadiff):
+            """添加有效的主力资金流数据"""
+            for fobj in fdatadiff:
+                if fobj.get('f62') == '-' or fobj.get('f184') == '-':
+                    continue
+                code = StockGlobal.full_stockcode(fobj['f12'])
+                mainflows.append([code, date, fobj['f62'], fobj['f184']])
+                tosave[code] = {
+                    column_date: date, 'main': fobj['f62'], 'mainp': fobj['f184'],
+                    'small': fobj['f84'], 'middle': fobj['f78'], 'big': fobj['f72'], 'super': fobj['f66'],
+                    'smallp': fobj['f87'], 'midllep': fobj['f81'], 'bigp': fobj['f75'], 'superp': fobj['f69']}
+
+        def save_latest_fflow():
+            for code, data in tosave.items():
+                self.setCode(code)
+                if not self._check_table_exists():
+                    self.getFflowFromEm(code)
+                    continue
+                if date == self._max_date():
+                    continue
+                if TradingDate.prevTradingDate(date) == self._max_date():
+                    self.sqldb.insert(self.tablename, data)
+                else:
+                    self.getFflowFromEm(code)
+
+        # 获取第一页数据并确定总页数
+        first_page_diff, total = process_response(Utils.get_request(build_url(1), headers))
+        if not first_page_diff:
+            return mainflows
+
+        add_mainflow(first_page_diff)
+
+        # 计算总页数 (修正点)
+        total_pages = max(1, (total + DEFAULT_PAGE_SIZE - 1) // DEFAULT_PAGE_SIZE)
+        if total_pages <= 1:
+            if save_to_db:
+                save_latest_fflow()
+            return mainflows
+
+        # 使用线程池并发获取剩余页面
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {
+                executor.submit(
+                    lambda p: add_mainflow(process_response(Utils.get_request(build_url(p), headers))[0]), 
+                    pageno
+                ): pageno
+                for pageno in range(2, total_pages + 1)
+            }
+
+            for future in concurrent.futures.as_completed(futures):
+                pageno = futures[future]
+                try:
+                    future.result()
+                except Exception as e:
+                    print(f"Error processing page {pageno}: {e}")
+
+        if save_to_db:
+            save_latest_fflow()
         return mainflows
 
     def getDumpCondition(self, date=None):

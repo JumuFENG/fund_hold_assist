@@ -41,9 +41,9 @@ class StrategyI_AuctionUp(StrategyI_Listener):
         quotes = auctions['quotes']
         for i in range(0, len(quotes)):
             qt, cp, mv, uv = quotes[i]
-            if qt < '09:22' and quotes[i][1] > bottomprice:
+            if qt < '09:22' and cp > bottomprice:
                 return False
-            if quotes[i][1] < quotes[i-1][1]:
+            if cp < quotes[i-1][1]:
                 return False
 
         return quotes[-1][1] > bottomprice
@@ -80,6 +80,7 @@ class StrategyI_AuctionUp(StrategyI_Listener):
                     aucup_match_data = {'code': code, 'price': price}
                     aucup_match_data['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2), 'guardPrice': round(price * 0.92, 2)}, 'StrategySellBE': {}}
                     await self.on_intrade_matched(self.key, aucup_match_data, guang.create_buy_message)
+        self.watcher.matched = self.matched
 
 
 class StrategyI_Zt1Bk(StrategyI_Listener):
@@ -223,7 +224,7 @@ class StrategyI_EndFundFlow(StrategyI_Listener):
                 continue
 
             code = c[-6:]
-            mfs = iunCloud.get_stock_fflow(secids[code], allkl[0].date, allkl[-1].date)
+            mfs = iunCloud.get_stock_fflow(code, allkl[0].date, allkl[-1].date)
             if mfs is None or len(mfs) == 0 or mfs[0][1] > 0:
                 # 仅选择连续三日净流入，如果mfs[0]也是净流入说明今天已经是第四天净流入了,排除
                 continue

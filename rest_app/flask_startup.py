@@ -755,6 +755,15 @@ def stock_change():
             chgs += schgtbl.dumpStockChanges(c, date)
         return json.dumps(chgs)
 
+@app.route('/stock_fflow', methods=['GET'])
+def stock_fflow():
+    if request.method == 'GET':
+        sfh = Stock_Fflow_History()
+        code = request.args.get('code', None, str)
+        code = StockGlobal.full_stockcode(code)
+        date = request.args.get('date', None, str)
+        return json.dumps(sfh.dumpMainFlow(code, date))
+
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
     if not session.get('logged_in'):

@@ -38,6 +38,10 @@ class StockGeneral():
             self.emseccode = '0.' + self.code[2:]
         elif self.code.startswith('60') or self.code.startswith('68'):
             self.emseccode = '1.' + self.code
+        elif self.code.startswith('SB'):
+            self.emseccode = '0.' + self.code[2:]
+        elif self.code.startswith('HB'):
+            self.emseccode = '1.' + self.code[2:]
         else:
             self.emseccode = '0.' + self.code
 
