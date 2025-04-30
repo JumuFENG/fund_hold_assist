@@ -77,7 +77,7 @@ GlobalManager.prototype.addTlineListener = function(lsner) {
 }
 
 GlobalManager.prototype.update_tline_data = function(secu_code, tldata, preclose_px) {
-    if (!tldata?.line) {
+    if (!tldata?.line || tldata.line.length == 0) {
         return;
     }
     if (!this.stock_tlines[secu_code]) {
@@ -196,7 +196,7 @@ GlobalManager.prototype.addChangesListener = function(lsner) {
 GlobalManager.prototype.getStockChanges = function(stocks) {
     let promise;
     if (emjyBack.tradeDayEnded()) {
-        const url = `${emjyBack.fha.svr5000}stock_changes?codes=${stocks.join(',')}&start=${emjyBack.last_traded_date}`;
+        const url = `${emjyBack.fha.svr5000}stock_changes?codes=${stocks?.join(',')??''}&start=${emjyBack.last_traded_date}`;
         promise = fetch(url).then(r=>r.json());
     } else {
         promise = feng.getStockChanges(stocks);
@@ -2457,11 +2457,37 @@ class StockTimeLine {
             }
         };
 
+        var series_evt = {
+            name: secu_code+"_evt",
+            type: 'scatter',
+            data: this.createEventData(secu_code),
+            symbolSize: 6,
+            itemStyle: {
+                color: 'transparent',
+                borderColor: lineColor,
+                borderWidth: 1
+            },
+            yAxisIndex: yAxisIndex,
+        };
+
+        var seriesList = this.tchart.getOption().series;
+        seriesList.push(series);
+        seriesList.push(series_evt);
+        this.tchart.setOption({
+            series: seriesList
+        });
+    }
+
+    createEventData(secu_code) {
         var evdata = [];
-        if (linedata[linedata.length - 1]) {
-            let date = ''+linedata[linedata.length-1].date;
-            date = date.substring(0, 4)+'-'+date.substring(4,6)+'-'+date.substring(6,8);
-            if (emjyBack.stock_events[secu_code] && emjyBack.stock_events[secu_code][date]) {
+        const linedata = emjyBack.stock_tlines[secu_code];
+        if (linedata[linedata.length - 1] && emjyBack.stock_events[secu_code]) {
+            let date = Object.keys(emjyBack.stock_events[secu_code]).slice(-1)[0];
+            if (linedata[linedata.length-1].date) {
+                let tldate = ''+linedata[linedata.length-1].date;
+                date = tldate.substring(0, 4)+'-'+tldate.substring(4,6)+'-'+tldate.substring(6,8);
+            }
+            if (emjyBack.stock_events[secu_code][date]) {
                 var events = emjyBack.stock_events[secu_code][date].filter(e=>[64, 8193, 8201, 8202].includes(e.type));
                 events.forEach(e=>{
                     var litem = linedata.find(l=>l.x == e.x);
@@ -2480,25 +2506,7 @@ class StockTimeLine {
                 });
             }
         }
-        var series_evt = {
-            name: secu_code+"_evt",
-            type: 'scatter',
-            data: evdata,
-            symbolSize: 6,
-            itemStyle: {
-                color: 'transparent',
-                borderColor: lineColor,
-                borderWidth: 1
-            },
-            yAxisIndex: yAxisIndex,
-        };
-
-        var seriesList = this.tchart.getOption().series;
-        seriesList.push(series);
-        seriesList.push(series_evt);
-        this.tchart.setOption({
-            series: seriesList
-        });
+        return evdata;
     }
 
     updateLine(secu_code) {
@@ -2509,6 +2517,10 @@ class StockTimeLine {
         var targetSeries = series.find(s => s.name === secu_code);
         if (targetSeries) {
             targetSeries.data = emjyBack.stock_tlines[secu_code].map(item => [item.x, item.change]);
+            var evtSeries = series.find(s => s.name === secu_code+"_evt");
+            if (evtSeries) {
+                evtSeries.data = this.createEventData(secu_code);
+            }
             this.tchart.setOption({ series: series });
         } else {
             this.addNewLine(secu_code);
@@ -3450,6 +3462,7 @@ class PlatesManagePanel {
         this.favstkcon = new FavoriteStocksContainer(this);
         this.favstkcon.loadStocks();
         this.element.appendChild(this.favstkcon.render());
+        emjyBack.addChangesListener(this.favstkcon);
     }
 
     loadPlates() {

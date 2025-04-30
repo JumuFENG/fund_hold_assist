@@ -746,7 +746,7 @@ def stock_set_fee(user, form):
 def stock_change():
     if request.method == 'GET':
         schgtbl = StockChangesHistory()
-        date = request.args.get('date', None, str)
+        date = request.args.get('start', None, str)
         codes = request.args.get("codes", None, str)
         chgs = []
         if codes is None or len(codes) == 0:
