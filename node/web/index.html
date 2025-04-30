@@ -149,6 +149,31 @@
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <script src="CaptchaUI.js"></script>
   <script>
+    function generate_strategy_json(estr, amount, amtkey) {
+      let strategies = {
+        "grptype": "GroupStandard",
+        "strategies": {},
+        "transfers": {},
+        "amount": amount
+      }
+      let strobjs = {
+        "StrategyBuyZTBoard": { "key": "StrategyBuyZTBoard", "enabled": true },
+        "StrategySellELS": {"key": "StrategySellELS", "enabled": false, "cutselltype": "all", "selltype":"all" },
+        "StrategyGrid": { "key": "StrategyGrid", "enabled": false, "buycnt": 1, "stepRate": 0.05 },
+        "StrategySellBE": { "key":"StrategySellBE", "enabled": false, "upRate": -0.03, "selltype":"all", "sell_conds": 1},
+        "StrategyBuyDTBoard": { "key":"StrategyBuyDTBoard", "enabled": true},
+        "StrategySellMA": { "key":"StrategySellMA", "enabled":true, 'selltype': 'egate', 'upRate':0.03, "kltype": "4"},
+      }
+      let ekeys = Object.keys(estr);
+      for (var i = 0; i < ekeys.length; i++) {
+        strategies.strategies[i] = Object.assign(strobjs[ekeys[i]], estr[ekeys[i]]);
+        strategies.transfers[i] = {transfer: "-1" };
+      }
+      if (amtkey) {
+        strategies['uramount'] = {"key": amtkey};
+      }
+      return strategies;
+    }
     window.onload = () => {
       const proxyPath = '/5888'; // 与 nginx 中设置的反向代理y一致
       const isNginxProxy = window.location.pathname.startsWith(proxyPath+'/');
@@ -162,6 +187,12 @@
         const data = {};
         for (const [key, value] of formData.entries()) {
           data[key] = value;
+        }
+        if (data.strategies) {
+          delete(data.tradeType);
+          let estr = {};
+          estr[data.strategies] = {};
+          data.strategies = generate_strategy_json(estr, data.price);
         }
         fetch(`${BASE_PATH}/trade`, {
           method: 'POST',

@@ -166,7 +166,6 @@ class RtpTimer extends AlarmBase {
                 .flatMap(acc => acc.stocks.filter(s => s.strategies && s.strategies.frequencyUpdating()).map(s => s.code));
             promise = feng.fetchStocksQuotes([...new Set(hcodes)], this.ticks);
         } else {
-            logger.info('RtpTimer onTimer', this.ticks);
             promise = alarmHub.updateAllSnapshots(this.ticks);
         }
         promise.then(() => {
@@ -307,15 +306,14 @@ const alarmHub = {
             let holdcached = feng.dumpCached(allstks);
             svrd.saveToLocal({'hsj_stocks': holdcached});
 
-            this.tradeClosed().then(() => {
-                try {
-                    accld.normalAccount.save();
-                    accld.collateralAccount.save();
-                    accld.track_accounts.forEach(acc => {acc.save()});
-                } catch (e) {
-                    logger.err(e);
-                }
-            });
+            try {
+                accld.normalAccount.save();
+                accld.collateralAccount.save();
+                accld.track_accounts.forEach(acc => {acc.save()});
+            } catch (e) {
+                logger.err(e);
+            }
+            this.tradeClosed();
         }
 
         guang.isTodayTradingDay().then(trade => {

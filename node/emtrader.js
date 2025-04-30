@@ -65,9 +65,10 @@ alarmHub.config = config.client;
 istrManager.iconfig = config.client.extistrs;
 istrManager.fha = config.fha;
 costDog.fha = config.fha;
+guang.logger = logger;
 
 const ext = {
-    mxretry: 2,
+    mxretry: 5,
     host: 'https://jywg.eastmoneysec.com',
     browserUA: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:136.0) Gecko/20100101 Firefox/136.0',
     get targetPage() {
@@ -95,7 +96,7 @@ const ext = {
         }
     },
     async start() {
-        if (!this.status) {
+        if (!this.status || !this.browser) {
             await this.createMainTab();
         }
         this.login();
@@ -300,11 +301,16 @@ const ext = {
         accld.track_accounts.forEach(acc => {
             logger.info(acc.deals);
         });
-        this.running = false;
+        costDog.save();
+        ext.close();
     },
-    async close() {
+    close() {
         if (this.browser) {
-            await this.browser.close();
+            this.running = false;
+            setTimeout(() => {
+                this.browser.close();
+                this.browser = null;
+            }, 30000);
         }
     },
     handleStart() {

@@ -70,9 +70,7 @@ const guang = {
                 } catch (err) {
                     lastError = err;
                     if (this.logger) {
-                        this.logger.error(`Fetch attempt ${attempt + 1} failed for ${url}: ${err}`);
-                    } else {
-                        console.error(`Fetch attempt ${attempt + 1} failed for ${url}: ${err}`);
+                        this.logger.debug(`Fetch attempt ${attempt + 1} failed for ${url}: ${err}`);
                     }
                     if (attempt === maxRetries) throw lastError;
                     // 增加一点点延迟再重试

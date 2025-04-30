@@ -28,11 +28,6 @@ const logger = createLogger({
         })
     ),
     transports: [
-        // 所有日志文件统一存放到 logs/ 目录
-        new transports.File({
-            filename: path.join(LOG_DIR, 'emtrade.err.log'),
-            level: 'error'
-        }),
         new transports.File({
             filename: path.join(LOG_DIR, 'emtrade.log'),
             level: process.env.NODE_ENV === 'production' ? 'info' : 'debug'
@@ -122,23 +117,34 @@ class ctxfetch {
             }, { url, options, formFields });
         } else {
             // 在 Node.js 环境中执行 fetch
-            const response = await fetch(url, options);
-            const text = await response.text();
-
             try {
-                const data = JSON.parse(text);
-                return {
-                    status: response.status,
-                    ok: response.ok,
-                    headers: Object.fromEntries(response.headers.entries()),
-                    data
-                };
+                const response = await fetch(url, options);
+                const text = await response.text();
+
+                try {
+                    const data = JSON.parse(text);
+                    return {
+                        status: response.status,
+                        ok: response.ok,
+                        headers: Object.fromEntries(response.headers.entries()),
+                        data
+                    };
+                } catch (error) {
+                    return {
+                        status: response.status,
+                        ok: response.ok,
+                        headers: Object.fromEntries(response.headers.entries()),
+                        text
+                    };
+                }
             } catch (error) {
+                logger.error('fetch error', error);
+                logger.error('fetch error', error.stack);
                 return {
-                    status: response.status,
-                    ok: response.ok,
-                    headers: Object.fromEntries(response.headers.entries()),
-                    text
+                    status: 0,
+                    ok: false,
+                    headers: {},
+                    text: ''
                 };
             }
         }

@@ -44,22 +44,27 @@ class StrategyI_Base {
             return;
         }
         const rejected = [];
+        const chkpromises = [];
         for (const c in this.candidates) {
             if (!this.candidates[c].account) {
                 accld.checkRzrq(c).then(rzrq => {
                     this.candidates[c].account = rzrq.Status == -1 ? 'normal' : 'credit';
                 });
             } else if (this.candidates[c].account == 'credit') {
-                accld.checkRzrq(c).then(rzrq => {
+                chkpromises.push(accld.checkRzrq(c).then(rzrq => {
                     if (rzrq.Status == -1) {
                         rejected.push(c);
                     }
-                });
+                }));
             }
         }
-        if (rejected.length > 0) {
-            logger.info(this.constructor.name, 'rejected', rejected);
-            this.candidates = Object.fromEntries(Object.entries(this.candidates).filter(([c, s]) => !rejected.includes(c)));
+        if (chkpromises.length > 0) {
+            Promise.all(chkpromises).then(() => {
+                if (rejected.length > 0) {
+                    logger.info(this.constructor.name, 'rejected', rejected);
+                    this.candidates = Object.fromEntries(Object.entries(this.candidates).filter(([c, s]) => !rejected.includes(c)));
+                }
+            });
         }
     }
 
@@ -938,32 +943,31 @@ const istrManager = {
         }
         return svrd.getFromLocal(ikey);
     },
-    setupExtStrategy() {
-        const build_istr = function (istr) {
-            let iks = null;
-            if (istr.key == 'istrategy_zt1wb') {
-                iks = new StrategyI_Zt1WbOpen(istr);
-            } else if (istr.key == 'istrategy_3brk') {
-                iks = new StrategyI_3Bull_Breakup(istr);
-            } else if (istr.key == 'istrategy_hotrank0') {
-                iks = new StrategyI_HotrankOpen(istr);
-            } else if (istr.key == 'istrategy_hotstks_open') {
-                iks = new StrategyI_HotStocksOpen(istr);
-            } else if (istr.key == 'istrategy_dtstocks') {
-                iks = new StrategyI_DtStocksUp(istr);
-            } else if (istr.key == 'istrategy_idxtrack') {
-                iks = new StrategyI_IndexTracking(istr);
-            }
-            return iks;
+    build_istr(istr) {
+        let iks = null;
+        if (istr.key == 'istrategy_zt1wb') {
+            iks = new StrategyI_Zt1WbOpen(istr);
+        } else if (istr.key == 'istrategy_3brk') {
+            iks = new StrategyI_3Bull_Breakup(istr);
+        } else if (istr.key == 'istrategy_hotrank0') {
+            iks = new StrategyI_HotrankOpen(istr);
+        } else if (istr.key == 'istrategy_hotstks_open') {
+            iks = new StrategyI_HotStocksOpen(istr);
+        } else if (istr.key == 'istrategy_dtstocks') {
+            iks = new StrategyI_DtStocksUp(istr);
+        } else if (istr.key == 'istrategy_idxtrack') {
+            iks = new StrategyI_IndexTracking(istr);
         }
-
+        return iks;
+    },
+    setupExtStrategy() {
         for (const k in ses.ExtIstrStrategies) {
             this.getIstrData('exstrategy_' + k).then(istr => {
                 if (!istr) {
                     logger.info('ext strategy', k, 'not configured');
                     return;
                 }
-                let iks = build_istr(istr);
+                let iks = this.build_istr(istr);
                 if (iks) {
                     this.istrs[istr.key] = iks;
                     if (iks.enabled() && this.isTradingDay) {
