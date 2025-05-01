@@ -338,7 +338,7 @@ const ext = {
         return true;
     },
     handleStatus() {
-        return {status: ext.status, running: ext.running};
+        return {status: ext.status, running: ext.running, tradingday: ext.tradingday};
     },
     handleAccountStocks(mbody) {
         const {account} = mbody;
@@ -460,6 +460,7 @@ io.on('connection', (socket) => {
 
 (async function () {
     const tradingday = await guang.isTodayTradingDay();
+    ext.tradingday = tradingday;
     if (tradingday) {
         ext.schedule();
     } else {

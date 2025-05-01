@@ -77,7 +77,7 @@ class iun:
         tconfig = Config.trading_service()
         TradeInterface.tserver = tconfig['server']
         if not TradeInterface.check_trade_server():
-            logger.error('trading server is not available')
+            logger.info('not trading day or trade server not available')
             return
 
         dconfig = Config.data_service()

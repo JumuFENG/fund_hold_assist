@@ -5,6 +5,7 @@ from utils import *
 from history import *
 import json
 from datetime import datetime, timedelta
+from time import sleep
 import concurrent, concurrent.futures
 from urllib.parse import urlencode
 from bs4 import BeautifulSoup
@@ -484,6 +485,10 @@ class Stock_Fflow_History(TableBase, EmRequest):
         if fflow is None or len(fflow) == 0:
             return
 
+        if len(fflow) == 1 and TradingDate.prevTradingDate(fflow[0][0]) != self._max_date():
+            Utils.log(f'Stock_Fflow_History got only 1 data {self.code}, and not continously, discarded!')
+            return
+
         self._check_or_create_table()
         maxdate = self._max_date()
         values = []
@@ -491,10 +496,6 @@ class Stock_Fflow_History(TableBase, EmRequest):
             if maxdate is None or f[0] > maxdate:
                 values.append(f[0:-4])
         if len(fflow) == 0:
-            return
-
-        if len(values) == 1 and TradingDate.prevTradingDate(values[0][0]) != self._max_date():
-            Utils.log(f'Stock_Fflow_History got only 1 data {self.code}, and not continously, discarded!')
             return
 
         self.sqldb.insertMany(self.tablename, [col['col'] for col in self.colheaders], values)
@@ -570,17 +571,19 @@ class Stock_Fflow_History(TableBase, EmRequest):
                     'smallp': fobj['f87'], 'midllep': fobj['f81'], 'bigp': fobj['f75'], 'superp': fobj['f69']}
 
         def save_latest_fflow():
+            ucode = []
             for code, data in tosave.items():
                 self.setCode(code)
                 if not self._check_table_exists():
-                    self.getFflowFromEm(code)
+                    ucode.append(code)
                     continue
                 if date == self._max_date():
                     continue
                 if TradingDate.prevTradingDate(date) == self._max_date():
                     self.sqldb.insert(self.tablename, data)
                 else:
-                    self.getFflowFromEm(code)
+                    ucode.append(code)
+            return ucode
 
         # 获取第一页数据并确定总页数
         first_page_diff, total = process_response(Utils.get_request(build_url(1), headers))
@@ -614,7 +617,12 @@ class Stock_Fflow_History(TableBase, EmRequest):
                     print(f"Error processing page {pageno}: {e}")
 
         if save_to_db:
-            save_latest_fflow()
+            ucodes = save_latest_fflow()
+            if len(ucodes) > 0:
+                sleep(20)
+                Utils.log(f'fflow update failed for {len(ucodes)} codes {ucodes}')
+                for code in ucodes:
+                    self.getFflowFromEm(code)
         return mainflows
 
     def getDumpCondition(self, date=None):

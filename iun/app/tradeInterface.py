@@ -28,7 +28,9 @@ class TradeInterface:
         url = guang.join_url(cls.tserver, 'status')
         try:
             response = requests.get(url)
-            return response.status_code == 200
+            tstatus = response.json()
+            logger.info(f'trade server status: {tstatus}')
+            return response.status_code == 200 and tstatus['tradingday']
         except Exception as e:
             logger.error(e)
             return False
