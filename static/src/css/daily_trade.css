@@ -130,6 +130,23 @@ td.name:hover {
     text-align: right;
 }
 
+.tip-text {
+    width: 100px;
+    text-align: left;
+}
+
+.tip-sell-text {
+    width: 130px;
+    text-align: left;
+    color: green;
+}
+
+.tip-buy-text {
+    width: 130px;
+    text-align: left;
+    color: red;
+}
+
 .container {
     border-bottom: 2px solid #ccc;
     padding: 2px;
@@ -182,17 +199,18 @@ td.name:hover {
     z-index: 1;
     top: 100%;
     left: 50%;
-    transform: translateX(-50%);
     margin-top: 2px;
     opacity: 0;
     transition: opacity 0.3s;
+    --arrow-left: 50%;
 }
 
 .tooltip::after {
     content: '';
     position: absolute;
     bottom: 100%;
-    left: 50%;
+    left: var(--arrow-left);
+    transform: translateX(-50%);
     margin-left: -5px;
     border-width: 5px;
     border-style: solid;

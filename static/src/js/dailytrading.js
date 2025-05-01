@@ -193,6 +193,57 @@ GlobalManager.prototype.addChangesListener = function(lsner) {
     this.event_listeners.push(lsner);
 }
 
+GlobalManager.prototype.parseChanges = function(changes) {
+    let changed_secus = [];
+    let date = emjyBack.is_trading_day ? guang.getTodayDate('-') : emjyBack.last_traded_date;
+    changes.forEach(change => {
+        let change_code = change[0];
+        let secu_code = guang.convertToSecu(change_code);
+        if (!changed_secus.includes(secu_code)) {
+            changed_secus.push(secu_code);
+        }
+        let change_ftm = change[1].split(' ');
+        let change_time = change_ftm[0];
+        let change_date = date;
+        if (change_ftm.length == 2) {
+            change_date = change_ftm[0];
+            date = change_date;
+            change_time = change_ftm[1];
+        }
+        change_time = change_time.substring(0, change_time.length - 2);
+        var minute = parseInt(change_time.replace(':', ''));
+        change_time = change_time.split(':');
+        var m1 = parseInt(change_time[0]);
+        var m2 = parseInt(change_time[1]);
+        var x = m1 * 60 + m2 - (m1 < 12 ? 570 : 660);
+        var type = change[2];
+        var info = change[3];
+        if (!this.stock_events[secu_code]) {
+            this.stock_events[secu_code] = {};
+        }
+        if (!this.stock_events[secu_code][change_date]) {
+            this.stock_events[secu_code][change_date] = [];
+        }
+        if (!this.stock_events[secu_code][change_date].some(e => e.minute == minute && e.type == type)) {
+            this.stock_events[secu_code][change_date].push({date: change_date, minute, x, type, info});
+        }
+    });
+    return changed_secus;
+}
+
+GlobalManager.prototype.getStockHistChanges = function(stocks, days=3) {
+    if (!stocks) {
+        return Promise.resolve();
+    }
+    if (typeof(stocks) == 'string') {
+        stocks = [stocks];
+    }
+    const url = `${emjyBack.fha.svr5000}stock_changes?codes=${stocks?.join(',')??''}&days=${days}`;
+    fetch(url).then(r=>r.json()).then(changes => {
+        this.parseChanges(changes);
+    });
+}
+
 GlobalManager.prototype.getStockChanges = function(stocks) {
     let promise;
     if (emjyBack.tradeDayEnded()) {
@@ -203,40 +254,11 @@ GlobalManager.prototype.getStockChanges = function(stocks) {
     }
 
     promise.then(changes => {
-        let changed_secus = [];
-        let date = emjyBack.is_trading_day ? guang.getTodayDate('-') : emjyBack.last_traded_date;
-        changes.forEach(change => {
-            let change_code = change[0];
-            let secu_code = guang.convertToSecu(change_code);
-            if (!changed_secus.includes(secu_code)) {
-                changed_secus.push(secu_code);
-            }
-            let change_ftm = change[1].split(' ');
-            let change_time = change_ftm[0];
-            let change_date = date;
-            if (change_ftm.length == 2) {
-                change_date = change_ftm[0];
-                date = change_date;
-                change_time = change_ftm[1];
-            }
-            change_time = change_time.substring(0, change_time.length - 2);
-            var minute = parseInt(change_time.replace(':', ''));
-            change_time = change_time.split(':');
-            var m1 = parseInt(change_time[0]);
-            var m2 = parseInt(change_time[1]);
-            var x = m1 * 60 + m2 - (m1 < 12 ? 570 : 660);
-            var type = change[2];
-            var info = change[3];
-            if (!this.stock_events[secu_code]) {
-                this.stock_events[secu_code] = {};
-            }
-            if (!this.stock_events[secu_code][change_date]) {
-                this.stock_events[secu_code][change_date] = [];
-            }
-            if (!this.stock_events[secu_code][change_date].some(e => e.minute == minute && e.type == type)) {
-                this.stock_events[secu_code][change_date].push({date: change_date, minute, x, type, info});
-            }
-        });
+        if (!changes || changes.length == 0) {
+            return;
+        }
+        let changed_secus = this.parseChanges(changes);
+        const date = changes[0][1].split(' ')[0];
         feng.getStockBasics(changed_secus).then(() => {;
             this.event_listeners.forEach(lsner=>lsner.onEventReceived(changed_secus, date));
             emjyBack.home.dailyZtStepsPanel.updateZtSteps();
@@ -434,11 +456,31 @@ GlobalManager.prototype.getZtOrBrkStocks = function() {
 }
 
 GlobalManager.prototype.tooltipPanel = function() {
-    return this.tooltip || (
+    if (!this.tooltip) {
         this.tooltip=document.createElement("div"),
         this.tooltip.classList.add("tooltip"),
         document.body.appendChild(this.tooltip)
-    ), this.tooltip;
+    }
+    return this.tooltip;
+}
+
+GlobalManager.prototype.targetTooltipTo = function(ele) {
+    if (ele) {
+        ele.appendChild(this.tooltip);
+    }
+    const eleRect = ele.getBoundingClientRect();
+    const tooltipRect = this.tooltip.getBoundingClientRect();
+    const pageLeft = eleRect.left + (eleRect.width / 2) - (tooltipRect.width / 2);
+    // 计算最大最小限制
+    const minPageLeft = 10; // 最小视口左边距
+    const maxPageLeft = window.innerWidth - 15 - tooltipRect.width;
+    // 调整pageLeft确保在边界内
+    const adjustedPageLeft = Math.max(minPageLeft, Math.min(pageLeft, maxPageLeft));
+    let relativeLeft = adjustedPageLeft - eleRect.left;
+    this.tooltip.style.left = `${relativeLeft}px`;
+    // 计算箭头位置（相对于tooltip左侧）
+    const arrowPos = eleRect.width / 2 - relativeLeft;
+    this.tooltip.style.setProperty('--arrow-left', `${arrowPos}px`);
 }
 
 GlobalManager.prototype.md5 = function (r){
@@ -2482,7 +2524,7 @@ class StockTimeLine {
         var evdata = [];
         const linedata = emjyBack.stock_tlines[secu_code];
         if (linedata[linedata.length - 1] && emjyBack.stock_events[secu_code]) {
-            let date = Object.keys(emjyBack.stock_events[secu_code]).slice(-1)[0];
+            let date = Object.keys(emjyBack.stock_events[secu_code]).sort().slice(-1)[0];
             if (linedata[linedata.length-1].date) {
                 let tldate = ''+linedata[linedata.length-1].date;
                 date = tldate.substring(0, 4)+'-'+tldate.substring(4,6)+'-'+tldate.substring(6,8);
@@ -2609,13 +2651,17 @@ class SecuCard {
         this.element.onmouseenter = () => {
             this.showTooltip();
         }
+        this.element.onmouseleave = () => {
+            if (emjyBack.tooltip && this.element.hasChildNodes(emjyBack.tooltip)) {
+                this.element.removeChild(emjyBack.tooltip);
+            }
+        }
 
         return this.element;
     }
 
     async showTooltip() {
         const tooltip = emjyBack.tooltipPanel();
-        this.element.appendChild(tooltip);
         let pinfo = await feng.getStockBasics(this.plate);
         let clsLk = `https://www.cls.cn/stock?code=${this.plate}`;
         let emLk = `https://emweb.securities.eastmoney.com/pc_hsf10/pages/index.html?type=web&code=${emjyBack.secuConvert(this.plate)}#/jyfx`
@@ -2625,25 +2671,26 @@ class SecuCard {
                 <div class="left-info"><a target="_blank" href="${clsLk}" >${this.plate}</a></div>
                 <div class="left-info"><a target="_blank" href="${emLk}" >F10</a></div>
             </div></div>`;
+            emjyBack.targetTooltipTo(this.element);
             return;
         }
+
         let changeColor = pinfo.change == 0 ? '' : (pinfo.change > 0 ? 'red' : 'green');
-        let tipHtml = `<div class="center">
-            <div class="card-info">
-                <div class="left-info"><a target="_blank" href="${clsLk}" >${this.plate}</a> <a target="_blank" href="${emLk}" >F10</a></div>
-                <div class="left-info"></div>
-                <div class="left-info">最新：<span class="${changeColor}">${pinfo.last_px}</span>/${pinfo.preclose_px}</div>
-                <div class="left-info">涨跌幅：<span class="${changeColor}">${(pinfo.change*100).toFixed(2) + '%'}</span></div>`
+        const tipbasics = [
+            pinfo.secu_name,
+            `<a target="_blank" href="${clsLk}" >${this.plate}</a> <a target="_blank" href="${emLk}" >F10</a>`,
+            `最新：<span class="${changeColor}">${pinfo.last_px}</span>/${pinfo.preclose_px}`,
+            `涨跌幅：<span class="${changeColor}">${(pinfo.change*100).toFixed(2) + '%'}</span>`
+        ];
+
         let stockplates = [];
         if (emjyBack.stock_extra[this.plate]) {
             let pextra = emjyBack.stock_extra[this.plate];
             let ztlbc = pextra.lbc == 1 ? '首板' : pextra.days == pextra.lbc ? `${pextra.days}连板` : `${pextra.days}天${pextra.lbc}板`;
             let todate = pextra.ndays > 0 ? `至今: ${pextra.ndays}天` : '今日涨停';
             if (pextra.lbc) {
-                tipHtml += `
-                <div class="left-info">${pextra.date.substring(5)} ${ztlbc}</div>
-                <div class="left-info">${todate}</div>
-                `;
+                tipbasics.push(`${pextra.date.substring(5)} ${ztlbc}`);
+                tipbasics.push(`${todate}`);
             }
             var statsplates = [];
             if (emjyBack.all_stats && emjyBack.all_stats.length > 0) {
@@ -2678,34 +2725,112 @@ class SecuCard {
             }
         }
         stockplates = Array.from(new Set(stockplates.map(p => emjyBack.plate_basics[p]?emjyBack.plate_basics[p].secu_name:p)));
-        if (stockplates.length > 0) {
-            tipHtml += `
-                <div class="left-info" style='color: #999'>所属板块>:</div>
-                `
-            for (var i = 0; i < stockplates.length; i++) {
-                tipHtml += `
-                <div class="left-info">${stockplates[i]}</div>
-                `;
+
+        const stockevents = [];
+        const totalBuySell = function(v64, v128, v8193, v8194) {
+            let amount = 0;
+            let count = 0;
+            if (v64.length > 0) {
+                const i64 = v64.map(v=>v.info.split(','));
+                count += i64.reduce((acc, v) => acc + parseFloat(v[0]), 0);
+                amount += i64.reduce((acc, v) => acc + (v.length < 4 ? v[0] * v[1] : parseFloat(v[3])), 0);
             }
+            if (v128.length > 0) {
+                const i128 = v128.map(v=>v.info.split(','));
+                count -= i128.reduce((acc, v) => acc + parseFloat(v[0]), 0);
+                amount -= i128.reduce((acc, v) => acc + (v.length < 4 ? v[0] * v[1] : parseFloat(v[3])), 0);
+            }
+            if (v8193.length > 0) {
+                const i8193 = v8193.map(v=>v.info.split(','));
+                count += i8193.reduce((acc, v) => acc + parseFloat(v[0]), 0);
+                amount += i8193.reduce((acc, v) => acc + (v.length < 4 ? v[0] * v[1] : parseFloat(v[3])), 0);
+            }
+            if (v8194.length > 0) {
+                const i8194 = v8194.map(v=>v.info.split(','));
+                count -= i8194.reduce((acc, v) => acc + parseFloat(v[0]), 0);
+                amount -= i8194.reduce((acc, v) => acc + (v.length < 4 ? v[0] * v[1] : parseFloat(v[3])), 0);
+            }
+            if (count > 0) {
+                return `<div class="tip-buy-text">净买: ${(count/100).toFixed()}/${emjyBack.formatMoney(amount)}</div>`;
+            }
+            return `<div class="tip-sell-text">净卖: ${(-count/100).toFixed()}/${emjyBack.formatMoney(-amount)}</div>`;
         }
         if (emjyBack.stock_events[this.plate]) {
-            let dates = Object.keys(emjyBack.stock_events[this.plate])
-            let date = dates.reduce((max, current) => current > max ? current : max, dates[0]);
-            if (emjyBack.stock_events[this.plate][date].length > 0) {
-                let v64 = emjyBack.stock_events[this.plate][date].filter(e=>e.type == 64).length;
-                let v8193 = emjyBack.stock_events[this.plate][date].filter(e=>e.type == 8193).length;
-                let v8201 = emjyBack.stock_events[this.plate][date].filter(e=>e.type == 8201).length;
-                let v8202 = emjyBack.stock_events[this.plate][date].filter(e=>e.type == 8202).length;
-                tipHtml += `
-                <div class="left-info">有大买盘: ${v64}</div>
-                <div class="left-info">大笔买入: ${v8193}</div>
-                <div class="left-info">火箭发射: ${v8201}</div>
-                <div class="left-info">快速反弹 ${v8202}</div>
-                `
+            if (Object.keys(emjyBack.stock_events[this.plate]).length <= 1) {
+                await emjyBack.getStockHistChanges(this.plate, 5);
+            }
+            let dates = Object.keys(emjyBack.stock_events[this.plate]).sort().reverse();
+            for (const date of dates) {
+                const events = emjyBack.stock_events[this.plate][date];
+                if (events.length == 0) continue;
+                let evt = `<div><div>${date}</div>`;
+                let v64 = events.filter(e=>e.type == 64);
+                if (v64.length > 0) {
+                    const v64inf = v64.map(v=>v.info.split(','));
+                    const v64px = v64inf.reduce((acc, v) => acc + parseFloat(v[0]), 0);
+                    const v64amt = v64inf.reduce((acc, v) => acc + (v.length < 4 ? v[0] * v[1]: parseFloat(v[3])), 0);
+                    evt += `<div class="tip-buy-text">买盘: ${v64.length}/${(v64px/100).toFixed()}/${(v64amt/v64px).toFixed(2)}</div>`;
+                }
+                let v128 = events.filter(e=>e.type == 128);
+                if (v128.length > 0) {
+                    const v128inf = v128.map(v=>v.info.split(','));
+                    const v128px = v128inf.reduce((acc, v) => acc + parseFloat(v[0]), 0);
+                    const v128amt = v128inf.reduce((acc, v) => acc + (v.length < 4 ? v[0] * v[1]: parseFloat(v[3])), 0);
+                    evt += `<div class="tip-sell-text">卖盘: ${v128.length}/${(v128px/100).toFixed()}/${(v128amt/v128px).toFixed(2)}</div>`;
+                }
+                let v8193 = events.filter(e=>e.type == 8193);
+                if (v8193.length > 0) {
+                    const v8193inf = v8193.map(v=>v.info.split(','));
+                    const v8193px = v8193inf.reduce((acc, v) => acc + parseFloat(v[0]), 0);
+                    const v8193amt = v8193inf.reduce((acc, v) => acc + (v.length < 4 ? v[0] * v[1]: parseFloat(v[3])), 0);
+                    evt += `<div class="tip-buy-text">买入: ${v8193.length}/${(v8193px/100).toFixed()}/${(v8193amt/v8193px).toFixed(2)}</div>`;
+                }
+                let v8194 = events.filter(e=>e.type == 8194);
+                if (v8194.length > 0) {
+                    const v8194inf = v8194.map(v=>v.info.split(','));
+                    const v8194px = v8194inf.reduce((acc, v) => acc + parseFloat(v[0]), 0);
+                    const v8194amt = v8194inf.reduce((acc, v) => acc + (v.length < 4 ? v[0] * v[1]: parseFloat(v[3])), 0);
+                    evt += `<div class="tip-sell-text">卖出: ${v8194.length}/${(v8194px/100).toFixed()}/${(v8194amt/v8194px).toFixed(2)}</div>`;
+                }
+
+                evt += totalBuySell(v64, v128, v8193, v8194);
+                let v8201 = events.filter(e=>e.type == 8201).length;
+                if (v8201 > 0) {
+                    evt += `<div class="tip-buy-text" style="color: red">火箭发射: ${v8201}</div>`;
+                }
+                let v8202 = events.filter(e=>e.type == 8202).length;
+                if (v8202 > 0) {
+                    evt += `<div class="tip-buy-text" style="color: red">快速反弹: ${v8202}</div>`;
+                }
+                evt += '</div>';
+                stockevents.push(evt);
             }
         }
-        tipHtml += '</div></div>'
-        tooltip.innerHTML = tipHtml;
+
+        let tipHtml = `<div class="card-info">`
+        for (var i = 0; i < tipbasics.length; i++) {
+            tipHtml += `<div class="tip-text">${tipbasics[i]}</div>`;
+        }
+        if (stockplates.length > 0) {
+            tipHtml += `<div class="tip-text" style='color: #999'>所属板块>:</div>`;
+            for (var i = 0; i < stockplates.length; i++) {
+                tipHtml += `<div class="tip-text">${stockplates[i]}</div>`;
+            }
+        }
+        tipHtml += '</div>'
+        let evtHtml = '';
+        if (stockevents.length > 0) {
+            tooltip.style.width = stockevents.length > 1 ? '440px' : '330px';
+            evtHtml = `<div style="max-width: 210px"><div style="display:flex; overflow: auto">`
+            for (var i = 0; i < stockevents.length; i++) {
+                evtHtml += stockevents[i];
+            }
+            evtHtml += '</div></div>'
+        } else {
+            tooltip.style.width = '';
+        }
+        tooltip.innerHTML = `<div class="center" style="display: flex; width=200px;">${tipHtml}${evtHtml}</div>`;
+        emjyBack.targetTooltipTo(this.element);
     }
 
     render() {
@@ -2746,7 +2871,6 @@ class StatsPlateCard {
     showTooltip() {
         let pinfo = this.plate;
         const tooltip = emjyBack.tooltipPanel();
-        this.element.appendChild(tooltip);
         var url1 = pinfo.secu_code.startsWith('BK') ? `http://quote.eastmoney.com/center/boardlist.html#boards2-90.${pinfo.secu_code}.html` : `https://www.cls.cn/plate?code=${pinfo.secu_code}`;
         var url2 = pinfo.secu_code.startsWith('BK') ? `http://quote.eastmoney.com/bk/90.${pinfo.secu_code}.html` : `https://www.cls.cn/stock?code=${pinfo.secu_code}`;
 
@@ -2762,6 +2886,7 @@ class StatsPlateCard {
             </div>
         </div>
         `
+        emjyBack.targetTooltipTo(this.element);
     }
 }
 
@@ -2819,7 +2944,6 @@ class PlateCard {
         let changeColor = pinfo.change == 0 ? '' : (pinfo.change > 0 ? 'red' : 'green');
         let fundColor = pinfo.main_fund_diff > 0 ? 'red' : 'green';
         const tooltip = emjyBack.tooltipPanel();
-        this.element.appendChild(tooltip);
         tooltip.innerHTML = `<div class="center">
             <div class="card-info">
                 <div class="left-info"><a target="_blank" href="https://www.cls.cn/plate?code=${pinfo.secu_code}" >详情(${pinfo.secu_code})</a></div>
@@ -2831,6 +2955,7 @@ class PlateCard {
             </div>
         </div>
         `
+        emjyBack.targetTooltipTo(this.element);
     }
 
     onDragStart(event) {
@@ -3788,9 +3913,7 @@ class ClsTelegraphRed extends LeftColumnBarItem {
         <div id="telegraph_detail" tele_id="${tele.id}" style="${bgclr} overflow: hidden; text-overflow: ellipsis; max-height: 46px;" >${content}</div>
         `;
         if (tele.stock_list && tele.stock_list.length > 0) {
-            tdiv.innerHTML  += `<div style="display: flex;"><div style="width: 70px;"></div>
-            <div id="tele_${tele.id}_sl" style="display: flex; flex-flow: wrap;"></div>
-            <div style="width: 60px;"></div></div>`;
+            tdiv.innerHTML  += `<div id="tele_${tele.id}_sl" style="display: flex; flex-flow: wrap;"></div>`;
             const sldiv = tdiv.querySelector(`#tele_${tele.id}_sl`);
             tele.stock_list.forEach(s => {
                 const scard = new SecuCard(s.StockID);

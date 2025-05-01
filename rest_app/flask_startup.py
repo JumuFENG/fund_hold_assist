@@ -747,6 +747,10 @@ def stock_change():
     if request.method == 'GET':
         schgtbl = StockChangesHistory()
         date = request.args.get('start', None, str)
+        if date is None:
+            days = request.args.get('days', None, int)
+            if days is not None:
+                date = TradingDate.prevTradingDate(TradingDate.maxTradedDate(), days)
         codes = request.args.get("codes", None, str)
         chgs = []
         if codes is None or len(codes) == 0:
