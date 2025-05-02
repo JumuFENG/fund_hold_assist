@@ -2763,47 +2763,50 @@ class SecuCard {
             for (const date of dates) {
                 const events = emjyBack.stock_events[this.plate][date];
                 if (events.length == 0) continue;
-                let evt = `<div><div>${date}</div>`;
+                const evt_divs = [];
                 let v64 = events.filter(e=>e.type == 64);
                 if (v64.length > 0) {
                     const v64inf = v64.map(v=>v.info.split(','));
                     const v64px = v64inf.reduce((acc, v) => acc + parseFloat(v[0]), 0);
                     const v64amt = v64inf.reduce((acc, v) => acc + (v.length < 4 ? v[0] * v[1]: parseFloat(v[3])), 0);
-                    evt += `<div class="tip-buy-text">买盘: ${v64.length}/${(v64px/100).toFixed()}/${(v64amt/v64px).toFixed(2)}</div>`;
+                    evt_divs.push(`<div class="tip-buy-text">买盘: ${v64.length}/${(v64px/100).toFixed()}/${(v64amt/v64px).toFixed(2)}</div>`);
                 }
                 let v128 = events.filter(e=>e.type == 128);
                 if (v128.length > 0) {
                     const v128inf = v128.map(v=>v.info.split(','));
                     const v128px = v128inf.reduce((acc, v) => acc + parseFloat(v[0]), 0);
                     const v128amt = v128inf.reduce((acc, v) => acc + (v.length < 4 ? v[0] * v[1]: parseFloat(v[3])), 0);
-                    evt += `<div class="tip-sell-text">卖盘: ${v128.length}/${(v128px/100).toFixed()}/${(v128amt/v128px).toFixed(2)}</div>`;
+                    evt_divs.push(`<div class="tip-sell-text">卖盘: ${v128.length}/${(v128px/100).toFixed()}/${(v128amt/v128px).toFixed(2)}</div>`);
                 }
                 let v8193 = events.filter(e=>e.type == 8193);
                 if (v8193.length > 0) {
                     const v8193inf = v8193.map(v=>v.info.split(','));
                     const v8193px = v8193inf.reduce((acc, v) => acc + parseFloat(v[0]), 0);
                     const v8193amt = v8193inf.reduce((acc, v) => acc + (v.length < 4 ? v[0] * v[1]: parseFloat(v[3])), 0);
-                    evt += `<div class="tip-buy-text">买入: ${v8193.length}/${(v8193px/100).toFixed()}/${(v8193amt/v8193px).toFixed(2)}</div>`;
+                    evt_divs.push(`<div class="tip-buy-text">买入: ${v8193.length}/${(v8193px/100).toFixed()}/${(v8193amt/v8193px).toFixed(2)}</div>`);
                 }
                 let v8194 = events.filter(e=>e.type == 8194);
                 if (v8194.length > 0) {
                     const v8194inf = v8194.map(v=>v.info.split(','));
                     const v8194px = v8194inf.reduce((acc, v) => acc + parseFloat(v[0]), 0);
                     const v8194amt = v8194inf.reduce((acc, v) => acc + (v.length < 4 ? v[0] * v[1]: parseFloat(v[3])), 0);
-                    evt += `<div class="tip-sell-text">卖出: ${v8194.length}/${(v8194px/100).toFixed()}/${(v8194amt/v8194px).toFixed(2)}</div>`;
+                    evt_divs.push(`<div class="tip-sell-text">卖出: ${v8194.length}/${(v8194px/100).toFixed()}/${(v8194amt/v8194px).toFixed(2)}</div>`);
                 }
 
-                evt += totalBuySell(v64, v128, v8193, v8194);
+                if (v64.length + v128.length + v8193.length + v8194.length > 0) {
+                    evt_divs.push(totalBuySell(v64, v128, v8193, v8194));
+                }
                 let v8201 = events.filter(e=>e.type == 8201).length;
                 if (v8201 > 0) {
-                    evt += `<div class="tip-buy-text" style="color: red">火箭发射: ${v8201}</div>`;
+                    evt_divs.push(`<div class="tip-buy-text" style="color: red">火箭发射: ${v8201}</div>`);
                 }
                 let v8202 = events.filter(e=>e.type == 8202).length;
                 if (v8202 > 0) {
-                    evt += `<div class="tip-buy-text" style="color: red">快速反弹: ${v8202}</div>`;
+                    evt_divs.push(`<div class="tip-buy-text" style="color: red">快速反弹: ${v8202}</div>`);
                 }
-                evt += '</div>';
-                stockevents.push(evt);
+                if (evt_divs.length > 0) {
+                    stockevents.push(`<div><div>${date}</div>${evt_divs.join('')}</div>`);
+                }
             }
         }
 

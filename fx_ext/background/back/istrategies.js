@@ -548,7 +548,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
         });
         this.common_get_hotranks(false);
         this.common_get_dailyzdt().then(()=>{
-            this.lastzdt = this.zdtdaily[Math.max(Object.keys(this.zdtdaily))];
+            this.lastzdt = this.zdtdaily[Object.keys(this.zdtdaily).sort().slice(-1)[0]];
         });
     }
 
@@ -592,6 +592,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
 
         this.check_daiy_open_environment().then(env_valid => {
             if (!env_valid) {
+                logger.info(this.istr.key, 'open environment not valid');
                 return;
             }
 
@@ -607,6 +608,10 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
 
                     let price = b.last_px;
                     logger.debug(this.istr.key, 'binfo', JSON.stringify(b));
+                    if (price - this.istr.amount*0.013 > 0) {
+                        logger.info(this.istr.key, 'price higher than 1.3', b.secu_code, b.secu_name)
+                        continue;
+                    }
                     price *= this.pupfix;
                     price = Math.min(price, b.up_price);
                     this.estr = {'StrategySellELS': {'topprice': (price * 1.05).toFixed(2)}, 'StrategySellBE': {}};
@@ -617,8 +622,12 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                             price = Math.min(price, b.preclose_px * 1.05);
                             strategy = null;
                         }
-                        logger.info(this.istr.key, 'buy with account', code, price, account);
-                        accld.tryBuyStock(code, price.toFixed(2), 0, account, strategy);
+                        if (zdf < -5) {
+                            logger.info(this.istr.key, 'zdf < -5', code, account);
+                        } else {
+                            logger.info(this.istr.key, 'buy with account', code, price, account);
+                            accld.tryBuyStock(code, price.toFixed(2), 0, account, strategy);
+                        }
                     });
                 }
             });
