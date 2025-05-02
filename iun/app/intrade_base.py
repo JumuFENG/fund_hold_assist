@@ -113,6 +113,15 @@ class iunCloud:
         return code[-6:] in self.__zt_recents
 
     @staticmethod
+    def get_hotstocks():
+        url = guang.join_url(iunCloud.dserver, 'stock')
+        params = {
+            'act': 'hotstocks',
+            'days': 5
+        }
+        return json.loads(guang.get_request(url, params=params))
+
+    @staticmethod
     def get_stock_fflow(code, date=None, date1=None):
         """
         Get the stock's main fund flow data from eastmoney.
@@ -489,6 +498,7 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Cycle):
         super().__init__(['9:30:1', '13:00:1'], ['11:30:1', '14:57:1'])
         self.changes_period = 60
         self.exist_changes = set()
+        self.chg_pagesize = 1000
 
     async def execute_task(self):
         while self.task_running:
@@ -501,11 +511,12 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Cycle):
 
     async def get_changes(self, types=None):
         self.chg_page = 0
-        self.chg_pagesize = 1000
         self.fecthed = []
         self.get_next_changes(types)
-
+        self.fecthed.reverse()
         await self.notify_change(self.fecthed)
+        if len(self.fecthed) < self.chg_pagesize:
+            self.chg_pagesize = max(100, len(self.fecthed))
 
     def get_next_changes(self, types=None):
         if types is None:

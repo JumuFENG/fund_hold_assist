@@ -90,7 +90,7 @@ class iun:
         # accld.loadAccounts()
 
         cfg = Config.iun_config()
-        strategies = [StrategyI_AuctionUp(), StrategyI_Zt1Bk(), StrategyI_EndFundFlow()]
+        strategies = [StrategyI_AuctionUp(), StrategyI_Zt1Bk(), StrategyI_EndFundFlow(), StrategyI_DeepBigBuy()]
         async with asyncio.TaskGroup() as tg:
             for task in strategies:
                 task.on_intrade_matched = cls.intrade_matched

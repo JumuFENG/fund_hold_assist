@@ -239,3 +239,47 @@ class StrategyI_EndFundFlow(StrategyI_Listener):
                 await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
         logger.info('EndFundFlow select %d stocks: %s', len(sstocks), sstocks)
 
+
+class StrategyI_DeepBigBuy(StrategyI_Listener):
+    ''' 热门股深水大单买入
+    '''
+    key = 'istrategy_bigbuy'
+    name = '深水大单买入'
+    desc = '近期热门股深水大单买入'
+    on_intrade_matched = None
+    def __init__(self):
+        self.watcher = iunCloud.get_watcher('stkchanges')
+        self.hotchanges = None
+        self.stock_notified = []
+
+    async def on_watcher(self, params):
+        if not self.hotchanges:
+            hstks = iunCloud.get_hotstocks()
+            self.hotchanges = {hs[0][-6:]: [] for hs in hstks if hs[3] > 3}
+
+        for code, t, p, i in params:
+            if code not in self.hotchanges or code in self.stock_notified:
+                continue
+            if p in [64,128,8193,8194]:
+                self.hotchanges[code].append([t, p, i])
+            if p != 64 and p != 8193 or len(self.hotchanges[code]) <= 2:
+                continue
+
+            cinfo = i.split(',')
+            if float(cinfo[2]) > -0.06:
+                continue
+
+            buy_chgs = [hcg[2].split(',') for hcg in self.hotchanges[code] if hcg[1] == 64 or hcg[1] == 8193]
+            sell_chgs = [hcg[2].split(',') for hcg in self.hotchanges[code] if hcg[1] == 128 or hcg[1] == 8194]
+
+            buy_count = sum([int(h[0]) for h in buy_chgs])
+            sell_count = sum([int(h[0]) for h in sell_chgs])
+
+            if buy_count < 1.2 * sell_count:
+                continue
+
+            if callable(self.on_intrade_matched):
+                self.stock_notified.append(code)
+                mdata = {'code': code, 'price': cinfo[1]}
+                mdata['strategies'] = {'StrategySellELS': {'topprice': round(float(cinfo[1]) * 1.05, 2), 'guardPrice': round(float(cinfo[1]) * 0.95, 2) }}
+                await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
