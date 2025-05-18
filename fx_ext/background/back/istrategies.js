@@ -631,8 +631,9 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                     });
                 }
             });
+        }).then(()=>{
+            this.saveCandidates();
         });
-        this.saveCandidates();
     }
 
     saveCandidates() {
@@ -643,6 +644,7 @@ class StrategyI_HotStocksOpen extends StrategyI_Base {
                 ohstks.push([date, code, this.candidates[code].ztdate, this.candidates[code].days, this.candidates[code].step, this.candidates[code].rank]);
             }
         }
+        logger.info(this.constructor.name, 'save ohstks', ohstks);
         const url = istrManager.fha.server + 'stock';
         const fd = new FormData();
         fd.append('act', 'setistr');

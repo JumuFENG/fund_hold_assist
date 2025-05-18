@@ -759,8 +759,8 @@ const feng = {
     },
     async getStockChanges(stocks, options = {}) {
         // 60日新高,火箭发射, 大笔买入, 大笔卖出, 有大买盘, 有大卖盘, 封涨停板, 打开涨停板
-        const { types = '8213,8201,8193,8194,64,128,4,16', pageSize = 1000 } = options;
-        this.pageSize = pageSize;
+        const { types = '8213,8201,8193,8194,64,128,4,16'} = options;
+        this.pageSize = this.pageSize ?? 1000;
         this.currentPage = 0;
         this.fetchedStocks = [];
         if (!this.processedChangeKeys) {
@@ -771,6 +771,12 @@ const feng = {
         }
 
         await this.fetchNextPage(types);
+        if (this.fetchedStocks.length < this.pageSize) {
+            if (this.fetchedStocks.length > 0 || this.fullChanges.length > 0) {
+                self.pageSize = Math.max(64, this.fetchedStocks.length)
+            }
+        }
+
         if (stocks && stocks.length > 0) {
             stocks = stocks.map(s => guang.convertToQtCode(s).slice(-6));
             return this.fetchedStocks.filter(f => stocks.includes(f[0]));

@@ -262,8 +262,10 @@ const ext = {
     },
     async onLoginSucess() {
         this.status = 'success';
-        setInterval(() => {
-            this.page.reload();
+        this.reloadInterval = setInterval(() => {
+            if (this.browser && this.page) {
+                this.page.reload();
+            }
         }, 175 * 60000);
         accld.initAccounts();
         accld.normalAccount?.loadAssets();
@@ -310,7 +312,12 @@ const ext = {
             setTimeout(() => {
                 this.browser.close();
                 this.browser = null;
-            }, 30000);
+                if (this.reloadInterval) {
+                    clearInterval(this.reloadInterval);
+                    this.reloadInterval = null;
+                }
+                logger.info('browser closed!');
+            }, 70000);
         }
     },
     handleStart() {
@@ -327,7 +334,14 @@ const ext = {
     handleTrade(mbody) {
         const {code, tradeType, count, price, account, strategies} = mbody;
         if (tradeType == 'B') {
-            accld.tryBuyStock(code, price, count, account, strategies);
+            if (!account) {
+                accld.checkRzrq(code).then(rzrq => {
+                    const bacc = rzrq.Status == -1 ? 'normal' : 'credit';
+                    accld.tryBuyStock(code, price, count, bacc, strategies);
+                });
+            } else {
+                accld.tryBuyStock(code, price, count, account, strategies);
+            }
         } else if (tradeType == 'S') {
             accld.trySellStock(code, price, count, account);
         } else if (strategies && code && account) {

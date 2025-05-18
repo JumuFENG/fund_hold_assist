@@ -174,6 +174,10 @@ class Strategy {
         return;
     }
 
+    quotePriceValid(buysale) {
+        return buysale !== '-' && buysale !== 0;
+    }
+
     bss18BuyMatch(chkInfo, kltype) {
         var klines = klPad.klines[chkInfo.code];
         var updatedKlt = chkInfo.kltypes;
@@ -526,11 +530,7 @@ class StrategyBuy extends Strategy {
         var rtInfo = chkInfo.rtInfo;
         var price = rtInfo.latestPrice;
         if (rtInfo.buysells) {
-            if (rtInfo.buysells.sale2 == '-') {
-                price = rtInfo.topprice;
-            } else {
-                price = rtInfo.buysells.sale2;
-            }
+            price = this.quotePriceValid(rtInfo.buysells.sale2) ? rtInfo.buysells.sale2 : rtInfo.topprice;
         }
         if (!this.data.bway) {
             this.data.bway = 'direct';
@@ -595,7 +595,7 @@ class StrategyBuyPopup extends StrategyBuy {
             return Promise.resolve();
         }
         if (price >= this.data.prePeekPrice * (1 + this.data.backRate)) {
-            return Promise.resolve({id: chkInfo.id, tradeType: 'B', count: 0, price: (rtInfo.buysells.sale2 == '-' ? rtInfo.topprice : rtInfo.buysells.sale2)});
+            return Promise.resolve({id: chkInfo.id, tradeType: 'B', count: 0, price: this.quotePriceValid(rtInfo.buysells.sale2) ? rtInfo.buysells.sale2 : rtInfo.topprice});
         }
         if (price < this.data.prePeekPrice) {
             this.data.prePeekPrice = price;
@@ -646,7 +646,7 @@ class StrategySell extends Strategy {
         var buydetail = chkInfo.buydetail;
         var count = buydetail.availableCount();
         if (price <= this.data.prePeekPrice * (1 - this.data.backRate) && count > 0) {
-            return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: rtInfo.buysells.buy2 == '-' ? rtInfo.bottomprice : rtInfo.buysells.buy2});
+            return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: this.quotePriceValid(rtInfo.buysells.buy2) ? rtInfo.buysells.buy2 : rtInfo.bottomprice});
         }
         if (price > this.data.prePeekPrice) {
             this.data.prePeekPrice = price;
@@ -702,7 +702,7 @@ class StrategyBuyIPO extends StrategyBuy {
             return Promise.resolve();
         }
         if (price - this.data.prePeekPrice * (1 + this.data.backRate) >= 0) {
-            return Promise.resolve({id: chkInfo.id, tradeType: 'B', count: 0, price: (rtInfo.buysells.sale2 == '-' ? rtInfo.topprice : rtInfo.buysells.sale2)});
+            return Promise.resolve({id: chkInfo.id, tradeType: 'B', count: 0, price: this.quotePriceValid(rtInfo.buysells.sale2) ? rtInfo.buysells.sale2 : rtInfo.topprice});
         }
         if (price < this.data.prePeekPrice) {
             this.data.prePeekPrice = price;
@@ -725,7 +725,7 @@ class StrategySellIPO extends StrategySell {
 
         if (rtInfo.openPrice == rtInfo.topprice) {
             if (rtInfo.latestPrice - rtInfo.topprice < 0 && count > 0) {
-                return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: rtInfo.buysells.buy2 == '-'? rtInfo.bottomprice : rtInfo.buysells.buy2});
+                return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: this.quotePriceValid(rtInfo.buysells.buy2) ? rtInfo.buysells.buy2 : rtInfo.bottomprice});
             };
             return Promise.resolve();
         }
@@ -735,7 +735,7 @@ class StrategySellIPO extends StrategySell {
         };
 
         if (rtInfo.latestPrice - this.data.prePeekPrice * 0.99 <= 0 && count > 0) {
-            return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: rtInfo.buysells.buy2 == '-'? rtInfo.bottomprice : rtInfo.buysells.buy2});
+            return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: this.quotePriceValid(rtInfo.buysells.buy2) ? rtInfo.buysells.buy2 : rtInfo.bottomprice});
         }
 
         if (rtInfo.latestPrice - this.data.prePeekPrice > 0) {
@@ -755,7 +755,7 @@ class StrategyBuyZTBoard extends StrategyBuy {
     is_zt_reaching(bs, topprice) {
         var topshown = false;
         for (var i = 5; i > 0; i--) {
-            if (bs['sale'+i] == '-') {
+            if (!this.quotePriceValid(bs['sale'+i])) {
                 topshown = true;
                 break;
             }
@@ -803,7 +803,7 @@ class StrategyBuyZTBoard extends StrategyBuy {
         }
 
         if ((rtInfo.latestPrice == rtInfo.topprice && (this.tmpztbroken || this.tmpztbroken === undefined)) ||
-            (rtInfo.buysells.sale2 == '-' && rtInfo.buysells.sale1 == rtInfo.topprice) ||
+            (!this.quotePriceValid(rtInfo.buysells.sale2) && rtInfo.buysells.sale1 == rtInfo.topprice) ||
             this.is_zt_reaching(rtInfo.buysells, rtInfo.topprice)) {
             this.tmpbuyonzt = true;
             return Promise.resolve({id: chkInfo.id, tradeType: 'B', count: 0, price: rtInfo.topprice});
@@ -885,7 +885,7 @@ class StrategySellEL extends StrategySell {
         }
         var count = buydetail.availableCount();
         if (rtInfo.latestPrice - guardPrice <= 0 && count > 0) {
-            return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: (rtInfo.buysells.buy2 == '-' ? rtInfo.bottomprice : rtInfo.buysells.buy2)});
+            return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: this.quotePriceValid(rtInfo.buysells.buy2) ? rtInfo.buysells.buy2 : rtInfo.bottomprice});
         }
         return Promise.resolve();
     }
@@ -936,7 +936,7 @@ class StrategySellELShort extends StrategySellEL {
             return Promise.resolve();
         }
 
-        if (latestPrice == rtInfo.topprice && rtInfo.buysells.sale1 == '-') {
+        if (latestPrice == rtInfo.topprice && !this.quotePriceValid(rtInfo.buysells.sale1)) {
             this.tmpztreached = true;
         }
 
@@ -956,11 +956,11 @@ class StrategySellELShort extends StrategySellEL {
                 return Promise.resolve();
             }
             // 涨停之后 打开或者封单减少到当日最大封单量的1/10 卖出.
-            if (rtInfo.buysells.sale1 != '-' || rtInfo.buysells.buy1_count < this.tmpmaxb1count * 0.1) {
+            if (this.quotePriceValid(rtInfo.buysells.sale1) || rtInfo.buysells.buy1_count - this.tmpmaxb1count * 0.1 < 0) {
                 var count = buydetails.getCountMatched(this.data.cutselltype, latestPrice);
                 if (count > 0) {
                     logger.info(this.key(), JSON.stringify(rtInfo));
-                    return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: (rtInfo.buysells.buy2 == '-' ? rtInfo.bottomprice : rtInfo.buysells.buy2)});
+                    return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: (this.quotePriceValid(rtInfo.buysells.buy2) ? rtInfo.buysells.buy2 : rtInfo.bottomprice)});
                 }
             }
         }

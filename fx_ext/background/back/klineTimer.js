@@ -369,7 +369,7 @@ const alarmHub = {
                 acc = accld.all_accounts[m.account];
             }
             const refer = await acc.doTrade(stock.code, m);
-            if (refer.deal.sid) {
+            if (refer?.deal?.sid) {
                 this.orderTimer.addCheckingTask(acc.holdAccount.keyword, refer.deal);
             }
             stock.strategies.onTradeMatch(refer);

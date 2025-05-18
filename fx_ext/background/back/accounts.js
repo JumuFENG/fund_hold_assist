@@ -678,6 +678,10 @@ class Account {
                 }
             }
             for (const code in sdeals) {
+                if (this.fundcode && code == this.fundcode) {
+                    continue;
+                };
+
                 const stk = this.getStock(code);
                 if (stk?.strategies?.buydetail) {
                     stk.strategies.buydetail.dealsConfirmed(sdeals[code]);
@@ -762,6 +766,9 @@ class Account {
             var bdeals = deals.filter(d => d.Mmsm.includes('买入'));
             for (let i = 0; i < bdeals.length; i++) {
                 const deali = bdeals[i];
+                if (this.fundcode && deali.Zqdm == this.fundcode) {
+                    continue;
+                };
                 if (deali.Cjsl > 0) {
                     var s = this.getStock(deali.Zqdm);
                     if (!s) {
@@ -817,7 +824,7 @@ class Account {
 
         accld.testFhaServer().then(txt => {
             if (txt != 'OK') {
-                logger.info('testFhaServer, failed.!');
+                logger.error(this.keyword, 'testFhaServer, failed.!');
                 return;
             }
 
@@ -828,7 +835,7 @@ class Account {
             dfd.append('data', JSON.stringify(deals));
             logger.info(this.constructor.name, 'uploadDeals', JSON.stringify(deals));
             fetch(url, {method: 'POST', headers: accld.fha.headers, body: dfd}).then(r=>r.text()).then(p => {
-                logger.info('upload deals to server,', p);
+                logger.info(this.keyword, 'upload deals to server,', p);
             });
         });
     }
@@ -1754,7 +1761,7 @@ const accld = {
     },
     trySellStock(code, price, count, account) {
         if (!this.all_accounts[account]) {
-            logger.info('Error, no valid account', account);
+            logger.error('Error, no valid account', account);
             return Promise.resolve();
         }
 
