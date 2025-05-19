@@ -822,22 +822,31 @@ class Account {
             return;
         }
 
-        accld.testFhaServer().then(txt => {
-            if (txt != 'OK') {
-                logger.error(this.keyword, 'testFhaServer, failed.!');
-                return;
-            }
+        var url = accld.fha.server + 'stock';
+        var dfd = new FormData();
+        dfd.append('act', 'deals');
+        dfd.append('acc', this.keyword);
+        dfd.append('data', JSON.stringify(deals));
+        logger.info(this.constructor.name, 'uploadDeals', JSON.stringify(deals));
 
-            var url = accld.fha.server + 'stock';
-            var dfd = new FormData();
-            dfd.append('act', 'deals');
-            dfd.append('acc', this.keyword);
-            dfd.append('data', JSON.stringify(deals));
-            logger.info(this.constructor.name, 'uploadDeals', JSON.stringify(deals));
-            fetch(url, {method: 'POST', headers: accld.fha.headers, body: dfd}).then(r=>r.text()).then(p => {
-                logger.info(this.keyword, 'upload deals to server,', p);
-            });
-        });
+        var retry = 0;
+        const fetchWithRetry = async () => {
+            try {
+                const response = await fetch(url, {method: 'POST', headers: accld.fha.headers, body: dfd});
+                const text = await response.text();
+                logger.info(this.keyword, 'upload deals to server,', text);
+            } catch (err) {
+                if (retry < 2) {
+                    retry++;
+                    logger.info(this.keyword, 'upload deals to server failed, retry', retry, err);
+                    await new Promise(res => setTimeout(res, 300));
+                    await fetchWithRetry();
+                } else {
+                    logger.error(this.keyword, 'upload deals to server failed, max retry', err);
+                }
+            }
+        }
+        fetchWithRetry();
     }
 
     getDealsToUpload(deals) {

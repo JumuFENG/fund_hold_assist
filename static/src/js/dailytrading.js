@@ -2652,7 +2652,7 @@ class SecuCard {
             this.showTooltip();
         }
         this.element.onmouseleave = () => {
-            if (emjyBack.tooltip && this.element.hasChildNodes(emjyBack.tooltip)) {
+            if (emjyBack.tooltip && emjyBack.tooltip.parentElement == this.element) {
                 this.element.removeChild(emjyBack.tooltip);
             }
         }
