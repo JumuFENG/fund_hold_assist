@@ -2,7 +2,8 @@ import requests
 import json
 import base64
 import asyncio
-import easyquotation
+import traceback
+import stockrt as asrt
 from app.logger import logger
 from app.config import Config
 from app.tradeInterface import TradeInterface
@@ -20,10 +21,21 @@ async def start_kl_check():
     # 这里可以添加K线检查的代码
     logger.info("Starting K-line check...")
     i = 0
-    while True:
+    stocks = ['sz001234', 'sz003003', 'sh600200']
+    while guang.delay_seconds('15:00') > 0:
         # 模拟K线检查
         await asyncio.sleep(60)
-        logger.info("Checking K-line data...")
+        if guang.delay_seconds('9:30') > 0:
+            continue
+        if guang.delay_seconds('11:30') < 0 and guang.delay_seconds('13:00') > 0:
+            continue
+
+        try:
+            asrt.klines(stocks, kltype=1, length=32)
+        except Exception as e:
+            logger.error("K-line check failed: %s", e)
+            logger.error(traceback.format_exc())
+        logger.info("Checking K-line data... %d", i)
         i += 1
 
 
@@ -34,8 +46,6 @@ async def start_rtp_check():
     """
     # 这里可以添加实时数据检查的代码
     logger.info("Starting real-time data check...")
-    # easyquotation.update_stock_codes()
-    quotation = easyquotation.use('sina')
     while True:
         codes = []
         for acc in accld.all_accounts.values():
@@ -44,7 +54,7 @@ async def start_rtp_check():
         # msquote = quotation.market_snapshot(prefix=True)
         codes = list(set(codes))
         if len(codes) > 0:
-            sq = quotation.real(codes, True)
+            sq = asrt.quotes(codes)
             for c, q in sq.items():
                 for acc in accld.all_accounts.values():
                     code = c.upper()
@@ -95,6 +105,10 @@ class iun:
             for task in strategies:
                 task.on_intrade_matched = cls.intrade_matched
                 tg.create_task(task.start_strategy_tasks())
+            if cfg['enable_kl_check']:
+                tg.create_task(start_kl_check())
+            if cfg['enable_rtp_check']:
+                tg.create_task(start_rtp_check())
             tg.create_task(cls.check_tasks_finished(strategies))
 
 

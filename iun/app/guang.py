@@ -1,4 +1,5 @@
 import requests
+import time
 from decimal import Decimal, ROUND_HALF_UP, ROUND_FLOOR, ROUND_CEILING
 from datetime import datetime
 from types import SimpleNamespace
@@ -7,6 +8,11 @@ class guang:
     @staticmethod
     def today_date(sep=''):
         return datetime.now().strftime(f"%Y{sep}%m{sep}%d")
+
+    @staticmethod
+    def time_stamp():
+        curTime = datetime.now()
+        return int(time.mktime(curTime.timetuple()) * 1000 + curTime.microsecond)
 
     @staticmethod
     def calc_buy_count(amount, price):
@@ -101,19 +107,24 @@ class guang:
         return strategies
 
     @classmethod
-    def create_buy_message(cls, match_data, subscribe_detail):
-        account = subscribe_detail['account']
-        amount = subscribe_detail['amount']
-        code = match_data['code']
-        if len(code) == 8:
-            code = code[2:]
+    def create_buy_message(cls, match_data: dict, subscription: dict) -> dict:
+        code = match_data['code'][-6:]
         price = round(float(match_data['price']), 2)
-        dbmsg = {'type':'intrade_buy', 'code': code, 'account': account, 'price': price, 'count': 0}
-        if 'amtkey' not in subscribe_detail:
-            dbmsg['count'] = cls.calc_buy_count(amount, price)
+        message = {
+            'code': code,
+            'account': subscription['account'],
+            'price': price,
+            'count': 0
+        }
 
-        dbmsg['strategies'] = cls.generate_strategy_json(match_data, subscribe_detail)
-        return dbmsg
+        if 'watch' not in match_data or not match_data['watch']:
+            message['tradeType'] = 'B'
+
+        if 'amtkey' not in subscription:
+            message['count'] = cls.calc_buy_count(subscription['amount'], price)
+
+        message['strategies'] = cls.generate_strategy_json(match_data, subscription)
+        return message
 
     @staticmethod
     def get_request(url, headers=None, params=None, proxies=None):
@@ -124,14 +135,13 @@ class guang:
     @staticmethod
     def em_headers(host=None):
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:68.0) Gecko/20100101 Firefox/68.0',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:138.0) Gecko/20100101 Firefox/138.0',
+            'Host': host if host else 'quote.eastmoney.com',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive'
         }
-        if host:
-            headers['Host'] = '33.push2.eastmoney.com'
         return headers
 
     @staticmethod

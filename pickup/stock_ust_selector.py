@@ -52,6 +52,7 @@ class StockUstSelector(StockBaseSelector):
         for i in range(len(nstocks), 0, -1):
             if i > 1 and nstocks[i-1][0] == nstocks[i-2][0] and nstocks[i-1][1].split()[0] == nstocks[i-2][1].split()[0]:
                 nstocks.pop(i-1)
+        nstocks = [s for s in nstocks if s[0].startswith('S') or s[0].startswith('B')]
         for ns in nstocks:
             self.wkstocks.append(ns)
         self.wkstocks = sorted(self.wkstocks, key=lambda x: (x[0], x[1]))
@@ -85,6 +86,8 @@ class StockUstSelector(StockBaseSelector):
                 c = wks[0]
                 d = wks[1]
                 ud = self.sann.getUstDateAfter(c, d)
+                if ud is None:
+                    continue
                 ddt = d.split()[0]
                 allkl = self.get_kd_data(c, ddt)
                 ds = self.get_effect_date(allkl, d)

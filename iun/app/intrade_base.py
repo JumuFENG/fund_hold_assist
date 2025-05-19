@@ -1,10 +1,11 @@
 import asyncio
 import traceback
 import json
+import requests
 import concurrent, concurrent.futures
 from urllib.parse import urlencode
 from functools import cached_property
-import easyquotation as ezqt
+import stockrt as asrt
 from app.logger import logger
 from app.guang import guang
 from datetime import datetime, timedelta
@@ -400,16 +401,13 @@ class StrategyI_AuctionSnapshot_Watcher(StrategyI_Watcher_Cycle):
         return trends[1:]
 
     async def execute_task(self):
-        ezapi = ezqt.use('sina')
         while self.task_running:
-            quotes = ezapi.real(list(self.auction_quote.keys()))
+            quotes = asrt.quotes5(list(self.auction_quote.keys()))
             self.cache_quotes(quotes)
             await asyncio.sleep(5)
 
     def cache_quotes(self, quotes):
         for code, quote in quotes.items():
-            if 'price' not in quote and 'now' in quote:
-                quote['price'] = quote['now']
             price = quote['price']
             if quote['open'] == 0 and quote['bid1'] == quote['ask1']:
                 price = quote['bid1']
@@ -499,6 +497,7 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Cycle):
         self.changes_period = 60
         self.exist_changes = set()
         self.chg_pagesize = 1000
+        self.session = None
 
     async def execute_task(self):
         while self.task_running:
@@ -515,17 +514,25 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Cycle):
         self.get_next_changes(types)
         self.fecthed.reverse()
         await self.notify_change(self.fecthed)
-        if len(self.fecthed) < self.chg_pagesize:
-            self.chg_pagesize = max(100, len(self.fecthed))
+        if 0 < len(self.fecthed) < self.chg_pagesize:
+            logger.info(f'fecthed {len(self.fecthed)}')
+            self.chg_pagesize = max(64, len(self.fecthed))
 
     def get_next_changes(self, types=None):
         if types is None:
             types = '8213,8201,8193,8194,64,128,4,16'
         # 60日新高,火箭发射, 大笔买入, 大笔卖出, 有大买盘, 有大卖盘, 封涨停板, 打开涨停板
-        url = f'http://push2ex.eastmoney.com/getAllStockChanges?type={types}&ut=7eea3edcaed734bea9cbfc24409ed989&pageindex={self.chg_page}&pagesize={self.chg_pagesize}&dpt=wzchanges'
-        headers = guang.em_headers('push2ex.eastmoney.com')
-        headers['Referer'] = 'http://quote.eastmoney.com/changes/'
-        chgs = json.loads(guang.get_request(url, headers))
+        url = f'https://push2ex.eastmoney.com/getAllStockChanges?type={types}&cb=&ut=7eea3edcaed734bea9cbfc24409ed989&pageindex={self.chg_page}&pagesize={self.chg_pagesize}&dpt=wzchanges&_={guang.time_stamp()}'
+        if self.session is None:
+            self.session = requests.Session()
+            self.session.timeout = 5
+            headers = guang.em_headers('push2ex.eastmoney.com')
+            headers['Accept-Encoding'] = 'gzip, deflate, br, zstd'
+            headers['Priority'] = 'u=4'
+            headers['Referer'] = 'https://quote.eastmoney.com/changes/'
+            self.session.headers.update(headers)
+        rsp = self.session.get(url)
+        chgs = rsp.json()
         if 'data' not in chgs or chgs['data'] is None:
             return
 
@@ -616,7 +623,7 @@ class StrategyI_EndFundFlow_Watcher(StrategyI_Watcher_Once):
             'ut': 'b2884a393a59ad64002292a3e90d46a5'
         }
         FIELDS = 'fields=f1,f2,f3,f12,f13,f14,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87,f124'
-        FS = 'fs=m:0+t:6+f:!2,m:0+t:13+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2,m:0+t:7+f:!2,m:1+t:3+f:!2'
+        FS = 'fs=m:0+t:6+f:!2,m:0+t:13+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2'
         date = guang.today_date('-')
         headers = guang.em_headers('push2.eastmoney.com')
         headers['Referer'] = 'https://data.eastmoney.com/zjlx/detail.html'
@@ -665,7 +672,7 @@ class StrategyI_EndFundFlow_Watcher(StrategyI_Watcher_Once):
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             futures = {
                 executor.submit(
-                    lambda p: add_mainflow(process_response(guang.get_request(build_url(p)), headers)[0]), 
+                    lambda p: add_mainflow(process_response(guang.get_request(build_url(p), headers))[0]), 
                     pageno
                 ): pageno 
                 for pageno in range(2, total_pages + 1)

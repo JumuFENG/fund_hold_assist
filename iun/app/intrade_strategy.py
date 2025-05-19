@@ -1,5 +1,5 @@
 import asyncio, time, json
-import easyquotation as ezqt
+import stockrt as asrt
 from app.logger import logger
 from app.guang import guang
 from app.intrade_base import StrategyI_Listener, iunCloud
@@ -171,6 +171,7 @@ class StrategyI_Zt1Bk(StrategyI_Listener):
             mdata['strategies'] = {}
             if p < price:
                 mdata['strategies']['StrategyBuyZTBoard'] = {}
+                mdata['watch'] = True
             mdata['strategies']['StrategySellELS'] = {'guardPrice': round(price * 0.92, 2)}
             mdata['strategies']['StrategySellBE'] = {}
             await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
@@ -203,28 +204,29 @@ class StrategyI_EndFundFlow(StrategyI_Listener):
             if iunCloud.to_be_divided(code): continue
             secids[code] = sc
 
-        stocks_data = ezqt.use('daykline').get_klines(list(secids.keys()), 30)
+        stocks_data = asrt.qklines(list(secids.keys()), 101, 30)
         sstocks = []
         for c, data in stocks_data.items():
-            if data['qt']['流通市值'] > 100:
+            quotes = data['qt']
+            if quotes['cmc'] > 1e10:
                 continue
-            if data['qt']['涨跌(%)'] > 5 or data['qt']['涨跌(%)'] < -5 or data['qt']['now'] < data['qt']['high'] * 0.95:
+            if quotes['change'] > 0.05 or quotes['change'] < -0.05 or quotes['price'] < quotes['high'] * 0.95:
                 continue
             allkl = data['klines']
-            if allkl[-1][0] == chkdate:
+            if allkl[-1]['time'] == chkdate:
                 allkl.pop()
             if len(allkl) < 3:
                 continue
-            allkl = [guang.ochl(k) for k in allkl[-3:]]
-            if data['qt']['now'] > 1.1 * allkl[0].close or data['qt']['now'] < 0.95 * allkl[0].close:
+            allkl =allkl[-3:]
+            if quotes['price'] > 1.1 * allkl[0]['close'] or quotes['price'] < 0.95 * allkl[0]['close']:
                 continue
-            pchange1 = (allkl[1].close - allkl[0].close) / allkl[0].close
-            pchange2 = (allkl[2].close - allkl[1].close) / allkl[1].close
+            pchange1 = (allkl[1]['close'] - allkl[0]['close']) / allkl[0]['close']
+            pchange2 = (allkl[2]['close'] - allkl[1]['close']) / allkl[1]['close']
             if pchange1 < -0.05 or pchange2 < -0.05:
                 continue
 
             code = c[-6:]
-            mfs = iunCloud.get_stock_fflow(code, allkl[0].date, allkl[-1].date)
+            mfs = iunCloud.get_stock_fflow(code, allkl[0]['time'], allkl[-1]['time'])
             if mfs is None or len(mfs) == 0 or mfs[0][1] > 0:
                 # 仅选择连续三日净流入，如果mfs[0]也是净流入说明今天已经是第四天净流入了,排除
                 continue
@@ -234,8 +236,8 @@ class StrategyI_EndFundFlow(StrategyI_Listener):
 
             sstocks.append(code)
             if callable(self.on_intrade_matched):
-                mdata = {'code': code, 'price': data['qt']['now']*1.02}
-                mdata['strategies'] = {'StrategySellELS': {'topprice': round(data['qt']['now'] * 1.07, 2), 'guardPrice': round(data['qt']['now'] * 0.95, 2) }}
+                mdata = {'code': code, 'price': quotes['price']*1.02}
+                mdata['strategies'] = {'StrategySellELS': {'topprice': round(quotes['price'] * 1.07, 2), 'guardPrice': round(quotes['price'] * 0.95, 2) }}
                 await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
         logger.info('EndFundFlow select %d stocks: %s', len(sstocks), sstocks)
 
@@ -256,6 +258,7 @@ class StrategyI_DeepBigBuy(StrategyI_Listener):
         if not self.hotchanges:
             hstks = iunCloud.get_hotstocks()
             self.hotchanges = {hs[0][-6:]: [] for hs in hstks if hs[3] > 3}
+            logger.info(f'{self.__class__.name}, hot stocks {self.hotchanges.keys()}')
 
         for code, t, p, i in params:
             if code not in self.hotchanges or code in self.stock_notified:

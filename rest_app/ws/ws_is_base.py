@@ -558,7 +558,7 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Base):
         params = {
             'Host': 'push2ex.eastmoney.com',
             'Referer': 'http://quote.eastmoney.com/changes/',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:120.0) Gecko/20100101 Firefox/120.0',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:138.0) Gecko/20100101 Firefox/138.0',
             'Accept': '/',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',

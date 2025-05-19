@@ -18,6 +18,7 @@ class TradeInterface:
         url = guang.join_url(cls.tserver, 'trade')
         headers = {'Content-Type': 'application/json'}
         response = requests.post(url, data=json.dumps(bsinfo), headers=headers)
+        logger.info(f'{cls.__name__} {bsinfo}')
         return response.status_code == 200
 
     @classmethod

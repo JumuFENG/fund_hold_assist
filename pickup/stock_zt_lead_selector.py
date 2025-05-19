@@ -1439,11 +1439,11 @@ class StockHotStocksOpenSelector(StockBaseSelector):
         self.tablename = 'stock_day_hotstks_open'
         self.colheaders = [
             {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
-            {'col':column_code,'type':'int default 0'},
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
             {'col':'zdate','type':'varchar(20) DEFAULT NULL'}, # 涨停日期
             {'col':'days','type':'int default 0'},
             {'col':'step','type':'int default 0'},
-            {'col':'rank','type':'int default 0'},
+            {'col':'emrk','type':'int default 0'},
         ]
 
     def saveDailyHotStocksOpen(self, hstks):
