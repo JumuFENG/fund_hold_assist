@@ -4,6 +4,8 @@
 
 请求链接：http://99.push2.eastmoney.com/api/qt/clist/get?cb=jQuery11240026874803565680616_1692424275498&pn=1&pz=20&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3&fs=b:MK0021,b:MK0022,b:MK0023,b:MK0024&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f22,f23,f24,f25,f62,f115,f128,f140,f141,f136,f152
 
+https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=0.000639,1.688621&fields=f1,f2,f3,f4...
+
 参数解释
 
     +cb: JSONP回调函数的名称。(optional)
@@ -16,7 +18,7 @@
     +invt: 未知参数。
     +wbp2u: 未知参数。
     +fid: 排序的field
-    +fs: 股票池的筛选条件。
+    +fs: 股票池的筛选条件。B(m:0+t:7,m:1+t:3) HSJ(m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048) SZ(m:0+t:6+f:!2,m:0+t:13+f:!2)
     +fields: 要获取的字段列表，这里包括了f1到f152。
 
 字段解释
@@ -39,19 +41,26 @@
     +f16: 最低价。
     +f17: 今开价。
     +f18: 昨收价。
+    +f19: 6：股票 / 1：指数
     +f20: 总市值。
     +f21: 流通市值。
     +f22: 涨速。
     +f23: 市净率（不适用于ETF）。
     +f24: 60日涨跌幅。
     +f25: 当年涨跌幅。
+    +f26: 上市时间,
     +f62: 主力净流入。
+    +f100: 所属行业
+    +f101: 领涨股
+    +f102: 地域板块
+    +f103: 所属概念
     +f115: 市盈率TTM（不适用于ETF）。
     +f128: 未知参数。
     +f140: 未知参数。
     +f141: 未知参数。
     +f136: 未知参数。
     +f152: 未知参数。
+
 
 
 **资金流向**
@@ -132,13 +141,41 @@ print(data)
     +pricelimit: 价格限制，这里是null，可能表示没有价格限制。
     +tradeperiod: 交易时段，这里是0。
 
+这个接口也可以获取实时买卖5档行情, 价格都是整数
+https://push2.eastmoney.com/api/qt/stock/get?invt=2&fltt=1&cb=&secid=0.000639&fields=f58,f734,f107,f57,f43,f59,f169,f301,f60,f170,f152,f177,f111,f46,f44,f45,f47,f260,f48,f261,f279,f277,f278,f288,f19,f17,f531,f15,f13,f11,f20,f18,f16,f14,f12,f39,f37,f35,f33,f31,f40,f38,f36,f34,f32,f211,f212,f213,f214,f215,f210,f209,f208,f207,f206,f161,f49,f171,f50,f86,f84,f85,f168,f108,f116,f167,f164,f162,f163,f92,f71,f117,f292,f51,f52,f191,f192,f262,f294,f295,f269,f270,f256,f257,f285,f286,f748,f747
+
+字段解释
+
+    +f43: 最新价。
+    +f44: 最高价, 
+    +f45: 最低价。
+    +f46: 今开价。
+    +f47: 成交量（手）。
+    +f48: 成交额。
+    +f49: 外盘量。
+    +f50: 量比。
+    +f51: 涨停
+    +f52: 跌停
+    +f57: 代码。
+    +f58: 名称。
+    +f59:
+    +f60: 昨收价。
+    +f71: 均价
+    +f84: 总股本。
+    +f85: 流通股。
+    +f116: 总市值。
+    +f117: 流通市值。
+    +f11-f20: 五个买入价格档位和挂单数量(手)，从低到高。buy5-buy1
+    +f21-f30: 五个卖出价格档位和挂单数量(手)，从低到高。sale1-sale5
+    动态市盈率（不适用于ETF）。
+
 
 **盘口异动**
 
-http://quote.eastmoney.com/changes
-http://quote.eastmoney.com/changes/boardlist.html
+https://quote.eastmoney.com/changes
+https://quote.eastmoney.com/changes/boardlist.html
 
-http://push2ex.eastmoney.com/getAllStockChanges?type=8201,8202,8193,4,32,64,8207,8209,8211,8213,8215,8204,8203,8194,8,16,128,8208,8210,8212,8214,8216&ut=7eea3edcaed734bea9cbfc24409ed989&pageindex=0&pagesize=64&dpt=wzchanges
+https://push2ex.eastmoney.com/getAllStockChanges?type=8201,8202,8193,4,32,64,8207,8209,8211,8213,8215,8204,8203,8194,8,16,128,8208,8210,8212,8214,8216&ut=7eea3edcaed734bea9cbfc24409ed989&pageindex=0&pagesize=64&dpt=wzchanges
 
 {"rc":0,"rt":105,"svr":181734952,"lt":1,"full":0,"data":{"tc":368,"allstock":[{"tm":92504,"c":"688047","m":1,"n":"龙芯中科","t":8209,"i":"0.025624,92.46000,0.025624"},{"tm":92504,"c":"605081","m":1,"n":"太和水","t":8210,"i":"-0.026015,15.35000,-0.026015"}]}}
 
@@ -236,3 +273,7 @@ https://x-quote.cls.cn/quote/stock/emotion_options?app=CailianpressWeb&fields=up
 https://x-quote.cls.cn/quote/stock/fundflow?secu_code=sh603324&app=CailianpressWeb&os=web&sv=7.7.5&sign=bf0f367462d8cd70917ba5eab3853bce
 最近交易日
 https://x-quote.cls.cn/quote/stock/closest_trading_day?app=CailianpressWeb&os=web&sv=7.7.5
+
+
+**baidu gushitong**
+https://gushitong.baidu.com/stock/ab-002926

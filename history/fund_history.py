@@ -167,7 +167,7 @@ class AllFunds(InfoList):
         return self.readSingleData(column_table_history, code, "f_his_" + code)
 
     def getMsRatingLevel(self, starUrl):
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:138.0) Gecko/20100101 Firefox/138.0'}
         
         proxies=None
 

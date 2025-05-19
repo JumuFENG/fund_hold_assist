@@ -48,7 +48,7 @@ class StockAnnoucements(EmDataCenterRequest, TableBase):
         self.headers = {
             'Host': 'np-anotice-stock.eastmoney.com',
             'Referer': 'https://data.eastmoney.com/notices/',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:138.0) Gecko/20100101 Firefox/138.0',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
@@ -186,7 +186,7 @@ class StockAnnoucements(EmDataCenterRequest, TableBase):
             headers = {
                 'Host': 'api.fund.eastmoney.com',
                 'Referer': 'https://fundf10.eastmoney.com/',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:68.0) Gecko/20100101 Firefox/68.0',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:138.0) Gecko/20100101 Firefox/138.0',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.5',
                 'Accept-Encoding': 'gzip, deflate',
@@ -231,7 +231,7 @@ class StockShareBonus(EmDataCenterRequest, TableBase):
         self.headers = {
             'Host': 'datacenter.eastmoney.com',
             'Referer': 'https://data.eastmoney.com/yjfp/',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:138.0) Gecko/20100101 Firefox/138.0',
             'Accept': '/',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate, br',

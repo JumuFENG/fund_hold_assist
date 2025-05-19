@@ -31,7 +31,7 @@ class StockDtInfo(EmRequest, TableBase):
         self.headers = {
             'Host': 'push2ex.eastmoney.com',
             'Referer': 'http://quote.eastmoney.com/ztb/detail',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:138.0) Gecko/20100101 Firefox/138.0',
             'Accept': '/',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',

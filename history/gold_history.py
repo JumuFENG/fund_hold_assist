@@ -26,7 +26,7 @@ class Gold_history(HistoryDowloaderBase):
     def getJijinHaoRequest(self, url, params):
         headers = { 'Host': 'api.jijinhao.com',
             'Connection': 'keep-alive',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.186 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:138.0) Gecko/20100101 Firefox/138.0',
             'Accept': '*/*',
             'Referer': 'http://www.cngold.org/quote/',
             'Accept-Encoding': 'gzip, deflate, br',

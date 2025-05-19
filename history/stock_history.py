@@ -447,7 +447,7 @@ class Stock_Fflow_History(TableBase, EmRequest):
         self.headers = {
             'Host': 'push2his.eastmoney.com',
             'Referer': 'http://quote.eastmoney.com/',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:137.0) Gecko/20100101 Firefox/137.0',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:138.0) Gecko/20100101 Firefox/138.0',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
@@ -530,7 +530,7 @@ class Stock_Fflow_History(TableBase, EmRequest):
             'ut': 'b2884a393a59ad64002292a3e90d46a5'
         }
         FIELDS = 'fields=f1,f2,f3,f12,f13,f14,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87,f124'
-        FS = 'fs=m:0+t:6+f:!2,m:0+t:13+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2,m:0+t:7+f:!2,m:1+t:3+f:!2'
+        FS = 'fs=m:0+t:6+f:!2,m:0+t:13+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2'
         date = TradingDate.maxTradingDate()
         headers = self.headers
         headers['Host'] = 'push2.eastmoney.com'
@@ -618,11 +618,11 @@ class Stock_Fflow_History(TableBase, EmRequest):
 
         if save_to_db:
             ucodes = save_latest_fflow()
-            if len(ucodes) > 0:
-                sleep(20)
-                Utils.log(f'fflow update failed for {len(ucodes)} codes {ucodes}')
-                for code in ucodes:
-                    self.getFflowFromEm(code)
+            Utils.log(f'fflow update failed for {len(ucodes)} codes {ucodes}')
+            time.sleep(60)
+            for c in ucodes:
+                if c.startswith('S') or c.startswith('B'):
+                    self.getFflowFromEm(c)
         return mainflows
 
     def getDumpCondition(self, date=None):
@@ -670,7 +670,7 @@ class StockHotRank(TableBase, EmRequest):
             self.headers = {
                 'Host': 'gbcdn.dfcfw.com',
                 'Referer': 'http://guba.eastmoney.com/',
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:138.0) Gecko/20100101 Firefox/138.0',
                 'Accept': '/',
                 'Accept-Language': 'en-US,en;q=0.5',
                 'Accept-Encoding': 'gzip, deflate',
@@ -809,7 +809,7 @@ class StockHotRank(TableBase, EmRequest):
                 'Sec-Fetch-User': '?1',
                 'TE': 'trailers',
                 'Upgrade-Insecure-Requests': '1',
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:129.0) Gecko/20100101 Firefox/129.0',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:138.0) Gecko/20100101 Firefox/138.0',
             }
             rsp = Utils.get_request(url, headers)
             jdata = json.loads(rsp)
@@ -913,7 +913,7 @@ class StockEmBk(EmRequest):
         self.headers = {
             'Host': 'push2.eastmoney.com',
             'Referer': 'http://quote.eastmoney.com/center/boardlist.html',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:138.0) Gecko/20100101 Firefox/138.0',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
@@ -1010,7 +1010,7 @@ class StockClsBk(StockEmBk):
         self.headers = {
             'Host': 'x-quote.cls.cn',
             'Referer': f'https://www.cls.cn/plate?code={self.bk}',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:100.0) Gecko/20100101 Firefox/100.0',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:138.0) Gecko/20100101 Firefox/138.0',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
