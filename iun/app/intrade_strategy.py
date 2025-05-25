@@ -95,7 +95,7 @@ class StrategyI_Zt1Bk(StrategyI_Listener):
         self.watcher = iunCloud.get_watcher('stkzdf')
         self.bkwatcher = iunCloud.get_watcher('bkchanges')
         self.bklistener = StrategyI_Listener()
-        self.bklistener.watcher = self.bkwatcher
+        self.bkwatcher.add_listener(self.bklistener)
         self.bklistener.on_watcher = self.on_bk_changes
         self.matched_bks = []
         self.up_matched_bks = []
@@ -105,7 +105,7 @@ class StrategyI_Zt1Bk(StrategyI_Listener):
 
     async def start_strategy_tasks(self):
         await super().start_strategy_tasks()
-        await self.bklistener.start_strategy_tasks()
+        await self.bkwatcher.start_strategy_tasks()
 
     def select_bk_of(self, bk_changes, attr, selector):
         '''选择异动板块
@@ -263,17 +263,19 @@ class StrategyI_DeepBigBuy(StrategyI_Listener):
         for code, t, p, i in params:
             if code not in self.hotchanges or code in self.stock_notified:
                 continue
-            if p in [64,128,8193,8194]:
+            if p in [8193,8194]:
                 self.hotchanges[code].append([t, p, i])
-            if p != 64 and p != 8193 or len(self.hotchanges[code]) <= 2:
+            if p != 8193:
+                continue
+            if len([h for h in self.hotchanges[code] if h[1] == 8193]) < 2:
                 continue
 
             cinfo = i.split(',')
             if float(cinfo[2]) > -0.06:
                 continue
 
-            buy_chgs = [hcg[2].split(',') for hcg in self.hotchanges[code] if hcg[1] == 64 or hcg[1] == 8193]
-            sell_chgs = [hcg[2].split(',') for hcg in self.hotchanges[code] if hcg[1] == 128 or hcg[1] == 8194]
+            buy_chgs = [hcg[2].split(',') for hcg in self.hotchanges[code] if hcg[1] == 8193]
+            sell_chgs = [hcg[2].split(',') for hcg in self.hotchanges[code] if hcg[1] == 8194]
 
             buy_count = sum([int(h[0]) for h in buy_chgs])
             sell_count = sum([int(h[0]) for h in sell_chgs])

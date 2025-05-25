@@ -1,6 +1,7 @@
 import requests
 from app.logger import logger
 from app.tradeInterface import TradeInterface
+from app.planned_strategy import StrategyFac
 
 
 class Account(object):
@@ -25,8 +26,7 @@ class Account(object):
 class accld:
     dserver = None
     headers = None
-    normalAccount = None
-    all_accounts = {}
+    accstocks = {}
 
     @classmethod
     def loadAccounts(self):
@@ -38,7 +38,22 @@ class accld:
 
         accs = response.json()
         accs = [{'name': 'normal', 'email': '', 'realcash': 1}] + accs
-        for acc in accs:
-            a = Account(acc)
-            a.loadWatchings()
-            accld.all_accounts[a.keyword] = a
+        for acc in [x['name'] for x in accs]:
+            self.loadWatchings(acc)
+
+    @classmethod
+    def loadWatchings(self, keyacc) -> None:
+        surl = f"{self.dserver}stock?act=watchings&acc={keyacc}"
+        sresponse = requests.get(surl, headers=self.headers)
+        if sresponse.status_code != 200:
+            logger.error('Error:', sresponse.status_code, sresponse.text)
+            return None
+        stocks = sresponse.json()
+        for c, v in stocks.items():
+            StrategyFac.cache_strategy_data(keyacc, c[-6:], v)
+            for sobj in v['strategies']['strategies'].values():
+                if not sobj['enabled']:
+                    continue
+                s = StrategyFac.get_strategy(sobj['key'])
+                if s:
+                    s.add_stock(keyacc, c[-6:])

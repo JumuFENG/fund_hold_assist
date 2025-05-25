@@ -5,17 +5,73 @@ import requests
 import concurrent, concurrent.futures
 from urllib.parse import urlencode
 from functools import cached_property
+from datetime import datetime, timedelta
 import stockrt as asrt
 from app.logger import logger
 from app.guang import guang
-from datetime import datetime, timedelta
+from app.klpad import klPad
+
+
+class StrategyI_Watcher_Once:
+    def __init__(self, btime, exec_if_expired=True):
+        self.listeners = []
+        self.btime = btime
+        self.exec_if_expired = exec_if_expired
+        self.task_running = False
+        self.task_stopped = False
+
+    def add_listener(self, listener):
+        self.listeners.append(listener)
+
+    def remove_listener(self, listener):
+        if listener in self.listeners:
+            self.listeners.remove(listener)
+
+    async def start_strategy_tasks(self):
+        loop = asyncio.get_event_loop()
+        if guang.delay_seconds(self.btime) > 0:
+            loop.call_later(guang.delay_seconds(self.btime), lambda: asyncio.ensure_future(self.start_simple_task()))
+        else:
+            if self.exec_if_expired:
+                await self.execute_task()
+            self.task_stopped = True
+
+    async def start_simple_task(self):
+        if self.task_running:
+            return
+        self.task_running = True
+        try:
+            await self.execute_task()
+        except Exception as e:
+            logger.error(f'{e}')
+            logger.error(traceback.format_exc())
+        self.task_stopped = True
+        self.notify_stop()
+
+    async def execute_task(self):
+        pass
+
+    async def notify_change(self, params):
+        for listener in self.listeners:
+            try:
+                await listener.on_watcher(params)
+            except Exception as e:
+                logger.error(f'{e}')
+                logger.error(traceback.format_exc())
+
+    def notify_stop(self):
+        for listener in self.listeners:
+            listener.on_taskstop()
+
+    def done(self):
+        return self.task_stopped
 
 
 class iunCloud:
     dserver = None
     __watchers = None
     @classmethod
-    def get_watcher(self, name):
+    def get_watcher(self, name) -> StrategyI_Watcher_Once:
         if self.__watchers is None:
             self.__watchers = {}
         if name not in self.__watchers:
@@ -29,6 +85,14 @@ class iunCloud:
                 self.__watchers[name] = StrategyI_StkZdf_Watcher()
             elif name == 'end_fundflow':
                 self.__watchers[name] = StrategyI_EndFundFlow_Watcher()
+            elif name == 'kline1':
+                self.__watchers[name] = Stock_Klinem_Watcher(1)
+            elif name == 'kline15':
+                self.__watchers[name] = Stock_Klinem_Watcher(15)
+            elif name == 'klineday':
+                self.__watchers[name] = Stock_KlineDay_Watcher()
+            elif name == 'quotes':
+                self.__watchers[name] = Stock_Quote_Watcher()
         return self.__watchers[name]
 
     __save_db = True
@@ -194,61 +258,6 @@ class StrategyI_Listener:
 
     def done(self):
         return self.watcher.done()
-
-
-class StrategyI_Watcher_Once:
-    def __init__(self, btime, exec_if_expired=True):
-        self.listeners = []
-        self.btime = btime
-        self.exec_if_expired = exec_if_expired
-        self.task_running = False
-        self.task_stopped = False
-
-    def add_listener(self, listener):
-        self.listeners.append(listener)
-
-    def remove_listener(self, listener):
-        if listener in self.listeners:
-            self.listeners.remove(listener)
-
-    async def start_strategy_tasks(self):
-        loop = asyncio.get_event_loop()
-        if guang.delay_seconds(self.btime) > 0:
-            loop.call_later(guang.delay_seconds(self.btime), lambda: asyncio.ensure_future(self.start_simple_task()))
-        else:
-            if self.exec_if_expired:
-                await self.execute_task()
-            self.task_stopped = True
-
-    async def start_simple_task(self):
-        if self.task_running:
-            return
-        self.task_running = True
-        try:
-            await self.execute_task()
-        except Exception as e:
-            logger.error(f'{e}')
-            logger.error(traceback.format_exc())
-        self.task_stopped = True
-        self.notify_stop()
-
-    async def execute_task(self):
-        pass
-
-    async def notify_change(self, params):
-        for listener in self.listeners:
-            try:
-                await listener.on_watcher(params)
-            except Exception as e:
-                logger.error(f'{e}')
-                logger.error(traceback.format_exc())
-
-    def notify_stop(self):
-        for listener in self.listeners:
-            listener.on_taskstop()
-
-    def done(self):
-        return self.task_stopped
 
 
 class StrategyI_Watcher_Cycle(StrategyI_Watcher_Once):
@@ -690,3 +699,78 @@ class StrategyI_EndFundFlow_Watcher(StrategyI_Watcher_Once):
     async def execute_task(self):
         mflow = self.updateLatestFflow()
         await self.notify_change(mflow)
+
+
+class Stock_Rt_Watcher():
+    def __init__(self):
+        self.codes = {}
+
+    def add_stock(self, code):
+        if code not in self.codes:
+            self.codes[code] = 1
+        else:
+            self.codes[code] += 1
+
+    def remove_stock(self, code):
+        if code in self.codes:
+            self.codes[code] -= 1
+            if self.codes[code] == 0:
+                del self.codes[code]
+
+
+class Stock_Klinem_Watcher(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):
+    def __init__(self, m=1):
+        super().__init__(['9:30:1', '13:00:1'], ['11:30:1', '14:57:1'])
+        Stock_Rt_Watcher.__init__(self)
+        self.period = m * 60
+        self.klt = m
+
+    async def execute_task(self):
+        while self.task_running:
+            try:
+                await self.get_klines()
+            except Exception as e:
+                logger.error(f'{e}')
+                logger.error(traceback.format_exc())
+            await asyncio.sleep(self.period)
+
+    async def get_klines(self):
+        codes = [c for c in self.codes if self.codes[c] > 0]
+        klines = asrt.klines(codes, kltype=self.klt, length=32)
+        chgklt = {}
+        for c in klines:
+            chgklt[c] = klPad.cache(c, klines[c], kltype=self.klt)
+        await self.notify_change(chgklt)
+        logger.info(f'get klines for {len(codes)} {codes}')
+
+
+class Stock_KlineDay_Watcher(StrategyI_Watcher_Once, Stock_Rt_Watcher):
+    def __init__(self):
+        super().__init__('14:56:55', False)
+        Stock_Rt_Watcher.__init__(self)
+
+    async def execute_task(self):
+        codes = [c for c in self.codes if self.codes[c] > 0]
+        klines = asrt.klines(codes, kltype=101, length=32)
+        chgklt = {}
+        for c in klines:
+            chgklt[c] = klPad.cache(c, klines[c], kltype=self.klt)
+        await self.notify_change(chgklt)
+        logger.info(f'get klines for {len(codes)} {codes}')
+
+
+class Stock_Quote_Watcher(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):
+    def __init__(self):
+        super().__init__(['9:30:1', '13:00'], ['11:30', '14:57'])
+        Stock_Rt_Watcher.__init__(self)
+        self.period = 5
+
+    async def execute_task(self):
+        codes = [c for c in self.codes if self.codes[c] > 0]
+        if len (codes) == 0:
+            return
+        quotes = asrt.quotes5(codes)
+        for c in quotes:
+            klPad.cache(c, quotes=quotes[c])
+        await self.notify_change(quotes.keys())
+

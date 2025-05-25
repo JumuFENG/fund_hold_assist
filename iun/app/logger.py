@@ -1,21 +1,6 @@
 import os, sys
 import logging
 
-# class LazyLogger:
-#     def __init__(self):
-#         self._logger = None
-#     def __call__(self):
-#         if self._logger is None:
-#             lg_path = os.path.join(os.path.dirname(__file__), '../logs/iun.log')
-#             logging.basicConfig(
-#                 level=logging.INFO,
-#                 format='[%(levelname)s] %(asctime)s-%(name)s: %(message)s',
-#                 handlers=[logging.FileHandler(lg_path), logging.StreamHandler(sys.stdout)]
-#             )
-#             self._logger = logging.getLogger('iun')
-#         return self._logger
-
-# logger = LazyLogger()
 
 class LazyLogger:
     def __init__(self):
