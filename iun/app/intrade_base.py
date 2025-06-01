@@ -3,6 +3,8 @@ import traceback
 import json
 import requests
 import concurrent, concurrent.futures
+from functools import lru_cache
+from threading import Lock
 from urllib.parse import urlencode
 from functools import cached_property
 from datetime import datetime, timedelta
@@ -10,6 +12,7 @@ import stockrt as asrt
 from app.logger import logger
 from app.guang import guang
 from app.klpad import klPad
+from app.tradeInterface import TradeInterface
 
 
 class StrategyI_Watcher_Once:
@@ -69,40 +72,56 @@ class StrategyI_Watcher_Once:
 
 class iunCloud:
     dserver = None
-    __watchers = None
-    @classmethod
-    def get_watcher(self, name) -> StrategyI_Watcher_Once:
-        if self.__watchers is None:
-            self.__watchers = {}
-        if name not in self.__watchers:
-            if name == 'aucsnaps':
-                self.__watchers[name] = StrategyI_AuctionSnapshot_Watcher()
-            elif name == 'stkchanges':
-                self.__watchers[name] = StrategyI_StkChanges_Watcher()
-            elif name == 'bkchanges':
-                self.__watchers[name] = StrategyI_BKChanges_Watcher()
-            elif name == 'stkzdf':
-                self.__watchers[name] = StrategyI_StkZdf_Watcher()
-            elif name == 'end_fundflow':
-                self.__watchers[name] = StrategyI_EndFundFlow_Watcher()
-            elif name == 'kline1':
-                self.__watchers[name] = Stock_Klinem_Watcher(1)
-            elif name == 'kline15':
-                self.__watchers[name] = Stock_Klinem_Watcher(15)
-            elif name == 'klineday':
-                self.__watchers[name] = Stock_KlineDay_Watcher()
-            elif name == 'quotes':
-                self.__watchers[name] = Stock_Quote_Watcher()
-        return self.__watchers[name]
+    accld = None
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def get_watcher(name) -> StrategyI_Watcher_Once:
+        if name == 'aucsnaps':
+            return StrategyI_AuctionSnapshot_Watcher()
+        if name == 'stkchanges':
+            return StrategyI_StkChanges_Watcher()
+        if name == 'bkchanges':
+            return StrategyI_BKChanges_Watcher()
+        if name == 'stkzdf':
+            return StrategyI_StkZdf_Watcher()
+        if name == 'end_fundflow':
+            return StrategyI_EndFundFlow_Watcher()
+        if name == 'kline1':
+            return Stock_Klinem_Watcher(1)
+        if name == 'kline15':
+            return Stock_Klinem_Watcher(15)
+        if name == 'klineday':
+            return Stock_KlineDay_Watcher()
+        if name == 'quotes':
+            return Stock_Quote_Watcher()
+        raise ValueError(f"Unknown watcher: {name}")
 
     __save_db = True
     @classmethod
-    def disable_save_db(self):
-        self.__save_db = False
+    def disable_save_db(cls):
+        cls.__save_db = False
 
     @classmethod
-    def save_db_enabled(self):
-        return self.__save_db
+    def save_db_enabled(cls):
+        return cls.__save_db
+
+    @staticmethod
+    def iun_str_conf(ikey):
+        return TradeInterface.iun_str()[ikey]
+
+    @staticmethod
+    def is_rzrq(code):
+        if TradeInterface.tserver is None:
+            return False
+        return TradeInterface.is_rzrq(code)
+
+    @staticmethod
+    def get_hold_account(code, account):
+        if account == '':
+            return 'collat' if iunCloud.is_rzrq(code) else 'normal'
+        if account == 'credit':
+            return 'collat'
+        return account
 
     __bk_ignored = None
     @classmethod
@@ -115,13 +134,15 @@ class iunCloud:
             self.__bk_ignored = json.loads(guang.get_request(url, params=params))
         return bk in self.__bk_ignored
 
-    __stock_blacked = None
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def black_list():
+        # ST股 B股
+        return iunCloud.get_bk_stocks('BK0511') + iunCloud.get_bk_stocks('BK0636')
+
     @classmethod
     def is_stock_blacked(self, code):
-        if self.__stock_blacked is None:
-            # ST股 B股
-            self.__stock_blacked = iunCloud.get_bk_stocks('BK0511') + iunCloud.get_bk_stocks('BK0636')
-        return code[-6:] in self.__stock_blacked
+        return code[-6:] in self.black_list()
 
     __dividen = None
     @classmethod
@@ -152,32 +173,33 @@ class iunCloud:
                 self.__stock_bks[c[-6:]] = [_b[0] for _b in b]
         return self.__stock_bks[code]
 
-    __bk_stocks = {}
     @classmethod
+    @lru_cache(maxsize=100)
     def get_bk_stocks(self, bk):
-        if bk not in self.__bk_stocks:
-            url = guang.join_url(iunCloud.dserver, 'stock')
-            params = {
-                'act': 'bkstocks',
-                'bks': bk
-            }
-            stks = json.loads(guang.get_request(url, params=params))
-            self.__bk_stocks[bk] = stks[bk] if bk in stks else []
-        return self.__bk_stocks[bk]
-
-    __zt_recents = None
-    @classmethod
-    def recent_zt(self, code):
-        if self.__zt_recents is None:
-            url = guang.join_url(iunCloud.dserver, 'stock')
-            params = {
-                'act': 'ztstocks',
-                'days': 3
-            }
-            self.__zt_recents = [c[-6:] for c in json.loads(guang.get_request(url, params=params))]
-        return code[-6:] in self.__zt_recents
+        url = guang.join_url(iunCloud.dserver, 'stock')
+        params = {
+            'act': 'bkstocks',
+            'bks': bk
+        }
+        stks = json.loads(guang.get_request(url, params=params))
+        return stks[bk] if bk in stks else []
 
     @staticmethod
+    @lru_cache(maxsize=1)
+    def zt_recently():
+        url = guang.join_url(iunCloud.dserver, 'stock')
+        params = {
+            'act': 'ztstocks',
+            'days': 3
+        }
+        return [c[-6:] for c in json.loads(guang.get_request(url, params=params))]
+
+    @classmethod
+    def recent_zt(self, code):
+        return code[-6:] in self.zt_recently()
+
+    @staticmethod
+    @lru_cache(maxsize=1)
     def get_hotstocks():
         url = guang.join_url(iunCloud.dserver, 'stock')
         params = {
@@ -216,9 +238,10 @@ class iunCloud:
         return values
 
     @staticmethod
-    def getStocksZdfRank(minzdf=None):
+    def get_stocks_zdfrank(minzdf=None):
         # http://quote.eastmoney.com/center/gridlist.html#hs_a_board
         pn = 1
+        po = 1 if minzdf is None or minzdf > 0 else 0
         zdfranks = []
         pgsize = 1000
         fs = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048'
@@ -226,7 +249,7 @@ class iunCloud:
         if minzdf is not None:
             pgsize = 200
         while True:
-            rankUrl = f'''http://33.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz={pgsize}&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3&fs={fs}&fields={fields}'''
+            rankUrl = f'''http://33.push2.eastmoney.com/api/qt/clist/get?pn={pn}&pz={pgsize}&po={po}&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3&fs={fs}&fields={fields}'''
             res = guang.get_request(rankUrl, headers=guang.em_headers('33.push2.eastmoney.com'))
             if res is None:
                 break
@@ -238,10 +261,43 @@ class iunCloud:
             zdfranks += [rk for rk in r['data']['diff'] if rk['f3'] != '-']
             if len(zdfranks) == 0:
                 break
-            if minzdf is not None and zdfranks[-1]['f3'] < minzdf:
+            if minzdf is not None and abs(zdfranks[-1]['f3']) < abs(minzdf):
                 break
             pn += 1
         return zdfranks
+
+    __ranklock = Lock()
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_open_hotranks(cls):
+        with cls.__ranklock:
+            emrk_url = ('http://datacenter-web.eastmoney.com/wstock/selection/api/data/get?'
+                'type=RPTA_PCNEW_STOCKSELECT&sty=POPULARITY_RANK,NEWFANS_RATIO&filter='
+                '(POPULARITY_RANK>0)(POPULARITY_RANK<=100)(NEWFANS_RATIO>=0.00)(NEWFANS_RATIO<=100.0)'
+                '&p=1&ps=100&st=POPULARITY_RANK&sr=1&source=SELECT_SECURITIES&client=WEB')
+            jdata = json.loads(guang.get_request(emrk_url))
+            if not jdata or jdata['code'] != 0 or 'result' not in jdata or 'data' not in jdata['result']:
+                rkurl = guang.join_url(iunCloud.dserver, 'stock?act=hotrankrt&rank=40')
+                jdata = [ {'SECURITY_CODE': x[0], 'POPULARITY_RANK': x[1], 'NEWFANS_RATIO': x[2]} for x in json.loads(guang.get_request(rkurl))]
+            else:
+                jdata = jdata['result']['data']
+
+            rkdict = {}
+            for rk in jdata:
+                code = rk['SECURITY_CODE']
+                rkdict[code] = {'rank': rk['POPULARITY_RANK'], 'newfans': rk['NEWFANS_RATIO']}
+            return rkdict
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_dailyzdt(cls):
+        '''
+        获取最近10天的涨停数据
+        Returns:
+        [date, ztcount, zt0cnt, dtcount]
+        '''
+        url = guang.join_url(iunCloud.dserver, 'stock?act=zdtemot&days=10')
+        return json.loads(guang.get_request(url))
 
 
 class StrategyI_Listener:
@@ -250,7 +306,7 @@ class StrategyI_Listener:
         self.watcher.add_listener(self)
         await self.watcher.start_strategy_tasks()
 
-    async def on_watcher(self, params):
+    async def execute(self, params):
         pass
 
     def on_taskstop(self):
@@ -263,7 +319,7 @@ class StrategyI_Listener:
 class StrategyI_Watcher_Cycle(StrategyI_Watcher_Once):
     def __init__(self, btime, etime=[]):
         '''
-        btime和etime成对设置, 不要有重叠. 如果是一次性任务使用StrategyI_Watcher_Base
+        btime和etime成对设置, 不要有重叠. 如果是一次性任务使用StrategyI_Watcher_Once
 
         @param btime: '09:30' / ['09:30', '13:00']
         @param etime: '15:01' / ['11:31', '15:01']
@@ -479,7 +535,7 @@ class StrategyI_StkZdf_Watcher(StrategyI_Watcher_Cycle):
             await asyncio.sleep(self.period)
 
     async def get_zdf(self):
-        zdfranks = iunCloud.getStocksZdfRank(self.min_zdf)
+        zdfranks = iunCloud.get_stocks_zdfrank(self.min_zdf)
         full_zdf = []
         for rkobj in zdfranks:
             c = rkobj['f2']   # 最新价
@@ -741,7 +797,7 @@ class Stock_Klinem_Watcher(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):
         for c in klines:
             chgklt[c] = klPad.cache(c, klines[c], kltype=self.klt)
         await self.notify_change(chgklt)
-        logger.info(f'get klines for {len(codes)} {codes}')
+        logger.info('get klines for %d klt=%d %s', len(codes), self.klt, codes)
 
 
 class Stock_KlineDay_Watcher(StrategyI_Watcher_Once, Stock_Rt_Watcher):
@@ -754,9 +810,9 @@ class Stock_KlineDay_Watcher(StrategyI_Watcher_Once, Stock_Rt_Watcher):
         klines = asrt.klines(codes, kltype=101, length=32)
         chgklt = {}
         for c in klines:
-            chgklt[c] = klPad.cache(c, klines[c], kltype=self.klt)
+            chgklt[c] = klPad.cache(c, klines[c], kltype=101)
         await self.notify_change(chgklt)
-        logger.info(f'get klines for {len(codes)} {codes}')
+        logger.info('get klines for %d klt=101 %s', len(codes), codes)
 
 
 class Stock_Quote_Watcher(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):

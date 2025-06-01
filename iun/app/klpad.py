@@ -1,3 +1,5 @@
+import talib
+import numpy as np
 from app.guang import guang
 
 
@@ -34,7 +36,7 @@ class klPad:
 
     @classmethod
     def merge_klines(self, code, kltype, klines):
-        if kltype not in self.__stocks[code]['klines']:
+        if kltype not in self.__stocks[code]['klines'] or len(self.__stocks[code]['klines'][kltype]) == 0:
             if kltype == 1:
                 for i, kl in enumerate(klines):
                     if kl['time'].endswith('09:30'):
@@ -42,11 +44,18 @@ class klPad:
                         if 'amount' in kl:
                             klines[i+1]['amount'] += kl['amount']
                 klines = [kl for kl in klines if not kl['time'].endswith('09:30')]
+                index = next((i for i, kl in enumerate(klines) if kl['time'].endswith('09:31') or kl['time'].endswith('13:01')), 0)
+                klines = klines[index:]
+            elif kltype == 15:
+                index = next((i for i, kl in enumerate(klines) if kl['time'].endswith('09:45')), 0)
+                klines = klines[index:]
+
             self.__stocks[code]['klines'][kltype] = klines
             return len(klines)
         ucount = 0
+        self.__stocks[code]['klines'][kltype].pop()
         for i, kl in enumerate(klines):
-            if kl['time'] in self.__stocks[code]['klines'][kltype]:
+            if len(self.__stocks[code]['klines'][kltype]) > 0 and kl['time'] <= self.__stocks[code]['klines'][kltype][-1]['time']:
                 continue
             if kltype == 1 and kl['time'].endswith('09:30'):
                 klines[i+1]['volume'] += kl['volume']
@@ -65,6 +74,11 @@ class klPad:
                 self.__stocks[code]['klines'][ex_kltype] = []
             last_kltime = self.__stocks[code]['klines'][ex_kltype][-1]['time'] if len(self.__stocks[code]['klines'][ex_kltype]) > 0 else ''
             tail_klines = [kl for kl in self.__stocks[code]['klines'][base_kltype] if kl['time'] > last_kltime]
+            if len(tail_klines) >= fac:
+                if len(self.__stocks[code]['klines'][ex_kltype]) > 0:
+                    self.__stocks[code]['klines'][ex_kltype].pop()
+                    last_kltime = self.__stocks[code]['klines'][ex_kltype][-1]['time'] if len(self.__stocks[code]['klines'][ex_kltype]) > 0 else ''
+                    tail_klines = [kl for kl in self.__stocks[code]['klines'][base_kltype] if kl['time'] > last_kltime]
             for i in range(0, len(tail_klines), fac):
                 gkls = tail_klines[i: i + fac]
                 if fac == len(gkls):
@@ -93,17 +107,46 @@ class klPad:
 
     @classmethod
     def calc_ma(self, code, kltype, n):
-        if len(self.__stocks[code]['klines'][kltype]) == 0:
+        def calc_single_ma(idx):
+            if idx == 0:
+                klines[idx][f'ma{n}'] = klines[idx]['close']
+            else:
+                prev_ma = klines[idx - 1].get(f'ma{n}', klines[idx - 1]['close'])
+                if idx < n:
+                    klines[idx][f'ma{n}'] = (prev_ma * idx + klines[idx]['close']) / (idx + 1)
+                else:
+                    klines[idx][f'ma{n}'] = (prev_ma * n + klines[idx]['close'] - klines[idx - n]['close']) / n
+
+        klines = self.__stocks[code]['klines'][kltype]
+        if len(klines) == 0:
             return
-        if f'ma{n}' not in self.__stocks[code]['klines'][kltype][0]:
-            self.__stocks[code]['klines'][kltype][0][f'ma{n}'] = self.__stocks[code]['klines'][kltype][0]['close']
-        for i in range(1, len(self.__stocks[code]['klines'][kltype])):
-            if f'ma{n}' in self.__stocks[code]['klines'][kltype][i]:
+
+        missing_start = -1
+        for i, kl in enumerate(klines):
+            if f'ma{n}' not in kl:
+                missing_start = i
+                break
+
+        if missing_start == -1:
+            return
+
+        calc_closes = [kl['close'] for kl in klines[missing_start:]]
+        if len(klines) - missing_start >= n:
+            closes_array = np.array(calc_closes, dtype=float)
+            ma_values = talib.MA(closes_array, timeperiod=n)
+
+            for i, ma_val in enumerate(ma_values, start=missing_start):
+                if not np.isnan(ma_val):
+                    klines[i][f'ma{n}'] = ma_val
+                    continue
+
+                calc_single_ma(i)
+
+        for idx in range(missing_start, len(klines)):
+            if f'ma{n}' in klines[idx]:
                 continue
-            if i < n:
-                self.__stocks[code]['klines'][kltype][i][f'ma{n}'] = (self.__stocks[code]['klines'][kltype][i - 1][f'ma{n}'] * i + self.__stocks[code]['klines'][kltype][i]['close']) / (i + 1)
-                continue
-            self.__stocks[code]['klines'][kltype][i][f'ma{n}'] = (self.__stocks[code]['klines'][kltype][i - 1][f'ma{n}'] * n - self.__stocks[code]['klines'][kltype][i - n]['close'] + self.__stocks[code]['klines'][kltype][i]['close']) / n
+
+            calc_single_ma(idx)
 
     @classmethod
     def calc_bss(self, code, kltype, n):
@@ -120,20 +163,21 @@ class klPad:
 
             return max(kl['open'], kl['close']) < ma and (kl['high'] - kl['low']) * 0.8 <= abs(kl['open'] - kl['close'])
 
-        if len(self.__stocks[code]['klines'][kltype]) == 0:
+        klines = self.__stocks[code]['klines'][kltype]
+        if len(klines) == 0:
             return
 
-        if f'bss{n}' not in self.__stocks[code]['klines'][kltype][0]:
-            self.__stocks[code]['klines'][kltype][0][f'bss{n}'] = 'u'
-        for i in range(1, len(self.__stocks[code]['klines'][kltype])):
-            if f'bss{n}' in self.__stocks[code]['klines'][kltype][i]:
+        if f'bss{n}' not in klines[0]:
+            klines[0][f'bss{n}'] = 'u'
+        for i in range(1, len(klines)):
+            if f'bss{n}' in klines[i]:
                 continue
             if i < 2:
-                self.__stocks[code]['klines'][kltype][i][f'bss{n}'] = 'u'
+                klines[i][f'bss{n}'] = 'u'
                 continue
 
-            klpre = self.__stocks[code]['klines'][kltype][i - 1]
-            kl = self.__stocks[code]['klines'][kltype][i]
+            klpre = klines[i - 1]
+            kl = klines[i]
             bss = 'u'
             ma = kl[f'ma{n}']
             if kl['low'] > ma and klineApproximatelyAboveMa(klpre, n):
@@ -153,11 +197,11 @@ class klPad:
                 elif bss == 's':
                     bss = 'w'
 
-            self.__stocks[code]['klines'][kltype][i][f'bss{n}'] = bss
+            klines[i][f'bss{n}'] = bss
 
     @classmethod
     def get_klines(self, code, kltype=1):
-        if code not in self.__stocks:
+        if code not in self.__stocks or kltype not in self.__stocks[code]['klines']:
             return []
         return self.__stocks[code]['klines'][kltype]
 
@@ -173,8 +217,21 @@ class klPad:
             return 0
         quotes = self.__stocks[code]['quotes']
         if 'top_price' not in quotes:
+            if 'lclose' not in quotes:
+                return 0
             return guang.zt_priceby(quotes['lclose'], zdf=guang.zdf_from_code(code))
         return quotes['top_price']
+
+    @classmethod
+    def get_dt_price(self, code):
+        if code not in self.__stocks:
+            return 0
+        quotes = self.__stocks[code]['quotes']
+        if 'bottom_price' not in quotes:
+            if 'lclose' not in quotes:
+                return 0
+            return guang.dt_priceby(quotes['lclose'], zdf=guang.zdf_from_code(code))
+        return quotes['bottom_price']
 
     @staticmethod
     def continuously_increase_days(code, kltype):
@@ -189,6 +246,22 @@ class klPad:
             if klines[i]['close'] == klines[i - 1]['close']:
                 continue
             n += 1
+        return n
+
+    @staticmethod
+    def continuously_dt_days(code, yz=False):
+        klines = klPad.get_klines(code, 101)
+        if not klines:
+            return 0
+
+        n = 0
+        for i in range(len(klines) - 1, 0, -1):
+            kl = klines[i]
+            if yz and kl['high'] - kl['low'] > 0:
+                break
+            klpre = klines[i - 1]
+            if kl['close'] <= guang.dt_priceby(klpre['close'], zdf=guang.zdf_from_code(code)):
+                n += 1
         return n
 
     @staticmethod

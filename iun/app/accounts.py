@@ -1,5 +1,6 @@
 import requests
 from app.logger import logger
+from app.config import IunCache
 from app.tradeInterface import TradeInterface
 from app.planned_strategy import StrategyFac
 
@@ -26,7 +27,6 @@ class Account(object):
 class accld:
     dserver = None
     headers = None
-    accstocks = {}
 
     @classmethod
     def loadAccounts(self):
@@ -50,10 +50,39 @@ class accld:
             return None
         stocks = sresponse.json()
         for c, v in stocks.items():
-            StrategyFac.cache_strategy_data(keyacc, c[-6:], v)
+            IunCache.cache_strategy_data(keyacc, c[-6:], v)
             for sobj in v['strategies']['strategies'].values():
                 if not sobj['enabled']:
                     continue
                 s = StrategyFac.get_strategy(sobj['key'])
+                code = c[-6:]
                 if s:
-                    s.add_stock(keyacc, c[-6:])
+                    s.add_stock(keyacc, code)
+
+    @classmethod
+    def set_account_stock_strategy(cls, acc, code, strategy):
+        if not isinstance(strategy, dict):
+            return None
+
+        IunCache.cache_strategy_data(acc, code, {'strategies': strategy})
+        for sobj in strategy['strategies'].values():
+            if not sobj['enabled']:
+                continue
+            s = StrategyFac.get_strategy(sobj['key'])
+            if s:
+                s.add_stock(acc, code)
+        logger.info(f'Set strategy for {acc} {code}: {strategy}')
+
+    @classmethod
+    def disable_account_stock_strategy(cls, acc, code, skey):
+        if not skey:
+            return
+
+        smeta = IunCache.get_strategy_meta(acc, code, skey)
+        if smeta and smeta['enabled']:
+            smeta['enabled'] = False
+            IunCache.update_strategy_meta(acc, code, skey, smeta)
+        s = StrategyFac.get_strategy(smeta['key'])
+        if s:
+            s.remove_stock(acc, code)
+        logger.info(f'stock  {acc} {code} {skey} disabled')

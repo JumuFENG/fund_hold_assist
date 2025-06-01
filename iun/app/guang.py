@@ -82,7 +82,6 @@ class guang:
     @staticmethod
     def generate_strategy_json(match_data, subscribe_detail):
         amount = subscribe_detail['amount']
-        price = round(float(match_data['price']), 2)
         strategies = {
             "grptype": "GroupStandard",
             "strategies": {},
@@ -91,10 +90,16 @@ class guang:
         }
         strobjs = {
             "StrategyBuyZTBoard": { "key": "StrategyBuyZTBoard", "enabled": True },
-            "StrategySellELS": {"key": "StrategySellELS", "enabled": False, "cutselltype": "all", "selltype":"all", "topprice": round(price * 1.05, 2) },
+            "StrategyBuyDTBoard": { "key": "StrategyBuyDTBoard", "enabled": True },
+            "StrategySellELS": {"key": "StrategySellELS", "enabled": False, "cutselltype": "all", "selltype":"all" },
             "StrategyGrid": { "key": "StrategyGrid", "enabled": False, "buycnt": 1, "stepRate": 0.05 },
-            "StrategySellBE": { "key":"StrategySellBE", "enabled":False, "upRate": -0.03, "selltype":"all", 'sell_conds': 1}
+            "StrategySellBE": { "key":"StrategySellBE", "enabled": False, "upRate": -0.03, "selltype":"all", 'sell_conds': 1}
         }
+        if 'price' in match_data:
+            strobjs['StrategySellELS']["topprice"] = round(float(match_data['price']) * 1.05, 2)
+        if 'account' in subscribe_detail and subscribe_detail['account'] == 'collat':
+            strobjs['StrategyBuyZTBoard']['account'] = 'collat'
+            strobjs['StrategyBuyDTBoard']['account'] = 'collat'
         if 'strategies' in match_data:
             mstrategies = match_data['strategies']
             for i, mk in enumerate(mstrategies):

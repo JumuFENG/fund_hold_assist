@@ -1,5 +1,6 @@
 import requests
 import json
+from functools import lru_cache
 from app.logger import logger
 from app.guang import guang
 
@@ -36,13 +37,23 @@ class TradeInterface:
             logger.error(e)
             return False
 
-    __iun_strs = None
     @classmethod
-    def iun_str_conf(cls, ikey):
-        if cls.__iun_strs is None:
-            url = guang.join_url(cls.tserver, 'iunstrs')
-            response = requests.get(url)
-            response.raise_for_status()
-            cls.__iun_strs = response.json()
-        return cls.__iun_strs[ikey]
+    @lru_cache(maxsize=1)
+    def iun_str(cls):
+        url = guang.join_url(cls.tserver, 'iunstrs')
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
 
+    @classmethod
+    @lru_cache(maxsize=None)
+    def is_rzrq(cls, code):
+        """
+        检查股票是否支持融资融券
+        :param code: 股票代码
+        :return: bool
+        """
+        url = guang.join_url(cls.tserver, f'rzrq?code={code}')
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.text == 'true'
