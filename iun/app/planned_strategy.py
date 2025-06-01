@@ -1,6 +1,7 @@
 import asyncio, time, json
-from functools import lru_cache
 import stockrt as asrt
+import pandas as pd
+from functools import lru_cache
 from app.logger import logger
 from app.config import IunCache
 from app.guang import guang
@@ -23,16 +24,16 @@ class FnPs:
         return max([rec['price'] for rec in buyrecs])
     
     @staticmethod
-    def bss18_buy_match(kl):
-        if f'bss18' not in kl:
+    def bss18_buy_match(klines: pd.DataFrame):
+        if f'bss18' not in klines.columns:
             return False
-        return kl['bss18'] == 'b'
-    
+        return klines['bss18'].iloc[-1] == 'b'
+
     @staticmethod
-    def bss18_sell_match(kl):
-        if f'bss18' not in kl:
+    def bss18_sell_match(klines: pd.DataFrame):
+        if f'bss18' not in klines.columns:
             return False
-        return kl['bss18'] == 's'
+        return klines['bss18'].iat[-1] == 's'
 
     @staticmethod
     def get_sell_count_matched(buyrecs, selltype, price, fac=0):
@@ -135,43 +136,43 @@ class StrategyGE(PlannedStrategy):
 
         lkltype = int(smeta['kltype'])
         klines = klPad.get_klines(code, lkltype)
-        kl = klines[-1] if len(klines) > 0 else None
-        if kl and lkltype in kltypes and not buydetails:
-            if FnPs.bss18_buy_match(kl):
+        if len(klines) > 0 and lkltype in kltypes and not buydetails:
+            if FnPs.bss18_buy_match(klines):
                 # 建仓
                 tacc = smeta['account'] if 'account' in smeta else acc
-                StrategyFac.planned_strategy_trade(acc, code, 'B', kl['close'], 0, tacc)
+                StrategyFac.planned_strategy_trade(acc, code, 'B', klines['close'].iloc[-1], 0, tacc)
                 return
 
         if len(buydetails) > 0 and self.skltype in kltypes:
             # check ma1 buy
             klines1 = klPad.get_klines(code, self.skltype)
-            kl1 = klines1[-1] if len(klines1) > 0 else None
-            if kl1:
+            if len(klines1) > 0:
+                klclose1 = klines1['close'].iloc[-1]
                 mxprice = FnPs.max_buy_price(buydetails)
                 if 'inCritical' in smeta and smeta['inCritical']:
-                    if kl1['close'] - (smeta['guardPrice'] - mxprice * smeta['stepRate'] * 0.8) > 0:
+                    if klclose1 - (smeta['guardPrice'] - mxprice * smeta['stepRate'] * 0.8) > 0:
                         smeta['inCritical'] = False
                         IunCache.update_strategy_meta(acc, code, self.key, smeta)
                         return
                     if klPad.continuously_increase_days(code, self.skltype) > 2:
                         tacc = smeta['account'] if 'account' in smeta else acc
-                        StrategyFac.planned_strategy_trade(acc, code, 'B', kl['close'], 0, tacc)
-                        smeta['guardPrice'] = kl['close']
+                        StrategyFac.planned_strategy_trade(acc, code, 'B', klclose1, 0, tacc)
+                        smeta['guardPrice'] = klclose1
                         smeta['inCritical'] = False
                         IunCache.update_strategy_meta(acc, code, self.key, smeta)
                         return
-                if kl1['close'] <= smeta['guardPrice'] - mxprice * smeta['stepRate'] / 5:
+                if klclose1 <= smeta['guardPrice'] - mxprice * smeta['stepRate'] / 5:
                     smeta['inCritical'] = True
                     IunCache.update_strategy_meta(acc, code, self.key, smeta)
                     return
 
-        if kl and len(buydetails) > 0 and lkltype in kltypes and FnPs.bss18_sell_match(kl):
+        if len(klines) > 0 and len(buydetails) > 0 and lkltype in kltypes and FnPs.bss18_sell_match(klines):
+            klclose = klines['close'].iloc[-1]
             if 'cutselltype' not in smeta:
                 smeta['cutselltype'] = 'egate'
-            count = FnPs.get_sell_count_matched(buydetails, smeta['cutselltype'], kl['close'], smeta['stepRate'])
+            count = FnPs.get_sell_count_matched(buydetails, smeta['cutselltype'], klclose, smeta['stepRate'])
             if count > 0:
-                StrategyFac.planned_strategy_trade(acc, code, 'S', kl['close'], count)
+                StrategyFac.planned_strategy_trade(acc, code, 'S', klclose, count)
                 del smeta['guardPrice']
                 smeta['inCritical'] = False
                 IunCache.update_strategy_meta(acc, code, self.key, smeta)
@@ -216,12 +217,12 @@ class StrategySellMA(PlannedStrategy):
             return
 
         klines = klPad.get_klines(code, smeta['kltype'])
-        kl = klines[-1] if len(klines) > 0 else None
+        klclose = klines['close'].iloc[-1]
         buydetails = IunCache.get_buy_details(acc, code)
-        if FnPs.bss18_sell_match(kl):
-            count = FnPs.get_sell_count_matched(buydetails, smeta['selltype'], kl['close'], smeta['upRate'])
+        if FnPs.bss18_sell_match(klines):
+            count = FnPs.get_sell_count_matched(buydetails, smeta['selltype'], klclose, smeta['upRate'])
             if count > 0:
-                StrategyFac.planned_strategy_trade(acc, code, 'S', kl['close'], count)
+                StrategyFac.planned_strategy_trade(acc, code, 'S', klclose, count)
                 smeta['enabled'] = False
                 self.remove_stock(acc, code)
                 IunCache.update_strategy_meta(acc, code, self.key, smeta)
@@ -298,23 +299,23 @@ class StrategySellELShort(PlannedStrategy):
             return
 
         klines = klPad.get_klines(code, self.skltype)
-        kl = klines[-1] if len(klines) > 0 else None
-        if not kl:
+        if len(klines) > 0:
             return
 
+        klclose = klines['close'].iloc[-1]
         buydetails = IunCache.get_buy_details(acc, code)
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
         if 'cutselltype' not in smeta:
             smeta['cutselltype'] = 'all'
         if 'topprice' in smeta:
-            if kl['close'] <= smeta['topprice'] and ('guardPrice' not in smeta or smeta['guardPrice'] <= kl['close']):
+            if klclose <= smeta['topprice'] and ('guardPrice' not in smeta or smeta['guardPrice'] <= klclose):
                 return
             del smeta['topprice']
             if 'guardPrice' not in smeta:
                 smeta['guardPrice'] = 0
-        count = FnPs.get_sell_count_matched(buydetails, smeta['cutselltype'], kl['close'])
-        if count > 0 and kl['close'] < smeta['guardPrice']:
-            StrategyFac.planned_strategy_trade(acc, code, 'S', kl['close'], count)
+        count = FnPs.get_sell_count_matched(buydetails, smeta['cutselltype'], klclose)
+        if count > 0 and klclose < smeta['guardPrice']:
+            StrategyFac.planned_strategy_trade(acc, code, 'S', klclose, count)
             smeta['enabled'] = False
             self.remove_stock(acc, code)
             IunCache.update_strategy_meta(acc, code, self.key, smeta)
@@ -322,8 +323,8 @@ class StrategySellELShort(PlannedStrategy):
 
         troughprice = klPad.get_last_trough(code, self.skltype)
         ztprice = klPad.get_zt_price(code)
-        if kl['close'] == kl['low'] and kl['close'] >= ztprice and kl['close'] * 0.98 >troughprice:
-            troughprice = kl['close'] * 0.96
+        if klclose == klines['low'].iloc[-1] and klclose >= ztprice and klclose * 0.98 >troughprice:
+            troughprice = klclose * 0.96
         if troughprice > 0 and troughprice > smeta['guardPrice']:
             smeta['guardPrice'] = troughprice
             IunCache.update_strategy_meta(acc, code, self.key, smeta)
@@ -342,50 +343,51 @@ class StrategySellBeforeEnd(PlannedStrategy):
             return
 
         klines = klPad.get_klines(code, self.kltype)
-        kl = klines[-1] if len(klines) > 0 else None
-        if not kl:
+        if len(klines) == 0:
             return
 
+        klclose = klines['close'].iloc[-1]
         buydetails = IunCache.get_buy_details(acc, code)
-        if FnPs.get_sell_count_matched(buydetails, 'all', kl['close']) == 0:
+        if FnPs.get_sell_count_matched(buydetails, 'all', klclose) == 0:
             return
 
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
         if 'selltype' not in smeta:
             smeta['selltype'] = 'single'
-        count = FnPs.get_sell_count_matched(buydetails, smeta['selltype'], kl['close'])
+        count = FnPs.get_sell_count_matched(buydetails, smeta['selltype'], klclose)
         if count == 0:
             return
 
         ztprice = klPad.get_zt_price(code)
         conditions = {'not_zt': 1,  'h_and_l_dec': 1<<1, 'h_or_l_dec':1<<2, 'p_ge': 1<<3};
         if smeta['sell_conds'] & conditions['not_zt']:
-            if kl['close'] < ztprice:
-                self.dosell(acc, code, kl['close'], count, smeta)
+            if klclose < ztprice:
+                self.dosell(acc, code, klclose, count, smeta)
                 return
             
-        zt = kl['close'] == ztprice
-        prekl = klines[-2] if len(klines) > 1 else None
-        if not prekl:
+        zt = klclose == ztprice
+        if len(klines) < 2:
             return
-        hinc = kl['high'] > prekl['high'] or zt
-        linc = kl['low'] > prekl['low']
+
+        hinc = klines['high'].iloc[-1] > klines['high'].iloc[-2] or zt
+        linc = klines['low'].iloc[-1] > klines['low'].iloc[-2]
+        klopen = klines['open'].iloc[-1]
         if smeta['sell_conds'] & conditions['h_and_l_dec']:
             # 最高价和最低价都不增加时卖出 阴线也卖出
-            if (not hinc and not linc) or kl['close'] < kl['open']:
-                self.dosell(acc, code, kl['close'], count, smeta)
+            if (not hinc and not linc) or klclose < klopen:
+                self.dosell(acc, code, klclose, count, smeta)
                 return
         if smeta['sell_conds'] & conditions['h_or_l_dec']:
             # 最高价和最低价都不增加时卖出 阴线也卖出
-            if (not hinc or not linc) or kl['close'] < kl['open']:
-                self.dosell(acc, code, kl['close'], count, smeta)
+            if (not hinc or not linc) or klclose < klopen:
+                self.dosell(acc, code, klclose, count, smeta)
                 return
         if smeta['sell_conds'] & conditions['p_ge']:
             # 收益率>=, 涨停不适用
             if zt:
                 return
-            if kl['close'] > FnPs.buy_details_average_price(buydetails) * (1 + smeta['upRate']):
-                self.dosell(acc, code, kl['close'], count, smeta)
+            if klclose > FnPs.buy_details_average_price(buydetails) * (1 + smeta['upRate']):
+                self.dosell(acc, code, klclose, count, smeta)
                 return
             
     def dosell(self, acc, code, price, count, smeta):
@@ -506,7 +508,11 @@ class StrategyFac():
             logger.error('Strategy not implemented: %s', k)
 
         if s:
-            asyncio.create_task(s.start_strategy_tasks())
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.create_task(s.start_strategy_tasks())
+            else:
+                loop.call_soon(asyncio.ensure_future, s.start_strategy_tasks())
 
         return s
 

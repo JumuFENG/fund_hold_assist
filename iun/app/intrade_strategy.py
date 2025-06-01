@@ -377,7 +377,7 @@ class StrategyI_3Bull_Breakup(StrategyI_Listener):
             klines = klPad.get_klines(code, self.skltype)
             if len(klines) == 0:
                 continue
-            price = klines[0]['close']
+            price = klines['close'].iloc[-1]
             if price < self.candidates[code]['high']:
                 continue
             price += 0.02
@@ -791,16 +791,16 @@ class StrategyI_DtStocksUp(StrategyI_Listener):
             klines = klPad.get_klines(c, 101)
             if len(klines) <= 5:
                 continue
-            latestPrice = klines[-1]['close']
-            kl5 = klines[-6:-1]
-            mxHigh = max([k['high'] for k in kl5])
+            latestPrice = klines['close'].iloc[-1]
+            # kl5 = klines[-6:-1]
+            mxHigh = klines['high'].iloc[-6:-1].max()
             downp = (mxHigh - latestPrice) / mxHigh
-            mxVol = max([k['volume'] for k in kl5])
-            mnVol = kl5[-1]['volume']
-            for i in range(len(kl5) - 1, -1, -1):
-                if kl5[i]['volume'] < mnVol:
-                    mnVol = kl5[i]['volume']
-                if kl5[i]['volume'] == mxVol:
+            mxVol = klines['volume'].iloc[-6:-1].max()
+            mnVol = klines['volume'].iloc[-2]
+            for i in range(-3, -7, -1):
+                if klines['volume'].iloc[i] < mnVol:
+                    mnVol = klines['volume'].iloc[i]
+                if klines['volume'].iloc[i] == mxVol:
                     break
             downv = (mxVol - mnVol) / mxVol
             downpv.append((c, downp, downv))

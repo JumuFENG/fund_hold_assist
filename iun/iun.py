@@ -70,6 +70,8 @@ class iun:
             'Authorization': f'''Basic {base64.b64encode(f"{dconfig['user']}:{dconfig['password']}".encode()).decode()}'''
         }
         asrt.set_logger(logger)
+        # asrt.set_array_format('dict')
+        asrt.set_array_format('df')
         accld.loadAccounts()
         iunCloud.accld = accld
 

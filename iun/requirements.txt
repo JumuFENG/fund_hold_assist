@@ -1,3 +1,4 @@
 requests
-ta-lib
+numpy
+pandas
 pytdx

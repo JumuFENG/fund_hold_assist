@@ -1,5 +1,4 @@
-import talib
-import numpy as np
+import pandas as pd
 from app.guang import guang
 
 
@@ -30,69 +29,116 @@ class klPad:
                 fac += [
                     fac for fac in self.__factors if
                     len(self.__stocks[code]['klines'][fac * kltype]) > 0
-                    and self.__stocks[code]['klines'][fac * kltype][-1]['time'] == klines[-1]['time']]
+                    and self.__stocks[code]['klines'][fac * kltype]['time'].iloc[-1] == klines['time'].iloc[-1]]
             return [kltype * f for f in fac]
         return []
 
     @classmethod
-    def merge_klines(self, code, kltype, klines):
-        if kltype not in self.__stocks[code]['klines'] or len(self.__stocks[code]['klines'][kltype]) == 0:
-            if kltype == 1:
-                for i, kl in enumerate(klines):
-                    if kl['time'].endswith('09:30'):
-                        klines[i+1]['volume'] += kl['volume']
-                        if 'amount' in kl:
-                            klines[i+1]['amount'] += kl['amount']
-                klines = [kl for kl in klines if not kl['time'].endswith('09:30')]
-                index = next((i for i, kl in enumerate(klines) if kl['time'].endswith('09:31') or kl['time'].endswith('13:01')), 0)
-                klines = klines[index:]
-            elif kltype == 15:
-                index = next((i for i, kl in enumerate(klines) if kl['time'].endswith('09:45')), 0)
-                klines = klines[index:]
+    def merge_klines(cls, code: str, kltype: int, klines: pd.DataFrame) -> int:
+        """
+        将K线数据合并到存储中（DataFrame版本）
 
-            self.__stocks[code]['klines'][kltype] = klines
+        Args:
+            code: 股票代码
+            kltype: K线类型（1: 分钟K线, 15: 15分钟K线等）
+            klines: 输入的K线数据（需包含time/volume/amount列）
+        Returns:
+            更新的K线数量
+        """
+        if kltype == 1:
+            # 预处理：处理1分钟K线的09:30特殊逻辑
+            mask_0930 = klines['time'].str.endswith('09:30')
+            if mask_0930.any():
+                mask_0931 = klines['time'].shift(-1).str.endswith('09:31')
+                klines.loc[mask_0931, 'volume'] += klines.loc[mask_0930, 'volume'].values
+                if 'amount' in klines.columns:
+                    klines.loc[mask_0931, 'amount'] += klines.loc[mask_0930, 'amount'].values
+                klines = klines[~mask_0930].reset_index(drop=True)
+
+        # 检查是否已有该类型的K线数据
+        stored_klines = cls.__stocks[code]['klines'].get(kltype, pd.DataFrame())
+        if len(stored_klines) == 0:
+            # 初始化逻辑
+            if kltype == 1:
+                start_idx = klines['time'].str.endswith(('09:31', '13:01')).idxmax()
+                klines = klines.iloc[start_idx:].reset_index(drop=True)
+            elif kltype == 15:
+                start_idx = klines['time'].str.endswith('09:45').idxmax()
+                klines = klines.iloc[start_idx:].reset_index(drop=True)
+
+            cls.__stocks[code]['klines'][kltype] = klines
             return len(klines)
-        ucount = 0
-        self.__stocks[code]['klines'][kltype].pop()
-        for i, kl in enumerate(klines):
-            if len(self.__stocks[code]['klines'][kltype]) > 0 and kl['time'] <= self.__stocks[code]['klines'][kltype][-1]['time']:
-                continue
-            if kltype == 1 and kl['time'].endswith('09:30'):
-                klines[i+1]['volume'] += kl['volume']
-                if 'amount' in kl:
-                    klines[i+1]['amount'] += kl['amount']
-                continue
-            self.__stocks[code]['klines'][kltype].append(kl)
-            ucount += 1
-        return ucount
+
+        # 增量更新逻辑
+        if klines['time'].iloc[0] <= stored_klines['time'].iloc[-1]:
+            stored_klines = stored_klines.iloc[:-1]  # 删除最后一行（假设需要替换）
+        last_time = stored_klines.iloc[-1]['time'] if len(stored_klines) > 0 else ''
+        mask_new = klines['time'] > last_time
+        new_data = klines[mask_new].reset_index(drop=True)
+
+        if len(new_data) > 0:
+            cls.__stocks[code]['klines'][kltype] = pd.concat(
+                [stored_klines, new_data],
+                ignore_index=True
+            ) if len(stored_klines) > 0 else new_data
+        return len(new_data)
 
     @classmethod
-    def expand_kltypes(self, code, base_kltype):
-        for fac in self.__factors:
+    def expand_kltypes(cls, code: str, base_kltype: int) -> None:
+        """
+        根据基础K线周期推导更大周期的K线（DataFrame版本）
+
+        Args:
+            code: 股票代码
+            base_kltype: 基础K线周期（分钟数）
+        """
+        base_klines = cls.__stocks[code]['klines'][base_kltype]
+
+        for fac in cls.__factors:
             ex_kltype = base_kltype * fac
-            if ex_kltype not in self.__stocks[code]['klines']:
-                self.__stocks[code]['klines'][ex_kltype] = []
-            last_kltime = self.__stocks[code]['klines'][ex_kltype][-1]['time'] if len(self.__stocks[code]['klines'][ex_kltype]) > 0 else ''
-            tail_klines = [kl for kl in self.__stocks[code]['klines'][base_kltype] if kl['time'] > last_kltime]
-            if len(tail_klines) >= fac:
-                if len(self.__stocks[code]['klines'][ex_kltype]) > 0:
-                    self.__stocks[code]['klines'][ex_kltype].pop()
-                    last_kltime = self.__stocks[code]['klines'][ex_kltype][-1]['time'] if len(self.__stocks[code]['klines'][ex_kltype]) > 0 else ''
-                    tail_klines = [kl for kl in self.__stocks[code]['klines'][base_kltype] if kl['time'] > last_kltime]
-            for i in range(0, len(tail_klines), fac):
-                gkls = tail_klines[i: i + fac]
-                if fac == len(gkls):
-                    exkl = {
-                        'time': gkls[-1]['time'],
-                        'open': gkls[0]['open'],
-                        'close': gkls[-1]['close'],
-                        'high': max([kl['high'] for kl in gkls]),
-                        'low': min([kl['low'] for kl in gkls]),
-                        'volume': sum([kl['volume'] for kl in gkls])
-                    }
-                    if all(['amount' in kl for kl in gkls]):
-                        exkl['amount'] = sum([kl['amount'] for kl in gkls])
-                    self.__stocks[code]['klines'][ex_kltype].append(exkl)
+
+            # 初始化更大周期的K线存储
+            if ex_kltype not in cls.__stocks[code]['klines']:
+                cls.__stocks[code]['klines'][ex_kltype] = pd.DataFrame(columns=base_klines.columns)
+
+            # 获取已有K线的最后时间
+            ex_klines = cls.__stocks[code]['klines'][ex_kltype]
+            last_time = ex_klines['time'].iloc[-1] if len(ex_klines) > 0 else ''
+
+            # 获取需要处理的新数据
+            new_data = base_klines[base_klines['time'] > last_time].copy()
+
+            # 检查是否有足够数据生成新K线
+            if len(new_data) >= fac or base_klines['time'].iloc[-1] >= '14:56':
+                # 删除最后一条可能不完整的K线
+                if len(ex_klines) > 0:
+                    ex_klines = ex_klines.iloc[:-1]
+                    last_time = ex_klines['time'].iloc[-1] if len(ex_klines) > 0 else ''
+                    new_data = base_klines[base_klines['time'] > last_time].copy()
+
+                # 生成更大周期的K线
+                expanded_klines = []
+                for i in range(0, len(new_data), fac):
+                    group = new_data.iloc[i:i+fac]
+                    if len(group) == fac:
+                        new_kline = {
+                            'time': group['time'].iloc[-1],
+                            'open': group['open'].iloc[0],
+                            'close': group['close'].iloc[-1],
+                            'high': group['high'].max(),
+                            'low': group['low'].min(),
+                            'volume': group['volume'].sum()
+                        }
+                        if 'amount' in group.columns:
+                            new_kline['amount'] = group['amount'].sum()
+                        expanded_klines.append(new_kline)
+
+                # 合并新K线
+                if expanded_klines:
+                    cls.__stocks[code]['klines'][ex_kltype] = pd.concat(
+                        [ex_klines, pd.DataFrame(expanded_klines)],
+                        ignore_index=True
+                    ) if len(ex_klines) > 0 else pd.DataFrame(expanded_klines)
 
     @classmethod
     def calc_indicators(self, code, kltype):
@@ -106,98 +152,104 @@ class klPad:
             self.calc_bss(code, ex_kltype, 18)
 
     @classmethod
-    def calc_ma(self, code, kltype, n):
-        def calc_single_ma(idx):
-            if idx == 0:
-                klines[idx][f'ma{n}'] = klines[idx]['close']
-            else:
-                prev_ma = klines[idx - 1].get(f'ma{n}', klines[idx - 1]['close'])
-                if idx < n:
-                    klines[idx][f'ma{n}'] = (prev_ma * idx + klines[idx]['close']) / (idx + 1)
-                else:
-                    klines[idx][f'ma{n}'] = (prev_ma * n + klines[idx]['close'] - klines[idx - n]['close']) / n
+    def calc_ma(cls, code: str, kltype: int, n: int) -> None:
+        """
+        计算/增量更新移动平均线（MA）
+        
+        Args:
+            code: 股票代码
+            kltype: K线类型
+            n: MA周期（如5、10等）
+        """
+        klines = cls.__stocks[code]['klines'][kltype]
+        col_name = f'ma{n}'
 
-        klines = self.__stocks[code]['klines'][kltype]
-        if len(klines) == 0:
+        # 初始化MA列（首次计算）
+        if col_name not in klines.columns:
+            klines[col_name] = klines['close'].rolling(window=n, min_periods=1).mean()
             return
 
-        missing_start = -1
-        for i, kl in enumerate(klines):
-            if f'ma{n}' not in kl:
-                missing_start = i
-                break
+        # 增量计算：找到最后一个有效MA的索引（跳过NaN）
+        last_valid = klines[col_name].last_valid_index()
+        if last_valid is None:
+            start_idx = 0
+        else:
+            start_idx = klines.index.get_loc(last_valid)
+        start_idx = max(0, start_idx)
 
-        if missing_start == -1:
-            return
-
-        calc_closes = [kl['close'] for kl in klines[missing_start:]]
-        if len(klines) - missing_start >= n:
-            closes_array = np.array(calc_closes, dtype=float)
-            ma_values = talib.MA(closes_array, timeperiod=n)
-
-            for i, ma_val in enumerate(ma_values, start=missing_start):
-                if not np.isnan(ma_val):
-                    klines[i][f'ma{n}'] = ma_val
-                    continue
-
-                calc_single_ma(i)
-
-        for idx in range(missing_start, len(klines)):
-            if f'ma{n}' in klines[idx]:
-                continue
-
-            calc_single_ma(idx)
+        if start_idx < len(klines):
+            klines.loc[klines.index[start_idx:], col_name] = (
+                klines['close'].iloc[start_idx:].rolling(n, min_periods=1).mean()
+            )
 
     @classmethod
-    def calc_bss(self, code, kltype, n):
-        def klineApproximatelyAboveMa(kl, mlen):
-            ma = kl[f'ma{mlen}']
-            if kl['low'] > ma:
+    def calc_bss(cls, code: str, kltype: int, n: int) -> None:
+        """
+        计算/增量更新 BSS 指标
+        
+        Args:
+            code: 股票代码
+            kltype: K线类型
+            n: MA周期
+        """
+        def kline_approximately_above_ma(row: pd.Series, mlen: int) -> bool:
+            ma = row[f'ma{mlen}']
+            if row['low'] > ma:
                 return True
-            return min(kl['open'], kl['close']) > ma and (kl['high'] - kl['low']) * 0.8 <= abs(kl['open'] - kl['close'])
+            return (min(row['open'], row['close']) > ma and 
+                    (row['high'] - row['low']) * 0.8 <= abs(row['open'] - row['close']))
 
-        def klineApproximatelyBellowMa(kl, mlen):
-            ma = kl[f'ma{mlen}']
-            if kl['high'] < ma:
+        def kline_approximately_below_ma(row: pd.Series, mlen: int) -> bool:
+            ma = row[f'ma{mlen}']
+            if row['high'] < ma:
                 return True
+            return (max(row['open'], row['close']) < ma and 
+                    (row['high'] - row['low']) * 0.8 <= abs(row['open'] - row['close']))
 
-            return max(kl['open'], kl['close']) < ma and (kl['high'] - kl['low']) * 0.8 <= abs(kl['open'] - kl['close'])
-
-        klines = self.__stocks[code]['klines'][kltype]
+        # 获取K线数据
+        klines = cls.__stocks[code]['klines'][kltype]
         if len(klines) == 0:
             return
 
-        if f'bss{n}' not in klines[0]:
-            klines[0][f'bss{n}'] = 'u'
-        for i in range(1, len(klines)):
-            if f'bss{n}' in klines[i]:
-                continue
+        col_name = f'bss{n}'
+        start_idx = 1
+        if col_name not in klines.columns:
+            klines[col_name] = 'u'  # 默认值
+        else:
+            last_valid = klines[col_name].last_valid_index()
+            if last_valid is None:
+                start_idx = 1
+            else:
+                start_idx = klines.index.get_loc(last_valid)
+            start_idx = max(1, start_idx)  # 至少从第1个索引开始（因为需要前一个数据）
+
+        for i in range(start_idx, len(klines)):
             if i < 2:
-                klines[i][f'bss{n}'] = 'u'
+                klines.at[klines.index[i], col_name] = 'u'
                 continue
 
-            klpre = klines[i - 1]
-            kl = klines[i]
-            bss = 'u'
-            ma = kl[f'ma{n}']
-            if kl['low'] > ma and klineApproximatelyAboveMa(klpre, n):
-                if klpre[f'bss{n}'] == 'u':
+            prev_row = klines.iloc[i-1]
+            current_row = klines.iloc[i]
+            ma = current_row[f'ma{n}']
+            
+            if current_row['low'] > ma and kline_approximately_above_ma(prev_row, n):
+                if prev_row[col_name] == 'u':
                     bss = 'b'
                 else:
-                    bss = 'b' if klpre[f'bss{n}'] == 'w' else 'h'
-            elif kl['high'] < ma and klineApproximatelyBellowMa(klpre, n):
-                if klpre[f'bss{n}'] == 'u':
+                    bss = 'b' if prev_row[col_name] == 'w' else 'h'
+            elif current_row['high'] < ma and kline_approximately_below_ma(prev_row, n):
+                if prev_row[col_name] == 'u':
                     bss = 's'
                 else:
-                    bss = 's' if klpre[f'bss{n}'] == 'h' else 'w'
+                    bss = 's' if prev_row[col_name] == 'h' else 'w'
             else:
-                bss = klpre[f'bss{n}']
+                bss = prev_row[col_name]
                 if bss == 'b':
                     bss = 'h'
                 elif bss == 's':
                     bss = 'w'
 
-            klines[i][f'bss{n}'] = bss
+            klines.at[klines.index[i], col_name] = bss
 
     @classmethod
     def get_klines(self, code, kltype=1):
@@ -240,12 +292,16 @@ class klPad:
             return 0
 
         n = 0
-        for i in range(len(klines) - 1, 0, -1):
-            if klines[i]['close'] < klines[i - 1]['close']:
+        closes = klines['close'].values
+
+        # 从倒数第二天开始向前比较（因为最后一天没有后一天数据）
+        for i in range(len(closes)-1, 0, -1):
+            if closes[i] < closes[i-1]:
                 break
-            if klines[i]['close'] == klines[i - 1]['close']:
+            if closes[i] == closes[i-1]:
                 continue
             n += 1
+
         return n
 
     @staticmethod
@@ -255,12 +311,13 @@ class klPad:
             return 0
 
         n = 0
-        for i in range(len(klines) - 1, 0, -1):
-            kl = klines[i]
-            if yz and kl['high'] - kl['low'] > 0:
+        highs = klines['high'].values
+        lows = klines['low'].values
+        closes = klines['close'].values
+        for i in range(len(closes) - 1, 0, -1):
+            if yz and highs[i] - lows[i] > 0:
                 break
-            klpre = klines[i - 1]
-            if kl['close'] <= guang.dt_priceby(klpre['close'], zdf=guang.zdf_from_code(code)):
+            if closes[i] <= guang.dt_priceby(closes[i-1], zdf=guang.zdf_from_code(code)):
                 n += 1
         return n
 
@@ -270,28 +327,27 @@ class klPad:
         if not klines:
             return 0
 
+        lows = klines['low'].values
         down_num = 0
         up_num = 0
-        tprice = klines[-1]['low']
-        for i in range(len(klines) - 1, 0, -1):
-            kl = klines[i]
-            kl0 = klines[i - 1]
+        tprice = lows[-1]
+        for i in range(len(lows) - 1, 0, -1):
             if down_num < 2:
-                if kl['low'] < kl0['low']:
+                if lows[i] < lows[i-1]:
                     continue
-                if kl['low'] > kl0['low']:
+                if lows[i] > lows[i-1]:
                     down_num += 1
-                    tprice = kl0['low']
+                    tprice = lows[i-1]
             else:
-                if kl['low'] > kl0['low']:
+                if lows[i] > lows[i-1]:
                     if up_num >= 2:
                         break
-                    if tprice > kl0['low']:
+                    if tprice > lows[i-1]:
                         down_num += 1
-                        tprice = kl0['low']
+                        tprice = lows[i-1]
                     up_num = 0
                     continue
-                if kl['low'] < kl0['low']:
+                if lows[i] < lows[i-1]:
                     up_num += 1
         if up_num >= 2 and down_num > 2:
             return tprice
