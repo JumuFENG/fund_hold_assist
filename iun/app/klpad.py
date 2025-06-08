@@ -18,6 +18,8 @@ class klPad:
                 'quotes': {}
             }
         self.__stocks[code]['quotes'].update(quotes)
+        if len(klines) == 0:
+            return []
         mcount = self.merge_klines(code, kltype, klines)
         if mcount > 0:
             self.expand_kltypes(code, kltype)
@@ -49,7 +51,9 @@ class klPad:
             # 预处理：处理1分钟K线的09:30特殊逻辑
             mask_0930 = klines['time'].str.endswith('09:30')
             if mask_0930.any():
-                mask_0931 = klines['time'].shift(-1).str.endswith('09:31')
+                mask_next = klines.index[mask_0930] + 1
+                mask_next = mask_next[mask_next.isin(klines.index)]
+                mask_0931 = klines.index.isin(mask_next) & klines['time'].str.endswith('09:31')
                 klines.loc[mask_0931, 'volume'] += klines.loc[mask_0930, 'volume'].values
                 if 'amount' in klines.columns:
                     klines.loc[mask_0931, 'amount'] += klines.loc[mask_0930, 'amount'].values
@@ -109,7 +113,10 @@ class klPad:
             new_data = base_klines[base_klines['time'] > last_time].copy()
 
             # 检查是否有足够数据生成新K线
-            if len(new_data) >= fac or base_klines['time'].iloc[-1] >= '14:56':
+            if len(new_data) == 0:
+                continue
+            new_last_time = new_data['time'].iloc[-1].split()[-1]
+            if len(new_data) >= fac or (base_kltype <= 15 and new_last_time >= '14:56'):
                 # 删除最后一条可能不完整的K线
                 if len(ex_klines) > 0:
                     ex_klines = ex_klines.iloc[:-1]
@@ -288,7 +295,7 @@ class klPad:
     @staticmethod
     def continuously_increase_days(code, kltype):
         klines = klPad.get_klines(code, kltype)
-        if not klines:
+        if len(klines) == 0:
             return 0
 
         n = 0
@@ -307,7 +314,7 @@ class klPad:
     @staticmethod
     def continuously_dt_days(code, yz=False):
         klines = klPad.get_klines(code, 101)
-        if not klines:
+        if len(klines) == 0:
             return 0
 
         n = 0
@@ -324,7 +331,7 @@ class klPad:
     @staticmethod
     def get_last_trough(code, kltype):
         klines = klPad.get_klines(code, kltype)
-        if not klines:
+        if len(klines) == 0:
             return 0
 
         lows = klines['low'].values

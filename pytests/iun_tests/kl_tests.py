@@ -67,6 +67,19 @@ class TestklPadCache(unittest.TestCase):
         result = klPad.cache(code, klines2)
         self.assertEqual(len(klPad.get_klines(code, 1)), 4)
 
+    def test_cache_klines_on_930(self):
+        code = '603332'
+        klines1 = pd.DataFrame([{'time': '2025-05-26 09:30', 'open': 17.97, 'close': 17.97, 'high': 17.97, 'low': 17.97, 'volume': 2800, 'amount': 50315.9984}, 
+            {'time': '2025-05-26 09:31', 'open': 17.97, 'close': 17.97, 'high': 17.97, 'low': 17.97, 'volume': 12200, 'amount': 219233.999},
+            {'time': '2025-05-26 09:32', 'open': 17.97, 'close': 17.97, 'high': 17.97, 'low': 17.97, 'volume': 5200, 'amount': 93443.9972},
+            {'time': '2025-05-26 09:33', 'open': 17.97, 'close': 17.97, 'high': 17.97, 'low': 17.97, 'volume': 6200, 'amount': 111413.9962},
+            {'time': '2025-05-26 09:34', 'open': 17.97, 'close': 17.97, 'high': 17.97, 'low': 17.97, 'volume': 6200, 'amount': 111413.9962}])
+        klPad.cache(code, klines1)
+        ckls = klPad.get_klines(code, 1)
+        self.assertEqual(len(ckls), 4)
+        self.assertEqual(ckls['time'].iloc[0], '2025-05-26 09:31')
+        self.assertEqual(ckls['volume'].iloc[0], 15000)
+
 class TestStrategyGE(unittest.TestCase):
     def setUp(self):
         IunCache.cache_strategy_data('collat', '510050', {'holdCost': 2.6994, 'holdCount': 14500.0, 'strategies': {'grptype': 'GroupStandard', 'strategies': {
@@ -98,8 +111,8 @@ class TestStrategyGE(unittest.TestCase):
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
-    suite.addTest(TestStrategyGE('test_check_kline'))
-    # suite.addTest(TestklPadCache('test_cache_with_klines'))
+    # suite.addTest(TestStrategyGE('test_check_kline'))
+    suite.addTest(TestklPadCache('test_cache_klines_on_930'))
     runner = unittest.TextTestRunner()
     runner.run(suite)
 

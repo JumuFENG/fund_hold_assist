@@ -13,29 +13,6 @@ from app.intrade_base import iunCloud
 from app.intrade_strategy import all_intrade_strategies
 
 
-async def start_rtwatchers(enable_kl_check, enable_rtp_check):
-    """
-    启动K线检查
-    :return: None
-    """
-    # 这里可以添加K线检查的代码
-    logger.info("Starting K-line check...")
-
-    if enable_kl_check:
-        k1watcher = iunCloud.get_watcher('kline1')
-        await k1watcher.start_strategy_tasks()
-
-        # k15watcher = iunCloud.get_watcher('kline15')
-        # await k15watcher.start_strategy_tasks()
-
-        # kdwatcher = iunCloud.get_watcher('klineday')
-        # await kdwatcher.start_strategy_tasks()
-
-    if enable_rtp_check:
-        qwatcher = iunCloud.get_watcher('quotes')
-        await qwatcher.start_strategy_tasks()
-
-
 class iun:
     @staticmethod
     async def check_tasks_finished(tasks):
@@ -81,7 +58,6 @@ class iun:
             for task in strategies:
                 task.on_intrade_matched = cls.intrade_matched
                 tg.create_task(task.start_strategy_tasks())
-            # tg.create_task(start_rtwatchers(cfg['enable_kl_check'], cfg['enable_rtp_check']))
             tg.create_task(cls.check_tasks_finished(strategies))
 
         logger.info("iun main exited.")

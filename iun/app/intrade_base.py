@@ -306,7 +306,7 @@ class StrategyI_Listener:
         self.watcher.add_listener(self)
         await self.watcher.start_strategy_tasks()
 
-    async def execute(self, params):
+    async def on_watcher(self, params):
         pass
 
     def on_taskstop(self):
@@ -569,7 +569,7 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Cycle):
             try:
                 await self.get_changes()
             except Exception as e:
-                logger.error(f'{e}')
+                logger.error('%s %s', self.__class__.__name__, e)
                 logger.error(traceback.format_exc())
             await asyncio.sleep(self.changes_period)
 
@@ -776,7 +776,7 @@ class Stock_Rt_Watcher():
 
 class Stock_Klinem_Watcher(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):
     def __init__(self, m=1):
-        super().__init__(['9:30:1', '13:00:1'], ['11:30:1', '14:57:1'])
+        super().__init__(['9:30:50', '13:00:50'], ['11:30:1', '14:57:1'])
         Stock_Rt_Watcher.__init__(self)
         self.period = m * 60
         self.klt = m
@@ -829,4 +829,5 @@ class Stock_Quote_Watcher(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):
         for c in quotes:
             klPad.cache(c, quotes=quotes[c])
         await self.notify_change(quotes.keys())
+        logger.info('get quotes for %d %s', len(codes), codes)
 

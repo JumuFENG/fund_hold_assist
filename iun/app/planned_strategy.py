@@ -105,9 +105,12 @@ class PlannedStrategy(StrategyI_Listener):
             w.add_listener(self)
             await w.start_strategy_tasks()
 
-    async def execute(self, params):
+    async def on_watcher(self, params):
         for code in params:
             kltypes = params[code]
+            if not kltypes:
+                logger.error('kltypes is empty %s', code)
+                continue
             for acc, acode in self.accstocks:
                 if code == acode:
                     await self.check_kline(acc, code, kltypes)
@@ -124,7 +127,7 @@ class StrategyGE(PlannedStrategy):
         self.watcher = iunCloud.get_watcher('kline1')
         self.k15listener = StrategyI_Listener()
         self.k15watcher = iunCloud.get_watcher('kline15')
-        self.k15listener.execute = self.execute
+        self.k15listener.on_watcher = self.on_watcher
         self.watchers = [self.watcher, self.k15watcher]
         self.skltype = 1
 
@@ -186,7 +189,7 @@ class StrategySellMA(PlannedStrategy):
         self.watcher = iunCloud.get_watcher('kline1')
         self.k15listener = StrategyI_Listener()
         self.k15watcher = iunCloud.get_watcher('kline15')
-        self.k15listener.execute = self.execute
+        self.k15listener.on_watcher = self.on_watcher
         self.watchers = [self.watcher]
 
     def add_stock(self, acc, code):
@@ -234,7 +237,7 @@ class StrategySellELShort(PlannedStrategy):
         super().__init__()
         self.watcher = iunCloud.get_watcher('kline1')
         self.qlistener = StrategyI_Listener()
-        self.qlistener.execute = self.on_quotes
+        self.qlistener.on_watcher = self.on_quotes
         self.qwatcher = iunCloud.get_watcher('quotes')
         self.watchers = [self.watcher, self.qwatcher]
         self.skltype = 1
@@ -251,6 +254,8 @@ class StrategySellELShort(PlannedStrategy):
                 await self.check_quotes(acc, acode)
 
     async def check_quotes(self, acc, code):
+        if acc == 'collat':
+            logger.info('check_quotes %s', code)
         quotes = klPad.get_quotes(code)
         if not quotes:
             return
@@ -259,6 +264,8 @@ class StrategySellELShort(PlannedStrategy):
         #     self.qwatcher.remove_stock(code)
         #     self.qickwatcher.add_stock(code)
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
+        if acc == 'collat':
+            logger.info('check_quotes %s %s', smeta, quotes)
         if 'topprice' in smeta and quotes['price'] < smeta['topprice']:
             return
 
@@ -285,7 +292,7 @@ class StrategySellELShort(PlannedStrategy):
                     smeta['enabled'] = False
                     IunCache.update_strategy_meta(acc, code, self.key, smeta)
 
-        if 'guardPrice' not in smeta and quotes['price'] < smeta['guardPrice']:
+        if 'guardPrice' in smeta and quotes['price'] < smeta['guardPrice']:
             count = FnPs.get_sell_count_matched(buydetails, smeta['cutselltype'], quotes['price'])
             if count > 0:
                 StrategyFac.planned_strategy_trade(acc, code, 'S', quotes['price'], count)
@@ -389,7 +396,7 @@ class StrategySellBeforeEnd(PlannedStrategy):
             if klclose > FnPs.buy_details_average_price(buydetails) * (1 + smeta['upRate']):
                 self.dosell(acc, code, klclose, count, smeta)
                 return
-            
+
     def dosell(self, acc, code, price, count, smeta):
         StrategyFac.planned_strategy_trade(acc, code, 'S', price, count)
         smeta['enabled'] = False
@@ -404,7 +411,7 @@ class StrategyBuyZTBoard(PlannedStrategy):
         self.watcher = iunCloud.get_watcher('quotes')
         self.watchers = [self.watcher]
 
-    async def execute(self, params):
+    async def on_watcher(self, params):
         for acc, acode in self.accstocks:
             if acode in params:
                 await self.check_quotes(acc, acode)
@@ -459,7 +466,7 @@ class StrategyBuyDTBoard(PlannedStrategy):
         self.watcher = iunCloud.get_watcher('quotes')
         self.watchers = [self.watcher]
 
-    async def execute(self, params):
+    async def on_watcher(self, params):
         for acc, acode in self.accstocks:
             if acode in params:
                 await self.check_quotes(acc, acode)
@@ -540,7 +547,7 @@ class StrategyFac():
             buydetails.append({'code': code, 'count': count, 'price': price, 'date': guang.today_date('-'), 'type': 'B'})
         else:
             buydetails = FnPs.consume_buy_details(buydetails, count)
-        # TradeInterface.submit_trade({'account': tacc, 'code': code, 'tradeType': tradeType, 'count': count, 'price': price})
+        TradeInterface.submit_trade({'account': tacc, 'code': code, 'tradeType': tradeType, 'count': count, 'price': price})
         logger.info('Strategy trade: %s %s %s %f %d', tacc, code, tradeType, price, count)
         IunCache.update_buy_details(acc, code, buydetails)
 

@@ -55,9 +55,8 @@ class accld:
                 if not sobj['enabled']:
                     continue
                 s = StrategyFac.get_strategy(sobj['key'])
-                code = c[-6:]
                 if s:
-                    s.add_stock(keyacc, code)
+                    s.add_stock(keyacc, c[-6:])
 
     @classmethod
     def set_account_stock_strategy(cls, acc, code, strategy):
