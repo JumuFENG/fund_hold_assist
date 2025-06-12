@@ -254,8 +254,6 @@ class StrategySellELShort(PlannedStrategy):
                 await self.check_quotes(acc, acode)
 
     async def check_quotes(self, acc, code):
-        if acc == 'collat':
-            logger.info('check_quotes %s', code)
         quotes = klPad.get_quotes(code)
         if not quotes:
             return
@@ -264,8 +262,9 @@ class StrategySellELShort(PlannedStrategy):
         #     self.qwatcher.remove_stock(code)
         #     self.qickwatcher.add_stock(code)
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
-        if acc == 'collat':
-            logger.info('check_quotes %s %s', smeta, quotes)
+        if smeta is None or quotes is None:
+            logger.error('check_quotes meta is None %s %s %s %s', acc, code, smeta, quotes)
+            return
         if 'topprice' in smeta and quotes['price'] < smeta['topprice']:
             return
 
@@ -288,7 +287,8 @@ class StrategySellELShort(PlannedStrategy):
                 if count > 0:
                     StrategyFac.planned_strategy_trade(acc, code, 'S', quotes['bid2'] if quotes['bid2'] > 0 else quotes['bottom_price'], count)
                     self.remove_stock(acc, code)
-                    del smeta['tmpmaxb1count']
+                    if 'tmpmaxb1count' in smeta:
+                        del smeta['tmpmaxb1count']
                     smeta['enabled'] = False
                     IunCache.update_strategy_meta(acc, code, self.key, smeta)
 
@@ -297,7 +297,8 @@ class StrategySellELShort(PlannedStrategy):
             if count > 0:
                 StrategyFac.planned_strategy_trade(acc, code, 'S', quotes['price'], count)
                 self.remove_stock(acc, code)
-                del smeta['tmpmaxb1count']
+                if 'tmpmaxb1count' in smeta:
+                    del smeta['tmpmaxb1count']
                 smeta['enabled'] = False
                 IunCache.update_strategy_meta(acc, code, self.key, smeta)
 
@@ -306,12 +307,16 @@ class StrategySellELShort(PlannedStrategy):
             return
 
         klines = klPad.get_klines(code, self.skltype)
-        if len(klines) > 0:
+        if len(klines) == 0:
             return
 
         klclose = klines['close'].iloc[-1]
         buydetails = IunCache.get_buy_details(acc, code)
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
+        if smeta is None:
+            logger.error('check_kline meta is None %s %s %s %s', acc, code, smeta)
+            return
+
         if 'cutselltype' not in smeta:
             smeta['cutselltype'] = 'all'
         if 'topprice' in smeta:
@@ -398,7 +403,7 @@ class StrategySellBeforeEnd(PlannedStrategy):
                 return
 
     def dosell(self, acc, code, price, count, smeta):
-        StrategyFac.planned_strategy_trade(acc, code, 'S', price, count)
+        StrategyFac.planned_strategy_trade(acc, code, 'S', round(price * 0.99, 2), count)
         smeta['enabled'] = False
         self.remove_stock(acc, code)
         IunCache.update_strategy_meta(acc, code, self.key, smeta)

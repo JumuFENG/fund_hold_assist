@@ -33,6 +33,9 @@ class GlobalStartup(StrategyI_Listener):
             klines = tdx.klines(stocks, kltype=klt, length=240)
             for c, k in klines.items():
                 klPad.cache(c, k, kltype=1)
+
+        for c in stocks:
+            klPad.resize_cached_klines(c, 20)
         logger.info("GlobalStartup init kline1 for %d", len(klines))
 
         qq = asrt.rtsource('qq')
@@ -42,6 +45,7 @@ class GlobalStartup(StrategyI_Listener):
             if q['top_price'] == 0 and q['bottom_price'] == 0:
                 logger.info('%s %s no top or bottom price, %s', c, q['name'], q)
         logger.info("GlobalStartup init quotes for %d", len(quotes))
+        logger.info("init stocks: %s", stocks)
 
     async def openauction(self):
         stocks = iunCloud.get_hotstocks()
@@ -377,6 +381,11 @@ class StrategyI_3Bull_Breakup(StrategyI_Listener):
             code = c[-6:]
             self.watcher.add_stock(code)
             self.candidates[code] = {'high': h, 'low': l}
+        qq = asrt.rtsource('qq')
+        quotes = qq.quotes(list(self.candidates.keys()))
+        for c, q in quotes.items():
+            klPad.cache(c, quotes=q)
+
 
     async def on_watcher(self, params):
         if self.candidates is None:
@@ -395,6 +404,9 @@ class StrategyI_3Bull_Breakup(StrategyI_Listener):
             if price < self.candidates[code]['high']:
                 continue
             price = min(price+0.02, klPad.get_zt_price(code))
+            if price == 0:
+                logger.error('StrategyI_3Bull_Breakup no zt price for %s, %s', code, klines)
+                continue
             if callable(self.on_intrade_matched):
                 mdata = {'code': code, 'price': price}
                 mdata['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2), 'guardPrice': self.candidates[code]['low'] }}
@@ -413,7 +425,7 @@ class StrategyI_Zt1WbOpen(StrategyI_Listener):
     def __init__(self):
         self.prepare_watcher = StrategyI_Watcher_Once('9:22', True)
         self.prepare_watcher.execute_task = self.prepare
-        self.watcher = StrategyI_Watcher_Once('9:24:57', False)
+        self.watcher = StrategyI_Watcher_Once('9:24:56', False)
         self.watcher.execute_task = self.on_watcher
         self.watcher2 = StrategyI_Watcher_Once('9:25:03', False)
         self.watcher2.execute_task = self.on_watcher2
@@ -515,7 +527,6 @@ class StrategyI_HotrankOpen(StrategyI_Listener):
         try:
             jqrkUrl = 'https://basic.10jqka.com.cn/api/stockph/popularity/top/'
             headers = guang.em_headers('basic.10jqka.com.cn')
-            # headers['']
             jdata = json.loads(guang.get_request(jqrkUrl, headers=headers))
             if not jdata or jdata['status_code'] != 0 or 'data' not in jdata or 'list' not in jdata['data']:
                 logger.error(f'{self.__class__.name} no jqrk ranks')
@@ -666,7 +677,7 @@ class StrategyI_HotStocksOpen(StrategyI_Listener):
 
             istrdata = iunCloud.iun_str_conf(self.key)
             if q['price'] > 0.013 * float(istrdata['amount']):
-                logger.info('%s %s price too high: %.2f > %.2f', c, q['name'], q['price'], istrdata['amount'] * 0.013)
+                logger.info('%s %s price too high: %.2f amount: %s', c, q['name'], q['price'], istrdata['amount'])
                 continue
 
             price = q['price'] * self.pupfix
@@ -678,7 +689,7 @@ class StrategyI_HotStocksOpen(StrategyI_Listener):
             if callable(self.on_intrade_matched):
                 mdata = {'code': c, 'price': price}
                 mdata['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2)}, 'StrategySellBE': {}}
-                # await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
+                await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
                 logger.info('%s buy %s %s at %s', self.key, c, q['name'], price)
 
         ohstks = []
@@ -691,9 +702,9 @@ class StrategyI_HotStocksOpen(StrategyI_Listener):
         data = {
             'act': 'setistr',
             'key': self.key,
-            'data': json.dumps(ohstks),
+            'ohstks': json.dumps(ohstks),
         }
-        # guang.post_data(url, data)
+        guang.post_data(url, data)
 
 
 class StrategyI_DtStocksUp(StrategyI_Listener):

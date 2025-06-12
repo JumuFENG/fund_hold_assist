@@ -221,14 +221,17 @@ class klPad:
         col_name = f'bss{n}'
         start_idx = 1
         if col_name not in klines.columns:
-            klines[col_name] = 'u'  # 默认值
-        else:
-            last_valid = klines[col_name].last_valid_index()
-            if last_valid is None:
-                start_idx = 1
+            if len(klines) < 2:
+                klines[col_name] = 'u'
             else:
-                start_idx = klines.index.get_loc(last_valid)
-            start_idx = max(1, start_idx)  # 至少从第1个索引开始（因为需要前一个数据）
+                klines[col_name] = None
+                klines.loc[0:1, col_name] = ['u', 'u']  # 默认值
+        last_valid = klines[col_name].last_valid_index()
+        if last_valid is None:
+            start_idx = 1
+        else:
+            start_idx = klines.index.get_loc(last_valid)
+        start_idx = max(1, start_idx)  # 至少从第1个索引开始（因为需要前一个数据）
 
         for i in range(start_idx, len(klines)):
             if i < 2:
@@ -238,7 +241,7 @@ class klPad:
             prev_row = klines.iloc[i-1]
             current_row = klines.iloc[i]
             ma = current_row[f'ma{n}']
-            
+
             if current_row['low'] > ma and kline_approximately_above_ma(prev_row, n):
                 if prev_row[col_name] == 'u':
                     bss = 'b'
@@ -265,10 +268,31 @@ class klPad:
         return self.__stocks[code]['klines'][kltype]
 
     @classmethod
+    def resize_cached_klines(self, code, n):
+        if code not in self.__stocks:
+            return
+        for kltype in self.__stocks[code]['klines'].keys():
+            self.__stocks[code]['klines'][kltype] = self.__stocks[code]['klines'][kltype].iloc[-n:]
+
+    @classmethod
     def get_quotes(self, code):
         if code not in self.__stocks:
             return {}
         return self.__stocks[code]['quotes']
+
+    @classmethod
+    def get_lclose_from_klines(self, code):
+        if code not in self.__stocks:
+            return 0
+        today = guang.today_date('-')
+        for klines in self.__stocks[code]['klines'].values():
+            if len(klines) > 0:
+                msk = klines['time'].str.startswith(today)
+                if msk.any():
+                    first_idx = msk.idxmax()
+                    if first_idx > 0:
+                        return klines.loc[first_idx - 1, 'close']
+        return 0
 
     @classmethod
     def get_zt_price(self, code):
@@ -276,9 +300,10 @@ class klPad:
             return 0
         quotes = self.__stocks[code]['quotes']
         if 'top_price' not in quotes:
-            if 'lclose' not in quotes:
+            lclose = quotes['lclose'] if 'lclose' in quotes else self.get_lclose_from_klines(code)
+            if lclose == 0:
                 return 0
-            return guang.zt_priceby(quotes['lclose'], zdf=guang.zdf_from_code(code))
+            return guang.zt_priceby(lclose, zdf=guang.zdf_from_code(code))
         return quotes['top_price']
 
     @classmethod
@@ -287,9 +312,10 @@ class klPad:
             return 0
         quotes = self.__stocks[code]['quotes']
         if 'bottom_price' not in quotes:
-            if 'lclose' not in quotes:
+            lclose = quotes['lclose'] if 'lclose' in quotes else self.get_lclose_from_klines(code)
+            if lclose == 0:
                 return 0
-            return guang.dt_priceby(quotes['lclose'], zdf=guang.zdf_from_code(code))
+            return guang.dt_priceby(lclose, zdf=guang.zdf_from_code(code))
         return quotes['bottom_price']
 
     @staticmethod

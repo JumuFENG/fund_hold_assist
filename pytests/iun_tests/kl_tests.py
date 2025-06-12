@@ -7,7 +7,7 @@ from app.config import IunCache
 import stockrt as srt
 import asyncio
 import pandas as pd
-
+from datetime import datetime
 
 class TestklPadCache(unittest.TestCase):
 
@@ -80,6 +80,44 @@ class TestklPadCache(unittest.TestCase):
         self.assertEqual(ckls['time'].iloc[0], '2025-05-26 09:31')
         self.assertEqual(ckls['volume'].iloc[0], 15000)
 
+    def test_get_lclose_from_klines(self):
+        code = '603332'
+        klines1 = [{'time': '2025-05-26 09:30', 'open': 17.97, 'close': 17.97, 'high': 17.97, 'low': 17.97, 'volume': 2800, 'amount': 50315.9984}, 
+            {'time': '2025-05-26 09:31', 'open': 17.97, 'close': 17.9, 'high': 17.97, 'low': 17.97, 'volume': 12200, 'amount': 219233.999},
+            {'time': '2025-05-26 09:32', 'open': 17.97, 'close': 17.91, 'high': 17.97, 'low': 17.97, 'volume': 5200, 'amount': 93443.9972},
+            {'time': '2025-05-26 09:33', 'open': 17.97, 'close': 17.92, 'high': 17.97, 'low': 17.97, 'volume': 6200, 'amount': 111413.9962},
+            {'time': '2025-05-26 09:34', 'open': 17.97, 'close': 17.93, 'high': 17.97, 'low': 17.97, 'volume': 6200, 'amount': 111413.9962}]
+        klines1[-1]['time'] = datetime.now().strftime(f"%Y-%m-%d")
+        klines1 = pd.DataFrame(klines1)
+        klPad.cache(code, klines1)
+        lclose = klPad.get_lclose_from_klines(code)
+        self.assertEqual(lclose, 17.92)
+
+    def test_calcbss(self):
+        code = '603332'
+        klines1 = [
+            ['2025-06-11 09:38',12.19,12.22,12.19,12.19],['2025-06-11 09:46',12.22,12.25,12.21,12.22],['2025-06-11 09:54',12.20,12.25,12.19,12.20],
+            ['2025-06-11 10:02',12.19,12.22,12.19,12.19],['2025-06-11 10:10',12.18,12.22,12.18,12.18],['2025-06-11 10:18',12.17,12.19,12.16,12.17],
+            ['2025-06-11 10:26',12.18,12.18,12.18,12.18],['2025-06-11 10:34',12.17,12.17,12.17,12.17],['2025-06-11 10:42',12.19,12.22,12.18,12.19],
+            ['2025-06-11 10:50',12.17,12.17,12.17,12.17],['2025-06-11 10:58',12.15,12.15,12.15,12.15],['2025-06-11 11:06',12.16,12.16,12.16,12.16],
+            ['2025-06-11 11:14',12.18,12.18,12.18,12.18],['2025-06-11 11:22',12.17,12.17,12.17,12.17],['2025-06-11 11:30',12.18,12.18,12.18,12.18],
+            ['2025-06-11 13:08',12.17,12.17,12.17,12.17],['2025-06-11 13:16',12.17,12.17,12.17,12.17],['2025-06-11 13:24',12.15,12.15,12.15,12.15],
+            ['2025-06-11 13:32',12.16,12.16,12.16,12.16],['2025-06-11 13:40',12.14,12.14,12.14,12.14],['2025-06-11 13:48',12.15,12.15,12.15,12.15],
+            ['2025-06-11 13:56',12.16,12.16,12.16,12.16],['2025-06-11 14:04',12.14,12.14,12.14,12.14],['2025-06-11 14:12',12.15,12.15,12.15,12.15],
+            ['2025-06-11 14:20',12.15,12.15,12.15,12.15],['2025-06-11 14:28',12.15,12.15,12.15,12.15],['2025-06-11 14:36',12.14,12.14,12.14,12.14],
+            ['2025-06-11 14:44',12.14,12.14,12.14,12.14],['2025-06-11 14:52',12.14,12.14,12.14,12.14]]
+        klines1 = pd.DataFrame(klines1, columns=['time', 'close', 'high', 'low', 'ma18'])
+        klPad._klPad__stocks = {
+            f'{code}': {
+                'klines': {
+                    8: klines1
+                }
+            }
+        }
+        klPad.calc_bss(code, 8, 18)
+        
+
+
 class TestStrategyGE(unittest.TestCase):
     def setUp(self):
         IunCache.cache_strategy_data('collat', '510050', {'holdCost': 2.6994, 'holdCount': 14500.0, 'strategies': {'grptype': 'GroupStandard', 'strategies': {
@@ -112,7 +150,7 @@ class TestStrategyGE(unittest.TestCase):
 if __name__ == '__main__':
     suite = unittest.TestSuite()
     # suite.addTest(TestStrategyGE('test_check_kline'))
-    suite.addTest(TestklPadCache('test_cache_klines_on_930'))
+    suite.addTest(TestklPadCache('test_calcbss'))
     runner = unittest.TextTestRunner()
     runner.run(suite)
 

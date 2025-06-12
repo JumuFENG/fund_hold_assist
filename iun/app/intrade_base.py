@@ -822,6 +822,15 @@ class Stock_Quote_Watcher(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):
         self.period = 5
 
     async def execute_task(self):
+        while self.task_running:
+            try:
+                await self.get_quotes()
+            except Exception as e:
+                logger.error(f'{e}')
+                logger.error(traceback.format_exc())
+            await asyncio.sleep(self.period)
+
+    async def get_quotes(self):
         codes = [c for c in self.codes if self.codes[c] > 0]
         if len (codes) == 0:
             return
@@ -829,5 +838,4 @@ class Stock_Quote_Watcher(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):
         for c in quotes:
             klPad.cache(c, quotes=quotes[c])
         await self.notify_change(quotes.keys())
-        logger.info('get quotes for %d %s', len(codes), codes)
 

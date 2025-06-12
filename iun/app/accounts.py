@@ -81,6 +81,9 @@ class accld:
         if smeta and smeta['enabled']:
             smeta['enabled'] = False
             IunCache.update_strategy_meta(acc, code, skey, smeta)
+        else:
+            return
+
         s = StrategyFac.get_strategy(smeta['key'])
         if s:
             s.remove_stock(acc, code)
