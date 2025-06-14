@@ -797,7 +797,6 @@ class Stock_Klinem_Watcher(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):
         for c in klines:
             chgklt[c] = klPad.cache(c, klines[c], kltype=self.klt)
         await self.notify_change(chgklt)
-        logger.info('get klines for %d klt=%d %s', len(codes), self.klt, codes)
 
 
 class Stock_KlineDay_Watcher(StrategyI_Watcher_Once, Stock_Rt_Watcher):
@@ -812,7 +811,6 @@ class Stock_KlineDay_Watcher(StrategyI_Watcher_Once, Stock_Rt_Watcher):
         for c in klines:
             chgklt[c] = klPad.cache(c, klines[c], kltype=101)
         await self.notify_change(chgklt)
-        logger.info('get klines for %d klt=101 %s', len(codes), codes)
 
 
 class Stock_Quote_Watcher(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):

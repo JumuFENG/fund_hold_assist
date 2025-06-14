@@ -144,6 +144,7 @@ class StrategyGE(PlannedStrategy):
                 # 建仓
                 tacc = smeta['account'] if 'account' in smeta else acc
                 StrategyFac.planned_strategy_trade(acc, code, 'B', klines['close'].iloc[-1], 0, tacc)
+                logger.info('建仓 %s %s %d %s %s', acc, code, lkltype, smeta, klines)
                 return
 
         if len(buydetails) > 0 and self.skltype in kltypes:
@@ -160,6 +161,7 @@ class StrategyGE(PlannedStrategy):
                     if klPad.continuously_increase_days(code, self.skltype) > 2:
                         tacc = smeta['account'] if 'account' in smeta else acc
                         StrategyFac.planned_strategy_trade(acc, code, 'B', klclose1, 0, tacc)
+                        logger.info('加仓 %s %s %d %s %s', acc, code, self.skltype, smeta, klines1)
                         smeta['guardPrice'] = klclose1
                         smeta['inCritical'] = False
                         IunCache.update_strategy_meta(acc, code, self.key, smeta)
@@ -176,6 +178,7 @@ class StrategyGE(PlannedStrategy):
             count = FnPs.get_sell_count_matched(buydetails, smeta['cutselltype'], klclose, smeta['stepRate'])
             if count > 0:
                 StrategyFac.planned_strategy_trade(acc, code, 'S', klclose, count)
+                logger.info('卖出 %s %s %d %s %s', acc, code, lkltype, smeta, klines)
                 del smeta['guardPrice']
                 smeta['inCritical'] = False
                 IunCache.update_strategy_meta(acc, code, self.key, smeta)

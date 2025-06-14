@@ -116,7 +116,8 @@ class klPad:
             if len(new_data) == 0:
                 continue
             new_last_time = new_data['time'].iloc[-1].split()[-1]
-            if len(new_data) >= fac or (base_kltype <= 15 and new_last_time >= '14:56'):
+            expand_unfinished = base_kltype <= 15 and new_last_time >= '14:56'
+            if len(new_data) >= fac or expand_unfinished:
                 # 删除最后一条可能不完整的K线
                 if len(ex_klines) > 0:
                     ex_klines = ex_klines.iloc[:-1]
@@ -127,7 +128,7 @@ class klPad:
                 expanded_klines = []
                 for i in range(0, len(new_data), fac):
                     group = new_data.iloc[i:i+fac]
-                    if len(group) == fac:
+                    if len(group) == fac or expand_unfinished:
                         new_kline = {
                             'time': group['time'].iloc[-1],
                             'open': group['open'].iloc[0],
@@ -272,7 +273,7 @@ class klPad:
         if code not in self.__stocks:
             return
         for kltype in self.__stocks[code]['klines'].keys():
-            self.__stocks[code]['klines'][kltype] = self.__stocks[code]['klines'][kltype].iloc[-n:]
+            self.__stocks[code]['klines'][kltype] = self.__stocks[code]['klines'][kltype].iloc[-n-1:]
 
     @classmethod
     def get_quotes(self, code):

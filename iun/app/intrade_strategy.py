@@ -14,6 +14,10 @@ class GlobalStartup(StrategyI_Listener):
         self.twatcher = StrategyI_Watcher_Once('9:24', False)
         self.twatcher.execute_task = self.openauction
 
+    async def start_strategy_tasks(self):
+        await super().start_strategy_tasks()
+        await self.twatcher.start_strategy_tasks()
+
     async def execute(self):
         # 准备工作，
         # * 1分钟k线数据，部分数据源只能获取当日数据，可以提前将昨日1分K线数据获取

@@ -93,6 +93,30 @@ class TestklPadCache(unittest.TestCase):
         lclose = klPad.get_lclose_from_klines(code)
         self.assertEqual(lclose, 17.92)
 
+    def test_expand_lines(self):
+        code = '603332'
+        klines1 = [
+            ['2025-06-13 14:53',1.116,1.117,1.119,1.115,300000,343589.2],
+            ['2025-06-13 14:54',1.117,1.117,1.119,1.115,300000,1542912.1],
+            ['2025-06-13 14:55',1.117,1.117,1.119,1.115,300000,632110.3],
+            ['2025-06-13 14:56',1.117,1.117,1.119,1.115,300000,240155.0],
+            ['2025-06-13 14:57',1.117,1.117,1.119,1.115,300000,495724.6]]
+        klines1 = pd.DataFrame(klines1, columns=['time', 'open', 'close', 'high', 'low', 'volume', 'amount'])
+        klPad._klPad__stocks = {
+            f'{code}': {
+                'klines': {
+                    1: klines1
+                }
+            }
+        }
+        klPad.expand_kltypes(code, 1)
+        klines = klPad.get_klines(code, 8)
+        self.assertEqual(klines['time'].iloc[0], '2025-06-13 14:57')
+        self.assertEqual(klines['open'].iloc[0], 1.116)
+        self.assertEqual(klines['high'].iloc[0], 1.119)
+        self.assertEqual(klines['low'].iloc[0], 1.115)
+        self.assertEqual(klines['close'].iloc[0], 1.117)
+
     def test_calcbss(self):
         code = '603332'
         klines1 = [
@@ -150,7 +174,7 @@ class TestStrategyGE(unittest.TestCase):
 if __name__ == '__main__':
     suite = unittest.TestSuite()
     # suite.addTest(TestStrategyGE('test_check_kline'))
-    suite.addTest(TestklPadCache('test_calcbss'))
+    suite.addTest(TestklPadCache('test_expand_lines'))
     runner = unittest.TextTestRunner()
     runner.run(suite)
 
