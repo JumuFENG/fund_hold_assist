@@ -366,7 +366,7 @@ class StockClsBkChangesHistory(EmRequest, TableBase):
             if code not in self.allBks:
                 self.allBkTable.checkBk(code, name)
                 self.allBks.append(code)
-            pchange = round(chg['change'] * 100, 2)
+            pchange = round(chg['change'] * 100, 2) if chg['change'] else 0
             amount = chg['main_fund_diff']/10000
             ztcnt = chg['limit_up_num']
             dtcnt = chg['limit_down_num']

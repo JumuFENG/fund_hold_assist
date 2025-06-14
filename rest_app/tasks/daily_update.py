@@ -100,7 +100,7 @@ class DailyUpdater():
     def download_all_stocks_khistory(self):
         StockGlobal.updateStocksDailyData()
         sfh = Stock_Fflow_History()
-        sfh.updateLatestFflow()
+        sfh.updateDailyFflow()
         stkall = AllStocks()
         stkall.loadNewStock()
         stkall.loadNewStock('BJ')
@@ -199,7 +199,7 @@ class DailyUpdater():
         dts.updateDt3()
 
         selectors = [
-            StockDztSelector(), StockZt1Selector(), StockCentsSelector(),
+            StockDztSelector(), StockZt1Selector(), StockZt1WbSelector(), StockCentsSelector(),
             StockMaConvergenceSelector(), StockZdfRanks(), StockZtLeadingSelector(), StockZtLeadingStepsSelector(),
             StockZtLeadingSelectorST(), StockDztStSelector(), StockDztBoardSelector(), StockDztStBoardSelector(),
             StockZdtEmotion(),

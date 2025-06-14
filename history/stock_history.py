@@ -625,6 +625,18 @@ class Stock_Fflow_History(TableBase, EmRequest):
                     self.getFflowFromEm(c)
         return mainflows
 
+    def updateDailyFflow(self):
+        all_codes = StockGlobal.all_stocks()
+        mx_date = TradingDate.maxTradedDate()
+        for _,c,n,_,t,*_ in all_codes:
+            if t != 'ABStock' and t != 'BJStock':
+                continue
+            self.setCode(c)
+            if self._max_date() == mx_date:
+                continue
+            if c.startswith(('SH', 'SZ', 'BJ')):
+                self.getFflowFromEm(c)
+
     def getDumpCondition(self, date=None):
         if date is None:
             date = self._max_date()

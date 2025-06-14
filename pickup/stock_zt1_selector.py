@@ -6,7 +6,8 @@ from history import *
 from history.stock_history import *
 from history.stock_dumps import *
 from pickup.stock_base_selector import *
-from pickup.stock_zt_lead_selector import StockZtDailyMain, StockZtDailyKcCy, StockZtDailyST
+from pickup.stock_zt_lead_selector import StockZtDailyMain, StockZtDailyKcCy, StockZtDailyST, StockZtDailyBJ
+import stockrt as srt
 
 
 class StockZt0Selector(StockBaseSelector):
@@ -1313,6 +1314,30 @@ class StockZt1WbSelector(StockBaseSelector):
             {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
             {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
         ]
+
+    def updatePickUps(self):
+        date = self._max_date()
+        szi = StockZtDailyMain()
+        zt = szi.dumpDataByDate()
+        if zt['date'] <= date:
+            return
+        stocks = [x[0] for x in zt['pool']]
+        # szi = StockZtDailyKcCy()
+        # ztkc = szi.dumpDataByDate(zt['date'])
+        # stocks += [x[0] for x in ztkc['pool']]
+        # szj = StockZtDailyBJ()
+        # ztbj = szj.dumpDataByDate(zt['date'])
+        # stocks += [x[0] for x in ztbj['pool']]
+        stocks = [s.lower() for s in stocks]
+        tlines = srt.tlines(stocks)
+        picked = []
+        for c, tls in tlines.items():
+            high = max([tl[1] for tl in tls])
+            firstidx = next((idx for idx, tl in enumerate(tls) if tl[1] == high), None)
+            countless = len([tl for tl in tls[firstidx + 1:] if tl[1] < high])
+            if firstidx > 215 or countless > 5:
+                picked.append(c.upper())
+        self.addZt1WbStocks(zt['date'], picked)
 
     def addZt1WbStocks(self, date, stocks):
         self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_code, column_date], [[c, date] for c in stocks])
