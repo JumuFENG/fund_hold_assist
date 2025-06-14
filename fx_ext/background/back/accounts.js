@@ -827,7 +827,7 @@ class Account {
         dfd.append('act', 'deals');
         dfd.append('acc', this.keyword);
         dfd.append('data', JSON.stringify(deals));
-        logger.info(this.constructor.name, 'uploadDeals', JSON.stringify(deals));
+        logger.info(this.keyword, 'uploadDeals', JSON.stringify(deals));
 
         var retry = 0;
         const fetchWithRetry = async () => {
@@ -1800,6 +1800,10 @@ const accld = {
         }
         if (!count) {
             var stk = this.all_accounts[account].holdAccount.getStock(code);
+            if (!stk.strategies) {
+                logger.error('no count set and no strategy to calc count', account, code, price, count, strategies, stk);
+                return Promise.resolve();
+            }
             if (stk) {
                 count = stk.strategies.getBuyCount(price);
             }

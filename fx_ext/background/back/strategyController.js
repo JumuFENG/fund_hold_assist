@@ -959,7 +959,7 @@ class StrategySellELShort extends StrategySellEL {
             if (this.quotePriceValid(rtInfo.buysells.sale1) || rtInfo.buysells.buy1_count - this.tmpmaxb1count * 0.1 < 0) {
                 var count = buydetails.getCountMatched(this.data.cutselltype, latestPrice);
                 if (count > 0) {
-                    logger.info(this.key(), JSON.stringify(rtInfo));
+                    logger.info(this.key(), 'b1count decrease', JSON.stringify(rtInfo), this.tmpmaxb1count);
                     return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: (this.quotePriceValid(rtInfo.buysells.buy2) ? rtInfo.buysells.buy2 : rtInfo.bottomprice)});
                 }
             }
@@ -967,7 +967,7 @@ class StrategySellELShort extends StrategySellEL {
         if (this.data.guardPrice && latestPrice - this.data.guardPrice < 0) {
             var count = buydetails.getCountMatched(this.data.cutselltype, latestPrice);
             if (count > 0) {
-                logger.info(this.key(), JSON.stringify(rtInfo));
+                logger.info(this.key(), 'zt board break', JSON.stringify(rtInfo), this.data.guardPrice, latestPrice);
                 return Promise.resolve({id: chkInfo.id, tradeType: 'S', count, price: latestPrice});
             }
         }
@@ -2558,6 +2558,9 @@ class StrategyZt1 extends StrategyBarginHunting {
             return;
         }
         var mvkl = klPad.klines[code].minVolKlSince(this.data.zt0date, this.data.kltype);
+        if (!mvkl) {
+            return;
+        }
         this.data.guardVol = mvkl.v - this.data.guardVol < 0 ? mvkl.v : this.data.guardVol;
     }
 }

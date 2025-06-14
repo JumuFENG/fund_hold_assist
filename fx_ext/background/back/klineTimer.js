@@ -318,15 +318,16 @@ const alarmHub = {
 
         guang.isTodayTradingDay().then(trade => {
             if (trade) {
-                const timers = [
-                    ralarm, bclose, this.orderTimer,
-                    talarm, closed, this.otpAlarm, this.dailyAlarm];
+                const timers = [ralarm, bclose, this.orderTimer, closed];
                 if (this.config.enable_rtp_check) {
+                    timers.push(this.otpAlarm);
+                    timers.push(talarm);
                     timers.push(this.rtpTimer);
                     timers.push(this.ztBoardTimer);
                 }
                 if (this.config.enable_kl_check) {
                     timers.push(this.klineAlarms);
+                    timers.push(this.dailyAlarm);
                 }
                 timers.forEach(a => {
                     a.setupTimer();

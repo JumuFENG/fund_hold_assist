@@ -417,6 +417,16 @@ app.get('/iunstrs', (req, res) => {
     res.send(config.client.iunstrs);
 });
 
+app.get('/rzrq', (req, res) => {
+    if (!ext.running) {
+        res.send(false);
+        return;
+    }
+    accld.checkRzrq(req.query.code).then(rzrq => {
+        res.send(rzrq.Status !== -1);
+    });
+});
+
 const port = config.client.port;
 const server = app.listen(port, () => {
     logger.info('Server is running on port', port);
