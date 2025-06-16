@@ -1448,4 +1448,70 @@ class StockHotStocksOpenSelector(StockBaseSelector):
 
     def saveDailyHotStocksOpen(self, hstks):
         values = [(h[0], StockGlobal.full_stockcode(h[1]), *h[2:]) for h in hstks]
+        values = sorted(values, key=lambda s: (s[0], s[5]))
         self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_date, column_code], values)
+
+    def get_top_ztstocks(self, zt_stocks):
+        zt_stocks = sum(zt_stocks, [])
+        step = max([x[3] for x in zt_stocks])
+        zstepdic = {}
+        for z in zt_stocks:
+            if z[0] not in zstepdic:
+                zstepdic[z[0]] = z[3]
+                continue
+            if z[3] > zstepdic[z[0]]:
+                zstepdic[z[0]] = z[3]
+        zt_stocks = [z for z in zt_stocks if z[3] == zstepdic[z[0]]]
+        top_zt_stocks = []
+        while step > 2:
+            if len([x for x in zt_stocks if x[3] == step]) > len(top_zt_stocks) and len(top_zt_stocks) >= 8:
+                break
+            top_zt_stocks = [x for x in zt_stocks if x[3] >= step]
+            if len(top_zt_stocks) >= 10:
+                break
+            step -= 1
+        return top_zt_stocks
+
+    def walkOnHistory(self):
+        szd = StockZtDailyMain()
+        stks = szd.sqldb.select(szd.tablename, 'code, date, 总天数, 连板数')
+        saved_dates = self.sqldb.select(self.tablename, column_date)
+        saved_dates = list(set([x[0] for x in saved_dates]))
+        self.wkselected = []
+        from collections import defaultdict
+        grouped = defaultdict(list)
+        for s in stks:
+            grouped[s[1]].append(s)
+
+        stks = list(grouped.values())
+        for i in range(3, len(stks)):
+            date = stks[i][0][1]
+            if date in saved_dates:
+                continue
+            zs = self.get_top_ztstocks(stks[i-3: i])
+            for z in zs:
+                self.wkselected.append((date,) + z + (0,))
+        self.walk_post_process()
+
+
+class StockHotStocksRetryZt0Selector(StockBaseSelector):
+    '''
+    高标/人气股 涨停回调(>3个交易日)之后首板打板买入,
+    入选之后66个交易日不涨停则剔除，再次涨停后30个交易日不涨停剔除
+    首板后若连板高度>3则重新计算
+    卖出条件，
+    次日如果涨停则开板卖出，次日如果不涨停，尾盘卖出，
+    次日如果深水开盘则盘中冲高卖出，如果盘中横盘则跌破横盘区需止损卖出，
+    如果一字跌停，则转波段策略
+    '''
+    def initConstrants(self):
+        super().initConstrants()
+        self.tablename = 'stock_day_hotstks_retry_zt0'
+        self.colheaders = [
+            {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
+            {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
+            {'col':'zdate','type':'varchar(20) DEFAULT NULL'}, # 涨停日期
+            {'col':'days','type':'int default 0'},
+            {'col':'step','type':'int default 0'},
+            {'col':'emrk','type':'int default 0'},
+        ]
