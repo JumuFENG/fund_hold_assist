@@ -156,19 +156,17 @@ GlobalManager.prototype.tlineFocused = function(stock, focus=true) {
     }
 }
 
-GlobalManager.prototype.getBkStocks = function(bks, cb) {
+GlobalManager.prototype.getBkStocks = async function(bks) {
     if (Array.isArray(bks)) {
         bks = bks.join(',');
     }
-    let url = emjyBack.fha.svr5000 + 'stock?act=bkstocks&bks=' + bks;
-    fetch(url).then(r=>r.json()).then(bstks => {
-        for (const s in bstks) {
-            emjyBack.plate_stocks[s] = bstks[s].map(c=>guang.convertToSecu(c));
-        }
-        if (typeof(cb) === 'function') {
-            cb(Object.keys(bstks));
-        }
-    });
+    const url = emjyBack.fha.svr5000 + 'stock?act=bkstocks&bks=' + bks;
+    const response = await fetch(url);
+    const bstks = await response.json();
+    for (const s in bstks) {
+        emjyBack.plate_stocks[s] = bstks[s].map(c=>guang.convertToSecu(c));
+    }
+    return Object.keys(bstks);
 }
 
 GlobalManager.prototype.getHotStocks = function(days=2) {
@@ -1879,13 +1877,12 @@ class StocksBkRanks {
         return r;
     }
 
-    showRecentBkZts(plate) {
+    async showRecentBkZts(plate) {
         const bkcon = this.container.querySelector('#stats_bk_recentzts_div');
         bkcon.innerHTML = '';
         if (!emjyBack.plate_stocks || !emjyBack.plate_stocks[plate] || emjyBack.plate_stocks[plate].length == 0) {
-            emjyBack.getBkStocks(plate, bks => {
-                bks.forEach(bk => this.showRecentBkZts(bk));
-            });
+            const bks = await emjyBack.getBkStocks(plate);
+            bks.forEach(bk => this.showRecentBkZts(bk));
             return;
         }
 
@@ -1910,7 +1907,8 @@ class StocksBkRanks {
         bkcon.appendChild(stbl);
         let bjstks = emjyBack.plate_stocks[plate].filter(c => c.endsWith('.BJ'));
         if (bjstks.length > 0) {
-            stbl.appendChild(this.createZtNztCollectionRow(bjstks, '北交所'));
+            const r = await this.createZtNztCollectionRow(bjstks, '北交所');
+            stbl.appendChild(r);
         }
 
         var stocks_all = this.stocks.filter(c => emjyBack.plate_stocks[plate].includes(c));
@@ -1932,11 +1930,13 @@ class StocksBkRanks {
         }
         let z = Object.keys(rstocks).sort((a,b)=> b - a);
         for (let i of z) {
-            stbl.appendChild(this.createZtNztCollectionRow(rstocks[i], i));
+            const r = await this.createZtNztCollectionRow(rstocks[i], i);
+            stbl.appendChild(r);
         }
 
         if (stocks_all.length > 0) {
-            stbl.appendChild(this.createZtNztCollectionRow(stocks_all, '今日涨停'));
+            const r = await this.createZtNztCollectionRow(stocks_all, '今日涨停');
+            stbl.appendChild(r);
         }
     }
 

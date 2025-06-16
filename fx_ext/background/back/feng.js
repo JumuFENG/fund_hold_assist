@@ -642,6 +642,9 @@ const feng = {
         const scodes = secs.join(',');
         const qurl = guang.server + `fwd/empush2qt/ulist.np/get?fltt=2&secids=${scodes}&fields=f2,f3,f4,f12,f13,f14,f18`;
         const emdata = await fetch(qurl).then(r => r.json()).then(d=>d?.data?.diff);
+        if (!emdata) {
+            return;
+        }
         for (const {f2: last_px, f3: change, f4: change_px, f12: code, f13:mkt, f14:secu_name, f18: preclose_px} of emdata) {
             let qcode = guang.convertToQtCode(['SZ','SH'][mkt] + code);
             this.stock_basics[qcode] = {last_px, change: change/100, change_px, secu_code: qcode, secu_name, preclose_px};
