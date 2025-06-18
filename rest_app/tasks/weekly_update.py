@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../..'))
 from utils import *
 from user import *
 from history import *
+from phon.data.history import AllIndexes
 
 class WeeklyUpdater():
     """for weekly update"""
@@ -17,11 +18,7 @@ class WeeklyUpdater():
     def update_all(self):
         Utils.log('Start weekly update.')
 
-        all_idx = AllIndexes()
-        codes = all_idx.sqldb.select(all_idx.infoTable, '*')
-        ih = Index_history()
-        for (i, c, n) in codes:
-            ih.getKwHistoryFromSohuTillToday(c)
+        AllIndexes.update_kline_data('w')
 
         usermodel = UserModel()
         all_users = usermodel.all_users()

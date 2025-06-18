@@ -231,8 +231,8 @@ def fund_hist_data():
         elif ftype == "index":
             if code.startswith("sz"):
                 code = code[2:]
-            ig = IndexGeneral(sqldb, code)
-            return json.dumps(ig.get_index_hist_data())
+            from phon.data.history import AllIndexes
+            return json.dumps(AllIndexes.read_index_daily_price_change(code))
         else:
             return "Error", 500
 

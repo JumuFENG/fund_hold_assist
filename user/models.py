@@ -203,8 +203,7 @@ class User():
             all_hist_data = self.merge_hist_data(all_hist_data, fund_his_data)
             
         for c in indexs_holding:
-            ig = IndexGeneral(sqldb, c)
-            index_his_data = ig.get_index_hist_data()
+            index_his_data = AllIndexes.read_index_daily_price_change(c)
             all_hist_data = self.merge_hist_data(all_hist_data, index_his_data)
 
         return all_hist_data

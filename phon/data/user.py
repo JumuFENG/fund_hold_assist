@@ -6,42 +6,13 @@ from decimal import Decimal
 from peewee import fn
 from functools import reduce
 from peewee import operator
+from phon.hu import lazy_property, classproperty
 from phon.hu.hu import DateConverter, datetime, timedelta
 from phon.data.tables import User as UserDb
 from phon.data.tables import UserFunds, UserStocks, UserEarned, UserEarning, UserDeals, UserStockBuy, UserStockSell
 from phon.data.tables import AllStocks, UserStrategy, UserOrders, UserCostdog, UcostdogUrque
 from phon.data.db import create_model, read_context, write_context, insert_or_update
-import easyquotation as ezqt
-
-
-class classproperty:
-    def __init__(self, initializer):
-        self._func = initializer
-
-    def __get__(self, instance, owner):
-        if not hasattr(owner, '_classproperty_cache'):
-            setattr(owner, '_classproperty_cache', {})
-
-        cache = owner._classproperty_cache
-        if self._func.__name__ not in cache:
-            cache[self._func.__name__] = self._func(owner)
-        return cache[self._func.__name__]
-
-
-class lazy_property:
-    def __init__(self, initializer):
-        self._func = initializer
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        if not hasattr(instance, '_lazy_property_cache'):
-            setattr(instance, '_lazy_property_cache', {})
-
-        cache = instance._lazy_property_cache
-        if self._func.__name__ not in cache:
-            cache[self._func.__name__] = self._func(instance)
-        return cache[self._func.__name__]
+import stockrt as srt
 
 
 class User:
@@ -151,7 +122,7 @@ class User:
     def user_costdog(self):
         name = f'u{self.parent if self.parent else self.id}_costdog'
         return create_model(UserCostdog, name)
-    
+
     @lazy_property
     def user_cdurque(self):
         name = f'u{self.parent if self.parent else self.id}_cdurque'
@@ -826,10 +797,9 @@ class User:
         codes = [s.code for s in us]
 
         uss = {}
-        sinaapi = ezqt.use('sina')
-        cbasic = sinaapi.real([c.lower() for c in codes])
+        cbasic = srt.quotes([c.lower() for c in codes])
         for c in codes:
-            price = cbasic[c[-6:]]['now']
+            price = cbasic[c.lower()]['price']
             us = UStock(self, c)
             if us.cost_hold and us.portion_hold:
                 uss[c] = {'cost': us.cost_hold, 'ptn': us.portion_hold, 'price': price }
@@ -1763,9 +1733,8 @@ class UStock():
             return 0
 
         if hstk.portion_hold > 0:
-            sinaapi = ezqt.use('sina')
-            qreal = sinaapi.real(self.code.lower())[self.code[-6:]]
-            return hstk.portion_hold * qreal['now'] - hstk.cost_hold
+            price = srt.quotes(self.code.lower())[self.code.lower()]['price']
+            return hstk.portion_hold * price - hstk.cost_hold
         return 0
 
     def get_sold_earned(self):

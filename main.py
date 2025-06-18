@@ -20,11 +20,7 @@ class DailyUpdater():
             for (c,) in fundcodes:
                 self.download_all_fund_history(c)
 
-        indexcodes = self.sqldb.select(gl_index_info_table, fields=[column_code])
-        if indexcodes:
-            for (c,) in indexcodes:
-                self.download_all_index_history(c)
-
+        
         goldcodes = self.sqldb.select(gl_gold_info_table, fields=[column_code])
         if goldcodes:
             for (c,) in goldcodes:
@@ -33,12 +29,6 @@ class DailyUpdater():
     def download_all_fund_history(self, code):
         fh = FundHistoryDataDownloader()
         fh.fundHistoryTillToday(code)
-
-    def download_all_index_history(self, code):
-        ih = Index_history()
-        ih.indexHistoryTillToday(code)
-        #ih.getHistoryFromSohu(code)
-        ih.getHistoryFrom163(code)
 
     def download_all_gold_history(self, code):
         gh = Gold_history()
@@ -64,12 +54,6 @@ if __name__ == '__main__':
     #af.loadMorningStarRatingInfo()
     #af.get_fund_name("000001")
     #print(af.get_fund_url("960042"))
-    # aidx = AllIndexes()
-    # codes = aidx.sqldb.select(aidx.infoTable, '*')
-    # ih = Index_history()
-    # for (i, c, n) in codes:
-    #     ih.getKHistoryFromSohuTillToday(c)
-    #     ih.getHistoryFrom163(c)
     # astk = AllStocks()
     # codes = astk.sqldb.select(astk.infoTable, '*')
     # sh = Stock_history()
@@ -78,5 +62,5 @@ if __name__ == '__main__':
     # sd = StockDumps()
     # sd.get_khl_m_his('sh511880')
     idxd = IndexDumps()
-    idhis = idxd.get_his()
+    idhis = idxd.get_khl_m_his('000001')
     print(idhis)

@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from utils import *
 from history import *
+from phon.data.history import AllIndexes
+
 
 class UserFund():
     """the fund basic info for user"""
@@ -445,8 +447,7 @@ class UserFund():
 
         if fg.index_code:
             fund_json_obj["ic"] = 'sz' + fg.index_code # index_code
-            ig = IndexGeneral(self.sqldb, fg.index_code)
-            fund_json_obj["in"] = ig.name
+            fund_json_obj["in"] = AllIndexes.index_name(fg.index_code)
 
         return fund_json_obj
 
@@ -454,13 +455,8 @@ class UserFund():
         af = AllFunds()
         af.updateTrackIndex(self.code, index_code)
 
-        ig = IndexGeneral(self.sqldb, index_code)
-        if not ig.name:
-            ai = AllIndexes()
-            ai.loadInfo(index_code)
-            ih = Index_history()
-            ih.indexHistoryTillToday(index_code)
-            ih.getHistoryFromSohu(index_code)
+        if not AllIndexes.index_name(index_code):
+            AllIndexes.load_info(index_code)
 
     def track_index_empty(self):
         tc = self.sqldb.select(gl_all_funds_info_table, [column_tracking_index], "%s = '%s'" % (column_code, self.code))

@@ -11,6 +11,7 @@ from utils import *
 from user import *
 from history import *
 from pickup import *
+from phon.data.history import AllIndexes
 
 class DailyUpdater():
     """for daily update"""
@@ -87,13 +88,7 @@ class DailyUpdater():
         Utils.log('gold history updated!')
 
     def download_all_index_history(self):
-        indexcodes = self.sqldb.select(gl_index_info_table, fields=[column_code])
-        if indexcodes:
-            ih = Index_history()
-            for (code,) in indexcodes:
-                print("try to update index history for:", code)
-                ih.getKdHistoryFromSohuTillToday(code)
-                ih.getHistoryFrom163(code)
+        AllIndexes.update_kline_data('d')
         TradingDate.max_trading_date = None
         Utils.log('index history updated!')
 

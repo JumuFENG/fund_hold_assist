@@ -1,31 +1,39 @@
 # Python 3
 # -*- coding:utf-8 -*-
 
+from functools import cached_property
 from utils import *
-from history import *
-import time
-import json
-from datetime import datetime, timedelta
-from decimal import Decimal
+from history import KdataDumps
+from phon.hu.hu import DateConverter
+from phon.data.history import AllIndexes, IndexHistory
+
 
 class IndexDumps(KdataDumps):
     def __init__(self):
-        self.history = Index_history()
-        allidx = AllIndexes()
-        self.sqldb = allidx.sqldb
-        self.infoList = allidx.readAll()
+        pass
+
+    @cached_property
+    def infoList(self):
+        return AllIndexes.read_all()
 
     def get_km_table(self, code):
-        ig = IndexGeneral(self.sqldb, code)
-        return ig.kmhistable
+        return AllIndexes.get_ktablename(code, 'm')
 
     def get_kw_table(self, code):
-        ig = IndexGeneral(self.sqldb, code)
-        return ig.kwhistable
+        return AllIndexes.get_ktablename(code, 'w')
 
     def get_kd_table(self, code):
-        ig = IndexGeneral(self.sqldb, code)
-        return ig.khistable
+        return AllIndexes.get_ktablename(code, 'd')
+
+    def get_khl_m_his(self, code):
+        mdata = self.read_km_data(code)
+        khl_m = []
+        for (i, d, c, h, l, o, pr, p, v, a) in mdata:
+            khl_m.append([DateConverter.days_since_2000(d), h, l])
+        return khl_m
+
+    def read_km_data(self, code, fqt = 0, length = 60, start = None):
+        return IndexHistory(code).get_index_hist_data('m', length, start, fmt='list')
 
     def get_his(self, codes = None):
         all_index_obj = {}
@@ -51,4 +59,3 @@ class IndexDumps(KdataDumps):
             all_index_obj[c] = index_obj
 
         return all_index_obj
-        

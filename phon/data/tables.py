@@ -163,8 +163,6 @@ class AllStocks(Model):
     code = CharField(max_length=20)
     name = CharField(max_length=255)
     type = CharField(max_length=20)
-    简称 = CharField(max_length=255)
-    资产规模 = CharField(max_length=20)
     setup_date = CharField(max_length=20)
     quit_date = CharField(max_length=20)
 
@@ -172,4 +170,29 @@ class AllStocks(Model):
         db_name = 'stock_center'
         table_name = 'all_stocks'
 
+
+class AllIndice(Model):
+    id = AutoField(primary_key=True)
+    code = CharField(max_length=20)
+    name = CharField(max_length=255)
+
+    class Meta:
+        db_name = 'fund_center'
+        table_name = 'index_info'
+
+
+class KHistory(Model):
+    id = AutoField(primary_key=True)
+    date = CharField(max_length=20)
+    close = DoubleField()
+    high = DoubleField()
+    low = DoubleField()
+    open = DoubleField()
+    price_change = DoubleField()
+    p_change = DoubleField() # 百分数
+    volume = IntegerField() # 手
+    amount = DoubleField() # 万元
+
+    class Meta:
+        db_name = 'history_db'
 

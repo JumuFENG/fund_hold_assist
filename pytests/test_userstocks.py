@@ -1,7 +1,8 @@
 import pytest
 from colorama import Fore
 from peewee import fn
-from phon.data.user import User, lazy_property, UserDb, UserStockBuy, UserStockSell, UserStocks, classproperty
+from phon.hu import lazy_property
+from phon.data.user import User, UserDb, UserStockBuy, UserStockSell, UserStocks, classproperty
 from phon.data.user import UserDeals, UserEarned, UserEarning, UserStrategy, UserOrders
 from phon.data.db import create_model, get_database, write_context, read_context, check_table_columns
 
