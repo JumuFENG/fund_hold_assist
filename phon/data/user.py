@@ -10,7 +10,7 @@ from phon.hu import lazy_property, classproperty
 from phon.hu.hu import DateConverter, datetime, timedelta
 from phon.data.tables import User as UserDb
 from phon.data.tables import UserFunds, UserStocks, UserEarned, UserEarning, UserDeals, UserStockBuy, UserStockSell
-from phon.data.tables import AllStocks, UserStrategy, UserOrders, UserCostdog, UcostdogUrque
+from phon.data.tables import AllStockTbl, UserStrategy, UserOrders, UserCostdog, UcostdogUrque
 from phon.data.db import create_model, read_context, write_context, insert_or_update
 import stockrt as srt
 
@@ -22,7 +22,7 @@ class User:
 
     @classproperty
     def all_stocks(cls):
-        return create_model(AllStocks)
+        return create_model(AllStockTbl)
 
     @classmethod
     def add_user(cls, name, password, email):

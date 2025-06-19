@@ -13,6 +13,7 @@ from history import *
 from pickup import *
 from phon.data.history import AllIndexes
 
+
 class DailyUpdater():
     """for daily update"""
     def __init__(self):
@@ -93,7 +94,7 @@ class DailyUpdater():
         Utils.log('index history updated!')
 
     def download_all_stocks_khistory(self):
-        StockGlobal.updateStocksDailyData()
+        Utils.log('start download_all_stocks_khistory')
         sfh = Stock_Fflow_History()
         sfh.updateDailyFflow()
         stkall = AllStocks()
@@ -125,7 +126,7 @@ class DailyUpdater():
                 sh = Stock_history()
                 sh.setCode(c)
                 sh.getKHistoryFromEm(sh.k_histable, '101')
-        Utils.log('download_all_stocks_khistory done!')
+        Utils.log('download_all_stocks_khistory done! %d' % len(self.allcodes))
         Utils.log(f'time used: { datetime.now() - d}')
 
     def thread_download_stock_khistory(self):

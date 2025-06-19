@@ -3,41 +3,35 @@
 
 import sys
 from datetime import datetime, timedelta
+import traceback
 import os
 sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../..'))
 from utils import *
-from user import *
-from history import *
-from phon.data.history import AllIndexes
+from history import StockEmBk, StockDfsorg
+from phon.data.history import AllIndexes, AllStocks
 
 class MonthlyUpdater():
     """for monthly update"""
-    def __init__(self):
-        pass
-
-    def update_all(self):
+    @staticmethod
+    def update_all():
         print('')
         print('Start monthly update.', datetime.now())
 
-        AllIndexes.update_kline_data('m')
+        try:
+            AllIndexes.update_kline_data('m')
+            AllStocks.update_kline_data('m')
 
-        astk = AllStocks()
-        stocks = astk.sqldb.select(astk.infoTable, '*')
-        sh = Stock_history()
-        for (i, c, n, s, t, sn, m, st) in stocks:
-            if t == 'TSSTOCK' or c.startswith('HB') or c.startswith('SB'):
-                continue
-            sh.getKmHistoryFromSohuTillToday(c)
+            Utils.log('update B bk stocks')
+            bbk = StockEmBk('BK0636')
+            bbk.getNext()
 
-        Utils.log('update B bk stocks')
-        bbk = StockEmBk('BK0636')
-        bbk.getNext()
-
-        Utils.log('update dfsorg details')
-        dfsorg = StockDfsorg()
-        dfsorg.updateDetails()
+            Utils.log('update dfsorg details')
+            dfsorg = StockDfsorg()
+            dfsorg.updateDetails()
+        except Exception as e:
+            Utils.log(e, Utils.Err)
+            Utils.log(traceback.format_exc(), Utils.Err)
 
 
 if __name__ == '__main__':
-    mu = MonthlyUpdater()
-    mu.update_all()
+    MonthlyUpdater.update_all()

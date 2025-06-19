@@ -6,6 +6,7 @@ import os
 sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../..'))
 
 from phon.data.user import User
+from phon.data.history import AllStocks
 from utils import Utils, TradingDate, datetime, shared_cloud_foler
 from timer_task import TimerTask
 from history import StockBkChangesHistory, StockClsBkChangesHistory, Stock_Fflow_History
@@ -34,6 +35,7 @@ def update_bkchanges_in5d():
     bkchghis.updateBkChangedIn5Days()
     clsbkhis = StockClsBkChangesHistory()
     clsbkhis.updateBkChangedIn5Days()
+    AllStocks.update_kline_data('d')
     sfh = Stock_Fflow_History()
     sfh.updateLatestFflow()
 

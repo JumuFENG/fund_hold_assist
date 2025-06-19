@@ -179,8 +179,7 @@ def run_regular_tasks(dnow):
         anyrun = True
 
     if monthly_should_run(startconfig['lastmonthly_run_at'], dnow):
-        # mu = MonthlyUpdater()
-        # mu.update_all()
+        MonthlyUpdater.update_all()
         um = UserModel()
         user = um.user_by_id(11)
         user.archive_deals(dnow.strftime(f"%Y-%m"))

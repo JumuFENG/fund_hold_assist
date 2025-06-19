@@ -2,18 +2,20 @@
 # -*- coding:utf-8 -*-
 
 import abc
+import json
 from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor
 from peewee import fn
 from phon.hu import lazy_property, classproperty, convert_dict_data
 from phon.hu.hu import DateConverter, datetime, timedelta
-from phon.data.tables import AllStocks, AllIndice, KHistory
+from phon.data.tables import AllStockTbl, AllIndice, KHistory
 from phon.data.db import create_model, read_context, write_context, insert_or_update
 import stockrt as srt
 
 
 class BaseKHistory:
     def __init__(self, code):
-        self.code = code
+        self.code = code[-6:]
 
     @property
     def saved_kltypes(self):
@@ -56,25 +58,8 @@ class BaseKHistory:
             return 0
         ktable = self.get_ktable(period)
         with read_context(ktable):
-            mxdate = ktable.select(fn.MAX(ktable.date)).scalar()
+            mxdate = ktable.select().order_by(ktable.id.desc()).get().date
         return self.guess_bars_since(mxdate, period)
-
-    def is_same_period(self, d1, d2, period='d'):
-        if period not in self.saved_kltypes:
-            return False
-        if not d1 or not d2:
-            return False
-
-        if period == 'd':
-            return d1 == d2
-        if period == 'm':
-            return d1[:7] == d2[:7]
-        elif period == 'w':
-            date1 = datetime.strptime(d1, '%Y-%m-%d').date()
-            date2 = datetime.strptime(d2, '%Y-%m-%d').date()
-            monday1 = date1 - timedelta(days=date1.weekday())
-            monday2 = date2 - timedelta(days=date2.weekday())
-            return monday1 == monday2
 
     def save_klines_todb(self, kltype, klines):
         if kltype not in self.saved_kltypes:
@@ -106,7 +91,7 @@ class BaseKHistory:
             return
 
         with write_context(ktable):
-            upkl = klines_with_col[0] if self.is_same_period(klines_with_col[0]['date'], mxdate, kltype) else None
+            upkl = klines_with_col[0] if DateConverter.is_same_period(klines_with_col[0]['date'], mxdate, kltype) else None
             updated_date = mxdate if mxdate else ''
             if upkl:
                 ktable.update(**upkl).where(ktable.date == mxdate).execute()
@@ -131,7 +116,7 @@ class BaseKHistory:
 
 class IndexHistory(BaseKHistory):
     def __init__(self, code):
-        super().__init__(code[-6:])
+        super().__init__(code)
 
     @property
     def full_code(self):
@@ -149,28 +134,24 @@ class StockHistory(BaseKHistory):
 
     @property
     def full_code(self):
-        return srt.get_fullcode(self.code.lower())
+        return srt.get_fullcode(self.code)
 
     @property
     def saved_kltypes(self):
         return ('d', 'w', 'm', '15')
 
     def get_ktablename(self, period='d'):
-        if period == 'd':
-            return f's_k_his_{self.full_code.upper()}'
-        if period == 'w':
-            return f's_kw_his_{self.full_code.upper()}'
-        if period == 'm':
-            return f's_km_his_{self.full_code.upper()}'
-        if period == '15':
-            return f's_k15_his_{self.full_code.upper()}'
-        return None
+        return AllStocks.get_ktablename(self.full_code.upper(), period)
 
 
 class AllIndexes:
     @classproperty
     def db(cls):
         return create_model(AllIndice)
+
+    @classproperty
+    def hisdb(cls):
+        return create_model(KHistory)
 
     @classmethod
     def read_all(self):
@@ -194,6 +175,8 @@ class AllIndexes:
 
     @classmethod
     def get_ktablename(self, code, period='d'):
+        code = code[-6:]
+        assert len(code) == 6, f'index code should be 6 digits not {code}'
         if period == 'd':
             return f'i_k_his_{code}'
         if period == 'w':
@@ -226,7 +209,7 @@ class AllIndexes:
         if not fixlens:
             return
 
-        srt.set_array_format('dict')
+        ofmt = srt.set_array_format('dict')
         srt.set_default_sources('dklines', 'dklines', ('xueqiu', 'ths', 'eastmoney', 'tdx', 'sina'), True)
         klines = {}
         for l, ic in fixlens.items():
@@ -237,6 +220,7 @@ class AllIndexes:
         for c in indice_code:
             if ihdb[c].full_code in klines:
                 ihdb[c].save_klines_todb(kltype, klines[ihdb[c].full_code])
+        srt.set_array_format(ofmt)
 
     @classmethod
     def read_index_daily_price_change(self, code):
@@ -246,3 +230,252 @@ class AllIndexes:
             index_hist_data += (DateConverter.days_since_2000(date), round(float(close), 2), round(float(p_change), 2) if not p_change == "None" else ''),
 
         return index_hist_data
+
+    @classmethod
+    def khistable_exists(self, code, period='d'):
+        with read_context(self.hisdb):
+            conn = self.hisdb._meta.database.connection()
+            cur = conn.cursor()
+            cur.execute(f"select count(*) from information_schema.tables where table_name = '{self.get_ktablename(code, period)}'")
+            return cur.fetchone()[0] > 0
+
+    @classmethod
+    def create_khistable(self, code, period='d'):
+        create_model(KHistory, self.get_ktablename(code, period))
+
+    @classmethod
+    def read_mxdate(self, code, period='d'):
+        with read_context(self.hisdb):
+            conn = self.hisdb._meta.database.connection()
+            cur = conn.cursor()
+            try:
+                cur.execute(f"select max(date) from {self.get_ktablename(code, period)}")
+                return cur.fetchone()[0]
+            except:
+                return None
+
+    @classmethod
+    def count_bars_to_updated(self, code, period='d'):
+        mxdate = self.read_mxdate(code, period)
+        return self.guess_bars_since(mxdate, period)
+
+    @staticmethod
+    def guess_bars_since(last_date, period='d'):
+        if last_date is None:
+            return 10000
+
+        days = (datetime.now() - datetime.strptime(last_date, "%Y-%m-%d")).days
+        if period == 'd':
+            return days
+        if period == 'w':
+            return days // 7
+        if period == 'm':
+            return days // 30
+        if period.isdigit():
+            if int(period) == 1:
+                return days * 240
+            if int(period) % 5 == 0:
+                return days * 240 / int(period)
+        return 0
+
+    @classmethod
+    def save_kline_data_todb(self, code, kltype, klines):
+        """使用原生SQL保存K线数据到数据库"""
+        mxdate = self.read_mxdate(code, kltype)
+        klines_with_col = []
+
+        # 1. 预处理数据
+        for i in range(0, len(klines)):
+            if i == 0 and mxdate is not None:
+                continue
+            if mxdate is None or klines[i]['time'] >= mxdate:
+                kl = {
+                    'date': klines[i]['time'],
+                    'open': klines[i]['open'],
+                    'close': klines[i]['close'],
+                    'high': klines[i]['high'],
+                    'low': klines[i]['low'],
+                    'volume': klines[i]['volume'] / 100,
+                    'amount': klines[i]['amount'] / 10000,
+                }
+                # 计算涨跌幅
+                if 'change' in klines[i]:
+                    kl['p_change'] = klines[i]['change'] * 100
+                else:
+                    prev_close = klines[i-1]['close'] if i > 0 else klines[i]['close']
+                    kl['p_change'] = (klines[i]['close'] - prev_close) * 100 / prev_close if prev_close != 0 else 0
+
+                # 计算价格变化
+                kl['price_change'] = klines[i].get('change_px', klines[i]['close'] - klines[i-1]['close'] if i > 0 else 0)
+
+                klines_with_col.append(kl)
+
+        if not klines_with_col or klines_with_col[-1]['date'] == mxdate:
+            return
+
+        if mxdate is None and not self.khistable_exists(code, kltype):
+            self.create_khistable(code, kltype)
+
+        # 2. 准备数据库操作
+        table_name = self.get_ktablename(code, kltype)
+        cols = [c for c in self.hisdb._meta.columns if c != 'id']
+
+        with write_context(self.hisdb):
+            conn = self.hisdb._meta.database.connection()
+            cur = conn.cursor()
+
+            try:
+                # 3. 处理需要更新的记录
+                updated_date = mxdate if mxdate else ''
+                upkl = klines_with_col[0] if (mxdate and DateConverter.is_same_period(klines_with_col[0]['date'], mxdate, kltype)) else None
+
+                if upkl:
+                    # 使用参数化查询防止SQL注入
+                    set_clause = ','.join([f"{c}=%s" for c in cols])
+                    params = [upkl[c] for c in cols] + [mxdate]
+                    cur.execute(
+                        f"UPDATE {table_name} SET {set_clause} WHERE date=%s",
+                        params
+                    )
+                    updated_date = upkl['date']
+
+                # 4. 处理需要插入的新记录
+                newkls = [kl for kl in klines_with_col if kl['date'] > updated_date]
+                if newkls:
+                    placeholders = ','.join(['%s'] * len(cols))
+                    sql = f"INSERT INTO {table_name} ({','.join(cols)}) VALUES ({placeholders})"
+                    cur.executemany(sql, [tuple(kl[c] for c in cols) for kl in newkls])
+
+                conn.commit()
+
+            except Exception as e:
+                conn.rollback()
+                raise Exception(f"保存K线数据失败: {str(e)}")
+
+
+class AllStocks(AllIndexes):
+    @classproperty
+    def db(cls) -> AllStockTbl:
+        return create_model(AllStockTbl)
+
+    @classmethod
+    def get_ktablename(self, code, period='d'):
+        code = srt.get_fullcode(code).upper()
+        assert len(code) == 8 and code.startswith(('SH', 'SZ', 'BJ')), f'code should starts with SH/SZ/BJ not {code}'
+        if period == 'd':
+            return f's_k_his_{code}'
+        if period == 'w':
+            return f's_kw_his_{code}'
+        if period == 'm':
+            return f's_km_his_{code}'
+        if period == '15':
+            return f's_k15_his_{code}'
+
+    @classmethod
+    def update_latest_daily_kline(self):
+        '''
+        通过涨幅榜更新当日K线数据，必须盘后执行，盘中获取的收盘价为当时的最新价
+        '''
+        from stockrt.sources.eastmoney import EastMoney
+        class EmRank(EastMoney):
+            pgsize = 200
+            dtoday = datetime.now().strftime("%Y-%m-%d")
+            def get_fullcode(self, x):
+                return x
+
+            def get_rkurl(self, i):
+                url = (
+                    'http://33.push2.eastmoney.com/api/qt/clist/get?pn=%d&pz=%d&po=1&np=1&'
+                    'ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3'
+                    '&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048'
+                    '&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f115,f152'
+                ) % (i, self.pgsize)
+                headers = {
+                    **self._get_headers(),
+                    'Host': '33.push2.eastmoney.com',
+                }
+                return url, headers
+
+            @staticmethod
+            def merge_ranks(rkres):
+                return {
+                    rk['f12']: {
+                        'name': rk['f14'],
+                        'time': EmRank.dtoday,
+                        'close': rk['f2'],
+                        'high': rk['f15'],
+                        'low': rk['f16'],
+                        'open': rk['f17'],
+                        'change_px': rk['f4'],
+                        'change': rk['f3'],
+                        'volume': rk['f5'],
+                        'amount': rk['f6'] / 10000,
+                    } for rk in rkres['data']['diff'] if rk['f3'] != '-'
+                }
+
+            def format_response(self, response):
+                rks = {}
+                for i, r in response:
+                    rks.update(self.merge_ranks(json.loads(r)))
+                return rks
+
+            def fetchranks(self, pages):
+                return self._fetch_concurrently(pages, self.get_rkurl, self.format_response)
+
+        emrk = EmRank()
+        url, headers = emrk.get_rkurl(1)
+        r1 = emrk.session.get(url, headers=headers)
+        data = r1.json()
+        result = emrk.merge_ranks(data)
+        emrk.pgsize = len(data['data']['diff'])
+        pages = data['data']['total'] // emrk.pgsize + 2
+        pages = 5
+        result.update(emrk.fetchranks([i for i in range(2, pages)]))
+        return result
+
+    @classmethod
+    def update_kline_data(self, kltype: str='d'):
+        '''
+        更新表中所有有效股票的K线数据
+        Args:
+            kltype: K线类型 (d, w, m, 15)
+        '''
+        with read_context(self.db):
+            codequery = self.db.select(self.db.code, self.db.name, self.db.type).where(self.db.quit_date == None)
+            stock_cns = {r.code[-6:]: r.name for r in codequery if r.code.startswith(('SH', 'SZ', 'BJ')) and r.type in ('ABStock', 'BJStock')}
+        if not stock_cns:
+            return
+        uplens = {r.code[-6:]: self.count_bars_to_updated(r.code, kltype) for r in codequery if r.code.startswith(('SH', 'SZ', 'BJ')) and r.type in ('ABStock', 'BJStock')}
+        fixlens = {}
+        for c,l in uplens.items():
+            if l == 0:
+                continue
+            if l not in fixlens:
+                fixlens[l] = []
+            fixlens[l].append(c)
+        if not fixlens:
+            return
+
+        if 1 in fixlens and kltype == 'd' and len(fixlens[1]) > 100:
+            k1data = self.update_latest_daily_kline()
+            for c, kl in k1data.items():
+                if c in fixlens[1]:
+                    self.save_kline_data_todb(c, 'd', kl)
+                if stock_cns[c] != kl['name']:
+                    with write_context(self.db):
+                        self.db.update({self.db.name: kl['name']}).where(self.db.code == c).execute()
+
+        ofmt = srt.set_array_format('dict')
+        srt.set_default_sources('dklines', 'dklines', ('xueqiu', 'ths', 'eastmoney', 'tdx', 'sina'), True)
+        klines = {}
+        for l, ic in fixlens.items():
+            if l == 1 and kltype == 'd':
+                continue
+            if l == 10000:
+                klines.update(srt.fklines(ic, kltype, 0))
+            else:
+                klines.update(srt.klines(ic, kltype, l+2, 0))
+        for c in klines:
+            if c in stock_cns:
+                self.save_kline_data_todb(c, kltype, klines[c])
+        srt.set_array_format(ofmt)

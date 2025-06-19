@@ -158,7 +158,7 @@ class UserStockSell(Model):
         db_name = 'stock_center'
 
 
-class AllStocks(Model):
+class AllStockTbl(Model):
     id = AutoField(primary_key=True)
     code = CharField(max_length=20)
     name = CharField(max_length=255)
