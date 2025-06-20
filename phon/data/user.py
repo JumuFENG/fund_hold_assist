@@ -271,9 +271,6 @@ class User:
         return tuple([s.code for s in us])
 
     def _archived(self, deal):
-        if 'fee' not in deal:
-            return False
-
         dsid = '0' if deal['sid'] == '' else deal['sid']
         with read_context(self.archived_deals):
             ad = self.archived_deals.get_or_none(self.archived_deals.code==deal['code'], self.archived_deals.type==deal['tradeType'], self.archived_deals.委托编号==dsid)
@@ -287,6 +284,8 @@ class User:
             raise Exception(f'Archived count > deal count, please check the database, table:{self.archived_deals}, {deal["code"]}, 委托编号={deal["sid"]}')
         us = UStock(self, ad.code)
         us.fix_buy_deal(deal, ad.portion)
+        if 'fee' not in deal:
+            return True
         if ad.手续费 != float(deal['fee']) or ad.印花税 != float(deal['feeYh']) or ad.过户费 != float(deal['feeGh']) or ad.price != float(deal['price']):
             upfee = {'price': deal['price'], '手续费': deal['fee'], '印花税': deal['feeYh'], '过户费': deal['feeGh']}
             with write_context(self.archived_deals):
@@ -1561,7 +1560,7 @@ class UStock():
             bexists = self.buy_table.select().where(self.buy_table.code == self.code, self.buy_table.date < date).exists()
         if not bexists:
             with read_context(self.udeals_table):
-                buy_rec = list(self.udeals_table.select().where(self.udeals_table.code == self.code, self.unknown_deals_table.date < date))
+                buy_rec = list(self.udeals_table.select().where(self.udeals_table.code == self.code, self.udeals_table.date < date))
             bvalues = []
             for br in buy_rec:
                 bvalues.append({'date': br.date, '委托编号': br.委托编号, 'price': br.price, 'portion': br.portion, '手续费': br.手续费, '印花税': br.印花税, '过户费': br.过户费})

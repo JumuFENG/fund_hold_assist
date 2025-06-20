@@ -196,3 +196,19 @@ class KHistory(Model):
     class Meta:
         db_name = 'history_db'
 
+class FlowHistory(Model):
+    id = AutoField(primary_key=True)
+    date = CharField(max_length=20)
+    main = DoubleField()
+    small = DoubleField()
+    middle = DoubleField()
+    big = DoubleField()
+    super = DoubleField()
+    mainp = DoubleField()
+    smallp = DoubleField()
+    midllep = DoubleField()
+    bigp = DoubleField()
+    superp = DoubleField()
+
+    class Meta:
+        db_name = 'history_db'

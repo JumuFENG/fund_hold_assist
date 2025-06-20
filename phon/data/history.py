@@ -3,12 +3,12 @@
 
 import abc
 import json
-from functools import lru_cache
+from functools import lru_cache, cached_property
 from concurrent.futures import ThreadPoolExecutor
 from peewee import fn
 from phon.hu import lazy_property, classproperty, convert_dict_data
 from phon.hu.hu import DateConverter, datetime, timedelta
-from phon.data.tables import AllStockTbl, AllIndice, KHistory
+from phon.data.tables import AllStockTbl, AllIndice, KHistory, FlowHistory
 from phon.data.db import create_model, read_context, write_context, insert_or_update
 import stockrt as srt
 
@@ -128,6 +128,29 @@ class IndexHistory(BaseKHistory):
         return AllIndexes.get_ktablename(self.code, period)
 
 
+class TradingDate():
+    @classproperty
+    def dbsha(self):
+        return create_model(KHistory, AllIndexes.get_ktablename('000001'))
+
+    @classproperty
+    def tradingdates(self):
+        with read_context(self.dbsha):
+            return list(self.dbsha.select(self.dbsha.date).order_by(self.dbsha.date).scalars())
+
+    @classproperty
+    def max_trading_date(self):
+        with read_context(self.dbsha):
+            return self.dbsha.select(fn.MAX(self.dbsha.date)).scalar()
+
+    @classmethod
+    @lru_cache(maxsize=10)
+    def prev_trading_date(self, date, ndays=1):
+        if len(self.tradingdates) > 0 and date > self.tradingdates[0] and date in self.tradingdates:
+            return self.tradingdates[max(0, self.tradingdates.index(date) - ndays)]
+        return self.tradingdates[0]
+
+
 class StockHistory(BaseKHistory):
     def __init__(self, code):
         super().__init__(code)
@@ -194,32 +217,36 @@ class AllIndexes:
         '''
         with read_context(self.db):
             codequery = self.db.select(self.db.code)
-            indice_code = [r.code for r in codequery]
+        indice_code = [IndexHistory(r.code).full_code for r in codequery]
         if not indice_code:
             return
-        ihdb = {c: IndexHistory(c) for c in indice_code}
-        uplens = {c: ihdb[c].count_bars_to_updated(kltype) for c in indice_code}
+
+        self.update_klines_by_code(indice_code, kltype)
+
+    @classmethod
+    def update_klines_by_code(self, stocks, kltype: str='d'):
+        uplens = {c: self.count_bars_to_updated(c, kltype) for c in stocks}
         fixlens = {}
         for c,l in uplens.items():
             if l == 0:
                 continue
             if l not in fixlens:
                 fixlens[l] = []
-            fixlens[l].append(ihdb[c].full_code)
+            fixlens[l].append(c)
         if not fixlens:
             return
 
         ofmt = srt.set_array_format('dict')
         srt.set_default_sources('dklines', 'dklines', ('xueqiu', 'ths', 'eastmoney', 'tdx', 'sina'), True)
         klines = {}
-        for l, ic in fixlens.items():
+        for l, codes in fixlens.items():
             if l == 10000:
-                klines.update(srt.fklines(ic, kltype, 0))
+                klines.update(srt.fklines(codes, kltype, 0))
             else:
-                klines.update(srt.klines(ic, kltype, l+2, 0))
-        for c in indice_code:
-            if ihdb[c].full_code in klines:
-                ihdb[c].save_klines_todb(kltype, klines[ihdb[c].full_code])
+                klines.update(srt.klines(codes, kltype, l+2, 0))
+        for c in klines:
+            if c in stocks:
+                self.save_kline_data_todb(c, kltype, klines[c])
         srt.set_array_format(ofmt)
 
     @classmethod
@@ -232,31 +259,27 @@ class AllIndexes:
         return index_hist_data
 
     @classmethod
-    def khistable_exists(self, code, period='d'):
+    def table_exists(self, name):
         with read_context(self.hisdb):
             conn = self.hisdb._meta.database.connection()
             cur = conn.cursor()
-            cur.execute(f"select count(*) from information_schema.tables where table_name = '{self.get_ktablename(code, period)}'")
+            cur.execute(f"select count(*) from information_schema.tables where table_name = '{name}'")
             return cur.fetchone()[0] > 0
 
     @classmethod
-    def create_khistable(self, code, period='d'):
-        create_model(KHistory, self.get_ktablename(code, period))
-
-    @classmethod
-    def read_mxdate(self, code, period='d'):
+    def read_mxdate(self, name):
         with read_context(self.hisdb):
             conn = self.hisdb._meta.database.connection()
             cur = conn.cursor()
             try:
-                cur.execute(f"select max(date) from {self.get_ktablename(code, period)}")
+                cur.execute(f"select max(date) from {name}")
                 return cur.fetchone()[0]
             except:
                 return None
 
     @classmethod
     def count_bars_to_updated(self, code, period='d'):
-        mxdate = self.read_mxdate(code, period)
+        mxdate = self.read_mxdate(self.get_ktablename(code, period))
         return self.guess_bars_since(mxdate, period)
 
     @staticmethod
@@ -281,13 +304,12 @@ class AllIndexes:
     @classmethod
     def save_kline_data_todb(self, code, kltype, klines):
         """使用原生SQL保存K线数据到数据库"""
-        mxdate = self.read_mxdate(code, kltype)
+        table_name = self.get_ktablename(code, kltype)
+        mxdate = self.read_mxdate(table_name)
         klines_with_col = []
 
         # 1. 预处理数据
         for i in range(0, len(klines)):
-            if i == 0 and mxdate is not None:
-                continue
             if mxdate is None or klines[i]['time'] >= mxdate:
                 kl = {
                     'date': klines[i]['time'],
@@ -313,13 +335,14 @@ class AllIndexes:
         if not klines_with_col or klines_with_col[-1]['date'] == mxdate:
             return
 
-        if mxdate is None and not self.khistable_exists(code, kltype):
-            self.create_khistable(code, kltype)
+        if mxdate is None and not self.table_exists(table_name):
+            create_model(KHistory, table_name)
 
-        # 2. 准备数据库操作
-        table_name = self.get_ktablename(code, kltype)
+        self.update_to_history_table(table_name, mxdate, klines_with_col, kltype)
+
+    @classmethod
+    def update_to_history_table(self, table_name, mxdate, newdata, period):
         cols = [c for c in self.hisdb._meta.columns if c != 'id']
-
         with write_context(self.hisdb):
             conn = self.hisdb._meta.database.connection()
             cur = conn.cursor()
@@ -327,7 +350,7 @@ class AllIndexes:
             try:
                 # 3. 处理需要更新的记录
                 updated_date = mxdate if mxdate else ''
-                upkl = klines_with_col[0] if (mxdate and DateConverter.is_same_period(klines_with_col[0]['date'], mxdate, kltype)) else None
+                upkl = newdata[0] if (mxdate and DateConverter.is_same_period(newdata[0]['date'], mxdate, period)) else None
 
                 if upkl:
                     # 使用参数化查询防止SQL注入
@@ -340,7 +363,7 @@ class AllIndexes:
                     updated_date = upkl['date']
 
                 # 4. 处理需要插入的新记录
-                newkls = [kl for kl in klines_with_col if kl['date'] > updated_date]
+                newkls = [kl for kl in newdata if kl['date'] > updated_date]
                 if newkls:
                     placeholders = ','.join(['%s'] * len(cols))
                     sql = f"INSERT INTO {table_name} ({','.join(cols)}) VALUES ({placeholders})"
@@ -372,9 +395,36 @@ class AllStocks(AllIndexes):
             return f's_k15_his_{code}'
 
     @classmethod
-    def update_latest_daily_kline(self):
+    def get_fflow_tablename(self, code):
+        code = srt.get_fullcode(code).upper()
+        assert len(code) == 8 and code.startswith(('SH', 'SZ', 'BJ')), f'code should starts with SH/SZ/BJ not {code}'
+        return f's_fflow_{code}'
+
+    @classmethod
+    def save_fflow_todb(self, code, fflow):
+        mxdate = self.read_mxdate(self.get_fflow_tablename(code))
+        if mxdate is None:
+            return
+
+        flow_with_cols = []
+        fcols = ['main', 'mainp', 'small', 'smallp', 'middle', 'midllep', 'big', 'bigp', 'super', 'superp']
+        for i in range(0, len(fflow)):
+            if mxdate is None or fflow[i]['time'] >= mxdate:
+                flow_with_cols.append({
+                    'date': fflow[i]['time'],
+                    ** {k: v[k] for k,v in fflow[i].items() if k in fcols}
+                })
+        table_name = self.get_fflow_tablename(code)
+        if mxdate is None and not self.table_exists(table_name):
+            create_model(FlowHistory, table_name)
+        self.update_to_history_table(table_name, mxdate, flow_with_cols, 'd')
+
+    @classmethod
+    def update_stock_daily_kline_and_fflow(self):
         '''
-        通过涨幅榜更新当日K线数据，必须盘后执行，盘中获取的收盘价为当时的最新价
+        通过涨幅榜更新当日K线数据和资金流数据，必须盘后执行，盘中获取的收盘价为当时的最新价
+
+        :return: 有最新价但是与数据库中保存的数据不连续的股票列表，需单独获取股票K线
         '''
         from stockrt.sources.eastmoney import EastMoney
         class EmRank(EastMoney):
@@ -386,9 +436,9 @@ class AllStocks(AllIndexes):
             def get_rkurl(self, i):
                 url = (
                     'http://33.push2.eastmoney.com/api/qt/clist/get?pn=%d&pz=%d&po=1&np=1&'
-                    'ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3'
-                    '&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048'
-                    '&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f115,f152'
+                    '&fltt=2&invt=2&wbp2u=|0|0|0|web&fid=f3'
+                    '&fs=m:0+t:6+f:!2,m:0+t:13+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2,m:0+t:81+s:2048'
+                    '&fields=f1,f2,f3,f4,f5,f6,f15,f16,f17,f12,f13,f14,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87,f124'
                 ) % (i, self.pgsize)
                 headers = {
                     **self._get_headers(),
@@ -410,6 +460,10 @@ class AllStocks(AllIndexes):
                         'change': rk['f3'],
                         'volume': rk['f5'],
                         'amount': rk['f6'] / 10000,
+                        'main': rk['f62'],
+                        'mainp': rk['f184'],
+                        'small': rk['f84'], 'middle': rk['f78'], 'big': rk['f72'], 'super': rk['f66'],
+                        'smallp': rk['f87'], 'midllep': rk['f81'], 'bigp': rk['f75'], 'superp': rk['f69']
                     } for rk in rkres['data']['diff'] if rk['f3'] != '-'
                 }
 
@@ -429,9 +483,23 @@ class AllStocks(AllIndexes):
         result = emrk.merge_ranks(data)
         emrk.pgsize = len(data['data']['diff'])
         pages = data['data']['total'] // emrk.pgsize + 2
-        pages = 5
         result.update(emrk.fetchranks([i for i in range(2, pages)]))
-        return result
+        with read_context(self.db):
+            codequery = self.db.select(self.db.code, self.db.name, self.db.type).where(self.db.quit_date == None)
+            stock_cns = {r.code[-6:]: r.name for r in codequery if r.code.startswith(('SH', 'SZ', 'BJ')) and r.type in ('ABStock', 'BJStock')}
+        unconfirmed = []
+        for c, kl in result.items():
+            mxdate = self.read_mxdate(self.get_ktablename(c, 'd'))
+            if TradingDate.prev_trading_date(emrk.dtoday) == mxdate:
+                self.save_kline_data_todb(c, 'd', [kl])
+                self.save_fflow_todb(c, [kl])
+            elif mxdate is None or mxdate < TradingDate.prev_trading_date(emrk.dtoday):
+                unconfirmed.append(c)
+            if c in stock_cns and stock_cns[c] != kl['name']:
+                with write_context(self.db):
+                    self.db.update({self.db.name: kl['name']}).where(self.db.code == c).execute()
+        return unconfirmed
+
 
     @classmethod
     def update_kline_data(self, kltype: str='d'):
@@ -440,42 +508,14 @@ class AllStocks(AllIndexes):
         Args:
             kltype: K线类型 (d, w, m, 15)
         '''
-        with read_context(self.db):
-            codequery = self.db.select(self.db.code, self.db.name, self.db.type).where(self.db.quit_date == None)
-            stock_cns = {r.code[-6:]: r.name for r in codequery if r.code.startswith(('SH', 'SZ', 'BJ')) and r.type in ('ABStock', 'BJStock')}
-        if not stock_cns:
-            return
-        uplens = {r.code[-6:]: self.count_bars_to_updated(r.code, kltype) for r in codequery if r.code.startswith(('SH', 'SZ', 'BJ')) and r.type in ('ABStock', 'BJStock')}
-        fixlens = {}
-        for c,l in uplens.items():
-            if l == 0:
-                continue
-            if l not in fixlens:
-                fixlens[l] = []
-            fixlens[l].append(c)
-        if not fixlens:
+        if kltype == 'd':
+            stocks = self.update_stock_daily_kline_and_fflow()
+        else:
+            with read_context(self.db):
+                codequery = self.db.select(self.db.code, self.db.name, self.db.type).where(self.db.quit_date == None)
+                stocks = [r.code[-6:] for r in codequery if r.code.startswith(('SH', 'SZ', 'BJ')) and r.type in ('ABStock', 'BJStock')]
+        if not stocks:
             return
 
-        if 1 in fixlens and kltype == 'd' and len(fixlens[1]) > 100:
-            k1data = self.update_latest_daily_kline()
-            for c, kl in k1data.items():
-                if c in fixlens[1]:
-                    self.save_kline_data_todb(c, 'd', kl)
-                if stock_cns[c] != kl['name']:
-                    with write_context(self.db):
-                        self.db.update({self.db.name: kl['name']}).where(self.db.code == c).execute()
+        self.update_klines_by_code(stocks, kltype)
 
-        ofmt = srt.set_array_format('dict')
-        srt.set_default_sources('dklines', 'dklines', ('xueqiu', 'ths', 'eastmoney', 'tdx', 'sina'), True)
-        klines = {}
-        for l, ic in fixlens.items():
-            if l == 1 and kltype == 'd':
-                continue
-            if l == 10000:
-                klines.update(srt.fklines(ic, kltype, 0))
-            else:
-                klines.update(srt.klines(ic, kltype, l+2, 0))
-        for c in klines:
-            if c in stock_cns:
-                self.save_kline_data_todb(c, kltype, klines[c])
-        srt.set_array_format(ofmt)

@@ -31,3 +31,4 @@ class DateConverter():
             monday1 = date1 - timedelta(days=date1.weekday())
             monday2 = date2 - timedelta(days=date2.weekday())
             return monday1 == monday2
+
