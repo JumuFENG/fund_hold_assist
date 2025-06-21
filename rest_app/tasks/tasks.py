@@ -2,11 +2,11 @@ import os
 import logging
 from datetime import datetime
 import json
-from utils import Utils, TradingDate
+from utils import Utils
 from history import StockGlobal
 from history import StockBkAllChangesHistory, StockBkMap, StockMarkerStats
 from pickup import StockZtDaily
-
+from phon.data.history import TradingDate
 
 class StockMarket_Stats_Task():
     '''股市概况, 早盘竞价结束自动执行一次, 早上9:40自动执行一次, 收盘执行一次'''
@@ -26,11 +26,11 @@ class StockMarket_Stats_Task():
         for bk in self.topbks:
             self.bkstocklist[bk] = [self.to_secucode(c) for c in StockBkMap.bk_stocks(bk)]
 
-        kickdate = TradingDate.prevTradingDate(TradingDate.maxTradedDate(), 3) if len(self.topbks.values()) == 0 else min([bk['kickdate'] for bk in self.topbks.values()])
+        kickdate = TradingDate.prev_trading_date(TradingDate.max_traded_date(), 3) if len(self.topbks.values()) == 0 else min([bk['kickdate'] for bk in self.topbks.values()])
         szt = StockZtDaily()
         ztstks = szt.getHotStocks(kickdate)
-        mdate = TradingDate.maxTradingDate()
-        self.hotstocks = {self.to_secucode(c): {'code': self.to_secucode(c), 'date': d, 'days': days, 'lbc': lbc, 'ndays': TradingDate.calcTradingDays(d, mdate) - 1} for c,d,days,lbc in ztstks}
+        mdate = TradingDate.max_trading_date()
+        self.hotstocks = {self.to_secucode(c): {'code': self.to_secucode(c), 'date': d, 'days': days, 'lbc': lbc, 'ndays': TradingDate.calc_trading_days(d, mdate) - 1} for c,d,days,lbc in ztstks}
 
     @classmethod
     def zt_lbc_sort_key(self, secu):

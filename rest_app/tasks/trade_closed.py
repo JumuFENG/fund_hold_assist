@@ -6,15 +6,15 @@ import os
 sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../..'))
 
 from phon.data.user import User
-from phon.data.history import AllStocks
-from utils import Utils, TradingDate, datetime, shared_cloud_foler
+from phon.data.history import AllStocks, AllIndexes, TradingDate
+from utils import Utils, datetime, shared_cloud_foler
 from timer_task import TimerTask
 from history import StockBkChangesHistory, StockClsBkChangesHistory
 from tasks import StockMarket_Stats_Task
 
 
 def save_earning_task():
-    if Utils.today_date() != TradingDate.maxTradingDate():
+    if TradingDate.today() != TradingDate.max_trading_date():
         TimerTask.logger.warn(f'today is not trading day!')
         return
     TimerTask.logger.info(f'trade_closed_task!')
@@ -30,17 +30,19 @@ class SaveEarningTask(TimerTask):
         super().__init__('15:01:03', save_earning_task)
 
 
-def update_bkchanges_in5d():
+def update_daily_history_data():
+    AllIndexes.update_kline_data('d')
+    TradingDate.clear_cache()
+    AllStocks.update_kline_data('d')
     bkchghis = StockBkChangesHistory()
     bkchghis.updateBkChangedIn5Days()
     clsbkhis = StockClsBkChangesHistory()
     clsbkhis.updateBkChangedIn5Days()
-    AllStocks.update_kline_data('d')
 
 
-class UpdateBkChangesIn5dTask(TimerTask):
+class TradeClosedHistroyDataTask(TimerTask):
     def __init__(self) -> None:
-        super().__init__('15:01:05', update_bkchanges_in5d)
+        super().__init__('15:01:05', update_daily_history_data)
 
 
 class SmStatsTask1501(TimerTask):
@@ -52,5 +54,5 @@ if __name__ == '__main__':
     Utils.setup_logger()
     TimerTask.setup_logger(Utils.logger)
     TimerTask.logger.info('start trade closed task!')
-    tasks = [SaveEarningTask(), UpdateBkChangesIn5dTask(), SmStatsTask1501()]
+    tasks = [SaveEarningTask(), TradeClosedHistroyDataTask(), SmStatsTask1501()]
     TimerTask.run_tasks(tasks)

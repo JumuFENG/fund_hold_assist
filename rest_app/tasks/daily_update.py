@@ -11,7 +11,7 @@ from utils import *
 from user import *
 from history import *
 from pickup import *
-from phon.data.history import AllIndexes
+from phon.data.history import AllIndexes, TradingDate
 
 
 class DailyUpdater():
@@ -27,7 +27,7 @@ class DailyUpdater():
             return
 
         strtoday = Utils.today_date()
-        if TradingDate.isholiday(strtoday):
+        if TradingDate.is_holiday(strtoday):
             Utils.log(f"it is holiday, no data to update. {strtoday}")
             return
 
@@ -90,7 +90,7 @@ class DailyUpdater():
 
     def download_all_index_history(self):
         AllIndexes.update_kline_data('d')
-        TradingDate.max_trading_date = None
+        TradingDate.clear_cache()
         Utils.log('index history updated!')
 
     def download_all_stocks_khistory(self):

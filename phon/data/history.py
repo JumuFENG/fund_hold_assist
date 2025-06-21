@@ -3,13 +3,16 @@
 
 import abc
 import json
+import bisect
+import requests
 from functools import lru_cache, cached_property
 from concurrent.futures import ThreadPoolExecutor
 from peewee import fn
+from playhouse.pool import PooledMySQLDatabase
 from phon.hu import lazy_property, classproperty, convert_dict_data
 from phon.hu.hu import DateConverter, datetime, timedelta
 from phon.data.tables import AllStockTbl, AllIndice, KHistory, FlowHistory
-from phon.data.db import create_model, read_context, write_context, insert_or_update
+from phon.data.db import get_database, create_model, read_context, write_context, insert_or_update
 import stockrt as srt
 
 
@@ -133,22 +136,106 @@ class TradingDate():
     def dbsha(self):
         return create_model(KHistory, AllIndexes.get_ktablename('000001'))
 
+    @staticmethod
+    def today(sep='-'):
+        return datetime.now().strftime(f'%Y{sep}%m{sep}%d')
+
     @classproperty
-    def tradingdates(self):
+    def trading_dates(self):
         with read_context(self.dbsha):
             return list(self.dbsha.select(self.dbsha.date).order_by(self.dbsha.date).scalars())
 
-    @classproperty
+    @classmethod
+    @lru_cache(maxsize=1)
     def max_trading_date(self):
         with read_context(self.dbsha):
-            return self.dbsha.select(fn.MAX(self.dbsha.date)).scalar()
+            mxdate = self.dbsha.select(fn.MAX(self.dbsha.date)).scalar()
+        if mxdate != self.today():
+            sysdate, tradeday = self.get_today_system_date()
+            if tradeday:
+                return sysdate
+        return mxdate
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def max_traded_date(self):
+        with read_context(self.dbsha):
+            mxdate = self.dbsha.select(fn.MAX(self.dbsha.date)).scalar()
+        return mxdate
+
+    @classmethod
+    def is_trading_date(self, date):
+        if date == self.max_trading_date():
+            return True
+        return date in self.trading_dates
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_today_system_date(self):
+        url = 'http://www.sse.com.cn/js/common/systemDate_global.js'
+        sse = requests.get(url)
+        if sse.status_code == 200:
+            if 'var systemDate_global' in sse.text:
+                sys_date = sse.text.partition('var systemDate_global')[2].strip(' =;')
+                sys_date = sys_date.split()[0].strip(' =;"')
+            if 'var whetherTradeDate_global' in sse.text:
+                istrading_date = sse.text.partition('var whetherTradeDate_global')[2].strip(' =;')
+                istrading_date = istrading_date.split()[0].strip(' =;')
+
+            return sys_date, json.loads(istrading_date.lower())
+        return None, None
+
+    @classmethod
+    def is_holiday(self, date):
+        if self.is_trading_date(date):
+            return False
+
+        if date == self.today():
+            sys_date, tradeday = self.get_today_system_date()
+            return not tradeday
+
+        return True
 
     @classmethod
     @lru_cache(maxsize=10)
     def prev_trading_date(self, date, ndays=1):
-        if len(self.tradingdates) > 0 and date > self.tradingdates[0] and date in self.tradingdates:
-            return self.tradingdates[max(0, self.tradingdates.index(date) - ndays)]
-        return self.tradingdates[0]
+        """
+        获取指定日期前第N个交易日
+        :param date: 基准日期
+        :param ndays: 向前偏移的天数（默认1）
+        :return: 前第N个交易日日期，如果不存在返回第一天
+        """
+        dates = self.trading_dates
+        idx = bisect.bisect_left(dates, date)
+        return self.trading_dates[max(idx - ndays, 0)]
+
+    @classmethod
+    @lru_cache(maxsize=10)
+    def next_trading_date(self, date, ndays=1):
+        """
+        获取指定日期后第N个交易日
+        :param date: 基准日期
+        :param ndays: 向后偏移的天数（默认1）
+        :return: 后第N个交易日日期，如果不存在返回最后一天
+        """
+        idx = bisect.bisect_right(self.trading_dates, date)  # 找到第一个>date的索引
+        return self.trading_dates[min(idx + ndays, len(self.trading_dates)) - 1]
+
+    @classmethod
+    def calc_trading_days(self, bdate, edate):
+        """
+        计算两个日期(含)之间的交易日数
+        :param bdate: 起始日期
+        :param edate: 结束日期
+        :return: 交易日数
+        """
+        return bisect.bisect_right(self.trading_dates, edate) - bisect.bisect_left(self.trading_dates, bdate)
+
+    @classmethod
+    def clear_cache(cls):
+        """强制刷新缓存"""
+        cls.max_traded_date.cache_clear()
+        cls.max_trading_date.cache_clear()
 
 
 class StockHistory(BaseKHistory):
@@ -173,8 +260,8 @@ class AllIndexes:
         return create_model(AllIndice)
 
     @classproperty
-    def hisdb(cls):
-        return create_model(KHistory)
+    def hisdb(cls) -> PooledMySQLDatabase:
+        return get_database('history_db')
 
     @classmethod
     def read_all(self):
@@ -261,16 +348,14 @@ class AllIndexes:
     @classmethod
     def table_exists(self, name):
         with read_context(self.hisdb):
-            conn = self.hisdb._meta.database.connection()
-            cur = conn.cursor()
+            cur = self.hisdb.cursor()
             cur.execute(f"select count(*) from information_schema.tables where table_name = '{name}'")
             return cur.fetchone()[0] > 0
 
     @classmethod
     def read_mxdate(self, name):
         with read_context(self.hisdb):
-            conn = self.hisdb._meta.database.connection()
-            cur = conn.cursor()
+            cur = self.hisdb.cursor()
             try:
                 cur.execute(f"select max(date) from {name}")
                 return cur.fetchone()[0]
@@ -342,10 +427,9 @@ class AllIndexes:
 
     @classmethod
     def update_to_history_table(self, table_name, mxdate, newdata, period):
-        cols = [c for c in self.hisdb._meta.columns if c != 'id']
+        cols = [c.name for c in self.hisdb.get_columns(table_name) if c.name != 'id']
         with write_context(self.hisdb):
-            conn = self.hisdb._meta.database.connection()
-            cur = conn.cursor()
+            cur = self.hisdb.cursor()
 
             try:
                 # 3. 处理需要更新的记录
@@ -369,10 +453,10 @@ class AllIndexes:
                     sql = f"INSERT INTO {table_name} ({','.join(cols)}) VALUES ({placeholders})"
                     cur.executemany(sql, [tuple(kl[c] for c in cols) for kl in newkls])
 
-                conn.commit()
+                self.hisdb.commit()
 
             except Exception as e:
-                conn.rollback()
+                self.hisdb.rollback()
                 raise Exception(f"保存K线数据失败: {str(e)}")
 
 
