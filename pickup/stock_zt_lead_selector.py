@@ -7,7 +7,7 @@ from history import *
 from history.stock_history import *
 from history.stock_dumps import *
 from pickup.stock_base_selector import *
-
+from phon.data.history import AllStocks, TradingDate
 
 class StockZtDailyMain(StockBaseSelector):
     def __init__(self) -> None:
@@ -54,7 +54,7 @@ class StockZtDailyMain(StockBaseSelector):
             if sdate is None or sdate == 0:
                 sdate = '0'
             else:
-                sdate = TradingDate.prevTradingDate(sdate)
+                sdate = TradingDate.prev_trading_date(sdate)
             self.wkstocks[i].append(sdate)
 
     def walk_on_history_thread(self):
@@ -180,7 +180,7 @@ class StockZtDailyMain(StockBaseSelector):
                 data = {'date': date}
                 data['pool'] = pool
                 return data
-            elif TradingDate.isTradingDate(date):
+            elif TradingDate.is_trading_date(date):
                 data = {'date': date,'pool':[]}
                 return data
             date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
@@ -360,7 +360,7 @@ class StockZtDailyBJ(StockZtDailyMain):
             if sdate is None or sdate == 0:
                 sdate = '0'
             else:
-                sdate = TradingDate.prevTradingDate(sdate)
+                sdate = TradingDate.prev_trading_date(sdate)
             self.wkstocks[i].append(sdate)
 
     def code_matches(self, code):
@@ -460,7 +460,7 @@ class StockZtLeadingSelector(StockBaseSelector):
         return self._select_condition(f'edate="{date}"')
 
     def updatePickUps(self):
-        if self.sqldb.selectOneValue(self.tablename, 'max(edate)') == TradingDate.maxTradingDate():
+        if self.sqldb.selectOneValue(self.tablename, 'max(edate)') == TradingDate.max_trading_date():
             Utils.log(f'{self.__class__.__name__} already updated to latest!')
             return
         self.walkOnHistory()
@@ -535,8 +535,8 @@ class StockZtLeadingSelector(StockBaseSelector):
                 print(c)
 
     def getHeadedStocks(self, stocks, date):
-        minZdays = 0 if date == TradingDate.maxTradingDate() else 1
-        date = TradingDate.prevTradingDate(date)
+        minZdays = 0 if date == TradingDate.max_trading_date() else 1
+        date = TradingDate.prev_trading_date(date)
         zddic = {}
         mxzday = 0
         for code in stocks:
@@ -817,7 +817,7 @@ class StockZtLeadingStepsSelector(StockZtLeadingSelector):
                 lmx = [c, dt, l, d]
 
         sdate0 = szd.sqldb.selectOneValue(szd.tablename, f'max({column_date})', [f'{column_date} <= "{lmx[1]}"', f'连板数=1', f'{column_code} = "{lmx[0]}"'])
-        sdate0 = TradingDate.prevTradingDate(sdate0, 5)
+        sdate0 = TradingDate.prev_trading_date(sdate0, 5)
         all_zts = szd.sqldb.select(szd.tablename, f'{column_code}, {column_date}, 连板数, 总天数', f'{column_date} >= "{sdate0}"')
 
         mxdate = max([dt for c, dt, l, d in all_zts])
@@ -845,7 +845,7 @@ class StockZtLeadingStepsSelector(StockZtLeadingSelector):
                     i = 0
                     zt_cont = False
                     while i < 3:
-                        fdate0 = TradingDate.nextTradingDate(fdate0)
+                        fdate0 = TradingDate.next_trading_date(fdate0)
                         if fdate0 > all_zts[-1][1]:
                             break
                         zf0 = len([c0 for c0, dt0, l, d in all_zts if dt0 == fdate0 and c0 == c])
@@ -906,7 +906,7 @@ class StockZtLeadingStepsSelector(StockZtLeadingSelector):
 
     def dumpDaysLbc(self, date=None):
         if date is None:
-            date = TradingDate.prevTradingDate(self._max_date(), 200)
+            date = TradingDate.prev_trading_date(self._max_date(), 200)
         cdld = self.sqldb.select(self.tablename, [column_code, column_date, '连板数', '总天数'], [f'{column_date}>="{date}"'])
         cddic = {}
         for c,d,l,dd in cdld:
@@ -917,7 +917,7 @@ class StockZtLeadingStepsSelector(StockZtLeadingSelector):
         for c, dldd in cddic.items():
             dlbc = []
             for d,l,dd in dldd:
-                if len(dlbc) == 0 or d == TradingDate.nextTradingDate(dlbc[-1][0]):
+                if len(dlbc) == 0 or d == TradingDate.next_trading_date(dlbc[-1][0]):
                     dlbc.append([d, l, dd])
                 else:
                     dlbcarr.append({'code': c, 'daylbc': dlbc})
@@ -928,7 +928,7 @@ class StockZtLeadingStepsSelector(StockZtLeadingSelector):
 
     def fixNztIn2Days(self, date=None):
         if date is None:
-            date = TradingDate.prevTradingDate(self._max_date(), 30)
+            date = TradingDate.prev_trading_date(self._max_date(), 30)
         dlbarr = self.dumpDaysLbc(date)
         ldcodes = []
         for dlbobj in dlbarr:
@@ -938,23 +938,23 @@ class StockZtLeadingStepsSelector(StockZtLeadingSelector):
         tofix = []
         for c, dlbc in ldcodes:
             d0 = dlbc[0]
-            if d0 == TradingDate.maxTradedDate():
+            if d0 == TradingDate.max_traded_date():
                 continue
             fxdlbc = [dlbc]
             i = 0
             while i < 3:
-                d1 = TradingDate.nextTradingDate(d0)
+                d1 = TradingDate.next_trading_date(d0)
                 dl1 = szd.sqldb.select(szd.tablename, f'连板数, 总天数', [f'{column_code}="{c}"', f'{column_date} = "{d1}"'])
                 if dl1 is None or len(dl1) == 0:
                     i += 1
                     d0 = d1
                     continue
-                dx = TradingDate.nextTradingDate(fxdlbc[-1][0])
+                dx = TradingDate.next_trading_date(fxdlbc[-1][0])
                 while dx < d1:
                     fxdlbc.append([dx, fxdlbc[-1][1], fxdlbc[-1][2] + 1])
-                    dx = TradingDate.nextTradingDate(dx)
+                    dx = TradingDate.next_trading_date(dx)
                 fxdlbc.append([d1, dl1[0][0], dl1[0][1]])
-                if d1 == TradingDate.maxTradedDate():
+                if d1 == TradingDate.max_traded_date():
                     break
                 d0 = d1
                 i = 0
@@ -985,12 +985,12 @@ class StockZtDaily():
 
     def getNext(self):
         date = max(self.dailyMain._max_date(), self.dailyKccy._max_date(), self.dailySt._max_date())
-        mxdate = TradingDate.maxTradingDate()
+        mxdate = TradingDate.max_trading_date()
         if date == mxdate:
             print('zt info already updated!')
             return
 
-        date = TradingDate.nextTradingDate(date)
+        date = TradingDate.next_trading_date(date)
         while date <= mxdate:
             nardate = datetime.strptime(date, '%Y-%m-%d').strftime("%Y%m%d")
             self.ztinfo.setDate(nardate)
@@ -1002,7 +1002,7 @@ class StockZtDaily():
             self.mergeZtInfo(date)
             if date == mxdate:
                 break
-            date = TradingDate.nextTradingDate(date)
+            date = TradingDate.next_trading_date(date)
         self.updateZtDaily()
 
     def mergeZtInfo(self, date):
@@ -1034,11 +1034,11 @@ class StockZtDaily():
 
     def updateZtDaily(self):
         self.dailySt.walkOnHistory()
-        date = TradingDate.nextTradingDate(self.dailyKccy._max_date())
+        date = TradingDate.next_trading_date(self.dailyKccy._max_date())
         self.dailyKccy.walkOnHistory(date)
-        date = TradingDate.nextTradingDate(self.dailyBj._max_date())
+        date = TradingDate.next_trading_date(self.dailyBj._max_date())
         self.dailyBj.walkOnHistory(date)
-        date = TradingDate.nextTradingDate(self.dailyMain._max_date())
+        date = TradingDate.next_trading_date(self.dailyMain._max_date())
         self.dailyMain.walkOnHistory(date)
 
     def dumpDataByDate(self, date=None, days=3, mkt='A'):
@@ -1145,7 +1145,7 @@ class StockZtDaily():
         i = 1
         while i < n:
             i += 1
-            date = TradingDate.prevTradingDate(date)
+            date = TradingDate.prev_trading_date(date)
         zts = self.dailyMain.sqldb.select(self.dailyMain.tablename, column_code, f'{column_date} >= "{date}"')
         zts += self.dailyKccy.sqldb.select(self.dailyKccy.tablename, column_code, f'{column_date} >= "{date}"')
         zts += self.dailySt.sqldb.select(self.dailySt.tablename, column_code, f'{column_date} >= "{date}"')
@@ -1159,15 +1159,15 @@ class StockZtDaily():
             self.dailyKccy.sqldb.selectOneValue(self.dailyKccy.tablename, 'max(date)'),
             self.dailyBj.sqldb.selectOneValue(self.dailyBj.tablename, 'max(date)')
         )
-        date = TradingDate.prevTradingDate(date, n)
+        date = TradingDate.prev_trading_date(date, n)
         ztdic = {}
         zts = self.dailyMain.sqldb.select(self.dailyMain.tablename, [column_code, column_date], f'{column_date} >= "{date}"')
         zts += self.dailyKccy.sqldb.select(self.dailyKccy.tablename, [column_code, column_date], f'{column_date} >= "{date}"')
         zts += self.dailySt.sqldb.select(self.dailySt.tablename, [column_code, column_date], f'{column_date} >= "{date}"')
         zts += self.dailyBj.sqldb.select(self.dailyBj.tablename, [column_code, column_date], f'{column_date} >= "{date}"')
-        mdate = TradingDate.maxTradingDate()
+        mdate = TradingDate.max_trading_date()
         for c, d in zts:
-            zdays = TradingDate.calcTradingDays(d, mdate)
+            zdays = TradingDate.calc_trading_days(d, mdate)
             if c not in ztdic:
                 ztdic[c] = zdays
             elif zdays < ztdic[c]:
@@ -1350,7 +1350,7 @@ class StockZdtEmotion(StockBaseSelector):
             if date is None:
                 date = ''
             else:
-                date = TradingDate.nextTradingDate(date)
+                date = TradingDate.next_trading_date(date)
 
         zttable = StockZtDaily()
         ztcnt = zttable.dailyMain.sqldb.select(zttable.dailyMain.tablename, [column_date, 'count(*)'], f'{column_date}>="{date}"', f'group by {column_date}')
@@ -1405,7 +1405,7 @@ class StockZdtEmotion(StockBaseSelector):
                     amt += allkl[0].amount
             row.append(amt)
             values.append(row)
-            ndate = TradingDate.nextTradingDate(sdate)
+            ndate = TradingDate.next_trading_date(sdate)
             if ndate == sdate:
                 break
             sdate = ndate
@@ -1416,7 +1416,7 @@ class StockZdtEmotion(StockBaseSelector):
             self.sqldb.insertUpdateMany(self.tablename, [col['col'] for col in self.colheaders], [column_date], values)
 
     def updatePickUps(self):
-        if self._max_date() == TradingDate.maxTradedDate():
+        if self._max_date() == TradingDate.max_traded_date():
             Utils.log(f'{self.__class__.__name__} already updated to latest!')
             return
         self.walkOnHistory()
@@ -1430,7 +1430,7 @@ class StockZdtEmotion(StockBaseSelector):
         return f'{column_date}>="{date}"'
 
     def dumpDataInDays(self, days):
-        return self.dumpDataByDate(TradingDate.prevTradingDate(TradingDate.maxTradedDate(), days-1))
+        return self.dumpDataByDate(TradingDate.prev_trading_date(TradingDate.max_traded_date(), days-1))
 
 
 class StockHotStocksOpenSelector(StockBaseSelector):
@@ -1493,16 +1493,19 @@ class StockHotStocksOpenSelector(StockBaseSelector):
                 self.wkselected.append((date,) + z + (0,))
         self.walk_post_process()
 
+    def getDumpCondition(self, date=None):
+        return f'{column_date}="{date}"' if date is not None else ''
+
 
 class StockHotStocksRetryZt0Selector(StockBaseSelector):
     '''
     高标/人气股 涨停回调(>3个交易日)之后首板打板买入,
-    入选之后66个交易日不涨停则剔除，再次涨停后30个交易日不涨停剔除
+    入选之后66个交易日不涨停则剔除，再次涨停后22个交易日不涨停剔除
     首板后若连板高度>3则重新计算
     卖出条件，
-    次日如果涨停则开板卖出，次日如果不涨停，尾盘卖出，
+    次日如果涨停则开板卖出，如果浮盈>5% 则回撤5%卖出, 如果不涨停，尾盘卖出，
     次日如果深水开盘则盘中冲高卖出，如果盘中横盘则跌破横盘区需止损卖出，
-    如果一字跌停，则转波段策略
+    如果尾盘跌停，且股价处于近期低位则转波段策略
     '''
     def initConstrants(self):
         super().initConstrants()
@@ -1510,8 +1513,194 @@ class StockHotStocksRetryZt0Selector(StockBaseSelector):
         self.colheaders = [
             {'col':column_date,'type':'varchar(20) DEFAULT NULL'},
             {'col':column_code,'type':'varchar(20) DEFAULT NULL'},
-            {'col':'zdate','type':'varchar(20) DEFAULT NULL'}, # 涨停日期
             {'col':'days','type':'int default 0'},
             {'col':'step','type':'int default 0'},
-            {'col':'emrk','type':'int default 0'},
+            {'col':'remdays', 'type':'int default 0'},
+            {'col':'dropdate','type':'varchar(20) DEFAULT NULL'},
         ]
+        self._sim_ops = [
+            {'prepare': self.sim_prepare, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_hsrzt0'},
+            # {'prepare': self.sim_prepare1, 'thread': self.simulate_buy_sell, 'post': self.sim_post_process, 'dtable': f'track_sim_ztabs_lead_2023'},
+            ]
+        self.sim_ops = self._sim_ops[0:1]
+
+    def walk_prepare(self, date=None):
+        self.wkselected = []
+        shso = StockHotStocksOpenSelector()
+        hsos = shso.dumpDataByDate(date)
+        ssel = {}
+        for i,d,c,zd,days,step,*_ in hsos:
+            if step < 4:
+                continue
+            if c not in ssel:
+                if TradingDate.calc_trading_days(AllStocks.get_stock_setupdate(c), zd) < 2*days:
+                    continue
+                ssel[c] = [(zd,days,step)]
+                continue
+            ld,ldays,lstep = ssel[c][-1]
+            if ld == zd:
+                continue
+            if TradingDate.calc_trading_days(ld, zd) > 4:
+                ssel[c].append((zd,days,step))
+                continue
+            ssel[c][-1] = (zd,days,step)
+
+        self.threads_num = 1
+        if date is None:
+            for c in ssel:
+                for zd,days,step in ssel[c]:
+                    self.wkselected.append((zd,c,days,step,0,''))
+            self.wkselected = sorted(self.wkselected, key=lambda x: x[0])
+        else:
+            self.wkstocks = []
+            orecs = self.sqldb.select(self.tablename, f'{column_date}, {column_code}, days, step, remdays', conds=f'remdays>"0"')
+            for c in ssel:
+                for zd,days,step in ssel[c]:
+                    self.wkstocks.append((zd,c,days,step, 66))
+            for d,c,days,step,rd in orecs:
+                if c in ssel:
+                    nrec = ssel[c][-1]
+                    if TradingDate.calc_trading_days(d, nrec[0]) <= 4:
+                        self.sqldb.update(self.tablename, {'remdays': 66, f'{column_date}': nrec[0], 'days': nrec[1], 'step': nrec[2]}, f'{column_date}="{d}" and {column_code}="{c}"')
+                    else:
+                        self.sqldb.update(self.tablename, {'remdays': 0, 'dropdate': d}, f'{column_date}="{d}" and {column_code}="{c}"')
+                    continue
+                self.wkstocks.append((d,c,days,step,rd))
+
+    def check_lbc(self, allkl):
+        lbc = 0
+        lastid = 0
+        mxlbc = 0
+        mxid = 0
+        for i in range(0, len(allkl)):
+            if round(allkl[i].pchange) >= 10 and allkl[i].high == allkl[i].close:
+                lbc += 1
+                lastid = i
+            if i - lastid >= 3:
+                if lbc > mxlbc:
+                    mxlbc = lbc
+                    mxid = lastid
+                lbc = 0
+        if lbc > mxlbc:
+            mxlbc = lbc
+            mxid = lastid
+        return mxlbc, allkl[mxid].date
+
+    def walk_on_history_thread(self):
+        while len(self.wkstocks) > 0:
+            d,c,days,step,rdays = self.wkstocks.pop(0)
+            allkl = self.get_kd_data(c, d, fqt=1)
+            # allkl = [x for x in allkl if x.date <= self.test_date]
+            cursel = []
+            for i in range(len(allkl)-1, 1, -1):
+                lbc,ldate = self.check_lbc(allkl[0:i+1])
+                if lbc >= 3:
+                    if TradingDate.calc_trading_days(d, ldate) > 4:
+                        cursel.append((ldate,c,lbc,lbc,66,''))
+                        cursel.append((d,c,days,step,0, ldate))
+                    break
+                if round(allkl[i].pchange) >= 10 and allkl[i].high == allkl[i].close:
+                    ztrday = max(67 - i, 22)
+                    drpdate = ''
+                    if i + ztrday < len(allkl):
+                        ztrday = 0
+                        drpdate = allkl[i+ztrday].date
+                    else:
+                        ztrday = ztrday - len(allkl) + i + 2
+                    cursel.append((d,c,days,step,ztrday, drpdate))
+                    break
+            if len(cursel) == 0:
+                frd = 66 - len(allkl) + 1
+                cursel.append((d,c,days,step,frd, '' if frd > 0 else allkl[-1].date))
+
+            for s in cursel:
+                self.wkselected.append(s)
+
+    def getDumpKeys(self):
+        return [c['col'] for c in self.colheaders if c['col'] not in ['remdays', 'dropdate']]
+
+    def getDumpCondition(self, date=None):
+        return 'remdays > 0'
+
+    def dumpDataByDate(self, date=None):
+        hsr0 = super().dumpDataByDate(date)
+        if date is None:
+            date = TradingDate.max_traded_date()
+        return [x for x in hsr0 if x[0] < TradingDate.prev_trading_date(date, 2)]
+
+    def sim_prepare(self):
+        super().sim_prepare()
+        orstks = self.sqldb.select(self.tablename, f'{column_code}, {column_date}, days, step')
+        self.sim_stks = sorted(orstks, key=lambda s: (s[0], s[1]))
+        self.sim_deals = []
+        # self.threads_num = 1
+        # self.sim_stks = [x for x in self.sim_stks if x[0] == 'SH600501']
+
+    def simulate_buy_sell(self, orstks):
+        for code, date, days, step in orstks:
+            allkl = self.get_kd_data(code, date)
+            ki = 0
+            while allkl[ki].date != date:
+                ki += 1
+
+            if len(allkl) <=  ki + 2:
+                continue
+
+            fi = 1
+            while ki + fi < len(allkl) and fi < 4:
+                if allkl[ki + fi].close >= Utils.zt_priceby(allkl[ki+fi-1].close, zdf=10):
+                    ki = ki + fi
+                    fi = 1
+                    continue
+                fi += 1
+
+            if len(allkl) <= ki + 2:
+                continue
+
+            zti0 = ki
+            zti1 = ki
+            ki += fi
+            while ki < max(zti0 + 66, zti1 + 30) and ki < len(allkl):
+                while ki < len(allkl) and allkl[ki].high < Utils.zt_priceby(allkl[ki-1].close, zdf=10):
+                    ki += 1
+                if len(allkl) <= ki + 1:
+                    break
+
+                if ki >= max(zti0 + 66, zti1 + 30) or allkl[ki].high < Utils.zt_priceby(allkl[ki-1].close, zdf=10):
+                    break
+
+                if ki >= 2 and allkl[ki-1].close >= Utils.zt_priceby(allkl[ki-2].close, zdf=10):
+                    ki += 1
+                    continue
+
+                zti1 = ki
+                buy = allkl[ki].high
+                sell = 0
+                bdate = allkl[ki].date
+                sdate = bdate
+                cl0 = allkl[ki].close
+                j = ki + 1
+                while j < len(allkl):
+                    if allkl[j].high >= Utils.zt_priceby(cl0, zdf=10):
+                        sell = allkl[j].high
+                    elif allkl[j].high >= cl0 * 1.05:
+                        sell = max(allkl[j].low, allkl[j].high * 0.95)
+                    else:
+                        sell = allkl[j].close
+                    sdate = allkl[j].date
+                    break
+                    j += 1
+
+                self.sim_add_deals(code, [(buy, bdate)], [sell, sdate], 100000)
+                ki += 1
+
+    def sim_post_process(self, dtable):
+        dbs = []
+        sdeals = []
+        for dl in self.sim_deals:
+            if (dl['code'], dl['time'], dl['tradeType']) in dbs:
+                continue
+            dbs.append((dl['code'], dl['time'], dl['tradeType']))
+            sdeals.append(dl)
+        self.sim_deals = sdeals
+        super().sim_post_process(dtable)
