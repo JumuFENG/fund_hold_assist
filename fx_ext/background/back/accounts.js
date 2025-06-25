@@ -667,6 +667,9 @@ class Account {
                 } else if (['已报', '部成'].includes(status) && type) {
                     logger.info(this.keyword, 'imcomplete deal', d.Zqmc, status, tradeType);
                     continue;
+                } else if (['已确认'].includes(status) && ['担保品划入', '担保品划出'].includes(tradeType)) {
+                    accld.createDealsForTransfer(d);
+                    continue;
                 } else {
                     logger.info(this.keyword, 'unknown deal type/status: ', d);
                 }
@@ -678,10 +681,6 @@ class Account {
                 }
             }
             for (const code in sdeals) {
-                if (this.fundcode && code == this.fundcode) {
-                    continue;
-                };
-
                 const stk = this.getStock(code);
                 if (stk?.strategies?.buydetail) {
                     stk.strategies.buydetail.dealsConfirmed(sdeals[code]);
@@ -742,15 +741,15 @@ class Account {
     }
 
     tradeTypeFromMmsm(Mmsm) {
-        const ignored = ['担保品划入', '担保品划出', '融券', ]
+        const ignored = ['融券', ]
         if (ignored.includes(Mmsm)) {
             return;
         }
-        const sells = ['证券卖出'];
+        const sells = ['证券卖出', '担保品划出'];
         if (sells.includes(Mmsm)) {
             return 'S';
         }
-        const buys = ['证券买入', '配售申购', '配股缴款', '网上认购'];
+        const buys = ['证券买入', '配售申购', '配股缴款', '担保品划入', '网上认购'];
         if (buys.includes(Mmsm)) {
             return 'B';
         }
@@ -766,9 +765,6 @@ class Account {
             var bdeals = deals.filter(d => d.Mmsm.includes('买入'));
             for (let i = 0; i < bdeals.length; i++) {
                 const deali = bdeals[i];
-                if (this.fundcode && deali.Zqdm == this.fundcode) {
-                    continue;
-                };
                 if (deali.Cjsl > 0) {
                     var s = this.getStock(deali.Zqdm);
                     if (!s) {
@@ -834,9 +830,12 @@ class Account {
             try {
                 const response = await fetch(url, {method: 'POST', headers: accld.fha.headers, body: dfd});
                 const text = await response.text();
+                if (response.status != 200 || text != 'OK') {
+                    throw new Error(`${response.status} ${text}`);
+                }
                 logger.info(this.keyword, 'upload deals to server,', text);
             } catch (err) {
-                if (retry < 2) {
+                if (retry < 3) {
                     retry++;
                     logger.info(this.keyword, 'upload deals to server failed, retry', retry, err);
                     await new Promise(res => setTimeout(res, 300));
@@ -963,9 +962,9 @@ class Account {
         sxlclt.getAllHistoryData().then(deals => {
             var fetchedDeals = [];
             var dealsTobeCum = [];
-            var ignoredSm = ['融资买入', '融资借入', '偿还融资负债本金', '担保品卖出', '担保品买入', '担保物转入', '担保物转出', '融券回购', '融券购回', '证券卖出', '证券买入', '股份转出', '股份转入', '配股权证', '配股缴款']
-            var otherBuySm = ['红股入账', '配股入帐'];
-            var otherSellSm = [];
+            var ignoredSm = ['融资买入', '融资借入', '偿还融资负债本金', '担保品卖出', '担保品买入', '担保物转入', '担保物转出', '融券回购', '融券购回', '证券卖出', '证券买入', '配股权证', '配股缴款']
+            var otherBuySm = ['红股入账', '配股入帐', '股份转入'];
+            var otherSellSm = ['股份转出'];
             var otherSm = ['配售缴款', '新股入帐', '股息红利差异扣税', '偿还融资利息', '偿还融资逾期利息', '红利入账', '银行转证券', '证券转银行', '利息归本'];
             var fsjeSm = ['股息红利差异扣税', '偿还融资利息', '偿还融资逾期利息', '红利入账', '银行转证券', '证券转银行', '利息归本'];
             for (let i = 0; i < deals.length; i++) {
@@ -1397,9 +1396,6 @@ class NormalAccount extends Account {
         }
 
         for (var i = 0; i < positions.length; i++) {
-            if (this.fundcode && positions[i].Zqdm == this.fundcode) {
-                continue;
-            };
             let stocki = this.parsePosition(positions[i]);
             var stockInfo = this.stocks.find(s=> s.code == stocki.code);
             if (stockInfo) {
@@ -1549,6 +1545,28 @@ const accld = {
             this.doUpdateHistDeals(startDate);
             this.loadOtherDeals(startDate);
         });
+    },
+    createDealsForTransfer(order) {
+        const {Zqdm: dm, Cjjg: price, Cjsl: count, Wtbh: sid, Mmsm: tradeType, Wtzt: status, Wtjg: jg} = order;
+        const code = jg.replaceAll('.', '');
+        const date = guang.getTodayDate('-');
+        const sdeal = { code, price, count, sid, type:'S', status:'已成', date };
+        const bdeal = { code, price, count, sid, type:'B', status:'已成', date };
+        const addAccDeal = (acc, deal) => {
+            const stk = acc.getStock(deal.code);
+            if (stk?.strategies?.buydetail) {
+                stk.strategies.buydetail.addBuyDetail(deal);
+            } else {
+                acc.addWatchStock(deal.code, {buydetail: [deal]});
+            }
+        }
+        if (tradeType == "担保品划出") {
+            addAccDeal(this.normalAccount, bdeal);
+            addAccDeal(this.collateralAccount, sdeal);
+        } else if (tradeType == "担保品划入") {
+            addAccDeal(this.normalAccount, sdeal);
+            addAccDeal(this.collateralAccount, bdeal);
+        }
     },
     doUpdateHistDeals(date) {
         this.normalAccount.loadHistDeals(date);
