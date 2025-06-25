@@ -53,6 +53,7 @@ class GlobalStartup(StrategyI_Listener):
 
     async def openauction(self):
         stocks = iunCloud.get_hotstocks()
+        logger.info('GlobalStartup openauction', stocks)
         stocks = [hs[0][-6:] for hs in stocks[0:3]]
         source = ['qq', 'tdx', 'sina', 'em']
         for s in source:
@@ -73,6 +74,12 @@ class StrategyI_AuctionUp(StrategyI_Listener):
 
     def __init__(self):
         self.watcher = iunCloud.get_watcher('aucsnaps')
+
+    async def start_strategy_tasks(self):
+        iuncfg = iunCloud.iun_str_conf(self.key)
+        if not iuncfg['enabled']:
+            return
+        await super().start_strategy_tasks()
 
     @classmethod
     def check_buy_match(self, auctions):
@@ -160,6 +167,9 @@ class StrategyI_Zt1Bk(StrategyI_Listener):
         self.stock_notified = []
 
     async def start_strategy_tasks(self):
+        iuncfg = iunCloud.iun_str_conf(self.key)
+        if not iuncfg['enabled']:
+            return
         await super().start_strategy_tasks()
         await self.bkwatcher.start_strategy_tasks()
 
@@ -256,6 +266,12 @@ class StrategyI_EndFundFlow(StrategyI_Listener):
     def __init__(self):
         self.watcher = iunCloud.get_watcher('end_fundflow')
 
+    async def start_strategy_tasks(self):
+        iuncfg = iunCloud.iun_str_conf(self.key)
+        if not iuncfg['enabled']:
+            return
+        await super().start_strategy_tasks()
+
     async def on_watcher(self, main_flows):
         chkdate = main_flows[0][1]
         secids = {}
@@ -316,6 +332,12 @@ class StrategyI_DeepBigBuy(StrategyI_Listener):
         self.hotchanges = None
         self.stock_notified = []
 
+    async def start_strategy_tasks(self):
+        iuncfg = iunCloud.iun_str_conf(self.key)
+        if not iuncfg['enabled']:
+            return
+        await super().start_strategy_tasks()
+
     async def on_watcher(self, params):
         if not self.hotchanges:
             hstks = iunCloud.get_hotstocks()
@@ -373,6 +395,9 @@ class StrategyI_3Bull_Breakup(StrategyI_Listener):
         return all([w.done() for w in watchers])
 
     async def start_strategy_tasks(self):
+        iuncfg = iunCloud.iun_str_conf(self.key)
+        if not iuncfg['enabled']:
+            return
         await super().start_strategy_tasks()
         await self.prepare_watcher.start_strategy_tasks()
 
@@ -442,6 +467,9 @@ class StrategyI_Zt1WbOpen(StrategyI_Listener):
         return all([w.done() for w in watchers])
 
     async def start_strategy_tasks(self):
+        iuncfg = iunCloud.iun_str_conf(self.key)
+        if not iuncfg['enabled']:
+            return
         await self.prepare_watcher.start_strategy_tasks()
         await self.watcher.start_strategy_tasks()
         await self.watcher2.start_strategy_tasks()
@@ -486,6 +514,7 @@ class StrategyI_Zt1WbOpen(StrategyI_Listener):
     async def on_watcher2(self):
         self.pupfix = 1
         await self.on_watcher()
+        logger.info('%s done, candidates %s notified %s', self.__class__.name, self.candidates.keys(), self.stock_notified)
 
 
 class StrategyI_HotrankOpen(StrategyI_Listener):
@@ -512,6 +541,9 @@ class StrategyI_HotrankOpen(StrategyI_Listener):
         return all([w.done() for w in watchers])
 
     async def start_strategy_tasks(self):
+        iuncfg = iunCloud.iun_str_conf(self.key)
+        if not iuncfg['enabled']:
+            return
         await self.prepare_watcher.start_strategy_tasks()
         await self.watcher.start_strategy_tasks()
         await self.watcher2.start_strategy_tasks()
@@ -610,6 +642,9 @@ class StrategyI_HotStocksOpen(StrategyI_Listener):
         return all([w.done() for w in watchers])
 
     async def start_strategy_tasks(self):
+        iuncfg = iunCloud.iun_str_conf(self.key)
+        if not iuncfg['enabled']:
+            return
         await self.prepare_watcher.start_strategy_tasks()
         await self.watcher.start_strategy_tasks()
 
@@ -631,8 +666,12 @@ class StrategyI_HotStocksOpen(StrategyI_Listener):
                 break
             step -= 1
 
+        ldate = max([x[1] for x in top_zt_stocks])
+        self.ztcnt_gt3_steps = 0
         for c, d, days, step in top_zt_stocks:
             code = c[-6:]
+            if step > 3 and d == ldate:
+                self.ztcnt_gt3_steps += 1
             self.candidates[code] = {'ztdate': d, 'days': days, 'step': step}
 
         rks = iunCloud.get_open_hotranks()
@@ -645,13 +684,22 @@ class StrategyI_HotStocksOpen(StrategyI_Listener):
         self.lastzdt = dailyzdt[-1] if len(dailyzdt) > 0 else None
 
     def open_environment_matched(self):
-        if self.lastzdt is None:
-            # 如果没有上一次的涨跌停数据，直接返回 true
-            return True
-
         try:
             zrks = iunCloud.get_stocks_zdfrank(8)
             drks = iunCloud.get_stocks_zdfrank(-8)
+            if self.ztcnt_gt3_steps < 5:
+                logger.info('昨日高标（连板数>3）数小于5 %d', self.ztcnt_gt3_steps)
+                return False
+
+            zdfb = iunCloud.get_zdfb()
+            if zdfb and zdfb['down'] > 3000:
+                logger.info('下跌家数 %d', zdfb['down'])
+                return False
+
+            if self.lastzdt is None:
+                # 如果没有上一次的涨跌停数据，直接返回 true
+                return True
+
             dtcnt_open = len([r for r in drks if float(r['f2']) <= guang.dt_priceby(float(r['f18']), zdf=guang.zdf_from_code(r['f12']))])
             logger.info('last dtcnt=%d today open dtcnt=%d', self.lastzdt[3], dtcnt_open)
 
@@ -665,30 +713,50 @@ class StrategyI_HotStocksOpen(StrategyI_Listener):
     async def on_watcher(self):
         stocks = [c for c in self.candidates.keys() if 'rank' in self.candidates[c] and 'ztdate' in self.candidates[c]]
         stocks.sort(key=lambda x: self.candidates[x]['rank'])
+        istrdata = iunCloud.iun_str_conf(self.key)
+        holdings = [s for s in stocks if IunCache.get_account_holdcount(istrdata['account'], s) > 0]
         stocks = stocks[:5]
+        stocks = [s for s in stocks if s not in holdings]
 
         env_valid = self.open_environment_matched()
+
+        quotes = asrt.quotes5(stocks+holdings)
+        for c in holdings:
+            if c not in quotes:
+                continue
+            q = quotes[c]
+            if q['change'] < -0.06:
+                price = q['price'] * self.pupfix
+                price = min(q['lclose'] * 0.94, price)
+            elif q['change'] < 0.03:
+                price = q['price']
+            else:
+                price = q['price'] * 0.95
+            price = min(price, round(q['lclose'] * 1.05, 2))
+            if callable(self.on_intrade_matched):
+                mdata = {'code': c, 'price': price}
+                await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
+                logger.info('%s buy %s %s at %s', self.key, c, q['name'], price)
+
         if not env_valid:
-            logger.info(f'{self.__class__.name} environment not valid')
+            logger.info('%s environment not valid', self.key)
+            self.save_ohstks()
             return
 
-        quotes = asrt.quotes5(stocks)
-        for c, q in quotes.items():
-            # logger.info('%s %s, price=%.2f, change=%.4f, rank=%d', c, q['name'], q['price'], q['change'], self.candidates[c]['rank'])
+        for c in stocks:
+            if c not in quotes:
+                continue
+            q = quotes[c]
             logger.info('%s %s', q['name'], q)
             if q['change'] < -0.08:
                 continue
 
-            istrdata = iunCloud.iun_str_conf(self.key)
             if q['price'] > 0.013 * float(istrdata['amount']):
                 logger.info('%s %s price too high: %.2f amount: %s', c, q['name'], q['price'], istrdata['amount'])
                 continue
 
             price = q['price'] * self.pupfix
             price = min(round(price, 2), q['top_price'] if 'top_price' in q else guang.zt_priceby(q['lclose'], zdf=guang.zdf_from_code(c)))
-            hcount = IunCache.get_account_holdcount(istrdata['account'], c)
-            if hcount > 0:
-                price = min(price, round(q['lclose'] * 1.05, 2))
 
             if callable(self.on_intrade_matched):
                 mdata = {'code': c, 'price': price}
@@ -696,12 +764,15 @@ class StrategyI_HotStocksOpen(StrategyI_Listener):
                 await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
                 logger.info('%s buy %s %s at %s', self.key, c, q['name'], price)
 
+        self.save_ohstks()
+
+    def save_ohstks(self):
         ohstks = []
         date = guang.today_date('-')
         for c, d in self.candidates.items():
             if 'ztdate' in d and 'rank' in d:
                 ohstks.append([date, c, d['ztdate'], d['days'], d['step'], d['rank']])
-        logger.info(f'{self.__class__.name} save ohstks {len(ohstks)} {ohstks}')
+        logger.info(f'{self.key} save ohstks {len(ohstks)} {ohstks}')
         url = guang.join_url(iunCloud.dserver, 'stock')
         data = {
             'act': 'setistr',
@@ -736,6 +807,9 @@ class StrategyI_DtStocksUp(StrategyI_Listener):
         return all([w.done() for w in watchers])
 
     async def start_strategy_tasks(self):
+        iuncfg = iunCloud.iun_str_conf(self.key)
+        if not iuncfg['enabled']:
+            return
         await self.prepare_watcher.start_strategy_tasks()
         await self.watcher.start_strategy_tasks()
         await self.watcher1.start_strategy_tasks()
@@ -745,6 +819,8 @@ class StrategyI_DtStocksUp(StrategyI_Listener):
         url = guang.join_url(iunCloud.dserver, 'stock?act=hotstocks&days=5')
         rc = json.loads(guang.get_request(url))
         for c, d, days, step in rc:
+            if step < 3:
+                continue
             code = c[-6:]
             self.candidates[code] = {'ztdate': d, 'days': days, 'step': step}
 
@@ -865,9 +941,127 @@ class StrategyI_DtStocksUp(StrategyI_Listener):
             iunCloud.accld.disable_account_stock_strategy(acount, code, 'StrategyBuyDTBoard')
 
 
+class StrategyI_HotstocksRetryZt0(StrategyI_Listener):
+    key = 'istrategy_hsrzt0'
+    name = '热门股回调首板'
+    desc = '高标/人气股 涨停回调(>3个交易日)之后首板打板买入'
+    on_intrade_matched = None
+    def __init__(self):
+        self.watcher = iunCloud.get_watcher('quotes')
+        self.prepare_watcher = StrategyI_Watcher_Once('9:29', True)
+        self.prepare_watcher.execute_task = self.prepare
+        self.stock_notified = []
+        self.candidates = {}
+
+    async def start_strategy_tasks(self):
+        iuncfg = iunCloud.iun_str_conf(self.key)
+        if not iuncfg['enabled']:
+            return
+        await self.prepare_watcher.start_strategy_tasks()
+        await super().start_strategy_tasks()
+
+    async def prepare(self):
+        url = guang.join_url(iunCloud.dserver, f'stock?act=getistr&key={self.key}')
+        rc = json.loads(guang.get_request(url))
+        stks = [c[-6:] for d,c, *_ in rc if c.startswith(('SH60', 'SZ00'))]
+        klines = asrt.klines(stks, 101, 32)
+        for c, k in klines.items():
+            klPad.cache(c, k, kltype=101)
+        dtody = guang.today_date('-')
+        for code in stks:
+            # 排除近两天涨停的，排除昨天开盘涨停收盘不涨停的
+            klines = klPad.get_klines(code, 101)
+            if len(klines) < 1:
+                continue
+            if 'change' not in klines:
+                klines['change_px'] = klines['close'] - klines.shift(1)['close']
+                klines['change'] = klines['change_px'] / klines.shift(1)['close']
+            if klines['time'].iloc[-1] == dtody:
+                klines = klines[:-1]
+            if len(klines) < 2:
+                continue
+            if klines['close'].iloc[-1] == klines['high'].iloc[-1] and round(klines['change'].iloc[-1], 2) == 0.10:
+                continue
+            if klines['close'].iloc[-2] == klines['high'].iloc[-2] and round(klines['change'].iloc[-2], 2) == 0.10:
+                continue
+            oprate = (klines['open'].iloc[-1] - klines['close'].iloc[-2]) / klines['close'].iloc[-2]
+            if klines['open'].iloc[-1] == klines['high'].iloc[-1] and klines['close'].iloc[-1] < klines['open'].iloc[-1] and round(oprate, 2) == 0.10:
+                continue
+            self.watcher.add_stock(code)
+            self.candidates[code] = {}
+        logger.info('%s candidates %s', self.key, self.candidates)
+
+    async def on_watcher(self, params):
+        if not self.candidates:
+            return
+
+        istrdata = iunCloud.iun_str_conf(self.key)
+        # 开盘涨停的打回封
+        for code in params:
+            if code not in self.candidates or code in self.stock_notified:
+                continue
+            q = klPad.get_quotes(code)
+            if not q:
+                continue
+
+            ztprice = klPad.get_zt_price(code)
+            if q['open'] == ztprice:
+                if q['price'] == ztprice:
+                    if 'keepztsinceopen' not in self.candidates[code]:
+                        self.candidates[code]['keepztsinceopen'] = True
+                        continue
+                    if self.candidates[code]['keepztsinceopen']:
+                        continue
+                else:
+                    self.candidates[code]['keepztsinceopen'] = False
+
+            if 'keepztsinceopen' in self.candidates[code] and self.candidates[code]['keepztsinceopen']:
+                continue
+
+            if not self.iz_zt_reaching(q, ztprice):
+                continue
+            price = q['price']
+            if price * 100 > 1.6 * float(istrdata['amount']):
+                self.watcher.remove_stock(code)
+                logger.info('%s %s price too high: %.2f amount: %s', self.key, code, price, istrdata['amount'])
+                continue
+            if callable(self.on_intrade_matched):
+                if len(self.stock_notified) < 5:
+                    mdata = {'code': code, 'price': price}
+                    mdata['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2)}}
+                    await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
+                else:
+                    logger.info('%s too many stocks notified, skip %s', self.key, code)
+                self.stock_notified.append(code)
+                self.watcher.remove_stock(code)
+                logger.info('%s buy %s at %.2f', self.key, code, price)
+
+    def iz_zt_reaching(self, quotes, ztprice):
+        ''' 判断是否接近涨停价
+        '''
+        if quotes['price'] == ztprice and quotes['ask1'] == 0:
+            return True
+        if quotes['ask1'] == ztprice and quotes['ask1_volume'] < 1e6:
+            return True
+        topshown = False
+        for i in range(5, 0, -1):
+            if quotes[f'ask{i}'] == 0:
+                topshown = True
+                break
+        if not topshown:
+            topshown = quotes['ask5'] == ztprice
+        if topshown:
+            scount = 0
+            for i in range(1, 6):
+                scount += quotes[f'ask{i}_volume']
+            # 卖盘不足2万手或卖盘金额低于5百万
+            return scount < 2e6 or scount * ztprice < 5e6
+        return False
+
+
 def all_intrade_strategies():
     return [
         GlobalStartup(), StrategyI_AuctionUp(), StrategyI_Zt1Bk(), StrategyI_EndFundFlow(), StrategyI_DeepBigBuy(),
         StrategyI_3Bull_Breakup(), StrategyI_Zt1WbOpen(), StrategyI_HotrankOpen(), StrategyI_HotStocksOpen(),
-        StrategyI_DtStocksUp()
+        StrategyI_DtStocksUp(), StrategyI_HotstocksRetryZt0()
     ]

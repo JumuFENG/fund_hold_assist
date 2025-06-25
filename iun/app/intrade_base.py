@@ -266,6 +266,20 @@ class iunCloud:
             pn += 1
         return zdfranks
 
+    @staticmethod
+    def get_zdfb():
+        try:
+            fburl = 'https://push2ex.eastmoney.com/getTopicZDFenBu?ut=7eea3edcaed734bea9cbfc24409ed989&dpt=wz.ztzt'
+            zdfb = json.loads(guang.get_request(fburl, headers=guang.em_headers('push2ex.eastmoney.com')))['data']['fenbu']
+            fbdic = {}
+            [fbdic.update(d) for d in zdfb]
+            up = sum([fbdic[k] for k in fbdic if int(k) > 0])
+            down = sum([fbdic[k] for k in fbdic if int(k) < 0])
+            fbdic.update({'up': up, 'down': down})
+            return fbdic
+        except:
+            logger.error('get_zdfb error')
+
     __ranklock = Lock()
     @classmethod
     @lru_cache(maxsize=1)
@@ -394,6 +408,7 @@ class StrategyI_AuctionSnapshot_Watcher(StrategyI_Watcher_Cycle):
         w1 = StrategyI_Watcher_Once('9:20:1', guang.delay_seconds(w3.btime) > 0)
         w1.execute_task = self.check_dt_ranks
         self.simple_watchers = [w1, w2, w3]
+        self.matched = []
 
     async def check_dt_ranks(self):
         logger.info('check_dt_ranks')
@@ -473,21 +488,25 @@ class StrategyI_AuctionSnapshot_Watcher(StrategyI_Watcher_Cycle):
 
     def cache_quotes(self, quotes):
         for code, quote in quotes.items():
-            price = quote['price']
-            if quote['open'] == 0 and quote['bid1'] == quote['ask1']:
-                price = quote['bid1']
-                matched_vol = quote['bid1_volume']
-                buy2_count = quote['bid2_volume']
-                sell2_count = quote['ask2_volume']
-                unmatched_vol = buy2_count if buy2_count > 0 else -sell2_count
-            else:
-                matched_vol = quote['volume']
-                unmatched_vol = 0
-                if quote['price'] == quote['bid1']:
-                    unmatched_vol = quote['bid1_volume']
-                elif quote['price'] == quote['ask1']:
-                    unmatched_vol = -quote['ask1_volume']
-            self.auction_quote[code]['quotes'].append([quote['time'], price, matched_vol, unmatched_vol])
+            try:
+                price = quote['price']
+                if quote['open'] == 0 and quote['bid1'] == quote['ask1']:
+                    price = quote['bid1']
+                    matched_vol = quote['bid1_volume']
+                    buy2_count = quote['bid2_volume']
+                    sell2_count = quote['ask2_volume']
+                    unmatched_vol = buy2_count if buy2_count > 0 else -sell2_count
+                else:
+                    matched_vol = quote['volume']
+                    unmatched_vol = 0
+                    if quote['price'] == quote['bid1']:
+                        unmatched_vol = quote['bid1_volume']
+                    elif quote['price'] == quote['ask1']:
+                        unmatched_vol = -quote['ask1_volume']
+                self.auction_quote[code]['quotes'].append([quote['time'], price, matched_vol, unmatched_vol])
+            except Exception as e:
+                logger.error('exception in cache autcion quotes: %s, %s', code, quote)
+                logger.error(traceback.format_exc())
 
     async def notify_auctions1(self):
         await self.notify_change({'quotes': self.auction_quote, 'uppercent': 5})
@@ -529,6 +548,10 @@ class StrategyI_StkZdf_Watcher(StrategyI_Watcher_Cycle):
         while self.task_running:
             try:
                 await self.get_zdf()
+            except ConnectionError as e:
+                if hasattr(e, 'request') and e.request is not None:
+                    logger.error(f'ConnectionError: {e.request.url}')
+                logger.error(f'ConnectionError: {e}')
             except Exception as e:
                 logger.error(e)
                 logger.error(traceback.format_exc())
@@ -776,7 +799,7 @@ class Stock_Rt_Watcher():
 
 class Stock_Klinem_Watcher(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):
     def __init__(self, m=1):
-        super().__init__(['9:30:50', '13:00:50'], ['11:30:1', '14:57:1'])
+        super().__init__(['9:31:05', '13:00:50'], ['11:30:1', '14:57:1'])
         Stock_Rt_Watcher.__init__(self)
         self.period = m * 60
         self.klt = m

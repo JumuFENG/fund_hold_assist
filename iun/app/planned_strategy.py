@@ -109,8 +109,9 @@ class PlannedStrategy(StrategyI_Listener):
         for code in params:
             kltypes = params[code]
             if not kltypes:
-                logger.error('kltypes is empty %s', code)
                 continue
+            if 15 in kltypes or '15' in kltypes:
+                logger.info('StrategyI_Listener on_watcher %s %s', code, kltypes)
             for acc, acode in self.accstocks:
                 if code == acode:
                     await self.check_kline(acc, code, kltypes)
@@ -317,7 +318,7 @@ class StrategySellELShort(PlannedStrategy):
         buydetails = IunCache.get_buy_details(acc, code)
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
         if smeta is None:
-            logger.error('check_kline meta is None %s %s %s %s', acc, code, smeta)
+            logger.error('check_kline meta is None %s %s %s', acc, code, smeta)
             return
 
         if 'cutselltype' not in smeta:
