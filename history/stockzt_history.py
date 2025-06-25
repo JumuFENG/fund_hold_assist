@@ -201,10 +201,10 @@ class StockZtConcepts(TableBase):
         if date is None:
             date = '2021-01-04'
         else:
-            date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
+            date = TradingDate.nextTradingDate(date)
         zthisttable = ['day_zt_stocks', 'day_zt_stocks_kccy'] #, 'day_zt_stocks_st']
         ztconceptsdata = []
-        while date <= datetime.now().strftime(r'%Y-%m-%d'):
+        while date <= TradingDate.maxTradedDate():
             pool = ()
             for ztable in zthisttable:
                 pool += tuple(self.sqldb.select(ztable, [f'{column_code}, 板块, 概念'], [f'{column_date}="{date}"']))
@@ -232,7 +232,10 @@ class StockZtConcepts(TableBase):
                 if len(ztconceptsdata) > 5000:
                     self._save_concepts(ztconceptsdata)
                     ztconceptsdata = []
-            date = (datetime.strptime(date, r'%Y-%m-%d') + timedelta(days=1)).strftime(r"%Y-%m-%d")
+            ndate = TradingDate.nextTradingDate(date)
+            if ndate == date:
+                break
+            date = ndate
 
         if len(ztconceptsdata) > 0:
             self._save_concepts(ztconceptsdata)

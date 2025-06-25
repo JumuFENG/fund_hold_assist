@@ -304,7 +304,7 @@ class AllIndexes:
         '''
         with read_context(self.db):
             codequery = self.db.select(self.db.code)
-        indice_code = [IndexHistory(r.code).full_code for r in codequery]
+            indice_code = [IndexHistory(r.code).full_code for r in codequery]
         if not indice_code:
             return
 
@@ -414,7 +414,7 @@ class AllIndexes:
                     'close': klines[i]['close'],
                     'high': klines[i]['high'],
                     'low': klines[i]['low'],
-                    'volume': klines[i]['volume'] / 100,
+                    'volume': int(klines[i]['volume'] / 100),
                     'amount': klines[i]['amount'] / 10000,
                 }
                 # 计算涨跌幅
@@ -591,10 +591,10 @@ class AllStocks(AllIndexes):
         unconfirmed = []
         for c, kl in result.items():
             mxdate = self.max_date(self.get_ktablename(c, 'd'))
-            if TradingDate.max_traded_date() == mxdate:
+            if TradingDate.prev_trading_date(TradingDate.max_trading_date()) == mxdate:
                 self.save_kline_data_todb(c, 'd', [kl])
                 self.save_fflow_todb(c, [kl])
-            elif mxdate is None or mxdate < TradingDate.max_traded_date():
+            elif mxdate is None or mxdate < TradingDate.prev_trading_date(TradingDate.max_trading_date()):
                 unconfirmed.append(c)
             if c in stock_cns and stock_cns[c] != kl['name']:
                 with write_context(self.db):

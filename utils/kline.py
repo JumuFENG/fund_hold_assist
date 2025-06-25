@@ -13,7 +13,7 @@ class KNode():
         self.open = float(kl[5])
         self.prcchange = float(kl[6])
         self.pchange = float(kl[7])
-        self.vol = int(kl[8])
+        self.vol = int(float(kl[8]))
         self.amount = float(kl[9])
         if len(kl) > 10:
             self.lclose = float(kl[10])

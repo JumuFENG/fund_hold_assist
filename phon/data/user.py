@@ -1515,7 +1515,6 @@ class UStock():
             if val[1] == '0':
                 # 委托编号为0可能是未确认的记录，可能有多条
                 dealtime = val[0].partition(' ')[0]
-                val[0] = dealtime
                 with read_context(buy_table):
                     odls = list(buy_table.select().where(buy_table.date == dealtime, buy_table.code == self.code))
             else:
