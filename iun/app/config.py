@@ -20,8 +20,6 @@ class Config:
                 'server': 'http://localhost:5888/'
             }
             allconfigs['iun'] = {
-                'enable_rtp_check': True,
-                'enable_kl_check': False,
             }
             with open(cfg_path, 'w') as f:
                 json.dump(allconfigs, f, indent=4)
@@ -46,6 +44,7 @@ class Config:
 
 class IunCache:
     cached_strategies = {}
+    delayed_tasks = []
     @classmethod
     def cache_strategy_data(self, acc, code, data):
         for k, v in data['strategies']['strategies'].items():

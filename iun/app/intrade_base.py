@@ -10,6 +10,7 @@ from functools import cached_property
 from datetime import datetime, timedelta
 import stockrt as asrt
 from app.logger import logger
+from app.config import IunCache
 from app.guang import guang
 from app.klpad import klPad
 from app.tradeInterface import TradeInterface
@@ -21,7 +22,6 @@ class StrategyI_Watcher_Once:
         self.btime = btime
         self.exec_if_expired = exec_if_expired
         self.task_running = False
-        self.task_stopped = False
 
     def add_listener(self, listener):
         self.listeners.append(listener)
@@ -31,24 +31,24 @@ class StrategyI_Watcher_Once:
             self.listeners.remove(listener)
 
     async def start_strategy_tasks(self):
-        loop = asyncio.get_event_loop()
         if guang.delay_seconds(self.btime) > 0:
-            loop.call_later(guang.delay_seconds(self.btime), lambda: asyncio.ensure_future(self.start_simple_task()))
+            t = asyncio.create_task(self.start_simple_task(guang.delay_seconds(self.btime)))
+            IunCache.delayed_tasks.append(t)
         else:
             if self.exec_if_expired:
                 await self.execute_task()
-            self.task_stopped = True
 
-    async def start_simple_task(self):
+    async def start_simple_task(self, delay=0):
+        await asyncio.sleep(delay)
         if self.task_running:
             return
         self.task_running = True
+
         try:
             await self.execute_task()
         except Exception as e:
             logger.error(f'{e}')
             logger.error(traceback.format_exc())
-        self.task_stopped = True
         self.notify_stop()
 
     async def execute_task(self):
@@ -65,9 +65,6 @@ class StrategyI_Watcher_Once:
     def notify_stop(self):
         for listener in self.listeners:
             listener.on_taskstop()
-
-    def done(self):
-        return self.task_stopped
 
 
 class iunCloud:
@@ -326,9 +323,6 @@ class StrategyI_Listener:
     def on_taskstop(self):
         pass
 
-    def done(self):
-        return self.watcher.done()
-
 
 class StrategyI_Watcher_Cycle(StrategyI_Watcher_Once):
     def __init__(self, btime, etime=[]):
@@ -347,30 +341,30 @@ class StrategyI_Watcher_Cycle(StrategyI_Watcher_Once):
             self.etime = etime
         assert len(self.btime) == len(self.etime), 'btime and etime must have same length'
         self.task_running = False
-        self.task_stopped = [False] * max(len(self.etime), 1)
         self.simple_watchers = []
 
     async def start_strategy_tasks(self):
-        loop = asyncio.get_event_loop()
         for bt, et in zip(self.btime, self.etime):
             eticks = guang.delay_seconds(et)
             if eticks > 0:
                 bticks = guang.delay_seconds(bt)
                 if bticks < 0:
                     bticks = 0
-                loop.call_later(bticks, lambda: asyncio.ensure_future(self.start_simple_task()))
-                loop.call_later(eticks, self.stop_simple_task)
-            else:
-                self.stop_one_task()
+                t = asyncio.create_task(self.start_simple_task(bticks))
+                IunCache.delayed_tasks.append(t)
+                e = asyncio.create_task(self.stop_simple_task(eticks))
+                IunCache.delayed_tasks.append(e)
 
         if len(self.simple_watchers) > 0:
             for w in self.simple_watchers:
                 await w.start_strategy_tasks()
 
-    async def start_simple_task(self):
+    async def start_simple_task(self, delay=0):
+        await asyncio.sleep(delay)
         if self.task_running:
             return
         self.task_running = True
+
         try:
             await self.execute_task()
         except Exception as e:
@@ -380,21 +374,10 @@ class StrategyI_Watcher_Cycle(StrategyI_Watcher_Once):
     async def execute_task(self):
         logger.info('execute cycle task')
 
-    def stop_one_task(self):
-        for i, stopped in enumerate(self.task_stopped):
-            if not stopped:
-                self.task_stopped[i] = True
-                break
-
-    def stop_simple_task(self):
+    async def stop_simple_task(self, delay=0):
+        await asyncio.sleep(delay)
         self.task_running = False
-        self.stop_one_task()
         self.notify_stop()
-
-    def done(self):
-        if self.simple_watchers and len(self.simple_watchers) > 0:
-            return all(self.task_stopped) and all([w.done() for w in self.simple_watchers])
-        return all(self.task_stopped)
 
 
 class StrategyI_AuctionSnapshot_Watcher(StrategyI_Watcher_Cycle):
@@ -514,8 +497,8 @@ class StrategyI_AuctionSnapshot_Watcher(StrategyI_Watcher_Cycle):
     async def notify_auctions2(self):
         await self.notify_change({'quotes': self.auction_quote, 'uppercent': 2})
 
-    def stop_simple_task(self):
-        super().stop_simple_task()
+    async def stop_simple_task(self, delay=0):
+        await super().stop_simple_task(delay)
         if iunCloud.save_db_enabled():
             aucurl = guang.join_url(iunCloud.dserver, 'stock')
             today = guang.today_date('-')

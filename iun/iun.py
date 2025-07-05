@@ -5,23 +5,16 @@ import asyncio
 import traceback
 import stockrt as asrt
 from app.logger import logger
+from app.guang import guang
 from app.config import Config, IunCache
 from app.tradeInterface import TradeInterface
 from app.accounts import accld
 from app.klpad import klPad
 from app.intrade_base import iunCloud
-from app.intrade_strategy import all_intrade_strategies
+from app.intrade_strategy import iStrategyFac
 
 
 class iun:
-    @staticmethod
-    async def check_tasks_finished(tasks):
-        while True:
-            if all([task.done() for task in tasks]):
-                break
-            await asyncio.sleep(1)
-        logger.info("All tasks completed.")
-
     @classmethod
     async def intrade_matched(self, ikey, match_data, istr_message_creator):
         subscribe_detail = iunCloud.iun_str_conf(ikey)
@@ -33,6 +26,10 @@ class iun:
 
     @classmethod
     async def main(cls):
+        remain_secs = guang.delay_seconds('9:11')
+        if remain_secs > 0:
+            logger.info(f'wait to run at 9:11')
+            await asyncio.sleep(remain_secs)
         tconfig = Config.trading_service()
         TradeInterface.tserver = tconfig['server']
         if not TradeInterface.check_trade_server():
@@ -46,18 +43,22 @@ class iun:
             'Content-Type': 'application/json',
             'Authorization': f'''Basic {base64.b64encode(f"{dconfig['user']}:{dconfig['password']}".encode()).decode()}'''
         }
+        asrt.set_default_sources('quotes', 'quotes', ('tencent', 'cls', 'sina', 'xueqiu', 'eastmoney', 'sohu'), False)
+        asrt.set_default_sources('quotes5', 'quotes5', ('sina', 'tencent', 'eastmoney', 'cls', 'sohu', 'tgb'), False)
         asrt.set_logger(logger)
         asrt.set_array_format('df')
         accld.loadAccounts()
         iunCloud.accld = accld
 
         cfg = Config.iun_config()
-        strategies = all_intrade_strategies()
-        async with asyncio.TaskGroup() as tg:
-            for task in strategies:
-                task.on_intrade_matched = cls.intrade_matched
-                tg.create_task(task.start_strategy_tasks())
-            tg.create_task(cls.check_tasks_finished(strategies))
+        strategies = iStrategyFac.all_intrade_strategies()
+        for task in strategies:
+            task.on_intrade_matched = cls.intrade_matched
+            await task.start_strategy_tasks()
+
+        await asyncio.sleep(1)
+        if len(IunCache.delayed_tasks) > 0:
+            await asyncio.gather(*IunCache.delayed_tasks)
 
         logger.info("iun main exited.")
         logger.info(f'{klPad.dump()}')
