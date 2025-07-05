@@ -5,66 +5,16 @@ import requests
 import concurrent, concurrent.futures
 from functools import lru_cache
 from threading import Lock
+from typing import Dict, List
 from urllib.parse import urlencode
 from functools import cached_property
 from datetime import datetime, timedelta
 import stockrt as asrt
 from app.logger import logger
-from app.config import IunCache
 from app.guang import guang
 from app.klpad import klPad
+from app.watcher_base import StrategyI_Watcher_Once, StrategyI_Watcher_Cycle, Stock_Rt_Watcher, JobProcess, SubProcess_Watcher_Cycle
 from app.tradeInterface import TradeInterface
-
-
-class StrategyI_Watcher_Once:
-    def __init__(self, btime, exec_if_expired=True):
-        self.listeners = []
-        self.btime = btime
-        self.exec_if_expired = exec_if_expired
-        self.task_running = False
-
-    def add_listener(self, listener):
-        self.listeners.append(listener)
-
-    def remove_listener(self, listener):
-        if listener in self.listeners:
-            self.listeners.remove(listener)
-
-    async def start_strategy_tasks(self):
-        if guang.delay_seconds(self.btime) > 0:
-            t = asyncio.create_task(self.start_simple_task(guang.delay_seconds(self.btime)))
-            IunCache.delayed_tasks.append(t)
-        else:
-            if self.exec_if_expired:
-                await self.execute_task()
-
-    async def start_simple_task(self, delay=0):
-        await asyncio.sleep(delay)
-        if self.task_running:
-            return
-        self.task_running = True
-
-        try:
-            await self.execute_task()
-        except Exception as e:
-            logger.error(f'{e}')
-            logger.error(traceback.format_exc())
-        self.notify_stop()
-
-    async def execute_task(self):
-        pass
-
-    async def notify_change(self, params):
-        for listener in self.listeners:
-            try:
-                await listener.on_watcher(params)
-            except Exception as e:
-                logger.error(f'{e}')
-                logger.error(traceback.format_exc())
-
-    def notify_stop(self):
-        for listener in self.listeners:
-            listener.on_taskstop()
 
 
 class iunCloud:
@@ -323,61 +273,6 @@ class StrategyI_Listener:
     def on_taskstop(self):
         pass
 
-
-class StrategyI_Watcher_Cycle(StrategyI_Watcher_Once):
-    def __init__(self, btime, etime=[]):
-        '''
-        btime和etime成对设置, 不要有重叠. 如果是一次性任务使用StrategyI_Watcher_Once
-
-        @param btime: '09:30' / ['09:30', '13:00']
-        @param etime: '15:01' / ['11:31', '15:01']
-        '''
-        super().__init__('')
-        self.btime = [btime]
-        if isinstance(btime, list) or isinstance(btime, tuple):
-            self.btime = btime
-        self.etime = [etime]
-        if isinstance(etime, list) or isinstance(etime, tuple):
-            self.etime = etime
-        assert len(self.btime) == len(self.etime), 'btime and etime must have same length'
-        self.task_running = False
-        self.simple_watchers = []
-
-    async def start_strategy_tasks(self):
-        for bt, et in zip(self.btime, self.etime):
-            eticks = guang.delay_seconds(et)
-            if eticks > 0:
-                bticks = guang.delay_seconds(bt)
-                if bticks < 0:
-                    bticks = 0
-                t = asyncio.create_task(self.start_simple_task(bticks))
-                IunCache.delayed_tasks.append(t)
-                e = asyncio.create_task(self.stop_simple_task(eticks))
-                IunCache.delayed_tasks.append(e)
-
-        if len(self.simple_watchers) > 0:
-            for w in self.simple_watchers:
-                await w.start_strategy_tasks()
-
-    async def start_simple_task(self, delay=0):
-        await asyncio.sleep(delay)
-        if self.task_running:
-            return
-        self.task_running = True
-
-        try:
-            await self.execute_task()
-        except Exception as e:
-            logger.error(f'{e}')
-            logger.error(traceback.format_exc())
-
-    async def execute_task(self):
-        logger.info('execute cycle task')
-
-    async def stop_simple_task(self, delay=0):
-        await asyncio.sleep(delay)
-        self.task_running = False
-        self.notify_stop()
 
 
 class StrategyI_AuctionSnapshot_Watcher(StrategyI_Watcher_Cycle):
@@ -763,48 +658,6 @@ class StrategyI_EndFundFlow_Watcher(StrategyI_Watcher_Once):
         await self.notify_change(mflow)
 
 
-class Stock_Rt_Watcher():
-    def __init__(self):
-        self.codes = {}
-
-    def add_stock(self, code):
-        if code not in self.codes:
-            self.codes[code] = 1
-        else:
-            self.codes[code] += 1
-
-    def remove_stock(self, code):
-        if code in self.codes:
-            self.codes[code] -= 1
-            if self.codes[code] == 0:
-                del self.codes[code]
-
-
-class Stock_Klinem_Watcher(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):
-    def __init__(self, m=1):
-        super().__init__(['9:31:05', '13:00:50'], ['11:30:1', '14:57:1'])
-        Stock_Rt_Watcher.__init__(self)
-        self.period = m * 60
-        self.klt = m
-
-    async def execute_task(self):
-        while self.task_running:
-            try:
-                await self.get_klines()
-            except Exception as e:
-                logger.error(f'{e}')
-                logger.error(traceback.format_exc())
-            await asyncio.sleep(self.period)
-
-    async def get_klines(self):
-        codes = [c for c in self.codes if self.codes[c] > 0]
-        klines = asrt.klines(codes, kltype=self.klt, length=32)
-        chgklt = {}
-        for c in klines:
-            chgklt[c] = klPad.cache(c, klines[c], kltype=self.klt)
-        await self.notify_change(chgklt)
-
-
 class Stock_KlineDay_Watcher(StrategyI_Watcher_Once, Stock_Rt_Watcher):
     def __init__(self):
         super().__init__('14:56:55', False)
@@ -819,27 +672,66 @@ class Stock_KlineDay_Watcher(StrategyI_Watcher_Once, Stock_Rt_Watcher):
         await self.notify_change(chgklt)
 
 
-class Stock_Quote_Watcher(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):
-    def __init__(self):
-        super().__init__(['9:30:1', '13:00'], ['11:30', '14:57'])
-        Stock_Rt_Watcher.__init__(self)
-        self.period = 5
+class KlineJobProcess(JobProcess):
+    def __init__(self, task_queue, result_queue, period, klt):
+        super().__init__(task_queue, result_queue, period)
+        self.klt = klt
 
-    async def execute_task(self):
-        while self.task_running:
-            try:
-                await self.get_quotes()
-            except Exception as e:
-                logger.error(f'{e}')
-                logger.error(traceback.format_exc())
-            await asyncio.sleep(self.period)
+    def process_job(self, codes: List[str]) -> Dict:
+        asrt.set_array_format('df')
+        return asrt.klines(codes, kltype=self.klt, length=32)
 
-    async def get_quotes(self):
-        codes = [c for c in self.codes if self.codes[c] > 0]
-        if len (codes) == 0:
+
+class Stock_Klinem_Watcher(SubProcess_Watcher_Cycle):
+    def __init__(self, m=1):
+        SubProcess_Watcher_Cycle.__init__(self, m*60, ['9:31:05', '13:00:50'], ['11:30:1', '14:57:1'])
+        self.klt = m
+
+    def create_subprocess(self):
+        return KlineJobProcess(self.task_queue, self.result_queue, self.period,self.klt)
+
+    async def handle_process_result(self, result):
+        if not result:
+            logger.warning("Received empty kline data")
             return
-        quotes = asrt.quotes5(codes)
-        for c in quotes:
-            klPad.cache(c, quotes=quotes[c])
-        await self.notify_change(quotes.keys())
 
+        try:
+            chgklt = {}
+            for c in result:
+                chgklt[c] = klPad.cache(c, result[c], kltype=self.klt)
+            if chgklt:
+                await self.notify_change(chgklt)
+        except Exception as e:
+            logger.error(f"Error processing kline data: {e}")
+            logger.error(traceback.format_exc())
+            # TODO: 如果数据处理出错，可以考虑重启进程
+
+
+class QuoteJobProcess(JobProcess):
+    def process_job(self, codes: List[str]) -> Dict:
+        return asrt.quotes5(codes)
+
+class Stock_Quote_Watcher(SubProcess_Watcher_Cycle):
+    def __init__(self):
+        SubProcess_Watcher_Cycle.__init__(self, 5, ['9:30:1', '13:00'], ['11:30', '14:57'])
+
+    def create_subprocess(self):
+        return QuoteJobProcess(self.task_queue, self.result_queue, self.period)
+
+    async def handle_process_result(self, result):
+        if not result:
+            logger.warning("Received empty quote data")
+            return
+
+        try:
+            codes = []
+            for c in result:
+                if result[c] is None:
+                    continue
+                klPad.cache(c, quotes=result[c])
+                codes.append(c)
+            await self.notify_change(codes)
+        except Exception as e:
+            logger.error(f"Error processing quote data: {e}")
+            logger.error(traceback.format_exc())
+            # TODO: 如果数据处理出错，可以考虑重启进程
