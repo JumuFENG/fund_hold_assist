@@ -967,9 +967,7 @@ class StrategyI_HotstocksRetryZt0(MarketStrategy):
         url = guang.join_url(iunCloud.dserver, f'stock?act=getistr&key={self.key}')
         rc = json.loads(guang.get_request(url))
         stks = [c[-6:] for d,c, *_ in rc if c.startswith(('SH60', 'SZ00'))]
-        klines = asrt.klines(stks, 101, 32)
-        for c, k in klines.items():
-            klPad.cache(c, k, kltype=101)
+        klPad.load_dsvr_klines(stks, 101, 32)
         qstks = [c for c in stks if not klPad.get_quotes(c)]
         if len(qstks) > 0:
             quotes = asrt.quotes(qstks)

@@ -1,8 +1,7 @@
 import os,sys
 sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../../iun'))
 import unittest
-from app.klpad import klPad
-from app.stock_strategy import StrategyFac
+from app.klpad import klPad, DsvrKSource
 from app.config import IunCache
 import stockrt as srt
 import asyncio
@@ -182,6 +181,22 @@ class TestklPadCache(unittest.TestCase):
         self.assertEqual(klines1.loc[(klines1['bss18'] == 'b').where(lambda x: x).last_valid_index(), 'time'], '2025-07-03')
         self.assertEqual(klines1.loc[(klines1['bss18'] == 's').where(lambda x: x).last_valid_index(), 'time'], '2025-05-26')
 
+    def test_getkline_data_from_datasvr(self):
+        srt.set_array_format('pd')
+        dsvr = DsvrKSource()
+        code = '600110'
+        kls = dsvr.klines(code, 101, 100)
+        kls = dsvr.fklines(code, 101)
+        klines = kls[code]
+        self.assertEqual(len(klines), 100)
+
+    def test_klpad_dsvr_klines(self):
+        srt.set_array_format('pd')
+        code = '600110'
+        klPad.load_dsvr_klines(code, 101, 30)
+        klines = klPad.get_klines(code, 101)
+        self.assertEqual(len(klines), 30)
+
 class TestStrategyGE(unittest.TestCase):
     def setUp(self):
         IunCache.cache_strategy_data('collat', '510050', {'holdCost': 2.6994, 'holdCount': 14500.0, 'strategies': {'grptype': 'GroupStandard', 'strategies': {
@@ -214,7 +229,7 @@ class TestStrategyGE(unittest.TestCase):
 if __name__ == '__main__':
     suite = unittest.TestSuite()
     # suite.addTest(TestStrategyGE('test_check_kline'))
-    suite.addTest(TestklPadCache('test_calcbss'))
+    suite.addTest(TestklPadCache('test_klpad_dsvr_klines'))
     runner = unittest.TextTestRunner()
     runner.run(suite)
 

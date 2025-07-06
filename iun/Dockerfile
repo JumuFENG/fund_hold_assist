@@ -4,13 +4,14 @@ FROM python:3.12-slim
 WORKDIR /home/pyuser/iun
 
 RUN useradd -m pyuser && \
-    chown pyuser:pyuser /home/pyuser/iun
+    chown pyuser:pyuser /home/pyuser
 
-COPY ./packages /usr/local/lib/python3.12/site-packages/
-RUN pip install --upgrade pip requests
+RUN pip install --upgrade pip virtualenv && python -m venv venv
+COPY ./packages /home/pyuser/iun/
+RUN . venv/bin/activate && pip install --upgrade pip requests pandas thsdk pytdx && \
+    pip install *.whl && rm -f *.whl
 
-
-COPY --chown=pyuser:pyuser ./iun.py /home/pyuser/iun/
+COPY --chown=pyuser:pyuser ./iun.py ./iun_pstr.py /home/pyuser/iun/
 COPY --chown=pyuser:pyuser ./app /home/pyuser/iun/app/
 RUN mkdir -p /home/pyuser/iun/config /home/pyuser/iun/logs && \
     chown -R pyuser:pyuser /home/pyuser/iun && \
@@ -18,4 +19,4 @@ RUN mkdir -p /home/pyuser/iun/config /home/pyuser/iun/logs && \
 
 USER pyuser
 
-CMD ["python", "iun.py"]
+CMD ["/home/pyuser/iun/venv/bin/python", "iun_pstr.py"]

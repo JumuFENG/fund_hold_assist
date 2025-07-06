@@ -1,8 +1,10 @@
 import time
 import datetime
+import json
 import pandas as pd
-import numpy as np
+from functools import lru_cache
 import stockrt as srt
+from stockrt.sources.rtbase import requestbase
 from app.guang import guang
 from app.logger import logger
 
@@ -28,7 +30,7 @@ class klPad:
             if 'bid5' in quotes:
                 self.__stocks[code]['quotes']['q5time'] = time.time()
 
-        if not klines or len(klines) == 0:
+        if len(klines) == 0:
             return []
         mcount = self.merge_klines(code, kltype, klines)
         if mcount > 0:
@@ -282,6 +284,17 @@ class klPad:
         return self.__stocks[code]['klines'][kltype]
 
     @classmethod
+    @lru_cache(maxsize=1)
+    def dsvr_source(self):
+        return DsvrKSource()
+
+    @classmethod
+    def load_dsvr_klines(self, stocks, kltype=101, length=1000, fq=1):
+        klines = self.dsvr_source().klines(stocks, kltype, length, fq)
+        for c, k in klines.items():
+            self.cache(c, k, kltype=kltype)
+
+    @classmethod
     def resize_cached_klines(self, code, n):
         if code not in self.__stocks:
             return
@@ -408,3 +421,66 @@ class klPad:
             return tprice
         return 0
 
+
+class DsvrKSource(requestbase):
+    dserver = 'http://localhost/5000/'
+    def __init__(self):
+        super().__init__()
+
+    @property
+    def qtapi(self):
+        pass
+
+    @property
+    def qt5api(self):
+        pass
+
+    @property
+    def tlineapi(self):
+        pass
+
+    @property
+    def mklineapi(self):
+        return self.dserver + 'api/stockhist?code=%s&kltype=%s&fqt=%s&len=%s'
+
+    @property
+    def dklineapi(self):
+        return self.dserver + 'api/stockhist?code=%s&kltype=%s&fqt=%s&len=%s'
+
+    @property
+    def fklineapi(self):
+        return self.dserver + 'api/stockhist?code=%s&kltype=%s&fqt=%s&start=0'
+
+    def get_quote_url(self, stocks):
+        pass
+
+    def get_tline_url(self, stock):
+        pass
+
+    def get_mkline_url(self, stock, kltype='1', length=320, fq=1):
+        kltype = self.to_int_kltype(kltype)
+        return self.mklineapi % (stock.upper(), kltype, fq, length), self._get_headers()
+
+    def get_dkline_url(self, stock, kltype='101', length=320, fq=1):
+        return self.get_mkline_url(stock, kltype, length, fq)
+
+    def get_fkline_url(self, stock, kltype='101', fq=0):
+        kltype = self.to_int_kltype(kltype)
+        return self.fklineapi % (stock.upper(), kltype, fq), self._get_headers()
+
+    def format_kline_response(self, rep_data, **kwargs):
+        result = {}
+        for c, d in rep_data:
+            d = json.loads(d)
+            if not d:
+                continue
+            karr = []
+            for x in d:
+                dx = x[1:]
+                dx[5] = float(dx[5])
+                dx[6] = float(dx[6]) / 100
+                dx[7] = int(float(dx[7])*100)
+                dx[8] = float(dx[8]) * 10000
+                karr.append(dx)
+            result[c] = self.format_array_list(karr, ['time', 'close', 'high', 'low', 'open', 'change_px', 'change', 'volume', 'amount'])
+        return result

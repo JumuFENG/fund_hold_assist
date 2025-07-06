@@ -7,7 +7,7 @@ from app.guang import guang
 from app.config import Config, IunCache
 from app.trade_interface import TradeInterface
 from app.accounts import accld
-from app.klpad import klPad
+from app.klpad import klPad, DsvrKSource
 from app.intrade_base import iunCloud
 from app.strategy_factory import StrategyFactory
 
@@ -35,6 +35,7 @@ class iun:
             return
 
         dconfig = Config.data_service()
+        DsvrKSource.dserver = dconfig['server']
         iunCloud.dserver = dconfig['server']
         iunCloud.strFac = StrategyFactory
         accld.dserver = dconfig['server']
@@ -44,7 +45,6 @@ class iun:
         }
         asrt.set_default_sources('quotes', 'quotes', ('tencent', 'cls', 'sina', 'xueqiu', 'eastmoney', 'sohu'), False)
         asrt.set_default_sources('quotes5', 'quotes5', ('sina', 'tencent', 'eastmoney', 'cls', 'sohu', 'tgb'), False)
-        asrt.set_logger(logger)
         asrt.set_array_format('df')
         accld.loadAccounts()
 

@@ -12,7 +12,8 @@ class LazyLogger:
             logging.basicConfig(
                 level=logging.INFO,
                 format='%(levelname)s | %(asctime)s-%(filename)s@%(lineno)d<%(name)s> %(message)s',
-                handlers=[logging.FileHandler(lg_path), logging.StreamHandler(sys.stdout)]
+                handlers=[logging.FileHandler(lg_path), logging.StreamHandler(sys.stdout)],
+                force=True
             )
             self._logger = logging.getLogger('iun')
 
