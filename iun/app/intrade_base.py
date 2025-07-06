@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import traceback
 import json
@@ -5,7 +6,7 @@ import requests
 import concurrent, concurrent.futures
 from functools import lru_cache
 from threading import Lock
-from typing import Dict, List
+from typing import Dict, List, ClassVar, Optional, TYPE_CHECKING
 from urllib.parse import urlencode
 from functools import cached_property
 from datetime import datetime, timedelta
@@ -13,26 +14,29 @@ import stockrt as asrt
 from app.logger import logger
 from app.guang import guang
 from app.klpad import klPad
-from app.watcher_base import StrategyI_Watcher_Once, StrategyI_Watcher_Cycle, Stock_Rt_Watcher, JobProcess, SubProcess_Watcher_Cycle
-from app.tradeInterface import TradeInterface
+from app.watcher_base import *
+from app.trade_interface import TradeInterface
+
+if TYPE_CHECKING:
+    from app.strategy_factory import StrategyFactory
 
 
 class iunCloud:
     dserver = None
-    accld = None
+    strFac: ClassVar[StrategyFactory] = None
     @staticmethod
     @lru_cache(maxsize=None)
-    def get_watcher(name) -> StrategyI_Watcher_Once:
+    def get_watcher(name) -> Watcher_Once:
         if name == 'aucsnaps':
-            return StrategyI_AuctionSnapshot_Watcher()
+            return AuctionSnapshot_Watcher()
         if name == 'stkchanges':
-            return StrategyI_StkChanges_Watcher()
+            return StkChanges_Watcher()
         if name == 'bkchanges':
-            return StrategyI_BKChanges_Watcher()
+            return BKChanges_Watcher()
         if name == 'stkzdf':
-            return StrategyI_StkZdf_Watcher()
+            return StkZdf_Watcher()
         if name == 'end_fundflow':
-            return StrategyI_EndFundFlow_Watcher()
+            return EndFundFlow_Watcher()
         if name == 'kline1':
             return Stock_Klinem_Watcher(1)
         if name == 'kline15':
@@ -261,7 +265,7 @@ class iunCloud:
         return json.loads(guang.get_request(url))
 
 
-class StrategyI_Listener:
+class MarketStrategy:
     async def start_strategy_tasks(self):
         assert hasattr(self, 'watcher'), 'watcher not set!'
         self.watcher.add_listener(self)
@@ -274,16 +278,56 @@ class StrategyI_Listener:
         pass
 
 
+class StockStrategy(MarketStrategy):
+    def __init__(self):
+        self.accstocks = []
+        self.watchers = []
 
-class StrategyI_AuctionSnapshot_Watcher(StrategyI_Watcher_Cycle):
+    def add_stock(self, acc, code):
+        if (acc, code) not in self.accstocks:
+            self.accstocks.append((acc, code))
+        for w in self.watchers:
+            w.add_stock(code)
+
+    def remove_stock(self, acc, code, watcher=None):
+        if (acc, code) in self.accstocks:
+            self.accstocks.remove((acc, code))
+        if watcher is not None:
+            watcher.remove_stock(code)
+        else:
+            for w in self.watchers:
+                w.remove_stock(code)
+
+    async def start_strategy_tasks(self):
+        for w in self.watchers:
+            w.add_listener(self)
+            await w.start_strategy_tasks()
+
+    async def on_watcher(self, params):
+        for code in params:
+            kltypes = params[code]
+            if not kltypes:
+                continue
+            if 30 in kltypes and code.startswith('5'):
+                logger.info('StrategyI_Listener on_watcher %s %s %s', code, kltypes, klPad.get_klines(code, 30))
+            for acc, acode in self.accstocks:
+                if code == acode:
+                    await self.check_kline(acc, code, kltypes)
+
+    async def check_kline(self, acc, code, kltypes):
+        # 这里可以添加K线检查的代码
+        pass
+
+
+class AuctionSnapshot_Watcher(Watcher_Cycle):
     auction_quote = {}
     def __init__(self):
         super().__init__(['9:20:2'], ['9:25:8'])
-        w2 = StrategyI_Watcher_Once('9:24:53', False)
+        w2 = Watcher_Once('9:24:53', False)
         w2.execute_task = self.notify_auctions1
-        w3 = StrategyI_Watcher_Once('9:25:16', False)
+        w3 = Watcher_Once('9:25:16', False)
         w3.execute_task = self.notify_auctions2
-        w1 = StrategyI_Watcher_Once('9:20:1', guang.delay_seconds(w3.btime) > 0)
+        w1 = Watcher_Once('9:20:1', guang.delay_seconds(w3.btime) > 0)
         w1.execute_task = self.check_dt_ranks
         self.simple_watchers = [w1, w2, w3]
         self.matched = []
@@ -413,7 +457,7 @@ class StrategyI_AuctionSnapshot_Watcher(StrategyI_Watcher_Cycle):
             guang.post_data(aucmatchurl, data={'act': 'save_auction_matched', 'matched': json.dumps(values)})
 
 
-class StrategyI_StkZdf_Watcher(StrategyI_Watcher_Cycle):
+class StkZdf_Watcher(Watcher_Cycle):
     ''' 个股涨幅排行,仅获取涨跌幅>=8%
     '''
     def __init__(self):
@@ -455,7 +499,7 @@ class StrategyI_StkZdf_Watcher(StrategyI_Watcher_Cycle):
         await self.notify_change(self.full_zdf)
 
 
-class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Cycle):
+class StkChanges_Watcher(Watcher_Cycle):
     ''' 盘中异动
     '''
     def __init__(self):
@@ -525,7 +569,7 @@ class StrategyI_StkChanges_Watcher(StrategyI_Watcher_Cycle):
                 self.exist_changes.add((code, ftm, tp))
 
 
-class StrategyI_BKChanges_Watcher(StrategyI_Watcher_Cycle):
+class BKChanges_Watcher(Watcher_Cycle):
     ''' 板块异动
     '''
     def __init__(self):
@@ -570,7 +614,7 @@ class StrategyI_BKChanges_Watcher(StrategyI_Watcher_Cycle):
         await self.notify_change(bks)
 
 
-class StrategyI_EndFundFlow_Watcher(StrategyI_Watcher_Once):
+class EndFundFlow_Watcher(Watcher_Once):
     ''' 主力资金流
     '''
     def __init__(self):
@@ -658,7 +702,7 @@ class StrategyI_EndFundFlow_Watcher(StrategyI_Watcher_Once):
         await self.notify_change(mflow)
 
 
-class Stock_KlineDay_Watcher(StrategyI_Watcher_Once, Stock_Rt_Watcher):
+class Stock_KlineDay_Watcher(Watcher_Once, Stock_Rt_Watcher):
     def __init__(self):
         super().__init__('14:56:55', False)
         Stock_Rt_Watcher.__init__(self)
@@ -709,7 +753,7 @@ class Stock_Klinem_Watcher(SubProcess_Watcher_Cycle):
 
 class QuoteJobProcess(JobProcess):
     def process_job(self, codes: List[str]) -> Dict:
-        return asrt.quotes5(codes)
+        return asrt.quotes(codes)
 
 class Stock_Quote_Watcher(SubProcess_Watcher_Cycle):
     def __init__(self):

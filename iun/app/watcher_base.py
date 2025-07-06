@@ -9,7 +9,7 @@ from app.config import IunCache
 from app.guang import guang
 
 
-class StrategyI_Watcher_Once:
+class Watcher_Once:
     def __init__(self, btime, exec_if_expired=True):
         self.listeners = []
         self.btime = btime
@@ -45,9 +45,9 @@ class StrategyI_Watcher_Once:
         self.notify_stop()
 
     async def execute_task(self):
-        pass
+        await self.notify_change()
 
-    async def notify_change(self, params):
+    async def notify_change(self, params=None):
         for listener in self.listeners:
             try:
                 await listener.on_watcher(params)
@@ -59,7 +59,7 @@ class StrategyI_Watcher_Once:
         for listener in self.listeners:
             listener.on_taskstop()
 
-class StrategyI_Watcher_Cycle(StrategyI_Watcher_Once):
+class Watcher_Cycle(Watcher_Once):
     def __init__(self, btime, etime=[]):
         '''
         btime和etime成对设置, 不要有重叠. 如果是一次性任务使用StrategyI_Watcher_Once
@@ -169,7 +169,7 @@ class JobProcess(multiprocessing.Process):
 
 
 
-class SubProcess_Watcher_Cycle(StrategyI_Watcher_Cycle, Stock_Rt_Watcher):
+class SubProcess_Watcher_Cycle(Watcher_Cycle, Stock_Rt_Watcher):
     def __init__(self, period, btime, etime=[]):
         super().__init__(btime, etime)
         Stock_Rt_Watcher.__init__(self)

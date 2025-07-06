@@ -1,13 +1,10 @@
-import asyncio, time, json
-import stockrt as asrt
 import pandas as pd
-from functools import lru_cache
 from app.logger import logger
 from app.config import IunCache
 from app.guang import guang
-from app.intrade_base import StrategyI_Listener, iunCloud, StrategyI_Watcher_Once
+from app.intrade_base import MarketStrategy, iunCloud, StockStrategy
 from app.klpad import klPad
-from app.tradeInterface import TradeInterface
+from app.trade_interface import TradeInterface
 
 
 class FnPs:
@@ -22,7 +19,7 @@ class FnPs:
         if len(buyrecs) == 0:
             return 0
         return max([rec['price'] for rec in buyrecs])
-    
+
     @staticmethod
     def bss18_buy_match(klines: pd.DataFrame):
         if f'bss18' not in klines.columns:
@@ -57,21 +54,6 @@ class FnPs:
         return min(count_avail, buyrecs[-1]['count'])
 
     @staticmethod
-    def consume_buy_details(buyrecs, count):
-        if len(buyrecs) == 0:
-            return []
-        for i in range(len(buyrecs)):
-            if count <= 0:
-                break
-            if buyrecs[i]['count'] > count:
-                buyrecs[i]['count'] -= count
-                count = 0
-            else:
-                count -= buyrecs[i]['count']
-                buyrecs[i]['count'] = 0
-        return [rec for rec in buyrecs if rec['count'] > 0]
-
-    @staticmethod
     def buy_details_average_price(buyrecs):
         if len(buyrecs) == 0:
             return 0
@@ -80,53 +62,12 @@ class FnPs:
         return total / count if count > 0 else 0
 
 
-class PlannedStrategy(StrategyI_Listener):
-    def __init__(self):
-        self.accstocks = []
-        self.watchers = []
-
-    def add_stock(self, acc, code):
-        if (acc, code) not in self.accstocks:
-            self.accstocks.append((acc, code))
-        for w in self.watchers:
-            w.add_stock(code)
-
-    def remove_stock(self, acc, code, watcher=None):
-        if (acc, code) in self.accstocks:
-            self.accstocks.remove((acc, code))
-        if watcher is not None:
-            watcher.remove_stock(code)
-        else:
-            for w in self.watchers:
-                w.remove_stock(code)
-
-    async def start_strategy_tasks(self):
-        for w in self.watchers:
-            w.add_listener(self)
-            await w.start_strategy_tasks()
-
-    async def on_watcher(self, params):
-        for code in params:
-            kltypes = params[code]
-            if not kltypes:
-                continue
-            if 15 in kltypes or '15' in kltypes:
-                logger.info('StrategyI_Listener on_watcher %s %s', code, kltypes)
-            for acc, acode in self.accstocks:
-                if code == acode:
-                    await self.check_kline(acc, code, kltypes)
-
-    async def check_kline(self, acc, code, kltypes):
-        # 这里可以添加K线检查的代码
-        pass
-
-
-class StrategyGE(PlannedStrategy):
+class StrategyGE(StockStrategy):
     key = 'StrategyGE'
     def __init__(self):
         super().__init__()
         self.watcher = iunCloud.get_watcher('kline1')
-        self.k15listener = StrategyI_Listener()
+        self.k15listener = MarketStrategy()
         self.k15watcher = iunCloud.get_watcher('kline15')
         self.k15listener.on_watcher = self.on_watcher
         self.watchers = [self.watcher, self.k15watcher]
@@ -135,6 +76,8 @@ class StrategyGE(PlannedStrategy):
     async def check_kline(self, acc, code, kltypes):
         buydetails = IunCache.get_buy_details(acc, code)
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
+        if not smeta['enabled']:
+            return
         if len(buydetails) > 0 and ('guardPrice' not in smeta or smeta['guardPrice'] < FnPs.min_buy_price(buydetails)):
             smeta['guardPrice'] = FnPs.min_buy_price(buydetails)
 
@@ -144,7 +87,7 @@ class StrategyGE(PlannedStrategy):
             if FnPs.bss18_buy_match(klines):
                 # 建仓
                 tacc = smeta['account'] if 'account' in smeta else acc
-                StrategyFac.planned_strategy_trade(acc, code, 'B', klines['close'].iloc[-1], 0, tacc)
+                TradeInterface.planned_strategy_trade(acc, code, 'B', klines['close'].iloc[-1], 0, tacc)
                 logger.info('建仓 %s %s %d %s %s', acc, code, lkltype, smeta, klines)
                 return
 
@@ -161,11 +104,11 @@ class StrategyGE(PlannedStrategy):
                         return
                     if klPad.continuously_increase_days(code, self.skltype) > 2:
                         tacc = smeta['account'] if 'account' in smeta else acc
-                        StrategyFac.planned_strategy_trade(acc, code, 'B', klclose1, 0, tacc)
                         logger.info('加仓 %s %s %d %s %s', acc, code, self.skltype, smeta, klines1)
                         smeta['guardPrice'] = klclose1
                         smeta['inCritical'] = False
                         IunCache.update_strategy_meta(acc, code, self.key, smeta)
+                        TradeInterface.planned_strategy_trade(acc, code, 'B', klclose1, 0, tacc)
                         return
                 if klclose1 <= smeta['guardPrice'] - mxprice * smeta['stepRate'] / 5:
                     smeta['inCritical'] = True
@@ -178,20 +121,20 @@ class StrategyGE(PlannedStrategy):
                 smeta['cutselltype'] = 'egate'
             count = FnPs.get_sell_count_matched(buydetails, smeta['cutselltype'], klclose, smeta['stepRate'])
             if count > 0:
-                StrategyFac.planned_strategy_trade(acc, code, 'S', klclose, count)
                 logger.info('卖出 %s %s %d %s %s', acc, code, lkltype, smeta, klines)
                 del smeta['guardPrice']
                 smeta['inCritical'] = False
                 IunCache.update_strategy_meta(acc, code, self.key, smeta)
+                TradeInterface.planned_strategy_trade(acc, code, 'S', klclose, count)
                 return
 
 
-class StrategySellMA(PlannedStrategy):
+class StrategySellMA(StockStrategy):
     key = 'StrategySellMA'
     def __init__(self):
         super().__init__()
         self.watcher = iunCloud.get_watcher('kline1')
-        self.k15listener = StrategyI_Listener()
+        self.k15listener = MarketStrategy()
         self.k15watcher = iunCloud.get_watcher('kline15')
         self.k15listener.on_watcher = self.on_watcher
         self.watchers = [self.watcher]
@@ -220,6 +163,9 @@ class StrategySellMA(PlannedStrategy):
 
     async def check_kline(self, acc, code, kltypes):
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
+        if not smeta['enabled']:
+            return
+
         if 'kltype' not in smeta or smeta['kltype'] not in kltypes:
             return
 
@@ -229,18 +175,18 @@ class StrategySellMA(PlannedStrategy):
         if FnPs.bss18_sell_match(klines):
             count = FnPs.get_sell_count_matched(buydetails, smeta['selltype'], klclose, smeta['upRate'])
             if count > 0:
-                StrategyFac.planned_strategy_trade(acc, code, 'S', klclose, count)
                 smeta['enabled'] = False
-                self.remove_stock(acc, code)
                 IunCache.update_strategy_meta(acc, code, self.key, smeta)
+                TradeInterface.planned_strategy_trade(acc, code, 'S', klclose, count)
+                self.remove_stock(acc, code)
 
 
-class StrategySellELShort(PlannedStrategy):
+class StrategySellELShort(StockStrategy):
     key = 'StrategySellELS'
     def __init__(self):
         super().__init__()
         self.watcher = iunCloud.get_watcher('kline1')
-        self.qlistener = StrategyI_Listener()
+        self.qlistener = MarketStrategy()
         self.qlistener.on_watcher = self.on_quotes
         self.qwatcher = iunCloud.get_watcher('quotes')
         self.watchers = [self.watcher, self.qwatcher]
@@ -266,7 +212,7 @@ class StrategySellELShort(PlannedStrategy):
         #     self.qwatcher.remove_stock(code)
         #     self.qickwatcher.add_stock(code)
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
-        if smeta is None or quotes is None:
+        if smeta is None or quotes is None or not smeta['enabled']:
             logger.error('check_quotes meta is None %s %s %s %s', acc, code, smeta, quotes)
             return
         if 'topprice' in smeta and quotes['price'] < smeta['topprice']:
@@ -278,6 +224,7 @@ class StrategySellELShort(PlannedStrategy):
         buydetails = IunCache.get_buy_details(acc, code)
         ztprice = klPad.get_zt_price(code)
         if quotes['high'] == ztprice:
+            quotes = klPad.get_quotes5(code)
             if quotes['bid1'] == quotes['ask1']:
                 return
             if 'tmpmaxb1count' not in smeta or smeta['tmpmaxb1count'] < quotes['bid1_volume']:
@@ -289,22 +236,23 @@ class StrategySellELShort(PlannedStrategy):
             if quotes['ask1'] > 0 or quotes['bid1_volume'] < smeta['tmpmaxb1count'] * 0.1:
                 count = FnPs.get_sell_count_matched(buydetails, smeta['cutselltype'], quotes['price'])
                 if count > 0:
-                    StrategyFac.planned_strategy_trade(acc, code, 'S', quotes['bid2'] if quotes['bid2'] > 0 else quotes['bottom_price'], count)
-                    self.remove_stock(acc, code)
                     if 'tmpmaxb1count' in smeta:
                         del smeta['tmpmaxb1count']
                     smeta['enabled'] = False
                     IunCache.update_strategy_meta(acc, code, self.key, smeta)
+                    TradeInterface.planned_strategy_trade(acc, code, 'S', quotes['bid2'] if quotes['bid2'] > 0 else quotes['bottom_price'], count)
+                    self.remove_stock(acc, code)
 
         if 'guardPrice' in smeta and quotes['price'] < smeta['guardPrice']:
             count = FnPs.get_sell_count_matched(buydetails, smeta['cutselltype'], quotes['price'])
             if count > 0:
-                StrategyFac.planned_strategy_trade(acc, code, 'S', quotes['price'], count)
-                self.remove_stock(acc, code)
+                quotes = klPad.get_quotes5(code)
                 if 'tmpmaxb1count' in smeta:
                     del smeta['tmpmaxb1count']
                 smeta['enabled'] = False
                 IunCache.update_strategy_meta(acc, code, self.key, smeta)
+                TradeInterface.planned_strategy_trade(acc, code, 'S', quotes['bid2'] if quotes['bid2'] > 0 else quotes['price'], count)
+                self.remove_stock(acc, code)
 
     async def check_kline(self, acc, code, kltypes):
         if self.skltype not in kltypes:
@@ -317,7 +265,7 @@ class StrategySellELShort(PlannedStrategy):
         klclose = klines['close'].iloc[-1]
         buydetails = IunCache.get_buy_details(acc, code)
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
-        if smeta is None:
+        if smeta is None or not smeta['enabled']:
             logger.error('check_kline meta is None %s %s %s', acc, code, smeta)
             return
 
@@ -331,10 +279,10 @@ class StrategySellELShort(PlannedStrategy):
                 smeta['guardPrice'] = 0
         count = FnPs.get_sell_count_matched(buydetails, smeta['cutselltype'], klclose)
         if count > 0 and klclose < smeta['guardPrice']:
-            StrategyFac.planned_strategy_trade(acc, code, 'S', klclose, count)
             smeta['enabled'] = False
-            self.remove_stock(acc, code)
             IunCache.update_strategy_meta(acc, code, self.key, smeta)
+            TradeInterface.planned_strategy_trade(acc, code, 'S', klclose, count)
+            self.remove_stock(acc, code)
             return
 
         troughprice = klPad.get_last_trough(code, self.skltype)
@@ -346,7 +294,7 @@ class StrategySellELShort(PlannedStrategy):
             IunCache.update_strategy_meta(acc, code, self.key, smeta)
 
 
-class StrategySellBeforeEnd(PlannedStrategy):
+class StrategySellBeforeEnd(StockStrategy):
     key = 'StrategySellBE'
     def __init__(self):
         super().__init__()
@@ -368,6 +316,8 @@ class StrategySellBeforeEnd(PlannedStrategy):
             return
 
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
+        if not smeta['enabled']:
+            return
         if 'selltype' not in smeta:
             smeta['selltype'] = 'single'
         count = FnPs.get_sell_count_matched(buydetails, smeta['selltype'], klclose)
@@ -407,18 +357,19 @@ class StrategySellBeforeEnd(PlannedStrategy):
                 return
 
     def dosell(self, acc, code, price, count, smeta):
-        StrategyFac.planned_strategy_trade(acc, code, 'S', round(price * 0.99, 2), count)
         smeta['enabled'] = False
-        self.remove_stock(acc, code)
         IunCache.update_strategy_meta(acc, code, self.key, smeta)
+        TradeInterface.planned_strategy_trade(acc, code, 'S', round(price * 0.99, 2), count)
+        self.remove_stock(acc, code)
 
 
-class StrategyBuyZTBoard(PlannedStrategy):
+class StrategyBuyZTBoard(StockStrategy):
     key = 'StrategyBuyZTBoard'
     def __init__(self):
         super().__init__()
         self.watcher = iunCloud.get_watcher('quotes')
         self.watchers = [self.watcher]
+        self.notified = []
 
     async def on_watcher(self, params):
         for acc, acode in self.accstocks:
@@ -430,29 +381,51 @@ class StrategyBuyZTBoard(PlannedStrategy):
         if not quotes:
             return
 
-        if quotes['bid1'] == quotes['ask1']:
+        if quotes['time'] < '09:30:00' or quotes['time'] > '15:00:00':
             # 集合竞价
             return
 
         ztprice = klPad.get_zt_price(code)
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
-        if quotes['price'] == ztprice:
-            if quotes['open'] == ztprice and 'tmpztbroken' not in smeta:
-                smeta['tmpztbroken'] = False
-            if 'tmpztbroken' not in smeta or not smeta['tmpztbroken']:
-                return
-        else:
-            smeta['tmpztbroken'] = True
+        if not smeta or not smeta['enabled']:
+            return
+        if quotes['open'] == ztprice:
+            if quotes['price'] == ztprice:
+                if 'keepztsinceopen' not in smeta:
+                    smeta['keepztsinceopen'] = True
+                    IunCache.update_strategy_meta(acc, code, self.key, smeta)
+                    return
+                if smeta['keepztsinceopen']:
+                    return
+            else:
+                smeta['keepztsinceopen'] = False
 
-        if (quotes['price'] == ztprice and ('tmpztbroken' not in smeta or smeta['tmpztbroken'])) or \
-            (quotes['ask2'] == 0 and quotes['ask1'] == ztprice) or self.is_zt_reaching(quotes, ztprice):
-            tacc = smeta['account'] if 'account' in smeta else acc
-            StrategyFac.planned_strategy_trade(acc, code, 'B', ztprice, 0, tacc)
-            smeta['enabled'] = False
-            self.remove_stock(acc, code)
-            IunCache.update_strategy_meta(acc, code, self.key, smeta)
+        if 'keepztsinceopen' in smeta and smeta['keepztsinceopen']:
+            return
 
-    def is_zt_reaching(self, quotes, ztprice):
+        if not self.is_zt_reaching(klPad.get_quotes5(code), ztprice):
+            return
+
+        # buy stocks at most 8 per day
+        if len(self.notified) >= 8:
+            logger.info('%s too many stocks notified, skip %s', self.key, code)
+            return
+
+        self.notified.append(code)
+        tacc = smeta['account'] if 'account' in smeta else acc
+        smeta['enabled'] = False
+        IunCache.update_strategy_meta(acc, code, self.key, smeta)
+        TradeInterface.planned_strategy_trade(acc, code, 'B', ztprice, 0, tacc)
+        self.remove_stock(acc, code)
+
+    @staticmethod
+    def is_zt_reaching(quotes, ztprice):
+        ''' 判断是否接近涨停价
+        '''
+        if quotes['price'] == ztprice and quotes['ask1'] == 0:
+            return True
+        if quotes['ask1'] == ztprice and quotes['ask1_volume'] < 1e6:
+            return True
         topshown = False
         for i in range(5, 0, -1):
             if quotes[f'ask{i}'] == 0:
@@ -464,11 +437,12 @@ class StrategyBuyZTBoard(PlannedStrategy):
             scount = 0
             for i in range(1, 6):
                 scount += quotes[f'ask{i}_volume']
-            return scount < 2e6
+            # 卖盘不足2万手或卖盘金额低于4百万
+            return scount < 2e6 or scount * ztprice < 4e6
         return False
 
 
-class StrategyBuyDTBoard(PlannedStrategy):
+class StrategyBuyDTBoard(StockStrategy):
     key = 'StrategyBuyDTBoard'
     def __init__(self):
         super().__init__()
@@ -485,78 +459,25 @@ class StrategyBuyDTBoard(PlannedStrategy):
         if not quotes:
             return
 
-        if quotes['bid1'] == quotes['ask1']:
+        if quotes['time'] < '09:30:00' or quotes['time'] > '15:00:00':
             # 集合竞价
             return
 
         dtprice = klPad.get_dt_price(code)
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
+        if not smeta or not smeta['enabled']:
+            return
+
+        quotes = klPad.get_quotes5(code)
         if quotes['price'] == dtprice and quotes['bid1_volume'] == 0:
             if 'fdcount' not in smeta or smeta['fdcount'] < quotes['ask1_volume']:
                 smeta['fdcount'] = quotes['ask1_volume']
 
         if quotes['price'] > dtprice or quotes['ask1_volume'] < 3e5 or quotes['ask1_volume'] < smeta['fdcount'] * 0.2:
             tacc = smeta['account'] if 'account' in smeta else acc
-            StrategyFac.planned_strategy_trade(acc, code, 'B', dtprice + 0.02, 0, tacc)
             smeta['enabled'] = False
-            self.remove_stock(acc, code)
             IunCache.update_strategy_meta(acc, code, self.key, smeta)
+            TradeInterface.planned_strategy_trade(acc, code, 'B', dtprice + 0.02, 0, tacc)
+            self.remove_stock(acc, code)
 
-
-class StrategyFac():
-    @classmethod
-    @lru_cache(maxsize=None)
-    def get_strategy(self, k):
-        s = None
-        if k == StrategyGE.key:
-            s = StrategyGE()
-        elif k == StrategySellELShort.key:
-            s = StrategySellELShort()
-        elif k == StrategySellBeforeEnd.key:
-            s = StrategySellBeforeEnd()
-        elif k == StrategySellMA.key:
-            s = StrategySellMA()
-        elif k == StrategyBuyZTBoard.key:
-            s = StrategyBuyZTBoard()
-        elif k == StrategyBuyDTBoard.key:
-            s = StrategyBuyDTBoard()
-        else:
-            logger.error('Strategy not implemented: %s', k)
-
-        if s:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(s.start_strategy_tasks())
-            else:
-                loop.call_soon(asyncio.ensure_future, s.start_strategy_tasks())
-
-        return s
-
-    @classmethod
-    def planned_strategy_trade(self, acc: str, code: str, tradeType: str, price: float, count: int, tacc: str=None) -> None:
-        '''
-        :param acc str: 持仓账户
-        :param code str: 股票代码
-        :param tradeType str: 'B'/'S'
-        :param price float: 价格
-        :param count int: 股数
-        :param tacc str: 交易账户(买入时设置), 不设置则与持仓账户相同acc
-        :return: None
-        '''
-        buydetails = IunCache.get_buy_details(acc, code)
-        tacc = acc if tacc is None else tacc
-        if tradeType == 'B':
-            if count == 0:
-                sobj = IunCache.get_stock_strategy(acc, code)
-                if not sobj or 'amount' not in sobj:
-                    logger.error('No stock strategy found for %s %s', acc, code)
-                    return
-                amount = sobj['amount']
-                count = guang.calc_buy_count(amount, price)
-            buydetails.append({'code': code, 'count': count, 'price': price, 'date': guang.today_date('-'), 'type': 'B'})
-        else:
-            buydetails = FnPs.consume_buy_details(buydetails, count)
-        TradeInterface.submit_trade({'account': tacc, 'code': code, 'tradeType': tradeType, 'count': count, 'price': price})
-        logger.info('Strategy trade: %s %s %s %f %d', tacc, code, tradeType, price, count)
-        IunCache.update_buy_details(acc, code, buydetails)
 

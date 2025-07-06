@@ -2,7 +2,7 @@ import os,sys
 sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../../iun'))
 import unittest
 from app.klpad import klPad
-from app.planned_strategy import StrategyFac
+from app.stock_strategy import StrategyFac
 from app.config import IunCache
 import stockrt as srt
 import asyncio

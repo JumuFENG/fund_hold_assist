@@ -1,6 +1,8 @@
+import time
+import datetime
 import pandas as pd
 import numpy as np
-import datetime
+import stockrt as srt
 from app.guang import guang
 from app.logger import logger
 
@@ -21,8 +23,12 @@ class klPad:
                 'klines': {},
                 'quotes': {}
             }
-        self.__stocks[code]['quotes'].update(quotes)
-        if len(klines) == 0:
+        if quotes:
+            self.__stocks[code]['quotes'].update(quotes)
+            if 'bid5' in quotes:
+                self.__stocks[code]['quotes']['q5time'] = time.time()
+
+        if not klines or len(klines) == 0:
             return []
         mcount = self.merge_klines(code, kltype, klines)
         if mcount > 0:
@@ -286,6 +292,14 @@ class klPad:
     def get_quotes(self, code):
         if code not in self.__stocks:
             return {}
+        return self.__stocks[code]['quotes']
+
+    @classmethod
+    def get_quotes5(self, code):
+        if code not in self.__stocks or time.time() - self.__stocks[code]['quotes']['q5time'] > 3:
+            q5 = srt.quotes5(code)
+            q5['q5time'] = time.time()
+            self.__stocks[code]['quotes'] = q5
         return self.__stocks[code]['quotes']
 
     @classmethod

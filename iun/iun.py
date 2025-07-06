@@ -1,5 +1,3 @@
-import requests
-import json
 import base64
 import asyncio
 import traceback
@@ -7,11 +5,11 @@ import stockrt as asrt
 from app.logger import logger
 from app.guang import guang
 from app.config import Config, IunCache
-from app.tradeInterface import TradeInterface
+from app.trade_interface import TradeInterface
 from app.accounts import accld
 from app.klpad import klPad
 from app.intrade_base import iunCloud
-from app.intrade_strategy import iStrategyFac
+from app.strategy_factory import StrategyFactory
 
 
 class iun:
@@ -37,8 +35,9 @@ class iun:
             return
 
         dconfig = Config.data_service()
-        accld.dserver = dconfig['server']
         iunCloud.dserver = dconfig['server']
+        iunCloud.strFac = StrategyFactory
+        accld.dserver = dconfig['server']
         accld.headers = {
             'Content-Type': 'application/json',
             'Authorization': f'''Basic {base64.b64encode(f"{dconfig['user']}:{dconfig['password']}".encode()).decode()}'''
@@ -48,10 +47,9 @@ class iun:
         asrt.set_logger(logger)
         asrt.set_array_format('df')
         accld.loadAccounts()
-        iunCloud.accld = accld
 
         cfg = Config.iun_config()
-        strategies = iStrategyFac.all_intrade_strategies()
+        strategies = StrategyFactory.market_strategies()
         for task in strategies:
             task.on_intrade_matched = cls.intrade_matched
             await task.start_strategy_tasks()
