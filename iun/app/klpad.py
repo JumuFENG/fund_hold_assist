@@ -43,7 +43,7 @@ class klPad:
                 fac += [
                     fac for fac in self.__factors if
                     len(self.__stocks[code]['klines'][fac * kltype]) > 0
-                    and self.__stocks[code]['klines'][fac * kltype]['time'].iloc[-1] == klines['time'].iloc[-1]]
+                    and self.__stocks[code]['klines'][fac * kltype]['time'].iloc[-1] == self.__stocks[code]['klines'][kltype]['time'].iloc[-1]]
             return [kltype * f for f in fac]
         return []
 
@@ -71,9 +71,6 @@ class klPad:
                 if 'amount' in klines.columns:
                     klines.at[klines.index[-2], 'amount'] += last_kl['amount']
                 klines = klines[:-1]
-                if code.startswith('5') and kltype == 15:
-                    logger.info(f"合并15分钟K线: {code} {last_kl}")
-                    logger.info(f"{klines}")
 
         if kltype == 1:
             # 预处理：处理1分钟K线的09:30特殊逻辑
@@ -476,11 +473,10 @@ class DsvrKSource(requestbase):
                 continue
             karr = []
             for x in d:
-                dx = x[1:]
-                dx[5] = float(dx[5])
-                dx[6] = float(dx[6]) / 100
-                dx[7] = int(float(dx[7])*100)
-                dx[8] = float(dx[8]) * 10000
+                dx = [x[1]] + [float(_x) for _x in x[2:]]
+                dx[6] /= 100
+                dx[7] = int(dx[7]*100)
+                dx[8] *= 10000
                 karr.append(dx)
             result[c] = self.format_array_list(karr, ['time', 'close', 'high', 'low', 'open', 'change_px', 'change', 'volume', 'amount'])
         return result

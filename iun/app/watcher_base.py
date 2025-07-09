@@ -100,6 +100,7 @@ class Watcher_Cycle(Watcher_Once):
             return
         self.task_running = True
 
+        logger.info('%s task start', self.__class__.__name__)
         try:
             await self.execute_task()
         except Exception as e:
@@ -111,8 +112,11 @@ class Watcher_Cycle(Watcher_Once):
 
     async def stop_simple_task(self, delay=0):
         await asyncio.sleep(delay)
+        if not self.task_running:
+            return
         self.task_running = False
         self.notify_stop()
+        logger.info('%s task stop', self.__class__.__name__)
 
 
 class Stock_Rt_Watcher():

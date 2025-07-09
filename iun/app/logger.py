@@ -21,4 +21,4 @@ class LazyLogger:
         self._init_logger()
         return getattr(self._logger, name)
 
-logger = LazyLogger()
+logger : logging.Logger = LazyLogger()

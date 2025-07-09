@@ -2,7 +2,7 @@ import pandas as pd
 from app.logger import logger
 from app.config import IunCache
 from app.guang import guang
-from app.intrade_base import MarketStrategy, iunCloud, StockStrategy
+from app.intrade_base import BaseStrategy, iunCloud, StockStrategy
 from app.klpad import klPad
 from app.trade_interface import TradeInterface
 
@@ -67,11 +67,12 @@ class StrategyGE(StockStrategy):
     def __init__(self):
         super().__init__()
         self.watcher = iunCloud.get_watcher('kline1')
-        self.k15listener = MarketStrategy()
+        self.k15listener = BaseStrategy()
         self.k15watcher = iunCloud.get_watcher('kline15')
         self.k15listener.on_watcher = self.on_watcher
         self.watchers = [self.watcher, self.k15watcher]
         self.skltype = 1
+        self.debug_codes = ['159915']
 
     async def check_kline(self, acc, code, kltypes):
         buydetails = IunCache.get_buy_details(acc, code)
@@ -83,6 +84,8 @@ class StrategyGE(StockStrategy):
 
         lkltype = int(smeta['kltype'])
         klines = klPad.get_klines(code, lkltype)
+        if code in self.debug_codes and lkltype in kltypes:
+            logger.info('StrategyGE tracking %s %s %s %s %s', acc, code, smeta, buydetails, klines)
         if len(klines) > 0 and lkltype in kltypes and not buydetails:
             if FnPs.bss18_buy_match(klines):
                 # 建仓
@@ -134,7 +137,7 @@ class StrategySellMA(StockStrategy):
     def __init__(self):
         super().__init__()
         self.watcher = iunCloud.get_watcher('kline1')
-        self.k15listener = MarketStrategy()
+        self.k15listener = BaseStrategy()
         self.k15watcher = iunCloud.get_watcher('kline15')
         self.k15listener.on_watcher = self.on_watcher
         self.watchers = [self.watcher]
@@ -186,7 +189,7 @@ class StrategySellELShort(StockStrategy):
     def __init__(self):
         super().__init__()
         self.watcher = iunCloud.get_watcher('kline1')
-        self.qlistener = MarketStrategy()
+        self.qlistener = BaseStrategy()
         self.qlistener.on_watcher = self.on_quotes
         self.qwatcher = iunCloud.get_watcher('quotes')
         self.watchers = [self.watcher, self.qwatcher]
@@ -370,6 +373,7 @@ class StrategyBuyZTBoard(StockStrategy):
         self.watcher = iunCloud.get_watcher('quotes')
         self.watchers = [self.watcher]
         self.notified = []
+        self.max_notify = 9999
 
     async def on_watcher(self, params):
         for acc, acode in self.accstocks:
@@ -387,8 +391,9 @@ class StrategyBuyZTBoard(StockStrategy):
 
         ztprice = klPad.get_zt_price(code)
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
-        if not smeta or not smeta['enabled']:
+        if not smeta or not smeta['enabled'] or code in self.notified:
             return
+
         if quotes['open'] == ztprice:
             if quotes['price'] == ztprice:
                 if 'keepztsinceopen' not in smeta:
@@ -406,8 +411,7 @@ class StrategyBuyZTBoard(StockStrategy):
         if not self.is_zt_reaching(klPad.get_quotes5(code), ztprice):
             return
 
-        # buy stocks at most 8 per day
-        if len(self.notified) >= 8:
+        if len(self.notified) >= self.max_notify:
             logger.info('%s too many stocks notified, skip %s', self.key, code)
             return
 

@@ -3,6 +3,7 @@ sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../../iun'))
 import unittest
 from app.klpad import klPad, DsvrKSource
 from app.config import IunCache
+from app.strategy_factory import StrategyFactory
 import stockrt as srt
 import asyncio
 import pandas as pd
@@ -217,7 +218,7 @@ class TestStrategyGE(unittest.TestCase):
                     {'id': 484, 'code': 'SH510050', 'date': '2025-04-23', 'count': 8200, 'price': 2.711, 'sid': '275716', 'type': 'S'},
                     {'id': 498, 'code': 'SH510050', 'date': '2025-04-25', 'count': 3700, 'price': 2.71, 'sid': '382233', 'type': 'B'}]}}
         )
-        self.strategy = StrategyFac.get_strategy('StrategyGE')
+        self.strategy = StrategyFactory.stock_strategy('StrategyGE')
 
     def test_check_kline(self):
         async def call_check_kline():

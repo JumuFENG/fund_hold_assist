@@ -15,7 +15,7 @@ class StrategyFactory():
 
     @classmethod
     @lru_cache(maxsize=None)
-    def stock_strategy(self, k):
+    def stock_strategy(self, k, formkt=''):
         s = None
         if k == StrategyGE.key:
             s = StrategyGE()

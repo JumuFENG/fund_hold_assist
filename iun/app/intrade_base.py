@@ -40,7 +40,7 @@ class iunCloud:
         if name == 'kline1':
             return Stock_Klinem_Watcher(1)
         if name == 'kline15':
-            return Stock_Klinem_Watcher(15)
+            return Stock_Klinem_Watcher(15, ['9:44:55', '13:14:50'], ['11:30:1', '14:57:1'])
         if name == 'klineday':
             return Stock_KlineDay_Watcher()
         if name == 'quotes':
@@ -265,7 +265,7 @@ class iunCloud:
         return json.loads(guang.get_request(url))
 
 
-class MarketStrategy:
+class BaseStrategy:
     async def start_strategy_tasks(self):
         assert hasattr(self, 'watcher'), 'watcher not set!'
         self.watcher.add_listener(self)
@@ -278,7 +278,7 @@ class MarketStrategy:
         pass
 
 
-class StockStrategy(MarketStrategy):
+class StockStrategy(BaseStrategy):
     def __init__(self):
         self.accstocks = []
         self.watchers = []
@@ -573,7 +573,7 @@ class BKChanges_Watcher(Watcher_Cycle):
     ''' 板块异动
     '''
     def __init__(self):
-        super().__init__(['9:30:45', '12:50:45'], ['11:30', '15:2:5'])
+        super().__init__(['9:30:45', '12:50:45'], ['11:30', '15:1:5'])
         self.changes_period = 600
         self.bkchghis = None
         self.clsbkhis = None
@@ -727,8 +727,12 @@ class KlineJobProcess(JobProcess):
 
 
 class Stock_Klinem_Watcher(SubProcess_Watcher_Cycle):
-    def __init__(self, m=1):
-        SubProcess_Watcher_Cycle.__init__(self, m*60, ['9:31:05', '13:00:50'], ['11:30:1', '14:57:1'])
+    def __init__(self, m=1, btime=None, etime=None):
+        if btime is None:
+            btime = ['9:31:05', '13:00:50']
+        if etime is None:
+            etime = ['11:30:1', '14:57:1']
+        SubProcess_Watcher_Cycle.__init__(self, m*60, btime, etime)
         self.klt = m
 
     def create_subprocess(self):
