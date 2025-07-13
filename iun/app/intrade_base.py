@@ -277,6 +277,29 @@ class iunCloud:
         url = guang.join_url(iunCloud.dserver, 'stock?act=zdtemot&days=10')
         return json.loads(guang.get_request(url))
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_financial_4season_losing(cls):
+        url = guang.join_url(iunCloud.dserver, 'stock?act=f4lost')
+        return tuple([c[-6:] for c in json.loads(guang.get_request(url))])
+
+    @classmethod
+    def financial_block(self, code):
+        if code in self.get_financial_4season_losing():
+            return True
+
+        quote = klPad.get_quotes(code)
+        if quote['name'].startswith('退市') or 'ST' in quote['name'] or quote['name'].endswith('退'):
+            return True
+        # if 'PE' in quote and quote['PE'] < 0:
+        #     return True
+        # if 'PB' in quote and quote['PB'] < 1:
+        #     return True
+        # if 'TTM_PE' in quote and quote['TTM_PE'] < 0:
+        #     return True
+        return False
+
+
 
 class BaseStrategy:
     async def start_strategy_tasks(self):

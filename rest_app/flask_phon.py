@@ -4,7 +4,7 @@
 import json
 from flask import session
 from phon.data.user import User
-
+from phon.data.misc import PureLost4Up
 
 def verify_authorization(auth):
     uemail = auth.username
@@ -182,3 +182,6 @@ def user_edit_subaccouts(pform):
             return 'subaccount not exists!', 200
         # own.remove_sub(user.id)
         return 'Not implemented yet!', 200
+
+def pure_financial_lost4():
+    return json.dumps(PureLost4Up.all_stocks())

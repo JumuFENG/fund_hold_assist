@@ -19,17 +19,6 @@ class MarketStrategy(BaseStrategy):
         if mx_notify:
             s.max_notify = mx_notify
 
-    def financial_block(self, quote):
-        if quote['name'].startswith('退市') or 'ST' in quote['name'] or quote['name'].endswith('退'):
-            return True
-        if 'PE' in quote and quote['PE'] < 0:
-            return True
-        if 'PB' in quote and quote['PB'] < 1:
-            return True
-        if 'TTM_PE' in quote and quote['TTM_PE'] < 0:
-            return True
-        return False
-
 
 class GlobalStartup(BaseStrategy):
     def __init__(self):
@@ -787,8 +776,10 @@ class StrategyI_HotStocksOpen(MarketStrategy):
         for c in stocks:
             if c not in quotes:
                 continue
+            if iunCloud.to_be_divided(c):
+                continue
             q = quotes[c]
-            if self.financial_block(q):
+            if iunCloud.financial_block(c):
                 continue
             logger.info('%s %s', q['name'], q)
             if q['change'] < -0.08:
@@ -1008,7 +999,7 @@ class StrategyI_HotstocksRetryZt0(MarketStrategy):
         candidates = []
         for code in stks:
             q = klPad.get_quotes(code)
-            if self.financial_block(q):
+            if iunCloud.financial_block(q):
                 continue
             # 排除近两天涨停的，排除昨天开盘涨停收盘不涨停的
             klines = klPad.get_klines(code, 101)

@@ -12,7 +12,7 @@ from utils import *
 from user import *
 from pickup import *
 from rest_app.flask_phon import verify_authorization, user_request_post, user_request_get
-from rest_app.flask_phon import user_accounts, user_edit_subaccouts
+from rest_app.flask_phon import user_accounts, user_edit_subaccouts, pure_financial_lost4
 
 app = Flask(__name__)
 app.secret_key = "any_string_make_secret_key"
@@ -558,6 +558,9 @@ def stock():
                 hotranktbl = StockHotrank0Selector()
                 rked5d = hotranktbl.getRanked(TradingDate.maxTradedDate())
                 return json.dumps(rked5d)
+            elif key == 'istrategy_hsrzt0':
+                shs = StockHotStocksRetryZt0Selector()
+                return json.dumps(shs.dumpDataByDate())
             return f'Unknown key {key}', 404
         if actype == 'dealcategory':
             dc = StockTrackDeals()
@@ -603,6 +606,8 @@ def stock():
                 return json.dumps(sze.dumpDataByDate(date))
             days = request.args.get('days', type=int, default=10)
             return json.dumps(sze.dumpDataInDays(days))
+        if actype == 'f4lost':
+            return pure_financial_lost4()
 
     usermodel = UserModel()
     if not session.get('logged_in'):

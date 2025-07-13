@@ -212,3 +212,10 @@ class FlowHistory(Model):
 
     class Meta:
         db_name = 'history_db'
+
+
+class StockList(Model):
+    code = CharField(max_length=20, primary_key=True)
+
+    class Meta:
+        db_name = 'stock_center'
