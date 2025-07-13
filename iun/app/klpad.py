@@ -34,16 +34,8 @@ class klPad:
             return []
         mcount = self.merge_klines(code, kltype, klines)
         if mcount > 0:
-            self.expand_kltypes(code, kltype)
-            self.calc_indicators(code, kltype)
-            fac = [1]
-            if mcount >= max(self.__factors):
-                fac += self.__factors
-            else:
-                fac += [
-                    fac for fac in self.__factors if
-                    len(self.__stocks[code]['klines'][fac * kltype]) > 0
-                    and self.__stocks[code]['klines'][fac * kltype]['time'].iloc[-1] == self.__stocks[code]['klines'][kltype]['time'].iloc[-1]]
+            efacs = self.expand_kltypes(code, kltype)
+            fac = [1] + efacs
             return [kltype * f for f in fac]
         return []
 
@@ -123,6 +115,7 @@ class klPad:
         """
         base_klines = cls.__stocks[code]['klines'][base_kltype]
 
+        efacs = []
         for fac in cls.__factors:
             ex_kltype = base_kltype * fac
 
@@ -173,12 +166,17 @@ class klPad:
                         ignore_index=True
                     ) if len(ex_klines) > 0 else pd.DataFrame(expanded_klines)
 
+                    efacs.append(fac)
+        return efacs
+
     @classmethod
     def calc_indicators(self, code, kltype):
         if code not in self.__stocks:
             return
-        for fa in [1] + self.__factors:
-            ex_kltype = kltype * fa
+        exkltypes = [kltype]
+        if kltype == 1 or kltype == 15:
+            exkltypes += [kltype * fa for fa in self.__factors]
+        for ex_kltype in exkltypes:
             if ex_kltype not in self.__stocks[code]['klines']:
                 continue
             self.calc_ma(code, ex_kltype, 18)
@@ -209,11 +207,15 @@ class klPad:
         else:
             start_idx = klines.index.get_loc(last_valid)
         start_idx = max(0, start_idx)
+        if start_idx <= n:
+            # 窗口未填满时，直接重新计算
+            klines[col_name] = klines['close'].rolling(window=n, min_periods=1).mean()
+            return
 
-        if start_idx < len(klines):
-            klines.loc[klines.index[start_idx:], col_name] = (
-                klines['close'].iloc[start_idx:].rolling(n, min_periods=1).mean()
-            )
+        # 增量计算：从需要更新的起始位置开始
+        for i in range(start_idx, len(klines)):
+            window_closes = klines['close'].iloc[i - n + 1 : i + 1]  # 取当前窗口内的收盘价
+            klines.at[klines.index[i], col_name] = window_closes.mean()  # 直接计算均值
 
     @classmethod
     def calc_bss(cls, code: str, kltype: int, n: int) -> None:

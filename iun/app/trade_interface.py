@@ -88,7 +88,7 @@ class TradeInterface:
         '''
         buydetails = IunCache.get_buy_details(acc, code)
         tacc = acc if tacc is None else tacc
-        sobj = IunCache.get_stock_strategy(acc, code)
+        sobj = IunCache.get_stock_strategy_group(acc, code)
         if tradeType == 'B':
             if count == 0:
                 if not sobj or 'amount' not in sobj:
@@ -101,7 +101,7 @@ class TradeInterface:
             buydetails = self.consume_buy_details(buydetails, count)
         tradeparam = {'account': tacc, 'code': code, 'tradeType': tradeType, 'count': count, 'price': price,}
         if sobj:
-            tradeparam['strategies'] = sobj
+            tradeparam['strategies'] = {k: v for k,v in sobj.items() if k not in ['buydetail', 'buydetail_full']}
         TradeInterface.submit_trade(tradeparam)
         logger.info('Strategy trade: %s %s %s %f %d', tacc, code, tradeType, price, count)
         IunCache.update_buy_details(acc, code, buydetails)

@@ -49,6 +49,9 @@ class accld:
             return None
         stocks = sresponse.json()
         for c, v in stocks.items():
+            if c in iunCloud.get_suspend_stocks():
+                logger.info('%s is suspended', c)
+                continue
             IunCache.cache_strategy_data(keyacc, c[-6:], v)
             for sobj in v['strategies']['strategies'].values():
                 if not sobj['enabled']:

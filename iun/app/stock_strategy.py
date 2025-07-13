@@ -51,6 +51,12 @@ class FnPs:
             return min(count_avail, sum([rec['count'] for rec in buyrecs]) // 2)
         if selltype == 'half':
             return min(count_avail, buyrecs[-1]['count'] // 2)
+        if selltype == 'xsingle':
+            # 保留最少买入的一次
+            return min(count_avail, sum([rec['count'] for rec in buyrecs]) - min([rec['count'] for rec in buyrecs]))
+        if selltype == 'x100':
+            # 保留100股
+            return min(count_avail, sum([rec['count'] for rec in buyrecs]) - 100)
         return min(count_avail, buyrecs[-1]['count'])
 
     @staticmethod
@@ -83,6 +89,7 @@ class StrategyGE(StockStrategy):
             smeta['guardPrice'] = FnPs.min_buy_price(buydetails)
 
         lkltype = int(smeta['kltype'])
+        klPad.calc_indicators(code, lkltype)
         klines = klPad.get_klines(code, lkltype)
         if code in self.debug_codes and lkltype in kltypes:
             logger.info('StrategyGE tracking %s %s %s %s %s', acc, code, smeta, buydetails, klines)
@@ -132,6 +139,104 @@ class StrategyGE(StockStrategy):
                 return
 
 
+class StrategyBuySellBeforeEnd(StockStrategy):
+    key = 'StrategyBSBE'
+    def __init__(self):
+        ''' 波段策略，尾盘减仓加仓
+        收盘价连续2天低于MA5时，减仓(仅保留底仓或留1手)，收盘价连续2天高于MA5时加仓使亏损幅度为8%
+        '''
+        super().__init__()
+        self.watcher = iunCloud.get_watcher('klineday')
+        self.watchers = [self.watcher]
+        self.kltype = 101
+
+    async def check_kline(self, acc, code, kltypes):
+        if self.kltype not in kltypes:
+            return
+
+        klPad.calc_ma(code, self.kltype, 5)
+
+        smeta = IunCache.get_strategy_meta(acc, code, self.key)
+        if not smeta['enabled']:
+            return
+
+        buydetails = IunCache.get_buy_details(acc, code)
+        if not buydetails:
+            return
+        
+        klines = klPad.get_klines(code, self.kltype)
+        if len(klines) == 0:
+            return
+
+        if self.check_buy_before_end(acc, code):
+            return
+
+        self.check_sell_before_end(acc, code)
+
+
+    def check_buy_before_end(self, acc, code):
+        klines = klPad.get_klines(code, self.kltype)
+        buydetails = IunCache.get_buy_details(acc, code)
+        smeta = IunCache.get_strategy_meta(acc, code, self.key)
+
+        klclose = klines['close'].iloc[-1]
+        if 'guardPrice' not in smeta:
+            smeta['guardPrice'] = FnPs.buy_details_average_price(buydetails)
+        if klclose > smeta['guardPrice'] * 0.92:
+            return False
+
+        if klines['close'].iloc[-1] <= klines['ma5'].iloc[-1] or klines['close'].iloc[-2] < klines['ma5'].iloc[-2]:
+            return False
+
+        if klines['close'].iloc[-1] > klines['ma5'].iloc[-1] * 1.06:
+            return False
+
+        if max(klines['close'].iloc[-3:-1]) > klines['ma5'].iloc[-1] * 1.1:
+            return False
+
+        ztprice = klPad.get_zt_price(code)
+        hcount = sum([b['count'] for b in buydetails])
+        lost = (smeta['guardPrice'] - klclose) * hcount
+        amount = lost / 0.08 - klclose * hcount
+        sobj = IunCache.get_stock_strategy_group(acc, code)
+        if sobj and 'amount' in sobj:
+            amount = min(25*sobj['amount'], amount)
+        count = guang.calc_buy_count(amount, klclose)
+        price = round(min(ztprice, klclose * 1.01), 2)
+        smeta['guardPrice'] = round((klclose * count + hcount * smeta['guardPrice']) / (count + hcount), 2)
+        TradeInterface.planned_strategy_trade(acc, code, 'B', price, count)
+        return True
+
+    def check_sell_before_end(self, acc, code):
+        klines = klPad.get_klines(code, self.kltype)
+        buydetails = IunCache.get_buy_details(acc, code)
+        smeta = IunCache.get_strategy_meta(acc, code, self.key)
+
+        if smeta['disable_sell']:
+            return False
+
+        if 'selltype' not in smeta:
+            smeta['selltype'] = 'xsingle'
+        klclose = klines['close'].iloc[-1]
+        count = FnPs.get_sell_count_matched(buydetails, smeta['selltype'], klclose)
+        if count == 0:
+            return False
+
+        if klines['close'].iloc[-1] > klines['ma5'].iloc[-1] or klines['close'].iloc[-2] > klines['ma5'].iloc[-2]:
+            return False
+
+        dtprice = klPad.get_dt_price(code)
+        price = round(max(dtprice, klclose * 0.99), 2)
+        if 'guardPrice' not in smeta:
+            smeta['guardPrice'] = FnPs.buy_details_average_price(buydetails)
+        hcount = sum([b['count'] for b in buydetails])
+        smeta['guardPrice'] = round((smeta['guardPrice'] - klclose) * hcount / (hcount - count) + klclose, 2)
+        IunCache.update_strategy_meta(acc, code, self.key, smeta)
+        TradeInterface.planned_strategy_trade(acc, code, 'S', price, count)
+        return True
+
+
+
 class StrategySellMA(StockStrategy):
     key = 'StrategySellMA'
     def __init__(self):
@@ -172,6 +277,7 @@ class StrategySellMA(StockStrategy):
         if 'kltype' not in smeta or smeta['kltype'] not in kltypes:
             return
 
+        klPad.calc_indicators(code, smeta['kltype'])
         klines = klPad.get_klines(code, smeta['kltype'])
         klclose = klines['close'].iloc[-1]
         buydetails = IunCache.get_buy_details(acc, code)
@@ -208,15 +314,15 @@ class StrategySellELShort(StockStrategy):
 
     async def check_quotes(self, acc, code):
         quotes = klPad.get_quotes(code)
-        if not quotes:
-            return
         # TODO: switch to highspeed watcher if change > 6.5%
         # if quotes['change'] > 0.065:
         #     self.qwatcher.remove_stock(code)
         #     self.qickwatcher.add_stock(code)
         smeta = IunCache.get_strategy_meta(acc, code, self.key)
-        if smeta is None or quotes is None or not smeta['enabled']:
+        if smeta is None or quotes is None:
             logger.error('check_quotes meta is None %s %s %s %s', acc, code, smeta, quotes)
+            return
+        if not smeta['enabled']:
             return
         if 'topprice' in smeta and quotes['price'] < smeta['topprice']:
             return

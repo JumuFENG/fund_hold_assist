@@ -84,6 +84,8 @@ class GlobalStartup(BaseStrategy):
             logger.info("GlobalStartup init klines for %s %s", c, klPad.get_klines(c, 30))
 
         for c in stocks:
+            klPad.calc_indicators(c, 1)
+            klPad.calc_indicators(c, 15)
             klPad.resize_cached_klines(c, 20)
         for c in tests:
             logger.info("GlobalStartup init klines for %s %s", c, klPad.get_klines(c, 1))
@@ -297,9 +299,8 @@ class StrategyI_Zt1Bk(MarketStrategy):
                 strategy = guang.generate_strategy_json({'code': s, 'price': zt_price, 'strategies': mdata['strategies']}, iuncfg)
                 account = iunCloud.get_hold_account(s, iuncfg['account'])
                 self.add_buy_ztboard(account, s, strategy)
-                continue
-
-            await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
+            else:
+                await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
             self.stock_notified.append(s)
 
     def on_taskstop(self):
@@ -454,6 +455,9 @@ class StrategyI_3Bull_Breakup(BaseStrategy):
             self.candidates = {}
         for c, h, l in rc:
             code = c[-6:]
+            if code in iunCloud.get_suspend_stocks():
+                logger.info('%s is suspended', code)
+                continue
             self.watcher.add_stock(code)
             self.candidates[code] = {'high': h, 'low': l}
         qq = asrt.rtsource('qq')
@@ -526,6 +530,9 @@ class StrategyI_Zt1WbOpen(BaseStrategy):
         account = iuncfg.get('account', '')
         for c in rc:
             code = c[-6:]
+            if code in iunCloud.get_suspend_stocks():
+                logger.info('%s is suspended', code)
+                continue
             if account == '':
                 account = 'credit' if iunCloud.is_rzrq(code) else 'normal'
                 self.candidates[code] = {'account': account}
@@ -700,12 +707,16 @@ class StrategyI_HotStocksOpen(MarketStrategy):
         self.ztcnt_gt3_steps = 0
         for c, d, days, step in top_zt_stocks:
             code = c[-6:]
+            if code in iunCloud.get_suspend_stocks():
+                continue
             if step > 3 and d == ldate:
                 self.ztcnt_gt3_steps += 1
             self.candidates[code] = {'ztdate': d, 'days': days, 'step': step}
 
         rks = iunCloud.get_open_hotranks()
         for c, r in rks.items():
+            if c in iunCloud.get_suspend_stocks():
+                continue
             if c in self.candidates:
                 self.candidates[c].update(r)
             else:
@@ -974,21 +985,18 @@ class StrategyI_HotstocksRetryZt0(MarketStrategy):
     on_intrade_matched = None
     def __init__(self):
         self.watcher = Watcher_Once('9:29', True)
-        # iunCloud.get_watcher('quotes')
-        # self.prepare_watcher = Watcher_Once('9:29', True)
-        # self.prepare_watcher.execute_task = self.prepare
 
     async def start_strategy_tasks(self):
         iuncfg = iunCloud.iun_str_conf(self.key)
         if not iuncfg['enabled']:
             return
-        # await self.prepare_watcher.start_strategy_tasks()
         await super().start_strategy_tasks()
 
     async def on_watcher(self, params):
         url = guang.join_url(iunCloud.dserver, f'stock?act=getistr&key={self.key}')
         rc = json.loads(guang.get_request(url))
         stks = [c[-6:] for d,c, *_ in rc if c.startswith(('SH60', 'SZ00'))]
+        stks = [c for c in stks if c not in iunCloud.get_suspend_stocks()]
         klPad.load_dsvr_klines(stks, 101, 32)
         qstks = [c for c in stks if not klPad.get_quotes(c)]
         if len(qstks) > 0:

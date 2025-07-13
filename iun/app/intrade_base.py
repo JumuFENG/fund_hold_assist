@@ -252,6 +252,19 @@ class iunCloud:
                 code = rk['SECURITY_CODE']
                 rkdict[code] = {'rank': rk['POPULARITY_RANK'], 'newfans': rk['NEWFANS_RATIO']}
             return rkdict
+        
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_suspend_stocks(cls):
+        url = ("https://datacenter-web.eastmoney.com/api/data/v1/get?sortColumns=SUSPEND_START_DATE&sortTypes=-1&pageSize=500&pageNumber=1"
+        f'''&reportName=RPT_CUSTOM_SUSPEND_DATA_INTERFACE&columns=ALL&source=WEB&client=WEB&filter=(MARKET="全部")(DATETIME='{guang.today_date('-')}')''')
+        try:
+            sus = json.loads(guang.get_request(url))
+            return tuple(s['SECURITY_CODE'] for s in sus['result']['data'])
+        except Exception as e:
+            logger.error('get_suspend_stocks error: %s', e)
+            cls.get_suspend_stocks.cache_clear()
+            return tuple()
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -309,7 +322,8 @@ class StockStrategy(BaseStrategy):
             if not kltypes:
                 continue
             if 30 in kltypes and code.startswith('5'):
-                logger.info('StrategyI_Listener on_watcher %s %s %s', code, kltypes, klPad.get_klines(code, 30))
+                df = klPad.get_klines(code, 30)
+                logger.info('StrategyI_Listener on_watcher %s %s %s', code, kltypes, df[['time', 'open', 'high', 'low', 'close', 'ma18', 'bss18']])
             for acc, acode in self.accstocks:
                 if code == acode:
                     await self.check_kline(acc, code, kltypes)
@@ -704,7 +718,7 @@ class EndFundFlow_Watcher(Watcher_Once):
 
 class Stock_KlineDay_Watcher(Watcher_Once, Stock_Rt_Watcher):
     def __init__(self):
-        super().__init__('14:56:55', False)
+        super().__init__('14:57:55', False)
         Stock_Rt_Watcher.__init__(self)
 
     async def execute_task(self):
@@ -758,6 +772,7 @@ class Stock_Klinem_Watcher(SubProcess_Watcher_Cycle):
 class QuoteJobProcess(JobProcess):
     def process_job(self, codes: List[str]) -> Dict:
         return asrt.quotes(codes)
+
 
 class Stock_Quote_Watcher(SubProcess_Watcher_Cycle):
     def __init__(self):

@@ -19,6 +19,8 @@ class StrategyFactory():
         s = None
         if k == StrategyGE.key:
             s = StrategyGE()
+        elif k == StrategyBuySellBeforeEnd.key:
+            s = StrategyBuySellBeforeEnd()
         elif k == StrategySellELShort.key:
             s = StrategySellELShort()
         elif k == StrategySellBeforeEnd.key:
@@ -53,7 +55,6 @@ class StrategyFactory():
             s = cls.stock_strategy(sobj['key'])
             if s:
                 s.add_stock(acc, code)
-        # logger.info(f'Set strategy for {acc} {code}: {strategy}')
 
     @classmethod
     def disable_stock_strategy(cls, acc, code, skey):

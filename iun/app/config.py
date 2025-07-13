@@ -89,7 +89,7 @@ class IunCache:
                 s.update(dmeta)
 
     @classmethod
-    def get_stock_strategy(cls, acc, code):
+    def get_stock_strategy_group(cls, acc, code):
         if (acc, code) in cls.cached_strategies:
             return cls.cached_strategies[(acc, code)]['strategies']
         return None
