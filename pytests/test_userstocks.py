@@ -515,6 +515,36 @@ class TestUserStock(object):
         assert 'hotrank0' == strdata['uramount']['key'], 'uramount key wrong!'
         assert 1 == len(strdata['buydetail']), 'buydetail length wrong'
 
+    def test_update_strategy_less(self):
+        code = 'SZ000096'
+        strobj = {
+            "grptype":"GroupStandard",
+            "strategies":{
+                "0":{"key":"StrategySellELS","enabled":True,"cutselltype":"all","selltype":"all","topprice":"5.25","guardPrice":4.9},
+                "1":{"key":"StrategySellBE","enabled":True,"upRate":-0.03,"selltype":"single","sell_conds":"4"}},
+            "transfers":{"0":{"transfer":"-1"},"1":{"transfer":"-1"}},
+            "amount":"5000",
+            "uramount":{"key":"hotrank0","id":69}
+        }
+
+        strategy_table = self.testuser.stock_strategy_table
+        ord_table = self.testuser.stock_order_table
+        ordful_table = self.testuser.stock_fullorder_table
+        self.__cleanup_tables([strategy_table, ord_table, ordful_table])
+
+        self.testuser.save_strategy(code, strobj)
+
+        strobj2 = {
+            "grptype": "GroupStandard",
+            "strategies": {"0": {"key": "StrategySellELS", "enabled": False, "cutselltype": "all", "selltype": "all", "topprice": 19.76, "guardPrice": 17.88}},
+            "transfers": {"0": {"transfer": "-1"}}, "amount": "5000"
+        }
+        self.testuser.save_strategy(code, strobj2)
+        strdata = self.testuser.load_strategy(code)
+        assert strdata['grptype'] == 'GroupStandard', 'grptype wrong!'
+        assert 'StrategySellELS' == strdata['strategies'][0]['key'], 'strategy key error'
+        assert 1 == len(strdata['strategies']), 'buydetail length wrong'
+
     def test_delete_strategies(self):
         code = 'SZ000096'
         strobj = {

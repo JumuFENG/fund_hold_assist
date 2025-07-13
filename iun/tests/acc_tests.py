@@ -15,7 +15,7 @@ class TestAcc(unittest.TestCase):
         strategy = guang.generate_strategy_json({'code': code, 'price': price, 'strategies': {'StrategyBuyDTBoard': {}}}, iuncfg)
         async def call_set_strategy():
             acount = iunCloud.get_hold_account(code, iuncfg['account'])
-            accld.set_account_stock_strategy(acount, code, strategy)
+            iunCloud.strFac.add_stock_strategy(acount, code, strategy)
         loop = asyncio.get_event_loop()
         loop.run_until_complete(call_set_strategy())
 
@@ -25,7 +25,7 @@ class TestAcc(unittest.TestCase):
         iuncfg = {'amount': 2000, 'account': 'test'}
         async def call_disable_strategy():
             acount = iunCloud.get_hold_account(code, iuncfg['account'])
-            accld.disable_account_stock_strategy(acount, code, 'StrategyBuyDTBoard')
+            iunCloud.strFac.disable_stock_strategy(acount, code, 'StrategyBuyDTBoard')
         loop = asyncio.get_event_loop()
         loop.run_until_complete(call_disable_strategy())
 
