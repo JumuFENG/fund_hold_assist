@@ -162,6 +162,8 @@ const ext = {
             await this.submit(text);
         } catch (error) {
             logger.error(`第 ${this.retry} 次尝试出错: ${error.message}`);
+            this.retry++;
+            this.onLoginFailed();
         }
     },
     async getCaptchaImg() {

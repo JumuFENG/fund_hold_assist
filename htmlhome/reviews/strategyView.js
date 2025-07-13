@@ -96,6 +96,9 @@ class StrategyViewManager {
         if (strategy.key == 'StrategyZt1') {
             return new StrategyZt1View(strategy);
         }
+        if (strategy.key == 'StrategyBSBE') {
+            return new StrategyBuySellBeforeEndView(strategy);
+        }
     }
 
     getStrategyName(key) {
@@ -299,6 +302,8 @@ class StrategyBaseView {
         sellSelector.options.add(new Option('卖出半次', 'half'));
         sellSelector.options.add(new Option('盈利部分卖出', 'earned'));
         sellSelector.options.add(new Option('盈利阈值止盈', 'egate'));
+        sellSelector.options.add(new Option('保留单次', 'xsingle'));
+        sellSelector.options.add(new Option('保留100股', 'x100'));
         sellSelector.onchange = e => {
             const desc = {
                 4: '如果设置最低止盈比例则卖出盈利>=最低比例的部分',
@@ -1036,6 +1041,55 @@ class StrategyMAView extends StrategyBaseView {
         view.appendChild(this.createPopbackInput('加仓亏损比例', 15));
         view.appendChild(this.createUpEarnedInput('最低止盈比例', 25));
         return view;
+    }
+}
+
+class StrategyBuySellBeforeEndView extends StrategyBaseView {
+    getDefaultKltype() {
+        return '101';
+    }
+
+    maDescription() {
+        return '收盘价连续2天低于MA5时，减仓(仅保留底仓或留1手)，收盘价连续2天高于MA5时加仓使亏损幅度为8%';
+    }
+
+    createDisableSellCheckbox() {
+        var checkLbl = document.createElement('label');
+        checkLbl.textContent = '禁止卖出';
+        this.disableSellCheck = document.createElement('input');
+        this.disableSellCheck.type = 'checkbox';
+        if (this.strategy.enabled === undefined) {
+            this.disableSellCheck.checked = false;
+        } else {
+            this.disableSellCheck.checked = this.strategy.disable_sell;
+        };
+        checkLbl.appendChild(this.disableSellCheck);
+        return checkLbl;
+    }
+
+    createView() {
+        var view = document.createElement('div');
+        view.appendChild(this.createEnabledCheckbox());
+        view.appendChild(document.createTextNode(this.maDescription()));
+        view.appendChild(this.createBuyAccountSelector());
+        view.appendChild(this.createGuardInput('持仓成本'));
+        view.appendChild(this.createDisableSellCheckbox());
+        view.appendChild(this.createSellCountTypeSelector());
+        if (this.strategy.selltype === undefined) {
+            this.sellCntSelector.value = 'xsingle';
+        }
+        return view;
+    }
+
+    isChanged() {
+        var changed = super.isChanged();
+        if (this.disableSellCheck) {
+            if (this.disableSellCheck.checked != this.strategy.disable_sell) {
+                changed = true;
+                this.strategy.disable_sell = this.disableSellCheck.checked;
+            }
+        };
+        return changed;
     }
 }
 

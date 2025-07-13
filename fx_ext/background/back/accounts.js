@@ -1752,7 +1752,7 @@ const accld = {
             }
 
             let payAmount = total;
-            if (total > assetsData.Data.Zjkys - 0.1) {
+            if (total - assetsData.Data.Zjkys > 0.1) {
                 const dateval = new Date().getDate();
                 if (dateval > 25 || dateval < 5) {
                     payAmount = assetsData.Data.Zjkys - assetsData.Data.Rzxf - assetsData.Data.Rqxf - assetsData.Data.Rzxf;

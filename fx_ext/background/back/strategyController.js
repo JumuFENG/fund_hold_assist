@@ -99,6 +99,9 @@ class strategyFac {
         if (strategy.key == 'StrategyZt1') {
             return new StrategyZt1(strategy);
         }
+        // not implemented in js yet.
+        // 'StrategyBSBE'
+        return new Strategy(strategy);
     }
 }
 

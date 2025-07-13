@@ -1,8 +1,9 @@
 window.ses = {
     "ComplexStrategyKeyNames": {
-        "StrategyMA": "MA突破买卖",
+        "StrategyBSBE": "尾盘减仓加仓",
         "StrategyGE": "网格买入,盈利卖出",
         "StrategyGEMid": "网格买入 (波段)",
+        "StrategyMA": "MA突破买卖",
         "StrategyGrid": "网格买入增仓",
         "StrategyTD": "TD点买卖",
         "StrategyBH": "低吸 短线买卖",
