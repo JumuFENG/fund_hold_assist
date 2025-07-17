@@ -55,6 +55,20 @@ class TestStrategy_BSBE(unittest.IsolatedAsyncioTestCase):
         iunCloud.get_watcher = mock_get_watcher
         return super().setUp()
 
+    async def inialize_test(self, code, strategy, klarr, watcher):
+        IunCache.cache_strategy_data('test', code, strategy)
+        klineDataForTests.klarr[code] = klarr
+
+        for sobj in strategy['strategies']['strategies'].values():
+            if not sobj['enabled']:
+                continue
+            s = validating_strategy(sobj['key'])
+            if s:
+                s.add_stock('test', code)
+
+        w = iunCloud.get_watcher(watcher)
+        await asyncio.wait_for(w.execute_task(), timeout=1.0)
+
     async def test_bsbe_buy(self):
         code = '002172'
         strategy = {
@@ -64,8 +78,7 @@ class TestStrategy_BSBE(unittest.IsolatedAsyncioTestCase):
                 "strategies": {"0": {"key": "StrategyBSBE", "enabled": True, "guardPrice": 5.71, "selltype": "xsingle", "disable_sell": False}},
                 "buydetail": [{"id": 772, "code": "SZ002172", "date": "2025-06-16", "count": 400, "price": 4.88, "sid": "67419", "type": "B"}],
                 "buydetail_full": [{"id": 795, "code": "SZ002172", "date": "2025-06-16", "count": 400, "price": 5.09, "sid": "67419", "type": "B"}]}}
-        IunCache.cache_strategy_data('test', code, strategy)
-        klineDataForTests.klarr[code] = [
+        klarr = [
             ['2025-06-23', '3.7100', '3.8100', '3.7100', '3.8100', '46751110', '176917093.2000', '1.600000'],
             ['2025-06-24', '3.8000', '3.8800', '3.7900', '3.8500', '47931450', '184666858.0000', '1.049900'],
             ['2025-06-25', '3.9600', '3.9800', '3.8000', '3.8500', '56627807', '218372715.6700', '0.000000'],
@@ -82,16 +95,9 @@ class TestStrategy_BSBE(unittest.IsolatedAsyncioTestCase):
             ['2025-07-10', '3.9100', '3.9700', '3.8700', '3.9400', '38160000', '152000000.0000', '-1.03000'],
             ['2025-07-11', '4.000', '4.0800', '3.9200', '3.9500', '40000000', '160000000.0000', '0.900000'],]
 
-        for sobj in strategy['strategies']['strategies'].values():
-            if not sobj['enabled']:
-                continue
-            s = validating_strategy(sobj['key'])
-            if s:
-                s.add_stock('test', code)
-        w = mock_get_watcher('klineday')
-        await w.execute_task()
+        await self.inialize_test(code, strategy, klarr, 'klineday')
         smeta = IunCache.get_strategy_meta('test', code, 'StrategyBSBE')
-
+        self.assertEqual(smeta['guardPrice'], 4.27)
 
     async def test_bsbe_sell(self):
         code = '603316'
@@ -108,8 +114,7 @@ class TestStrategy_BSBE(unittest.IsolatedAsyncioTestCase):
                     {"id": 1039, "code": "SH603316", "date": "2025-07-09", "count": 400, "price": 9.63, "sid": "374389", "type": "B"}]
                 }
             }
-        IunCache.cache_strategy_data('test', code, strategy)
-        klineDataForTests.klarr[code] = [
+        klarr = [
             ['2025-06-23', '6.3900', '6.6300', '6.3200', '6.5900', '7425300', '48604197.0000', '2.170500'],
             ['2025-06-24', '6.5800', '6.8300', '6.5800', '6.8100', '6114100', '41267113.0000', '3.338400'],
             ['2025-06-25', '7.1900', '7.4900', '6.7200', '6.7500', '27036390', '191138356.1000', '-0.881100'],
@@ -125,19 +130,14 @@ class TestStrategy_BSBE(unittest.IsolatedAsyncioTestCase):
             ['2025-07-09', '9.8300', '9.8600', '9.3100', '9.3700', '64535990', '616650933.7400', '-6.673300'],
             ['2025-07-10', '9.3800', '9.3900', '9.0900', '9.1100', '39742321', '364199129.4000', '-2.774800']]
 
-        for sobj in strategy['strategies']['strategies'].values():
-            if not sobj['enabled']:
-                continue
-            s = validating_strategy(sobj['key'])
-            if s:
-                s.add_stock('test', code)
-        w = mock_get_watcher('klineday')
-        await w.execute_task()
+        await self.inialize_test(code, strategy, klarr, 'klineday')
+        smeta = IunCache.get_strategy_meta('test', code, 'StrategyBSBE')
+        self.assertEqual(smeta['guardPrice'], 16.86)
 
 
 if __name__ == '__main__':
-    suite = unittest.TestSuite()
-    suite.addTest(TestStrategy_BSBE('test_bsbe_buy'))
-    runner = unittest.TextTestRunner()
-    runner.run(suite)
-    # unittest.main()
+    # suite = unittest.TestSuite()
+    # suite.addTest(TestStrategy_BSBE('test_bsbe_buy'))
+    # runner = unittest.TextTestRunner()
+    # runner.run(suite)
+    unittest.main()
