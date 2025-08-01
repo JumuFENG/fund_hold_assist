@@ -2,7 +2,7 @@ import os,sys
 sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../../iun'))
 import unittest
 from app.klpad import klPad, DsvrKSource
-from app.config import IunCache
+from app.accounts import accld
 from app.strategy_factory import StrategyFactory
 import stockrt as srt
 import asyncio
@@ -13,7 +13,7 @@ class TestklPadCache(unittest.TestCase):
 
     def test_cache_new_code(self):
         code = 'new_code'
-        klines = pd.DataFrame([{'time': '2022-01-01', 'open': 10.0, 'close': 11.0, 'high': 12.0, 'low': 9.0, 'volume': 1000}])
+        klines = pd.DataFrame([{'time': '2022-01-01 13:01', 'open': 10.0, 'close': 11.0, 'high': 12.0, 'low': 9.0, 'volume': 1000}])
         quotes = {'bid': 10.5, 'ask': 11.5}
         result = klPad.cache(code, klines, quotes)
         self.assertEqual(result, [1])
@@ -21,9 +21,9 @@ class TestklPadCache(unittest.TestCase):
 
     def test_cache_existing_code(self):
         code = 'existing_code'
-        klines = pd.DataFrame([{'time': '2022-01-01', 'open': 10.0, 'close': 11.0, 'high': 12.0, 'low': 9.0, 'volume': 1000}])
+        klines = pd.DataFrame([{'time': '2022-01-01 13:01', 'open': 10.0, 'close': 11.0, 'high': 12.0, 'low': 9.0, 'volume': 1000}])
         klPad.cache(code, klines)
-        klines = pd.DataFrame([{'time': '2022-01-02', 'open': 10.0, 'close': 11.0, 'high': 12.0, 'low': 9.0, 'volume': 1000}])
+        klines = pd.DataFrame([{'time': '2022-01-02 13:02', 'open': 10.0, 'close': 11.0, 'high': 12.0, 'low': 9.0, 'volume': 1000}])
         quotes = {'bid': 10.5, 'ask': 11.5}
         result = klPad.cache(code, klines, quotes)
         self.assertEqual(result, [1, 2])
@@ -39,10 +39,10 @@ class TestklPadCache(unittest.TestCase):
         self.assertEqual(result, [])
 
     def test_cache_non_empty_klines(self):
-        code = '603332'
+        code = '600000'
         srt.set_array_format('pd')
         qk = srt.qklines([code], 1, 64)
-        result = klPad.cache(code, qk['603332']['klines'], qk['603332']['qt'], 1)
+        result = klPad.cache(code, qk[code]['klines'], qk[code]['qt'], 1)
         klines1 = klPad.get_klines(code, 1)
         klines2 = klPad.get_klines(code, 2)
         klines3 = klPad.get_klines(code, 4)
@@ -50,10 +50,10 @@ class TestklPadCache(unittest.TestCase):
         quotes = klPad.get_quotes(code)
         self.assertEqual(result, [1, 2, 4, 8])
         self.assertEqual(len(klines1), 64)
-        self.assertEqual(quotes, qk['603332']['qt'])
+        self.assertEqual({k:v for k,v in quotes.items() if k != 'q5time'}, qk[code]['qt'])
 
     def test_cache_with_klines(self):
-        code = '603332'
+        code = '603331'
         klines1 = pd.DataFrame([
             {'time': '2025-05-26 09:51', 'open': 17.97, 'close': 17.97, 'high': 17.97, 'low': 17.97, 'volume': 2800, 'amount': 50315.9984},
             {'time': '2025-05-26 09:52', 'open': 17.97, 'close': 17.97, 'high': 17.97, 'low': 17.97, 'volume': 12200, 'amount': 219233.999}])
@@ -81,7 +81,7 @@ class TestklPadCache(unittest.TestCase):
         self.assertEqual(ckls['volume'].iloc[0], 15000)
 
     def test_get_lclose_from_klines(self):
-        code = '603332'
+        code = '603333'
         klines1 = [{'time': '2025-05-26 09:30', 'open': 17.97, 'close': 17.97, 'high': 17.97, 'low': 17.97, 'volume': 2800, 'amount': 50315.9984}, 
             {'time': '2025-05-26 09:31', 'open': 17.97, 'close': 17.9, 'high': 17.97, 'low': 17.97, 'volume': 12200, 'amount': 219233.999},
             {'time': '2025-05-26 09:32', 'open': 17.97, 'close': 17.91, 'high': 17.97, 'low': 17.97, 'volume': 5200, 'amount': 93443.9972},
@@ -94,7 +94,7 @@ class TestklPadCache(unittest.TestCase):
         self.assertEqual(lclose, 17.92)
 
     def test_expand_lines(self):
-        code = '603332'
+        code = '603334'
         klines1 = [
             ['2025-06-13 14:53',1.116,1.117,1.119,1.115,300000,343589.2],
             ['2025-06-13 14:54',1.117,1.117,1.119,1.115,300000,1542912.1],
@@ -120,7 +120,7 @@ class TestklPadCache(unittest.TestCase):
         self.assertEqual(klines['close'].iloc[0], 1.117)
 
     def test_calcbss(self):
-        code = '603332'
+        code = '603335'
         klines1 = [
             ['2024-12-02',4.74,5.07,5.2,4.72],['2024-12-03',4.96,5.13,5.34,4.89],['2024-12-04',5.11,4.9,5.2,4.87],
             ['2024-12-05',4.83,4.94,4.99,4.83],['2024-12-06',4.93,5.12,5.26,4.88],['2024-12-09',5.05,4.97,5.14,4.9],
@@ -188,13 +188,13 @@ class TestklPadCache(unittest.TestCase):
         dsvr = DsvrKSource()
         code = '600110'
         kls = dsvr.klines(code, 101, 100)
-        kls = dsvr.fklines(code, 101)
+        # kls = dsvr.fklines(code, 101)
         klines = kls[code]
         self.assertEqual(len(klines), 100)
 
     def test_klpad_dsvr_klines(self):
         srt.set_array_format('pd')
-        code = '600110'
+        code = '600112'
         klPad.load_dsvr_klines(code, 101, 30)
         klines = klPad.get_klines(code, 101)
         self.assertEqual(len(klines), 30)
@@ -278,6 +278,8 @@ class TestklPadCache(unittest.TestCase):
                 kltypes = klPad.cache(code1, df, kltype=15)
                 expected = [[15], [15, 30], [15], [15,30,60], [15], [15, 30], [15], [15,30,60,120]]
                 self.assertEqual(kltypes, expected[t])
+        klPad.calc_ma(code, 15, 18)
+        klPad.calc_ma(code1, 15, 18)
         ma18 = klPad.get_klines(code, 15)['ma18']
         ma18_1 = klPad.get_klines(code1, 15)['ma18']
         for ma1, ma2 in zip(ma18, ma18_1):
@@ -285,8 +287,8 @@ class TestklPadCache(unittest.TestCase):
 
 class TestStrategyGE(unittest.TestCase):
     def setUp(self):
-        IunCache.cache_strategy_data('collat', '510050', {'holdCost': 2.6994, 'holdCount': 14500.0, 'strategies': {'grptype': 'GroupStandard', 'strategies': {
-                '0': {'key': 'StrategyGE', 'enabled': True, 'stepRate': 0.03, 'account': 'credit',
+        accld.cache_stock_data('test', '510050', {'holdCost': 2.6994, 'holdCount': 14500.0, 'strategies': {'grptype': 'GroupStandard', 'strategies': {
+                '0': {'key': 'StrategyGE', 'enabled': True, 'stepRate': 0.03, 'account': 'test',
                         'kltype': '30', 'guardPrice': '2.706000', 'inCritical': False, 'selltype': 'egate', 'cutselltype': 'egate'}},
                 'transfers': {'0': {'transfer': -1}}, 'amount': 10000,
                 'buydetail': [
@@ -307,16 +309,34 @@ class TestStrategyGE(unittest.TestCase):
 
     def test_check_kline(self):
         async def call_check_kline():
-            await self.strategy.check_kline('collat', '510050', [1, 15, 30])
+            await self.strategy.check_kline('test', '510050', [1, 15, 30])
         loop = asyncio.get_event_loop()
         loop.run_until_complete(call_check_kline())
 
+    def test_cache_strategy_exists(self):
+        smeta0 = accld.get_strategy_meta('test', '510050', 'StrategyGE')
+        self.assertEqual(smeta0['enabled'], True)
+        accld.cache_stock_data('test', '510050', {'strategies': {'grptype': 'GroupStandard', 'strategies': {
+            '0': {'key': 'StrategyGE', 'enabled': False, 'stepRate': 0.03, 'account': 'test',
+                        'kltype': '30', 'guardPrice': '2.706000', 'inCritical': False, 'selltype': 'egate', 'cutselltype': 'egate'}
+        }}})
+        smeta = accld.get_strategy_meta('test', '510050', 'StrategyGE')
+        self.assertEqual(smeta['enabled'], False)
+
+    def test_get_stock_count(self):
+        cnt = accld.get_account_holdcount('test', '510050')
+        self.assertEqual(cnt, 14500)
+
+    def test_get_all_cached_stocks(self):
+        s = accld.all_stocks_cached()
+        self.assertEqual(len(s), 1)
+
 
 if __name__ == '__main__':
-    suite = unittest.TestSuite()
-    # suite.addTest(TestStrategyGE('test_check_kline'))
-    suite.addTest(TestklPadCache('test_calc_kline_ma'))
-    runner = unittest.TextTestRunner()
-    runner.run(suite)
+    # suite = unittest.TestSuite()
+    # suite.addTest(TestStrategyGE('test_get_all_cached_stocks'))
+    # # suite.addTest(TestklPadCache('test_calc_kline_ma'))
+    # runner = unittest.TextTestRunner()
+    # runner.run(suite)
 
-    # unittest.main()
+    unittest.main()

@@ -6,7 +6,7 @@ from functools import lru_cache
 import stockrt as srt
 from stockrt.sources.rtbase import requestbase
 from app.guang import guang
-from app.logger import logger
+from app.lofig import logger
 
 
 class klPad:
@@ -262,9 +262,9 @@ class klPad:
         prev_bss = 'u' if start_idx == 2 else klines.at[klines.index[start_idx-1], col_name]
 
         for i in range(start_idx, len(klines)):
-            if above_ma.iloc[i] and above_ma[i-1]:
+            if above_ma.iloc[i] and above_ma.iloc[i-1]:
                 new_bss = 'b' if prev_bss in ('u', 'w') else 'h'
-            elif below_ma.iloc[i] and below_ma[i-1]:
+            elif below_ma.iloc[i] and below_ma.iloc[i-1]:
                 new_bss = 's' if prev_bss in ('u', 'h') else 'w'
             else:
                 new_bss = 'h' if prev_bss in ('b', 'h') else 'w' if prev_bss in ('s', 'w') else 'u'
@@ -308,10 +308,11 @@ class klPad:
 
     @classmethod
     def get_quotes5(self, code):
-        if code not in self.__stocks or time.time() - self.__stocks[code]['quotes']['q5time'] > 3:
+        if code not in self.__stocks or 'q5time' not in self.__stocks[code]['quotes'] or time.time() - self.__stocks[code]['quotes']['q5time'] > 3:
             q5 = srt.quotes5(code)
-            q5['q5time'] = time.time()
-            self.__stocks[code]['quotes'] = q5
+            if not q5:
+                return {}
+            self.cache(code, quotes=q5[code])
         return self.__stocks[code]['quotes']
 
     @classmethod

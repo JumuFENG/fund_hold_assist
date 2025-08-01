@@ -1,8 +1,8 @@
 from functools import lru_cache
-from app.logger import logger
+from app.lofig import logger
 from app.market_strategy import *
 from app.stock_strategy import *
-
+from app.accounts import accld
 
 class StrategyFactory():
     @classmethod
@@ -48,7 +48,7 @@ class StrategyFactory():
         if not isinstance(strategy, dict):
             return None
 
-        IunCache.cache_strategy_data(acc, code, {'strategies': strategy})
+        accld.cache_stock_data(acc, code, {'strategies': strategy})
         for sobj in strategy['strategies'].values():
             if not sobj['enabled']:
                 continue
@@ -61,10 +61,10 @@ class StrategyFactory():
         if not skey:
             return
 
-        smeta = IunCache.get_strategy_meta(acc, code, skey)
+        smeta = accld.get_strategy_meta(acc, code, skey)
         if smeta and smeta['enabled']:
             smeta['enabled'] = False
-            IunCache.update_strategy_meta(acc, code, skey, smeta)
+            accld.update_strategy_meta(acc, code, skey, smeta)
         else:
             return
 

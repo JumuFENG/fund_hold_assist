@@ -7,6 +7,7 @@ from app.intrade_base import Watcher_Once, Watcher_Cycle, Stock_Rt_Watcher
 from app.stock_strategy import *
 from app.strategy_factory import StrategyFactory
 from app.intrade_base import iunCloud
+from app.accounts import accld
 
 
 class klineDataForTests:
@@ -56,7 +57,7 @@ class TestStrategy_BSBE(unittest.IsolatedAsyncioTestCase):
         return super().setUp()
 
     async def inialize_test(self, code, strategy, klarr, watcher):
-        IunCache.cache_strategy_data('test', code, strategy)
+        accld.cache_stock_data('test', code, strategy)
         klineDataForTests.klarr[code] = klarr
 
         for sobj in strategy['strategies']['strategies'].values():
@@ -96,7 +97,7 @@ class TestStrategy_BSBE(unittest.IsolatedAsyncioTestCase):
             ['2025-07-11', '4.000', '4.0800', '3.9200', '3.9500', '40000000', '160000000.0000', '0.900000'],]
 
         await self.inialize_test(code, strategy, klarr, 'klineday')
-        smeta = IunCache.get_strategy_meta('test', code, 'StrategyBSBE')
+        smeta = accld.get_strategy_meta('test', code, 'StrategyBSBE')
         self.assertEqual(smeta['guardPrice'], 4.27)
 
     async def test_bsbe_sell(self):
@@ -131,7 +132,7 @@ class TestStrategy_BSBE(unittest.IsolatedAsyncioTestCase):
             ['2025-07-10', '9.3800', '9.3900', '9.0900', '9.1100', '39742321', '364199129.4000', '-2.774800']]
 
         await self.inialize_test(code, strategy, klarr, 'klineday')
-        smeta = IunCache.get_strategy_meta('test', code, 'StrategyBSBE')
+        smeta = accld.get_strategy_meta('test', code, 'StrategyBSBE')
         self.assertEqual(smeta['guardPrice'], 16.86)
 
 

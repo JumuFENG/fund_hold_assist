@@ -1,10 +1,8 @@
 import requests
 import json
 from functools import lru_cache
-from app.logger import logger
+from app.lofig import logger
 from app.guang import guang
-from app.config import IunCache
-
 
 class TradeInterface:
     tserver = None
@@ -33,7 +31,8 @@ class TradeInterface:
             response = requests.get(url)
             tstatus = response.json()
             logger.info(f'trade server status: {tstatus}')
-            return response.status_code == 200 and tstatus['tradingday']
+            return response.status_code == 200
+        # and (tstatus['tradingday'] or tstatus['running'])
         except Exception as e:
             logger.error(e)
             return False
@@ -58,50 +57,21 @@ class TradeInterface:
         response = requests.get(url)
         response.raise_for_status()
         return response.text == 'true'
-
-    @staticmethod
-    def consume_buy_details(buyrecs, count):
-        if len(buyrecs) == 0:
-            return []
-        for i in range(len(buyrecs)):
-            if count <= 0:
-                break
-            if buyrecs[i]['count'] > count:
-                buyrecs[i]['count'] -= count
-                count = 0
-            else:
-                count -= buyrecs[i]['count']
-                buyrecs[i]['count'] = 0
-        return [rec for rec in buyrecs if rec['count'] > 0]
-
-
+    
     @classmethod
-    def planned_strategy_trade(self, acc: str, code: str, tradeType: str, price: float, count: int, tacc: str=None) -> None:
-        '''
-        :param acc str: 持仓账户
-        :param code str: 股票代码
-        :param tradeType str: 'B'/'S'
-        :param price float: 价格
-        :param count int: 股数
-        :param tacc str: 交易账户(买入时设置), 不设置则与持仓账户相同acc
-        :return: None
-        '''
-        buydetails = IunCache.get_buy_details(acc, code)
-        tacc = acc if tacc is None else tacc
-        sobj = IunCache.get_stock_strategy_group(acc, code)
-        if tradeType == 'B':
-            if count == 0:
-                if not sobj or 'amount' not in sobj:
-                    logger.error('No stock strategy found for %s %s', acc, code)
-                    return
-                amount = sobj['amount']
-                count = guang.calc_buy_count(amount, price)
-            buydetails.append({'code': code, 'count': count, 'price': price, 'date': guang.today_date('-'), 'type': 'B'})
-        else:
-            buydetails = self.consume_buy_details(buydetails, count)
-        tradeparam = {'account': tacc, 'code': code, 'tradeType': tradeType, 'count': count, 'price': price,}
-        if sobj:
-            tradeparam['strategies'] = {k: v for k,v in sobj.items() if k not in ['buydetail', 'buydetail_full']}
-        TradeInterface.submit_trade(tradeparam)
-        logger.info('Strategy trade: %s %s %s %f %d', tacc, code, tradeType, price, count)
-        IunCache.update_buy_details(acc, code, buydetails)
+    def get_account_latest_stocks(cls, account):
+        """
+        获取账户最新的股票列表
+        :param account: 账户名称
+        :return: 股票列表
+        """
+        url = guang.join_url(cls.tserver, f'stocks?account={account}')
+        response = requests.get(url)
+        if response.status_code != 200:
+            logger.error(f'Error fetching latest stocks for {account}: {response.status_code} {response.text}')
+            return []
+        robj = response.json()
+        if 'account' in robj and robj['account'] == account:
+            return robj['stocks']
+        return []
+

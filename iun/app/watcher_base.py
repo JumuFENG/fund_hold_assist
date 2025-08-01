@@ -4,8 +4,7 @@ import queue
 import time
 from typing import Dict, List
 import traceback
-from app.logger import logger
-from app.config import IunCache
+from app.lofig import logger, delayed_tasks
 from app.guang import guang
 
 
@@ -26,7 +25,7 @@ class Watcher_Once:
     async def start_strategy_tasks(self):
         if guang.delay_seconds(self.btime) > 0:
             t = asyncio.create_task(self.start_simple_task(guang.delay_seconds(self.btime)))
-            IunCache.delayed_tasks.append(t)
+            delayed_tasks.append(t)
         else:
             if self.exec_if_expired:
                 await self.execute_task()
@@ -86,9 +85,9 @@ class Watcher_Cycle(Watcher_Once):
                 if bticks < 0:
                     bticks = 0
                 t = asyncio.create_task(self.start_simple_task(bticks))
-                IunCache.delayed_tasks.append(t)
+                delayed_tasks.append(t)
                 e = asyncio.create_task(self.stop_simple_task(eticks))
-                IunCache.delayed_tasks.append(e)
+                delayed_tasks.append(e)
 
         if len(self.simple_watchers) > 0:
             for w in self.simple_watchers:

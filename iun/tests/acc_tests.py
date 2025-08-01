@@ -4,10 +4,14 @@ import unittest
 from app.guang import guang
 from app.accounts import accld
 from app.intrade_base import iunCloud
+from app.strategy_factory import StrategyFactory
 import asyncio
 
 
 class TestAcc(unittest.TestCase):
+    def setUp(self):
+        iunCloud.strFac = StrategyFactory
+
     def test_set_acc_strategy(self):
         code = '000001'
         price = 1.0
@@ -31,9 +35,9 @@ class TestAcc(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # unittest.main()
-    suite = unittest.TestSuite()
-    suite.addTest(TestAcc('test_disable_acc_strategy'))
-    runner = unittest.TextTestRunner()
-    runner.run(suite)
+    unittest.main()
+    # suite = unittest.TestSuite()
+    # suite.addTest(TestAcc('test_disable_acc_strategy'))
+    # runner = unittest.TextTestRunner()
+    # runner.run(suite)
     

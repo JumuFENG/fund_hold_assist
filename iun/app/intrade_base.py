@@ -11,11 +11,12 @@ from urllib.parse import urlencode
 from functools import cached_property
 from datetime import datetime, timedelta
 import stockrt as asrt
-from app.logger import logger
+from app.lofig import logger
 from app.guang import guang
 from app.klpad import klPad
 from app.watcher_base import *
 from app.trade_interface import TradeInterface
+from emxg import search_emxg
 
 if TYPE_CHECKING:
     from app.strategy_factory import StrategyFactory
@@ -65,6 +66,10 @@ class iunCloud:
         if TradeInterface.tserver is None:
             return False
         return TradeInterface.is_rzrq(code)
+    
+    @staticmethod
+    def get_account_latest_stocks(account):
+        return TradeInterface.get_account_latest_stocks(account)
 
     @staticmethod
     def get_hold_account(code, account):
@@ -279,9 +284,23 @@ class iunCloud:
 
     @classmethod
     @lru_cache(maxsize=1)
+    def get_dailyztsteps_gt3(cls):
+        '''
+        最近3天涨停连板次数大于等于4的个数
+        '''
+        url = guang.join_url(iunCloud.dserver, 'stock?act=ztstepshist&days=3&steps=4')
+        return json.loads(guang.get_request(url))
+
+    @classmethod
+    @lru_cache(maxsize=1)
     def get_financial_4season_losing(cls):
-        url = guang.join_url(iunCloud.dserver, 'stock?act=f4lost')
-        return tuple([c[-6:] for c in json.loads(guang.get_request(url))])
+        try:
+            pdata = search_emxg('连续4个季度亏损大于1000万')
+            return tuple(pdata['代码'])
+        except Exception as e:
+            logger.info('search_emxg error: %s', e)
+            url = guang.join_url(iunCloud.dserver, 'stock?act=f4lost')
+            return tuple([c[-6:] for c in json.loads(guang.get_request(url))])
 
     @classmethod
     def financial_block(self, code):
@@ -344,9 +363,6 @@ class StockStrategy(BaseStrategy):
             kltypes = params[code]
             if not kltypes:
                 continue
-            if 30 in kltypes and code.startswith('5'):
-                df = klPad.get_klines(code, 30)
-                logger.info('StrategyI_Listener on_watcher %s %s %s', code, kltypes, df[['time', 'open', 'high', 'low', 'close', 'ma18', 'bss18']])
             for acc, acode in self.accstocks:
                 if code == acode:
                     await self.check_kline(acc, code, kltypes)

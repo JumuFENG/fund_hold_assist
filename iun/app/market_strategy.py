@@ -1,23 +1,42 @@
 import asyncio, time, json
 import concurrent.futures
 import stockrt as asrt
-from app.logger import logger
-from app.config import IunCache
+from functools import cached_property
+from app.lofig import logger
 from app.guang import guang
 from app.intrade_base import BaseStrategy, iunCloud, Watcher_Once
 from app.klpad import klPad
+from app.accounts import accld
 
 
 class MarketStrategy(BaseStrategy):
-    def add_buy_ztboard(self, acc, code, strategy, mx_notify=None):
+    def add_buy_ztboard(self, acc, code, strategy, mx_notify=None, hurry=False):
         if not isinstance(strategy, dict):
             return None
 
-        IunCache.cache_strategy_data(acc, code, {'strategies': strategy})
-        s = iunCloud.strFac.stock_strategy('StrategyBuyZTBoard', self.key)
-        s.add_stock(acc, code)
-        if mx_notify:
-            s.max_notify = mx_notify
+        try:
+            osg = accld.get_stock_strategy_group(acc, code)
+            mxkeyid = 0
+            exists_keys = []
+            for k, v in osg['strategies'].items():
+                if int(k) > mxkeyid:
+                    mxkeyid = int(k)
+                exists_keys.append(v['key'])
+            for k, v in strategy['strategies'].items():
+                if v['key'] in exists_keys:
+                    continue
+                osg['strategies'][str(mxkeyid + 1)] = v
+                mxkeyid += 1
+        except Exception as e:
+            if osg is not None:
+                logger.error('error when add_buy_ztboard %s %s %s', acc, code, e)
+            accld.cache_stock_data(acc, code, {'strategies': strategy})
+        finally:
+            s = iunCloud.strFac.stock_strategy('StrategyBuyZTBoard', self.key)
+            s.add_stock(acc, code)
+            s.buy_hurry = hurry
+            if mx_notify:
+                s.max_notify = mx_notify
 
 
 class GlobalStartup(BaseStrategy):
@@ -31,7 +50,7 @@ class GlobalStartup(BaseStrategy):
         # await self.twatcher.start_strategy_tasks()
 
     def stocks_to_cache(self):
-        stocks = IunCache.all_stocks_cached()
+        stocks = accld.all_stocks_cached()
         hrk = iunCloud.get_open_hotranks()
         stocks += list(hrk.keys())
         hstks = iunCloud.get_hotstocks()
@@ -692,14 +711,10 @@ class StrategyI_HotStocksOpen(MarketStrategy):
                 break
             step -= 1
 
-        ldate = max([x[1] for x in top_zt_stocks])
-        self.ztcnt_gt3_steps = 0
         for c, d, days, step in top_zt_stocks:
             code = c[-6:]
             if code in iunCloud.get_suspend_stocks():
                 continue
-            if step > 3 and d == ldate:
-                self.ztcnt_gt3_steps += 1
             self.candidates[code] = {'ztdate': d, 'days': days, 'step': step}
 
         rks = iunCloud.get_open_hotranks()
@@ -712,23 +727,33 @@ class StrategyI_HotStocksOpen(MarketStrategy):
                 self.candidates[c] = r
         dailyzdt = iunCloud.get_dailyzdt()
         self.lastzdt = dailyzdt[-1] if len(dailyzdt) > 0 else None
+        logger.info('昨日高标数%d.', self.ztcnt_gt3_steps)
+
+    @cached_property
+    def ztcnt_gt3_steps(self):
+        '''
+        昨日高标数大于5或者连续3天少于5, 符合条件
+        '''
+        zsteps = iunCloud.get_dailyztsteps_gt3()
+        return 5 + zsteps[-1][1] if all([x[1] < 5 for x in zsteps]) else zsteps[-1][1]
 
     def open_environment_matched(self):
         try:
-            zrks = iunCloud.get_stocks_zdfrank(8)
-            drks = iunCloud.get_stocks_zdfrank(-8)
             if self.ztcnt_gt3_steps < 5:
-                logger.info('昨日高标（连板数>3）数小于5 %d', self.ztcnt_gt3_steps)
+                logger.info('昨日高标数%d小于5.', self.ztcnt_gt3_steps)
                 return False
 
             zdfb = iunCloud.get_zdfb()
             if zdfb and zdfb['down'] > 3000:
-                logger.info('下跌家数 %d', zdfb['down'])
+                logger.info('下跌家数 %d > 3000', zdfb['down'])
                 return False
 
             if self.lastzdt is None:
                 # 如果没有上一次的涨跌停数据，直接返回 true
                 return True
+
+            # zrks = iunCloud.get_stocks_zdfrank(8)
+            drks = iunCloud.get_stocks_zdfrank(-8)
 
             dtcnt_open = len([r for r in drks if float(r['f2']) <= guang.dt_priceby(float(r['f18']), zdf=guang.zdf_from_code(r['f12']))])
             logger.info('last dtcnt=%d today open dtcnt=%d', self.lastzdt[3], dtcnt_open)
@@ -744,7 +769,7 @@ class StrategyI_HotStocksOpen(MarketStrategy):
         stocks = [c for c in self.candidates.keys() if 'rank' in self.candidates[c] and 'ztdate' in self.candidates[c]]
         stocks.sort(key=lambda x: self.candidates[x]['rank'])
         istrdata = iunCloud.iun_str_conf(self.key)
-        holdings = [s for s in stocks if IunCache.get_account_holdcount(istrdata['account'], s) > 0]
+        holdings = [s for s in stocks if accld.get_account_holdcount(istrdata['account'], s) > 0]
         stocks = stocks[:5]
         stocks = [s for s in stocks if s not in holdings]
 
@@ -975,7 +1000,7 @@ class StrategyI_HotstocksRetryZt0(MarketStrategy):
     desc = '高标/人气股 涨停回调(>3个交易日)之后首板打板买入'
     on_intrade_matched = None
     def __init__(self):
-        self.watcher = Watcher_Once('9:29', True)
+        self.watcher = Watcher_Once('9:29', guang.delay_seconds('14:57') > 0)
 
     async def start_strategy_tasks(self):
         iuncfg = iunCloud.iun_str_conf(self.key)
@@ -999,7 +1024,7 @@ class StrategyI_HotstocksRetryZt0(MarketStrategy):
         candidates = []
         for code in stks:
             q = klPad.get_quotes(code)
-            if iunCloud.financial_block(q):
+            if iunCloud.financial_block(code):
                 continue
             # 排除近两天涨停的，排除昨天开盘涨停收盘不涨停的
             klines = klPad.get_klines(code, 101)
@@ -1026,6 +1051,6 @@ class StrategyI_HotstocksRetryZt0(MarketStrategy):
             sdata = {'StrategyBuyZTBoard':{}, 'StrategySellELS': {'guardPrice': round(zt_price * 0.92, 2)}, 'StrategySellBE': {}}
             strategy = guang.generate_strategy_json({'code': code, 'price': zt_price, 'strategies': sdata}, iuncfg)
             account = iunCloud.get_hold_account(code, iuncfg['account'])
-            self.add_buy_ztboard(account, code, strategy, iuncfg['mx_notify'] if 'mx_notify' in iuncfg else None)
+            self.add_buy_ztboard(account, code, strategy, iuncfg['mx_notify'] if 'mx_notify' in iuncfg else None, False)
             candidates.append(code)
         logger.info('%s candidates %s', self.key, candidates)

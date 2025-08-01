@@ -2,9 +2,8 @@ import base64
 import asyncio
 import traceback
 import stockrt as asrt
-from app.logger import logger
 from app.guang import guang
-from app.config import Config, IunCache
+from app.lofig import Config, logger, delayed_tasks
 from app.trade_interface import TradeInterface
 from app.accounts import accld
 from app.klpad import klPad, DsvrKSource
@@ -43,24 +42,23 @@ class iun:
         iunCloud.strFac = StrategyFactory
         accld.dserver = dconfig['server']
         accld.headers = {
-            'Content-Type': 'application/json',
             'Authorization': f'''Basic {base64.b64encode(f"{dconfig['user']}:{dconfig['password']}".encode()).decode()}'''
         }
         asrt.set_default_sources('quotes', 'quotes', ('tencent', 'cls', 'sina', 'xueqiu', 'eastmoney', 'sohu'), False)
         asrt.set_default_sources('quotes5', 'quotes5', ('sina', 'tencent', 'eastmoney', 'cls', 'sohu', 'tgb'), False)
         asrt.set_array_format('df')
-        accld.loadAccounts()
+        accld.load_accounts()
 
-        cfg = Config.iun_config()
         strategies = StrategyFactory.market_strategies()
         for task in strategies:
             task.on_intrade_matched = cls.intrade_matched
             await task.start_strategy_tasks()
 
         await asyncio.sleep(1)
-        if len(IunCache.delayed_tasks) > 0:
-            await asyncio.gather(*IunCache.delayed_tasks)
+        if len(delayed_tasks) > 0:
+            await asyncio.gather(*delayed_tasks)
 
+        accld.verify_strategies()
         logger.info("iun main exited.")
         # logger.info(f'{klPad.dump()}')
 
