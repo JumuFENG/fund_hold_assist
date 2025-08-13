@@ -170,12 +170,9 @@ class JobProcess(multiprocessing.Process):
         self.running.clear()
 
 
-
-
-class SubProcess_Watcher_Cycle(Watcher_Cycle, Stock_Rt_Watcher):
+class SubProcess_Watcher_Cycle(Watcher_Cycle):
     def __init__(self, period, btime, etime=[]):
         super().__init__(btime, etime)
-        Stock_Rt_Watcher.__init__(self)
         self.period = period
 
         # 多进程相关属性
@@ -186,9 +183,7 @@ class SubProcess_Watcher_Cycle(Watcher_Cycle, Stock_Rt_Watcher):
 
     def feed_process_data(self):
         # 为子进程设置输入数据
-        codes = [c for c in self.codes if self.codes[c] > 0]
-        if codes:
-            self.task_queue.put(codes)
+        self.task_queue.put(1)
 
     async def execute_task(self):
         # 确保子进程运行
@@ -281,7 +276,7 @@ class SubProcess_Watcher_Cycle(Watcher_Cycle, Stock_Rt_Watcher):
 
     def _restart_process(self):
         """重启子进程"""
-        self._stop_process()        
+        self._stop_process()
         self._start_process()
 
     async def stop_simple_task(self, delay=0):

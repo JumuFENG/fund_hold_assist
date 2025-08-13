@@ -186,7 +186,7 @@ class klPad:
     def calc_ma(cls, code: str, kltype: int, n: int) -> None:
         """
         计算/增量更新移动平均线（MA）
-        
+
         Args:
             code: 股票代码
             kltype: K线类型
@@ -221,7 +221,7 @@ class klPad:
     def calc_bss(cls, code: str, kltype: int, n: int) -> None:
         """
         计算/增量更新 BSS 指标
-        
+
         Args:
             code: 股票代码
             kltype: K线类型
@@ -248,12 +248,12 @@ class klPad:
 
         # 向量化条件判断
         above_ma = (klines['low'] > klines[ma_col]) | (
-            (klines[['open', 'close']].min(axis=1) > klines[ma_col]) & 
+            (klines[['open', 'close']].min(axis=1) > klines[ma_col]) &
             ((klines['high'] - klines['low']) * 0.8 <= abs(klines['open'] - klines['close']))
         )
 
         below_ma = (klines['high'] < klines[ma_col]) | (
-            (klines[['open', 'close']].max(axis=1) < klines[ma_col]) & 
+            (klines[['open', 'close']].max(axis=1) < klines[ma_col]) &
             ((klines['high'] - klines['low']) * 0.8 <= abs(klines['open'] - klines['close']))
         )
 

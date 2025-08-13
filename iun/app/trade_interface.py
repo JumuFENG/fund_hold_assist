@@ -57,7 +57,7 @@ class TradeInterface:
         response = requests.get(url)
         response.raise_for_status()
         return response.text == 'true'
-    
+
     @classmethod
     def get_account_latest_stocks(cls, account):
         """

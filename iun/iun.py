@@ -23,9 +23,6 @@ class iun:
 
     @classmethod
     async def main(cls):
-        from stockrt.sources.rtbase import logger as rtlogger
-        for handler in rtlogger.handlers[:]:
-            rtlogger.removeHandler(handler)
         remain_secs = guang.delay_seconds('9:11')
         if remain_secs > 0:
             logger.info(f'wait to run at 9:11')
@@ -60,7 +57,6 @@ class iun:
 
         accld.verify_strategies()
         logger.info("iun main exited.")
-        # logger.info(f'{klPad.dump()}')
 
 
 if __name__ == '__main__':

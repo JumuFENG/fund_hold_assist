@@ -3,7 +3,6 @@ from app.lofig import logger
 from app.guang import guang
 from app.intrade_base import BaseStrategy, iunCloud, StockStrategy
 from app.klpad import klPad
-from app.trade_interface import TradeInterface
 from app.accounts import accld
 
 
@@ -45,7 +44,7 @@ class FnPs:
             )
         if selltype == 'egate':
             if fac == 0 or FnPs.min_buy_price(buyrecs) * (1 + fac) < price:
-                return FnPs.get_sell_count_matched(buyrecs, 'earned', price, fac)
+                return FnPs.get_sell_count_matched(buyrecs, 'earned', price, 0)
             return 0
         if selltype == 'half_all':
             return min(count_avail, sum([rec['count'] for rec in buyrecs]) // 2)
@@ -186,19 +185,25 @@ class StrategyBuySellBeforeEnd(StockStrategy):
 
         if max(klines['close'].iloc[-3:-1]) > klines['ma5'].iloc[-1] * 1.1:
             return False
+        if 'stepRate' not in smeta:
+            smeta['stepRate'] = 0.08
 
         ztprice = klPad.get_zt_price(code)
         hcount = sum([b['count'] for b in buydetails])
         lost = (smeta['guardPrice'] - klclose) * hcount if hcount > 0 else smeta['guardPrice']
-        amount = lost / 0.08 - klclose * hcount
         sobj = accld.get_stock_strategy_group(acc, code)
+        amount = lost / smeta['stepRate'] - klclose * hcount
         if sobj and 'amount' in sobj:
-            amount = min(25*sobj['amount'], amount)
+            amount = min(lost / smeta['stepRate'], 25*sobj['amount']) - klclose * hcount
+        if amount <= 0:
+            return False
         count = guang.calc_buy_count(amount, klclose)
         price = round(min(ztprice, klclose * 1.01), 2)
-        smeta['guardPrice'] = round((klclose * count + hcount * smeta['guardPrice']) / (count + hcount), 2)
-        accld.planned_strategy_trade(acc, code, 'B', price, count)
-        return True
+        if count > 0:
+            smeta['guardPrice'] = round((klclose * count + hcount * smeta['guardPrice']) / (count + hcount), 2)
+            accld.planned_strategy_trade(acc, code, 'B', price, count)
+            return True
+        return False
 
     def check_sell_before_end(self, acc, code):
         klines = klPad.get_klines(code, self.kltype)
@@ -388,7 +393,7 @@ class StrategySellELShort(StockStrategy):
         if count > 0 and klclose < smeta['guardPrice']:
             smeta['enabled'] = False
             accld.update_strategy_meta(acc, code, self.key, smeta)
-            accld.planned_strategy_trade(acc, code, 'S', klclose-0.05, count)
+            accld.planned_strategy_trade(acc, code, 'S', max(klclose-0.05, klPad.get_dt_price(code)), count)
             self.remove_stock(acc, code)
             return
 
@@ -432,7 +437,7 @@ class StrategySellBeforeEnd(StockStrategy):
             return
 
         ztprice = klPad.get_zt_price(code)
-        conditions = {'not_zt': 1,  'h_and_l_dec': 1<<1, 'h_or_l_dec':1<<2, 'p_ge': 1<<3};
+        conditions = {'not_zt': 1,  'h_and_l_dec': 1<<1, 'h_or_l_dec':1<<2, 'p_ge': 1<<3}
         if smeta['sell_conds'] & conditions['not_zt']:
             if klclose < ztprice:
                 self.dosell(acc, code, klclose, count, smeta)

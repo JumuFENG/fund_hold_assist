@@ -166,4 +166,3 @@ class guang:
             vol=float(kl[5])
         )
 
-    

@@ -8,7 +8,6 @@ from functools import lru_cache
 from threading import Lock
 from typing import Dict, List, ClassVar, Optional, TYPE_CHECKING
 from urllib.parse import urlencode
-from functools import cached_property
 from datetime import datetime, timedelta
 import stockrt as asrt
 from app.lofig import logger
@@ -66,7 +65,7 @@ class iunCloud:
         if TradeInterface.tserver is None:
             return False
         return TradeInterface.is_rzrq(code)
-    
+
     @staticmethod
     def get_account_latest_stocks(account):
         return TradeInterface.get_account_latest_stocks(account)
@@ -153,6 +152,21 @@ class iunCloud:
     @classmethod
     def recent_zt(self, code):
         return code[-6:] in self.zt_recently()
+
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def topbks5():
+        url = guang.join_url(iunCloud.dserver, 'stock')
+        params = {
+            'act': 'hotbks',
+            'days': 5
+        }
+        rsp = guang.get_request(url, params=params)
+        return json.loads(rsp)
+
+    @classmethod
+    def is_topbk5(self, bk):
+        return bk in self.topbks5()
 
     @staticmethod
     @lru_cache(maxsize=1)
@@ -257,7 +271,7 @@ class iunCloud:
                 code = rk['SECURITY_CODE']
                 rkdict[code] = {'rank': rk['POPULARITY_RANK'], 'newfans': rk['NEWFANS_RATIO']}
             return rkdict
-        
+
     @classmethod
     @lru_cache(maxsize=1)
     def get_suspend_stocks(cls):
@@ -303,7 +317,16 @@ class iunCloud:
             return tuple([c[-6:] for c in json.loads(guang.get_request(url))])
 
     @classmethod
+    @lru_cache(maxsize=1)
+    def get_financial_cheating(cls):
+        # 财务造假
+        return ['300686', '002800', '300052', '300311', '603377', '000698', '002360', '603517', '603869', '300137', '300137', '300137', '600187', '300462', '002486', '600110', '300020', '300175', '300343', '002141', '300147', '603959', '600576', '603815', '300527', '000518', '600079', '688076', '300998', '000793', '000952', '600360', '300280', '300052', '600165', '000821', '000683', '002424', '688130', '000546', '000546', '839680', '300173', '300010', '300518', '300518', '600080', '300020', '002789', '002055', '300878', '300125', '002872', '000903', '002520', '603825', '688053', '300437', '002528', '600200', '000690', '002486', '830974', '300472', '300366', '300237', '002329', '301372', '000656', '000656', '600107', '600107', '300460', '300460', '600110', '603595', '603800', '603800', '835305', '002122', '002217', '300344', '000627', '300280', '600777', '600200', '839680', '600080', '002198', '000711', '603377', '300205', '300205', '603822', '600281', '600348', '600691', '600691', '300849', '300561', '832786', '600530', '600338', '300163', '430198', '000638', '600169', '600439', '600439', '603398', '002512', '300379'] 
+
+    @classmethod
     def financial_block(self, code):
+        if code in self.get_financial_cheating():
+            return True
+
         if code in self.get_financial_4season_losing():
             return True
 
@@ -552,34 +575,22 @@ class StkZdf_Watcher(Watcher_Cycle):
         await self.notify_change(self.full_zdf)
 
 
-class StkChanges_Watcher(Watcher_Cycle):
-    ''' 盘中异动
-    '''
-    def __init__(self):
-        super().__init__(['9:30:1', '13:00:1'], ['11:30:1', '14:57:1'])
-        self.changes_period = 60
+class StkChgsJobProcess(JobProcess):
+    def __init__(self, task_queue, result_queue, period):
+        super().__init__(task_queue, result_queue, period)
         self.exist_changes = set()
         self.chg_pagesize = 1000
         self.session = None
 
-    async def execute_task(self):
-        while self.task_running:
-            try:
-                await self.get_changes()
-            except Exception as e:
-                logger.error('%s %s', self.__class__.__name__, e)
-                logger.error(traceback.format_exc())
-            await asyncio.sleep(self.changes_period)
-
-    async def get_changes(self, types=None):
+    def process_job(self, codes: List[str]):
         self.chg_page = 0
         self.fecthed = []
-        self.get_next_changes(types)
+        self.get_next_changes()
         self.fecthed.reverse()
-        await self.notify_change(self.fecthed)
         if 0 < len(self.fecthed) < self.chg_pagesize:
             logger.info(f'fecthed {len(self.fecthed)}')
             self.chg_pagesize = max(64, len(self.fecthed))
+        return self.fecthed
 
     def get_next_changes(self, types=None):
         if types is None:
@@ -622,49 +633,60 @@ class StkChanges_Watcher(Watcher_Cycle):
                 self.exist_changes.add((code, ftm, tp))
 
 
-class BKChanges_Watcher(Watcher_Cycle):
-    ''' 板块异动
+class StkChanges_Watcher(SubProcess_Watcher_Cycle):
+    ''' 盘中异动
     '''
     def __init__(self):
-        super().__init__(['9:30:45', '12:50:45'], ['11:30', '15:1:5'])
-        self.changes_period = 600
-        self.bkchghis = None
-        self.clsbkhis = None
+        super().__init__(self, 60, ['9:30:1', '13:00:1'], ['11:30:1', '14:57:1'])
 
-    @cached_property
-    def topbks5(self):
-        url = guang.join_url(iunCloud.dserver, 'stock')
-        params = {
-            'act': 'hotbks',
-            'days': 5
-        }
-        rsp = guang.get_request(url, params=params)
-        return json.loads(rsp)
+    def create_subprocess(self):
+        return StkChgsJobProcess(self.task_queue, self.result_queue, self.period)
 
-    def is_topbk5(self, bk):
-        return bk in self.topbks5
+    async def handle_process_result(self, result):
+        if not result:
+            logger.warning("get stock changes empty")
+            return
 
-    async def execute_task(self):
-        while self.task_running:
-            try:
-                await self.get_changes()
-            except Exception as e:
-                logger.error(f'{e}')
-                logger.error(traceback.format_exc())
-            await asyncio.sleep(self.changes_period)
+        try:
+            await self.notify_change(result)
+        except Exception as e:
+            logger.error(f"Error notify bk changes: {e}")
+            logger.error(traceback.format_exc())
 
-    async def get_changes(self):
-        bkchgurl = guang.join_url(iunCloud.dserver, 'stock')
+
+class BkChgsJobProcess(JobProcess):
+    def __init__(self, task_queue, result_queue, period):
+        super().__init__(task_queue, result_queue, period)
+
+    def process_job(self, bkchgurl):
         params = {
             'act': 'rtbkchanges',
             'save': 1
         }
         rsp = guang.get_request(bkchgurl, params=params)
-        bks = json.loads(rsp)
-        if len(bks) == 0:
-            logger.info(f'{__class__.__name__} StockBkChangesHistory get bk changes empty')
+        return json.loads(rsp)
+
+
+class BKChanges_Watcher(SubProcess_Watcher_Cycle):
+    def __init__(self):
+        super().__init__(self, 600, ['9:30:45', '12:50:45'], ['11:30', '15:1:5'])
+
+    def feed_process_data(self):
+        self.task_queue.put(guang.join_url(iunCloud.dserver, 'stock'))
+
+    def create_subprocess(self):
+        return BkChgsJobProcess(self.task_queue, self.result_queue, self.period)
+
+    async def handle_process_result(self, result):
+        if not result:
+            logger.warning("get bk changes empty")
             return
-        await self.notify_change(bks)
+
+        try:
+            await self.notify_change(result)
+        except Exception as e:
+            logger.error(f"Error notify bk changes: {e}")
+            logger.error(traceback.format_exc())
 
 
 class EndFundFlow_Watcher(Watcher_Once):
@@ -735,9 +757,9 @@ class EndFundFlow_Watcher(Watcher_Once):
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             futures = {
                 executor.submit(
-                    lambda p: add_mainflow(process_response(guang.get_request(build_url(p), headers))[0]), 
+                    lambda p: add_mainflow(process_response(guang.get_request(build_url(p), headers))[0]),
                     pageno
-                ): pageno 
+                ): pageno
                 for pageno in range(2, total_pages + 1)
             }
 
@@ -779,17 +801,23 @@ class KlineJobProcess(JobProcess):
         return asrt.klines(codes, kltype=self.klt, length=32)
 
 
-class Stock_Klinem_Watcher(SubProcess_Watcher_Cycle):
+class Stock_Klinem_Watcher(SubProcess_Watcher_Cycle, Stock_Rt_Watcher):
     def __init__(self, m=1, btime=None, etime=None):
         if btime is None:
             btime = ['9:31:05', '13:00:50']
         if etime is None:
             etime = ['11:30:1', '14:57:1']
-        SubProcess_Watcher_Cycle.__init__(self, m*60, btime, etime)
+        super().__init__(self, m*60, btime, etime)
+        Stock_Rt_Watcher.__init__(self)
         self.klt = m
 
     def create_subprocess(self):
-        return KlineJobProcess(self.task_queue, self.result_queue, self.period,self.klt)
+        return KlineJobProcess(self.task_queue, self.result_queue, self.period, self.klt)
+
+    def feed_process_data(self):
+        codes = [c for c in self.codes if self.codes[c] > 0]
+        if codes:
+            self.task_queue.put(codes)
 
     async def handle_process_result(self, result):
         if not result:
@@ -813,12 +841,18 @@ class QuoteJobProcess(JobProcess):
         return asrt.quotes(codes)
 
 
-class Stock_Quote_Watcher(SubProcess_Watcher_Cycle):
+class Stock_Quote_Watcher(SubProcess_Watcher_Cycle, Stock_Rt_Watcher):
     def __init__(self):
-        SubProcess_Watcher_Cycle.__init__(self, 5, ['9:30:1', '13:00'], ['11:30', '14:57'])
+        super().__init__(self, 5, ['9:30:1', '13:00'], ['11:30', '14:57'])
+        Stock_Rt_Watcher.__init__(self)
 
     def create_subprocess(self):
         return QuoteJobProcess(self.task_queue, self.result_queue, self.period)
+
+    def feed_process_data(self):
+        codes = [c for c in self.codes if self.codes[c] > 0]
+        if codes:
+            self.task_queue.put(codes)
 
     async def handle_process_result(self, result):
         if not result:

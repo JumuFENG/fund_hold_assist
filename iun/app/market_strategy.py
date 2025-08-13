@@ -108,6 +108,7 @@ class GlobalStartup(BaseStrategy):
             if q['top_price'] == 0 and q['bottom_price'] == 0:
                 logger.info('%s %s no top or bottom price, %s', c, q['name'], q)
         logger.info("GlobalStartup init quotes for %d", len(quotes))
+        iunCloud.get_financial_4season_losing()
 
     async def openauction(self):
         stocks = iunCloud.get_hotstocks()
@@ -252,7 +253,7 @@ class StrategyI_Zt1Bk(MarketStrategy):
         mtbk = self.select_bk_of(bk_changes, 'amount', lambda a: a > 0)
         mtbk = mtbk.intersection(self.select_bk_of(bk_changes, 'p_change', lambda a: a >= 2))
         # mtbk = mtbk.intersection(self.select_bk_of(bk_changes, 'ztcnt', lambda a: a >= 5))
-        mtbk = [bk for bk in mtbk if not self.bkwatcher.is_topbk5(bk)]
+        mtbk = [bk for bk in mtbk if not iunCloud.is_topbk5(bk)]
         [self.matched_bks.append(bk) for bk in mtbk if bk not in self.matched_bks]
 
         if len(self.watcher.full_zdf) == 0:
@@ -301,14 +302,15 @@ class StrategyI_Zt1Bk(MarketStrategy):
             mdata['strategies'] = {}
             mdata['strategies']['StrategySellELS'] = {'guardPrice': round(zt_price * 0.92, 2)}
             mdata['strategies']['StrategySellBE'] = {}
+            iuncfg = iunCloud.iun_str_conf(self.key)
+            account = iunCloud.get_hold_account(s, iuncfg['account'])
             if p < zt_price:
-                mdata['strategies']['StrategyBuyZTBoard'] = {}
-                iuncfg = iunCloud.iun_str_conf(self.key)
+                mdata['strategies'] = {'StrategyBuyZTBoard':{}}
                 strategy = guang.generate_strategy_json({'code': s, 'price': zt_price, 'strategies': mdata['strategies']}, iuncfg)
-                account = iunCloud.get_hold_account(s, iuncfg['account'])
                 self.add_buy_ztboard(account, s, strategy)
             else:
                 await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
+            accld.add_trading_remarks(account, s, self.key)
             self.stock_notified.append(s)
 
     def on_taskstop(self):
@@ -567,6 +569,7 @@ class StrategyI_Zt1WbOpen(BaseStrategy):
                 mdata['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2)}}
                 await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
                 self.stock_notified.append(c)
+                accld.add_trading_remarks(self.candidates[c]['account'], c, self.key)
 
     async def on_watcher2(self):
         self.pupfix = 1
@@ -820,8 +823,11 @@ class StrategyI_HotStocksOpen(MarketStrategy):
             if callable(self.on_intrade_matched):
                 mdata = {'code': c, 'price': price}
                 mdata['strategies'] = {'StrategySellELS': {'topprice': round(price * 1.05, 2)}, 'StrategySellBE': {}}
+                iuncfg = iunCloud.iun_str_conf(self.key)
+                account = iunCloud.get_hold_account(c, iuncfg['account'])
                 await self.on_intrade_matched(self.key, mdata, guang.create_buy_message)
                 logger.info('%s buy %s %s at %s', self.key, c, q['name'], price)
+                accld.add_trading_remarks(account, c, self.key)
 
         self.save_ohstks()
 
@@ -1048,9 +1054,10 @@ class StrategyI_HotstocksRetryZt0(MarketStrategy):
             if zt_price * 100 > 1.6 * float(iuncfg['amount']):
                 logger.info('%s %s price too high: %.2f amount: %s', self.key, code, zt_price, iuncfg['amount'])
                 continue
-            sdata = {'StrategyBuyZTBoard':{}, 'StrategySellELS': {'guardPrice': round(zt_price * 0.92, 2)}, 'StrategySellBE': {}}
+            sdata = {'StrategyBuyZTBoard':{}}
             strategy = guang.generate_strategy_json({'code': code, 'price': zt_price, 'strategies': sdata}, iuncfg)
             account = iunCloud.get_hold_account(code, iuncfg['account'])
             self.add_buy_ztboard(account, code, strategy, iuncfg['mx_notify'] if 'mx_notify' in iuncfg else None, False)
+            accld.add_trading_remarks(account, code, self.key)
             candidates.append(code)
         logger.info('%s candidates %s', self.key, candidates)
