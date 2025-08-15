@@ -64,20 +64,15 @@ class guang:
 
     @staticmethod
     def zdf_from_code(code):
-        zdf = 10
-        if code.startswith('SZ30') or code.startswith('SH68') or code.startswith('30') or code.startswith('68'):
-            zdf = 20
-        elif code.startswith('BJ') or code.startswith('92') or code.startswith('43') or code.startswith('83') or code.startswith('87'):
-            zdf = 30
-        return zdf
+        if code.startswith(('SZ30', 'SH68', '68', '30')):
+            return 20
+        if code.startswith(('BJ', '92', '43', '83', '87')):
+            return 30
+        return 10
 
     @staticmethod
     def join_url(srv, path):
-        if srv.endswith('/') and path.startswith('/'):
-            return srv + path[1:]
-        elif srv.endswith('/') or path.startswith('/'):
-            return srv + path
-        return srv + '/' + path
+        return f"{srv.rstrip('/')}/{path.lstrip('/')}"
 
     @staticmethod
     def generate_strategy_json(match_data, subscribe_detail):

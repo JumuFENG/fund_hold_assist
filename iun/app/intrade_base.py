@@ -15,7 +15,7 @@ from app.guang import guang
 from app.klpad import klPad
 from app.watcher_base import *
 from app.trade_interface import TradeInterface
-from emxg import search_emxg
+from pywencai import get as search_wencai
 
 if TYPE_CHECKING:
     from app.strategy_factory import StrategyFactory
@@ -40,7 +40,7 @@ class iunCloud:
         if name == 'kline1':
             return Stock_Klinem_Watcher(1)
         if name == 'kline15':
-            return Stock_Klinem_Watcher(15, ['9:44:55', '13:14:50'], ['11:30:1', '14:57:1'])
+            return Stock_Klinem_Watcher(15, '9:44:55', '14:57:1', [('11:30:1', '13:14:50')])
         if name == 'klineday':
             return Stock_KlineDay_Watcher()
         if name == 'quotes':
@@ -309,18 +309,24 @@ class iunCloud:
     @lru_cache(maxsize=1)
     def get_financial_4season_losing(cls):
         try:
-            pdata = search_emxg('连续4个季度亏损大于1000万')
-            return tuple(pdata['代码'])
+            pdata = search_wencai(query='连续4个季度亏损大于1000万', loop=True)
+            logger.info('连续4个季度亏损大于1000万: %d', len(pdata['code']))
+            return tuple(pdata['code'])
         except Exception as e:
-            logger.info('search_emxg error: %s', e)
+            logger.info('search_wencai error: %s', e)
             url = guang.join_url(iunCloud.dserver, 'stock?act=f4lost')
             return tuple([c[-6:] for c in json.loads(guang.get_request(url))])
 
     @classmethod
     @lru_cache(maxsize=1)
     def get_financial_cheating(cls):
-        # 财务造假
-        return ['300686', '002800', '300052', '300311', '603377', '000698', '002360', '603517', '603869', '300137', '300137', '300137', '600187', '300462', '002486', '600110', '300020', '300175', '300343', '002141', '300147', '603959', '600576', '603815', '300527', '000518', '600079', '688076', '300998', '000793', '000952', '600360', '300280', '300052', '600165', '000821', '000683', '002424', '688130', '000546', '000546', '839680', '300173', '300010', '300518', '300518', '600080', '300020', '002789', '002055', '300878', '300125', '002872', '000903', '002520', '603825', '688053', '300437', '002528', '600200', '000690', '002486', '830974', '300472', '300366', '300237', '002329', '301372', '000656', '000656', '600107', '600107', '300460', '300460', '600110', '603595', '603800', '603800', '835305', '002122', '002217', '300344', '000627', '300280', '600777', '600200', '839680', '600080', '002198', '000711', '603377', '300205', '300205', '603822', '600281', '600348', '600691', '600691', '300849', '300561', '832786', '600530', '600338', '300163', '430198', '000638', '600169', '600439', '600439', '603398', '002512', '300379'] 
+        try:
+            pdata = search_wencai(query='财务造假', loop=True)
+            logger.info('财务造假: %d', len(pdata['code']))
+            return tuple(pdata['code'])
+        except Exception as e:
+            logger.info('search_wencai error: %s', e)
+            return tuple()
 
     @classmethod
     def financial_block(self, code):
@@ -398,12 +404,12 @@ class StockStrategy(BaseStrategy):
 class AuctionSnapshot_Watcher(Watcher_Cycle):
     auction_quote = {}
     def __init__(self):
-        super().__init__(['9:20:2'], ['9:25:8'])
-        w2 = Watcher_Once('9:24:53', False)
+        super().__init__(5, '9:20:2', '9:25:8')
+        w2 = Watcher_Once('9:24:53')
         w2.execute_task = self.notify_auctions1
-        w3 = Watcher_Once('9:25:16', False)
+        w3 = Watcher_Once('9:25:16')
         w3.execute_task = self.notify_auctions2
-        w1 = Watcher_Once('9:20:1', guang.delay_seconds(w3.btime) > 0)
+        w1 = Watcher_Once('9:20:1', w3.btime)
         w1.execute_task = self.check_dt_ranks
         self.simple_watchers = [w1, w2, w3]
         self.matched = []
@@ -479,10 +485,8 @@ class AuctionSnapshot_Watcher(Watcher_Cycle):
         return trends[1:]
 
     async def execute_task(self):
-        while self.task_running:
-            quotes = asrt.quotes5(list(self.auction_quote.keys()))
-            self.cache_quotes(quotes)
-            await asyncio.sleep(5)
+        quotes = asrt.quotes5(list(self.auction_quote.keys()))
+        self.cache_quotes(quotes)
 
     def cache_quotes(self, quotes):
         for code, quote in quotes.items():
@@ -533,29 +537,12 @@ class AuctionSnapshot_Watcher(Watcher_Cycle):
             guang.post_data(aucmatchurl, data={'act': 'save_auction_matched', 'matched': json.dumps(values)})
 
 
-class StkZdf_Watcher(Watcher_Cycle):
-    ''' 个股涨幅排行,仅获取涨跌幅>=8%
-    '''
-    def __init__(self):
-        super().__init__(['9:30:1', '13:00:1'], ['11:30:1', '14:57:1'])
-        self.period = 60
+class StkZdfJobProcess(JobProcess):
+    def __init__(self, task_queue, result_queue, period):
+        super().__init__(task_queue, result_queue, period)
         self.min_zdf = 8
-        self.full_zdf = []
 
-    async def execute_task(self):
-        while self.task_running:
-            try:
-                await self.get_zdf()
-            except ConnectionError as e:
-                if hasattr(e, 'request') and e.request is not None:
-                    logger.error(f'ConnectionError: {e.request.url}')
-                logger.error(f'ConnectionError: {e}')
-            except Exception as e:
-                logger.error(e)
-                logger.error(traceback.format_exc())
-            await asyncio.sleep(self.period)
-
-    async def get_zdf(self):
+    def process_job(self, indata):
         zdfranks = iunCloud.get_stocks_zdfrank(self.min_zdf)
         full_zdf = []
         for rkobj in zdfranks:
@@ -568,11 +555,30 @@ class StkZdf_Watcher(Watcher_Cycle):
             code = rkobj['f12'] # 代码
             lc = rkobj['f18'] # 昨收
             full_zdf.append([code, zd, c, lc])
-        self.full_zdf = full_zdf
-        if len(self.full_zdf) == 0:
+        return full_zdf
+
+
+class StkZdf_Watcher(SubProcess_Watcher_Cycle):
+    ''' 个股涨幅排行,仅获取涨跌幅>=8%
+    '''
+    def __init__(self):
+        super().__init__(60, '9:30:1', '14:57:1', [('11:30:1', '13:00:1')])
+        self.full_zdf = []
+
+    def create_subprocess(self):
+        return StkZdfJobProcess(self.task_queue, self.result_queue, self.period)
+
+    async def handle_process_result(self, result):
+        if not result:
+            logger.warning("get stock zdf empty")
             return
 
-        await self.notify_change(self.full_zdf)
+        try:
+            await self.notify_change(result)
+            self.full_zdf = result
+        except Exception as e:
+            logger.error(f"Error notify stkzdf: {e}")
+            logger.error(traceback.format_exc())
 
 
 class StkChgsJobProcess(JobProcess):
@@ -582,7 +588,7 @@ class StkChgsJobProcess(JobProcess):
         self.chg_pagesize = 1000
         self.session = None
 
-    def process_job(self, codes: List[str]):
+    def process_job(self, indata):
         self.chg_page = 0
         self.fecthed = []
         self.get_next_changes()
@@ -637,7 +643,7 @@ class StkChanges_Watcher(SubProcess_Watcher_Cycle):
     ''' 盘中异动
     '''
     def __init__(self):
-        super().__init__(self, 60, ['9:30:1', '13:00:1'], ['11:30:1', '14:57:1'])
+        super().__init__(60, '9:30:1', '14:57:1', [('11:30:1','13:00:1')])
 
     def create_subprocess(self):
         return StkChgsJobProcess(self.task_queue, self.result_queue, self.period)
@@ -669,7 +675,7 @@ class BkChgsJobProcess(JobProcess):
 
 class BKChanges_Watcher(SubProcess_Watcher_Cycle):
     def __init__(self):
-        super().__init__(self, 600, ['9:30:45', '12:50:45'], ['11:30', '15:1:5'])
+        super().__init__(600, '9:30:45', '15:1:5', [('11:30', '12:50:45')])
 
     def feed_process_data(self):
         self.task_queue.put(guang.join_url(iunCloud.dserver, 'stock'))
@@ -693,7 +699,7 @@ class EndFundFlow_Watcher(Watcher_Once):
     ''' 主力资金流
     '''
     def __init__(self):
-        super().__init__('14:57:55', False)
+        super().__init__('14:57:55')
 
     def updateLatestFflow(self):
         """获取最新主力资金流数据"""
@@ -779,7 +785,7 @@ class EndFundFlow_Watcher(Watcher_Once):
 
 class Stock_KlineDay_Watcher(Watcher_Once, Stock_Rt_Watcher):
     def __init__(self):
-        super().__init__('14:57:55', False)
+        super().__init__('14:57:55')
         Stock_Rt_Watcher.__init__(self)
 
     async def execute_task(self):
@@ -802,12 +808,14 @@ class KlineJobProcess(JobProcess):
 
 
 class Stock_Klinem_Watcher(SubProcess_Watcher_Cycle, Stock_Rt_Watcher):
-    def __init__(self, m=1, btime=None, etime=None):
+    def __init__(self, m=1, btime=None, etime=None, brks=None):
         if btime is None:
-            btime = ['9:31:05', '13:00:50']
+            btime = '9:31:05'
         if etime is None:
-            etime = ['11:30:1', '14:57:1']
-        super().__init__(self, m*60, btime, etime)
+            etime = '14:57:1'
+        if brks is None:
+            brks = [['11:30:1', '13:00:50']]
+        super().__init__(m*60, btime, etime, brks)
         Stock_Rt_Watcher.__init__(self)
         self.klt = m
 
@@ -843,7 +851,7 @@ class QuoteJobProcess(JobProcess):
 
 class Stock_Quote_Watcher(SubProcess_Watcher_Cycle, Stock_Rt_Watcher):
     def __init__(self):
-        super().__init__(self, 5, ['9:30:1', '13:00'], ['11:30', '14:57'])
+        super().__init__(5, '9:30:1', '14:57', [('11:30', '13:00')])
         Stock_Rt_Watcher.__init__(self)
 
     def create_subprocess(self):

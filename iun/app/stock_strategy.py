@@ -537,10 +537,11 @@ class StrategyBuyZTBoard(StockStrategy):
         self.remove_stock(acc, code)
 
     def hurry_buy_match(self, code, quotes):
-        if quotes['change'] > 0.09 and code not in self.hmatched:
+        hurry_zt_pct = guang.zdf_from_code(code) * 0.009
+        if quotes['change'] > hurry_zt_pct and code not in self.hmatched:
             self.hmatched.append(code)
-            logger.info('%s %s change > 0.09 %s', self.key, code, quotes)
-        return self.buy_hurry and quotes['change'] > 0.09
+            logger.info('%s %s change > %.2f %s', self.key, code, hurry_zt_pct, quotes)
+        return self.buy_hurry and quotes['change'] > hurry_zt_pct
 
     @staticmethod
     def is_zt_reaching(quotes, ztprice):

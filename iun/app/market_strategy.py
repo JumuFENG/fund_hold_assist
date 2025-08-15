@@ -41,8 +41,8 @@ class MarketStrategy(BaseStrategy):
 
 class GlobalStartup(BaseStrategy):
     def __init__(self):
-        self.watcher = Watcher_Once('9:15', guang.delay_seconds('15:00') > 0)
-        self.twatcher = Watcher_Once('9:35', False)
+        self.watcher = Watcher_Once('9:15', '15:00')
+        self.twatcher = Watcher_Once('9:35')
         self.twatcher.execute_task = self.openauction
 
     async def start_strategy_tasks(self):
@@ -109,6 +109,7 @@ class GlobalStartup(BaseStrategy):
                 logger.info('%s %s no top or bottom price, %s', c, q['name'], q)
         logger.info("GlobalStartup init quotes for %d", len(quotes))
         iunCloud.get_financial_4season_losing()
+        iunCloud.get_financial_cheating()
 
     async def openauction(self):
         stocks = iunCloud.get_hotstocks()
@@ -444,7 +445,7 @@ class StrategyI_3Bull_Breakup(BaseStrategy):
     on_intrade_matched = None
     def __init__(self):
         self.watcher = iunCloud.get_watcher('kline1')
-        self.prepare_watcher = Watcher_Once('9:30', True)
+        self.prepare_watcher = Watcher_Once('9:30', '14:57')
         self.prepare_watcher.execute_task = self.prepare
         self.stock_notified = []
         self.candidates = None
@@ -512,11 +513,11 @@ class StrategyI_Zt1WbOpen(BaseStrategy):
     on_intrade_matched = None
 
     def __init__(self):
-        self.prepare_watcher = Watcher_Once('9:22', guang.delay_seconds('9:30') > 0)
+        self.prepare_watcher = Watcher_Once('9:22', '9:30')
         self.prepare_watcher.execute_task = self.prepare
-        self.watcher = Watcher_Once('9:24:56', False)
+        self.watcher = Watcher_Once('9:24:56')
         self.watcher.execute_task = self.on_watcher
-        self.watcher2 = Watcher_Once('9:25:03', False)
+        self.watcher2 = Watcher_Once('9:25:03')
         self.watcher2.execute_task = self.on_watcher2
         self.stock_notified = []
         self.candidates = {}
@@ -585,11 +586,11 @@ class StrategyI_HotrankOpen(BaseStrategy):
     desc = '不涨停且股价涨跌幅介于[-3, 9] 选人气排行前10中新增粉丝>70%排名最前者'
     on_intrade_matched = None
     def __init__(self):
-        self.prepare_watcher = Watcher_Once('9:22', guang.delay_seconds('9:30') > 0)
+        self.prepare_watcher = Watcher_Once('9:22', '9:30')
         self.prepare_watcher.execute_task = self.prepare
-        self.watcher = Watcher_Once('9:24:56', False)
+        self.watcher = Watcher_Once('9:24:56')
         self.watcher.execute_task = self.on_watcher
-        self.watcher2 = Watcher_Once('9:25:05', False)
+        self.watcher2 = Watcher_Once('9:25:05')
         self.watcher2.execute_task = self.on_watcher2
         self.candidates = None
         self.pupfix = 1.05
@@ -684,9 +685,9 @@ class StrategyI_HotStocksOpen(MarketStrategy):
     on_intrade_matched = None
 
     def __init__(self):
-        self.prepare_watcher = Watcher_Once('9:22', guang.delay_seconds('9:30') > 0)
+        self.prepare_watcher = Watcher_Once('9:22','9:30')
         self.prepare_watcher.execute_task = self.prepare
-        self.watcher = Watcher_Once('9:24:55', False)
+        self.watcher = Watcher_Once('9:24:55')
         self.watcher.execute_task = self.on_watcher
         self.lastzdt = None
         self.candidates = None
@@ -856,13 +857,13 @@ class StrategyI_DtStocksUp(BaseStrategy):
     on_intrade_matched = None
 
     def __init__(self):
-        self.prepare_watcher = Watcher_Once('9:24', guang.delay_seconds('14:30') > 0)
+        self.prepare_watcher = Watcher_Once('9:24', '14:30')
         self.prepare_watcher.execute_task = self.prepare
-        self.watcher = Watcher_Once('9:24:50', False)
+        self.watcher = Watcher_Once('9:24:50')
         self.watcher.execute_task = self.on_watcher
-        self.watcher1 = Watcher_Once('9:33', False)
+        self.watcher1 = Watcher_Once('9:33')
         self.watcher1.execute_task = self.on_watcher1
-        self.watcher2 = Watcher_Once('14:30', False)
+        self.watcher2 = Watcher_Once('14:30')
         self.watcher2.execute_task = self.cancel
         self.candidates = {}
         self.matched = []
@@ -1006,7 +1007,7 @@ class StrategyI_HotstocksRetryZt0(MarketStrategy):
     desc = '高标/人气股 涨停回调(>3个交易日)之后首板打板买入'
     on_intrade_matched = None
     def __init__(self):
-        self.watcher = Watcher_Once('9:29', guang.delay_seconds('14:57') > 0)
+        self.watcher = Watcher_Once('9:29', '14:57')
 
     async def start_strategy_tasks(self):
         iuncfg = iunCloud.iun_str_conf(self.key)

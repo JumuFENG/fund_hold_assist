@@ -39,7 +39,7 @@ class iun:
         iunCloud.strFac = StrategyFactory
         accld.dserver = dconfig['server']
         accld.headers = {
-            'Authorization': f'''Basic {base64.b64encode(f"{dconfig['user']}:{dconfig['password']}".encode()).decode()}'''
+            'Authorization': f'''Basic {base64.b64encode(f"{dconfig['user']}:{Config.simple_decrypt(dconfig['password'])}".encode()).decode()}'''
         }
         asrt.set_default_sources('quotes', 'quotes', ('tencent', 'cls', 'sina', 'xueqiu', 'eastmoney', 'sohu'), False)
         asrt.set_default_sources('quotes5', 'quotes5', ('sina', 'tencent', 'eastmoney', 'cls', 'sohu', 'tgb'), False)

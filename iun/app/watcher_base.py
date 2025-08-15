@@ -9,10 +9,10 @@ from app.guang import guang
 
 
 class Watcher_Once:
-    def __init__(self, btime, exec_if_expired=True):
+    def __init__(self, btime, etime=None):
         self.listeners = []
         self.btime = btime
-        self.exec_if_expired = exec_if_expired
+        self.etime = etime
         self.task_running = False
 
     def add_listener(self, listener):
@@ -26,9 +26,8 @@ class Watcher_Once:
         if guang.delay_seconds(self.btime) > 0:
             t = asyncio.create_task(self.start_simple_task(guang.delay_seconds(self.btime)))
             delayed_tasks.append(t)
-        else:
-            if self.exec_if_expired:
-                await self.execute_task()
+        elif self.etime is not None and guang.delay_seconds(self.etime) > 0:
+            await self.execute_task()
 
     async def start_simple_task(self, delay=0):
         await asyncio.sleep(delay)
@@ -59,34 +58,44 @@ class Watcher_Once:
             listener.on_taskstop()
 
 class Watcher_Cycle(Watcher_Once):
-    def __init__(self, btime, etime=[]):
+    def __init__(self, period, btime, etime, brks=[]):
         '''
-        btime和etime成对设置, 不要有重叠. 如果是一次性任务使用StrategyI_Watcher_Once
+        如果是一次性任务使用Watcher_Once
 
-        @param btime: '09:30' / ['09:30', '13:00']
-        @param etime: '15:01' / ['11:31', '15:01']
+        @param period: 60
+        @param btime: '09:30'
+        @param etime: '15:01'
+        @param brks: [['11:31', '13:00']...]
         '''
-        super().__init__('')
-        self.btime = [btime]
-        if isinstance(btime, list) or isinstance(btime, tuple):
-            self.btime = btime
-        self.etime = [etime]
-        if isinstance(etime, list) or isinstance(etime, tuple):
-            self.etime = etime
-        assert len(self.btime) == len(self.etime), 'btime and etime must have same length'
+        super().__init__(btime, etime)
+        self.period = period
+        self.brk_times = brks
         self.task_running = False
         self.simple_watchers = []
 
     async def start_strategy_tasks(self):
-        for bt, et in zip(self.btime, self.etime):
-            eticks = guang.delay_seconds(et)
-            if eticks > 0:
-                bticks = guang.delay_seconds(bt)
-                if bticks < 0:
-                    bticks = 0
-                t = asyncio.create_task(self.start_simple_task(bticks))
+        stopticks = guang.delay_seconds(self.etime)
+        if stopticks > 0:
+            bticks = []
+            eticks = []
+            for et,bt in self.brk_times:
+                btick = guang.delay_seconds(bt)
+                if btick < 0:
+                    continue
+                bticks.append(btick)
+                etick = guang.delay_seconds(et)
+                if etick > 0:
+                    eticks.append(etick)
+            eticks.append(stopticks)
+            assert len(eticks) >= len(bticks)
+            if len(bticks) < len(eticks):
+                bticks.append(max(0, guang.delay_seconds(self.btime)))
+
+            for bt in bticks:
+                t = asyncio.create_task(self.start_simple_task(bt))
                 delayed_tasks.append(t)
-                e = asyncio.create_task(self.stop_simple_task(eticks))
+            for et in eticks:
+                e = asyncio.create_task(self.stop_simple_task(et))
                 delayed_tasks.append(e)
 
         if len(self.simple_watchers) > 0:
@@ -100,14 +109,20 @@ class Watcher_Cycle(Watcher_Once):
         self.task_running = True
 
         logger.info('%s task start', self.__class__.__name__)
-        try:
-            await self.execute_task()
-        except Exception as e:
-            logger.error(f'{e}')
-            logger.error(traceback.format_exc())
+        while self.task_running:
+            try:
+                await self.execute_task()
+            except ConnectionError as e:
+                if hasattr(e, 'request') and e.request is not None:
+                    logger.error(f'ConnectionError: {e.request.url}')
+                logger.error(f'ConnectionError: {e}')
+            except Exception as e:
+                logger.error(e)
+                logger.error(traceback.format_exc())
+            await asyncio.sleep(self.period)
 
     async def execute_task(self):
-        logger.info('execute cycle task')
+        logger.info('execute task')
 
     async def stop_simple_task(self, delay=0):
         await asyncio.sleep(delay)
@@ -171,9 +186,8 @@ class JobProcess(multiprocessing.Process):
 
 
 class SubProcess_Watcher_Cycle(Watcher_Cycle):
-    def __init__(self, period, btime, etime=[]):
-        super().__init__(btime, etime)
-        self.period = period
+    def __init__(self, period, btime, etime, brks=[]):
+        super().__init__(period, btime, etime, brks)
 
         # 多进程相关属性
         self.task_queue = multiprocessing.Queue()
@@ -185,7 +199,14 @@ class SubProcess_Watcher_Cycle(Watcher_Cycle):
         # 为子进程设置输入数据
         self.task_queue.put(1)
 
-    async def execute_task(self):
+    async def start_simple_task(self, delay=0):
+        await asyncio.sleep(delay)
+        if self.task_running:
+            return
+        self.task_running = True
+
+        logger.info('%s task start', self.__class__.__name__)
+
         # 确保子进程运行
         self._ensure_process_running()
         asyncio.create_task(self._check_result_queue())
