@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from peewee import fn
 from playhouse.pool import PooledMySQLDatabase
 from phon.hu import lazy_property, classproperty, convert_dict_data
-from phon.hu.hu import DateConverter, datetime, timedelta
+from phon.hu.hu import DateConverter, datetime, timedelta, time_stamp
 from phon.data.tables import AllStockTbl, AllIndice, KHistory, FlowHistory
 from phon.data.db import get_database, create_model, read_context, write_context, insert_or_update
 import stockrt as srt
@@ -324,6 +324,17 @@ class AllIndexes:
 
     @classmethod
     def update_klines_by_code(self, stocks, kltype: str='d'):
+        """
+        Updates the K-line data for a list of stock codes based on the specified K-line type.
+
+        Args:
+            stocks: A list of stock codes for which the K-line data needs to be updated.
+            kltype: A string representing the K-line type (e.g., 'd' for daily).
+
+        Returns:
+            A list of stock codes for which the K-line data was not updated.
+
+        """
         uplens = {c: self.count_bars_to_updated(c, kltype) for c in stocks}
         fixlens = {}
         for c,l in uplens.items():
@@ -333,6 +344,9 @@ class AllIndexes:
                 fixlens[l] = []
             fixlens[l].append(c)
         if not fixlens:
+            return
+        if 1 in fixlens and len(fixlens[1]) > 100:
+            print('too many stocks to update for 1 day, please call update_kline_data("d") first!')
             return
 
         ofmt = srt.set_array_format('dict')
@@ -347,6 +361,7 @@ class AllIndexes:
             if c in stocks:
                 self.save_kline_data_todb(c, kltype, klines[c])
         srt.set_array_format(ofmt)
+        return [srt.get_fullcode(c) for c in sum(fixlens.values(), []) if c not in klines or TradingDate.calc_trading_days(klines[c][-1]['time'], TradingDate.max_trading_date()) > 20]
 
     @classmethod
     def read_index_daily_price_change(self, code):
@@ -503,6 +518,12 @@ class AllStocks(AllIndexes):
             return self.db.select(self.db.setup_date).where(self.db.code == code).scalar()
 
     @classmethod
+    def is_quited(self, code):
+        code = srt.get_fullcode(code).upper()
+        with read_context(self.db):
+            return self.db.select(self.db.quit_date).where(self.db.code == code).scalar() is not None
+
+    @classmethod
     def save_fflow_todb(self, code, fflow):
         mxdate = self.max_date(self.get_fflow_tablename(code))
         if mxdate is None:
@@ -565,7 +586,7 @@ class AllStocks(AllIndexes):
                         'mainp': rk['f184'],
                         'small': rk['f84'], 'middle': rk['f78'], 'big': rk['f72'], 'super': rk['f66'],
                         'smallp': rk['f87'], 'midllep': rk['f81'], 'bigp': rk['f75'], 'superp': rk['f69']
-                    } for rk in rkres['data']['diff'] if rk['f3'] != '-'
+                    } for rk in rkres['data']['diff'] if rk['f2'] != '-' and rk['f17'] != '-' and rk['f5'] != '-'
                 }
 
             def format_response(self, response):
@@ -620,3 +641,55 @@ class AllStocks(AllIndexes):
 
         self.update_klines_by_code(stocks, kltype)
 
+    @classmethod
+    def load_new_stocks(self, sdate=None):
+        # http://quote.eastmoney.com/center/gridlist.html#newshares
+        if sdate is None:
+            with read_context(self.db):
+                sdate = self.db.select(fn.MAX(self.db.setup_date)).scalar()
+
+        pn = 1
+        surl = ('http://18.push2.eastmoney.com/api/qt/clist/get?pn=%d&pz=20&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281'
+        '&fltt=2&invt=2&fid=f26&fs=m:0+f:8,m:1+f:8,m:0+f:81+s:2048&fields=f12,f13,f14,f21,f26&_=%d')
+
+        newstocks = []
+        today = datetime.now().strftime("%Y-%m-%d")
+        while True:
+            res = requests.get(surl % (pn, time_stamp()), headers={'Host': '18.push2.eastmoney.com'})
+            if res is None:
+                break
+
+            r = json.loads(res.text)
+            if r['data'] is None or len(r['data']['diff']) == 0:
+                break
+
+            ldate = None
+            for nsobj in r['data']['diff']:
+                c = nsobj['f12']
+                m = nsobj['f13']
+                n = nsobj['f14']
+                s = nsobj['f21']
+                d = str(nsobj['f26'])
+                setdate = d[0:4] + '-' + d[4:6] + '-' + d[6:]
+                if ldate is None:
+                    ldate = setdate
+                elif setdate < ldate:
+                    ldate = setdate
+
+                ipodays = (datetime.strptime(today, "%Y-%m-%d") - datetime.strptime(setdate, "%Y-%m-%d")).days
+                if ipodays > 10:
+                    continue
+
+                code = srt.get_fullcode(c).upper()
+                tp = 'BJStock' if code.startswith('BJ') else 'ABStock'
+                newstocks.append({
+                    'code': code, 'name': n, 'type': tp, 'setup_date': setdate
+                })
+
+            if ldate < sdate:
+                break
+
+            pn += 1
+
+        if newstocks:
+            insert_or_update(self.db, newstocks, ['code'])

@@ -1,4 +1,10 @@
+import time
 from datetime import datetime, timedelta
+
+def time_stamp():
+    curTime = datetime.now()
+    return int(time.mktime(curTime.timetuple()) * 1000 + curTime.microsecond)
+
 
 class DateConverter():
     @staticmethod

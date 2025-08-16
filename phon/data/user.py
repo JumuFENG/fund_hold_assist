@@ -133,7 +133,7 @@ class User:
 
     def to_string(self):
         return f'id: {self.id} name: {self.name} email: {self.email}'
-    
+
     def to_json(self):
         return {'id': self.id, 'name': self.name, 'email': self.email, 'parent_account':self.parent, 'realcash': self.realcash}
 
@@ -268,7 +268,12 @@ class User:
     def _all_user_stocks(self):
         with read_context(self.stocks_info_table):
             us = list(self.stocks_info_table.select())
-        return tuple([s.code for s in us])
+        return [s.code for s in us]
+
+    def all_interest_stocks(self):
+        with read_context(self.stocks_info_table):
+            us = list(self.stocks_info_table.select().where(self.stocks_info_table.keep_eye == 1))
+        return [s.code for s in us]
 
     def _archived(self, deal):
         dsid = '0' if deal['sid'] == '' else deal['sid']
@@ -303,7 +308,6 @@ class User:
                 cdeals[deal['code']] = {'deals': []}
                 cdeals[deal['code']]['deals'].append(deal)
 
-        updatefee = False
         for k, v in cdeals.items():
             if not self.is_exist_in_allstocks(k):
                 self.add_unknown_code_deal(v['deals'])
@@ -321,12 +325,8 @@ class User:
                     self.add_unknown_code_deal(udeals)
                 us = UStock(self, k)
                 us.add_deals(deals)
-                if not updatefee:
-                    updatefee = len(deals) > 0 and 'fee' in deals[0]
 
         self.update_earned()
-        if updatefee:
-            self.forget_stocks()
 
     def fix_deals(self, hdeals):
         cdeals = {}
@@ -943,7 +943,7 @@ class User:
                 <th>每月盈亏</th>
             </thead>
             <tbody>'''
- 
+
         if isinstance(year, int):
             year = str(year)
 
@@ -1074,7 +1074,7 @@ class UStock():
     @lazy_property
     def fee(self):
         return self.usdata.手续费
-    
+
     @lazy_property
     def cost_hold(self):
         return self.usdata.cost_hold
@@ -1393,7 +1393,7 @@ class UStock():
                 return
 
         bdict = {
-            'code': self.code, 'date': deal['time'], 'price': deal['price'], 'portion': int(deal['count']) - count, 
+            'code': self.code, 'date': deal['time'], 'price': deal['price'], 'portion': int(deal['count']) - count,
             'cost': str(float(deal['price']) * float(deal['count'])), 'soldptn': soldptn,
             '委托编号': deal['sid'], '手续费': deal['fee'] if 'fee' in deal else 0,
             '印花税': deal['feeYh'] if 'feeYh' in deal else 0, '过户费': deal['feeGh'] if 'feeYh' in deal else 0
@@ -1562,7 +1562,7 @@ class UStock():
                 buy_rec = list(self.udeals_table.select().where(self.udeals_table.code == self.code, self.udeals_table.date < date))
             bvalues = []
             for br in buy_rec:
-                bvalues.append({'date': br.date, '委托编号': br.委托编号, 'price': br.price, 'portion': br.portion, '手续费': br.手续费, '印花税': br.印花税, '过户费': br.过户费})
+                bvalues.append([br.date, br.委托编号, br.price, br.portion, br.手续费, br.印花税, br.过户费])
             if len(bvalues) > 0:
                 self._add_or_update_deals(self.buy_table, bvalues)
                 uids = [br.id for br in buy_rec]
@@ -1693,6 +1693,7 @@ class UStock():
             return
 
         svalues = []
+        exid = []
         for i, s in strdata['strategies'].items():
             vdic = {
                 'code': self.code,
@@ -1704,9 +1705,15 @@ class UStock():
                 vdic['trans'] = strdata['transfers'][i]['transfer']
             else:
                 vdic['trans'] = -1
+            exid.append(int(i))
             svalues.append(vdic)
         if len(svalues) == 0:
             return
+        with write_context(self.strategy_table):
+            existing_strategies = list(self.strategy_table.select().where(self.strategy_table.code == self.code))
+            rids = [s.id for s in existing_strategies if s.id not in exid]
+            if len(rids):
+                self.strategy_table.delete().where(self.strategy_table.id << rids, self.strategy_table.code == self.code).execute()
         insert_or_update(self.strategy_table, svalues, ['code', 'id'])
 
     def remove_strategy(self):

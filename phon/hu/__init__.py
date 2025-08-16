@@ -44,4 +44,3 @@ def convert_dict_data(data, columns, fmt='dict'):
         return [[data[i][column] for column in columns] for i in range(len(data))]
     if fmt in ('tuple', 'tuplelist'):
         return [(data[i][column] for column in columns) for i in range(len(data))]
-
