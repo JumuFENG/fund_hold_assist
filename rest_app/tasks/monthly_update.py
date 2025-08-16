@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../..'))
 from utils import *
 from history import StockEmBk, StockDfsorg
 from phon.data.history import AllIndexes, AllStocks
+from phon.data.misc import PureLost4Up
 
 class MonthlyUpdater():
     """for monthly update"""
@@ -20,6 +21,7 @@ class MonthlyUpdater():
         try:
             AllIndexes.update_kline_data('m')
             AllStocks.update_kline_data('m')
+            PureLost4Up.update_em()
 
             Utils.log('update B bk stocks')
             bbk = StockEmBk('BK0636')

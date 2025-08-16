@@ -6,15 +6,15 @@ import os
 sys.path.insert(0, os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + '/../..'))
 
 import signal,requests,json
+from traceback import format_exc
 from timer_task import TimerTask
 from time import sleep
 from datetime import datetime
+from utils import Utils
 from daily_update import DailyUpdater
 from weekly_update import WeeklyUpdater
 from monthly_update import MonthlyUpdater
 
-from history.stock_history import *
-from user.models import *
 
 perCount = 200
 
@@ -134,64 +134,38 @@ def monthly_should_run(lastrun, now):
     return False
 
 def run_regular_tasks(dnow):
-    startuplogfile = os.path.realpath(os.path.join(os.path.dirname(__file__), 'start_tasks.log'))
-    startconfig = {'lastdaily_run_at':'', 'lastweekly_run_at':'', 'lastmonthly_run_at':'', 'last_updated_id':0}
-    if os.path.isfile(startuplogfile):
-        with open(startuplogfile, 'r') as cfgfile:
-            startconfig = json.load(cfgfile)
+    try:
+        startuplogfile = os.path.realpath(os.path.join(os.path.dirname(__file__), 'start_tasks.log'))
+        startconfig = {'lastdaily_run_at':'', 'lastweekly_run_at':'', 'lastmonthly_run_at':'', 'last_updated_id':0}
+        if os.path.isfile(startuplogfile):
+            with open(startuplogfile, 'r') as cfgfile:
+                startconfig = json.load(cfgfile)
 
-    startIstk = 0
-    if 'last_updated_id' in startconfig:
-        startIstk = startconfig['last_updated_id']
+        anyrun = False
+        if daily_should_run(startconfig['lastdaily_run_at'], dnow):
+            du = DailyUpdater()
+            du.update_all()
+            startconfig['lastdaily_run_at'] = dnow.strftime(f"%Y-%m-%d %H:%M")
+            anyrun = True
 
-    anyrun = False
-    if daily_should_run(startconfig['lastdaily_run_at'], dnow):
-        du = DailyUpdater()
-        du.update_all()
-        sh = Stock_history()
-        stocks = StockGlobal.all_stocks()
-        for i in range(0, perCount):
-            upid = startIstk + i
-            if upid >= len(stocks):
-                upid -= len(stocks)
-            (i, c, n, s, t, sn, m, st, qt) = stocks[upid]
-            if t == 'TSStock' or qt is not None or c.startswith('HB') or c.startswith('SB'):
-                continue
-            sh.getKHistoryFromSohuTillToday(c)
+        if weekly_should_run(startconfig['lastweekly_run_at'], dnow):
+            WeeklyUpdater.update_all()
+            startconfig['lastweekly_run_at'] = dnow.strftime(f"%Y-%m-%d %H:%M")
+            anyrun = True
 
-        if len(StockGlobal.klupdateFailed) > 0:
-            sa = StockAnnoucements()
-            Utils.log(f'stocks update failed: {StockGlobal.klupdateFailed}')
-            sa.check_stock_quit(StockGlobal.klupdateFailed)
-            sa.check_fund_quit(StockGlobal.klupdateFailed)
-            StockGlobal.klupdateFailed.clear()
+        if monthly_should_run(startconfig['lastmonthly_run_at'], dnow):
+            MonthlyUpdater.update_all()
+            startconfig['lastmonthly_run_at'] = dnow.strftime(f"%Y-%m-%d %H:%M")
+            anyrun = True
 
-        startconfig['last_updated_id'] = startIstk + perCount
-        if len(stocks) < startconfig['last_updated_id']:
-            startconfig['last_updated_id'] -= len(stocks)
-        startconfig['lastdaily_run_at'] = dnow.strftime(f"%Y-%m-%d %H:%M")
-        anyrun = True
+        if anyrun:
+            with open(startuplogfile, 'w') as cfgfile:
+                json.dump(startconfig, cfgfile)
 
-    if weekly_should_run(startconfig['lastweekly_run_at'], dnow):
-        wu = WeeklyUpdater()
-        wu.update_all()
-        startconfig['lastweekly_run_at'] = dnow.strftime(f"%Y-%m-%d %H:%M")
-        anyrun = True
-
-    if monthly_should_run(startconfig['lastmonthly_run_at'], dnow):
-        MonthlyUpdater.update_all()
-        um = UserModel()
-        user = um.user_by_id(11)
-        user.archive_deals(dnow.strftime(f"%Y-%m"))
-        startconfig['lastmonthly_run_at'] = dnow.strftime(f"%Y-%m-%d %H:%M")
-        anyrun = True
-
-    if anyrun:
-        with open(startuplogfile, 'w') as cfgfile:
-            json.dump(startconfig, cfgfile)
-
-    TimerTask.logger.info(f'run_regular_tasks done, time used: {datetime.now() - dnow}')
-
+        TimerTask.logger.info(f'run_regular_tasks done, time used: {datetime.now() - dnow}')
+    except Exception as e:
+        TimerTask.logger.error(f'Error running regular tasks: {e}')
+        TimerTask.logger.error(format_exc())
 
 def startup_task():
     dnow = datetime.now()

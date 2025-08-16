@@ -93,53 +93,56 @@ class StockMarket_Stats_Task():
 
     @classmethod
     def execute_simple_task(self):
-        if self.topbks is None or self.hotstocks is None:
-            self.get_topbks()
-        zdfranks = StockGlobal.getStocksZdfRank()
-        up_down_stocks = []
-        for rkobj in zdfranks:
-            c = rkobj['f2']   # 最新价
-            zd = rkobj['f3']  # 涨跌幅
-            if c == '-' or zd == '-':
-                continue
-            cd = rkobj['f12'] # 代码
-            m = rkobj['f13']  # 市场代码 0 深 1 沪
-            if (m != 0 and m != 1):
-                Utils.log(f'invalid market {m}')
-                continue
-            if zd >= 8 or zd <= -8:
-                code = StockGlobal.full_stockcode(cd)
-                up_down_stocks.append(code)
+        try:
+            if self.topbks is None or self.hotstocks is None:
+                self.get_topbks()
+            zdfranks = StockGlobal.getStocksZdfRank()
+            up_down_stocks = []
+            for rkobj in zdfranks:
+                c = rkobj['f2']   # 最新价
+                zd = rkobj['f3']  # 涨跌幅
+                if c == '-' or zd == '-':
+                    continue
+                cd = rkobj['f12'] # 代码
+                m = rkobj['f13']  # 市场代码 0 深 1 沪
+                if (m != 0 and m != 1):
+                    Utils.log(f'invalid market {m}')
+                    continue
+                if zd >= 8 or zd <= -8:
+                    code = StockGlobal.full_stockcode(cd)
+                    up_down_stocks.append(code)
 
-        sm_statistics = {'time': datetime.now().strftime('%Y-%m-%d %H:%M'), 'stocks': {'zt_yzb':[], 'zt':[], 'dt':[], 'up':[], 'down':[]}}
-        fields = 'open_px,av_px,high_px,low_px,change,change_px,down_price,cmc,business_amount,business_balance,secu_name,secu_code,trade_status,secu_type,preclose_px,up_price,last_px'
-        for i in range(0,len(up_down_stocks),200):
-            ccodes = ','.join([self.to_secucode(c) for c in up_down_stocks[i: i+200]])
-            bUrl = f'https://x-quote.cls.cn/quote/stocks/basic?app=CailianpressWeb&fields={fields}&os=web&secu_codes={ccodes}&sv=8.4.6'
-            sbasics = json.loads(Utils.get_em_request(bUrl, 'x-quote.cls.cn'))
-            if 'data' in sbasics:
-                for secu in sbasics['data']:
-                    sbasic = sbasics['data'][secu]
-                    o,h,l,c = sbasic['open_px'], sbasic['high_px'], sbasic['low_px'], sbasic['last_px']
-                    u,d,lc = sbasic['up_price'], sbasic['down_price'], sbasic['preclose_px']
-                    if c == u:
-                        if h == l:
-                            # 一字
-                            sm_statistics['stocks']['zt_yzb'].append(sbasic)
-                        else:
-                            # 涨停
-                            sm_statistics['stocks']['zt'].append(sbasic)
-                    elif c == d:
-                        sm_statistics['stocks']['dt'].append(sbasic)
-                        # 跌停
-                    elif sbasic['change'] >= 0.08:
-                        sm_statistics['stocks']['up'].append(sbasic)
-                        # 大涨
-                    elif sbasic['change'] <= -0.08:
-                        # 大跌
-                        sm_statistics['stocks']['down'].append(sbasic)
+            sm_statistics = {'time': datetime.now().strftime('%Y-%m-%d %H:%M'), 'stocks': {'zt_yzb':[], 'zt':[], 'dt':[], 'up':[], 'down':[]}}
+            fields = 'open_px,av_px,high_px,low_px,change,change_px,down_price,cmc,business_amount,business_balance,secu_name,secu_code,trade_status,secu_type,preclose_px,up_price,last_px'
+            for i in range(0,len(up_down_stocks),200):
+                ccodes = ','.join([self.to_secucode(c) for c in up_down_stocks[i: i+200]])
+                bUrl = f'https://x-quote.cls.cn/quote/stocks/basic?app=CailianpressWeb&fields={fields}&os=web&secu_codes={ccodes}&sv=8.4.6'
+                sbasics = json.loads(Utils.get_em_request(bUrl, 'x-quote.cls.cn'))
+                if 'data' in sbasics:
+                    for secu in sbasics['data']:
+                        sbasic = sbasics['data'][secu]
+                        o,h,l,c = sbasic['open_px'], sbasic['high_px'], sbasic['low_px'], sbasic['last_px']
+                        u,d,lc = sbasic['up_price'], sbasic['down_price'], sbasic['preclose_px']
+                        if c == u:
+                            if h == l:
+                                # 一字
+                                sm_statistics['stocks']['zt_yzb'].append(sbasic)
+                            else:
+                                # 涨停
+                                sm_statistics['stocks']['zt'].append(sbasic)
+                        elif c == d:
+                            sm_statistics['stocks']['dt'].append(sbasic)
+                            # 跌停
+                        elif sbasic['change'] >= 0.08:
+                            sm_statistics['stocks']['up'].append(sbasic)
+                            # 大涨
+                        elif sbasic['change'] <= -0.08:
+                            # 大跌
+                            sm_statistics['stocks']['down'].append(sbasic)
 
-        sm_statistics = self.connect_bk_stock(sm_statistics)
-        dsm, tsm = sm_statistics['time'].split(' ')
-        smtable = StockMarkerStats()
-        smtable.saveDailyStats([[dsm, tsm, sm_statistics]])
+            sm_statistics = self.connect_bk_stock(sm_statistics)
+            dsm, tsm = sm_statistics['time'].split(' ')
+            smtable = StockMarkerStats()
+            smtable.saveDailyStats([[dsm, tsm, sm_statistics]])
+        except Exception as e:
+            Utils.log(e)

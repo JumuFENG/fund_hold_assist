@@ -6,34 +6,29 @@ from datetime import datetime, timedelta
 import os
 sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../..'))
 from utils import *
-from user import *
-from history import *
-from phon.data.history import AllIndexes
+from phon.data.user import User
+from phon.data.history import AllIndexes, AllStocks
 
 class WeeklyUpdater():
     """for weekly update"""
-    def __init__(self):
-        pass
-
-    def update_all(self):
+    @staticmethod
+    def update_all():
         Utils.log('Start weekly update.')
 
         AllIndexes.update_kline_data('w')
+        AllStocks.update_kline_data('w')
 
-        usermodel = UserModel()
-        all_users = usermodel.all_users()
+        all_users = User.all_users()
         stocks = []
         for u in all_users:
-            ustks = u.get_interested_stocks_code()
-            if ustks is not None:
+            if u.id <= 10:
+                continue
+            ustks = u.all_interest_stocks()
+            if ustks:
                 stocks = stocks + ustks
 
-        sh = Stock_history()
-        sfh = Stock_Fflow_History()
-        for s in stocks:
-            sh.getKwHistoryFromSohuTillToday(s)
-            sh.getK15HistoryFromEmTillToday(s)
-            sfh.updateFflow(s)
+        stocks = [s for s in set(stocks) if not AllStocks.is_quited(s)]
+        AllStocks.update_klines_by_code(stocks, 'w')
 
 if __name__ == '__main__':
     wu = WeeklyUpdater()

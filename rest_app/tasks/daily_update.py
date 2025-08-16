@@ -7,11 +7,11 @@ from datetime import datetime, timedelta
 import os
 import traceback
 sys.path.insert(0, os.path.realpath(os.path.dirname(__file__) + '/../..'))
-from utils import *
-from user import *
+from utils import Utils
 from history import *
 from pickup import *
-from phon.data.history import AllIndexes, TradingDate
+from phon.data.user import User
+from phon.data.history import AllIndexes, AllStocks, TradingDate
 
 
 class DailyUpdater():
@@ -40,13 +40,13 @@ class DailyUpdater():
         self.download_all_gold_history(morningOnetime)
         self.download_all_index_history()
         self.update_stock_hotrank()
+        # 新股信息，可以间隔几天更新一次
+        AllStocks.load_new_stocks()
         if morningOnetime:
             # 只在早上执行的任务
             Utils.log("update in the morning...")
             # 分红派息，每天更新一次即可
             self.download_newly_noticed_bonuses()
-            # 新股信息，可以间隔几天更新一次
-            self.fetch_new_ipo_stocks()
         else:
             # 只在晚上执行的任务
             Utils.log("update in the afternoon")
@@ -97,48 +97,29 @@ class DailyUpdater():
         Utils.log('start download_all_stocks_khistory')
         sfh = Stock_Fflow_History()
         sfh.updateDailyFflow()
-        stkall = AllStocks()
-        stkall.loadNewStock()
-        stkall.loadNewStock('BJ')
-        usermodel = UserModel()
-        all_users = usermodel.all_users()
-        self.allcodes = []
+        all_users = User.all_users()
+        allcodes = []
         for u in all_users:
-            ustks = u.get_interested_stocks_code()
-            if ustks is not None:
-                self.allcodes = self.allcodes + ustks
-        abstks = stkall.sqldb.select(gl_all_stocks_info_table, 'code', [f'{column_type} = "ABSTOCK" or {column_type} = "BJStock"', 'quit_date is NULL'])
-        [self.allcodes.append(c) for c, in abstks]
+            if u.id <= 10:
+                continue
+            ustks = u.all_interest_stocks()
+            if ustks:
+               allcodes = allcodes + ustks
 
-        self.allcodes = set(self.allcodes)
-        thds = []
-        d = datetime.now()
-        for i in range(0, 10):
-            t = Thread(target=self.thread_download_stock_khistory)
-            t.start()
-            thds.append(t)
-
-        for t in thds:
-            t.join()
-
-        if len(StockGlobal.klupdateFailed) > 0:
-            for c in StockGlobal.klupdateFailed:
-                sh = Stock_history()
-                sh.setCode(c)
-                sh.getKHistoryFromEm(sh.k_histable, '101')
-        Utils.log('download_all_stocks_khistory done! %d' % len(self.allcodes))
-        Utils.log(f'time used: { datetime.now() - d}')
-
-    def thread_download_stock_khistory(self):
-        if len(self.allcodes) == 0:
+        allcodes = [s for s in set(allcodes) if not AllStocks.is_quited(s)]
+        upfailed = AllStocks.update_klines_by_code(allcodes, 'd')
+        if not upfailed:
+            Utils.log('all stocks kline data updated!')
             return
 
-        sh = Stock_history()
-        while len(self.allcodes) > 0:
-            code = self.allcodes.pop()
-            if code.startswith('HB') or code.startswith('SB'):
-                continue
-            sh.getKdHistoryFromSohuTillToday(code)
+        upfailed = [s.upper() for s in upfailed]
+        if upfailed:
+            sa = StockAnnoucements()
+            Utils.log(f'stocks update failed: {upfailed}')
+            sa.check_stock_quit(upfailed)
+            sa.check_fund_quit(upfailed)
+
+        Utils.log('download_all_stocks_khistory done! %d' % len(allcodes))
 
     def download_newly_noticed_bonuses(self):
         Utils.log("update noticed bonuses")
@@ -153,12 +134,6 @@ class DailyUpdater():
             ann.getNext()
         except Exception as e:
             Utils.log(e)
-
-    def fetch_new_ipo_stocks(self):
-        Utils.log("update new IPO stocks")
-        stkall = AllStocks()
-        stkall.loadNewStock()
-        stkall.loadNewStock('BJ')
 
     def fetch_zdt_stocks(self):
         Utils.log('update ST bk stocks')
@@ -198,7 +173,7 @@ class DailyUpdater():
             StockDztSelector(), StockZt1Selector(), StockZt1WbSelector(), StockCentsSelector(),
             StockMaConvergenceSelector(), StockZdfRanks(), StockZtLeadingSelector(), StockZtLeadingStepsSelector(),
             StockZtLeadingSelectorST(), StockDztStSelector(), StockDztBoardSelector(), StockDztStBoardSelector(),
-            StockZdtEmotion(),
+            StockZdtEmotion(), StockHotStocksRetryZt0Selector(),
             StockZt1BreakupSelector(), StockZt1j2Selector(), StockLShapeSelector(), StockDfsorgSelector(),
             StockTrippleBullSelector(), StockEndVolumeSelector()]
         for sel in selectors:

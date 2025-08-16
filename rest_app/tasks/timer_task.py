@@ -45,7 +45,7 @@ class TimerTask:
                 t.start()
             else:
                 if self.logger is not None:
-                    self.logger.info(f'task time due, mark as completed!')
+                    self.logger.info(f'task time due, mark as completed! {task.__class__.__name__}')
                 task.completed = True
 
         n = 1
