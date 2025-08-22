@@ -1,2 +1,0 @@
-docker pull swr.cn-north-4.myhuaweicloud.com/ddn-k8s/ghcr.io/puppeteer/puppeteer:22.13.0 && docker tag swr.cn-north-4.myhuaweicloud.com/ddn-k8s/ghcr.io/puppeteer/puppeteer:22.13.0 puppeteer:22.13.0 && docker rmi swr.cn-north-4.myhuaweicloud.com/ddn-k8s/ghcr.io/puppeteer/puppeteer:22.13.0
-docker pull swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/node:slim && docker tag swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/node:slim node:slim && docker rmi swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/node:slim
