@@ -1050,7 +1050,7 @@ class StrategyBuySellBeforeEndView extends StrategyBaseView {
     }
 
     maDescription() {
-        return '收盘价连续2天低于MA5时，减仓(仅保留底仓或留1手)，收盘价连续2天高于MA5时加仓使亏损幅度为8%';
+        return '收盘价连续2天低于MA5时，减仓(仅保留底仓或留1手)，收盘价连续2天高于MA5时加仓使亏损幅度为设定值';
     }
 
     createDisableSellCheckbox() {
@@ -1072,7 +1072,8 @@ class StrategyBuySellBeforeEndView extends StrategyBaseView {
         view.appendChild(this.createEnabledCheckbox());
         view.appendChild(document.createTextNode(this.maDescription()));
         view.appendChild(this.createBuyAccountSelector());
-        view.appendChild(this.createGuardInput('持仓成本'));
+        view.appendChild(this.createGuardInput('持仓成本/亏损额'));
+        view.appendChild(this.createStepsInput('加仓后浮亏比例', 8));
         view.appendChild(this.createDisableSellCheckbox());
         view.appendChild(this.createSellCountTypeSelector());
         if (this.strategy.selltype === undefined) {
@@ -1106,6 +1107,10 @@ class StrategyGridEarningView extends StrategyBaseView {
         return '买入条件:网格法逢低止跌买入. 卖出条件:18周期均线跌破卖出盈利部分';
     }
 
+    skippedDataInput() {
+        return ['enabled', 'account', 'kltype', 'key', 'meta', 'stepRate', 'selltype', 'cutselltype' ];
+    }
+
     createView() {
         var view = document.createElement('div');
         view.appendChild(this.createEnabledCheckbox());
@@ -1115,6 +1120,7 @@ class StrategyGridEarningView extends StrategyBaseView {
 
         view.appendChild(this.createKlineTypeSelector('卖出K线类型'));
         view.appendChild(this.createSellCountTypeSelector());
+        view.appendChild(this.createDataInput())
         return view;
     }
 }

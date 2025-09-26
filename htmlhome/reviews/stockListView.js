@@ -131,6 +131,15 @@ class StockView {
                 }
             }
         }
+        if (strGrp && strGrp.buydetail) {
+            let tcnt = 0;
+            strGrp.buydetail.forEach(bd => {
+                tcnt += parseInt(bd.count);
+            });
+            if (tcnt != this.stock.holdCount) {
+                needfix = true;
+            }
+        }
 
         if (needfix) {
             this.divTitle.style.borderLeft = '5px solid red';
@@ -267,7 +276,7 @@ class StockListPanelPage extends RadioAnchorPage {
                     }
                 }
             } else if (fid == 2) { // 无/误策略
-                if (!stocki.strategies || !stocki.strategies.strategies || Object.keys(stocki.strategies.strategies).length == 0 || stocki.strategies.amount - 5000 < 0) {
+                if (!stocki.strategies || !stocki.strategies.strategies || Object.keys(stocki.strategies.strategies).length == 0 || stocki.strategies.amount - 1000 < 0) {
                     this.stocks[i].container.style.display = 'block';
                     continue;
                 }
@@ -403,6 +412,9 @@ class StockListPanelPage extends RadioAnchorPage {
 
     fix_date_price(stock) {
         const records = stock.strategies.buydetail
+        if (!records) {
+            return;
+        }
         for (var rec of records) {
             if (rec.date.includes(':')) {
                 var rdate = rec.date.split(' ')[0];
@@ -449,7 +461,7 @@ class StockListPanelPage extends RadioAnchorPage {
         Object.assign(stock, {code, acccode: this.keyword + '_' + code, account: this.keyword});
         if (!showname[stock.account] && (new Date()).getHours() >= 15) {
             this.fix_date_price(stock);
-            if (stock.strategies.buydetail.slice(-1)[0].date >= guang.getTodayDate('-')) {
+            if (stock.strategies?.buydetail && stock.strategies.buydetail.slice(-1)[0].date >= guang.getTodayDate('-')) {
                 const infixing = this.enable_track_strategies(stock.strategies.strategies);
                 if (infixing) {
                     stock.strategies.infixing = true;
